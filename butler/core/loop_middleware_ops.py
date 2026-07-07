@@ -10,18 +10,18 @@ from butler.core.best_effort import safe_best_effort
 
 def run_middleware_hook_safe(
     hook: Callable[..., Any],
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     label: str,
     tool_stats: Any = None,
-) -> list[dict]:
-    def _run() -> list[dict]:
+) -> list[dict[str, Any]]:
+    def _run() -> list[dict[str, Any]]:
         if tool_stats is not None:
             result = hook(messages, tool_stats=tool_stats)
         else:
             result = hook(messages)
         if not isinstance(result, list):
-            raise ValueError("middleware hook must return list[dict]")
+            raise ValueError("middleware hook must return list[dict[str, Any]]")
         return result
 
     outcome = safe_best_effort(_run, label=label, default=messages)

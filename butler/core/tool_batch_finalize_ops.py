@@ -20,14 +20,16 @@ def dispatch_tool_with_envelope_loud(
 
     try:
         result = tool_dispatcher(name, args)
-        return finalize_unenveloped_failure_result(name, args, result)
+        return str(finalize_unenveloped_failure_result(name, args, result))
     except Exception as exc:
         logger.error("Tool %s failed: %s", name, exc)
-        return finalize_fallback_tool_result(
-            name,
-            args,
-            {
-                "error": f"Tool execution failed: {exc}",
-                "code": "TOOL_DISPATCH_ERROR",
-            },
+        return str(
+            finalize_fallback_tool_result(
+                name,
+                args,
+                {
+                    "error": f"Tool execution failed: {exc}",
+                    "code": "TOOL_DISPATCH_ERROR",
+                },
+            )
         )

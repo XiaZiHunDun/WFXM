@@ -17,7 +17,7 @@ from butler.hooks.runner import run_post_compact_hooks
 from butler.core.session_transcript import record_generic_event
 
 
-def estimate_tokens_safe(messages: list[dict]) -> int:
+def estimate_tokens_safe(messages: list[dict[str, Any]]) -> int:
     def _run() -> int:
 
         return int(_estimate_tokens(messages))
@@ -61,7 +61,7 @@ def run_pre_compact_hooks_safe(
 
 def invoke_pre_compact_hook_safe(
     *,
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     before_est: int,
     iteration: int,
     session_key: str,
@@ -152,7 +152,7 @@ def run_post_compact_hooks_safe(
 
 def invoke_post_compact_hook_safe(
     *,
-    compressed: list[dict],
+    compressed: list[dict[str, Any]],
     before_est: int,
     after_est: int,
     iteration: int,

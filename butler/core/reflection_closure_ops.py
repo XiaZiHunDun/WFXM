@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.env_parse import env_truthy
@@ -12,7 +13,7 @@ def experience_path_safe() -> Path:
     def _run() -> Path:
         from butler.core.reflexion_write import _experience_path as _reflex_path
 
-        return _reflex_path()
+        return cast(Path, _reflex_path())
 
     result = safe_best_effort(
         _run,
@@ -33,4 +34,4 @@ def should_persist_reflect() -> bool:
 
     if safe_best_effort(_reflexion_write_on, label="reflection_closure.reflexion_write", default=False):
         return True
-    return env_truthy("BUTLER_REFLECTION_CLOSURE_WRITE", default=False)
+    return bool(env_truthy("BUTLER_REFLECTION_CLOSURE_WRITE", default=False))

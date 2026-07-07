@@ -19,7 +19,8 @@ def normalize_batch_path_safe(path: str) -> str:
 def parse_batch_tool_args_safe(tc: Any) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
         if hasattr(tc, "args_dict"):
-            return tc.args_dict()
+            raw = tc.args_dict()
+            return dict(raw) if isinstance(raw, dict) else {}
         if isinstance(tc, dict):
             import json as _json
 

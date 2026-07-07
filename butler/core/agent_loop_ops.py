@@ -22,27 +22,28 @@ from butler.core.reflexion_ephemeral import maybe_apply_reflexion
 logger = logging.getLogger(__name__)
 
 
-def doom_loop_block_on_ask(decision: Any, tool_name: str, args: dict) -> str | None:
+def doom_loop_block_on_ask(decision: Any, tool_name: str, args: dict[str, Any]) -> str | None:
     """Fail-closed doom-loop ask gate for prefetched tool calls."""
     try:
 
         if check_doom_loop_ask(decision, tool_name, args):
 
-            return synthetic_result(decision)
+            return str(synthetic_result(decision))
     except Exception:
         logger.exception(
             "Doom-loop ask check failed; failing closed (synthetic block) for %s",
             tool_name,
         )
 
-        return synthetic_result(decision)
+        return str(synthetic_result(decision))
     return None
 
 
 def filter_fallback_chain_safe(chain: list[FallbackEntry]) -> list[FallbackEntry]:
     def _run() -> list[FallbackEntry]:
 
-        return filter_fallback_chain(chain)
+        out = filter_fallback_chain(chain)
+        return out if isinstance(out, list) else chain
 
     result = safe_best_effort(
         _run,
@@ -80,7 +81,7 @@ def run_stop_hooks_safe(
     start_time: float,
     final_text: str,
 ) -> Any | None:
-    def _run():
+    def _run() -> Any:
 
         return run_stop_hooks(
             status=LoopStatus.RUNNING.value,

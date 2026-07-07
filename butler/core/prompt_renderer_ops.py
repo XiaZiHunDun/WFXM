@@ -9,7 +9,7 @@ def static_system_reminder_enabled_safe(*, default: bool = False) -> bool:
     def _run() -> bool:
         from butler.core.harness_flags import static_system_reminder_enabled
 
-        return static_system_reminder_enabled()
+        return bool(static_system_reminder_enabled())
 
     result = safe_best_effort(
         _run,

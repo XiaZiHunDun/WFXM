@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.core.best_effort import safe_best_effort
 from butler.project.model import Project

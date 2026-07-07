@@ -78,7 +78,8 @@ def check_terminal_danger_safe(command: str, session_key: str) -> Any | None:
 def check_terminal_approval_safe(command: str, *, cwd: str, session_key: str) -> str | None:
     def _run() -> str | None:
 
-        return check_approval(command, cwd=cwd, session_key=session_key)
+        block = check_approval(command, cwd=cwd, session_key=session_key)
+        return str(block) if block else None
 
     block = safe_best_effort(_run, label="tool_orchestrator.terminal_approval", default=None)
     return block if isinstance(block, str) and block else None

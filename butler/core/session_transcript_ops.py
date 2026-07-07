@@ -67,23 +67,27 @@ def load_tail_rows_safe(path: Path, *, max_lines: int) -> list[dict[str, Any]] |
     def _run() -> list[dict[str, Any]]:
         from butler.core.transcript_index import load_tail_rows
 
-        return load_tail_rows(path, max_lines=max(1, int(max_lines)))
+        rows = load_tail_rows(path, max_lines=max(1, int(max_lines)))
+        return rows if isinstance(rows, list) else []
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="session_transcript.load_tail_index",
         default=None,
     )
+    return result if isinstance(result, list) else None
 
 
 def load_tail_full_read_safe(path: Path, *, max_lines: int) -> list[dict[str, Any]] | None:
     def _run() -> list[dict[str, Any]]:
         from butler.core.transcript_index import _load_tail_full_read
 
-        return _load_tail_full_read(path, max_lines=max(1, int(max_lines)))
+        rows = _load_tail_full_read(path, max_lines=max(1, int(max_lines)))
+        return rows if isinstance(rows, list) else []
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="session_transcript.load_tail_full_read",
         default=None,
     )
+    return result if isinstance(result, list) else None

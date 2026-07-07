@@ -9,7 +9,7 @@ from butler.core.best_effort import safe_best_effort
 
 def parse_yaml_frontmatter_safe(raw: str) -> dict[str, Any] | None:
     def _run() -> dict[str, Any]:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         loaded = yaml.safe_load(raw)
         if not isinstance(loaded, dict):

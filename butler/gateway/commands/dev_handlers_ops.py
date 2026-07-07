@@ -86,7 +86,7 @@ def get_orchestrator_safe() -> Any:
 
 def format_runtime_jobs_line_safe(jobs_path: Any) -> str | None:
     def _run() -> str | None:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         data = yaml.safe_load(jobs_path.read_text(encoding="utf-8")) or {}
         jobs = data.get("jobs", [])

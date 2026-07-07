@@ -25,7 +25,7 @@ def _coerce_finding(item: Any) -> ReviewFinding | None:
     if sev not in ("error", "warning", "info"):
         sev = "warning"
     return ReviewFinding(
-        severity=sev,  # type: ignore[arg-type]
+        severity=sev,
         rule_id=str(item.get("rule_id") or item.get("rule") or "")[:64],
         file=str(item.get("file") or "")[:260],
         line=int(item.get("line") or 0),

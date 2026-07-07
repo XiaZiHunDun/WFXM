@@ -51,11 +51,11 @@ def persist_reflect_closure_safe(
     safe_best_effort(_run, label="reasoning_trace.reflect_closure", default=None)
 
 
-def suggest_fix_strategy_safe(state: Any, diags: list) -> str:
+def suggest_fix_strategy_safe(state: Any, diags: list[Any]) -> str:
     def _run() -> str:
 
         level = suggest_fix_action(diags, state)
-        return enrich_fix_hint(level, state)
+        return str(enrich_fix_hint(level, state) or "")
 
     result = safe_best_effort(_run, label="reasoning_trace.fix_strategy", default="retry_fix")
     return result if isinstance(result, str) else "retry_fix"

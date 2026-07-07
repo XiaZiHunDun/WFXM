@@ -60,10 +60,10 @@ def derive_compaction_status_safe(diagnostics: dict[str, Any]) -> str | None:
 
 
 def compress_messages_safe(
-    compress: Callable[..., list[dict]],
-    messages: list[dict],
+    compress: Callable[..., list[dict[str, Any]]],
+    messages: list[dict[str, Any]],
     **kwargs: Any,
-) -> tuple[list[dict], str | None]:
+) -> tuple[list[dict[str, Any]], str | None]:
     try:
         return compress(messages, **kwargs), None
     except Exception as exc:

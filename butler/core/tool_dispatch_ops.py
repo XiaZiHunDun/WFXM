@@ -14,7 +14,10 @@ def annotate_mutation_not_landed_safe(
     def _run() -> tuple[str, bool]:
         from butler.core.tool_result_classification import annotate_mutation_not_landed
 
-        return annotate_mutation_not_landed(tool_name, result)
+        out = annotate_mutation_not_landed(tool_name, result)
+        if isinstance(out, tuple) and len(out) == 2:
+            return str(out[0]), bool(out[1])
+        return result, False
 
     annotated = safe_best_effort(
         _run,

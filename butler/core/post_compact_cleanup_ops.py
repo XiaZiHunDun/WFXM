@@ -165,7 +165,7 @@ def collect_dev_session_changes_safe() -> str:
     return result if isinstance(result, str) else ""
 
 
-def _format_dev_changes(events: list) -> str:
+def _format_dev_changes(events: list[Any]) -> str:
     write_tools = {"write_file", "patch", "delete_file"}
     terminal_tools = {"terminal"}
     git_write_tools = {"git_add", "git_commit", "git_push"}

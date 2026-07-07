@@ -27,8 +27,9 @@ def search_transcripts_fts(
         )
         return hits if hits else None
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="transcript_search.fts",
         default=None,
     )
+    return result if isinstance(result, list) else None

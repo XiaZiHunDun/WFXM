@@ -20,7 +20,7 @@ _PRESERVED_CONFIG_KEYS = (
 
 def load_preserved_config_keys_safe(path: Path) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if not isinstance(raw, dict):

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -16,7 +16,7 @@ def project_workspace_safe(project: Any) -> Path | None:
     def _run() -> Path:
         from butler.project.worktree import effective_workspace
 
-        return effective_workspace(Path(workspace))
+        return cast(Path, effective_workspace(Path(workspace)))
 
     result = safe_best_effort(
         _run,
@@ -30,9 +30,11 @@ def last_transcript_assistant_ts_safe(session_key: str) -> float | None:
     def _run() -> float | None:
         from butler.core.session_epoch import last_assistant_ts_in_epoch
 
-        return last_assistant_ts_in_epoch(session_key)
+        ts = last_assistant_ts_in_epoch(session_key)
+        return float(ts) if isinstance(ts, (int, float)) else None
 
-    return safe_best_effort(_run, label="session_hydration.transcript_ts", default=None)
+    result = safe_best_effort(_run, label="session_hydration.transcript_ts", default=None)
+    return float(result) if isinstance(result, (int, float)) else None
 
 
 def hydrate_read_files_safe(

@@ -12,4 +12,5 @@ def load_transcript_rows_for_narrative_safe(
     *,
     max_lines: int = 200,
 ) -> list[dict[str, Any]] | None:
-    return load_epoch_transcript_rows_safe(session_key, max_lines=max_lines)
+    result = load_epoch_transcript_rows_safe(session_key, max_lines=max_lines)
+    return result if isinstance(result, list) else None

@@ -39,13 +39,13 @@ def record_reactive_started_safe() -> None:
 
 
 def try_turn_tail_compact_loud(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
-    compress_fn: Callable[..., list[dict]],
+    compress_fn: Callable[..., list[dict[str, Any]]],
     min_rounds_to_drop: int,
     max_rounds_to_drop: int,
     diagnostics: dict[str, Any] | None,
-) -> tuple[bool, list[dict], str] | None:
+) -> tuple[bool, list[dict[str, Any]], str] | None:
     """Return None if turn-tail path not applicable; else (ok, msgs, reason)."""
     try:
         from butler.core.turn_compaction import (
@@ -83,9 +83,9 @@ def try_turn_tail_compact_loud(
 
 
 def compress_rounds_loud(
-    compress_fn: Callable[..., list[dict]],
-    flattened: list[dict],
-) -> tuple[bool, list[dict], str]:
+    compress_fn: Callable[..., list[dict[str, Any]]],
+    flattened: list[dict[str, Any]],
+) -> tuple[bool, list[dict[str, Any]], str]:
     try:
         compressed = _compress_with_overflow_replay(compress_fn, flattened)
     except Exception as exc:
@@ -96,9 +96,9 @@ def compress_rounds_loud(
 
 
 def _compress_with_overflow_replay(
-    compress_fn: Callable[..., list[dict]],
-    messages: list[dict],
-) -> list[dict]:
+    compress_fn: Callable[..., list[dict[str, Any]]],
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     try:
         return compress_fn(list(messages), overflow_replay=True)
     except TypeError:

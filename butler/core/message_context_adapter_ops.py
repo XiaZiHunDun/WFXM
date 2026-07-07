@@ -51,7 +51,7 @@ def to_loop_api_message_view_loud(
         role_raw = str(incoming.get("role") or "").strip()
         if role_raw not in _VALID_ROLES:
             raise ValueError(f"invalid role: {role_raw!r}")
-        role: ApiRole = role_raw  # type: ignore[assignment]
+        role: ApiRole = role_raw
         text, shape = _normalize_content(incoming.get("content"))
         meta: dict[str, Any] = {"source": source, "acl_shape": shape}
         if index >= 0:

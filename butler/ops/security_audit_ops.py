@@ -40,7 +40,7 @@ def permissions_workflow_findings_safe(perms: Path) -> list[Any]:
     from butler.ops.security_audit import AuditFinding
 
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         data = yaml.safe_load(perms.read_text(encoding="utf-8"))
         if not isinstance(data, dict):

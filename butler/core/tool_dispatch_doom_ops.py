@@ -11,7 +11,7 @@ from butler.tool_guardrails import GuardrailDecision, synthetic_result
 def handle_doom_loop_ask_loud(
     before: Any,
     name: str,
-    args: dict,
+    args: dict[str, Any],
     *,
     session_key: str,
 ) -> str | None:
@@ -35,7 +35,7 @@ def handle_doom_loop_ask_loud(
                 message=block_msg,
                 tool_name=name,
             )
-            return finalize_fallback_tool_result(name, args, synthetic_result(ask_dec))
+            return str(finalize_fallback_tool_result(name, args, synthetic_result(ask_dec)))
     except Exception:
-        return finalize_fallback_tool_result(name, args, synthetic_result(before))
+        return str(finalize_fallback_tool_result(name, args, synthetic_result(before)))
     return None

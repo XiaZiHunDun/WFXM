@@ -102,7 +102,7 @@ def degradation_brief_line_safe(
 
 def runtime_jobs_lines_safe(workspace: Path) -> list[str]:
     def _run() -> list[str]:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         jobs_path = workspace / "runtime" / "jobs.yaml"
         if not jobs_path.is_file():

@@ -32,12 +32,12 @@ def embed_text_safe(embedder: Any, text: str) -> list[float]:
 
 
 def select_tools_bm25_safe(
-    tools: list[dict],
+    tools: list[dict[str, Any]],
     *,
     user_hint: str,
     cap: int,
-) -> tuple[list[dict], dict[str, int]] | None:
-    def _run() -> tuple[list[dict], dict[str, int]]:
+) -> tuple[list[dict[str, Any]], dict[str, int]] | None:
+    def _run() -> tuple[list[dict[str, Any]], dict[str, int]]:
         from butler.core.tool_recall_bm25 import select_tools_with_bm25
 
         selected = select_tools_with_bm25(tools, user_hint=user_hint, top_k=cap)

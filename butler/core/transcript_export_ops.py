@@ -10,20 +10,23 @@ from butler.core.session_transcript_ops import load_tail_rows_safe
 
 
 def load_transcript_export_rows(path: Path, *, limit: int) -> list[dict[str, Any]] | None:
-    return load_tail_rows_safe(path, max_lines=limit)
+    result = load_tail_rows_safe(path, max_lines=limit)
+    return result if isinstance(result, list) else None
 
 
 def list_recent_tasks_safe(session_key: str, *, limit: int = 10) -> list[dict[str, Any]] | None:
     def _run() -> list[dict[str, Any]]:
         from butler.runtime.task_store import list_recent_tasks
 
-        return list_recent_tasks(session_key, limit=limit)
+        tasks = list_recent_tasks(session_key, limit=limit)
+        return tasks if isinstance(tasks, list) else []
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="transcript_export.recent_tasks",
         default=None,
     )
+    return result if isinstance(result, list) else None
 
 
 def get_last_report_safe(session_key: str) -> Any | None:
@@ -55,8 +58,9 @@ def resolve_export_workspace_safe(session_key: str = "") -> Path | None:
             return None
         return Path(proj.workspace)
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="transcript_export.workspace",
         default=None,
     )
+    return result if isinstance(result, Path) else None

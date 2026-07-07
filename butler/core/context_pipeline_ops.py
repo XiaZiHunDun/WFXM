@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 def audit_session_key_safe(*, fallback: str = "") -> str:
     def _run() -> str:
 
-        return get_audit_session_key(fallback=fallback)
+        return str(get_audit_session_key(fallback=fallback) or fallback)
 
     result = safe_best_effort(
         _run,
@@ -114,10 +114,11 @@ def restore_compaction_checkpoint_safe(
     safe_best_effort(_run, label="context_pipeline.checkpoint_restore", default=None)
 
 
-def apply_unified_tool_masking_safe(messages: list[dict]) -> list[dict]:
-    def _run() -> list[dict]:
+def apply_unified_tool_masking_safe(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _run() -> list[dict[str, Any]]:
 
-        return apply_unified_tool_masking(list(messages))
+        out = apply_unified_tool_masking(list(messages))
+        return out if isinstance(out, list) else list(messages)
 
     result = safe_best_effort(
         _run,
@@ -129,10 +130,11 @@ def apply_unified_tool_masking_safe(messages: list[dict]) -> list[dict]:
     return list(messages)
 
 
-def compress_inline_tool_messages_safe(messages: list[dict]) -> list[dict]:
-    def _run() -> list[dict]:
+def compress_inline_tool_messages_safe(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _run() -> list[dict[str, Any]]:
 
-        return compress_inline_tool_messages(list(messages))
+        out = compress_inline_tool_messages(list(messages))
+        return out if isinstance(out, list) else list(messages)
 
     result = safe_best_effort(
         _run,
@@ -145,23 +147,24 @@ def compress_inline_tool_messages_safe(messages: list[dict]) -> list[dict]:
 
 
 def apply_model_transforms_safe(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     client: Any,
     diagnostics: dict[str, Any] | None,
-) -> list[dict]:
-    def _run() -> list[dict]:
+) -> list[dict[str, Any]]:
+    def _run() -> list[dict[str, Any]]:
 
         if client is None:
             return list(messages)
         provider = str(getattr(client, "provider_name", "") or "")
         model = str(getattr(client, "model", "") or "")
-        return apply_model_transforms(
+        out = apply_model_transforms(
             list(messages),
             provider=provider,
             model=model,
             diagnostics=diagnostics,
         )
+        return out if isinstance(out, list) else list(messages)
 
     result = safe_best_effort(
         _run,
@@ -174,13 +177,13 @@ def apply_model_transforms_safe(
 
 
 def apply_preemptive_compact_safe(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     max_context_tokens: int,
     estimate_tokens: Any,
     compress: Any,
     diagnostics: dict[str, Any] | None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     try:
 
         if not preemptive_compact_enabled():
@@ -198,7 +201,7 @@ def apply_preemptive_compact_safe(
                 estimated=decision.estimated_tokens,
                 threshold=decision.threshold_tokens,
             )
-        return out
+        return out if isinstance(out, list) else list(messages)
     except Exception as exc:
 
         if isinstance(exc, ContextPrecheckOverflow):
@@ -209,7 +212,7 @@ def apply_preemptive_compact_safe(
 
 
 def annotate_api_message_boundary_safe(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     diagnostics: dict[str, Any] | None,
 ) -> None:
     def _run() -> None:

@@ -30,7 +30,7 @@ def load_butler_global_hooks_safe(
 
 def parse_hooks_yaml_dict_safe(path: Path) -> dict[str, Any] | None:
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
     except ImportError:
         logger.debug("PyYAML not installed; skipping %s", path)
         return None

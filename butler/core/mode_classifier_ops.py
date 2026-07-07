@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from butler.core.best_effort import safe_best_effort
 

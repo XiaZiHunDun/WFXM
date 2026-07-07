@@ -11,7 +11,7 @@ def is_retry_tool_error_safe(result: str) -> bool | None:
     def _run() -> bool:
         from butler.core.tool_error_policy import ToolErrorKind, classify_tool_error
 
-        return classify_tool_error(result) == ToolErrorKind.retry
+        return bool(classify_tool_error(result) == ToolErrorKind.retry)
 
     outcome = safe_best_effort(
         _run,

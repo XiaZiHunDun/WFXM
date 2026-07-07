@@ -32,4 +32,5 @@ def resolve_max_output_tokens_safe(
             return int(cfg.max_tokens)
         return None
 
-    return safe_best_effort(_run, label="model_context.max_output_tokens", default=None)
+    result = safe_best_effort(_run, label="model_context.max_output_tokens", default=None)
+    return int(result) if isinstance(result, int) else None

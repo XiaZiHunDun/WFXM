@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def safe_load_yaml(path: Path) -> Any:
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         with open(path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)

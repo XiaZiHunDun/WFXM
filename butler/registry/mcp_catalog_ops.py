@@ -22,7 +22,7 @@ def ensure_catalog_integrity_safe() -> None:
 
 def load_yaml_dict_safe(path: Path) -> dict[str, Any] | None:
     def _run() -> dict[str, Any] | None:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else None

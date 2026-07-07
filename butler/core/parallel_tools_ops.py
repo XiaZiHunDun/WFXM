@@ -39,10 +39,10 @@ def batch_parallel_allowed(tool_calls: list[Any]) -> bool | None:
     return bool(result)
 
 
-def parse_tool_args_safe(tc: Any) -> dict:
+def parse_tool_args_safe(tc: Any) -> dict[str, Any]:
     name = tc.name if hasattr(tc, "name") else tc.get("name", "")
 
-    def _run() -> dict:
+    def _run() -> dict[str, Any]:
         if hasattr(tc, "args_dict"):
             args = tc.args_dict()
             return args if isinstance(args, dict) else {}
@@ -59,19 +59,21 @@ def parse_tool_args_safe(tc: Any) -> dict:
 def dispatch_parallel_tool_loud(
     dispatch_fn: Any,
     name: str,
-    args: dict,
+    args: dict[str, Any],
     *,
     tool_id: str,
     finalize: Any,
 ) -> str:
     try:
-        return dispatch_fn(name, args, tool_call_id=tool_id)
+        return str(dispatch_fn(name, args, tool_call_id=tool_id))
     except Exception as exc:
-        return finalize(
-            name,
-            args,
-            {
-                "error": f"Tool execution failed: {exc}",
-                "code": "TOOL_DISPATCH_ERROR",
-            },
+        return str(
+            finalize(
+                name,
+                args,
+                {
+                    "error": f"Tool execution failed: {exc}",
+                    "code": "TOOL_DISPATCH_ERROR",
+                },
+            )
         )

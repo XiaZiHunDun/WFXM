@@ -33,7 +33,7 @@ def execute_llm_call_ops(
     config: LoopConfig,
     common: dict[str, Any],
     delta: Callable[[str], None] | None,
-    on_tool_call_ready: Callable[[int, str, str, dict], None] | None,
+    on_tool_call_ready: Callable[[int, str, str, dict[str, Any]], None] | None,
 ) -> NormalizedResponse:
     started = time.monotonic()
     status = "ok"
