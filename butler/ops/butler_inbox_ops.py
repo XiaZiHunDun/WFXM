@@ -11,7 +11,7 @@ from butler.tools.reminder import _load_all
 from butler.memory.experience_mining import load_pending
 from butler.core.compaction_status import derive_compaction_status, format_compaction_status_line
 from butler.gateway.message_queue import pending_count
-from butler.human_gate import format_pending_hint, has_pending_gate
+from butler.contracts.workflow_gate_registry import get_workflow_gate
 from butler.core.session_tool_index import list_session_read_files
 from butler.ops.owner_quality_surface import format_b9_owner_line, format_mcp_owner_line
 from butler.ops.owner_trust_surface import format_trust_owner_line
@@ -97,8 +97,9 @@ def queue_pending_count_safe(session_key: str) -> int:
 def workflow_gate_hint_safe(session_key: str) -> str:
     def _run() -> str:
 
-        if has_pending_gate(session_key):
-            return str(format_pending_hint(session_key) or "")
+        gate = get_workflow_gate()
+        if gate.has_pending_gate(session_key):
+            return str(gate.format_pending_hint(session_key) or "")
         return ""
 
     result = safe_best_effort(_run, label="butler_inbox.workflow_gate", default="")

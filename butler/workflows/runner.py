@@ -15,8 +15,8 @@ from butler.core.plan_snapshot import (
 )
 from butler.env_parse import env_truthy, int_env
 from butler.execution_context import get_current_orchestrator, use_execution_context, use_workflow_var_pool
+from butler.contracts.workflow_gate_registry import get_workflow_gate
 from butler.gateway.outbound_bridge import get_gateway_bridge_optional
-from butler.human_gate import check_workflow_step_approval, format_pending_hint
 from butler.model_resolve import workflow_step_spawn_model_config
 from butler.report import (
     AgentReport,
@@ -279,7 +279,7 @@ class WorkflowRunner:
         needs_approval = any(n.requires_approval for n in nodes)
 
         def _on_approval(node: TaskNode) -> bool:
-            approved = check_workflow_step_approval(
+            approved = get_workflow_gate().check_workflow_step_approval(
                 session_key or "workflow",
                 workflow.name,
                 node.id,
@@ -471,7 +471,7 @@ class WorkflowRunner:
             (graph.nodes.get(sid) and (graph.nodes[sid].error or "") == "workflow_step_approval_pending")
             for sid in graph.execution_order
         ):
-            hint = format_pending_hint(session_key)
+            hint = get_workflow_gate().format_pending_hint(session_key)
             if hint:
                 lines.append(hint)
         lines.append("回复「/详细」查看结构化报告。")

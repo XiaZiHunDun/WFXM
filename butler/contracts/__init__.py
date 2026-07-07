@@ -36,6 +36,7 @@ from butler.contracts.owner_gate import OwnerGate
 from butler.contracts.sink_registry import get_events_sink, set_events_sink
 
 import butler.contracts.approval_store_impl as _approval_store_impl  # noqa: F401 — register ApprovalStore
+import butler.contracts.workflow_gate_impl as _workflow_gate_impl  # noqa: F401 — register WorkflowGateStore
 
 __all__ = [
     "BridgeAccess",

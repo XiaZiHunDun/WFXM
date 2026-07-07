@@ -50,6 +50,7 @@
 | `delegate_job` ↔ `async_delegate` | `delegate_job_types` + `delegate_async_result` | **done** |
 | `gateway_cli` ↔ `main` | `repo_paths.REPO_ROOT`；parser 直绑本地 `_cmd_*` | **done** |
 | `delegate_impl` ↔ `orchestrator` | `delegate_orchestrator` 隔离 lazy import（顶层 hoist 仍环） | **done** |
+| `workflows` → `human_gate` | `WorkflowGateStore` + `workflow_gate_impl` | **done** |
 
 新增 Port 模块：
 
@@ -60,7 +61,9 @@
 | `completion_ports.py` | `OutboundCompletionHooks` | L1 出站 | `gateway/completion_notify.py` |
 | `completion_registry.py` | `get/set_completion_hooks` | 横切 | completion_notify 注册 |
 | `approval_ports.py` | `ApprovalStore` | L7 策略 | `approval_store_impl.py` |
+| `workflow_gate_ports.py` | `WorkflowGateStore` | L7 策略 | `workflow_gate_impl.py` |
 | `approval_registry.py` | `get/set_approval_store` | 横切 | 模块 import 注册 |
+| `workflow_gate_registry.py` | `get/set_workflow_gate` | 横切 | workflow_gate_impl 注册 |
 | `tool_dispatch_ports.py` | `ToolDispatchPort` | L3 编排 | `core/tool_dispatch.py` |
 | `tool_dispatch_registry.py` | `get/set_tool_dispatch` | 横切 | tool_dispatch 启动注册 |
 | `health_diagnostic_ports.py` | `HealthDiagnosticPort` | L9 运营 | `ops/health_report_turn.py` |
