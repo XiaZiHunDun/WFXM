@@ -172,7 +172,7 @@ def _oracle_b9l_prod_main_helpers_import(ws: Path) -> None:
 
 
 def _verify_b9l_prod_main_helpers_import(ws: Path) -> tuple[bool, str]:
-    return _verify_b9l_multi_file_import(ws)
+    return cast(tuple[bool, str], _verify_b9l_multi_file_import(ws))
 
 
 def _setup_b9l_prod_cross_module_rename(ws: Path) -> None:
@@ -184,7 +184,7 @@ def _oracle_b9l_prod_cross_module_rename(ws: Path) -> None:
 
 
 def _verify_b9l_prod_cross_module_rename(ws: Path) -> tuple[bool, str]:
-    return _verify_b9l_cross_module_rename(ws)
+    return cast(tuple[bool, str], _verify_b9l_cross_module_rename(ws))
 
 
 def _setup_b9l_prod_lingwen_demo_add(ws: Path) -> None:

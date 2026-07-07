@@ -743,6 +743,7 @@ module = [
     "butler.workflows.workflow_run_snapshot",
     "butler.delegate.__init__",
     "butler.delegate.category_resolver",
+    "butler.delegate.task_kind",
     "butler.permissions.__init__",
     "butler.permissions.rules_fail_closed",
     "butler.permissions.tool_boundary_registry",

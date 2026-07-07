@@ -45,6 +45,7 @@
 | `health_report` ↔ `health_report_turn` | `HealthDiagnosticPort` + `health_report_input` | **done** |
 | `generator` ↔ `acceptance_card` | `report_types` + `generator_schema` | **done** |
 | `b9_prod_shaped` ↔ `b9_live_fixed` | `b9_task_fixtures` | **done** |
+| `completion_notify` → `report` | 直引（无回边）；`delegate_task_kind` 下沉 L4 | **done** |
 
 新增 Port 模块：
 

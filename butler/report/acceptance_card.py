@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from butler.report.report_types import AgentReport, Change
-from butler.gateway.delegate_task_kind import infer_delegate_task_kind
+from butler.delegate.task_kind import infer_delegate_task_kind
 
 
 def attach_delegate_acceptance_meta(

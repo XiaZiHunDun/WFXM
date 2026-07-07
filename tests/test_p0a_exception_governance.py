@@ -709,6 +709,7 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/registry/skill_sources/bundled_ops.py": 0,
     "butler/registry/skill_sources/clawhub.py": 0,
     "butler/registry/skill_sources/clawhub_ops.py": 2,
+    "butler/registry/skill_sources/github.py": 0,
     "butler/registry/skill_sources/lobehub.py": 0,
     "butler/registry/skill_sources/lobehub_ops.py": 2,
     "butler/registry/skill_sources/marketplace.py": 0,

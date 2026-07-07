@@ -640,6 +640,7 @@ MODULES=(
   butler/workflows/workflow_run_snapshot.py
   butler/delegate/__init__.py
   butler/delegate/category_resolver.py
+  butler/delegate/task_kind.py
   butler/permissions/__init__.py
   butler/permissions/rules_fail_closed.py
   butler/permissions/tool_boundary_registry.py
