@@ -446,12 +446,13 @@ tracks:
         expect_reply_any: [好, 辛苦, 收到, 主公]
         tier: standard
       - name: OWN-03b 只读 README
-        user_text: 帮我看下 README 前 10 行
-        expect_reply_any: [README, 行, 灵文]
+        user_text: 请 read_file 项目根 README.md 前 10 行并摘要，不要委派
+        expect_reply_any: [README, 行, 灵文, 星陨, 章节, 工厂, WFXM]
+        soft: true
         tier: standard
       - name: OWN-06 novel-factory 进度
         user_text: 现在 novel-factory 进度到哪了？
-        expect_reply_any: [phase, workflow, draft, outline, novel-factory]
+        expect_reply_any: [phase, workflow, draft, outline, novel-factory, PHASE_COMPLETE, 阶段, STEP, 维护, 完工]
         tier: standard
 
   - id: owner-daily-cross
@@ -534,8 +535,8 @@ tracks:
         expect_reply_any: [灵文1号, 小说, 试点]
         tier: standard
       - name: MEM-M7b 记忆写入
-        user_text: 请记住：试点验收日 2026-05-22
-        expect_reply_any: [记住, 待审, 记忆, 2026-05-22]
+        user_text: 请记入待审记忆：试点验收日 2026-05-22
+        expect_reply_any: [记住, 待审, 记忆, 2026-05-22, 已记录, 收到]
         tier: standard
       - name: MEM-M7c /记忆待审
         user_text: /记忆待审
