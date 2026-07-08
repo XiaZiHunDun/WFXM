@@ -58,7 +58,10 @@ tracks:
         expect_reply_any: [开发, 委派, docstring, 完成, 修改]
         verify_file_contains:
           - path: docs/dev-assistant-sim-{sim_date}.py
-            any: [hello_dev, """", Dev assistant]
+            any:
+              - hello_dev
+              - '"""'
+              - Dev assistant
         soft: true
         tier: slow
         max_seconds: 420
