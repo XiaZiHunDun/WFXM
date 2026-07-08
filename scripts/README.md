@@ -112,6 +112,7 @@
 |------|------|
 | `butler-wechat-dev-flywheel-sim.sh` | Dev 飞轮 handler 话术 sim（覆写 `dev-flywheel-{date}.md`） |
 | `butler-wechat-dev-delegate-sim.sh` | Dev 委派多场景 sim（`--track lingwen`） |
+| `butler-wechat-dev-assistant-sim.sh` | **开发助手十项** handler sim（2026-07） |
 | `butler-wechat-lead-readonly-sim.sh` | Lead 只读厂情门控 sim |
 | `butler-wechat-owner-sim.sh` | Owner 话术 sim |
 | `butler-wechat-core-sim.sh` | 核心对话 sim |

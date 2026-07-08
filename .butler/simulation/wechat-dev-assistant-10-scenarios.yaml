@@ -1,0 +1,142 @@
+# 开发助手十项 — 微信 handler 模拟（灵文1号，不经 iLink）
+# 运行: bash scripts/butler-wechat-dev-assistant-sim.sh [--quick]
+# 对照: docs/guides/wechat-dev-assistant-smoke-2026-07.md
+
+title: WeChat Dev Assistant 10 Tasks
+version: "2026-07-08"
+default_project: 灵文1号
+verify_phrases:
+  - "bash scripts/butler-wechat-dev-assistant-sim.sh --quick"
+  - "bash scripts/butler-wechat-dev-assistant-sim.sh"
+
+tracks:
+  - id: dev-assistant-10
+    title: 开发助手十项（灵文1号 · role=dev/content/review）
+    session_mode: shared
+    quick: true
+    cleanup_globs:
+      - docs/dev-assistant-sim-*.py
+      - docs/dev-assistant-sim-*.md
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: DEV-01 只读 project.yaml
+        user_text: >-
+          【必须委派】请委派开发代理（role=dev，Lead 不要自己 read_file）：
+          read_file 读 project.yaml，用中文摘要 name 和 type 字段，
+          不要修改任何文件，不要 run_workflow
+        prefer_tools_any: [delegate_task]
+        require_tools: true
+        expect_tools_any: [delegate_task]
+        fresh_session: true
+        expect_reply_any: [委派, 开发, 灵文, software, project, name, content]
+        reject_reply_any: [write_file, patch, LingWen1/]
+        tier: standard
+        max_seconds: 240
+
+      - name: DEV-02 新建 Python 模块
+        user_text: >-
+          请委派开发代理（role=dev）：在 docs 创建 dev-assistant-sim-{sim_date}.py，
+          内容含 def hello_dev(): 换行 return "ok"，
+          写完后 read_file 确认；路径相对 workspace 根，不要改其他文件
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [开发, 委派, hello_dev, 完成, 创建]
+        verify_files_exist:
+          - docs/dev-assistant-sim-{sim_date}.py
+        verify_file_contains:
+          - path: docs/dev-assistant-sim-{sim_date}.py
+            any: [hello_dev, return, ok]
+        tier: slow
+        max_seconds: 480
+
+      - name: DEV-03 补丁加 docstring
+        user_text: >-
+          请开发代理给 docs/dev-assistant-sim-{sim_date}.py 加上模块级 docstring
+          「Dev assistant sim {sim_date}」，用 read_file 再 write_file 或 patch，不要动其他文件
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [开发, 委派, docstring, 完成, 修改]
+        verify_file_contains:
+          - path: docs/dev-assistant-sim-{sim_date}.py
+            any: [hello_dev, """", Dev assistant]
+        soft: true
+        tier: slow
+        max_seconds: 420
+        skip_in_quick: true
+
+      - name: DEV-04 py_compile 验证
+        user_text: >-
+          请委派开发代理：对 docs/dev-assistant-sim-{sim_date}.py 执行 python -m py_compile
+          （可用 terminal），确认无语法错误后回复结果，不要改代码逻辑
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [编译, 语法, 通过, 成功, py_compile, 无错误]
+        reject_reply_any: [SyntaxError, 失败]
+        tier: slow
+        max_seconds: 360
+        skip_in_quick: true
+
+      - name: DEV-05 review 审查代码
+        user_text: >-
+          请委派审核代理（role=review）：read_file docs/dev-assistant-sim-{sim_date}.py，
+          首行必须是 PASS 或 FAIL，附一条理由；不要修改文件
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [PASS, FAIL, 审核, 审查, 委派]
+        verify_files_exist:
+          - docs/dev-assistant-sim-{sim_date}.py
+        tier: standard
+        max_seconds: 300
+        skip_in_quick: true
+
+      - name: DEV-06 列目录 docs
+        user_text: >-
+          请开发代理 list_directory docs 并摘要主要文件名，只读不要写入
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [docs, 目录, 文件, 委派, 开发]
+        tier: standard
+        max_seconds: 240
+
+      - name: DEV-07 读 workflow_state
+        user_text: >-
+          【必须委派】开发代理 read_file novel-factory/workflow_state.json，
+          摘要 phase 和 step，不要修改文件
+        prefer_tools_any: [delegate_task]
+        require_tools: true
+        expect_tools_any: [delegate_task]
+        fresh_session: true
+        expect_reply_any: [workflow, phase, step, 委派, novel-factory]
+        tier: slow
+        max_seconds: 360
+
+      - name: DEV-08 写验收 md 并复读
+        user_text: >-
+          请交给内容代理（role=content）：write_file docs/dev-assistant-sim-{sim_date}.md
+          仅一行「验收戳 {sim_date}」，再 read_file 确认；不要改其他文件
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [内容, 委派, 验收, 完成, 写入]
+        verify_files_exist:
+          - docs/dev-assistant-sim-{sim_date}.md
+        verify_file_contains:
+          - path: docs/dev-assistant-sim-{sim_date}.md
+            any: ["验收戳 {sim_date}"]
+        tier: slow
+        max_seconds: 420
+        skip_in_quick: true
+
+      - name: DEV-09 删除失败恢复
+        user_text: >-
+          请开发代理 delete_file docs/dev-assistant-no-such-{sim_date}.txt（预期不存在），
+          若失败请说明原因，不要编造成功
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [未能, 失败, 不存在, 删除, 没有, 找不到]
+        tier: standard
+        max_seconds: 300
+        fresh_session: true
+
+      - name: DEV-10 清理临时文件
+        user_text: >-
+          请开发代理用 delete_file 删除 docs/dev-assistant-sim-{sim_date}.py
+          和 docs/dev-assistant-sim-{sim_date}.md（若存在），完成后摘要
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [删除, 完成, 开发, 委派, 未能, 不存在, 清理]
+        tier: slow
+        max_seconds: 420
+        skip_in_quick: true
