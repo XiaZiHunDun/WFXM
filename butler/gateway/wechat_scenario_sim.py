@@ -20,6 +20,7 @@ from butler.core.session_epoch import (
     load_epoch_transcript_rows,
 )
 from butler.gateway.outbound_files import expand_reply_with_wechat_attachments
+from butler.gateway.wechat_scenario_sim_bridge import run_handler_with_outbound_sim
 from butler.gateway.wechat_scenario_sim_ops import (
     delegate_enrichment_imports_ready,
     run_scenario_case_safe,
@@ -52,6 +53,9 @@ class ScenarioCase:
     verify_file_contains: tuple["FileContainsSpec", ...] = ()
     prompt_hint: str = ""
     require_tools: bool = False
+    simulate_wechat_outbound: bool = False
+    expect_outbound_any: tuple[str, ...] = ()
+    min_outbound_messages: int = 0
 
 
 @dataclass(frozen=True)
@@ -70,6 +74,7 @@ class ScenarioTrack:
     setup: tuple[str, ...] = ()
     cleanup_globs: tuple[str, ...] = ()
     cases: tuple[ScenarioCase, ...] = ()
+    simulate_wechat_outbound: bool = False
 
 
 @dataclass(frozen=True)
@@ -135,6 +140,9 @@ def render_scenario_case(case: ScenarioCase, ctx: SimRenderContext) -> ScenarioC
         verify_file_contains=_render_file_contains(case.verify_file_contains, ctx),
         prompt_hint=ctx.render(case.prompt_hint),
         require_tools=case.require_tools,
+        simulate_wechat_outbound=case.simulate_wechat_outbound,
+        expect_outbound_any=ctx.render_tuple(case.expect_outbound_any),
+        min_outbound_messages=case.min_outbound_messages,
     )
 
 
@@ -159,6 +167,8 @@ class ScenarioCaseResult:
     warnings: list[str] = field(default_factory=list)
     skipped: bool = False
     skip_reason: str = ""
+    outbound_preview: str = ""
+    outbound_count: int = 0
 
 
 @dataclass
@@ -249,6 +259,9 @@ def _parse_case(raw: dict[str, Any]) -> ScenarioCase:
         verify_file_contains=_parse_file_contains(raw.get("verify_file_contains")),
         prompt_hint=str(raw.get("prompt_hint") or "").strip(),
         require_tools=bool(raw.get("require_tools")),
+        simulate_wechat_outbound=bool(raw.get("simulate_wechat_outbound")),
+        expect_outbound_any=_tup("expect_outbound_any"),
+        min_outbound_messages=int(raw.get("min_outbound_messages") or 0),
     )
 
 
@@ -276,6 +289,7 @@ def _parse_track(raw: dict[str, Any]) -> ScenarioTrack:
         setup=setup,
         cleanup_globs=cleanup_globs,
         cases=cases,
+        simulate_wechat_outbound=bool(raw.get("simulate_wechat_outbound")),
     )
 
 
@@ -475,6 +489,23 @@ def evaluate_scenario_case(
     return errors, warnings
 
 
+def evaluate_outbound_capture(
+    capture_bodies: list[str],
+    case: ScenarioCase,
+) -> list[str]:
+    errors: list[str] = []
+    count = len(capture_bodies)
+    if case.min_outbound_messages and count < case.min_outbound_messages:
+        errors.append(
+            f"expected >= {case.min_outbound_messages} outbound messages, got {count}"
+        )
+    if case.expect_outbound_any:
+        joined = "\n".join(capture_bodies)
+        if not any(needle in joined for needle in case.expect_outbound_any):
+            errors.append(f"outbound missing any of {case.expect_outbound_any}")
+    return errors
+
+
 def _mcp_enabled() -> bool:
     return os.getenv("BUTLER_MCP_ENABLED", "0").strip() == "1"
 
@@ -588,6 +619,10 @@ def run_scenario_track(
     ns = session_ns if session_ns is not None else time.time_ns()
     ctx = render_ctx or make_sim_render_context(run_ns=ns)
     base_sk = f"wechat:{owner_id}:owner-sim-{track.id}-{ns}"
+    track_owner = owner_id
+    if track.id == "h-onboarding":
+        track_owner = f"owner-sim-onboarding-{format(ns % 0xFFFFFF, '06x')}"
+        base_sk = f"wechat:{track_owner}:owner-sim-{track.id}-{ns}"
     session_key = base_sk
     results: list[ScenarioCaseResult] = []
 
@@ -596,7 +631,7 @@ def run_scenario_track(
             ctx.render(text),
             session_key=session_key,
             platform="wechat",
-            external_id=owner_id,
+            external_id=track_owner,
         ) or ""
 
     if track.session_mode == "shared":
@@ -646,7 +681,29 @@ def run_scenario_track(
                 owner_id=owner_id,
                 session_key=session_key,
             )
-            reply = _send(live.user_text)
+            outbound_sim = track.simulate_wechat_outbound or live.simulate_wechat_outbound
+            if outbound_sim:
+                def _dispatch() -> str:
+                    return handler.handle_message(
+                        ctx.render(live.user_text),
+                        session_key=session_key,
+                        platform="wechat",
+                        external_id=track_owner,
+                    ) or ""
+
+                reply, capture = run_handler_with_outbound_sim(
+                    _dispatch,
+                    chat_id=track_owner,
+                    ack_seconds=3.0,
+                    wait_delegate_seconds=live.max_seconds,
+                )
+                entry.outbound_count = len(capture.bodies)
+                if capture.bodies:
+                    entry.outbound_preview = " | ".join(
+                        b.replace("\n", " ")[:80] for b in capture.bodies
+                    )[:240]
+            else:
+                reply = _send(live.user_text)
             elapsed = time.time() - t0
             entry.elapsed_seconds = elapsed
             entry.reply_preview = reply.replace("\n", " ")[:240]
@@ -668,6 +725,11 @@ def run_scenario_track(
             errors, warnings = evaluate_scenario_case(
                 entry.tools, eval_reply, live, strict=strict,
             )
+            if outbound_sim:
+                errors.extend(evaluate_outbound_capture(
+                    capture.bodies if outbound_sim else [],
+                    live,
+                ))
             file_errors = _verify_files_on_disk(
                 live, session_key, handler=handler, owner_id=owner_id,
             )
@@ -701,6 +763,9 @@ def run_wechat_scenario_sim(
         return report
 
     owner = (owner_id or os.getenv("BUTLER_OWNER_WECHAT_ID") or "owner-wechat-sim").strip()
+    from butler.gateway.gateway_contracts import register_gateway_contracts
+
+    register_gateway_contracts()
     handler = ButlerMessageHandler(channel="gateway")
     want = {t.strip().lower() for t in track_ids} if track_ids else None
     ns = time.time_ns()
@@ -759,6 +824,7 @@ __all__ = [
     "ScenarioTrack",
     "SimRenderContext",
     "evaluate_scenario_case",
+    "evaluate_outbound_capture",
     "list_manifest_tracks",
     "load_wechat_scenario_manifest",
     "make_sim_render_context",

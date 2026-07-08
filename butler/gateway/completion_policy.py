@@ -9,7 +9,7 @@ from butler.env_parse import env_truthy, int_env
 
 
 def suppress_completion_after_main_enabled() -> bool:
-    return cast(bool, env_truthy("BUTLER_GATEWAY_SUPPRESS_COMPLETION_AFTER_MAIN", True))
+    return cast(bool, env_truthy("BUTLER_GATEWAY_SUPPRESS_COMPLETION_AFTER_MAIN", default=True))
 
 
 def max_supplementary_per_turn() -> int:

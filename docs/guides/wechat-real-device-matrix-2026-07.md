@@ -30,11 +30,11 @@
 |----------|------|-----|--------|----------|
 | `/诊断` 含 hooks/用量 | H1 | owner-daily ✅ | PROD-034 | sim 2026-07-08 ☑ |
 | `/计划` → `/状态` 规划模式 | H2–H3 | owner-daily ✅ | MT-36 / PROD-031 | sim 2026-07-08 ☑ |
-| 委派 progress + 双推送 | H4–H6 | delegate | completion_notify pytest | — 需真机 |
-| `/任务` 列表 | H7 | slash | PROD-032 | — |
+| 委派 progress + 双推送 | H4–H6 | h-delegate-followup ✅ outbound sim | completion_notify pytest ✅ | sim 2026-07-08 ☑ |
+| `/任务` 列表 | H7 | slash + h-delegate-followup ✅ | PROD-032 | sim 2026-07-08 ☑ |
 | 长任务中插队 | H11 | owner-daily-delegate ✅ | MT-30 | sim 2026-07-08 ☑ |
 | `/简报` 四块 | H12 | owner-daily ✅ | MT-35 / PROD-045 | sim 2026-07-08 ☑ |
-| onboarding 欢迎 | H13 | — | — | — |
+| onboarding 欢迎 | H13 | h-onboarding ✅ fresh | — | sim 2026-07-08 ☑ |
 
 ## Owner 日常扩展（2026-07 新增）
 

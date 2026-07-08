@@ -62,6 +62,10 @@ tracks:
         user_text: /help
         expect_reply_any: [/切换, /状态, 常用]
         tier: fast
+      - name: H7 /任务 列表
+        user_text: /任务
+        expect_reply_any: [任务, task_, 委派, 暂无, 最近]
+        tier: fast
 
   - id: owner-ux
     title: Owner 体验 P0–P2（斜杠模拟，无 LLM）
@@ -509,6 +513,49 @@ tracks:
         expect_reply_any: [简报, 队列, 待办, 收到, 门控, 工作流, 详细]
         soft: true
         tier: standard
+
+  - id: h-delegate-followup
+    title: H4–H7 委派后续（真机等价 outbound sim）
+    session_mode: shared
+    quick: true
+    simulate_wechat_outbound: true
+    cleanup_globs:
+      - docs/h-push-smoke-*.md
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: H4–H5 委派双推送
+        user_text: >-
+          请交给内容代理：在当前项目 docs 目录写 h-push-smoke-{sim_date}-{sim_id}.md
+          （路径 docs/h-push-smoke-{sim_date}-{sim_id}.md），标题「推送验收」，
+          正文一句说明，不要改其他文件
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [后台, 已委派, 接单, task_, 委派]
+        expect_outbound_any: [正在处理, 委派, 完成, 后台]
+        min_outbound_messages: 2
+        verify_files_exist:
+          - docs/h-push-smoke-{sim_date}-{sim_id}.md
+        tier: slow
+        max_seconds: 420
+      - name: H6 主回复 + /详细
+        user_text: /详细
+        expect_reply_any: [headline, 变更, 报告, h-push-smoke, 详细]
+        tier: fast
+      - name: H7 /任务 含 task_id
+        user_text: /任务
+        expect_reply_any: [任务, task_, 委派, 推送]
+        tier: fast
+
+  - id: h-onboarding
+    title: H13 onboarding 欢迎（fresh）
+    session_mode: fresh
+    quick: true
+    cases:
+      - name: H13 首条欢迎
+        user_text: 你好
+        expect_reply_any: [莎丽, Butler, /切换, 三步, 委派, /简报]
+        reject_reply_any: [task_, 内容代理已完成, 委派阶段完成]
+        tier: fast
 
   - id: memory-ext
     title: 记忆扩展 M5–M7（memory-guide 对齐）

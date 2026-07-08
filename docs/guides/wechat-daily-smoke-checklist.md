@@ -122,23 +122,24 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 > 覆盖：规划模式、Hooks、`/诊断` 用量、委派完成推送、progress ack、失败入队。  
 > 设计说明见仓库根 [CONTRIBUTING.md](../../CONTRIBUTING.md#butler-线束规划--上下文--hooks)（Butler 线束 + Gateway 长任务完成提醒）。  
-> 环境变量见 `.env.example` 与 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。
+> 环境变量见 `.env.example` 与 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。  
+> Handler 预演 H4–H13：`bash scripts/butler-wechat-owner-sim.sh --track h-delegate-followup,h-onboarding`（**4/4** outbound sim 2026-07-08）。双推送走 `simulate_wechat_outbound` + 后台委派等待，等价真机微信多气泡。
 
 | # | 发送 / 操作 | 预期 | 通过 | 备注 |
 |---|-------------|------|------|------|
 | H1 | `/诊断`（任意会话） | 含 **上下文用量**、**Shell hooks**、**出站策略**（委派模式/最短秒数/冷却） | ☑ | sim 2026-07-08 |
 | H2 | `/计划` → `/状态` | 状态含 **规划模式: 已开启** | ☑ | sim 2026-07-08 |
 | H3 | `/执行` | 退出规划；可再委派 | ☑ | sim 2026-07-08 |
-| H4 | 触发 **委派** 的长任务（如步骤 4） | ~30s 收到 progress ack「仍在处理…已委派」 | ☐ | 需真机双推送 |
-| H5 | 委派结束（未等管家收尾） | 收到 **第二条**：委派摘要（`📋 委派阶段完成`） | ☐ | 需真机 |
-| H6 | 管家最终回复 | **第三条** 为紧凑摘要；`/详细` 可看报告 | ☐ | 需真机 |
-| H7 | `/任务` | 最近委派任务列表含 task_id | ☐ | |
+| H4 | 触发 **委派** 的长任务（如步骤 4） | ~30s 收到 progress ack「仍在处理…已委派」 | ☑ | outbound sim 2026-07-08 |
+| H5 | 委派结束（未等管家收尾） | 收到 **第二条**：委派摘要（`📋 委派阶段完成`） | ☑ | outbound sim `📋 委派已完成（后台）` |
+| H6 | 管家最终回复 | **第三条** 为紧凑摘要；`/详细` 可看报告 | ☑ | sim `/详细` 2026-07-08 |
+| H7 | `/任务` | 最近委派任务列表含 task_id | ☑ | sim slash + h-delegate-followup 2026-07-08 |
 | H8 | `/新对话` | 清空；hook 最近记录重置 | ☑ | 同 H-NEW1 sim |
 | H9 | `butler runtime due` 或等 push-drain timer | 若曾限流入队，`/诊断` 队列待发减少 | ☐ | 可选 |
-| H10 | 自动化：`pytest tests/gateway/test_completion_notify.py tests/test_hooks_runner.py -q` | 全绿 | ☐ | 发版前 |
+| H10 | 自动化：`pytest tests/gateway/test_completion_notify.py tests/test_hooks_runner.py -q` | 全绿 | ☑ | 24 passed 2026-07-08 |
 | H11 | 长任务进行中再发一条**非斜杠**用户消息 | 先收到「已入队」；主回复后收到 **第二条** 排队正文 | ☑ | sim delegate track |
 | H12 | `/简报` | 固定四块顺序：**待办 → 队列 → 门控 → 昨夜 job** | ☑ | sim 2026-07-08 |
-| H13 | 新会话首条（`BUTLER_ONBOARDING_WELCOME=1`） | 欢迎含 **三步上手**（切换 / 只读 / 委派） | ☐ | |
+| H13 | 新会话首条（`BUTLER_ONBOARDING_WELCOME=1`） | 欢迎含 **三步上手**（切换 / 只读 / 委派） | ☑ | h-onboarding fresh sim 2026-07-08 |
 
 ### Owner 日常扩展（2026-07，口语化真机）
 

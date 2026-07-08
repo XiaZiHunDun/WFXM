@@ -141,6 +141,8 @@ for cr in report.cases:
         print(f"    warn: {warn}")
     if cr.reply_preview:
         print(f"    reply: {cr.reply_preview[:160]}…")
+    if cr.outbound_preview:
+        print(f"    outbound({cr.outbound_count}): {cr.outbound_preview[:160]}…")
 
 for err in report.errors:
     print(f"error: {err}")

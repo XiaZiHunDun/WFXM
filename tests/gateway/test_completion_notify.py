@@ -113,8 +113,8 @@ def test_deliver_completion_push_waits_cooldown(monkeypatch):
     def _mark():
         calls.append("mark")
 
-    monkeypatch.setattr("butler.runtime.notify.wait_wechat_push_cooldown", _wait)
-    monkeypatch.setattr("butler.runtime.notify.mark_wechat_push_sent", _mark)
+    monkeypatch.setattr("butler.gateway.completion_notify.wait_wechat_push_cooldown", _wait)
+    monkeypatch.setattr("butler.gateway.completion_notify.mark_wechat_push_sent", _mark)
     adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
     adapter.send = AsyncMock(  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
         return_value=__import__(
