@@ -53,8 +53,11 @@ def build_memory_orchestrator_stub(*, project: str = "", tenant: str = "default"
 
 
 def list_pending_text(*, project: str = "", tenant: str = "default") -> str:
-    return format_pending_memory_list(
-        build_memory_orchestrator_stub(project=project, tenant=tenant)
+    return cast(
+        str,
+        format_pending_memory_list(
+            build_memory_orchestrator_stub(project=project, tenant=tenant)
+        ),
     )
 
 

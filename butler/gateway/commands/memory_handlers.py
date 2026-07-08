@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 from butler.memory.pending_command_ops import (
@@ -32,14 +32,14 @@ def handle_memory_pending_command(
 ) -> Optional[str]:
     """Handle /记忆待审, /批准记忆, /拒绝记忆, /记忆图谱. Returns None if cmd not recognized."""
     if cmd not in ("/批准记忆", "/approve-memory", "/批准"):
-        return _handle_memory_pending_core(orchestrator, cmd, arg)
+        return cast(Optional[str], _handle_memory_pending_core(orchestrator, cmd, arg))
 
     if not cli and not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
         return str(owner_required_message())
 
-    return _handle_memory_pending_core(orchestrator, cmd, arg)
+    return cast(Optional[str], _handle_memory_pending_core(orchestrator, cmd, arg))
 
 
 def format_memory_status(orchestrator: "ButlerOrchestrator", *, session_key: str = "") -> str:
