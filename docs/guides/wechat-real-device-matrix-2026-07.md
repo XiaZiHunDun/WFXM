@@ -53,11 +53,29 @@
 | `/新对话` 不复述 M6 | MEM-M6 | memory-ext ✅ | MT-28 | sim 2026-07-08 |
 | 记忆批准闭环 M7 | MEM-M7 | memory-ext ✅ | MT-23 | sim 2026-07-08 |
 
+## 开发助手十项（2026-07 新增）
+
+> SSOT：[`wechat-dev-assistant-smoke-2026-07.md`](./wechat-dev-assistant-smoke-2026-07.md) · `bash scripts/butler-wechat-dev-assistant-sim.sh`
+
+| 话术摘要 | 真机 | Sim | Corpus | 签收日期 |
+|----------|------|-----|--------|----------|
+| DEV-01 只读 project.yaml | DEV-01 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-02 新建 hello_dev py | DEV-02 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-03 docstring（read+write） | DEV-03 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-04 py_compile | DEV-04 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-05 review PASS/FAIL | DEV-05 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-06 list docs | DEV-06 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-07 workflow_state | DEV-07 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-08 content 写验收 md | DEV-08 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-09 删不存在文件 | DEV-09 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+| DEV-10 delete_file 清理 | DEV-10 | dev-assistant-10 ✅ | — | sim 2026-07-08 ☑ |
+
 ## 推荐执行顺序（真机 ~30 分钟）
 
 1. `bash scripts/butler-wechat-owner-sim.sh --track owner-daily,memory-ext`（本地预演）
 2. 微信按清单 **Owner 日常扩展** + 勾选 **H1–H3、H12**（无委派时可跳过 H4–H6）
-3. 更新 [`projects/LingWen1/docs/pilot-log.md`](../../projects/LingWen1/docs/pilot-log.md) 与本表「真机日期」列
+3. （可选）开发助手：`bash scripts/butler-wechat-dev-assistant-sim.sh --quick` 或微信复制 DEV-01–10
+4. 更新 [`projects/LingWen1/docs/pilot-log.md`](../../projects/LingWen1/docs/pilot-log.md) 与本表「真机日期」列
 
 ## 语料运营
 
