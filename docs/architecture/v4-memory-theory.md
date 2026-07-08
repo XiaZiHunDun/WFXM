@@ -1,8 +1,9 @@
 # Butler v4 — 记忆系统子理论（L6 层完整推导）
 
 > 版本 1.2 | 2026-06-09  
+> **工程层**：**L5 记忆与知识**（九层 SSOT：[`v4-layer-model.md`](v4-layer-model.md) §L5；映射：[`layer-theory-engineering-map.md`](layer-theory-engineering-map.md)）  
 > **沉积层演进**：Experience + 程序性 Skill 合并为 **Skill 沉积层** 的理论草案见 **[`v4-skill-memory-theory.md`](v4-skill-memory-theory.md) v2.0-draft**。本文 **契约层**（Profile / Facts / ProjectMemory、MA7、MB 契约项）在 v2 中 **继续有效**；\(\mathcal{K}_E\) 章节在实现迁移完成后由 v2 取代。  
-> 父文档：`v4-theoretical-baseline.md` v3.1（10 定理 + OT1-OT2 / 10 公理含 OA1-OA3 / 608+ 验证测试）
+> 父文档：`v4-theoretical-baseline.md` v3.1.2（10 定理 + OT1-OT2 / 12 公理含 OA1-OA3 / A12-A13 / 608+ 验证测试）
 > **v1.2 变更**：修正 §4.1/§4.3 内部矛盾；更新智能遗忘与 L2 度量接线状态；对齐 DevEngine B8 基准计数
 > 方法论：需求公理化 → 形式化建模 → 定理证明 → 能力差距分析 → 详细设计映射 → 度量模型 → 工程验证
 > 定位：将 L6 层从"分散的公理/命题/定义"升级为"完整记忆子理论"，为管家系统提供可证明、可度量、可演化的记忆能力

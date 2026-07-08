@@ -157,13 +157,11 @@ def format_model_diagnostic_lines(
         append_auxiliary_diagnostic_lines,
         append_embedding_diagnostic_line,
         append_llm_fallback_diagnostic_line,
-        extend_gateway_media_diagnostic_lines,
     )
 
     append_auxiliary_diagnostic_lines(lines)
     append_embedding_diagnostic_line(lines)
     append_llm_fallback_diagnostic_line(lines, project=project, settings=settings)
-    extend_gateway_media_diagnostic_lines(lines)
 
     return lines
 

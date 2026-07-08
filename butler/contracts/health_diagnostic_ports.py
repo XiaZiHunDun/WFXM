@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
-from butler.ops.health_report_input import HealthReportInput
+from butler.contracts.health_report_input import HealthReportInput
 
 
 @runtime_checkable

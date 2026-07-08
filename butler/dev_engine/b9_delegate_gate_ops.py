@@ -37,7 +37,7 @@ def is_dev_verify_exempt_safe(
     category_meta: dict[str, Any] | None,
 ) -> bool | None:
     def _run() -> bool:
-        from butler.gateway.delegate_task_kind import is_dev_verify_exempt
+        from butler.delegate.task_kind import is_dev_verify_exempt
 
         return bool(
             is_dev_verify_exempt(

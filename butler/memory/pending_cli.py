@@ -5,9 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
+from butler.memory.pending_handlers import (
+    format_pending_memory_list,
+    handle_memory_pending_command,
+)
+
 
 def build_memory_orchestrator_stub(*, project: str = "", tenant: str = "default") -> Any:
-    """Minimal orchestrator for ``memory_handlers`` without a live gateway session."""
+    """Minimal orchestrator for pending handlers without a live gateway session."""
     from butler.config import get_butler_home
     from butler.memory.butler_memory import ButlerMemory
     from butler.memory.project_memory import ProjectMemory
@@ -48,36 +53,25 @@ def build_memory_orchestrator_stub(*, project: str = "", tenant: str = "default"
 
 
 def list_pending_text(*, project: str = "", tenant: str = "default") -> str:
-    from butler.gateway.commands.memory_handlers import format_pending_memory_list
-
-    return cast(
-        str,
-        format_pending_memory_list(
-            build_memory_orchestrator_stub(project=project, tenant=tenant)
-        ),
+    return format_pending_memory_list(
+        build_memory_orchestrator_stub(project=project, tenant=tenant)
     )
 
 
 def approve_pending_text(arg: str, *, project: str = "", tenant: str = "default") -> str:
-    from butler.gateway.commands.memory_handlers import handle_memory_pending_command
-
     out = handle_memory_pending_command(
         build_memory_orchestrator_stub(project=project, tenant=tenant),
         "/批准记忆",
         arg,
-        cli=True,
     )
     return out or "批准失败（未知错误）"
 
 
 def reject_pending_text(arg: str, *, project: str = "", tenant: str = "default") -> str:
-    from butler.gateway.commands.memory_handlers import handle_memory_pending_command
-
     out = handle_memory_pending_command(
         build_memory_orchestrator_stub(project=project, tenant=tenant),
         "/拒绝记忆",
         arg,
-        cli=True,
     )
     return out or "拒绝失败（未知错误）"
 

@@ -43,9 +43,11 @@ def clear_provider_turn_buffer_safe(orchestrator: Any) -> None:
 
 def reset_inbound_idempotency_safe(session_id: str) -> None:
     def _run() -> None:
-        from butler.gateway.inbound_idempotency import reset_session as reset_inbound_idempotency
+        from butler.contracts.inbound_idempotency_registry import get_inbound_idempotency_port
 
-        reset_inbound_idempotency(session_id)
+        port = get_inbound_idempotency_port()
+        if port is not None:
+            port.reset_session(session_id)
 
     safe_best_effort(_run, label="new_session.inbound_idempotency", default=None)
 

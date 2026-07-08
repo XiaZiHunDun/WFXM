@@ -36,7 +36,6 @@ from butler.memory.semantic_project import (
     prefetch_project_memory_hits,
     resolve_project_display_name,
 )
-from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
 from butler.session.lifecycle import _current_project, _filter_ephemeral_experience
 
 logger = logging.getLogger(__name__)
@@ -221,6 +220,8 @@ def langfuse_on_prefetch(
     chars: int,
 ) -> None:
     def _run() -> None:
+        from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
+
         if not langfuse_enabled():
             return
         ctx = get_current_trace(session_key=session_key)

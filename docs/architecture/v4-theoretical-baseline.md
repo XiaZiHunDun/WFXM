@@ -1,9 +1,11 @@
 # Butler v4 — 理论基线文档（三支柱管家模型）
 
-> 版本 3.1.1 | 2026-06-09  
+> 版本 3.1.2 | 2026-07-08  
 > 方法论：概念建模 → 七层细化 → 形式化建模 → 三角色评审 → 定理证明 → 工程验证 → 能力边界声明  
 > 基于产品定义：**微信原生个人 AI 管家 — 融合 PIM、开发引擎与项目管理的统一智能体**  
-> **子理论**：L4 开发引擎见 [`v4-dev-engine-theory.md`](v4-dev-engine-theory.md)（DA1-DA7 / DT1-DT7 / CA1-CA4）；L6 记忆系统见 [`v4-memory-theory.md`](v4-memory-theory.md) v1.2（MA1-MA7 / MT1-MT7）；L6 检索信任级联见 [`memory-roadmap.md`](memory-roadmap.md#检索信任级联)；L7 观测演化见本章 §2.7  
+> **工程九层对照**：理论本章 **七层为产品/领域视角**；实现依赖与模块选型见 **[`v4-layer-model.md`](v4-layer-model.md)**（L1–L9 + 横切 `butler/contracts/`）及 **[`layer-theory-engineering-map.md`](layer-theory-engineering-map.md)**（定理/前提 ↔ 工程层索引）。两套 L 编号**不是简单重编号**。  
+> **子理论**：L4 开发引擎见 [`v4-dev-engine-theory.md`](v4-dev-engine-theory.md)（工程层 **L4**）；记忆见 [`v4-memory-theory.md`](v4-memory-theory.md) v1.2（文档称 L6，工程层 **L5**）；检索信任级联见 [`memory-roadmap.md`](memory-roadmap.md#检索信任级联)；观测演化见本章 §2.7（工程层 **L9**）  
+> **v3.1.2 变更**：增 §2.8 契约横切公理 A12–A13；链九层映射 SSOT；**不改**第三–七章证明正文  
 > **v3.1 变更**：新增 L7 观测演化层（OA1-OA3 / OT1-OT2）；LangFuse 评测闭环纳入理论；修正 Token 估算诚实声明（FINDING-1 已缓解）；子理论交叉引用更新  
 > **v3.0 变更**：全新独立推导 → 三元张力框架替代六矛盾平列；LLM 概率预言机显式化；意图路由概率模型、成本框架新增；定理 T9/T10 从子理论提升；三角色评审覆盖 9 盲区
 
@@ -624,6 +626,29 @@ LangFuse 实例为**基础设施层共享服务**（`~/gongju/langfuse`，独立
 \]
 
 配置存储：`~/.butler/projects/<project_id>/langfuse.json`；tracer 按 `project_id` 动态选择 client。详见 [`langfuse-multi-project.md`](../guides/langfuse-multi-project.md)。
+
+### 2.8 契约横切层 — Port 与破环公理
+
+> **工程 SSOT**：[`butler/contracts/README.md`](../../butler/contracts/README.md) · [`v4-layer-model.md`](v4-layer-model.md) · v4.5 扩展 [`v4.5-modular-eval-context-theory.md`](v4.5-modular-eval-context-theory.md)（A8–A11）
+
+九层竖切（2026-07）将层间稳定边界收敛到 `butler/contracts/`。**不改变** T1–T10 陈述；补充两条架构公理，与 v4.5 的 A8–A11 并列。
+
+**公理 A12（Port 单向依赖）**：`butler/contracts/**` 的 **Protocol / View / Registry 定义**不得 import `butler.gateway.*` 或 `butler.core.*` 具体实现（`TYPE_CHECKING` 除外）。`*_impl.py` 引导注册片可在 contracts 包内 import 下层实现并注册；实现方在进程启动时注入 registry，上层仅依赖 Port 签名。
+
+**公理 A13（破环优先 Port）**：层间 import 环须经 Port 或 registry 打破；禁止新增 `CYCLE_KEEP` 式永久 lazy 环（2026-07-07 预算已清零）。
+
+**推论实例（坚实度 L1，工程已落地）**：
+
+| Port | 破环/隔离 |
+|------|-----------|
+| `ToolRegistryReadPort` | `tool_audit` ↔ `registry` |
+| `BridgeAccess` / `OutboundCompletionHooks` | `completion_notify` ↔ `outbound_bridge` |
+| `ToolDispatchPort` | `tool_batch` ↔ `tool_dispatch` |
+| `ApprovalStore` / `WorkflowGateStore` | workflow/MCP/terminal 审批收敛 |
+| `HealthDiagnosticPort` | `health_report` ↔ `health_report_turn` |
+| `EvalSuitePort` / `ContextTransformPort` | v4.5 Eval/Context 模块化 |
+
+**定理复验索引**：[`layer-theory-engineering-map.md`](layer-theory-engineering-map.md) · [`analysis/formal-theory-2026-07.md`](analysis/formal-theory-2026-07.md)
 
 ---
 

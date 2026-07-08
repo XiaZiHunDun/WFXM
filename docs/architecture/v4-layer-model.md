@@ -1,6 +1,6 @@
 # Butler v4 九层参考模型
 
-> **状态**：2026-07-07  
+> **状态**：2026-07-08  
 > **用途**：分模块选型、依赖守门、迭代排期时的**逻辑分层**（非部署拓扑）。  
 > **实现 SSOT**：模块清单与数据流见 [`v4-architecture.md`](v4-architecture.md)。  
 > **契约 SSOT**：[`butler/contracts/README.md`](../../butler/contracts/README.md)。  
@@ -123,7 +123,7 @@ flowchart TB
 |----|------|
 | **职责** | 单 Loop 内 think-act-observe：`prepare_messages → LLM → tool_batch`；上下文压缩、hygiene、推理 trace、plan graph |
 | **主要路径** | `butler/core/agent_loop*.py`、`context_pipeline*`、`llm_retry*`、`tool_batch*`、`tool_dispatch*`、`reasoning_trace*`、`post_compact_cleanup*`、`streaming_tools`、`parallel_tools`、`execution_context.py` |
-| **守门** | `core/` / `tools/` **不得**直 import `gateway.*`（ENG-7）；经 `execution_context` 或 contracts 取 session |
+| **守门** | `core/` / `tools/` **不得**直 import `gateway.*`（ENG-7 + ENG-15）；经 `execution_context` 或 contracts 取 session |
 | **可替换组件** | 压缩策略、tool envelope、并行调度策略 |
 
 ### L4 — 工具与能力层
@@ -234,7 +234,7 @@ flowchart TB
 
 **硬禁止（与 v4-architecture §依赖分层一致）**：
 
-- L3/L4/L6 **不得** import `butler.gateway.*`（AST 守门 ENG-7）。
+- L3/L4/L6 **不得** import `butler.gateway.*`（AST 守门 ENG-7 + ENG-15）。
 - L5 **不得**将 ChromaDB `vector_store` 升为主存储。
 - L9 **不得**反向成为 L3 热路径硬依赖（指标采集宜 best-effort）。
 
@@ -315,8 +315,60 @@ flowchart TB
 | 文档 | 关系 |
 |------|------|
 | [`v4-architecture.md`](v4-architecture.md) | 模块级实现清单与数据流 |
+| [`layer-theory-engineering-map.md`](layer-theory-engineering-map.md) | 理论七层 ↔ 工程九层 ↔ 定理索引 |
 | [`memory-roadmap.md`](memory-roadmap.md) | L5 能力路线图 |
 | [`execution-surface-design.md`](execution-surface-design.md) | L4 Skill/Tool/MCP 执行面 |
 | [`permission-gate-stack.md`](permission-gate-stack.md) | L7 门控栈 |
 | [`project-optimization-directions-2026-06.md`](../plans/active/project-optimization-directions-2026-06.md) | 优化方向与层映射 |
 | [`theory-implementation-gap-register-2026-06.md`](../plans/decisions/theory-implementation-gap-register-2026-06.md) | G1-04 等理论—实现差距 |
+
+---
+
+## 9. 新模块归属决策树
+
+引入或移动模块前，按下列顺序定位（**对内九层**；对外可压缩见 §5）。
+
+```text
+新能力的第一入口是什么？
+├─ Owner 在微信/CLI 直接感知（消息、命令、出站 UX）
+│     → L1 接入与交互（butler/gateway/, cli/）
+├─ 跨 Turn 会话编排（Loop 工厂、prompt、Skill 路由、项目/角色上下文）
+│     → L2 编排与控制（orchestrator/, workflows/, runtime/）
+├─ 单轮认知环内（prepare → LLM → tool_batch、压缩、trace）
+│     → L3 认知推理环（core/；禁 gateway.*，经 execution_context/contracts）
+├─ 可注册、可被 Loop 调用的能力（builtin/MCP/Skill/DevEngine/委派工具）
+│     → L4 工具与能力（tools/, dev_engine/, mcp/, skills/）
+├─ 跨会话持久知识与召回（MEMORY、experience、semantic_index、RecallRouter）
+│     → L5 记忆与知识（memory/, post_session, memory_prefetch）
+├─ LLM/Embedding 协议、failover、模型解析
+│     → L6 模型与协议（transport/, model_resolve*）
+├─ 权限、审批、路径安全、Owner 信任面
+│     → L7 策略与门控（permissions/, human_gate, ApprovalStore）
+├─ 队列/outbox/重试/降级/单进程韧性
+│     → L8 可靠性与韧性（message_queue, durable_outbox, llm_retry, degradation）
+├─ 诊断、eval、B9、运营打卡、Owner 报告
+│     → L9 观测与运营（ops/, eval_integration/, report/）
+├─ 跨两层以上且需稳定接口
+│     → 横切 contracts（先 Port → registry → 实现）
+└─ CI、pytest、发版脚本
+      → 仓级工程化（非运行时层）
+```
+
+### 9.1 内部修改三问（封装检查）
+
+改某层模块**发布前**回答：
+
+1. **接口**：是否只改实现、未破坏 Port / 公开函数签名？（是 → 他层无需改）
+2. **依赖**：是否新增跨层 import？（若是 → 对照 §4 矩阵；禁止则改走 contracts）
+3. **注册**：新实现是否已在 startup / 模块 import 时注册 registry？（contracts 消费者否则拿不到实现）
+
+违反 §4 硬禁止时，ENG-7 / **ENG-15**（`butler-layer-import-gate.sh`）应在 CI 失败。
+
+### 9.2 L2 与 L3 边界速查
+
+| 职责 | 归属 |
+|------|------|
+| 「这一轮用哪个项目/角色/工具集」 | L2 |
+| 「这一轮 messages 如何压缩、调 LLM、执行 tool」 | L3 |
+| workflow 步骤是否可跑 | L2 调度 + L7 门控 |
+| tool 调用权限校验 | L4 分发 + L7 规则（`tool_orchestrator` pipeline） |

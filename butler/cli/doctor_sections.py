@@ -319,6 +319,12 @@ def print_effective_models_section() -> None:
             settings=get_butler_settings(),
         ):
             print(line)
+        from butler.gateway.media_diagnostic_ops import extend_gateway_media_diagnostic_lines
+
+        media_lines: list[str] = []
+        extend_gateway_media_diagnostic_lines(media_lines)
+        for line in media_lines:
+            print(line)
 
     if safe_best_effort(_run, label="doctor.effective_models", default=False) is False:
         print("  (不可用)")

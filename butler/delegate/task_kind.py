@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.gateway.owner_ingest_shortcuts import looks_owner_ingest_intent
+from butler.delegate.owner_ingest_shortcuts import looks_owner_ingest_intent
 
 
 def _change_paths(changes: list[Any] | None) -> list[str]:

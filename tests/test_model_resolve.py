@@ -136,7 +136,13 @@ class TestHandleModelCommand:
         text = "\n".join(lines)
         assert "--- 有效模型 ---" in text
         assert "butler:" in text
-        assert "gateway(识图)" in text or "gateway(入站媒体)" in text
+        # L6 与 L8 解耦：gateway 媒体行由 L8 模块单独追加（/诊断、doctor 组合输出）
+        from butler.gateway.media_diagnostic_ops import extend_gateway_media_diagnostic_lines
+
+        media_lines: list[str] = []
+        extend_gateway_media_diagnostic_lines(media_lines)
+        media_text = "\n".join(media_lines)
+        assert "gateway(识图)" in media_text or "gateway(入站媒体)" in media_text
 
     def test_reset_clears_runtime(self, tmp_butler_home, monkeypatch):
         monkeypatch.setenv("MINIMAX_API_KEY", "k")

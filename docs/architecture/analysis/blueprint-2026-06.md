@@ -1,9 +1,29 @@
 # Butler v4 — 工程蓝图文档
 
 > **版本**：2026-06-12（分析包）  
+> **2026-07 补丁**：**实现分层 SSOT** 已迁移至 [`../v4-layer-model.md`](../v4-layer-model.md)（九层 + contracts）；下文 §1.1 六/七层图为历史快照，**勿作选型依据**。  
 > **SSOT 原文**：[`../v4-detailed-design.md`](../v4-detailed-design.md) v2.2；[`../v4-architecture.md`](../v4-architecture.md)；[`../../guides/project-knowledge-graph-2026-06.md`](../../guides/project-knowledge-graph-2026-06.md)  
 > **规划**：[`../../plans/active/post-consolidation-roadmap-2026-05.md`](../../plans/active/post-consolidation-roadmap-2026-05.md)；[`../../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](../../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)  
 > **读者**：高级模型 — 用于架构落地完整性、模块边界、演进路线与 Backlog 优先级审阅
+
+---
+
+## 0.1 九层工程映射（2026-07，当前 SSOT）
+
+| 工程层 | 包/目录 | 核心模块 |
+|--------|---------|----------|
+| L1 接入 | `gateway/`, `cli/` | `message_handler`, `outbound_bridge` |
+| L2 编排 | `orchestrator/`, `workflows/`, `runtime/` | `loop_factory`, `delegate_job` |
+| L3 认知环 | `core/` | `agent_loop`, `tool_batch`, `context_pipeline` |
+| L4 工具 | `tools/`, `dev_engine/`, `mcp/`, `skills/` | `registry`, `coding_knowledge` |
+| L5 记忆 | `memory/`, `post_session`, `session/memory_prefetch` | `RecallRouter`, `butler_memory` |
+| L6 模型 | `transport/`, `model_resolve*` | Provider 客户端 |
+| L7 策略 | `permissions/`, `human_gate` | `ApprovalStore`, gate pipeline |
+| L8 韧性 | `message_queue`, `durable_outbox`, `llm_retry` | 队列/outbox/降级 |
+| L9 观测 | `ops/`, `eval_integration/` | `/诊断`, B9, G1-04 |
+| 契约 | `contracts/` | Port + registry |
+
+详表：[`layer-theory-engineering-map.md`](../layer-theory-engineering-map.md) · 解耦：[`decoupling-assessment-2026-07.md`](decoupling-assessment-2026-07.md)
 
 ---
 
@@ -17,7 +37,9 @@
 
 ## 1. 理论到工程的层映射
 
-### 1.1 六层架构总图
+### 1.1 六层架构总图（历史快照 — 2026-06）
+
+> **Superseded**：分模块选型请用 [`../v4-layer-model.md`](../v4-layer-model.md) 与 [`../layer-theory-engineering-map.md`](../layer-theory-engineering-map.md)。
 
 ```text
 ┌─────────────────────────────────────────────────────────┐

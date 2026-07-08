@@ -12,6 +12,8 @@
 
 ### 1.1 五元组到六层映射
 
+> **2026-07 SSOT**：实现分层已演进为**九层 + contracts**，见 [`v4-layer-model.md`](v4-layer-model.md) 与 [`layer-theory-engineering-map.md`](layer-theory-engineering-map.md)。下文六层图为 v2.2 历史详设，模块路径仍有效。
+
 理论基线 v3.0 将系统定义为五元组 $(\text{Gateway}, \text{Loop}, \text{Pillars}, \text{Memory}, \text{Authority})$。工程上映射到六层架构：
 
 ```

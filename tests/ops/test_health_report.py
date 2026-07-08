@@ -4,7 +4,20 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from butler.contracts.health_diagnostic_registry import get_health_diagnostic
 from butler.ops.health_report import HealthReportInput, build_health_report
+
+
+@pytest.fixture(autouse=True)
+def _ensure_live_health_diagnostic_port():
+    """Re-wire after contract registry tests that call ``set_health_diagnostic(None)``."""
+    import butler.ops.health_report_turn as hrt
+
+    if get_health_diagnostic() is None:
+        hrt._wire_health_diagnostic_port()
+    yield
 
 
 def test_build_health_report_static_branch():
@@ -14,19 +27,19 @@ def test_build_health_report_static_branch():
 
     with (
         patch(
-            "butler.memory.diagnostics.format_memory_diagnostic_lines",
+            "butler.ops.health_report.format_memory_diagnostic_lines",
             return_value=["记忆分层: test"],
         ),
         patch(
-            "butler.runtime.diagnostics.format_runtime_diagnostic_lines",
+            "butler.ops.health_report.format_runtime_diagnostic_lines",
             return_value=["runtime: ok"],
         ),
         patch(
-            "butler.model_resolve.format_model_diagnostic_lines",
+            "butler.ops.health_report.format_model_diagnostic_lines",
             return_value=["--- 有效模型 ---"],
         ),
         patch(
-            "butler.ops.snapshot.format_ops_diagnostic_lines",
+            "butler.ops.health_report.format_ops_diagnostic_lines",
             return_value=["ops: ok"],
         ),
     ):
@@ -55,12 +68,12 @@ def test_build_health_report_turn_and_tools():
     orch.project_manager.get_current.return_value = None
 
     with (
-        patch("butler.memory.diagnostics.format_memory_diagnostic_lines", return_value=[]),
-        patch("butler.runtime.diagnostics.format_runtime_diagnostic_lines", return_value=[]),
-        patch("butler.model_resolve.format_model_diagnostic_lines", return_value=[]),
-        patch("butler.ops.snapshot.format_ops_diagnostic_lines", return_value=[]),
+        patch("butler.ops.health_report.format_memory_diagnostic_lines", return_value=[]),
+        patch("butler.ops.health_report.format_runtime_diagnostic_lines", return_value=[]),
+        patch("butler.ops.health_report.format_model_diagnostic_lines", return_value=[]),
+        patch("butler.ops.health_report.format_ops_diagnostic_lines", return_value=[]),
         patch(
-            "butler.transport.auxiliary_client.resolve_auxiliary_config",
+            "butler.ops.health_report_turn.resolve_auxiliary_config",
             side_effect=RuntimeError("no aux"),
         ),
     ):

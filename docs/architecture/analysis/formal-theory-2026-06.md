@@ -1,7 +1,8 @@
 # Butler v4 — 形式化理论推导文档
 
 > **版本**：2026-06-12（分析包）  
-> **SSOT 原文**：[`../v4-theoretical-baseline.md`](../v4-theoretical-baseline.md) v3.1.1 第三–七章 + 附录；[`v4-memory-theory.md`](../v4-memory-theory.md)；[`v4-dev-engine-theory.md`](../v4-dev-engine-theory.md)  
+> **2026-07 复验**：竖切后前提矩阵见 [`formal-theory-2026-07.md`](formal-theory-2026-07.md) · 层映射见 [`../layer-theory-engineering-map.md`](../layer-theory-engineering-map.md)  
+> **SSOT 原文**：[`../v4-theoretical-baseline.md`](../v4-theoretical-baseline.md) v3.1.2 第三–七章 + 附录；[`v4-memory-theory.md`](../v4-memory-theory.md)；[`v4-dev-engine-theory.md`](../v4-dev-engine-theory.md)  
 > **差距登记**：[`../../plans/decisions/theory-implementation-gap-register-2026-06.md`](../../plans/decisions/theory-implementation-gap-register-2026-06.md)  
 > **读者**：高级模型 — 用于证明链完整性、前提可验证性、诚实边界与 G1–G4 归类审阅
 
@@ -409,6 +410,8 @@ PIM 工具 schema 为固定 token 成本，不随对话长度增长。
 ---
 
 ## 7. 前提验证矩阵（第六章摘要）
+
+> **2026-07**：增工程层列与竖切后复验见 [`formal-theory-2026-07.md`](formal-theory-2026-07.md) §1–§2。
 
 | 前提族 | 内容 | 状态 | 测试入口 |
 |--------|------|------|----------|

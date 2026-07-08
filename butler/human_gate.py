@@ -17,9 +17,9 @@ from butler.config import get_butler_home
 from butler.io.safe_load import safe_load_json
 from butler.human_gate_ops import auto_resume_workflow_safe
 from butler.io.atomic_write import atomic_write_text
-from butler.gateway.gate_reply_templates import injection_gate_pending_hint, workflow_gate_pending_hint
-from butler.gateway.gate_reply_templates import injection_gate_confirmed_hint
-from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
+from butler.gate_reply_templates import injection_gate_pending_hint, workflow_gate_pending_hint
+from butler.gate_reply_templates import injection_gate_confirmed_hint
+from butler.gate_reply_templates import workflow_gate_confirmed_hint
 from butler.human_gate_ops import workflow_auto_resume_reply_safe
 
 logger = logging.getLogger(__name__)

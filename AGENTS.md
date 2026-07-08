@@ -6,7 +6,7 @@
 
 | # | 文档 | 何时读 |
 |---|------|--------|
-| 1 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) + [`v4-layer-model.md`](docs/architecture/v4-layer-model.md) | 改 Loop / Gateway / 模块 / 分层选型 |
+| 1 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) + [`v4-layer-model.md`](docs/architecture/v4-layer-model.md) + [`layer-theory-engineering-map.md`](docs/architecture/layer-theory-engineering-map.md) | 改 Loop / Gateway / 模块 / 分层选型 / 理论锚点 |
 | 2 | [`docs/guides/deploy-profiles-2026-06.md`](docs/guides/deploy-profiles-2026-06.md) + [`docs/config/reference.md`](docs/config/reference.md) + [`.env.example`](.env.example) | **上手配置**用三剖面；查 `BUTLER_*` 用 reference（勿猜默认值） |
 | 3 | [`docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | **提需求 / 否决 / Backlog** |
 | 4 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层、语料、规划索引、维护规则 |
@@ -48,6 +48,8 @@ bash scripts/butler-mypy-strict-gate.sh  # mypy strict 826 主模块（--follow-
 bash scripts/p3j-env-hygiene-gate.sh     # reference ↔ .env.example ↔ butler/ readers
 bash scripts/p3j-env-audit.sh            # code/reference/example 差集（P3-J）
 bash scripts/p3i-lazy-import-report.sh   # 函数内 from butler.* 预算 1901/1910（P3-I）
+# 九层依赖矩阵（改跨层 import / contracts Port / 模块分层迁移时）
+bash scripts/butler-layer-import-gate.sh   # ENG-15：1218 文件、0 违规基线
 # CC 线束（改 core/context/gateway 队列与压缩时）
 ./scripts/butler-cc-harness-gate.sh
 # 或子集：
@@ -95,6 +97,6 @@ PYTHONPATH=. pytest tests/test_env_parse_r8.py -q
 
 ## 文档同步义务
 
-改 CC 线束、外部对标模块、四/五报告能力或新增 `BUTLER_*` 时，同步 `v4-architecture`、`config/reference`、`.env.example`、对应 `*-capabilities` 与 [`CONTRIBUTING.md`](CONTRIBUTING.md)。细则见 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §6。
+改 CC 线束、外部对标模块、四/五报告能力、**ENG-15 层矩阵/allowlist** 或新增 `BUTLER_*` 时，同步 `v4-architecture`、`v4-layer-model`、`config/reference`、`.env.example`、对应 `*-capabilities` 与 [`CONTRIBUTING.md`](CONTRIBUTING.md)。细则见 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §6。
 
 索引：[`docs/README.md`](docs/README.md)

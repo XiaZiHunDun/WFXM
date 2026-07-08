@@ -175,6 +175,15 @@ def _shared_diagnostic_lines(
             settings=inp.orchestrator._settings,
         )
     )
+
+    def _gateway_media_lines() -> list[str]:
+        from butler.gateway.media_diagnostic_ops import extend_gateway_media_diagnostic_lines
+
+        media_lines: list[str] = []
+        extend_gateway_media_diagnostic_lines(media_lines)
+        return media_lines
+
+    _append_diag_lines(lines, "gateway_media", _gateway_media_lines)
     lines.extend(format_ops_diagnostic_lines())
 
     def _rag_lines() -> list[str]:

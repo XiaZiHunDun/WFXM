@@ -67,6 +67,8 @@
 | `tool_dispatch_ports.py` | `ToolDispatchPort` | L3 编排 | `core/tool_dispatch.py` |
 | `tool_dispatch_registry.py` | `get/set_tool_dispatch` | 横切 | tool_dispatch 启动注册 |
 | `health_diagnostic_ports.py` | `HealthDiagnosticPort` | L9 运营 | `ops/health_report_turn.py` |
+| `health_report_input.py` | `HealthReportInput` | L9 诊断视图 | 纯 dataclass；ops 组装 helper 在 `ops/health_report_input.py` |
+| `inbound_idempotency_ports.py` | `InboundIdempotencyPort` | L5↔L1 会话边界 | `gateway/inbound_idempotency`（经 `gateway_contracts` 注册） |
 | `health_diagnostic_registry.py` | `get/set_health_diagnostic` | 横切 | health_report_turn 注册 |
 
 ## 依赖规则

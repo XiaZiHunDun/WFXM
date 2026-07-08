@@ -2,19 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, cast
-
+from butler.contracts.health_report_input import HealthReportInput
 from butler.core.best_effort import safe_best_effort
-
-
-@dataclass
-class HealthReportInput:
-    session_key: str
-    health: dict[str, Any] | None
-    tool_summary: dict[str, Any]
-    mem_stats: dict[str, Any]
-    orchestrator: Any
 
 
 def format_build_uptime(start_ts: str) -> str:

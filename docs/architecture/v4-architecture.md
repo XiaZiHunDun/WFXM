@@ -1,6 +1,6 @@
 # Butler v4 架构文档
 
-> **更新**：2026-07-07（九层 + L5 三类状态、L2 产品域、选型附录 [`v4-layer-model.md`](v4-layer-model.md)；2026-06-09 Loop ~561 行）  
+> **更新**：2026-07-08（ENG-15 全层依赖矩阵 + 理论/解耦文档；2026-07-07 九层 + L5 三类状态）  
 > **对照**：[`v4-layer-model.md`](v4-layer-model.md) · [`plans/cc-butler-gap-analysis-2026-05.md`](../plans/active/cc-butler-gap-analysis-2026-05.md) · 规划索引 [`plans/README.md`](../plans/README.md) · 环境变量 [`config/reference.md`](../config/reference.md)
 
 ## 九层参考模型（逻辑分层）
@@ -20,6 +20,17 @@
 | L8 | 可靠性与韧性 | `message_queue`、`durable_outbox`、`degradation_registry*` |
 | L9 | 观测与运营 | `ops/`、`eval_integration/`、`report/` |
 | 横切 | 契约 | `contracts/`（见 [`contracts/README.md`](../../butler/contracts/README.md)） |
+
+**理论 ↔ 工程映射 SSOT**：[`layer-theory-engineering-map.md`](layer-theory-engineering-map.md) · **形式化复验**：[`analysis/formal-theory-2026-07.md`](analysis/formal-theory-2026-07.md) · **解耦评估**：[`analysis/decoupling-assessment-2026-07.md`](analysis/decoupling-assessment-2026-07.md)
+
+### 依赖守门（ENG-7 / ENG-15）
+
+| 门禁 | 范围 | 命令 |
+|------|------|------|
+| **ENG-7** | `core/`、`tools/` 不得直 import `gateway.*` | `tests/test_eng7_approval_layering.py`（含于 eng-domain gate） |
+| **ENG-15** | 全层 import 矩阵（L3–L7 ↔ gateway/ops；documented allowlist） | `bash scripts/butler-layer-import-gate.sh` |
+
+ENG-15 规则 SSOT：[`tests/layer_import_rules.py`](../../tests/layer_import_rules.py)。改跨层 import 或新增 Port 后须跑 layer gate；矩阵与 allowlist 说明见 [`v4-layer-model.md`](v4-layer-model.md) §4、§9 与解耦评估文档。
 
 ## 架构概述
 

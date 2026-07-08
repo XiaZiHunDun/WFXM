@@ -1,9 +1,28 @@
 # Butler v4 — 建模文档
 
 > **版本**：2026-06-12（分析包）  
-> **SSOT 原文**：[`../v4-theoretical-baseline.md`](../v4-theoretical-baseline.md) v3.1.1 第一章–第二章；子理论 [`v4-memory-theory.md`](../v4-memory-theory.md)、[`v4-dev-engine-theory.md`](../v4-dev-engine-theory.md) 第一章  
+> **2026-07 补丁**：工程九层与理论七层对照见 [`../layer-theory-engineering-map.md`](../layer-theory-engineering-map.md)；本文 §2 七层为**产品域**，实现依赖以 [`../v4-layer-model.md`](../v4-layer-model.md) 为准。  
+> **SSOT 原文**：[`../v4-theoretical-baseline.md`](../v4-theoretical-baseline.md) v3.1.2 第一章–第二章；子理论 [`v4-memory-theory.md`](../v4-memory-theory.md)、[`v4-dev-engine-theory.md`](../v4-dev-engine-theory.md) 第一章  
 > **读者**：高级模型 / 架构审阅者 — 用于概念一致性、边界合理性、扩展性分析  
 > **实现对照**：[`../v4-architecture.md`](../v4-architecture.md)
+
+---
+
+## 0.1 九层工程对照（2026-07）
+
+| 本文七层（产品） | 工程九层 | 说明 |
+|------------------|----------|------|
+| L1 WeChat | L1 + L8 | 接入与队列/outbox 拆分 |
+| L2 管家智能 | L2 + L3 | 编排 vs 认知环 |
+| L3 PIM | L4 tools | tenant 工具集 |
+| L4 Dev | L4 dev_engine | |
+| L5 PM | L2 + L4 | workflow + project_todos |
+| L6 记忆+安全 | L5 + L7 | 记忆与策略解耦 |
+| L7 观测 | L9 | |
+| — | L6 | transport / embedding |
+| — | contracts | Port 横切 |
+
+完整映射与定理索引：[`layer-theory-engineering-map.md`](../layer-theory-engineering-map.md)
 
 ---
 

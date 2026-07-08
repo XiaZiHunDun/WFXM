@@ -66,5 +66,20 @@ def register_gateway_contracts() -> None:
     if get_bridge_access() is None:
         set_bridge_access(_GatewayBridgeAccess())
 
+    from butler.contracts.inbound_idempotency_registry import (
+        get_inbound_idempotency_port,
+        set_inbound_idempotency_port,
+    )
+
+    if get_inbound_idempotency_port() is None:
+
+        class _GatewayInboundIdempotencyPort:
+            def reset_session(self, session_id: str) -> None:
+                from butler.gateway.inbound_idempotency import reset_session
+
+                reset_session(session_id)
+
+        set_inbound_idempotency_port(_GatewayInboundIdempotencyPort())
+
 
 __all__ = ["register_gateway_contracts"]

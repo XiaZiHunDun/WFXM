@@ -1,8 +1,9 @@
 # 理论—实现差距登记册（2026-06）
 
-> **状态**：G1–G4 批次已收口（完善 / 决策 / 边界接受）| **2026-06-09**  
-> **理论 SSOT**：[`v4-theoretical-baseline.md`](../../architecture/v4-theoretical-baseline.md) **v3.1.1**  
-> **实现 SSOT**：代码 + [`v4-architecture.md`](../../architecture/v4-architecture.md)  
+> **状态**：G1–G4 批次已收口（完善 / 决策 / 边界接受）| **2026-07-08** 增 G3-10～12（九层/竖切文档）  
+> **理论 SSOT**：[`v4-theoretical-baseline.md`](../../architecture/v4-theoretical-baseline.md) **v3.1.2**  
+> **实现 SSOT**：代码 + [`v4-architecture.md`](../../architecture/v4-architecture.md) + [`v4-layer-model.md`](../../architecture/v4-layer-model.md)  
+> **层映射**：[`layer-theory-engineering-map.md`](../../architecture/layer-theory-engineering-map.md)  
 > **产品边界**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)（与本登记册正交：本文只管「理论声称 vs 代码/运营」）
 
 ---
@@ -91,9 +92,9 @@
 
 ---
 
-## 3. G3 — 实现更优或超前（文档同步，已全部完成）
+## 3. G3 — 实现更优或超前（文档同步）
 
-> 更新文档**不破坏**推导；G3-01～09 + G3-批均已标 ✅。
+> 更新文档**不破坏**推导；G3-01～12 + G3-批均已标 ✅。
 
 | ID | 旧文档表述 | 代码现状 | 文档状态 |
 |----|------------|----------|----------|
@@ -106,6 +107,9 @@
 | G3-07 | `v4-architecture` eval 待接入 | gateway 已接 | ✅ v4-architecture 一行 |
 | G3-08 | 智能遗忘未做 | `type_adjusted_half_life` | ✅ `v4-memory-theory` v1.2 §4.3 |
 | G3-09 | 子理论 CD0/CD6/CD8 仅测试级 | delegate 生产 `process_task`（CD7 T2）；CD0/CD6/CD8 仍 T1 | ✅ `v4-dev-engine-theory` §8.5 成熟度表 |
+| G3-10 | 无九层工程 SSOT | `v4-layer-model.md` L1–L9 + contracts | ✅ 2026-07-07 + map 2026-07-08 |
+| G3-11 | P2–P5 竖切未入理论 | `CYCLE_KEEP` 清零；15+ Port；A12–A13 | ✅ v3.1.2 §2.8 + contracts README |
+| G3-12 | 记忆/审批竖切未文档化 | `RecallRouter`、`ApprovalStore`、gate pipeline | ✅ map + `formal-theory-2026-07` + `decoupling-assessment-2026-07` |
 
 ---
 
@@ -134,6 +138,7 @@
 
 | 日期 | 说明 |
 |------|------|
+| 2026-07-08 | **九层理论复验**：v3.1.2（A12–A13）；`layer-theory-engineering-map`；`formal-theory-2026-07`；ENG-15；G3-10～12 ✅ |
 | 2026-06-09 | 初版：G1–G4 全表；G4-01/02/03 与 v3.1.1 文档补丁标为已收口 |
 | 2026-06-09 | G1-03：`builtin:experience_mining_weekly` + 灵文 `experience-mining-weekly`；G1-01：PIM opt-in checklist |
 | 2026-06-09 | G2-02：推送限流暂缓；`BUTLER_RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS`；pilot-log 记录队列 3 条 |

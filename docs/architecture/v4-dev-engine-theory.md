@@ -1,7 +1,8 @@
 # Butler v4 — 开发引擎子理论（L4 层完整推导）
 
-> 版本 1.5 | 2026-06-09
-> 父文档：`v4-theoretical-baseline.md` v3.1（10 定理 + OT1-OT2 / 10 公理含 OA1-OA3 / 608+ 验证测试）
+> 版本 1.5 | 2026-06-09  
+> **工程层**：**L4 工具与能力**（+ L3 delegate 路径；九层：[`v4-layer-model.md`](v4-layer-model.md)；映射：[`layer-theory-engineering-map.md`](layer-theory-engineering-map.md)）  
+> 父文档：`v4-theoretical-baseline.md` v3.1.2（10 定理 + OT1-OT2 / 12 公理含 OA1-OA3 / A12-A13 / 608+ 验证测试）
 > 方法论：需求公理化 → 形式化建模 → 定理证明 → 能力差距分析 → 详细设计 → 工程验证
 > 定位：将 L4 层从"黑盒委派"升级为"内置开发引擎"，为管家系统提供可控、可观测、可演化的开发能力
 > **v1.3 变更**：新增第九章"编码知识层"——定理库 + 经验库 + 七元素分解 + 双重验证门；公理 CA1-CA4、定理 CT1-CT5、前提假设 H1-H12；更新能力边界声明
