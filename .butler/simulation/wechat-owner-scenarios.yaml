@@ -424,10 +424,90 @@ tracks:
         user_text: /计划
         expect_reply_any: [规划, 只读]
         tier: fast
+      - name: H3 /状态 规划模式
+        user_text: /状态
+        expect_reply_any: [规划模式]
+        tier: fast
+      - name: H3b /执行 退出规划
+        user_text: /执行
+        expect_reply_any: [退出, 规划, 执行]
+        tier: fast
+      - name: H1 /诊断 运维面
+        user_text: /诊断
+        expect_reply_any: [简要诊断, 网关, 项目, 待办]
+        reject_reply_any: [Butler 诊断]
+        tier: fast
       - name: OWN-04 在吗
         user_text: 在吗
         expect_reply_any: [在, 好, 莎丽]
         tier: fast
+      - name: OWN-03a 闲聊
+        user_text: 今天好累
+        expect_reply_any: [好, 辛苦, 收到, 主公]
+        tier: standard
+      - name: OWN-03b 只读 README
+        user_text: 帮我看下 README 前 10 行
+        expect_reply_any: [README, 行, 灵文]
+        tier: standard
+      - name: OWN-06 novel-factory 进度
+        user_text: 现在 novel-factory 进度到哪了？
+        expect_reply_any: [phase, workflow, draft, outline, novel-factory]
+        tier: standard
+
+  - id: owner-daily-cross
+    title: Owner 日常跨项目与含糊删除
+    session_mode: fresh
+    quick: false
+    setup:
+      - /切换 灵文1号
+    cleanup_globs:
+      - docs/wechat-smoke.md
+    cases:
+      - name: OWN-01a 含糊删 smoke
+        user_text: 帮我把那个 smoke 文件删了
+        expect_reply_any: [哪个, smoke, wechat-smoke, 删除, 代理]
+        tier: standard
+      - name: OWN-01b 澄清删除
+        user_text: docs/wechat-smoke.md 就这个，昨天微信验收那个
+        expect_reply_any: [删除, wechat-smoke, 代理, 完成, 文件, 未能]
+        tier: slow
+        max_seconds: 300
+      - name: OWN-02 跨项目误问
+        user_text: /切换 演示试点
+        expect_reply_any: [演示试点, 切换]
+        tier: fast
+      - name: OWN-02b 灵文进度
+        user_text: 灵文1号现在写到哪一章了？
+        expect_reply_any: [切换, 灵文1号, 演示试点, 当前项目, 章节, phase, workflow]
+        soft: true
+        tier: standard
+
+  - id: owner-daily-delegate
+    title: Owner 日常委派插队（H-OT1 / H4 预演）
+    session_mode: shared
+    quick: false
+    cleanup_globs:
+      - docs/owner-daily-ot1-smoke.md
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: H-OT1 委派写文件
+        user_text: "请交给内容代理：在 docs 目录写 owner-daily-ot1-smoke.md，标题「日常验收」，正文一句说明，不要改其他文件"
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [委派, 内容, 代理]
+        verify_files_exist:
+          - docs/owner-daily-ot1-smoke.md
+        tier: slow
+        max_seconds: 480
+      - name: H-OT1b 中途插队问简报
+        user_text: /简报
+        expect_reply_any: [简报, 队列, 待办, 门控]
+        tier: fast
+      - name: H-OT1c 口语插队（soft）
+        user_text: 对了，顺便看下简报里队列有没有积压
+        expect_reply_any: [简报, 队列, 待办, 收到, 门控, 工作流, 详细]
+        soft: true
+        tier: standard
 
   - id: memory-ext
     title: 记忆扩展 M5–M7（memory-guide 对齐）
@@ -452,6 +532,18 @@ tracks:
       - name: MEM-M7 项目描述
         user_text: 灵文1号项目是做什么的？
         expect_reply_any: [灵文1号, 小说, 试点]
+        tier: standard
+      - name: MEM-M7b 记忆写入
+        user_text: 请记住：试点验收日 2026-05-22
+        expect_reply_any: [记住, 待审, 记忆, 2026-05-22]
+        tier: standard
+      - name: MEM-M7c /记忆待审
+        user_text: /记忆待审
+        expect_reply_any: [待审, Pending, 记忆, 无]
+        tier: fast
+      - name: MEM-M7d 召回验收日
+        user_text: 验收日是哪天？
+        expect_reply_any: [2026-05-22, 5-22, 五月]
         tier: standard
 
   - id: rag_degrade
