@@ -73,12 +73,12 @@ catalog_tiers:
 targets:
   l0_smoke: 440
   l1_strict_single: 215
-  l1_multiturn_chains: 22
-  l1_multiturn_turns: 70
+  l1_multiturn_chains: 35
+  l1_multiturn_turns: 95
   strict_generic_ack_max: 2
   handbook: 70
   reference_strict: 118
-  production: 35
+  production: 45
   coverage_min_strict_per_dim: 2
   l1_multiturn_long_chains: 6
   variants_sample_max: 40
@@ -89,17 +89,17 @@ coverage_matrix:
   B_readonly: { smoke: true, strict: true, multiturn: true }
   C_delegate_file: { smoke: true, strict: true, multiturn: true }
   D_detail_report: { smoke: true, strict: true, multiturn: true }
-  E_memory_ops: { smoke: true, strict: true, multiturn: false }
-  F_workflow_schedule: { smoke: true, strict: true, multiturn: false }
+  E_memory_ops: { smoke: true, strict: true, multiturn: true }
+  F_workflow_schedule: { smoke: true, strict: true, multiturn: true }
   G_safety_boundary: { smoke: true, strict: true, multiturn: true }
   H_ability_identity: { smoke: true, strict: true, multiturn: false }
-  I_novel_factory: { smoke: true, strict: true, multiturn: false }
+  I_novel_factory: { smoke: true, strict: true, multiturn: true }
   J_multiturn: { smoke: true, strict: false, multiturn: true }
-  K_emotion_urgency: { smoke: true, strict: true, multiturn: false }
+  K_emotion_urgency: { smoke: true, strict: true, multiturn: true }
   L_cross_project: { smoke: true, strict: true, multiturn: true }
   N_schedule_ops: { smoke: true, strict: true, multiturn: false }
   O_memory_conflict: { smoke: true, strict: true, multiturn: false }
-  P_wechat_specific: { smoke: true, strict: true, multiturn: false }
+  P_wechat_specific: { smoke: true, strict: true, multiturn: true }
   Q_role_misunderstanding: { smoke: true, strict: true, multiturn: false }
   R_batch_file_ops: { smoke: true, strict: true, multiturn: false }
   S_reporting: { smoke: true, strict: true, multiturn: false }

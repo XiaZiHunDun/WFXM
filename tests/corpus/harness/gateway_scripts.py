@@ -312,4 +312,60 @@ def script_profiles() -> dict[str, list[Any]]:
             _tool_response("delete_file", {"path": "docs/ref-task.md"}, tool_id="ref-d2"),
             _text_response("开发代理已完成删除。"),
         ],
+        "vague_delete_clarify": [
+            _text_response("请问要删除哪个文件？是 docs/wechat-smoke.md 还是其他 smoke 文件？"),
+        ],
+        "vague_delete_smoke": [
+            _tool_response(
+                "delegate_task",
+                {"role": "dev", "task": "删除 docs/wechat-smoke.md"},
+                tool_id="vd1",
+            ),
+            _tool_response("delete_file", {"path": "docs/wechat-smoke.md"}, tool_id="vd2"),
+            _text_response("已删除昨天微信验收的 smoke 文件。"),
+            _text_response("开发代理已完成删除。"),
+        ],
+        "cross_project_need_switch": [
+            _text_response(
+                "当前在演示试点，灵文1号进度需在灵文1号项目下查询，请先 /切换 灵文1号。"
+            ),
+        ],
+        "novel_chapter_progress": [
+            _tool_response(
+                "read_file",
+                {"path": "novel-factory/workflow_state.json"},
+                tool_id="nf1",
+            ),
+            _text_response("novel-factory 当前 phase 为 draft，step 为 outline，尚未到具体章节发布。"),
+        ],
+        "workflow_status_ack": [
+            _text_response("已运行 novel-factory-status，摘要见下；发 /详细 可看各步结果。"),
+        ],
+        "owner_feedback_recorded": [
+            _text_response("已记录您的反馈，后续委派回复会尽量更简短。"),
+        ],
+        "memory_fact_recall": [
+            _text_response("灵文试点统一验收日是 2026-05-22（项目备忘）。"),
+        ],
+        "memory_pending_hint": [
+            _text_response("该条决策已进入待审队列，请发 /记忆待审 查看。"),
+        ],
+        "chitchat_empathy_then_task": [
+            _text_response("辛苦了，主公先歇会儿。我这就读 README。"),
+            _tool_response("read_file", {"path": README_REL}, tool_id="ct1"),
+            _text_response("README 前几行：灵文1号小说工厂试点…"),
+        ],
+        "double_burst_ack": [
+            _text_response("在的，当前项目是灵文1号，网关正常。"),
+        ],
+        "delegate_fail_readonly_alt": [
+            _text_response("删除失败，我改用只读方式检查该路径是否存在。"),
+            _tool_response("read_file", {"path": "docs/missing-utterance.txt"}, tool_id="fa1"),
+            _text_response("确认文件不存在，请核对文件名后重试。"),
+        ],
+        "tech_stack_facts": [
+            _text_response(
+                "灵文1号顶层含 novel-factory/、docs/、project.yaml；技术栈为 Python + Butler 微信网关。"
+            ),
+        ],
     }

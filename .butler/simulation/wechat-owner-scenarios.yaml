@@ -397,6 +397,63 @@ tracks:
         expect_reply_any: [owner-sim-smoke, 微信验收, 变更, 报告]
         tier: fast
 
+  - id: owner-daily
+    title: Owner 日常扩展（2026-07 口语化）
+    session_mode: shared
+    quick: true
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: H-NEW1 /新会话
+        user_text: /新会话
+        expect_reply_any: [清空, 新对话, 会话]
+        tier: fast
+      - name: H-OT2 /反馈 OT2
+        user_text: /反馈 委派回复太啰嗦，希望默认更短
+        expect_reply_any: [反馈, 记录, 收到]
+        tier: fast
+      - name: OWN-05 /工作流 list
+        user_text: /工作流 list
+        expect_reply_any: [novel-factory, 工作流]
+        tier: fast
+      - name: H12 /简报 四块
+        user_text: /简报
+        expect_reply_any: [待办, 队列, 门控, 简报]
+        tier: fast
+      - name: H2 /计划
+        user_text: /计划
+        expect_reply_any: [规划, 只读]
+        tier: fast
+      - name: OWN-04 在吗
+        user_text: 在吗
+        expect_reply_any: [在, 好, 莎丽]
+        tier: fast
+
+  - id: memory-ext
+    title: 记忆扩展 M5–M7（memory-guide 对齐）
+    session_mode: shared
+    quick: false
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: MEM-M5 技术栈 facts
+        user_text: 灵文试点用什么技术栈？顶层目录有哪些？
+        expect_reply_any: [novel-factory, Python, docs, project.yaml]
+        tier: standard
+      - name: MEM-M6 /新对话 不复述
+        user_text: /新对话
+        expect_reply_any: [清空, 新对话]
+        tier: fast
+      - name: MEM-M6b 不应复述代号
+        user_text: 我们刚才聊的测试代号是什么？
+        reject_reply_any: [紫罗兰]
+        soft: true
+        tier: standard
+      - name: MEM-M7 项目描述
+        user_text: 灵文1号项目是做什么的？
+        expect_reply_any: [灵文1号, 小说, 试点]
+        tier: standard
+
   - id: rag_degrade
     title: RAG 降级可观测（AP-3）
     session_mode: shared

@@ -140,6 +140,25 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 | H12 | `/简报` | 固定四块顺序：**待办 → 队列 → 门控 → 昨夜 job**；底部「更多：/inbox」 | ☐ | PROD-P1-02 |
 | H13 | 新会话首条（`BUTLER_ONBOARDING_WELCOME=1`） | 欢迎含 **三步上手**（切换 / 只读 / 委派） | ☐ | 可 `/新对话` 后首条测 |
 
+### Owner 日常扩展（2026-07，口语化真机）
+
+> 对照 [`wechat-real-device-matrix-2026-07.md`](./wechat-real-device-matrix-2026-07.md)；handler 预演：`bash scripts/butler-wechat-owner-sim.sh --track owner-daily,memory-ext`。
+
+| ID | 发送内容 | 预期（摘要） | 通过 | 备注 |
+|----|----------|--------------|------|------|
+| H-NEW1 | `/新会话` | 与 `/新对话` 相同：已清空对话历史 | ☐ | 别名验收 |
+| H-OT1 | 触发委派长任务后（步骤 4）中途发：「对了，顺便看下简报里队列有没有积压」 | 不丢主任务；队列/简报相关回复合理 | ☐ | 测入队与并行 |
+| H-OT2 | `/反馈` 委派回复太啰嗦，希望默认更短 | 确认已记录；`eval_feedback` 有 owner 类条目 | ☐ | OT2 硬反馈 |
+| MEM-M5 | 「灵文试点用什么技术栈？顶层目录有哪些？」 | 含 facts / novel-factory / software；勿编造 | ☐ | 对齐 memory-guide M5 |
+| MEM-M6 | `/新对话` → 「我们刚才聊过什么？」 | **不**复述上轮细节；可提示已清空 | ☐ | 对齐 memory-guide M6 |
+| MEM-M7 | 「请记住：试点验收日 2026-05-22」→ `/记忆待审` → `/批准记忆 全部` → 「验收日是哪天？」 | Pending 闭环；paraphrase 可答 **2026-05-22** | ☐ | 对齐 memory-guide M7 |
+| OWN-01 | 「帮我把那个 smoke 文件删了」→（若追问）「就昨天微信验收那个」 | 澄清后委派删除或说明路径 | ☐ | 含糊指代 |
+| OWN-02 | `/切换 演示试点` → 「灵文1号现在写到哪一章了？」 | 提示切换项目或拒答跨项目 | ☐ | 跨项目语境 |
+| OWN-03 | 「今天好累」→ 「帮我看下 README 前 10 行」 | 先简短回应再执行只读 | ☐ | 闲聊+任务混合 |
+| OWN-04 | 连发两条短句（间隔 <5s）：「在吗」「看下项目状态」 | 两条均有回复或合并合理 | ☐ | 微信连发习惯 |
+| OWN-05 | `/工作流 list` → 「跑一下 status 那个」→ `/状态` | status 工作流摘要；状态含当前项目 | ☐ | 工作流口语链 |
+| OWN-06 | 「现在 novel-factory 进度到哪了？」 | phase/step 与 `workflow_state.json` 一致 | ☐ | 小说工厂只读 |
+
 ---
 
 ### 阶段 1 · 只读读工厂（冒烟通过后）

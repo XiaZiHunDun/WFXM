@@ -1,6 +1,6 @@
 meta:
-  version: 2026-05-24-multiturn-r1
-  chain_count: 22
+  version: 2026-07-08-multiturn-r2
+  chain_count: 37
   j_series_source_ids:
   - REAL-20260523-J01
   - REAL-20260523-J02
@@ -634,3 +634,320 @@ multiturn_catalog:
       - 好的
       - 明白
       - 收到
+- id: MT-23
+  description: 记忆待审：决策→待审→拒绝→批准→召回（E 维多轮）
+  fixture: lingwen
+  turns:
+  - user: 我们决定采用 Redis 做试点缓存方案
+    kind: llm
+    script: memory_pending_hint
+    expect:
+      response_contains_any:
+      - 待审
+      - 记忆
+      - Redis
+  - user: /记忆待审
+    kind: command
+    expect:
+      response_contains_any:
+      - 待审
+      - Pending
+      - 记忆
+  - user: /拒绝记忆 1
+    kind: command
+    expect:
+      response_contains_any:
+      - 拒绝
+      - 已
+  - user: 请记住：试点验收日 2026-05-22
+    kind: llm
+    script: memory_pending_hint
+    expect:
+      response_contains_any:
+      - 待审
+      - 记住
+      - 2026-05-22
+  - user: /批准记忆 全部
+    kind: command
+    expect:
+      response_contains_any:
+      - 批准
+      - 已
+  - user: 验收日是哪天？
+    kind: llm
+    script: memory_fact_recall
+    expect:
+      response_contains:
+      - '2026-05-22'
+- id: MT-24
+  description: 工作流口语链：list→跑 status→/详细（F 维多轮）
+  fixture: lingwen
+  turns:
+  - user: /工作流 list
+    kind: command
+    expect:
+      response_contains_any:
+      - novel-factory
+      - 工作流
+  - user: 跑一下 status 那个
+    kind: llm
+    script: workflow_status_ack
+    expect:
+      response_contains_any:
+      - status
+      - 工作流
+      - phase
+  - user: /状态
+    kind: command
+    expect:
+      response_contains_any:
+      - 灵文
+      - 项目
+      - Butler
+- id: MT-25
+  description: 小说工厂进度只读（I 维）
+  fixture: lingwen
+  turns:
+  - user: 现在 novel-factory 进度到哪了？
+    kind: llm
+    script: novel_chapter_progress
+    expect:
+      response_contains_any:
+      - phase
+      - outline
+      - draft
+      - workflow
+  - user: /状态
+    kind: command
+    expect:
+      response_contains_any:
+      - 灵文
+      - 项目
+- id: MT-26
+  description: 含糊删除：smoke 文件→澄清→删除（口语指代）
+  fixture: lingwen
+  setup: smoke_md_on_disk
+  turns:
+  - user: 帮我把那个 smoke 文件删了
+    kind: llm
+    script: vague_delete_clarify
+    expect:
+      response_contains_any:
+      - 哪个
+      - smoke
+      - wechat-smoke
+  - user: 就昨天微信验收那个
+    kind: llm
+    script: vague_delete_smoke
+    expect:
+      file_missing:
+      - docs/wechat-smoke.md
+      response_contains_any:
+      - 删除
+      - 完成
+- id: MT-27
+  description: 跨项目误问：演示试点问灵文进度（L 维）
+  fixture: dual
+  turns:
+  - user: /切换 演示试点
+    kind: command
+    expect:
+      response_contains:
+      - 演示试点
+  - user: 灵文1号现在写到哪一章了？
+    kind: llm
+    script: cross_project_need_switch
+    expect:
+      response_contains_any:
+      - 切换
+      - 灵文1号
+      - 演示试点
+- id: MT-28
+  description: /新对话 后项目记忆仍在（MEM-M6）
+  fixture: lingwen
+  turns:
+  - user: 请记住：本轮测试代号是紫罗兰-42
+    kind: llm
+    script: memory_pending_hint
+    expect:
+      response_contains_any:
+      - 记住
+      - 待审
+  - user: /新对话
+    kind: command
+    expect:
+      response_contains_any:
+      - 清空
+      - 新对话
+  - user: 我们刚才聊的测试代号是什么？
+    kind: llm
+    script: deny_prior_details
+    expect:
+      response_contains_any:
+      - 清空
+      - 无法
+      - 复述
+  - user: 灵文1号项目是做什么的？
+    kind: llm
+    script: project_memory_answer
+    expect:
+      response_contains_any:
+      - 灵文1号
+      - 小说
+      - 试点
+- id: MT-29
+  description: /新会话 别名等价 /新对话
+  fixture: lingwen
+  turns:
+  - user: 请先读 README
+    kind: llm
+    script: read_readme
+    expect:
+      response_contains_any:
+      - README
+  - user: /新会话
+    kind: command
+    expect:
+      response_contains_any:
+      - 清空
+      - 新对话
+      - 会话
+- id: MT-30
+  description: 长任务中途插队问简报（H-OT1 口语）
+  fixture: lingwen
+  turns:
+  - user: 请交给内容代理：在 docs 目录写 wechat-smoke.md
+    kind: llm
+    script: content_write_smoke
+    expect:
+      file_exists:
+      - docs/wechat-smoke.md
+  - user: 对了，顺便看下简报里队列有没有积压
+    kind: llm
+    script: wechat_followup_ack
+    expect:
+      response_contains_any:
+      - 简报
+      - 队列
+      - 收到
+      - 任务
+- id: MT-31
+  description: Owner 硬反馈 /反馈（OT2）
+  fixture: lingwen
+  turns:
+  - user: /反馈 委派回复太啰嗦，希望默认更短
+    kind: command
+    expect:
+      response_contains_any:
+      - 反馈
+      - 记录
+      - 收到
+- id: MT-32
+  description: 微信连发两条短句（P 维）
+  fixture: lingwen
+  turns:
+  - user: 在吗
+    kind: llm
+    script: greeting
+    expect:
+      response_contains_any:
+      - 在
+      - 好
+      - 莎丽
+  - user: 看下项目状态
+    kind: llm
+    script: double_burst_ack
+    expect:
+      response_contains_any:
+      - 灵文
+      - 项目
+      - 状态
+- id: MT-33
+  description: 闲聊后接只读任务（OWN-03）
+  fixture: lingwen
+  turns:
+  - user: 今天好累
+    kind: llm
+    script: greeting
+    expect:
+      response_contains_any:
+      - 辛苦
+      - 好
+      - 收到
+  - user: 帮我看下 README 前 10 行
+    kind: llm
+    script: read_readme
+    expect:
+      response_contains_any:
+      - README
+      - 行
+- id: MT-34
+  description: 删除失败后改只读检查（生产失败恢复）
+  fixture: lingwen
+  turns:
+  - user: 请交给开发代理：删除 docs/missing-utterance.txt
+    kind: llm
+    script: dev_delete_fail
+    expect:
+      response_contains_any:
+      - 未能
+      - 失败
+  - user: 那你换个方式只读检查一下
+    kind: llm
+    script: delegate_fail_readonly_alt
+    expect:
+      response_contains_any:
+      - 不存在
+      - 只读
+      - 检查
+- id: MT-35
+  description: /简报 四块结构（H12）
+  fixture: lingwen
+  turns:
+  - user: /简报
+    kind: command
+    expect:
+      response_contains_any:
+      - 待办
+      - 队列
+      - 门控
+      - 简报
+- id: MT-36
+  description: 规划模式链：/计划→/状态→/执行（H2-H3）
+  fixture: lingwen
+  turns:
+  - user: /计划
+    kind: command
+    expect:
+      response_contains_any:
+      - 规划
+      - 只读
+  - user: /状态
+    kind: command
+    expect:
+      response_contains_any:
+      - 规划模式
+  - user: /执行
+    kind: command
+    expect:
+      response_contains_any:
+      - 退出
+      - 规划
+- id: MT-37
+  description: 技术栈 facts 召回（MEM-M5）
+  fixture: lingwen
+  turns:
+  - user: 灵文试点用什么技术栈？顶层目录有哪些？
+    kind: llm
+    script: tech_stack_facts
+    expect:
+      response_contains_any:
+      - novel-factory
+      - Python
+      - docs
+      - project.yaml
+  - user: /诊断
+    kind: command
+    expect:
+      response_contains:
+      - 简要诊断

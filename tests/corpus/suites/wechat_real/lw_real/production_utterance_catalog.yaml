@@ -1,6 +1,7 @@
 meta:
   version: 2026-05-24-production-r1
-  entry_count: 35
+  entry_count: 45
+  last_expansion: 2026-07-08-prod-replay-r1
 utterance_catalog:
 - id: PROD-001
   user: 那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码
@@ -493,3 +494,155 @@ utterance_catalog:
     no_llm: true
     response_contains:
     - 规划模式
+- id: PROD-036
+  user: /新会话
+  category: A_project_session
+  fixture: lingwen
+  kind: command
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  expect:
+    no_llm: true
+    response_contains_any:
+    - 清空
+    - 新对话
+    - 会话
+- id: PROD-037
+  user: /反馈 委派回复太啰嗦，希望默认更短
+  category: production_real
+  fixture: lingwen
+  kind: command
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  expect:
+    response_contains_any:
+    - 反馈
+    - 记录
+    - 收到
+- id: PROD-038
+  user: 帮我把那个 smoke 文件删了
+  category: C_delegate_delete
+  fixture: lingwen
+  kind: llm
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  setup: smoke_md_on_disk
+  script: vague_delete_clarify
+  expect:
+    response_contains_any:
+    - 哪个
+    - smoke
+    - wechat-smoke
+- id: PROD-039
+  user: 那你换个方式只读检查一下
+  category: T_debugging
+  fixture: lingwen
+  kind: llm
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  setup: cached_report_delete_fail
+  script: delegate_fail_readonly_alt
+  expect:
+    response_contains_any:
+    - 只读
+    - 不存在
+    - 检查
+- id: PROD-040
+  user: 灵文1号现在写到哪一章了？
+  category: I_novel_factory
+  fixture: dual
+  kind: llm
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  setup: switch_to_demo
+  script: cross_project_need_switch
+  expect:
+    response_contains_any:
+    - 切换
+    - 灵文1号
+- id: PROD-041
+  user: 在吗
+  category: P_wechat_specific
+  fixture: lingwen
+  kind: llm
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  script: greeting
+  expect:
+    response_contains_any:
+    - 在
+    - 好
+    - 莎丽
+- id: PROD-042
+  user: 今天好累
+  category: K_emotion_urgency
+  fixture: lingwen
+  kind: llm
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  script: greeting
+  expect:
+    response_contains_any:
+    - 好
+    - 辛苦
+    - 收到
+- id: PROD-043
+  user: 跑一下 status 那个
+  category: F_workflow_schedule
+  fixture: lingwen
+  kind: llm
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  script: workflow_status_ack
+  expect:
+    response_contains_any:
+    - status
+    - 工作流
+    - phase
+- id: PROD-044
+  user: 灵文试点用什么技术栈？顶层目录有哪些？
+  category: E_memory_ops
+  fixture: lingwen
+  kind: llm
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  script: tech_stack_facts
+  expect:
+    response_contains_any:
+    - novel-factory
+    - Python
+    - docs
+- id: PROD-045
+  user: /简报
+  category: harness_plan
+  fixture: lingwen
+  kind: command
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/脱敏replay20260708
+  expect:
+    no_llm: true
+    response_contains_any:
+    - 待办
+    - 队列
+    - 门控
+    - 简报
