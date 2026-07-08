@@ -18,7 +18,8 @@ BoundaryStatus = Literal["ok", "warn", "info", "manual", "deferred"]
 # G1-04 OT2 passive observation window (pilot-log §G1, gap register 2026-06-09).
 # Extended 2026-06-22: dev phase — 06-23 窗仅 B9 测评证据，延后至小规模真人试用前。
 G1_04_WINDOW_START = date(2026, 6, 9)
-G1_04_WINDOW_END = date(2026, 7, 31)
+# Early closure 2026-07-08 (scheduled 07-31); window_complete when today > END.
+G1_04_WINDOW_END = date(2026, 7, 7)
 G1_04_MIN_FEEDBACK_FOR_CLOSURE = 1
 
 # Triggers written by B9 / offline eval — not WeChat production usage.

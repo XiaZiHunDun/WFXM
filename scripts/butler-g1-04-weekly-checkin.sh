@@ -101,7 +101,20 @@ echo "G1-04 WEEKLY: PASS (warn=$WARN)"
 if [[ "$LOG" -eq 1 ]]; then
   LOG_FILE="$ROOT/projects/LingWen1/docs/pilot-log.md"
   if [[ -f "$LOG_FILE" ]] && ! grep -q "G1-04 周打卡.*$STAMP" "$LOG_FILE" 2>/dev/null; then
-    sed -i "/^|------|/a\\$ROW" "$LOG_FILE"
+    python3 - <<PY
+from pathlib import Path
+
+log_file = Path("$LOG_FILE")
+row = "$ROW"
+lines = log_file.read_text(encoding="utf-8").splitlines()
+for i, line in enumerate(lines):
+    if line.startswith("|------|"):
+        lines.insert(i + 1, row)
+        break
+else:
+    lines.append(row)
+log_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
     echo "Appended: $LOG_FILE"
   fi
 fi

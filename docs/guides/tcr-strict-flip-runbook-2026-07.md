@@ -1,7 +1,7 @@
 # TCR strict 升级 Runbook（fast-gate flip）
 
 > **目标**：将 `butler-pytest-fast-gate.sh` 内 TCR 从 `--warn-only` 升级为 `--strict`（阈值 98%）。  
-> **日历默认**：`BUTLER_TCR_STRICT_AFTER=2026-07-27`（4 周稳定周报后）。  
+> **日历默认**：`BUTLER_TCR_STRICT_AFTER=2026-07-08`（已于 **2026-07-08** 提前 flip；原排期 07-27）。  
 > **登记**：[`agent-production-gap-2026-06.md`](../plans/active/agent-production-gap-2026-06.md)
 
 ## 状态机
@@ -29,7 +29,7 @@ bash scripts/butler-tcr-strict-readiness.sh
 
 预期（窗内）：`status=wait`，`days_until_flip` > 0，TCR rate ≥ 98%。
 
-## 到日 flip（≥ 2026-07-27）
+## 到日 flip（✅ 已于 2026-07-08 完成）
 
 ```bash
 # 1. 确认 readiness（~2min，跑 strict TCR）
@@ -50,7 +50,7 @@ bash scripts/butler-pytest-fast-gate.sh
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `BUTLER_TCR_STRICT_AFTER` | `2026-07-27` | 允许 flip 的最早日期（YYYY-MM-DD） |
+| `BUTLER_TCR_STRICT_AFTER` | `2026-07-08` | 允许 flip 的最早日期（YYYY-MM-DD）；已 flip |
 | `BUTLER_TCR_THRESHOLD` | `0.98` | TCR 阈值（见 `tcr_report.py`） |
 
 ## 回滚

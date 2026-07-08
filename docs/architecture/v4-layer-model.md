@@ -196,7 +196,7 @@ flowchart TB
 | **职责** | `/诊断`、`butler doctor`、runtime_metrics、eval/B9、G1-04 运营打卡、LangFuse（opt-in）、Owner 可见报告 |
 | **主要路径** | `butler/ops/`、`butler/eval_integration/`、`butler/report/`、gateway 诊断聚合、`ops/health_report*` |
 | **与 L8 区别** | L8 保**运行**；L9 保**可发现、可度量、可结案** |
-| **窗内任务** | G1-04 每周 `butler-ops-cadence.sh --weekly`；07-31 `butler-g1-04-closure-check.sh` |
+| **窗内任务** | G1-04 ✅ 已于 2026-07-08 结案（窗 06-09→07-07）；TCR strict 同日 flip |
 
 ### 横切 — 契约层
 
@@ -296,7 +296,7 @@ flowchart TB
 
 | 优先级 | 层 | 工作项 | 文档/门禁 |
 |--------|-----|--------|-----------|
-| P0 窗内 | L9 | G1-04 每周打卡 → 07-31 结案 | `butler-ops-cadence.sh`、`butler-g1-04-closure-check.sh` |
+| P0 窗内 | L9 | G1-04 ✅ 2026-07-08 结案 | `butler-g1-04-closure-check.sh` |
 | P1 文档 | 全层 | 本文 + v4-architecture 互链 | **done** 2026-07-07 |
 | P2 契约 | 横切 | 破环：`completion_notify↔outbound_bridge`、`tool_audit↔registry` | **done** 2026-07-07 |
 | P2b 契约 | 横切/L3/L9 | `ToolDispatchPort`、`HealthDiagnosticPort` | **done** 2026-07-07 |

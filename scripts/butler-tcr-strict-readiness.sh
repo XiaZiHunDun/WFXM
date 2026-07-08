@@ -4,7 +4,7 @@
 # ~2 min (runs full TCR pytest suite in strict mode).
 #
 # Usage: bash scripts/butler-tcr-strict-readiness.sh
-# Env:   BUTLER_TCR_STRICT_AFTER=2026-07-27 (default)
+# Env:   BUTLER_TCR_STRICT_AFTER=2026-07-08 (default; early flip 2026-07-08)
 # Runbook: docs/guides/tcr-strict-flip-runbook-2026-07.md
 set -euo pipefail
 
@@ -12,7 +12,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 export PYTHONPATH=.
 
-STRICT_AFTER="${BUTLER_TCR_STRICT_AFTER:-2026-07-27}"
+STRICT_AFTER="${BUTLER_TCR_STRICT_AFTER:-2026-07-08}"
 today="$(date +%Y-%m-%d)"
 
 echo "== TCR strict readiness =="

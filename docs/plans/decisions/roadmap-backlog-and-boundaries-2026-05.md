@@ -233,10 +233,9 @@
 **建议执行顺序（开发会话对齐，2026-06-29 更新）**：
 
 ```text
-窗内至 07-31  G1-04 运营：butler-ops-cadence.sh --weekly；07-27 TCR strict flip
-窗满 07-31    PROD-P0-01 结案：butler-g1-04-closure-check.sh → 更新 gap register
+✅ 2026-07-08  G1-04 提前结案 + TCR strict flip（原排期 07-31 / 07-27）
 Backlog       P3-I 懒 import 减量 · P3-J 配置收敛 · P2-F-ops（可选）
-已完成        PROD-P0–P2 表内项 · P0-A/B · P1-C · P1-D · P2-E · **P2-F 826 主模块** · P2-G · **P3-H** 记忆统一检索（2026-07-02）· ENG-13
+已完成        PROD-P0–P2 表内项 · P0-A/B · P1-C · P1-D · P2-E · **P2-F 826 主模块** · P2-G · **P3-H** 记忆统一检索（2026-07-02）· ENG-13 · **G1-04** · **TCR strict**
 ```
 
 ---

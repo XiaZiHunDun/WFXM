@@ -29,6 +29,6 @@ bash scripts/p3j-env-hygiene-gate.sh
 echo ""
 bash scripts/butler-mypy-strict-gate.sh
 echo ""
-bash scripts/butler-trajectory-compliance-gate.sh --warn-only
+bash scripts/butler-trajectory-compliance-gate.sh --strict
 echo ""
 echo "Fast gate: ALL PASSED"

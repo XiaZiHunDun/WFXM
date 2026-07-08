@@ -14,7 +14,7 @@
 | 模块分布 | core(124) / ops(73) / tools(62) / gateway(55) / memory(44) / dev_engine(36) / transport(28) / mcp(28) |
 | 配置面 | ~540 项 `BUTLER_*` 变量（`.env.example`） |
 | 运维脚本 | 159 个 shell 脚本 |
-| 产品状态 | P0-P5 done / G1-04 观测至 07-31 / ENG 重构在第二批 |
+| 产品状态 | P0-P5 done / **G1-04 ✅ 2026-07-08** / TCR strict 同日 flip / ENG 重构在第二批 |
 | 发版标准 | 分层 gate 绿（非全量 pytest） |
 | 测试规模 | 642 测试文件 / ~6023 测试函数 |
 

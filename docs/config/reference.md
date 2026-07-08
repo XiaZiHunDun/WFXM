@@ -778,7 +778,7 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_EVAL_SWE_LIVE_COUNT` | `3` | 每周 SWE-bench Lite LIVE 子集实例数（1–15） |
 | `BUTLER_EVAL_SWE_GATE_MIN_WEEKS` | `2` | 全量 LIVE 入场需连续 N 周子集 100%（stretch：`1`） |
 | `BUTLER_EVAL_DELEGATE_JUDGE` | `heuristic` | 委派完成启发式评分挂 trace；`off` = 关闭 |
-| `BUTLER_TCR_STRICT_AFTER` | `2026-07-27` | TCR strict flip 最早日期（`butler-tcr-strict-readiness.sh`） |
+| `BUTLER_TCR_STRICT_AFTER` | `2026-07-08` | TCR strict flip 最早日期（`butler-tcr-strict-readiness.sh`；已于 2026-07-08 提前 flip） |
 | `BUTLER_TCR_THRESHOLD` | `0.98` | Trajectory compliance 阈值（`tcr_report.py`） |
 | `BUTLER_LLM_API_KEY` | — | Eval OSS（DeepEval/RAGAS）回退 API key |
 | `BUTLER_EVAL_DEEPEVAL_LLM` | `0` | `1` = DeepEval suite 使用真实 LLM judge |

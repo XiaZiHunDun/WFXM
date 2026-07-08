@@ -40,7 +40,7 @@
 | TCR 升级应用 | `bash scripts/butler-tcr-strict-apply.sh` | 日历到点后一键 flip（可先 `--dry-run`） |
 | **Flip runbook** | [`tcr-strict-flip-runbook-2026-07.md`](../../guides/tcr-strict-flip-runbook-2026-07.md) | 窗内每周 / 到日 4 步 / 回滚 |
 
-**TCR 升级**：`butler-pytest-fast-gate.sh` 内 TCR 暂 `--warn-only`；窗内周报稳定 **4 周后**（默认 **2026-07-27**，`BUTLER_TCR_STRICT_AFTER`）改 `--strict`（98%）。
+**TCR 升级**：`butler-pytest-fast-gate.sh` 内 TCR 已 **--strict**（2026-07-08 flip；阈值 98%）。
 
 ## 条件项（AP-13–16）
 

@@ -137,12 +137,12 @@ PYTHONPATH=. pytest tests/test_premise_memory_theory.py tests/test_memory_metric
 
 ---
 
-## 附录 B：G1-04 观测窗结案（07-31 后）
+## 附录 B：G1-04 观测窗结案（✅ 2026-07-08 提前结案）
 
-窗满后执行：
+已于 **2026-07-08** 提前结案（原排期 07-31；窗 2026-06-09→2026-07-07）。gap register G1-04 已 ✅。
+
+复查：
 
 ```bash
 bash scripts/butler-g1-04-closure-check.sh
 ```
-
-通过则更新 [`theory-implementation-gap-register-2026-06.md`](../plans/decisions/theory-implementation-gap-register-2026-06.md) G1-04 行为 ✅。

@@ -15,7 +15,7 @@ from butler.ops.tcr_report import DEFAULT_REPORT as TCR_LATEST
 
 ROOT = Path(__file__).resolve().parents[2]
 READINESS_REPORT = ROOT / ".butler" / "reports" / "tcr-strict-readiness.json"
-DEFAULT_STRICT_AFTER = "2026-07-27"
+DEFAULT_STRICT_AFTER = "2026-07-08"
 FLIP_COMMAND = "bash scripts/butler-tcr-strict-apply.sh"
 
 

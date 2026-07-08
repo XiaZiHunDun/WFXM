@@ -59,12 +59,12 @@
 ## 1. G1 — 漏实现（理论有、验证通过，工程未补齐）
 
 > **不修改**公理/定理证明正文；立项时附验收标准。  
-> **真机/生产**：仅 **G1-04** 仍开放（OT2 长期观测）。  
+> **真机/生产**：G1-04 OT2 观测窗已结案（2026-07-08）；含生产硬反馈。
 > **已搁置**：G1-02、G1-08 — `/诊断` 对应提示可忽略。
 
 | ID | 理论依据 | 现状 | 影响 | 建议 |
 |----|----------|------|------|------|
-| G1-04 | OT2 有条件目标 | 硬反馈已接；**观测中**（窗 06-09→**07-31**；窗内 **61** 条、生产 **58**；Owner 显式 **3**（`owner_hard_feedback`）；**窗满待结**） | 窗满 + ≥1 **生产**来源硬反馈 → `ot2_closure_ready` | `butler-g1-04-weekly-checkin.sh` · **窗满后** `butler-g1-04-closure-check.sh` → 本表改 ✅ · 见 [`maintainer-cheat-sheet-2026-07.md`](../../guides/maintainer-cheat-sheet-2026-07.md) 附录 B |
+| G1-04 | OT2 有条件目标 | ✅ **管线已验** + 生产硬反馈 68 条（窗 2026-06-09→2026-07-07；OT2 仍为有条件观测目标） | 窗满 + 生产证据 | 2026-07-08 |
 | G1-10 | Extension R&D Verify 闭环 | **L0–L3 已落地**（2026-06-22）：manifest ×3、`butler-extension-verify.sh`、token sync、handler sim | 自助装 MCP 无人修 | `butler-extension-verify.sh` · `butler-extension-wechat-sim.sh` |
 | G1-11 | 核心微信路径 handler sim 不足 | ✅ **2026-06-22**：`butler-wechat-core-sim.sh`（剧本 1–3+/诊断）+ `butler-ops-followup-check.sh` | 真机前无管家/项目/读文件链验证 | `butler-wechat-core-sim.sh` |
 | G1-13 | 全站 secrets↔env 契约分散 | ✅ **2026-06-22**：`.butler/secrets-contract.yaml` + `butler-secrets-contract-check.sh`（合并 extension manifest） | MCP 外 token 断层 | follow-up 硬失败项 |
