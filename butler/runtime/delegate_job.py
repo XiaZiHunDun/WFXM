@@ -172,6 +172,8 @@ def _run_delegate_job_body(job: DelegateJob) -> None:
             role=job.role,
             dev_engine=dev_engine,
             task=job.task or "",
+            messages=list(getattr(result, "messages", None) or []),
+            summary=str(getattr(result, "final_response", "") or "").strip(),
         )
     else:
         success = False
@@ -180,6 +182,8 @@ def _run_delegate_job_body(job: DelegateJob) -> None:
         headline = f"{role_label}已完成任务"
     elif any("DEV_VERIFY_GATE" in str(i) for i in issues):
         headline = f"{role_label}已完成编辑但未通过验证"
+    elif any("DELETE_VERIFY_GATE" in str(i) for i in issues):
+        headline = f"{role_label}未能完成任务"
     else:
         headline = f"{role_label}未能完成任务"
     summary_text = (result.final_response or "").strip() if result else ""

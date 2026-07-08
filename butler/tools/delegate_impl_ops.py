@@ -22,6 +22,8 @@ def apply_delegate_success_gates(
     task: str,
     task_preview: str,
     changes: list[Any],
+    messages: list[Any] | None = None,
+    summary: str = "",
 ) -> tuple[bool, list[str]]:
     def _run() -> tuple[bool, list[str]]:
         from butler.dev_engine.b9_delegate_gate import (
@@ -30,6 +32,7 @@ def apply_delegate_success_gates(
             apply_dev_auto_verify_success_gate,
             apply_dev_review_strict_gate,
         )
+        from butler.tools.delegate_delete_gate import apply_delegate_delete_verify_gate
 
         out_issues = list(issues or [])
         ok, out_issues = apply_b9_pytest_success_gate(
@@ -56,6 +59,16 @@ def apply_delegate_success_gates(
             base_success=ok,
             issues=out_issues,
             dev_engine=dev_engine,
+        )
+        ok, out_issues = apply_delegate_delete_verify_gate(
+            base_success=ok,
+            issues=out_issues,
+            task=task,
+            task_preview=task_preview or (task or "")[:200],
+            changes=changes,
+            project=project,
+            messages=messages,
+            summary=summary,
         )
         final = apply_dev_review_strict_gate(
             category=category,

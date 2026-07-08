@@ -72,12 +72,16 @@ def build_delegate_report(
         role=state.role,
         dev_engine=de_summary,
         task=state.task or "",
+        messages=list(getattr(result, "messages", None) or []),
+        summary=str(getattr(result, "final_response", "") or "").strip(),
     )
     role_label = _delegate_role_label(state.role)
     if success:
         headline = f"{role_label}已完成任务"
     elif any("DEV_VERIFY_GATE" in str(i) for i in issues):
         headline = f"{role_label}已完成编辑但未通过验证"
+    elif any("DELETE_VERIFY_GATE" in str(i) for i in issues):
+        headline = f"{role_label}未能完成任务"
     else:
         headline = f"{role_label}未能完成任务"
     task_preview = (state.task or "").strip()[:200]

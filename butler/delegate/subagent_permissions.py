@@ -18,6 +18,18 @@ _DEFAULT_SUBAGENT_DENY = frozenset({
     "session_todos_write",
 })
 
+# Restored for delegate children when BUTLER_TOOLSET=wechat_minimal strips mutations.
+_SUBAGENT_MUTATION_RESTORE = frozenset({
+    "write_file",
+    "patch",
+    "delete_file",
+    "terminal",
+    "run_pytest",
+    "git_diff",
+    "git_status",
+    "git_log",
+})
+
 
 def filter_tools_for_subagent(
     tools: list[dict[str, Any]],
@@ -77,6 +89,45 @@ def filter_tools_for_subagent(
             continue
         filtered.append(t)
     return filtered
+
+
+def augment_subagent_tools_from_project(
+    tools: list[dict[str, Any]],
+    *,
+    project: Any,
+    role: str,
+) -> list[dict[str, Any]]:
+    """Union project-allowed mutation tools stripped by wechat_minimal / cron profiles."""
+    if project is None:
+        return list(tools)
+    from butler.tools.project_tools import allowed_tool_names_for_project
+    from butler.tools.registry import get_tool_definitions_unfiltered
+
+    allowed = allowed_tool_names_for_project(project, role=role)
+    if not allowed:
+        return list(tools)
+    restore = _SUBAGENT_MUTATION_RESTORE & allowed
+    if not restore:
+        return list(tools)
+
+    present = {
+        str((t.get("function") or {}).get("name") or "")
+        for t in tools
+    }
+    missing = restore - present
+    if not missing:
+        return list(tools)
+
+    by_name = {
+        str((d.get("function") or {}).get("name") or ""): d
+        for d in get_tool_definitions_unfiltered()
+    }
+    out = list(tools)
+    for name in sorted(missing):
+        spec = by_name.get(name)
+        if spec is not None:
+            out.append(spec)
+    return out
 
 
 def make_child_session_key(parent_session_key: str, task_id: str) -> str:

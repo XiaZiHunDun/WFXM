@@ -7,7 +7,10 @@ from typing import Any
 
 from butler.tools.delegate_run_state import DelegateRunState
 from butler.tools.delegate_subagent_ops import merge_agents_md_context_safe
-from butler.delegate.subagent_permissions import filter_tools_for_subagent
+from butler.delegate.subagent_permissions import (
+    augment_subagent_tools_from_project,
+    filter_tools_for_subagent,
+)
 from butler.tools.project_tools import get_tool_definitions_for_project
 from butler.core.delegate_context import child_callbacks, get_parent_callbacks
 from butler.tools.delegate_impl import _safe_dispatch
@@ -34,6 +37,11 @@ def build_subagent_tools(state: DelegateRunState) -> None:
     state.delegated_tools = filter_tools_for_subagent(
         state.tools,
         workspace=workspace,
+        role=state.role,
+    )
+    state.delegated_tools = augment_subagent_tools_from_project(
+        state.delegated_tools,
+        project=state.project,
         role=state.role,
     )
 

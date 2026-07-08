@@ -93,10 +93,14 @@ def finalize_delegate_success(
     dev_engine: dict[str, Any] | None = None,
     task: str = "",
     task_preview: str = "",
+    messages: list[Any] | None = None,
+    summary: str = "",
 ) -> tuple[bool, list[str]]:
     """Base delegate success + category gates (B9 pytest) + dev auto-verify."""
     base = _delegate_task_succeeded(result, changes, issues)
     out_issues = list(issues or [])
+    summary_text = summary or str(getattr(result, "final_response", "") or "").strip()
+    msg_list = messages if messages is not None else list(getattr(result, "messages", None) or [])
 
     return cast(
         tuple[bool, list[str]],
@@ -111,6 +115,8 @@ def finalize_delegate_success(
             task=task,
             task_preview=task_preview,
             changes=changes,
+            messages=msg_list,
+            summary=summary_text,
         ),
     )
 

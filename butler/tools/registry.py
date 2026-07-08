@@ -128,6 +128,27 @@ def get_tool_definitions() -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], filter_definitions_by_toolset(result))
 
 
+def get_tool_definitions_unfiltered() -> list[dict[str, Any]]:
+    """Return tool definitions without ``BUTLER_TOOLSET`` runtime projection."""
+    _ensure_builtins()
+    mcp_available = mcp_tools_enabled()
+    result: list[dict[str, Any]] = []
+    for entry in _REGISTRY.values():
+        if entry.toolset in ("mcp", "mcp_self_service") and not mcp_available:
+            continue
+        result.append({
+            "type": "function",
+            "function": {
+                "name": entry.name,
+                "description": entry.description,
+                "parameters": entry.schema,
+            },
+        })
+    if mcp_available:
+        result = extend_mcp_definitions(result)
+    return result
+
+
 def _dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str:
     """Run permission/hooks/audit pipeline for MCP tools."""
     from butler.mcp.registry_hook import dispatch_mcp_tool

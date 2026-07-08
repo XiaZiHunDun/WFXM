@@ -51,8 +51,9 @@ tracks:
 
       - name: DEV-03 补丁加 docstring
         user_text: >-
-          请开发代理给 docs/dev-assistant-sim-{sim_date}.py 加上模块级 docstring
-          「Dev assistant sim {sim_date}」，用 read_file 再 write_file 或 patch，不要动其他文件
+          请开发代理：先 read_file docs/dev-assistant-sim-{sim_date}.py，
+          再用 write_file 在文件最上方加模块 docstring「Dev assistant sim {sim_date}」
+          （禁止 patch 与 terminal），不要动其他文件
         prefer_tools_any: [delegate_task]
         expect_reply_any: [开发, 委派, docstring, 完成, 修改]
         verify_file_contains:
@@ -133,10 +134,16 @@ tracks:
 
       - name: DEV-10 清理临时文件
         user_text: >-
-          请开发代理用 delete_file 删除 docs/dev-assistant-sim-{sim_date}.py
-          和 docs/dev-assistant-sim-{sim_date}.md（若存在），完成后摘要
+          请开发代理：用 delete_file 依次删除
+          docs/dev-assistant-sim-{sim_date}.py
+          和 docs/dev-assistant-sim-{sim_date}.md（若存在），
+          每个文件删后汇报；禁止 terminal
         prefer_tools_any: [delegate_task]
         expect_reply_any: [删除, 完成, 开发, 委派, 未能, 不存在, 清理]
+        verify_files_missing:
+          - docs/dev-assistant-sim-{sim_date}.py
+          - docs/dev-assistant-sim-{sim_date}.md
+        soft: true
         tier: slow
         max_seconds: 420
         skip_in_quick: true
