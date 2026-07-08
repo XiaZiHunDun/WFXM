@@ -468,6 +468,14 @@ class TestSlashCommands:
             text = handler._handle_command("/新对话")
         assert text.startswith("已清空本轮对话上下文。")
 
+    def test_chinese_alias_new_session_synonym(self, handler):
+        with patch(
+            "butler.session.post_session_ops.trigger_session_end",
+            return_value={"skipped": True, "reason": "short_history"},
+        ):
+            text = handler._handle_command("/新会话")
+        assert text.startswith("已清空本轮对话上下文。")
+
     def test_plan_mode_slash_commands(self, handler):
         from butler.plan.mode import clear_plan_mode, is_plan_mode
 

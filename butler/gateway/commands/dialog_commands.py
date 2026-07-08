@@ -288,7 +288,7 @@ _DIALOG_COMMANDS = [
     # Sprint 16 TST-10-5 第七批
     CommandDef("/切换", ("/switch",), "项目管理", "切换当前项目", handler=_cmd_switch_project),
     CommandDef("/模型", ("/model",), "模型", "查看/切换当前模型", handler=_cmd_model_select),
-    CommandDef("/新对话", ("/new",), "对话控制", "重置当前会话", handler=_cmd_new_session),
+    CommandDef("/新对话", ("/new", "/新会话"), "对话控制", "重置当前会话", handler=_cmd_new_session),
 ]
 
 for _cmd in _DIALOG_COMMANDS:

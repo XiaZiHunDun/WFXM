@@ -128,6 +128,7 @@ class TestDispatch:
             ("/switch", "/切换"),
             ("/model", "/模型"),
             ("/new", "/新对话"),
+            ("/新会话", "/新对话"),
         ],
     )
     def test_aliases_resolve_to_canonical_handler(self, alias, canonical, ensure_registered):

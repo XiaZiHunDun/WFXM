@@ -185,7 +185,7 @@ def _register_defaults() -> None:
         CommandDef("/项目待办", (), "项目管理", "项目级待办事项"),
         CommandDef("/总览", ("/overview",), "项目管理", "项目总览与概要"),
         CommandDef("/会话", ("/session",), "对话控制", "查看/管理会话"),
-        CommandDef("/新对话", ("/new",), "对话控制", "重置当前会话"),
+        CommandDef("/新对话", ("/new", "/新会话"), "对话控制", "重置当前会话"),
         CommandDef("/steer", ("/指引",), "对话控制", "插入引导消息"),
         CommandDef("/queue", (), "对话控制", "入站队列模式"),
         CommandDef("/待办", ("/todo",), "对话控制", "查看/管理会话待办"),

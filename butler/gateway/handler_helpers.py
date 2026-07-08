@@ -139,9 +139,11 @@ def _normalize_status_request(text: str) -> str | None:
 
 
 def _normalize_new_session_request(text: str) -> str | None:
-    """Allow ``/新对话`` with trailing natural-language hints."""
+    """Allow ``/新对话`` / ``/新会话`` with trailing natural-language hints."""
     stripped = (text or "").strip()
     if stripped == "/新对话" or stripped.startswith("/新对话"):
+        return "/新对话"
+    if stripped == "/新会话" or stripped.startswith("/新会话"):
         return "/新对话"
     return None
 
