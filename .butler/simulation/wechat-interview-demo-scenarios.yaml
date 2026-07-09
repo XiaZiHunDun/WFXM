@@ -1,0 +1,54 @@
+# 面试微信演示 — 口语对话版（handler 预演）
+# bash scripts/butler-wechat-owner-sim.sh --manifest wechat-interview-demo-scenarios.yaml
+
+title: 面试微信演示口语版
+default_project: 灵文1号
+
+tracks:
+  - id: interview-chat
+    title: 口语演示（像真人聊天）
+    session_mode: shared
+    quick: true
+    simulate_wechat_outbound: true
+    cleanup_globs:
+      - docs/面试备忘*.md
+      - docs/interview-*.md
+    setup:
+      - /新对话
+      - 切换到灵文1号
+    cases:
+      - name: C01 自我介绍
+        user_text: 莎丽，介绍一下你自己
+        expect_reply_any: [莎丽, 管家, 委派, 灵文, Butler]
+        tier: fast
+      - name: C02 项目与小说进度
+        user_text: 灵文一号是做什么的？《星陨纪元》现在写到哪了？
+        expect_reply_any: [灵文, 星陨, novel, 工厂, phase, 章, 卷, workflow]
+        soft: true
+        tier: standard
+        max_seconds: 120
+      - name: C03 口语委派写备忘
+        user_text: >-
+          帮我在 docs 写个面试备忘，文件名 interview-明天演示.md 就行，
+          标题写「明天演示」，正文一句话说明 WFXM 管家面试用，别的文件别动
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [委派, 后台, 已委派, 内容, 面试, task_]
+        expect_outbound_any: [正在处理, 委派, 完成, 后台]
+        min_outbound_messages: 2
+        verify_files_exist:
+          - docs/interview-明天演示.md
+        tier: slow
+        max_seconds: 420
+      - name: C04 追问刚写的文件
+        user_text: 刚才那个面试备忘，标题是不是「明天演示」？帮我读一下确认
+        expect_reply_any: [明天演示, interview, 备忘, 标题, read]
+        tier: standard
+        max_seconds: 120
+      - name: C05 今天有什么事
+        user_text: 今天有什么事要处理吗
+        expect_reply_any: [简报, 待办, 队列, 门控, 暂无, 管家]
+        tier: fast
+      - name: C06 看状态
+        user_text: /状态
+        expect_reply_any: [灵文1号, 莎丽, 网关, 项目]
+        tier: fast
