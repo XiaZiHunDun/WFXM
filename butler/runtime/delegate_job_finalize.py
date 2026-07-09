@@ -29,7 +29,7 @@ def attach_delegate_diff_summary(report: Any, job: Any) -> None:
         try:
 
             pm = ProjectManager()
-            proj = pm.active_project
+            proj = pm.get_current()
             if proj and hasattr(proj, "workspace"):
                 workspace = str(proj.workspace)
         except ImportError:

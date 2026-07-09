@@ -10,7 +10,7 @@ from butler.core.best_effort import safe_best_effort
 
 def workspace_from_command_ctx_safe(ctx: Any) -> Path | None:
     def _run() -> Path:
-        proj = ctx.orchestrator.project_manager.active_project
+        proj = ctx.orchestrator.project_manager.get_current(session_key=str(ctx.session_key or ""))
         if proj is None or not hasattr(proj, "workspace"):
             raise ValueError("no active project workspace")
         ws = Path(proj.workspace)

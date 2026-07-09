@@ -288,14 +288,15 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, 
     )
 
 
-def _tool_search_files(pattern: str, path: str = ".", include: str | None = None, **_: Any) -> str:
+def _tool_search_files(pattern: str = "", path: str = ".", include: str | None = None, **_: Any) -> str:
+    needle = str(pattern or "").strip() or "*"
     safety = check_tool_path(path)
     if not safety.allowed:
         return json.dumps({"error": safety.error})
     cmd = ["rg", "--no-config", "--json", "-m", "20"]
     if include:
         cmd.extend(["--glob", include])
-    cmd.extend(["--", pattern, str(safety.path)])
+    cmd.extend(["--", needle, str(safety.path)])
 
     def _run() -> str:
         result = subprocess.run(

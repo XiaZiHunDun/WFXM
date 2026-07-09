@@ -1,0 +1,114 @@
+# Owner 真人演示对话 — handler 预演（不经 iLink）
+# bash scripts/butler-wechat-owner-sim.sh --manifest wechat-owner-demo-conversation-scenarios.yaml --track owner-demo
+
+title: Owner 真人演示对话
+version: "2026-07-09"
+default_project: ""
+
+tracks:
+  - id: owner-demo
+    title: 演示脚本（个人管家 → 灵文1号 → 检索/MCP）
+    session_mode: shared
+    quick: true
+    simulate_wechat_outbound: true
+    setup:
+      - /新对话
+    cases:
+      - name: D01 自我介绍
+        user_text: 莎丽，介绍一下你自己
+        expect_reply_any: [莎丽, 管家, 委派, Butler, 项目]
+        reject_reply_any: [workflow 工具被循环阻塞, 演示试点]
+        tier: fast
+
+      - name: D02 项目列表
+        user_text: 看下目前都有哪些项目
+        expect_reply_any: [普通试点项目, 灵文1号, DemoPilot, LingWen1, 项目]
+        reject_reply_any: [演示试点]
+        tier: fast
+
+      - name: D03 搜 XingWen 路径
+        user_text: 帮我搜一下XingWen项目在哪个路径
+        prefer_tools_any: [terminal, search_files, list_directory]
+        forbid_tools: [run_workflow]
+        expect_reply_any: [XingWen, /home/ailearn/projects, 路径, 找到]
+        reject_reply_any: [workflow 工具被循环阻塞, 内容代理已完成, 未找到且未搜索]
+        tier: standard
+        max_seconds: 90
+
+      - name: D04 切换灵文1号
+        user_text: /切换 灵文1号
+        expect_reply_any: [灵文1号, 切换]
+        tier: fast
+
+      - name: D05 任务列表
+        user_text: /项目待办
+        expect_reply_any: [待办, 项目, 暂无, 任务, todo]
+        tier: fast
+
+      - name: D05b 进行中任务
+        user_text: /任务
+        expect_reply_any: [任务, task_, 委派, 暂无, 最近]
+        tier: fast
+
+      - name: D06 架构分析
+        user_text: 分析一下灵文1号的代码架构是否需要改进
+        expect_reply_any: [架构, 改进, Butler, 灵文, 建议, 层, 模块]
+        reject_reply_any: [workflow 工具被循环阻塞]
+        soft: true
+        tier: slow
+        max_seconds: 180
+
+      - name: D07 待做改进项
+        user_text: 看下项目目前都有哪些任务或者改进项待做
+        expect_reply_any: [待办, 任务, 改进, roadmap, backlog, 计划, 暂无]
+        soft: true
+        tier: standard
+        max_seconds: 120
+
+      - name: D08 选一个完善
+        user_text: 选一个文档类的改进项，委派内容代理写进 docs，别动代码
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [改进, 委派, 完善, 内容, docs, 已]
+        expect_outbound_any: [委派, 完成, 后台]
+        soft: true
+        tier: slow
+        max_seconds: 420
+
+      - name: D08b 清上下文
+        user_text: /新对话
+        expect_reply_any: [清空, 上下文]
+        tier: fast
+
+      - name: D08c 重进灵文
+        user_text: /切换 灵文1号
+        expect_reply_any: [灵文1号, 切换, Lead, 厂长]
+        tier: fast
+
+      - name: D09 GitHub 仓库
+        user_text: 看下我的github仓库都有哪些
+        prefer_tools_any: [mcp_github]
+        expect_reply_any: [GitHub, 仓库, WFXM, repo, XiaZiHunDun]
+        reject_reply_any: [japanese-learning, fake-repo, 开发代理未能]
+        requires_mcp: true
+        soft: true
+        tier: standard
+        max_seconds: 120
+
+      - name: D10 蚂蚁官网 web_search
+        user_text: 搜索一下蚂蚁官网的信息
+        prefer_tools_any: [web_search]
+        forbid_tools: [mcp_firecrawl_firecrawl_search, delegate_task]
+        expect_reply_any: [蚂蚁, ant, 官网, 金融, 支付]
+        reject_reply_any: [开发代理未能, 内容代理未能]
+        tier: standard
+        max_seconds: 120
+
+      - name: D11 firecrawl 蚂蚁官网
+        user_text: 用firecrawl搜索一下蚂蚁官网的信息
+        prefer_tools_any: [mcp_firecrawl, firecrawl]
+        forbid_tools: [delegate_task]
+        expect_reply_any: [蚂蚁, ant, 官网, firecrawl, 金融]
+        reject_reply_any: [开发代理未能, Terminal command is not in the allowlist]
+        requires_mcp: true
+        tier: slow
+        max_seconds: 180

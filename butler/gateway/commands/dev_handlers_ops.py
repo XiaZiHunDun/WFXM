@@ -20,7 +20,7 @@ def resolve_project_from_orchestrator_safe(
     def _run() -> Any:
         if sk:
             return orchestrator.project_manager.get_current(session_key=sk)
-        return orchestrator.project_manager.active_project
+        return orchestrator.project_manager.get_current()
 
     return safe_best_effort(
         _run,
@@ -40,7 +40,7 @@ def resolve_project_from_handler_singleton_safe(*, session_key: str) -> Any:
             pm = handler._orchestrator.project_manager
             if sk:
                 return pm.get_current(session_key=sk)
-            return pm.active_project
+            return pm.get_current()
         return None
 
     return safe_best_effort(

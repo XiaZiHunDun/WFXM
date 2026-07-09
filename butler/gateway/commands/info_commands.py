@@ -198,7 +198,7 @@ def _cmd_project_todos(ctx: CommandContext) -> Optional[str]:
     if gate is not None:
         return str(gate)
 
-    proj = ctx.orchestrator.project_manager.active_project
+    proj = ctx.orchestrator.project_manager.get_current(session_key=ctx.session_key)
     if proj and getattr(proj, "workspace", None):
         from pathlib import Path
 

@@ -40,6 +40,20 @@ def test_toolset_wechat_minimal():
 
 
 @pytest.mark.unit
+def test_toolset_wechat_minimal_passes_mcp_tools():
+    defs = [
+        {"type": "function", "function": {"name": "read_file", "parameters": {}}},
+        {"type": "function", "function": {"name": "mcp_github_lst-repos", "parameters": {}}},
+        {"type": "function", "function": {"name": "web_search", "parameters": {}}},
+    ]
+    out = filter_definitions_by_toolset(defs, toolset="wechat_minimal")
+    names = {d["function"]["name"] for d in out}
+    assert "read_file" in names
+    assert "mcp_github_lst-repos" in names
+    assert "web_search" in names
+
+
+@pytest.mark.unit
 def test_toolset_intersects_project_allowlist():
     from butler.tools.project_tools import filter_tool_definitions, intersect_allowed_names
     from butler.tools.toolset_profiles import filter_definitions_by_toolset

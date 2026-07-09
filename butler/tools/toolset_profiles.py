@@ -16,6 +16,7 @@ _PROFILES: dict[str, frozenset[str] | None] = {
         "search_files",
         "list_directory",
         "terminal",
+        "web_search",
         "butler_recall",
         "butler_remember",
         "search_transcript",
@@ -61,7 +62,7 @@ def filter_definitions_by_toolset(
         fn_raw = spec.get("function")
         fn = fn_raw if isinstance(fn_raw, dict) else spec
         name = str(fn.get("name") or spec.get("name") or "")
-        if name in allowed:
+        if name in allowed or name.startswith("mcp_"):
             out.append(spec)
     return out
 
