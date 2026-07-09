@@ -40,3 +40,11 @@ def test_calc_grounding_appends_note_when_reply_wrong(monkeypatch):
     out = apply_output_grounding("3+5等于多少", "等于 9。", {})
     assert "演算校验" in out
     assert "8" in out
+
+
+@pytest.mark.unit
+def test_calc_grounding_skips_year_month_false_positive(monkeypatch):
+    monkeypatch.setenv("BUTLER_CALC_GROUNDING", "1")
+    monkeypatch.setenv("BUTLER_MEMORY_PREFETCH_GROUNDING", "0")
+    out = apply_output_grounding("2026年07月09日 扩大范围搜一下", "未找到 XingWen。", {})
+    assert "演算校验" not in out

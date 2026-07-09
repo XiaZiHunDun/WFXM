@@ -69,7 +69,13 @@ def _try_correct_arithmetic(user_text: str, reply: str) -> str | None:
     m = _ARITH_RE.search(user)
     if not m:
         return None
-    expected = _eval_simple(float(m.group("a")), m.group("op"), float(m.group("b")))
+    a = float(m.group("a"))
+    b = float(m.group("b"))
+    op = m.group("op").replace("×", "*").replace("÷", "/")
+    # Skip date-like false positives (e.g. timestamps parsed as 2026 - 06).
+    if op == "-" and a >= 1900 and b < 100:
+        return None
+    expected = _eval_simple(a, op, b)
     if expected is None:
         return None
     nums = [float(x) for x in _NUM_RE.findall(str(reply or ""))]

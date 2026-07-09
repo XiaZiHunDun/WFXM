@@ -60,10 +60,14 @@ def lead_template_path() -> Path:
 
 def format_project_list(settings: ButlerSettings) -> str:
     pm = get_project_manager()
-    names = sorted(p.name for p in pm.list_projects())
-    if not names:
+    projects = sorted(pm.list_projects(), key=lambda p: p.name)
+    if not projects:
         return f"(无 — 在 {settings.projects_dir} 下创建 project.yaml)"
-    return ", ".join(names)
+    parts: list[str] = []
+    for p in projects:
+        slug = p.workspace.name
+        parts.append(f"{p.name} (目录 {slug}/)")
+    return ", ".join(parts)
 
 
 def format_skill_summaries(skills: list[dict[str, Any]], max_items: int = 20) -> str:

@@ -54,7 +54,18 @@ def flush_deferred_pushes_safe(
             for body, kind in items:
                 _schedule_deferred_push_standalone(chat_id, body, kind=kind)
             return
+        from butler.gateway.delegate_push_dedup import should_deliver_delegate_push
+
         for body, kind in items:
+            if kind == "delegate":
+                ok, reason = should_deliver_delegate_push(chat_id, "", body=body)
+                if not ok:
+                    logger.info(
+                        "deferred delegate push suppressed chat=%s reason=%s",
+                        chat_id[:12],
+                        reason,
+                    )
+                    continue
             bridge.schedule_completion_push(body, kind=kind)
 
     safe_best_effort(_run, label="delegate_push_dedup.flush", default=None)

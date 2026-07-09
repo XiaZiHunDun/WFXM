@@ -72,7 +72,8 @@ def format_project_list(
         mark = "* " if p.name == current else "  "
         pack = getattr(p, "pack", "") or ""
         extra = f" pack={pack}" if pack else ""
-        lines.append(f"{mark}{p.name} ({p.type}{extra}) — {p.description}")
+        slug = p.workspace.name
+        lines.append(f"{mark}{p.name} ({p.type}{extra}) [{slug}/] — {p.description}")
     return "\n".join(lines)
 
 
