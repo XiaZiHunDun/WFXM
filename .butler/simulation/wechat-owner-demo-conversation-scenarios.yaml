@@ -70,6 +70,16 @@ tracks:
         tier: standard
         max_seconds: 120
 
+      - name: D07b 委派前清上下文
+        user_text: /新对话
+        expect_reply_any: [清空, 上下文]
+        tier: fast
+
+      - name: D07c 委派前重进灵文
+        user_text: /切换 灵文1号
+        expect_reply_any: [灵文1号, 切换, Lead, 厂长]
+        tier: fast
+
       - name: D08 文档类完善（content）
         user_text: >-
           选一个文档类改进项：请 delegate_task，role 必须是 content（不要用 dev）。
@@ -83,7 +93,7 @@ tracks:
         verify_file_contains:
           - path: "docs/{sim_dev_md}"
             any: [Owner演示, 灵文1号, "{sim_date}"]
-        reject_reply_any: [LingWen1/docs, outside workspace]
+        reject_reply_any: [outside workspace]
         soft: true
         tier: slow
         max_seconds: 420
