@@ -111,6 +111,12 @@ def format_butler_status(
         lines.extend(format_project_meta_lines(proj))
     elif current != "(无)":
         lines.append(f"  对话引擎: {gateway_loop_role(current)}")
+    else:
+        lines.append("  对话引擎: 个人管家 Butler（未绑定项目，发 /切换 进入厂长）")
+    if proj is not None:
+        from butler.project.maturity import format_maturity_status_line
+
+        lines.append(format_maturity_status_line(proj.name))
     lines.append(f"  {format_plan_mode_status(session_key).replace(chr(10), ' ')}")
     return "\n".join(lines)
 

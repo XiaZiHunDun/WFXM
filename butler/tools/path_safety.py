@@ -24,6 +24,11 @@ from butler.tools.path_safety_ops import (
     configured_safe_root_safe,
     hooks_global_dir_blocks_write,
 )
+from butler.tools.tool_scope import (
+    environment_tool_scope_enabled,
+    resolve_environment_tool_root,
+    workspace_anchor_strict_for_paths,
+)
 
 _BASE_TERMINAL_COMMANDS = {
     "cat",
@@ -151,16 +156,20 @@ def current_workspace_root() -> Path | None:
 
 
 def workspace_anchor_strict_enabled() -> bool:
-    return os.getenv("BUTLER_WORKSPACE_ANCHOR_STRICT", "1").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    return workspace_anchor_strict_for_paths()
 
 
 def format_tool_workspace_line(session_key: str = "") -> str:
     sk = str(session_key or "").strip()
+    if environment_tool_scope_enabled():
+        root = resolve_environment_tool_root()
+        hint = ""
+        ws = _workspace_for_session_key(sk) if sk else None
+        if ws is None and sk:
+            ws = current_workspace_root()
+        if ws is not None:
+            hint = f" · 上下文项目 {ws}"
+        return f"工具工作区: (环境) {root}{hint}"
     ws = _workspace_for_session_key(sk) if sk else None
     if ws is None:
         ws = current_workspace_root()
@@ -252,6 +261,8 @@ def default_tool_workdir() -> PathSafetyResult:
 
 def tool_safe_root() -> Path:
     """Return the active root that tools may access."""
+    if environment_tool_scope_enabled():
+        return resolve_environment_tool_root()
     ws = current_workspace_root()
     if ws is not None:
         return ws

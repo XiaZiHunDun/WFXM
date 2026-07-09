@@ -58,16 +58,21 @@ def format_default_project_policy_lines(
     """C2: default project resolution policy for /诊断."""
     import os
 
+    from butler.project.policy_env import bind_default_project_enabled
+
     pm = orchestrator.project_manager
     default_env = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip() or "(未设置)"
     session_proj = pm.resolve_active_project_name(session_key=session_key) or "(无)"
     lines = [
         "默认项目策略:",
         f"  BUTLER_DEFAULT_PROJECT: {default_env}",
+        f"  BUTLER_BIND_DEFAULT_PROJECT: {'1' if bind_default_project_enabled() else '0（默认：个人管家，需 /切换）'}",
         f"  本会话当前项目: {session_proj}",
     ]
-    if default_env != "(未设置)" and session_proj == "(无)":
+    if bind_default_project_enabled() and default_env != "(未设置)" and session_proj == "(无)":
         lines.append("  解析: 新会话将使用环境默认项目")
+    elif session_proj == "(无)":
+        lines.append("  解析: 个人管家模式（无项目绑定）；/切换 <项目名> 进入厂长 Lead")
     elif session_proj != "(无)":
         lines.append("  解析: 会话绑定优先于环境默认")
     lines.append("  切换: /切换 <项目名> · 新建: /项目 新建 <slug>")

@@ -159,6 +159,18 @@ def finalize_delegate_task(state: DelegateRunState, report: Any) -> None:
     )
     if state.bridge is not None:
         state.bridge.notify_delegate_finished(report)
+    from butler.project.maturity_ops import record_dev_delegate_maturity_safe
+
+    proj_name = ""
+    if state.project is not None:
+        proj_name = str(getattr(state.project, "name", "") or "").strip()
+    if not proj_name and state.session_key:
+        from butler.project.manager import get_project_manager
+
+        proj_name = get_project_manager().resolve_active_project_name(
+            session_key=state.session_key,
+        )
+    record_dev_delegate_maturity_safe(proj_name, state.role)
 
 
 def build_result_payload(state: DelegateRunState, report: Any, result: Any) -> dict[str, Any]:

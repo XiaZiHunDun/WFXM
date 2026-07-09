@@ -364,6 +364,12 @@ def _tool_delete_file(path: str, **_: Any) -> str:
         if not stat_module.S_ISREG(stat_result.st_mode):
             return json.dumps({"error": "Only regular files can be deleted (not directories)"})
 
+        from butler.project.maturity import delete_allowed_for_path
+
+        allowed, gate_msg = delete_allowed_for_path(p)
+        if not allowed:
+            return json.dumps({"error": gate_msg, "code": "DELETE_MATURITY_GATE"}, ensure_ascii=False)
+
         root = tool_safe_root()
         raw_path = _raw_tool_path(path, root)
         symlink_error = _symlink_component_error(raw_path, root, include_final=True)

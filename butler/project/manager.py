@@ -10,6 +10,7 @@ from typing import Any, Callable
 from butler.config import get_butler_settings
 from butler.project.model import Project
 from butler.session.keys import project_from_session_key
+from butler.project.policy_env import bind_default_project_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,11 @@ class ProjectManager:
         self._chat_project: dict[str, str] = {}
         self._on_switch_callbacks: list[SwitchCallback] = []
         self._scan_projects()
-        if self._default_project and self._default_project in self._projects:
+        if (
+            bind_default_project_enabled()
+            and self._default_project
+            and self._default_project in self._projects
+        ):
             self.current_project = self._default_project
 
     # ------------------------------------------------------------------ scans
@@ -187,7 +192,7 @@ class ProjectManager:
             return bound
         if self.current_project and self.current_project in self._projects:
             return self.current_project
-        if self._default_project in self._projects:
+        if bind_default_project_enabled() and self._default_project in self._projects:
             return self._default_project
         return ""
 
@@ -225,7 +230,7 @@ class ProjectManager:
             return chat_only
         if self.current_project:
             return self.current_project
-        if self._default_project in self._projects:
+        if bind_default_project_enabled() and self._default_project in self._projects:
             return self._default_project
         return ""
 

@@ -122,6 +122,29 @@ def dev_engine_post_edit(name: str, args: dict[str, Any], result: str) -> None:
     safe_best_effort(_do, label="tool_batch.dev_engine_post_edit")
 
 
+def maturity_post_edit(name: str, args: dict[str, Any], result: str) -> None:
+    """Accumulate per-project line-edit stats for delete maturity gate."""
+    if name not in ("write_file", "patch"):
+        return
+    if tool_result_outcome(result) != "ok":
+        return
+
+    def _do() -> None:
+        from pathlib import Path
+
+        from butler.project.maturity_ops import record_edit_maturity_safe
+
+        parsed = parse_tool_result_object(result)
+        resolved = None
+        if parsed:
+            raw = str(parsed.get("path") or "")
+            if raw:
+                resolved = Path(raw)
+        record_edit_maturity_safe(name, args, resolved_path=resolved)
+
+    safe_best_effort(_do, label="tool_batch.maturity_post_edit")
+
+
 def plan_mode_post_edit(name: str, args: dict[str, Any], result: str) -> None:
     """Sync plan markdown bullets to transcript plan_step rows."""
     if name not in ("write_file", "patch"):
@@ -242,6 +265,7 @@ __all__ = [
     "capture_pre_edit_snapshot",
     "dev_engine_post_edit",
     "fetch_pre_edit_snapshot",
+    "maturity_post_edit",
     "plan_mode_post_edit",
     "tool_result_outcome",
 ]

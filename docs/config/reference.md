@@ -49,7 +49,8 @@
 | `BUTLER_OWNER_WECHAT_ID` | — | Owner；runtime 推送、**/项目 新建** 白名单 |
 | `BUTLER_GATEWAY_ALLOWLIST` | — | 历史兼容 fallback allowlist；仅在未设 `BUTLER_OWNER_WECHAT_ID` 且未设 `WECHAT_ALLOWED_USERS` 时供 runtime push 与 Owner gate 使用；不影响 DM 入站 allowlist |
 | `BUTLER_PROJECT_CREATE_OPEN` | 0 | `1` 跳过 Owner 新建校验（仅开发） |
-| `BUTLER_DEFAULT_PROJECT` | — | 未绑 chat 时的默认项目名 |
+| `BUTLER_DEFAULT_PROJECT` | — | 可选项目名；**默认不自动绑定**（见 `BUTLER_BIND_DEFAULT_PROJECT`） |
+| `BUTLER_BIND_DEFAULT_PROJECT` | 0 | `1` 时新会话/CLI 自动解析为 `BUTLER_DEFAULT_PROJECT`（旧行为） |
 | `BUTLER_GATEWAY_HANDLER_TIMEOUT` | 600 | 单条消息处理超时（秒） |
 | `BUTLER_GATEWAY_HANDLER_WORKERS` | 2 | 并发 worker 数 |
 | `BUTLER_GATEWAY_MAX_SESSIONS` | 50 | 最大活跃会话数 |
@@ -70,7 +71,11 @@
 | 变量 | 说明 |
 |------|------|
 | `BUTLER_PROJECTS_DIR` | 项目根（默认仓库 `projects/`） |
-| `BUTLER_TOOL_SAFE_ROOT` | 工具路径沙箱根 |
+| `BUTLER_TOOL_SAFE_ROOT` | 工具路径沙箱根（`BUTLER_TOOL_SCOPE=environment` 时读写执行边界） |
+| `BUTLER_TOOL_SCOPE` | environment | `environment` = 全环境 safe root；`project` = 限定当前项目 workspace |
+| `BUTLER_PROJECT_DELETE_MATURITY_GATE` | 1 | `1` 时项目内删除需达累计修改/开发委派门槛 |
+| `BUTLER_PROJECT_DELETE_MIN_LINES` | 20000 | 项目累计修改行数门槛（与开发委派次数 **同时** 满足才可删） |
+| `BUTLER_PROJECT_DELETE_MIN_DEV_DELEGATES` | 300 | 项目 dev 委派完成次数门槛 |
 | `BUTLER_LEAD_PROJECTS` | 厂长模式项目列表（逗号分隔；可被 `project.yaml` `lead: true` 补充） |
 | `BUTLER_LEAD_READONLY_GATE` | `1` | `0` = 关闭 Lead 只读/禁委派意图时对 `delegate_task` 的门控（返回 `LEAD_READONLY_NO_DELEGATE`） |
 | `BUTLER_HOME` | `~/.butler` | Butler 数据根目录 |
@@ -304,7 +309,7 @@
 | `BUTLER_SESSION_HYDRATE` | 1 | 新建 Loop 时从 transcript 注入 read_file 事实块 |
 | `BUTLER_SESSION_TOOL_INDEX` | 1 | 从 transcript 解析本轮 `read_file` 路径索引 |
 | `BUTLER_SESSION_RECOVERY_NOTICE` | 1 | 冷启动后首条回复附会话恢复提示 |
-| `BUTLER_WORKSPACE_ANCHOR_STRICT` | 1 | 相对路径优先锚定当前项目 workspace |
+| `BUTLER_WORKSPACE_ANCHOR_STRICT` | 1 | `BUTLER_TOOL_SCOPE=project` 时相对路径锚定项目 workspace；environment  scope 下忽略 |
 | `BUTLER_TURN_SUMMARY_LINE` | 1 | `0` 关闭长回复前工具摘要行（`📎 读了N文件·…`） |
 | `BUTLER_TURN_SUMMARY_MIN_CHARS` | 400 | 触发摘要的最小回复长度 |
 | `BUTLER_MEMORY_RECAP_LINE` | 1 | `0` 关闭长回复前记忆复述（`💭 记得：…`） |

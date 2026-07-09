@@ -19,6 +19,7 @@ from butler.core.tool_batch_finalize import (
 from butler.core.tool_batch_post_edit import (
     capture_pre_edit_snapshot,
     dev_engine_post_edit,
+    maturity_post_edit,
     plan_mode_post_edit,
 )
 from butler.core.tool_call_limits import get_tool_call_limiter
@@ -194,6 +195,7 @@ def dispatch_one_tool(
     if batch_guard is not None:
         batch_guard.note_tool_result(name, args, result)
     dev_engine_post_edit(name, args, result)
+    maturity_post_edit(name, args, result)
     plan_mode_post_edit(name, args, result)
     return str(result)
 
