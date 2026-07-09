@@ -111,7 +111,7 @@ print()
 
 print("2. project.yaml dev commands (VERIFY + /测试)")
 pm = get_project_manager()
-for name in ("灵文1号", "演示试点"):
+for name in ("灵文1号", "普通试点项目"):
     proj = pm.get_project(name)
     ws = getattr(proj, "workspace", None) if proj else None
     dev = dict(getattr(proj, "dev", None) or {}) if proj else {}
@@ -138,7 +138,7 @@ if PROBE:
     from butler.dev_engine.verify import verify_lint, verify_test
 
     print("3. VERIFY probe (--probe)")
-    for name in ("演示试点", "灵文1号"):
+    for name in ("普通试点项目", "灵文1号"):
         proj = pm.get_project(name)
         ws = getattr(proj, "workspace", None) if proj else None
         if not ws or not Path(ws).is_dir():

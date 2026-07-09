@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# DemoPilot（演示试点）端到端冒烟：preflight + runtime jobs
+# DemoPilot（普通试点项目）端到端冒烟：preflight + runtime jobs
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-PROJECT="演示试点"
+PROJECT="普通试点项目"
 
 if [[ -f .env ]]; then
   set -a

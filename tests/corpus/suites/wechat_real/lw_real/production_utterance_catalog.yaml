@@ -76,7 +76,7 @@ utterance_catalog:
     - 完成
   script: delegate_delete_both
 - id: PROD-006
-  user: 切换到演示试点
+  user: 切换到普通试点项目
   category: production_real
   fixture: dual
   kind: command
@@ -86,7 +86,7 @@ utterance_catalog:
   source_file: production/脱敏真机20260522
   expect:
     response_contains:
-    - 演示试点
+    - 普通试点项目
 - id: PROD-007
   user: 切换回灵文1号
   category: production_real

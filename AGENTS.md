@@ -63,7 +63,7 @@ PYTHONPATH=. pytest tests/gateway/test_message_queue.py tests/gateway/test_gatew
 PYTHONPATH=. pytest tests/test_p2_remaining_features.py -q
 # 编排 replay（mock LLM 脚本，无真 API）
 PYTHONPATH=. pytest tests/test_llm_response_fixtures.py -q
-# 试点项目开发测试（演示试点 / 灵文1号）
+# 试点项目开发测试（普通试点项目 / 灵文1号）
 bash scripts/butler-pilot-dev-testing.sh
 # 编排质量（cron 提醒/向量/语义路由/MCP 自助/fact/Skill 工具联动）
 PYTHONPATH=. pytest tests/test_orchestration_improvements.py -q

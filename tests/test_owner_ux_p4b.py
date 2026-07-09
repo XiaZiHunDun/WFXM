@@ -26,7 +26,7 @@ def test_parse_edit_command_arg():
 def test_expand_edit_slash_to_delegate_nl():
     out = try_expand_owner_edit_slash(
         "/改 docs/foo.md 加一段说明",
-        project_name="演示试点",
+        project_name="普通试点项目",
     )
     assert out is not None
     assert "委派开发代理" in out
@@ -44,13 +44,13 @@ def test_expand_edit_empty_arg_returns_none():
 def test_cc_handoff_package():
     text = build_cc_handoff_package(
         "重构 auth 模块",
-        project_name="演示试点",
+        project_name="普通试点项目",
         workspace="/tmp/DemoPilot",
         session_key="sk1",
     )
     assert "CC 任务包" in text
     assert "重构 auth" in text
-    assert "演示试点" in text
+    assert "普通试点项目" in text
     assert "/cc-bridge" in text or "本机" in text
 
 

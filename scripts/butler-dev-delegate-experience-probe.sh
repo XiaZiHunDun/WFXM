@@ -50,7 +50,7 @@ if l4.is_file():
 print(f"2. L4 tenant: {l4} entries={l4_n}")
 
 pm = get_project_manager()
-for name in ("灵文1号", "演示试点"):
+for name in ("灵文1号", "普通试点项目"):
     proj = pm.get_project(name)
     ws = getattr(proj, "workspace", None) if proj else None
     if not ws:

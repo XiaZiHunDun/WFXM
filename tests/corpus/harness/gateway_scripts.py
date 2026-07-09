@@ -327,7 +327,7 @@ def script_profiles() -> dict[str, list[Any]]:
         ],
         "cross_project_need_switch": [
             _text_response(
-                "当前在演示试点，灵文1号进度需在灵文1号项目下查询，请先 /切换 灵文1号。"
+                "当前在普通试点项目，灵文1号进度需在灵文1号项目下查询，请先 /切换 灵文1号。"
             ),
         ],
         "novel_chapter_progress": [

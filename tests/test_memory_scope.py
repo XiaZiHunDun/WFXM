@@ -29,7 +29,7 @@ def test_infer_b9_global_scope():
 def test_memory_scope_visible_private():
     scope = MemoryScope(visibility="private", project_id="灵文1号")
     assert scope.visible_to(project_id="灵文1号")
-    assert not scope.visible_to(project_id="演示试点")
+    assert not scope.visible_to(project_id="普通试点项目")
     assert not scope.visible_to(project_id="")
 
 
@@ -93,7 +93,7 @@ def test_search_filters_private_by_project():
     other = xlib.search(
         {"lingwen", "demo", "add"},
         {"T01", "T03", "T04", "T10"},
-        project_id="演示试点",
+        project_id="普通试点项目",
     )
     assert all(e.id != "B9_EX_prod_lingwen_demo_add" for e in other)
     lw = xlib.search(
@@ -202,7 +202,7 @@ def test_load_delegate_experience_library_merges_l3(tmp_path):
 
     ws = tmp_path / "proj"
     ws.mkdir()
-    proj = SimpleNamespace(name="演示试点", workspace=ws, pack="", type="software")
+    proj = SimpleNamespace(name="普通试点项目", workspace=ws, pack="", type="software")
 
     xlib = load_delegate_experience_library(
         butler_home=bh,
@@ -234,7 +234,7 @@ def test_process_task_respects_project_scope():
         ["lingwen", "demo", "add"],
         tlib,
         xlib,
-        project_id="演示试点",
+        project_id="普通试点项目",
         stack_tags=frozenset(),
     )
     assert ctx_other.selected_experience is None

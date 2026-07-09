@@ -1,6 +1,6 @@
-# 演示试点 · runtime（多项目 / 测试冒烟）
+# 普通试点项目 · runtime（多项目 / 测试冒烟）
 version: 1
-project: 演示试点
+project: 普通试点项目
 defaults:
   timeout_seconds: 600
   notify_wechat: false

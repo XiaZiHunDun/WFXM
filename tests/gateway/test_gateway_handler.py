@@ -419,7 +419,7 @@ class TestSlashCommands:
         assert _normalize_detail_request("你好") is None
 
     def test_normalize_switch_request_aliases(self):
-        assert _normalize_switch_request("切换到演示试点") == "/切换 演示试点"
+        assert _normalize_switch_request("切换到普通试点项目") == "/切换 普通试点项目"
         assert _normalize_switch_request("切换至灵文1号") == "/切换 灵文1号"
         assert _normalize_switch_request("你好") is None
 

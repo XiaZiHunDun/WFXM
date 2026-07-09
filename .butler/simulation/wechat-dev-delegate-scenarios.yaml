@@ -97,14 +97,14 @@ tracks:
         max_seconds: 420
 
   - id: demopilot
-    title: 演示试点 — content / dev 轻量代码
+    title: 普通试点项目 — content / dev 轻量代码
     session_mode: fresh
     quick: true
     cleanup_globs:
       - docs/dev-delegate-sim*.md
       - docs/dev-delegate-sim*.py
     setup:
-      - /切换 演示试点
+      - /切换 普通试点项目
     cases:
       - name: content 写试点 md
         user_text: >-

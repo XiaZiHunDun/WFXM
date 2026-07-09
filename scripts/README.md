@@ -71,7 +71,7 @@
 | `butler-inbound-media-smoke.sh` | 入站媒体 |
 | `butler-runtime-smoke.sh` | **灵文1号** runtime（factory-status、preflight 等） |
 | `butler-lingwen-lead-smoke.sh` | **灵文1号** Lead 工具白名单 + `workflow_state.json` 只读断言 |
-| `butler-demo-pilot-smoke.sh` | **演示试点** preflight + heartbeat + test-unit-smoke |
+| `butler-demo-pilot-smoke.sh` | **普通试点项目** preflight + heartbeat + test-unit-smoke |
 | `butler-dev-delegate-smoke.sh` | 委派工作流 |
 | `butler-dev-tools-smoke.sh` | terminal / git / patch |
 | `butler-memory-smoke.sh` | 记忆 recall 子集 |

@@ -55,7 +55,7 @@ butler project register https://github.com/user/repo.git --name "外部仓库"
 | 项目 | Lead | Skill |
 |------|------|-------|
 | 灵文1号 | `lead: true` | `lingwen-project-lead.md` |
-| 演示试点 | `lead: true` | `demo-project-lead.md` |
+| 普通试点项目 | `lead: true` | `demo-project-lead.md` |
 
 ```bash
 bash scripts/sync-project-skills.sh LingWen1

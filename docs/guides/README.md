@@ -60,7 +60,7 @@
 | `scripts/butler-pre-release-smoke.sh` | 发版前一键（preflight + pytest + smoke） |
 | `scripts/butler-five-reports-gate.sh` | 五报告 P5–P10 守门 |
 | `scripts/butler-runtime-smoke.sh` | Runtime 运维冒烟（灵文1号） |
-| `scripts/butler-demo-pilot-smoke.sh` | 演示试点 E2E |
+| `scripts/butler-demo-pilot-smoke.sh` | 普通试点项目 E2E |
 | `scripts/butler-dev-tools-smoke.sh` | 开发工具链实战冒烟 |
 | `scripts/butler-g1-checklist.sh` | G1 开放项守门 + 真机话术提示 |
 | `scripts/butler-gap-observability.sh` | G1/G2 边界观测（`boundary_observability`） |

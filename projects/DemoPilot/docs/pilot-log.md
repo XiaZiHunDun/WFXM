@@ -1,4 +1,4 @@
-# 演示试点 · 测试日志
+# 普通试点项目 · 测试日志
 
 > 本平台试点项目，非生产业务。Agent/委派模拟 **允许** 改动本目录；见 [`docs/guides/pilot-project-dev-testing.md`](../../../docs/guides/pilot-project-dev-testing.md)。
 

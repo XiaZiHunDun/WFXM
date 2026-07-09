@@ -50,7 +50,7 @@ dev:
 ```
 
 - **灵文1号**：已接 `../../tests/` 子集  
-- **演示试点**：已接仓库内快测子集（见 `projects/DemoPilot/project.yaml`）
+- **普通试点项目**：已接仓库内快测子集（见 `projects/DemoPilot/project.yaml`）
 
 ## 5. 沙箱与 npm
 

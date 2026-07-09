@@ -62,7 +62,7 @@ class TestC2DefaultProjectPolicy:
     def test_health_report_includes_default_policy(self, monkeypatch):
         from butler.ops.health_report import HealthReportInput, build_health_report
 
-        monkeypatch.setenv("BUTLER_DEFAULT_PROJECT", "演示试点")
+        monkeypatch.setenv("BUTLER_DEFAULT_PROJECT", "普通试点项目")
         orch = MagicMock()
         orch.project_manager.get_current.return_value = None
         orch.project_manager.resolve_active_project_name.return_value = "(无)"

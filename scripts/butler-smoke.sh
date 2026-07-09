@@ -69,7 +69,7 @@ case "$TIER" in
     bash scripts/butler-wechat-gateway-smoke.sh
     bash scripts/butler-inbound-media-smoke.sh
     bash scripts/butler-lingwen-lead-smoke.sh
-    butler project preflight --project "演示试点"
+    butler project preflight --project "普通试点项目"
     echo ""
     echo "Smoke standard: ALL PASSED"
     ;;

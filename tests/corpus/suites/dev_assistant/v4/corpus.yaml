@@ -165,7 +165,7 @@ cases:
   - id: DA4-20
     dimension: butler_product
     title: 切换项目
-    user: 我想从灵文1号切到演示试点项目，在微信里怎么说？
+    user: 我想从灵文1号切到普通试点项目项目，在微信里怎么说？
     must_contain_any: [切换, 项目]
     must_contain_any2: [灵文, 演示, DemoPilot, /切换]
 
@@ -215,7 +215,7 @@ cases:
   - id: DA4-27
     dimension: butler_product
     title: 记忆与项目隔离
-    user: 灵文1号和演示试点的记忆会混在一起吗？怎么理解项目隔离？
+    user: 灵文1号和普通试点项目的记忆会混在一起吗？怎么理解项目隔离？
     must_contain_any: [项目, 隔离]
     must_contain_any2: [记忆, memory, 灵文, DemoPilot]
 

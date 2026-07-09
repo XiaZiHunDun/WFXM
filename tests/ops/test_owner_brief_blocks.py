@@ -32,7 +32,7 @@ def test_format_owner_brief_four_blocks(monkeypatch):
     orch = MagicMock()
     orch._settings.default_provider = "minimax"
     orch.project_manager.get_current.return_value = type(
-        "P", (), {"name": "演示试点", "workspace": "/tmp/ws"}
+        "P", (), {"name": "普通试点项目", "workspace": "/tmp/ws"}
     )()
     orch._reload_project_memory = MagicMock()
     orch._project_memory = None

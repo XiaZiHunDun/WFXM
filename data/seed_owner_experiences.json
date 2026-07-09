@@ -69,7 +69,7 @@
   },
   {
     "seed_id": "owner-seed-demo-lead",
-    "project": "演示试点",
+    "project": "普通试点项目",
     "category": "workflow",
     "tags": [
       "seed:owner-experience",
@@ -79,7 +79,7 @@
       "tool:list_directory",
       "tool:delegate_task"
     ],
-    "content": "演示试点 Lead：只读探路用 read_file/list_directory；改代码与测试 delegate_task role dev；写文档 delegate content；Lead 禁止直接 patch/terminal/write_file。"
+    "content": "普通试点项目 Lead：只读探路用 read_file/list_directory；改代码与测试 delegate_task role dev；写文档 delegate content；Lead 禁止直接 patch/terminal/write_file。"
   },
   {
     "seed_id": "owner-seed-memory-ops",

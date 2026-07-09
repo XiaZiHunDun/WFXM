@@ -97,7 +97,7 @@
 |----|-----|------|----------|
 | C1 | Git `butler project register` + 外部 repo 试点 ✅ | CLI + 微信 clone + 单测 | A5 双域 |
 | C2 | 默认项目策略文档化 ✅ | `/诊断` 默认项目策略块 + 文档 | — |
-| C3 | Lead 配置化：多项目 `lead: true` + Skill ✅ | 灵文1号 + 演示试点 Lead smoke | T8 |
+| C3 | Lead 配置化：多项目 `lead: true` + Skill ✅ | 灵文1号 + 普通试点项目 Lead smoke | T8 |
 | C4 | 新建选 `pack` 模板 ✅ | `butler create` / `/项目 新建` 模板 | — |
 
 ### 轨道 D — 理论驱动的架构增强（v2.0 新增）

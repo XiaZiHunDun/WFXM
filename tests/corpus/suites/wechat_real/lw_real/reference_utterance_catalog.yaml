@@ -369,7 +369,7 @@ utterance_catalog:
     - 安全
     - 路径
 - id: REF-0021
-  user: 现在切到演示试点
+  user: 现在切到普通试点项目
   category: project_session
   fixture: dual
   kind: command
@@ -382,7 +382,7 @@ utterance_catalog:
     - 切换
     - 项目
 - id: REF-0022
-  user: 帮我换到演示试点干活
+  user: 帮我换到普通试点项目干活
   category: project_session
   fixture: dual
   kind: llm
@@ -401,7 +401,7 @@ utterance_catalog:
     - 莎丽
     - 厂长
 - id: REF-0023
-  user: 我要切项目，去演示试点
+  user: 我要切项目，去普通试点项目
   category: project_session
   fixture: dual
   kind: llm
@@ -461,7 +461,7 @@ utterance_catalog:
     - 切换
     - 项目
 - id: REF-0027
-  user: 别在演示试点了，换回灵文1号
+  user: 别在普通试点项目了，换回灵文1号
   category: project_session
   fixture: dual
   kind: llm
@@ -4132,7 +4132,7 @@ utterance_catalog:
   - 搞不定？
   - 就这？
 - id: REF-20260523-L01
-  user: 演示试点里那个文件也帮我改一下
+  user: 普通试点项目里那个文件也帮我改一下
   category: L_cross_project
   fixture: dual
   kind: llm
@@ -4152,11 +4152,11 @@ utterance_catalog:
     - 厂长
   variants:
   - 另一个项目文件也改下
-  - 演示试点的也弄一下
+  - 普通试点项目的也弄一下
   - 跨项目改个文件
   - 同时改两个项目
 - id: REF-20260523-L02
-  user: 切到演示试点
+  user: 切到普通试点项目
   category: L_cross_project
   fixture: dual
   kind: command
@@ -4169,8 +4169,8 @@ utterance_catalog:
     - 切换
     - 项目
   variants:
-  - 换到演示试点
-  - 去演示试点
+  - 换到普通试点项目
+  - 去普通试点项目
   - 切演示
   - 切换演示
 - id: REF-20260523-L03
@@ -4222,7 +4222,7 @@ utterance_catalog:
   - 多项目汇总
   - 一起发
 - id: REF-20260523-L05
-  user: 我在演示试点做的记忆，灵文1号能看到吗
+  user: 我在普通试点项目做的记忆，灵文1号能看到吗
   category: L_cross_project
   fixture: dual
   kind: llm
@@ -7471,7 +7471,7 @@ utterance_catalog:
     - 目录
     - read
 - id: REF-0375
-  user: 把灵文一号的某个文件复制到演示试点里去
+  user: 把灵文一号的某个文件复制到普通试点项目里去
   category: scenario_O
   fixture: dual
   kind: llm
@@ -7509,7 +7509,7 @@ utterance_catalog:
     - 莎丽
     - 厂长
 - id: REF-0377
-  user: 对比灵文一号和演示试点的 project.yaml 差异
+  user: 对比灵文一号和普通试点项目的 project.yaml 差异
   category: scenario_O
   fixture: dual
   kind: llm
@@ -7526,7 +7526,7 @@ utterance_catalog:
     - 目录
     - read
 - id: REF-0378
-  user: 我记在灵文一号里的记忆，在演示试点里能用吗？
+  user: 我记在灵文一号里的记忆，在普通试点项目里能用吗？
   category: scenario_O
   fixture: dual
   kind: llm
@@ -7545,7 +7545,7 @@ utterance_catalog:
     - 莎丽
     - 厂长
 - id: REF-0379
-  user: 切换到演示试点，但保留灵文一号的未完成任务
+  user: 切换到普通试点项目，但保留灵文一号的未完成任务
   category: scenario_O
   fixture: dual
   kind: command

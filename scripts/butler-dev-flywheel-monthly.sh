@@ -76,7 +76,7 @@ fi
 
 echo "=== WeChat manual (after green gate) ==="
 echo "  See docs/guides/dev-flywheel-monthly.md §2"
-echo "  Suggested: 灵文1号 dev 飞轮 md 或 演示试点 README 摘要"
+echo "  Suggested: 灵文1号 dev 飞轮 md 或 普通试点项目 README 摘要"
 echo
 
 if [[ "$FAIL" -ne 0 ]]; then

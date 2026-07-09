@@ -1,4 +1,4 @@
-# 演示试点 · 运营说明
+# 普通试点项目 · 运营说明
 
 ## 用途
 
@@ -9,13 +9,13 @@
 
 ## 微信验收（约 5 分钟）
 
-1. `/切换 演示试点`
+1. `/切换 普通试点项目`
 2. `/状态` — 应显示健康概览 + 当前项目
 3. `/简报` — 含健康灯 + 收件箱
 4. `/诊断` — Owner 简要；运维 `/诊断 详细`
 5. `/项目 体检` — 无 FAIL
 6. `/运行 pilot-heartbeat`
-7. `/运行 test-unit-smoke`（或 CLI：`butler runtime run test-unit-smoke --project 演示试点 --force --no-notify`）
+7. `/运行 test-unit-smoke`（或 CLI：`butler runtime run test-unit-smoke --project 普通试点项目 --force --no-notify`）
 
 ## 飞轮验收（约 15 分钟，P1）
 
@@ -24,7 +24,7 @@
 ## CLI
 
 ```bash
-butler project preflight --project 演示试点
+butler project preflight --project 普通试点项目
 bash scripts/butler-demo-pilot-smoke.sh
 bash scripts/butler-pilot-dev-testing.sh              # 推荐：试点开发全门禁
 bash scripts/butler-dev-live-flywheel-checklist.sh --probe

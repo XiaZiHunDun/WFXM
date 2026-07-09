@@ -5,7 +5,7 @@
 # Agent/delegate sims MAY modify pilot workspaces — expected; see docs/guides/pilot-project-dev-testing.md
 #
 # Usage:
-#   bash scripts/butler-pilot-dev-testing.sh                    # 演示试点 (default)
+#   bash scripts/butler-pilot-dev-testing.sh                    # 普通试点项目 (default)
 #   bash scripts/butler-pilot-dev-testing.sh --project lingwen
 #   bash scripts/butler-pilot-dev-testing.sh --no-delegate    # skip LLM delegate sim
 #   bash scripts/butler-pilot-dev-testing.sh --log            # append DemoPilot pilot-log on PASS
@@ -39,9 +39,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$PROJECT" in
-  demopilot|demo|演示试点)
+  demopilot|demo|普通试点项目)
     PROJECT="demopilot"
-    BUTLER_NAME="演示试点"
+    BUTLER_NAME="普通试点项目"
     DELEGATE_TRACK="demopilot"
     ;;
   lingwen|灵文|灵文1号)

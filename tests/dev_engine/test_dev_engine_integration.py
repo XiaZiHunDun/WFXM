@@ -256,7 +256,7 @@ class TestDevStateDelegateLifecycle:
         ws = tmp_path / "demo"
         ws.mkdir()
         project = SimpleNamespace(
-            name="演示试点",
+            name="普通试点项目",
             workspace=ws,
             pack="",
             type="software",

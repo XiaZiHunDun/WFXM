@@ -11,7 +11,7 @@
 | 目录 | Butler 名称 | 说明 |
 |------|-------------|------|
 | [`LingWen1/`](LingWen1/) | **灵文1号** | WFXM 内小说工厂试点（含 `novel-factory/` 工作副本）；与正式灵文项目隔离 |
-| [`DemoPilot/`](DemoPilot/) | **演示试点** | 轻量第二试点（多项目切换 / runtime 冒烟；无 novel-factory） |
+| [`DemoPilot/`](DemoPilot/) | **普通试点项目** | 轻量第二试点（多项目切换 / runtime 冒烟；无 novel-factory） |
 
 创建新项目：`butler create <slug> --name "显示名" --type software` · 登记已有目录：`butler project register <路径>`
 

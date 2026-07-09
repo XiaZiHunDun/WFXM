@@ -105,11 +105,11 @@ def test_upsert_writes_l3_and_lesson(tmp_path, monkeypatch):
 def test_capture_delegate_failure_triggers_followup(tmp_path, monkeypatch):
     ws = tmp_path / "proj"
     ws.mkdir()
-    proj = SimpleNamespace(name="演示试点", workspace=ws)
+    proj = SimpleNamespace(name="普通试点项目", workspace=ws)
 
     class _PM:
         def get_project(self, name: str):
-            if name == "演示试点":
+            if name == "普通试点项目":
                 return proj
             return None
 
@@ -128,7 +128,7 @@ def test_capture_delegate_failure_triggers_followup(tmp_path, monkeypatch):
         task="implement feature X",
         success=False,
         task_id="task_demo",
-        project="演示试点",
+        project="普通试点项目",
         capture_source="delegate_pipeline",
         dev_engine={"verify_passed": False},
         failure_reason="verify_failed",

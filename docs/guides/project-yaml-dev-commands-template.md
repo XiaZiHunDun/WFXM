@@ -37,7 +37,7 @@ dev:
 
 | 项目 | `test_command` 要点 |
 |------|---------------------|
-| 演示试点 | `tests/test_owner_surface.py` 等轻量冒烟 |
+| 普通试点项目 | `tests/test_owner_surface.py` 等轻量冒烟 |
 | 灵文1号 | `tests/dev_engine/test_verify_layered.py` 等 |
 
 见 [`projects/DemoPilot/project.yaml`](../../projects/DemoPilot/project.yaml)、[`projects/LingWen1/project.yaml`](../../projects/LingWen1/project.yaml)。

@@ -82,7 +82,7 @@ def _setup_lingwen_gateway_project(tmp_path: Path, monkeypatch) -> Path:
 
 
 def _setup_dual_gateway_projects(tmp_path: Path, monkeypatch) -> Path:
-    """灵文1号 + 演示试点（多项目切换话术）。"""
+    """灵文1号 + 普通试点项目（多项目切换话术）。"""
     from butler.config import reload_butler_settings
     from tests.gateway.test_gateway_handler import _reset_singletons
 
@@ -90,7 +90,7 @@ def _setup_dual_gateway_projects(tmp_path: Path, monkeypatch) -> Path:
     projects_dir.mkdir()
     for folder, name, desc in (
         ("LingWen1", "灵文1号", "小说工厂试点"),
-        ("DemoPilot", "演示试点", "轻量第二试点"),
+        ("DemoPilot", "普通试点项目", "轻量第二试点"),
     ):
         proj = projects_dir / folder
         proj.mkdir(parents=True)

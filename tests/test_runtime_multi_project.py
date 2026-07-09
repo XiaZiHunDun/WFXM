@@ -23,4 +23,4 @@ def repo_projects(monkeypatch):
 def test_discover_includes_lingwen_and_demo(repo_projects):
     names = discover_runtime_projects()
     assert "灵文1号" in names
-    assert "演示试点" in names
+    assert "普通试点项目" in names

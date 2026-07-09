@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runtime ops smoke — 灵文1号（默认）或 演示试点（轻量 jobs）
+# Runtime ops smoke — 灵文1号（默认）或 普通试点项目（轻量 jobs）
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -38,7 +38,7 @@ _run() {
   python3 -m butler.main runtime run "$id" --project "$PROJECT" "$@"
 }
 
-if [[ "$PROJECT" == "演示试点" ]]; then
+if [[ "$PROJECT" == "普通试点项目" ]]; then
   _run pilot-heartbeat --no-notify
   _run test-unit-smoke --no-notify --force
 else

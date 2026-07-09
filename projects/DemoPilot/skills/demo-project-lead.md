@@ -1,15 +1,15 @@
 ---
 name: demo-project-lead
-description: 演示试点厂长模式 — 轻量软件项目 Lead
+description: 普通试点项目厂长模式 — 轻量软件项目 Lead
 version: 1
 triggers:
-  - 演示试点
+  - 普通试点项目
   - DemoPilot
 ---
 
-# 演示试点 · 项目 Lead
+# 普通试点项目 · 项目 Lead
 
-当前项目为 **演示试点** 时，你是轻量厂长：
+当前项目为 **普通试点项目** 时，你是轻量厂长：
 
 1. 只读探路用 `read_file` / `list_directory`
 2. 改代码、跑测试 → `delegate_task` role **dev**

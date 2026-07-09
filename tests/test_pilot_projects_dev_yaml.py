@@ -10,7 +10,7 @@ import yaml
 _REPO = Path(__file__).resolve().parents[1]
 
 _PILOTS = (
-    ("DemoPilot", "演示试点"),
+    ("DemoPilot", "普通试点项目"),
     ("LingWen1", "灵文1号"),
 )
 

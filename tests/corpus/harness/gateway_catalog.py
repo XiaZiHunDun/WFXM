@@ -225,7 +225,7 @@ def apply_catalog_setup(
             **msg_kw,
         )
     elif setup == "switch_to_demo":
-        handler.handle_message("/切换 演示试点", **msg_kw)
+        handler.handle_message("/切换 普通试点项目", **msg_kw)
     elif setup == "switch_to_lingwen":
         handler.handle_message("/切换 灵文1号", **msg_kw)
     elif setup == "workflow_state_on_disk":

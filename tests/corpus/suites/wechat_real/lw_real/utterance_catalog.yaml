@@ -23,12 +23,12 @@ utterance_catalog:
       no_llm: true
 
   - id: CAT-02
-    user: "切换到演示试点"
+    user: "切换到普通试点项目"
     category: project_switch
     fixture: dual
     kind: command
     expect:
-      response_contains: [演示试点, 切换]
+      response_contains: [普通试点项目, 切换]
 
   - id: CAT-03
     user: "当前在哪个项目？"
@@ -395,7 +395,7 @@ utterance_catalog:
     fixture: dual
     kind: command
     expect:
-      response_contains_any: [项目列表, 灵文1号, 演示试点]
+      response_contains_any: [项目列表, 灵文1号, 普通试点项目]
 
   - id: CAT-13
     user: "切换回灵文1号"

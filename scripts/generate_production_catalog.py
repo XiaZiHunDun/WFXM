@@ -69,7 +69,7 @@ def main() -> None:
         _row("PROD-003", "/详细", kind="detail", setup="prior_delegate_create_hello", expect={"no_llm": True, "response_contains": ["test_hello"]}),
         _row("PROD-004", "你帮我创建一个Python文件，然后往里边写一段代码逻辑", script="delegate_create_demo_py", expect={"file_exists": ["docs/demo_logic.py"]}),
         _row("PROD-005", "好，帮我把你刚才创建的两个文件删掉", script="delegate_delete_both", expect={"file_missing": ["docs/test_hello.txt", "docs/demo_logic.py"], "response_contains_any": ["删除", "完成"]}),
-        _row("PROD-006", "切换到演示试点", kind="command", fixture="dual", expect={"response_contains": ["演示试点"]}),
+        _row("PROD-006", "切换到普通试点项目", kind="command", fixture="dual", expect={"response_contains": ["普通试点项目"]}),
         _row("PROD-007", "切换回灵文1号", kind="command", fixture="dual", setup="switch_to_demo", expect={"response_contains": ["灵文1号"]}),
         _row("PROD-008", "当前在哪个项目？", kind="command", fixture="dual", expect={"response_contains_any": ["灵文", "当前项目"]}),
         _row("PROD-009", "/新对话", kind="command", setup="prior_chat_turn", expect={"response_contains_any": ["清空", "新对话"]}),

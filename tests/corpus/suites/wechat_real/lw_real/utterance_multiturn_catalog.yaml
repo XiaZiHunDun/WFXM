@@ -15,16 +15,16 @@ multiturn_catalog:
   description: 切换演示后追问当前项目
   fixture: dual
   turns:
-  - user: /切换 演示试点
+  - user: /切换 普通试点项目
     kind: command
     expect:
       response_contains:
-      - 演示试点
+      - 普通试点项目
   - user: /状态
     kind: command
     expect:
       response_contains:
-      - 演示试点
+      - 普通试点项目
   - user: /切换 灵文1号
     kind: command
     expect:
@@ -202,16 +202,16 @@ multiturn_catalog:
   description: 跨项目切换链
   fixture: dual
   turns:
-  - user: /切换 演示试点
+  - user: /切换 普通试点项目
     kind: command
     expect:
       response_contains:
-      - 演示试点
+      - 普通试点项目
   - user: /状态
     kind: command
     expect:
       response_contains_any:
-      - 演示试点
+      - 普通试点项目
       - 演示
       - 当前项目
   - user: /切换 灵文1号
@@ -385,11 +385,11 @@ multiturn_catalog:
     expect:
       file_missing:
       - docs/scenario-temp.txt
-  - user: /切换 演示试点
+  - user: /切换 普通试点项目
     kind: command
     expect:
       response_contains:
-      - 演示试点
+      - 普通试点项目
   - user: 刚才灵文1号那个任务怎么样了
     kind: llm
     script: recap_hello
@@ -460,11 +460,11 @@ multiturn_catalog:
     expect:
       response_contains:
       - 灵文1号
-  - user: 切到演示试点
+  - user: 切到普通试点项目
     kind: command
     expect:
       response_contains:
-      - 演示试点
+      - 普通试点项目
 - id: MT-19
   description: 只读→委派写→/详细（5轮）
   fixture: lingwen
@@ -746,14 +746,14 @@ multiturn_catalog:
       - 删除
       - 完成
 - id: MT-27
-  description: 跨项目误问：演示试点问灵文进度（L 维）
+  description: 跨项目误问：普通试点项目问灵文进度（L 维）
   fixture: dual
   turns:
-  - user: /切换 演示试点
+  - user: /切换 普通试点项目
     kind: command
     expect:
       response_contains:
-      - 演示试点
+      - 普通试点项目
   - user: 灵文1号现在写到哪一章了？
     kind: llm
     script: cross_project_need_switch
@@ -761,7 +761,7 @@ multiturn_catalog:
       response_contains_any:
       - 切换
       - 灵文1号
-      - 演示试点
+      - 普通试点项目
 - id: MT-28
   description: /新对话 后项目记忆仍在（MEM-M6）
   fixture: lingwen

@@ -1341,7 +1341,7 @@ utterance_catalog:
     - 完成
     - 任务
 - id: REF-STRICT-20260523-L01
-  user: 演示试点里那个文件也帮我改一下
+  user: 普通试点项目里那个文件也帮我改一下
   category: L_cross_project
   fixture: dual
   tier: reference
@@ -1350,7 +1350,7 @@ utterance_catalog:
   source_id: REAL-20260523-L01
   variants:
   - 另一个项目文件也改下
-  - 演示试点的也弄一下
+  - 普通试点项目的也弄一下
   - 跨项目改个文件
   - 同时改两个项目
   kind: llm
@@ -1364,7 +1364,7 @@ utterance_catalog:
     - 演示
     - 完成
 - id: REF-STRICT-20260523-L02
-  user: 切到演示试点
+  user: 切到普通试点项目
   category: L_cross_project
   fixture: dual
   tier: reference
@@ -1372,8 +1372,8 @@ utterance_catalog:
   source_file: reference/用户语料/2.md
   source_id: REAL-20260523-L02
   variants:
-  - 换到演示试点
-  - 去演示试点
+  - 换到普通试点项目
+  - 去普通试点项目
   - 切演示
   - 切换演示
   kind: command
@@ -1429,7 +1429,7 @@ utterance_catalog:
     - 演示
     - 完成
 - id: REF-STRICT-20260523-L05
-  user: 我在演示试点做的记忆，灵文1号能看到吗
+  user: 我在普通试点项目做的记忆，灵文1号能看到吗
   category: L_cross_project
   fixture: dual
   tier: reference

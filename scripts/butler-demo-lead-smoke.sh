@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# C3: 演示试点 Lead 冒烟（第二 Lead 项目）
+# C3: 普通试点项目 Lead 冒烟（第二 Lead 项目）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-PROJECT="演示试点"
+PROJECT="普通试点项目"
 
 if [[ -f .env ]]; then
   set -a
@@ -29,10 +29,10 @@ from butler.project.manager import get_project_manager
 from butler.tools.project_tools import allowed_tool_names_for_project
 
 pm = get_project_manager()
-proj = pm.get_project("演示试点")
+proj = pm.get_project("普通试点项目")
 assert proj is not None
-assert is_lead_project("演示试点", project=proj), "expected lead:true on 演示试点"
-assert gateway_loop_role("演示试点", project=proj) == "lead"
+assert is_lead_project("普通试点项目", project=proj), "expected lead:true on 普通试点项目"
+assert gateway_loop_role("普通试点项目", project=proj) == "lead"
 allowed = allowed_tool_names_for_project(proj, role="lead")
 assert allowed is not None
 for name in ("read_file", "delegate_task", "run_workflow"):

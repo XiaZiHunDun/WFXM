@@ -123,7 +123,7 @@ def run_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 for label, cli_args in (
-    ("hybrid CLI", ["memory", "search", "pytest", "--scope", "hybrid", "--project", "演示试点", "--limit", "3", "--json"]),
+    ("hybrid CLI", ["memory", "search", "pytest", "--scope", "hybrid", "--project", "普通试点项目", "--limit", "3", "--json"]),
     ("observation CLI", ["memory", "search", "read_file", "--scope", "observation", "--project", "灵文1号", "--limit", "3", "--json"]),
 ):
     proc = run_cli(cli_args)

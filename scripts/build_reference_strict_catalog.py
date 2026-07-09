@@ -587,14 +587,14 @@ def build_multiturn_catalog(j_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "fixture": "dual",
             "turns": [
                 {
-                    "user": "/切换 演示试点",
+                    "user": "/切换 普通试点项目",
                     "kind": "command",
-                    "expect": {"response_contains": ["演示试点"]},
+                    "expect": {"response_contains": ["普通试点项目"]},
                 },
                 {
                     "user": "/状态",
                     "kind": "command",
-                    "expect": {"response_contains": ["演示试点"]},
+                    "expect": {"response_contains": ["普通试点项目"]},
                 },
                 {
                     "user": "/切换 灵文1号",
@@ -777,11 +777,11 @@ def build_multiturn_catalog(j_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "description": "跨项目切换链",
             "fixture": "dual",
             "turns": [
-                {"user": "/切换 演示试点", "kind": "command", "expect": {"response_contains": ["演示试点"]}},
+                {"user": "/切换 普通试点项目", "kind": "command", "expect": {"response_contains": ["普通试点项目"]}},
                 {
                     "user": "/状态",
                     "kind": "command",
-                    "expect": {"response_contains_any": ["演示试点", "演示", "当前项目"]},
+                    "expect": {"response_contains_any": ["普通试点项目", "演示", "当前项目"]},
                 },
                 {"user": "/切换 灵文1号", "kind": "command", "expect": {"response_contains": ["灵文1号"]}},
             ],
@@ -916,7 +916,7 @@ def build_multiturn_catalog(j_rows: list[dict[str, Any]]) -> dict[str, Any]:
                     "setup": "scenario_temp_file",
                     "expect": {"file_missing": ["docs/scenario-temp.txt"]},
                 },
-                {"user": "/切换 演示试点", "kind": "command", "expect": {"response_contains": ["演示试点"]}},
+                {"user": "/切换 普通试点项目", "kind": "command", "expect": {"response_contains": ["普通试点项目"]}},
                 {
                     "user": "刚才灵文1号那个任务怎么样了",
                     "kind": "llm",
@@ -968,7 +968,7 @@ def build_multiturn_catalog(j_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "turns": [
                 {"user": "切换灵文一号", "kind": "command", "expect": {"response_contains_any": ["灵文", "切换"]}},
                 {"user": "/状态", "kind": "command", "expect": {"response_contains": ["灵文1号"]}},
-                {"user": "切到演示试点", "kind": "command", "expect": {"response_contains": ["演示试点"]}},
+                {"user": "切到普通试点项目", "kind": "command", "expect": {"response_contains": ["普通试点项目"]}},
             ],
         },
         {

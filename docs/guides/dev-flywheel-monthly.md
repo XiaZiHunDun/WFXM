@@ -38,10 +38,10 @@ bash scripts/butler-wechat-manual-flywheel-probe.sh --push --log
 
 **期望**：委派成功 → `/详细` 可见文件 → 可选 `/测试` 或等 dev VERIFY。
 
-### B. 演示试点 — 轻量只读
+### B. 普通试点项目 — 轻量只读
 
 ```
-/切换 演示试点
+/切换 普通试点项目
 
 请委派开发代理：read_file README.md 前 15 行并中文摘要，不要改文件。
 ```
