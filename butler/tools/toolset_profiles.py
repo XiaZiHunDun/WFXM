@@ -15,6 +15,7 @@ _PROFILES: dict[str, frozenset[str] | None] = {
         "read_file",
         "search_files",
         "list_directory",
+        "terminal",
         "butler_recall",
         "butler_remember",
         "search_transcript",

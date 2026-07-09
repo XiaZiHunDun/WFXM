@@ -128,3 +128,28 @@ def test_delete_file_tool_returns_maturity_error(monkeypatch, tmp_path):
     out = json.loads(_tool_delete_file(str(rel)))
     assert out.get("code") == "DELETE_MATURITY_GATE"
     assert rel.is_file()
+
+
+@pytest.mark.unit
+def test_personal_butler_excludes_run_workflow(monkeypatch):
+    from butler.tools.project_tools import allowed_tool_names_for_project
+
+    allowed = allowed_tool_names_for_project(None, role="butler")
+    assert allowed is not None
+    assert "terminal" in allowed
+    assert "run_workflow" not in allowed
+    assert "delegate_task" not in allowed
+
+
+@pytest.mark.unit
+def test_wechat_minimal_includes_terminal():
+    from butler.tools.toolset_profiles import TOOLSET_WECHAT_MINIMAL, filter_definitions_by_toolset
+
+    defs = [
+        {"type": "function", "function": {"name": n, "parameters": {}}}
+        for n in ("read_file", "terminal", "run_workflow", "delete_file")
+    ]
+    names = {d["function"]["name"] for d in filter_definitions_by_toolset(defs, toolset=TOOLSET_WECHAT_MINIMAL)}
+    assert "terminal" in names
+    assert "run_workflow" in names
+    assert "delete_file" not in names

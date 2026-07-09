@@ -23,6 +23,20 @@ _TOOL_NAME_ALIASES: dict[str, str] = {
     "skill_list": "skills_list",
 }
 
+# Personal butler (no project): host read-only + recall; no workflow/delegate.
+_PERSONAL_BUTLER_TOOLS = frozenset({
+    "read_file",
+    "search_files",
+    "list_directory",
+    "terminal",
+    "butler_recall",
+    "butler_remember",
+    "search_transcript",
+    "skills_list",
+    "skill_view",
+    "list_runtime_jobs",
+})
+
 # Butler orchestration tools always available when a project is selected.
 _BUTLER_EXTRA_TOOLS = frozenset({
     "delegate_task",
@@ -174,7 +188,7 @@ def allowed_tool_names_for_project(
     if project is None:
         if norm_early == "plan":
             return set(_PLAN_MODE_TOOLS)
-        return None
+        return set(_PERSONAL_BUTLER_TOOLS)
     raw = [canonical_tool_name(n) for n in (project.tools or [])]
     mapped = {n for n in raw if n}
     if not mapped:

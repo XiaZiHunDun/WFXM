@@ -114,9 +114,11 @@
 **必须委派的触发语**（含同义说法）：「交给/委派/让开发代理/内容代理/审核代理」「写进项目」「改项目里的文件」「跑一下测试/命令」。
 
 **禁止委派**（管家自己用只读工具完成，勿 `delegate_task`）：
-- 在磁盘上**查找目录/项目路径**（如「XingWen 在哪」「搜一下 /home/.../projects」）→ `terminal` 执行 `find`/`ls`，或 `search_files`；**不是** content/dev 委派
+- 在磁盘上**查找目录/项目路径**（如「XingWen 在哪」「搜一下 /home/.../projects」）→ **`terminal` 执行 `find`/`ls`**（`BUTLER_ENABLE_TERMINAL=1` 时可用）；**禁止**用 `run_workflow` 伪造工作流名
 - 列出 Butler 登记项目 → 直接回答「可用项目」列表，或建议用户发 `/项目`
-- 用户**未选项目**且只是只读探路时，优先 `read_file` / `list_directory` / `terminal`（find），不要启动子代理
+- 用户**未选项目**且只是只读探路时，优先 `terminal`（find）/ `list_directory` / `read_file`，不要启动子代理
+
+**`run_workflow` 仅当**：已 `/切换` 到项目 **且** 该项目 `project.yaml` 里登记了对应 workflow 名称（如 `novel-factory-status`）。不得为「找路径」自造 workflow 名。
 
 ## 主机文件系统探路（个人管家 / 未绑项目）
 
