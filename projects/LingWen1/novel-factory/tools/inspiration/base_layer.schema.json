@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "灵感基础层 YAML",
+  "description": "灵感 Agent 输出的 基础层.yaml 必填字段校验。模板：projects/LingWen1/novel-factory/01_灵感库/模板库/基础层模板.yaml。注意：模板自身使用 {xxx} 占位符（YAML 解析为 {xxx: null}），schema 允许 string 或 单键 object 形式以兼容。",
+  "type": "object",
+  "required": [
+    "template_id",
+    "项目名称",
+    "类型",
+    "主题",
+    "类型定位",
+    "核心卖点",
+    "核心人物",
+    "风格禁忌"
+  ],
+  "properties": {
+    "template_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "模板版本标识，固定 base_layer_v1"
+    },
+    "模板名称": {"type": "string"},
+    "版本": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "项目名称": {
+      "description": "{项目名} 占位符或真实项目名",
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "类型": {
+      "description": "主类型字符串或 {primary, secondary, tone} 结构",
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "主题": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "类型定位": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "核心卖点": {
+      "type": "array",
+      "minItems": 3,
+      "description": "3-5 条差异化卖点",
+      "items": {
+        "oneOf": [
+          {"type": "string", "minLength": 1},
+          {"type": "object", "minProperties": 1}
+        ]
+      }
+    },
+    "核心人物": {
+      "type": "object",
+      "required": ["主角"],
+      "properties": {
+        "主角": {
+          "type": "object",
+          "required": ["名称", "身份", "性格", "核心诉求"],
+          "properties": {
+            "名称": {
+              "oneOf": [
+                {"type": "string", "minLength": 1},
+                {"type": "object", "minProperties": 1}
+              ]
+            },
+            "身份": {
+              "oneOf": [
+                {"type": "string", "minLength": 1},
+                {"type": "object", "minProperties": 1}
+              ]
+            },
+            "性格": {
+              "oneOf": [
+                {"type": "string", "minLength": 1},
+                {"type": "object", "minProperties": 1}
+              ]
+            },
+            "核心诉求": {
+              "oneOf": [
+                {"type": "string", "minLength": 1},
+                {"type": "object", "minProperties": 1}
+              ]
+            },
+            "核心矛盾": {
+              "oneOf": [
+                {"type": "string", "minLength": 1},
+                {"type": "object", "minProperties": 1}
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "女/男主": {"type": "object"},
+        "反派/对手": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
+    "风格禁忌": {
+      "type": "array",
+      "minItems": 1,
+      "description": "至少 1 条，明确写出不能写什么",
+      "items": {
+        "oneOf": [
+          {"type": "string", "minLength": 1},
+          {"type": "object", "minProperties": 1}
+        ]
+      }
+    },
+    "目标受众": {"type": "object"},
+    "市场定位": {"type": "object"},
+    "灵感A_输出": {"type": "object"},
+    "灵感B_输出": {"type": "object"},
+    "灵感C_输出": {"type": "object"}
+  },
+  "additionalProperties": true
+}
