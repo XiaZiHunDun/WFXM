@@ -73,7 +73,7 @@ def _setup_lingwen_gateway_project(tmp_path: Path, monkeypatch) -> Path:
         encoding="utf-8",
     )
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
-    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(proj))
     from butler.config import reload_butler_settings
     from tests.gateway.test_gateway_handler import _reset_singletons
 
@@ -117,7 +117,8 @@ def _setup_dual_gateway_projects(tmp_path: Path, monkeypatch) -> Path:
             encoding="utf-8",
         )
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
-    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+    # F-B: dual project: safe_root covers both LingWen1 + DemoPilot workspaces.
+    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(projects_dir))
     _reset_singletons()
     reload_butler_settings()
     return projects_dir
@@ -227,6 +228,10 @@ def lingwen_handler(tmp_path, monkeypatch, tmp_butler_home):
     # Mock LLM scripts do not simulate dev_verify; disable auto-verify so
     # DEV_VERIFY_GATE does not mark dialogue-flow regressions as failed.
     monkeypatch.setenv("BUTLER_DEV_AUTO_VERIFY", "0")
+    # F1: disable delete maturity gate — fresh test fixtures have no edit/
+    # dev history, so delete_file would otherwise be blocked by
+    # butler/project/maturity.py:136 (DELETE_MATURITY_GATE).
+    monkeypatch.setenv("BUTLER_PROJECT_DELETE_MATURITY_GATE", "0")
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
     handler._orchestrator.project_manager.switch_project_for_chat(

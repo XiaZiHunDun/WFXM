@@ -340,9 +340,11 @@ def gateway_handler_project(tmp_path, monkeypatch, tmp_butler_home):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
     # Sprint 17 SEC-11: 走 dev 旁路跳过 owner 校验 (与 gateway_handler 一致).
     monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
-    # R1: allow project workspace under tmp_path; production path-safety
-    # default rejects paths outside /home/ailearn/projects.
-    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+    # R1/F-A: align safe_root with active workspace. Production file_io
+    # uses raw_path = _raw_tool_path(path, tool_safe_root()) for actual
+    # I/O, so safe_root MUST equal the workspace, not its parent
+    # (matches llm_delegate_benchmark.py:384 prod pattern).
+    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(proj))
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
     pm = handler._orchestrator.project_manager
