@@ -68,6 +68,7 @@ def resolve_skill_injection(
 
     mode = skill_injection_mode()
     from butler.skills.injection_policy_ops import (
+        is_local_project_inventory_intent_safe,
         is_session_read_recall_intent_safe,
         record_skill_injection_metrics_safe,
     )
@@ -80,6 +81,21 @@ def resolve_skill_injection(
             skill_names=(),
             experience_hits=0,
             reason="session_read_recall",
+        )
+        if diagnostics is not None:
+            diagnostics["skill_injection_mode"] = mode
+            diagnostics["skill_injection_experience_hits"] = 0
+        record_skill_injection_metrics_safe(decision)
+        return decision
+
+    inventory_intent = is_local_project_inventory_intent_safe(query)
+    if inventory_intent is True:
+        decision = SkillInjectionDecision(
+            mode=mode,
+            skip=True,
+            skill_names=(),
+            experience_hits=0,
+            reason="local_project_inventory",
         )
         if diagnostics is not None:
             diagnostics["skill_injection_mode"] = mode

@@ -23,6 +23,20 @@ def is_session_read_recall_intent_safe(query: str) -> bool | None:
     return bool(result) if isinstance(result, bool) else None
 
 
+def is_local_project_inventory_intent_safe(query: str) -> bool | None:
+    def _run() -> bool:
+        from butler.core.session_recall_intent import is_local_project_inventory_intent
+
+        return bool(is_local_project_inventory_intent(query))
+
+    result = safe_best_effort(
+        _run,
+        label="injection_policy.local_project_inventory",
+        default=None,
+    )
+    return bool(result) if isinstance(result, bool) else None
+
+
 def record_skill_injection_metrics_safe(decision: Any) -> None:
     def _run() -> None:
         from butler.ops.runtime_metrics import inc
