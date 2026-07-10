@@ -1,7 +1,8 @@
-from typing import cast
 """Opt-in morning /简报 push to Owner WeChat (WS-E backlog)."""
 
 from __future__ import annotations
+
+from typing import cast
 
 import logging
 import os

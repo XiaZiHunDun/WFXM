@@ -7,8 +7,8 @@ from typing import Any, cast
 
 from butler.env_parse import env_truthy
 from butler.core.reasoning_trace_ops import resolve_session_key_safe
-from butler.core.session_transcript import record_reasoning_step as _record
-from butler.core.session_transcript import record_reflect_step as _record
+from butler.core.session_transcript import record_reasoning_step as _record_reasoning
+from butler.core.session_transcript import record_reflect_step as _record_reflect
 from butler.core.reasoning_trace_ops import persist_reflect_closure_safe
 from butler.core.reasoning_trace_ops import suggest_fix_strategy_safe
 from butler.core.reasoning_trace_ops import sync_plan_step_to_graph_safe
@@ -53,7 +53,7 @@ def record_reasoning_step(
     if not reasoning_trace_enabled():
         return
 
-    _record(
+    _record_reasoning(
         session_key,
         phase=str(phase or "llm")[:32],
         summary=summarize_reasoning_text(summary),
@@ -75,7 +75,7 @@ def record_reflect_step(
     if not reasoning_trace_enabled():
         return
 
-    _record(
+    _record_reflect(
         session_key,
         trigger=str(trigger or "verify_fail")[:32],
         cause=summarize_reasoning_text(cause, max_len=200),

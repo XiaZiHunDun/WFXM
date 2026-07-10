@@ -1,4 +1,4 @@
-"""Sprint 21-1 SEC-21-A-1: `_path_outside_workspace` startswith 越界 (CRITICAL).
+"""Sprint 21-1 SEC-21-A-1: `path_outside_workspace` startswith 越界 (CRITICAL).
 
 `butler/permissions/rules.py:97` 用
 `return not str(target).startswith(str(root))` 校验路径越界, **没**加
@@ -38,14 +38,14 @@ from unittest.mock import patch
 
 import pytest
 
-from butler.permissions.rules import _path_outside_workspace
+from butler.permissions.rules import path_outside_workspace
 from butler.tools.path_safety import PathSafetyResult
 
 
 def _allow_all() -> PathSafetyResult:
     """Return a PathSafetyResult that lets the call proceed to the startswith check.
 
-    `check_tool_path` is called first inside `_path_outside_workspace`. If
+    `check_tool_path` is called first inside `path_outside_workspace`. If
     it returns `allowed=True`, the code falls through to the bare startswith
     check we are auditing. We use this stub to isolate the buggy line.
     """
@@ -54,31 +54,31 @@ def _allow_all() -> PathSafetyResult:
 
 @pytest.mark.unit
 class TestStaticContract:
-    """`_path_outside_workspace` 必须用 `Path.is_relative_to`, 不能再用裸 startswith."""
+    """`path_outside_workspace` 必须用 `Path.is_relative_to`, 不能再用裸 startswith."""
 
     def test_uses_is_relative_to(self):
         from butler.permissions import rules
 
-        src = inspect.getsource(rules._path_outside_workspace)
+        src = inspect.getsource(rules.path_outside_workspace)
         # 剥掉注释行避免误命中 (Sprint 21-1 注释里会提 startswith)
         code_lines = [
             line for line in src.splitlines() if not line.strip().startswith("#")
         ]
         code_src = "\n".join(code_lines)
         assert "is_relative_to" in code_src, (
-            "_path_outside_workspace 必须用 Path.is_relative_to 防 path traversal, "
+            "path_outside_workspace 必须用 Path.is_relative_to 防 path traversal, "
             f"实际源码片段:\n{src}"
         )
         # 防止 startswith 残留: 不能再用 `startswith(str(root` (rules.py 特有)
         assert "startswith(str(root" not in code_src, (
-            "_path_outside_workspace 不应再用裸 startswith 检查越界, "
+            "path_outside_workspace 不应再用裸 startswith 检查越界, "
             f"实际源码:\n{src}"
         )
 
     def test_does_not_use_bare_startswith(self):
         from butler.permissions import rules
 
-        src = inspect.getsource(rules._path_outside_workspace)
+        src = inspect.getsource(rules.path_outside_workspace)
         code_lines = [
             line for line in src.splitlines() if not line.strip().startswith("#")
         ]
@@ -86,7 +86,7 @@ class TestStaticContract:
         # 严格: 整个函数不应再用 .startswith( 做越界检查
         # (允许注释中保留 .startswith 字面引用)
         assert ".startswith(" not in code_src, (
-            "_path_outside_workspace 应只保留 is_relative_to 作为越界检查, "
+            "path_outside_workspace 应只保留 is_relative_to 作为越界检查, "
             f"实际源码:\n{src}"
         )
 
@@ -113,7 +113,7 @@ class TestPathOutsideWorkspaceBehavior:
             "butler.tools.path_safety.check_tool_path",
             return_value=_allow_all(),
         ):
-            result = _path_outside_workspace(str(target), workspace)
+            result = path_outside_workspace(str(target), workspace)
         assert result is True, (
             f"sibling-prefix {target} 应被判为 outside workspace {workspace}, "
             f"实际 result={result} (sibling 目录名是 workspace 的前缀, "
@@ -131,7 +131,7 @@ class TestPathOutsideWorkspaceBehavior:
             "butler.tools.path_safety.check_tool_path",
             return_value=_allow_all(),
         ):
-            result = _path_outside_workspace(str(target), workspace)
+            result = path_outside_workspace(str(target), workspace)
         assert result is False, (
             f"workspace 子文件 {target} 应被判为 inside, 实际 result={result}"
         )
@@ -149,7 +149,7 @@ class TestPathOutsideWorkspaceBehavior:
             "butler.tools.path_safety.check_tool_path",
             return_value=_allow_all(),
         ):
-            result = _path_outside_workspace(str(target), workspace)
+            result = path_outside_workspace(str(target), workspace)
         assert result is True, (
             f"完全无关路径 {target} 应被判为 outside, 实际 result={result}"
         )
@@ -167,7 +167,7 @@ class TestPathOutsideWorkspaceBehavior:
             "butler.tools.path_safety.check_tool_path",
             return_value=_allow_all(),
         ):
-            result = _path_outside_workspace(str(target), workspace)
+            result = path_outside_workspace(str(target), workspace)
         assert result is False, (
             f"嵌套子文件 {target} 应被判为 inside, 实际 result={result}"
         )
@@ -182,7 +182,7 @@ class TestEdgeCases:
         workspace = tmp_path / "proj"
         workspace.mkdir()
         # No mock needed: empty string short-circuits at the top.
-        result = _path_outside_workspace("", workspace)
+        result = path_outside_workspace("", workspace)
         assert result is False, (
             f"空 path 应返回 False (无 path 无越界), 实际 result={result}"
         )
@@ -199,7 +199,7 @@ class TestEdgeCases:
             return_value=_allow_all(),
         ):
             # 'src/main.py' 解析为 workspace/src/main.py, 应 inside
-            result = _path_outside_workspace("src/main.py", workspace)
+            result = path_outside_workspace("src/main.py", workspace)
         assert result is False, (
             f"相对路径 'src/main.py' 应解析为 workspace 子路径 → inside, "
             f"实际 result={result}"
