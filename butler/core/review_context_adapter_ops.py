@@ -38,8 +38,10 @@ def _findings_from_any(items: Any) -> list[ReviewFinding]:
     if not isinstance(items, list):
         return []
     out: list[ReviewFinding] = []
+    import butler.core.review_context_adapter as _adapter
+
     for item in items:
-        finding = _coerce_finding(item)
+        finding = _adapter._coerce_finding(item)
         if finding is not None:
             out.append(finding)
     return out

@@ -6,6 +6,7 @@ from typing import Any
 
 from butler.contracts.review_ports import DevReviewView, ReviewFinding
 from butler.core.review_context_adapter_ops import (
+    _coerce_finding,
     max_severity,
     parse_llm_review_text,
     review_text_passed,

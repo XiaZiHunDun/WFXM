@@ -24,13 +24,13 @@ def run_mutating_hook_safe(
     output_data: dict[str, Any],
 ) -> dict[str, Any] | None:
     try:
-        result = fn(dict(input_data), dict(output_data))
+        result = fn(input_data, output_data)
         if isinstance(result, dict):
             return result
         return None
     except TypeError:
         try:
-            fn(dict(input_data), dict(output_data))
+            fn(input_data, output_data)
             return None
         except Exception as exc:
             logger.warning("Hook %s failed: %s", name, exc)
