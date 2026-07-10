@@ -43,7 +43,9 @@ from butler.core.mode_classifier import detect_mode_suggestion_banner
 from butler.core.model_context import resolve_max_output_tokens
 from butler.core.session_hydration import recovery_notice_text
 from butler.core.session_recall_intent import (
+    detect_local_project_inventory_banner,
     detect_session_read_recall_banner,
+    is_local_project_inventory_intent,
     is_session_read_recall_intent,
 )
 from butler.core.task_route_hints import detect_cc_route_banner
@@ -52,7 +54,10 @@ from butler.core.tool_pair_repair import repair_tool_pairs_json_safe
 from butler.core.transform_feedback import maybe_apply_turn_feedback
 from butler.core.turn_summary_line import maybe_prepend_turn_summary
 from butler.core.turn_token_budget import resolve_turn_budget
-from butler.execution_context import use_session_read_recall_gate
+from butler.execution_context import (
+    use_local_project_inventory_gate,
+    use_session_read_recall_gate,
+)
 from butler.gateway.hooks import apply_pre_llm_context
 from butler.gateway.inbound_validate import validate_loop_messages_before_turn
 from butler.gateway.locked_phases_ops import format_gateway_error_card, run_hygiene_compress
@@ -121,6 +126,7 @@ class LockedTurnState:
     turn_started: float = 0.0
     turn_elapsed: float = 0.0
     session_read_recall_gate: bool = False
+    local_project_inventory_gate: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +270,18 @@ def _collect_ephemeral_gateway_banners(
             state.health["session_read_recall_banner"] = True
 
     safe_best_effort(_recall_banner, label="locked_phases.recall_banner")
+
+    def _inventory_banner() -> None:
+        state.local_project_inventory_gate = is_local_project_inventory_intent(state.text)
+        pm = handler._orchestrator.project_manager
+        proj = pm.get_current(session_key=state.session_key)
+        ws = getattr(proj, "workspace", None) if proj else None
+        banner = detect_local_project_inventory_banner(state.text, workspace=ws)
+        if banner:
+            ephemeral_parts.append(banner)
+            state.health["local_project_inventory_banner"] = True
+
+    safe_best_effort(_inventory_banner, label="locked_phases.inventory_banner")
 
     def _mode_banner() -> None:
         banner = detect_mode_suggestion_banner(state.text, session_key=state.session_key)
@@ -484,7 +502,8 @@ def _phase_prefetch_and_callbacks(
 def _phase_execute_turn(state: LockedTurnState) -> None:
     """Phase: run the AgentLoop with todo/goal continuation fallback."""
     with use_session_read_recall_gate(state.session_read_recall_gate):
-        _phase_execute_turn_inner(state)
+        with use_local_project_inventory_gate(state.local_project_inventory_gate):
+            _phase_execute_turn_inner(state)
 
 
 def _phase_execute_turn_inner(state: LockedTurnState) -> None:

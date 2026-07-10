@@ -124,6 +124,89 @@ def test_recall_intent_blocks_butler_recall_tool():
         assert check_session_read_recall_tool_block("read_file") is None
 
 
+def test_local_project_inventory_intent_detected():
+    from butler.core.session_recall_intent import (
+        detect_local_project_inventory_banner,
+        is_local_project_inventory_intent,
+    )
+
+    assert is_local_project_inventory_intent("分析一下灵文1号的代码架构是否需要改进")
+    assert is_local_project_inventory_intent("看下项目目前都有哪些任务或者改进项待做")
+    assert not is_local_project_inventory_intent("读一下 workflow_state")
+    banner = detect_local_project_inventory_banner("列出改进项")
+    assert banner is not None
+    assert "local_project_inventory" in banner
+    assert "interview-demo-backlog" in banner
+
+
+def test_inventory_banner_embeds_backlog_when_workspace_present(tmp_path):
+    from butler.core.session_recall_intent import detect_local_project_inventory_banner
+
+    backlog = (
+        "# 灵文1号 · 改进项\n\n"
+        "## P0 — 演示前优先\n\n"
+        "| # | 改进项 | 说明 |\n"
+        "|---|--------|------|\n"
+        "| 1 | Agent JSON schema 校验 | novel-factory 各 Agent 输出缺统一校验 |\n"
+        "| 2 | workflow_state 微信口径 | /工作流 与 factory-status-daily 字段不一致 |\n"
+        "| 3 | 测试残留目录清理 | MagicMock/、LingWen1/LingWen1/ 演示前宜删 |\n"
+    )
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "interview-demo-backlog.md").write_text(backlog, encoding="utf-8")
+
+    banner = detect_local_project_inventory_banner(
+        "看下项目目前都有哪些任务或者改进项待做",
+        workspace=tmp_path,
+    )
+    assert banner is not None
+    assert "Agent JSON schema 校验" in banner
+    assert "workflow_state 微信口径" in banner
+    assert "MagicMock/" in banner
+    assert "严格格式" in banner
+    assert "禁止 read_file" in banner
+    assert "禁止加粗" in banner
+
+
+def test_inventory_banner_without_workspace_emits_fallback():
+    from butler.core.session_recall_intent import detect_local_project_inventory_banner
+
+    banner = detect_local_project_inventory_banner(
+        "分析一下灵文1号的代码架构是否需要改进",
+    )
+    assert banner is not None
+    assert "未读到 backlog" in banner
+    assert "read_file docs/interview-demo-backlog.md" in banner
+
+
+def test_inventory_intent_blocks_delegate_task():
+    from butler.core.session_recall_intent import check_local_project_inventory_tool_block
+    from butler.execution_context import use_local_project_inventory_gate
+
+    assert check_local_project_inventory_tool_block("delegate_task") is None
+    with use_local_project_inventory_gate(True):
+        block = check_local_project_inventory_tool_block("delegate_task")
+        assert block is not None
+        assert "delegate_task" in block
+        assert check_local_project_inventory_tool_block("read_file") is None
+
+
+def test_skill_injection_skips_on_local_project_inventory_intent():
+    from butler.skills.injection_policy import resolve_skill_injection
+
+    orch = MagicMock()
+    orch.butler_memory = MagicMock()
+    orch.butler_memory.experience.search.return_value = [
+        {"content": "skill:deep-research", "tags": "skill:deep-research"},
+    ]
+    decision = resolve_skill_injection(
+        orch,
+        "分析一下代码架构是否需要改进",
+    )
+    assert decision.skip is True
+    assert decision.reason == "local_project_inventory"
+
+
 def test_format_compaction_report_empty_epoch(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     from butler.core.compaction_status import format_compaction_report
