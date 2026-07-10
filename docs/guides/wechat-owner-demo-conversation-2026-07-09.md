@@ -47,7 +47,7 @@ bash scripts/butler-wechat-owner-sim.sh \
 
 - **XingWen 搜索**依赖 `BUTLER_ENABLE_TERMINAL=1` 与 `BUTLER_TOOL_SAFE_ROOT=/home/ailearn/projects`。
 - **GitHub / Firecrawl** 需 MCP 已启用。
-- **8a / 8b 都跑完**再 `/新对话`，否则 #10–#12 可能夹带验收卡。
+- **7b + 9**：两次 **`/新对话` → `/切换 灵文1号`**——第一次在 #8 委派前、第二次在 #10 检索前，避免验收卡串台。
 - 代码类务必说 **「开发代理 / role=dev」**，避免误走 content 或 run_workflow。
 - 避免说「演示试点」；当前显示名为 **普通试点项目**。
 

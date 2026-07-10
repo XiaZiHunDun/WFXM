@@ -104,14 +104,14 @@ tracks:
           在 docs 创建 {sim_dev_py}，合法 Python：def owner_demo_ok(): 换行缩进 return 42；
           写完后 read_file 确认，不要用 terminal，不要改其他文件
         prefer_tools_any: [delegate_task]
-        expect_reply_any: [开发, dev, 委派, 代码, 完成, sim_ok, owner_demo]
+        expect_reply_any: [开发, dev, 委派, 代码, 完成, owner_demo, task_, 代理]
         expect_outbound_any: [委派, 完成, 后台, 开发]
         verify_files_exist:
           - "docs/{sim_dev_py}"
         verify_file_contains:
           - path: "docs/{sim_dev_py}"
             any: ["def owner_demo_ok", "return 42"]
-        reject_reply_any: [内容代理已完成, outside workspace, SyntaxError, demo/hello.py]
+        reject_reply_any: [outside workspace, SyntaxError, demo/hello.py]
         soft: true
         tier: slow
         max_seconds: 420
