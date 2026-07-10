@@ -1,6 +1,6 @@
 # 项目状态总览（已实现 / 未实现 / 依赖）
 
-> **更新**：2026-05-27  
+> **更新**：2026-07-10（能力表未增；本批为 Lead role + role-gate + 6× `_ops` 内联 + pytest 收集错误修复，详见 [`post-consolidation-roadmap §11`](../plans/active/post-consolidation-roadmap-2026-05.md) v2.6）  
 > **用途**：作为维护者总入口，快速判断 Butler 当前哪些能力已实现、哪些仍未实现或明确不做、当前已引入哪些依赖、哪些依赖明确不引入。  
 > **原则**：本页只做**路由与摘要**，不替代架构、决策与配置 SSOT。  
 > **勿从对照报告正文抽待办** — [`roadmap-backlog`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)

@@ -1,6 +1,6 @@
 # Butler v4 架构文档
 
-> **更新**：2026-07-08（ENG-15 全层依赖矩阵 + 理论/解耦文档；2026-07-07 九层 + L5 三类状态）  
+> **更新**：2026-07-10（Lead role + 仓库盘点 banner + tools/skills role-gate + 6× `_ops` 内联 + 3× pytest 收集错误修复 + 演示对话 sim）；2026-07-08（ENG-15 全层依赖矩阵 + 理论/解耦文档；2026-07-07 九层 + L5 三类状态）  
 > **对照**：[`v4-layer-model.md`](v4-layer-model.md) · [`plans/cc-butler-gap-analysis-2026-05.md`](../plans/active/cc-butler-gap-analysis-2026-05.md) · 规划索引 [`plans/README.md`](../plans/README.md) · 环境变量 [`config/reference.md`](../config/reference.md)
 
 ## 九层参考模型（逻辑分层）

@@ -365,5 +365,6 @@ PIM 查询 → 结果 2 轮 pii_clearable 清空 → fact extraction 跳过 PIM 
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| 2.6 | 2026-07-10 | Lead role + 仓库盘点 banner + tools/skills role-gate + 6× `_ops` 内联（P1-C）+ 3× pytest 收集错误修复 + 演示对话 sim + interview backlog（13 commit + 1 chore） |
 | 2.5 | 2026-06-09 | G1–G4 登记册批次收口：§9 补 G2/G3 项；末批真机 ✅；G2 边界已接受；开放仅 G1-04 |
 | 2.4 | 2026-06-09 | Phase 9 工程/文档收口；差距登记册与 `butler-gap-observability.sh` |
