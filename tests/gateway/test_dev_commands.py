@@ -443,8 +443,8 @@ class TestDevSessionChanges:
     def test_empty_when_no_events(self):
         from butler.core.post_compact_cleanup import _collect_dev_session_changes
 
-        with patch("butler.tools.registry.get_tool_audit_events", return_value=[]):
-            with patch("butler.execution_context.get_audit_session_key", return_value="test"):
+        with patch("butler.core.post_compact_cleanup_ops.get_tool_audit_events", return_value=[]):
+            with patch("butler.core.post_compact_cleanup_ops.get_audit_session_key", return_value="test"):
                 result = _collect_dev_session_changes()
                 assert result == ""
 
@@ -457,8 +457,8 @@ class TestDevSessionChanges:
             {"tool": "delete_file", "args": {"path": "/tmp/c.py"}},
         ]
 
-        with patch("butler.tools.registry.get_tool_audit_events", return_value=events):
-            with patch("butler.execution_context.get_audit_session_key", return_value="test"):
+        with patch("butler.core.post_compact_cleanup_ops.get_tool_audit_events", return_value=events):
+            with patch("butler.core.post_compact_cleanup_ops.get_audit_session_key", return_value="test"):
                 result = _collect_dev_session_changes()
                 assert "Files changed" in result
                 assert "/tmp/a.py" in result
@@ -474,8 +474,8 @@ class TestDevSessionChanges:
             {"tool": "terminal", "args": {"command": "pytest -q tests/"}},
         ]
 
-        with patch("butler.tools.registry.get_tool_audit_events", return_value=events):
-            with patch("butler.execution_context.get_audit_session_key", return_value="test"):
+        with patch("butler.core.post_compact_cleanup_ops.get_tool_audit_events", return_value=events):
+            with patch("butler.core.post_compact_cleanup_ops.get_audit_session_key", return_value="test"):
                 result = _collect_dev_session_changes()
                 assert "Terminal commands" in result
                 assert "pytest" in result
@@ -488,8 +488,8 @@ class TestDevSessionChanges:
             {"tool": "git_push", "args": {}},
         ]
 
-        with patch("butler.tools.registry.get_tool_audit_events", return_value=events):
-            with patch("butler.execution_context.get_audit_session_key", return_value="test"):
+        with patch("butler.core.post_compact_cleanup_ops.get_tool_audit_events", return_value=events):
+            with patch("butler.core.post_compact_cleanup_ops.get_audit_session_key", return_value="test"):
                 result = _collect_dev_session_changes()
                 assert "Git operations" in result
                 assert "commit: fix: bug" in result
@@ -503,8 +503,8 @@ class TestDevSessionChanges:
             {"tool": "patch", "args": {"path": "/tmp/a.py"}},
         ]
 
-        with patch("butler.tools.registry.get_tool_audit_events", return_value=events):
-            with patch("butler.execution_context.get_audit_session_key", return_value="test"):
+        with patch("butler.core.post_compact_cleanup_ops.get_tool_audit_events", return_value=events):
+            with patch("butler.core.post_compact_cleanup_ops.get_audit_session_key", return_value="test"):
                 result = _collect_dev_session_changes()
                 assert result.count("/tmp/a.py") == 1
 
