@@ -105,7 +105,7 @@ markers = [
     "gateway: tests/gateway/ domain (微信网关、斜杠命令)",
     "ops: tests/ops/ domain (eval、观测、metrics)",
     "dev_engine: tests/dev_engine/ domain (VERIFY、委派验证)",
-    "legacy_sprint: 历史 sprint 回归（残留 tests/test_sprint* 根目录；2026-07-11 已示范迁 7 个到 tests/{gateway,memory,tools,core}/）",
+    "legacy_sprint: 历史 sprint 回归（2026-07-11 已全量迁出 tests/ 根目录，conftest.py auto-marker 失效；保留以防新 sprint 测试需手工 tag）",
 ]
 addopts = "-m 'not live_llm'"
 filterwarnings = [
