@@ -24,7 +24,7 @@
 
 | # | 改进项 | 说明 | 状态 |
 |---|--------|------|------|
-| 8 | 旧 sprint 测试迁入域目录 | 见 `consolidation-audit-2026-06-23.md` 阶段 3 | 低优先级 |
+| 8 | 旧 sprint 测试迁入域目录 | 见 `consolidation-audit-2026-06-23.md` 阶段 3 | 🟡 部分示范（2026-07-11 已迁 7 个到 tests/{gateway,memory,tools,core}/；剩 ~99 个根目录低优先级待后续批次） |
 | 9 | consistency 报告结构化 | 周报全文过长，需固定摘要模板供微信通知 | ✅ 已实现（每周一 09:30 UTC `consistency-summary-weekly`，从 JSON 提炼 P0/P1/P2 + 5 子检查计数 + top 5 P1 详情 + verdict + 陈旧标；原 `consistency-weekly` 长报告保留） |
 | 10 | publish mutating job 审批流 | `publish-archive` / `publish-merge` 默认关，演示时口头说明即可 | 已配置 |
 
