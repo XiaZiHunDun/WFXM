@@ -85,11 +85,39 @@ def is_local_project_inventory_intent(user_text: str) -> bool:
     return any(pat.search(text) for pat in _LOCAL_PROJECT_INVENTORY_PATTERNS)
 
 
+def _session_read_recall_gate_active_safe() -> bool:
+    from butler.core.best_effort import safe_best_effort
+    from butler.execution_context import is_session_read_recall_gate_active
+
+    def _run() -> bool:
+        return bool(is_session_read_recall_gate_active())
+
+    result = safe_best_effort(
+        _run,
+        label="session_recall_intent.gate_active",
+        default=False,
+    )
+    return bool(result)
+
+
+def _local_project_inventory_gate_active_safe() -> bool:
+    from butler.core.best_effort import safe_best_effort
+    from butler.execution_context import is_local_project_inventory_gate_active
+
+    def _run() -> bool:
+        return bool(is_local_project_inventory_gate_active())
+
+    result = safe_best_effort(
+        _run,
+        label="session_recall_intent.inventory_gate_active",
+        default=False,
+    )
+    return bool(result)
+
+
 def check_session_read_recall_tool_block(tool_name: str) -> str | None:
     """Block memory/delegate tools when answering from transcript read_file truth."""
-    from butler.core.session_recall_intent_ops import session_read_recall_gate_active_safe
-
-    if not session_read_recall_gate_active_safe():
+    if not _session_read_recall_gate_active_safe():
         return None
     name = str(tool_name or "").strip().lower()
     if name in SESSION_READ_RECALL_BLOCKED_TOOLS:
@@ -101,9 +129,7 @@ def check_session_read_recall_tool_block(tool_name: str) -> str | None:
 
 
 def check_local_project_inventory_tool_block(tool_name: str) -> str | None:
-    from butler.core.session_recall_intent_ops import local_project_inventory_gate_active_safe
-
-    if not local_project_inventory_gate_active_safe():
+    if not _local_project_inventory_gate_active_safe():
         return None
     name = str(tool_name or "").strip().lower()
     if name in LOCAL_PROJECT_INVENTORY_BLOCKED_TOOLS:

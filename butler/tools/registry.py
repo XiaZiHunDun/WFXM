@@ -15,6 +15,7 @@ import logging
 import time
 from typing import Any, Callable, cast
 
+from butler.core.best_effort import safe_best_effort
 from butler.tools.registry_gates import (
     apply_post_tool_hooks,
     dispatch_mcp_if_applicable,
@@ -30,7 +31,6 @@ from butler.tools.registry_gates import (
     plan_mode_mcp_block,
     pre_tool_hooks_block,
     project_permission_block,
-    local_project_inventory_block,
     session_read_recall_block,
 )
 from butler.tools.tool_audit import (  # noqa: F401
@@ -263,7 +263,19 @@ def dispatch_tool(name: str, args: dict[str, Any]) -> str:
             code="SESSION_READ_RECALL_BLOCKED",
         )
 
-    inventory_block = local_project_inventory_block(name)
+    def _inventory_run() -> str | None:
+        from butler.core.session_recall_intent import check_local_project_inventory_tool_block
+
+        return cast(str | None, check_local_project_inventory_tool_block(name))
+
+    inventory_block = cast(
+        str | None,
+        safe_best_effort(
+            _inventory_run,
+            label="registry.local_project_inventory",
+            default=None,
+        ),
+    )
     if inventory_block:
         return _permission_denied_tool_result(
             name,

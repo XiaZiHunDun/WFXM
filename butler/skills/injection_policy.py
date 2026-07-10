@@ -67,13 +67,8 @@ def resolve_skill_injection(
     from butler.session.memory_prefetch import peek_experience_hits
 
     mode = skill_injection_mode()
-    from butler.skills.injection_policy_ops import (
-        is_local_project_inventory_intent_safe,
-        is_session_read_recall_intent_safe,
-        record_skill_injection_metrics_safe,
-    )
 
-    recall_intent = is_session_read_recall_intent_safe(query)
+    recall_intent = _is_session_read_recall_intent_safe(query)
     if recall_intent is True:
         decision = SkillInjectionDecision(
             mode=mode,
@@ -88,7 +83,7 @@ def resolve_skill_injection(
         record_skill_injection_metrics_safe(decision)
         return decision
 
-    inventory_intent = is_local_project_inventory_intent_safe(query)
+    inventory_intent = _is_local_project_inventory_intent_safe(query)
     if inventory_intent is True:
         decision = SkillInjectionDecision(
             mode=mode,
@@ -196,3 +191,46 @@ def skill_summary_disclaimer() -> str:
         "> 未验证技能目录（第三方/生态 Skill）。"
         "检索时 **经验与项目记忆优先**；仅当经验未覆盖或经验含 `skill:<名>` 指针时才注入正文。"
     )
+
+
+def _is_local_project_inventory_intent_safe(query: str) -> bool | None:
+    from butler.core.best_effort import safe_best_effort
+    from butler.core.session_recall_intent import is_local_project_inventory_intent
+
+    def _run() -> bool:
+        return bool(is_local_project_inventory_intent(query))
+
+    result = safe_best_effort(
+        _run,
+        label="injection_policy.local_project_inventory",
+        default=None,
+    )
+    return bool(result) if isinstance(result, bool) else None
+
+
+def _is_session_read_recall_intent_safe(query: str) -> bool | None:
+    from butler.core.best_effort import safe_best_effort
+    from butler.core.session_recall_intent import is_session_read_recall_intent
+
+    def _run() -> bool:
+        return bool(is_session_read_recall_intent(query))
+
+    result = safe_best_effort(
+        _run,
+        label="injection_policy.session_read_recall",
+        default=None,
+    )
+    return bool(result) if isinstance(result, bool) else None
+
+
+def record_skill_injection_metrics_safe(decision: Any) -> None:
+    from butler.core.best_effort import safe_best_effort
+    from butler.ops.runtime_metrics import inc
+
+    def _run() -> None:
+        if decision.skip and decision.reason == "experience_hit_skip_unverified_skill":
+            inc("execution_fallback_skip")
+        if decision.skill_names:
+            inc("execution_ref_only_load", labels={"reason": decision.reason})
+
+    safe_best_effort(_run, label="injection_policy.metrics", default=None)
