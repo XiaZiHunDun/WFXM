@@ -17,3 +17,17 @@ def session_read_recall_gate_active_safe() -> bool:
         default=False,
     )
     return bool(result)
+
+
+def local_project_inventory_gate_active_safe() -> bool:
+    def _run() -> bool:
+        from butler.execution_context import is_local_project_inventory_gate_active
+
+        return bool(is_local_project_inventory_gate_active())
+
+    result = safe_best_effort(
+        _run,
+        label="session_recall_intent.inventory_gate_active",
+        default=False,
+    )
+    return bool(result)

@@ -138,6 +138,7 @@ class AgentLoop:
         self._tool_prefetch: dict[str, str] = {}
         self._orchestrator: Any | None = None
         self._session_key: str = ""
+        self._loop_role: str = ""
         self._plugins = default_plugin_registry(self.config)
 
     def bind_execution(
@@ -145,11 +146,14 @@ class AgentLoop:
         orchestrator: Any | None = None,
         *,
         session_key: str = "",
+        loop_role: str = "",
     ) -> None:
-        """Bind orchestrator/session for tool dispatch when contextvars are missing."""
+        """Bind orchestrator/session/role for tool dispatch when contextvars are missing."""
         if orchestrator is not None:
             self._orchestrator = orchestrator
         self._session_key = str(session_key or self._session_key or "")
+        if loop_role:
+            self._loop_role = str(loop_role).strip().lower()
 
     def _tool_execution_context(self) -> AbstractContextManager[None]:
         from contextlib import contextmanager
@@ -158,10 +162,11 @@ class AgentLoop:
         def _ctx() -> Iterator[None]:
             orch = get_current_orchestrator() or self._orchestrator
             sk = str(get_current_session_key() or self._session_key or "")
+            role = str(self._loop_role or "").strip().lower()
             if orch is None and not sk:
                 yield
                 return
-            with use_execution_context(orch, session_key=sk):
+            with use_execution_context(orch, session_key=sk, loop_role=role):
                 yield
 
         return _ctx()

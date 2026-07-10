@@ -46,6 +46,15 @@ _workflow_var_pool: ContextVar[object | None] = ContextVar(
     "butler_workflow_var_pool",
     default=None,
 )
+_current_loop_role: ContextVar[str] = ContextVar(
+    "butler_current_loop_role",
+    default="",
+)
+
+
+def get_current_loop_role() -> str:
+    """Gateway/subagent loop role: ``butler`` | ``lead`` | ``plan`` | ``dev`` | …"""
+    return str(_current_loop_role.get() or "").strip().lower()
 
 
 def get_current_orchestrator() -> "ButlerOrchestrator | None":
@@ -90,6 +99,10 @@ _session_read_recall_gate: ContextVar[bool] = ContextVar(
     "butler_session_read_recall_gate",
     default=False,
 )
+_local_project_inventory_gate: ContextVar[bool] = ContextVar(
+    "butler_local_project_inventory_gate",
+    default=False,
+)
 
 
 def is_session_read_recall_gate_active() -> bool:
@@ -105,20 +118,48 @@ def use_session_read_recall_gate(active: bool = True) -> Iterator[None]:
         _session_read_recall_gate.reset(token)
 
 
+def is_local_project_inventory_gate_active() -> bool:
+    return bool(_local_project_inventory_gate.get())
+
+
+@contextmanager
+def use_local_project_inventory_gate(active: bool = True) -> Iterator[None]:
+    token = _local_project_inventory_gate.set(bool(active))
+    try:
+        yield
+    finally:
+        _local_project_inventory_gate.reset(token)
+
+
+@contextmanager
+def use_loop_role(role: str) -> Iterator[None]:
+    token = _current_loop_role.set(str(role or "").strip().lower())
+    try:
+        yield
+    finally:
+        _current_loop_role.reset(token)
+
+
 @contextmanager
 def use_execution_context(
     orchestrator: "ButlerOrchestrator | None" = None,
     *,
     session_key: str = "",
+    loop_role: str = "",
 ) -> Iterator[None]:
     """Temporarily bind orchestrator and/or session key for nested tools and delegates."""
     orch_token = None
+    role_token = None
     if orchestrator is not None:
         orch_token = _current_orchestrator.set(orchestrator)
     session_token = _current_session_key.set(session_key)
+    if loop_role:
+        role_token = _current_loop_role.set(str(loop_role).strip().lower())
     try:
         yield
     finally:
+        if role_token is not None:
+            _current_loop_role.reset(role_token)
         _current_session_key.reset(session_token)
         if orch_token is not None:
             _current_orchestrator.reset(orch_token)

@@ -141,7 +141,7 @@ def create_agent_loop(
         ),
         callbacks=callbacks,
     )
-    loop.bind_execution(orch, session_key=sk)
+    loop.bind_execution(orch, session_key=sk, loop_role=role)
     return loop
 
 
@@ -199,7 +199,7 @@ def create_project_agent_loop(
         ),
         callbacks=callbacks,
     )
-    loop.bind_execution(orch, session_key=str(session_key or ""))
+    loop.bind_execution(orch, session_key=str(session_key or ""), loop_role=role)
     return loop
 
 
