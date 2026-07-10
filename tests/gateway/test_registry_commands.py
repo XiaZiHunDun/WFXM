@@ -33,7 +33,7 @@ def _non_owner():
 class TestHandleRegistryCommand:
     def test_skills_search(self, _owner_gate):
         with patch(
-            "butler.registry.skill_service.SkillRegistryService"
+            "butler.gateway.commands.registry_handlers.SkillRegistryService"
         ) as MockSvc:
             svc = MockSvc.return_value
             svc.search.return_value = []
@@ -50,7 +50,7 @@ class TestHandleRegistryCommand:
 
     def test_skills_list_empty(self, _owner_gate):
         with patch(
-            "butler.registry.skill_service.SkillRegistryService"
+            "butler.gateway.commands.registry_handlers.SkillRegistryService"
         ) as MockSvc:
             svc = MockSvc.return_value
             svc.list_installed.return_value = []
@@ -69,7 +69,7 @@ class TestHandleRegistryCommand:
         rec.identifier = "bundled:demo"
         rec.scan_verdict = "safe"
         with patch(
-            "butler.registry.skill_service.SkillRegistryService"
+            "butler.gateway.commands.registry_handlers.SkillRegistryService"
         ) as MockSvc:
             svc = MockSvc.return_value
             svc.list_installed.return_value = [rec]
@@ -84,7 +84,7 @@ class TestHandleRegistryCommand:
 
     def test_skills_inspect_not_found(self, _owner_gate):
         with patch(
-            "butler.registry.skill_service.SkillRegistryService"
+            "butler.gateway.commands.registry_handlers.SkillRegistryService"
         ) as MockSvc:
             svc = MockSvc.return_value
             svc.inspect.return_value = None
@@ -131,11 +131,11 @@ class TestHandleRegistryCommand:
     def test_mcp_dispatches(self, _owner_gate):
         with (
             patch(
-                "butler.registry.mcp_merge.format_mcp_status_message",
+                "butler.gateway.commands.registry_handlers.format_mcp_status_message",
                 return_value="MCP OK",
             ),
             patch(
-                "butler.registry.mcp_merge.resolve_workspace_for_session",
+                "butler.gateway.commands.registry_handlers.resolve_workspace_for_session",
                 return_value=None,
             ),
         ):
@@ -181,7 +181,7 @@ class TestHandleConfirmInstall:
                 "butler.registry.install_pending.clear_pending"
             ),
             patch(
-                "butler.registry.skill_service.SkillRegistryService"
+                "butler.gateway.commands.registry_handlers.SkillRegistryService"
             ) as MockSvc,
         ):
             svc = MockSvc.return_value
@@ -202,7 +202,7 @@ class TestHandleConfirmInstall:
             ),
             patch("butler.registry.install_pending.clear_pending"),
             patch(
-                "butler.registry.skill_service.SkillRegistryService"
+                "butler.gateway.commands.registry_handlers.SkillRegistryService"
             ) as MockSvc,
         ):
             svc = MockSvc.return_value
@@ -219,7 +219,7 @@ class TestHandleConfirmInstall:
 class TestMcpCommands:
     def test_mcp_search(self, _owner_gate):
         with patch(
-            "butler.registry.mcp_catalog.McpCatalogService"
+            "butler.gateway.commands.registry_handlers.McpCatalogService"
         ) as MockSvc:
             svc = MockSvc.return_value
             svc.search.return_value = []
@@ -235,7 +235,7 @@ class TestMcpCommands:
 
     def test_mcp_inspect_not_found(self, _owner_gate):
         with patch(
-            "butler.registry.mcp_catalog.McpCatalogService"
+            "butler.gateway.commands.registry_handlers.McpCatalogService"
         ) as MockSvc:
             svc = MockSvc.return_value
             svc.get.return_value = None

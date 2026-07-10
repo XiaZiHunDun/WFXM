@@ -733,7 +733,7 @@ class TestEng13AdapterOutbound:
             return ["chunk-a"]
 
         monkeypatch.setattr(
-            "butler.gateway.platforms.wechat_ilink._split_text_for_wechat_delivery",
+            "butler.gateway.platforms.wechat_ilink.adapter_outbound._split_text_for_wechat_delivery",
             fake_split,
         )
         adapter = WeChatAdapter(PlatformConfig(token="t", extra={"account_id": "a"}))

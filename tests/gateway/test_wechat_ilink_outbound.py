@@ -67,7 +67,7 @@ class TestWechatIlinkOutboundSend:
             return {"ret": 0}
 
         with patch(
-            "butler.gateway.platforms.wechat_ilink_phases._phase_chunk_attempt",
+            "butler.gateway.platforms.wechat_ilink.adapter_outbound_ops._phase_chunk_attempt",
             side_effect=_fake_attempt,
         ):
             await adapter._send_text_chunk(
@@ -90,7 +90,7 @@ class TestWechatIlinkOutboundTyping:
         adapter._typing_cache.set("peer-3", "ticket-abc")
 
         with patch(
-            "butler.gateway.platforms.wechat_ilink._send_typing",
+            "butler.gateway.platforms.wechat_ilink.adapter_outbound_ops._send_typing",
             new_callable=AsyncMock,
         ) as mock_typing:
             await adapter.send_typing("peer-3")
@@ -108,7 +108,7 @@ class TestWechatIlinkOutboundTyping:
         adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec
 
         with patch(
-            "butler.gateway.platforms.wechat_ilink._get_config",
+            "butler.gateway.platforms.wechat_ilink.adapter_outbound_ops._get_config",
             new_callable=AsyncMock,
             return_value={"typing_ticket": "ticket-xyz"},
         ) as mock_cfg:

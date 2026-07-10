@@ -322,7 +322,7 @@ class TestProjectDashboard:
 
         orch = MagicMock()
         with patch(
-            "butler.gateway.owner_surface.format_project_overview_owner",
+            "butler.gateway.commands.dev_handlers.format_project_overview_owner",
             return_value="owner-dash",
         ):
             result = format_project_dashboard("", orchestrator=orch, session_key="sk1")
