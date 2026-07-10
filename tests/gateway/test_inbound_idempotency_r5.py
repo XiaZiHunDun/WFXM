@@ -14,6 +14,19 @@ def _reset_seen():
     ii.reset_session()
 
 
+@pytest.fixture
+def _register_idempotency_port():
+    """Register the inbound-idempotency port so ``clear_session_boundary_memory``
+    can actually reset state in tests (the port is normally registered at gateway
+    boot via :func:`butler.gateway.gateway_contracts.register_gateway_contracts`)."""
+    from butler.contracts.inbound_idempotency_registry import set_inbound_idempotency_port
+    from butler.gateway.gateway_contracts import register_gateway_contracts
+
+    register_gateway_contracts()
+    yield
+    set_inbound_idempotency_port(None)
+
+
 @pytest.mark.unit
 def test_reset_session_clears_seen_bucket():
     sk = "sess-r5"
@@ -25,7 +38,7 @@ def test_reset_session_clears_seen_bucket():
 
 
 @pytest.mark.unit
-def test_new_session_boundary_resets_idempotency():
+def test_new_session_boundary_resets_idempotency(_register_idempotency_port):
     from types import SimpleNamespace
 
     from butler.session.new_session import clear_session_boundary_memory
