@@ -1,6 +1,6 @@
 # Butler v4 架构文档
 
-> **更新**：2026-07-10（Lead role + 仓库盘点 banner + tools/skills role-gate + 6× `_ops` 内联 + 3× pytest 收集错误修复 + 演示对话 sim）；2026-07-08（ENG-15 全层依赖矩阵 + 理论/解耦文档；2026-07-07 九层 + L5 三类状态）  
+> **更新**：2026-07-10（Lead role + 仓库盘点 banner + tools/skills role-gate + 6× `_ops` 内联 + 3× pytest 收集错误修复 + 演示对话 sim + P0-B 降级收口 3 catch-site + P0-C 静默反模式审计 0 新 silent drop）；2026-07-08（ENG-15 全层依赖矩阵 + 理论/解耦文档；2026-07-07 九层 + L5 三类状态）  
 > **对照**：[`v4-layer-model.md`](v4-layer-model.md) · [`plans/cc-butler-gap-analysis-2026-05.md`](../plans/active/cc-butler-gap-analysis-2026-05.md) · 规划索引 [`plans/README.md`](../plans/README.md) · 环境变量 [`config/reference.md`](../config/reference.md)
 
 ## 九层参考模型（逻辑分层）
@@ -569,6 +569,62 @@ while not done and iterations < budget:
 - Sprint 改进（`test_delegate_context`、`test_loop_response`、`test_skill_tool_bridge`、`test_transcript_search`、`test_gateway_user_errors`、`test_gateway_help_commands`、`test_gateway_error_cards`、`test_command_registry`、`test_session_auto_title`）
 - Report / CLI / Session lifecycle
 - 真实 API smoke（可选）：`BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py`
+
+## 静默反模式审计（2026-07-10 · P0-C）
+
+> **结论**：唯一真实 silent drop 已在 commit `816483e`（`run_mutating_hook_safe` 防御性拷贝）修复。本节记录 audit 结论与 hooks 双契约，防止未来回归。
+
+### 5 已知点分类（全部 INTENTIONAL / STORE_KEY / SNAPSHOT）
+
+| 文件:行 | 模式 | 分类 | 备注 |
+|---------|------|------|------|
+| `butler/gateway/hooks.py:59` | `out = dict(output_data)` 在 `trigger_hooks_mutating` 内 | **INTENTIONAL** | 返新值契约，详见下文双契约 |
+| `butler/gateway/commands/dev_handlers.py:100` | `env = os.environ.copy()` | **INTENTIONAL** | subprocess 防御隔离，标准模式 |
+| `butler/gateway/queue_settings.py:48` | `_OVERRIDES[k] = dict(data)` | **STORE_KEY** | 缓存值是快照，不丢 mutation |
+| `butler/core/parallel_tools.py:123` | `parent_context.copy().run` | **INTENTIONAL** | ContextVar 标准 per-worker 隔离 |
+| `butler/core/tool_result_classification.py:76` | `payload = dict(data)` | **SNAPSHOT/TRANSFORM** | 函数返新值，不回写 `data` |
+
+### Hooks 双契约（重要！）
+
+| 函数 | 输入契约 | 输出契约 | 调用方用法 |
+|------|----------|----------|------------|
+| `butler.gateway.hooks_ops.run_mutating_hook_safe` | **live ref**（不要拷贝传入） | 不返值 | 后续自己读 `output_data`（已被 hook 改） |
+| `butler.gateway.hooks.trigger_hooks_mutating` | `output_data` 任意 | **返新 copy** | **必须**用返回值（不要读 `output_data` 期望被改） |
+
+**为什么不能混淆**：
+- 把 `run_mutating_hook_safe` 改回 `dict(input_data), dict(output_data)` → 所有 mutating hook 变 silent no-op（A2 bug）
+- 把 `trigger_hooks_mutating` 的 `out = dict(output_data)` 删掉 → 第一个 hook 改 `out` 影响不到第二个 hook（共享 `output_data` 状态泄漏）
+
+**测试保障**：
+- `tests/test_opencode_p2_features.py::test_trigger_hooks_mutating_merges_output`（双契约端到端）
+- `tests/test_sprint16_tst11_3_p2_hook_mutating_safe.py`（live ref 端到端）
+
+### 为什么 audit 没找到新 silent drop
+
+1. **唯一真实 silent drop（A2）已被 commit 816483e 修**。
+2. **现有 mutator 模式已收敛到「返新值 / 返 copy / 返 snapshot」三种契约**——只要返新值就不会丢 mutation。
+3. **hooks 模式已成体系**：双契约（live-ref vs return-copy）已通过测试 + docstring + 本节三方互锁。
+
+### 复审触发条件
+
+如未来出现「怀疑某处是 silent drop」，请先：
+1. 跑 `rg "dict(\s*[a-z_]+\s*)|\.copy()" butler/` 看是否已知 5 点之一
+2. 检查函数 docstring 是否标了 return-value 契约
+3. 若都不是，按下表分类，决定是否需要改
+
+| 模式 | 若是 mutator 期望 live ref | 修法 |
+|------|---------------------------|------|
+| `dict(x)` 传给 hook / mutator | ✅ 是 silent drop | 改 live ref 传入 |
+| `dict(x)` 作为 cache store 值 | ❌ 是 STORE_KEY | 无需改 |
+| `dict(x)` 作为 subprocess env | ❌ 是 INTENTIONAL | 无需改 |
+| `dict(x)` 作为函数返回值 | ❌ 是 SNAPSHOT | 无需改 |
+| `Context.copy()` | ❌ 是 ContextVar 标准 | 无需改 |
+
+### 不加扫描守门
+
+`rg` 命中 ~200 个点全部已知正确；若加 `audit_silent_drop.sh` 守门需 allowlist 200 文件，维护成本 > 价值。**本节作为文档化门禁**取代脚本守门。
+
+---
 
 ## Sprint 1-5 详设实现记录（2026-06）
 

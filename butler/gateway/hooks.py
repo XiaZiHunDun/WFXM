@@ -55,7 +55,14 @@ def trigger_hooks_mutating(
     input_data: dict[str, Any],
     output_data: dict[str, Any],
 ) -> dict[str, Any]:
-    """Run hooks in order; each may mutate ``output_data`` (OpenCode Plugin.trigger subset)."""
+    """Run hooks in order; each may mutate the local copy; return the merged result.
+
+    契约：调用方**必须**使用返回值——``output_data`` 不会被原地变更。
+    之所以在内部复制 ``output_data`` 是为了让 hooks 之间不共享中间状态；
+    这与 :func:`run_mutating_hook_safe`（live in-place update）契约不同。
+    参见 ``docs/architecture/v4-architecture.md §P0-C 静默反模式审计`` 了解
+    为什么不要把这里的 ``out = dict(output_data)`` 误改成原地变更。
+    """
     out = dict(output_data)
     for fn in _REGISTRY.get(name, []):
         patch = run_mutating_hook_safe(name, fn, input_data, out)
