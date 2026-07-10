@@ -22,6 +22,8 @@ def run_builtin(handler: str, workspace: Path) -> dict[str, Any]:
         return _experience_mining_weekly(workspace)
     if name == "builtin:todos_pending_drift":
         return _todos_pending_drift(workspace)
+    if name == "builtin:consistency_weekly_summary":
+        return _consistency_weekly_summary(workspace)
     raise ValueError(f"Unknown builtin handler: {handler}")
 
 
@@ -209,4 +211,65 @@ def _format_drift_summary(drift: dict[str, Any]) -> str:
     out = "\n".join(lines)
     if len(out) > 700:
         out = out[:697] + "…"
+    return out
+
+
+def _consistency_weekly_summary(workspace: Path) -> dict[str, Any]:
+    """Read-only consistency JSON digest for WeChat push (P2 #9)."""
+    from butler.tools.consistency_summary_ops import summarize_consistency_report
+
+    data = summarize_consistency_report(workspace)
+    if not data.get("loaded"):
+        msg = f"consistency 摘要：未找到 {data.get('path')}"
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": data.get("error") or "missing report",
+            "summary": msg,
+        }
+    summary = _format_consistency_summary(data)
+    return {
+        "success": True,
+        "stdout": summary,
+        "stderr": "",
+        "summary": summary,
+    }
+
+
+def _format_consistency_summary(data: dict[str, Any]) -> str:
+    """Compact Chinese summary for WeChat push; cap 800 chars."""
+    totals = data.get("totals", {})
+    by_check = data.get("by_check", {})
+    verdict = data.get("verdict", "pass")
+    verdict_label = {"pass": "通过 ✓", "warn": "有条件 ⚠", "fail": "失败 ✗"}.get(verdict, verdict)
+
+    duration = float(data.get("duration_seconds") or 0.0)
+    lines = [
+        f"consistency 周报：P0={totals.get('P0', 0)} P1={totals.get('P1', 0)} P2={totals.get('P2', 0)}"
+        f"（章节 {data.get('chapter_range', '?')}，耗时 {duration:.0f}s）— {verdict_label}",
+    ]
+
+    check_order = ("naming", "integrity", "duplicates", "character", "timeline")
+    check_lines = [f"  · {name}: {by_check.get(name, 0)} 处" for name in check_order]
+    lines.extend(check_lines)
+
+    top_p1 = data.get("top_p1") or []
+    if top_p1:
+        lines.append(f"  · top P1（{len(top_p1)}/{totals.get('P1', 0)}）:")
+        for row in top_p1[:5]:
+            ch = row.get("chapter", 0)
+            ent = row.get("entity", "") or "—"
+            msg = row.get("message", "")[:60]
+            lines.append(f"      [chapter {ch}] {ent} · {msg}")
+
+    age = data.get("age_days")
+    if age is not None and age > 7:
+        lines.append(f"  · ⚠ 报告陈旧（{age:.1f} 天前）")
+
+    if totals.get("total", 0) == 0:
+        lines.append("  · 全绿 ✓")
+
+    out = "\n".join(lines)
+    if len(out) > 800:
+        out = out[:797] + "…"
     return out
