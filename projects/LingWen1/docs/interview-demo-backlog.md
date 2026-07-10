@@ -7,7 +7,7 @@
 | # | 改进项 | 说明 | 状态 |
 |---|--------|------|------|
 | 1 | Agent JSON schema 校验 | novel-factory 灵感/作家/审核 Agent 输出缺统一校验，维护期易 silent fail | 进行中 |
-| 2 | workflow_state 微信口径 | `/工作流` 与 `factory-status-daily` runtime 摘要字段应对齐 | 待做 |
+| 2 | workflow_state 微信口径 | `/工作流` 与 `factory-status-daily` runtime 摘要字段应对齐 | ✅ 已实现（6703cec）`/工作流 list` 前置 4 字段与 `builtin:workflow_state_digest` 一致 |
 | 3 | 验收文档日期卫生 | `owner-sim-smoke.md` 日期与 MEMORY Notes 不一致 | 待做 |
 | 3a | 测试残留目录清理 | 根 `MagicMock/`、`projects/LingWen1/MagicMock/`、`projects/exists/`、`projects/new-project/` 均为 pytest mock 泄漏；演示前宜删 | ✅ 已清（2026-07-10） |
 
