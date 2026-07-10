@@ -29,7 +29,7 @@ def _read_backlog_excerpt(workspace: str | Path | None) -> str | None:
         if len(excerpt) > _BACKLOG_MAX_CHARS:
             excerpt = excerpt[:_BACKLOG_MAX_CHARS] + "\n... (truncated)"
         return excerpt
-    except Exception:
+    except OSError:
         return None
 
 _RECALL_READ_PATTERNS: tuple[re.Pattern[str], ...] = (
