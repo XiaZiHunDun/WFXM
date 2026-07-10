@@ -11,6 +11,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, cast
 
+from butler.core.best_effort import safe_best_effort
+
 logger = logging.getLogger(__name__)
 
 _TASK_ID_RE = re.compile(r"\btask_[a-f0-9]{8,}\b", re.I)
@@ -49,9 +51,33 @@ def _dedup_key(chat_id: str, task_id: str) -> str:
 
 
 def _task_completed_epoch(task_id: str) -> float | None:
-    from butler.gateway.delegate_push_dedup_ops import task_completed_epoch_safe
+    def _run() -> float:
+        from datetime import datetime, timezone
 
-    return cast("float | None", task_completed_epoch_safe(task_id))
+        from butler.runtime.task_store import get_task
+
+        tid = str(task_id or "").strip()
+        if not tid:
+            raise ValueError("task id missing")
+        row = get_task(tid)
+        if not isinstance(row, dict):
+            raise ValueError("task row missing")
+        if str(row.get("status") or "") not in ("completed", "failed"):
+            raise ValueError("task not terminal")
+        raw = str(row.get("updated_at") or row.get("created_at") or "").strip()
+        if not raw:
+            raise ValueError("task timestamp missing")
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return float(dt.timestamp())
+
+    result = safe_best_effort(
+        _run,
+        label="delegate_push_dedup.task_epoch",
+        default=None,
+    )
+    return float(result) if isinstance(result, (int, float)) else None
 
 
 def should_deliver_delegate_push(
@@ -155,21 +181,47 @@ class gateway_inbound_guard:
         items = flush_deferred_delegate_pushes(self.chat_id)
         if not items:
             return
-        from butler.gateway.delegate_push_dedup_ops import flush_deferred_pushes_safe
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
 
-        flush_deferred_pushes_safe(
-            self.chat_id,
-            items,
-            bridge=get_gateway_bridge_optional(),
-        )
+        def _run() -> None:
+            bridge = get_gateway_bridge_optional()
+            if bridge is None or str(getattr(bridge, "chat_id", "") or "") != self.chat_id:
+                for body, kind in items:
+                    _schedule_deferred_push_standalone(self.chat_id, body, kind=kind)
+                return
+            for body, kind in items:
+                if kind == "delegate":
+                    ok, reason = should_deliver_delegate_push(self.chat_id, "", body=body)
+                    if not ok:
+                        logger.info(
+                            "deferred delegate push suppressed chat=%s reason=%s",
+                            self.chat_id[:12],
+                            reason,
+                        )
+                        continue
+                bridge.schedule_completion_push(body, kind=kind)
+
+        safe_best_effort(_run, label="delegate_push_dedup.flush", default=None)
 
 
 def _schedule_deferred_push_standalone(chat_id: str, body: str, *, kind: str) -> None:
     """Best-effort when no live bridge (reuse runtime push path)."""
-    from butler.gateway.delegate_push_dedup_ops import push_standalone_deferred_safe
 
-    push_standalone_deferred_safe(chat_id, body)
+    def _run() -> None:
+        from butler.runtime.notify import push_runtime_message
+
+        ok, reason = should_deliver_delegate_push(chat_id, "", body=body)
+        if not ok:
+            logger.info(
+                "deferred delegate push suppressed chat=%s reason=%s",
+                chat_id[:12],
+                reason,
+            )
+            return
+        if push_runtime_message("[Butler] 委派完成", body):
+            mark_delegate_push_delivered(chat_id, "", body=body)
+
+    safe_best_effort(_run, label="delegate_push_dedup.standalone_push", default=None)
 
 
 def maybe_defer_delegate_push(chat_id: str, body: str, *, kind: str) -> bool:
