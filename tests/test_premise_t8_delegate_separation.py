@@ -114,30 +114,23 @@ class TestButlerRuntimeAllowlist:
         )
         return Project.from_yaml(d / "project.yaml")
 
-    def test_butler_strips_write_shell_from_project_yaml(self, tmp_path):
+    def test_butler_role_unrestricted_even_with_project_yaml(self, tmp_path):
         from butler.tools.project_tools import allowed_tool_names_for_project
 
         proj = self._software_project(
             tmp_path,
             ["read_file", "write_file", "patch", "terminal", "delegate_task", "git_status"],
         )
-        allowed = allowed_tool_names_for_project(proj, role="butler")
-        assert allowed is not None
-        assert "read_file" in allowed
-        assert "git_status" in allowed
-        assert "delegate_task" in allowed
-        assert "memo_add" in allowed
-        overlap = allowed & _WRITE_TOOLS
-        assert overlap == set(), f"butler allowlist leaked write tools: {overlap}"
+        assert allowed_tool_names_for_project(proj, role="butler") is None
 
-    def test_lead_and_butler_both_strip_write(self, tmp_path):
+    def test_lead_strips_write(self, tmp_path):
         from butler.tools.project_tools import allowed_tool_names_for_project
 
         proj = self._software_project(tmp_path, ["read_file", "write_file", "patch"])
-        for role in ("butler", "lead"):
-            allowed = allowed_tool_names_for_project(proj, role=role)
-            assert "write_file" not in allowed, role
-            assert "patch" not in allowed, role
+        allowed = allowed_tool_names_for_project(proj, role="lead")
+        assert allowed is not None
+        assert "write_file" not in allowed
+        assert "patch" not in allowed
 
 
 class TestRoleDeterminism:

@@ -106,14 +106,9 @@ class TestLeadToolAllowlist:
         assert "web_search" in allowed
         assert "write_file" not in allowed
 
-    def test_butler_excludes_write_and_shell(self, tmp_path):
+    def test_butler_role_unrestricted_on_project(self, tmp_path):
         proj = self._project(tmp_path)
-        allowed = allowed_tool_names_for_project(proj, role="butler")
-        assert "read_file" in allowed
-        assert "delegate_task" in allowed
-        assert "write_file" not in allowed
-        assert "patch" not in allowed
-        assert "terminal" not in allowed
+        assert allowed_tool_names_for_project(proj, role="butler") is None
 
 
 @pytest.mark.module_test

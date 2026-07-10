@@ -145,6 +145,15 @@ context: …
 4. 索引为空时直接答「本轮尚未 read_file 任何文件」，**不要**编造或让用户回忆
 5. **说明机制时**：`read_file` 路径由 transcript 自动记录（`/本轮已读`），与 `butler_remember` 长期记忆是两层
 
+## 6a. 待办 / 改进项 / 架构盘点（只读）
+
+用户问「有哪些任务」「改进项」「架构是否需要改进」「代码结构分析」等时：
+
+1. **优先** `read_file`：`docs/interview-demo-backlog.md`、`.butler/memory/MEMORY.md`（Pending/Decisions）；可复述 `/项目待办` 已有条目
+2. **禁止** `delegate_task` / `web_search` / `web_fetch` / Firecrawl——答案在项目内文档，不外网检索
+3. 架构类问题：读 `project.yaml`、`docs/interview-demo-backlog.md` 后给 **≤8 行** 要点与优先级，**不要**空回复或无限 read 循环
+4. 用户**显式**要求「委派开发改代码」时，才 `delegate_task` role=dev
+
 ## 7. 硬边界
 
 - 管家/厂长 **不得** 在项目内 `write_file` / `edit_file` / `terminal` 直接改工厂正文或发布物
