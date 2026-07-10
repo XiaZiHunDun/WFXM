@@ -9,7 +9,7 @@
 | 1 | Agent JSON schema 校验 | novel-factory 灵感/作家/审核 Agent 输出缺统一校验，维护期易 silent fail | 进行中 |
 | 2 | workflow_state 微信口径 | `/工作流` 与 `factory-status-daily` runtime 摘要字段应对齐 | 待做 |
 | 3 | 验收文档日期卫生 | `owner-sim-smoke.md` 日期与 MEMORY Notes 不一致 | 待做 |
-| 3a | 测试残留目录清理 | 根目录 `MagicMock/`、`LingWen1/LingWen1/` 为 pytest mock 泄漏，演示前宜删或 gitignore | 待做 |
+| 3a | 测试残留目录清理 | 根 `MagicMock/`、`projects/LingWen1/MagicMock/`、`projects/exists/`、`projects/new-project/` 均为 pytest mock 泄漏；演示前宜删 | ✅ 已清（2026-07-10） |
 
 ## P1 — 架构与 Butler 集成
 
