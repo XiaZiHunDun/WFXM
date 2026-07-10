@@ -22,6 +22,7 @@ env/
 
 # Environment & secrets
 .env
+.env.bak.*
 *.env.local
 secrets.yaml
 **/secrets.yaml
