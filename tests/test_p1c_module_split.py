@@ -144,7 +144,7 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/dev_engine/verify_ops.py": 130,
     "butler/gateway/platforms/wechat_ilink/adapter_media_ops.py": 50,
     "butler/gateway/platforms/wechat_ilink/adapter_lifecycle_ops.py": 60,
-    "butler/mcp/manager_ops.py": 90,
+    "butler/mcp/manager_ops.py": 95,
     "butler/memory/observer_queue_ops.py": 70,
     "butler/project/manager_ops.py": 80,
     "butler/registry/mcp_catalog_ops.py": 80,

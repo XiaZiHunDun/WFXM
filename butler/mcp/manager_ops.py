@@ -59,6 +59,7 @@ def connect_handle_loud(
         handle.status.last_error = msg
         handle.status.degraded = True
         logger.error("MCP connect %s failed", server_id, exc_info=exc)
+        _register_mcp_degradation_safe(server_id, msg)
         return False
 
 
@@ -82,3 +83,13 @@ def call_tool_loud(
             exc_info=exc,
         )
         return str(on_error(str(exc)))
+
+
+def _register_mcp_degradation_safe(server_id: str, msg: str) -> None:
+    from butler.ops.degradation_registry import register_degradation
+
+    safe_best_effort(
+        lambda: register_degradation("mcp", f"{server_id}: {msg[:120]}"),
+        label=f"mcp_manager.connect_failure_register.{server_id}",
+        default=None,
+    )

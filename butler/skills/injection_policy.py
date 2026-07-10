@@ -225,6 +225,7 @@ def _is_session_read_recall_intent_safe(query: str) -> bool | None:
 
 def record_skill_injection_metrics_safe(decision: Any) -> None:
     from butler.core.best_effort import safe_best_effort
+    from butler.ops.degradation_registry import clear_degradation, register_degradation
     from butler.ops.runtime_metrics import inc
 
     def _run() -> None:
@@ -232,5 +233,8 @@ def record_skill_injection_metrics_safe(decision: Any) -> None:
             inc("execution_fallback_skip")
         if decision.skill_names:
             inc("execution_ref_only_load", labels={"reason": decision.reason})
+            clear_degradation("skills")
+        elif decision.reason in ("router_fallback_no_ref", "router_fallback_no_experience"):
+            register_degradation("skills", decision.reason)
 
     safe_best_effort(_run, label="injection_policy.metrics", default=None)

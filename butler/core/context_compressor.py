@@ -102,12 +102,34 @@ def _get_token_counter() -> Callable[[str], int]:
             default=None,
         )
         if counter is not None:
+            _clear_compaction_acl_degradation_safe()
             return cast(Callable[[str], int], counter)
+        _register_compaction_acl_degradation_safe(reason="tiktoken 不可用，heuristic 估算")
         logger.warning(
             "tiktoken unavailable; falling back to heuristic. Install: pip install tiktoken"
         )
 
     return _heuristic_count
+
+
+def _register_compaction_acl_degradation_safe(*, reason: str) -> None:
+    from butler.core.best_effort import safe_best_effort
+    from butler.ops.degradation_registry import register_degradation
+
+    def _run() -> None:
+        register_degradation("compaction_acl", reason)
+
+    safe_best_effort(_run, label="context_compressor.tiktoken_register", default=None)
+
+
+def _clear_compaction_acl_degradation_safe() -> None:
+    from butler.core.best_effort import safe_best_effort
+    from butler.ops.degradation_registry import clear_degradation
+
+    def _run() -> None:
+        clear_degradation("compaction_acl")
+
+    safe_best_effort(_run, label="context_compressor.tiktoken_clear", default=None)
 
 
 def prune_tool_outputs(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:

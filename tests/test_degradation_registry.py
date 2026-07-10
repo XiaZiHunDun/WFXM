@@ -165,3 +165,72 @@ def test_metrics_sink_inc_forwards_labels():
     set_default_sink(RuntimeMetricsSink())
     inc("compaction_acl_degraded", labels={"source": "unit"})
     assert counter_value("compaction_acl_degraded", labels={"source": "unit"}) >= 1
+
+
+def test_skill_router_fallback_registers_and_clear():
+    from butler.skills.injection_policy import (
+        SkillInjectionDecision,
+        record_skill_injection_metrics_safe,
+    )
+
+    record_skill_injection_metrics_safe(
+        SkillInjectionDecision(
+            mode="fallback",
+            skip=False,
+            skill_names=(),
+            experience_hits=0,
+            reason="router_fallback_no_experience",
+        )
+    )
+    rows = {r.component: r.reason for r in list_degradations()}
+    assert "skills" in rows
+    assert "router_fallback_no_experience" in rows["skills"]
+
+    record_skill_injection_metrics_safe(
+        SkillInjectionDecision(
+            mode="fallback",
+            skip=False,
+            skill_names=("ref-skill",),
+            experience_hits=3,
+            reason="experience_hit_with_ref",
+        )
+    )
+    rows2 = {r.component for r in list_degradations()}
+    assert "skills" not in rows2
+
+
+def test_mcp_connect_failure_registers():
+    from types import SimpleNamespace
+
+    from butler.mcp.manager_ops import connect_handle_loud
+
+    class _Status:
+        last_error = ""
+        degraded = False
+
+    handle = SimpleNamespace(status=_Status())
+    ok = connect_handle_loud(
+        handle,
+        server_id="test-srv-xyz",
+        run_connect=lambda: (_ for _ in ()).throw(RuntimeError("connect refused")),
+    )
+    assert ok is False
+    assert handle.status.degraded is True
+    rows = {r.component: r.reason for r in list_degradations()}
+    assert "mcp" in rows
+    assert "test-srv-xyz" in rows["mcp"]
+
+
+def test_compaction_tiktoken_fallback_registers(monkeypatch):
+    import sys
+
+    from butler.core.context_compressor import _get_token_counter
+
+    monkeypatch.setenv("BUTLER_TOKEN_COUNTER", "tiktoken")
+    monkeypatch.setitem(sys.modules, "tiktoken", None)
+
+    counter = _get_token_counter()
+    assert counter is not None
+    rows = {r.component: r.reason for r in list_degradations()}
+    assert "compaction_acl" in rows
+    assert "tiktoken" in rows["compaction_acl"]
