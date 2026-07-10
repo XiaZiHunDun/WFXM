@@ -6,7 +6,7 @@
 
 | # | 改进项 | 说明 | 状态 |
 |---|--------|------|------|
-| 1 | Agent JSON schema 校验 | novel-factory 灵感/作家/审核 Agent 输出缺统一校验，维护期易 silent fail | 进行中 |
+| 1 | Agent JSON schema 校验 | novel-factory 灵感/作家/审核 Agent 输出缺统一校验，维护期易 silent fail | ✅ 已实现：3 schema（base_layer/writer_chapter/reviewer_report）+ 3 validator + 共享基类 `_base.py` + dispatcher `validate_all.py`（writer/reviewer/inspiration 三 suite）；LingWen1 ch001.md + ch001_审核员A_审核.md + 基础层模板 全部 0 错误 |
 | 2 | workflow_state 微信口径 | `/工作流` 与 `factory-status-daily` runtime 摘要字段应对齐 | ✅ 已实现（6703cec）`/工作流 list` 前置 4 字段与 `builtin:workflow_state_digest` 一致 |
 | 3 | 验收文档日期卫生 | `owner-sim-smoke.md` 日期与 MEMORY Notes 不一致 | ✅ 已清（2026-07-11）MEMORY Notes 删 3 条已实现 Pending（#2/#5/#6），新增卫生留痕；owner-sim-smoke-{date}.md 本就 gitignore 且 sim 每次重写 |
 | 3a | 测试残留目录清理 | 根 `MagicMock/`、`projects/LingWen1/MagicMock/`、`projects/exists/`、`projects/new-project/` 均为 pytest mock 泄漏；演示前宜删 | ✅ 已清（2026-07-10） |
@@ -42,4 +42,5 @@
 - Runtime 注册：`runtime/jobs.yaml`
 - 漂移报告 collector：`butler/tools/project_todos_drift_ops.py`
 - consistency 摘要 collector：`butler/tools/consistency_summary_ops.py`
+- Agent schema 校验：`projects/LingWen1/novel-factory/tools/validators/`（_base.py + 3 schema + 3 validator + dispatcher）
 - 整理审计：`docs/consolidation-audit-2026-06-23.md`

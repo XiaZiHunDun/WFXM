@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "审核员报告结构",
+  "description": "审核 Agent 输出的 单章审核报告 结构校验（markdown parser 中间表示）。覆盖 ch{NNN}_审核员{X}_审核.md 形态：H1 + ## 章节信息(kv) + ## 审核结论(**verdict**) + ## 审核详情(### 4 个 aspect) + ## 意见汇总(markdown 表)。",
+  "type": "object",
+  "required": [
+    "title",
+    "chapter_no",
+    "reviewer_id",
+    "verdict",
+    "review_aspects",
+    "issues"
+  ],
+  "properties": {
+    "title": {"type": "string", "minLength": 1, "description": "H1 文本（去除前导 '#'）"},
+    "chapter_no": {
+      "type": "string",
+      "pattern": "^ch\\d{3}$",
+      "description": "从 章节信息.章节号 抽取；与 H1 含 chNNN 一致"
+    },
+    "reviewer_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "从 章节信息.审核员 抽取；A-J"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["通过", "有条件通过", "不通过"],
+      "description": "## 审核结论 段落 **bold** 内容"
+    },
+    "review_aspects": {
+      "type": "object",
+      "description": "## 审核详情 下 ### 子段；每个 aspect 含 **结论**: 通过/有条件通过/不通过",
+      "required": ["逻辑一致性", "人设稳定性", "叙事节奏", "章节连贯性"],
+      "properties": {
+        "逻辑一致性": {"type": "string", "enum": ["通过", "有条件通过", "不通过"]},
+        "人设稳定性": {"type": "string", "enum": ["通过", "有条件通过", "不通过"]},
+        "叙事节奏":   {"type": "string", "enum": ["通过", "有条件通过", "不通过"]},
+        "章节连贯性": {"type": "string", "enum": ["通过", "有条件通过", "不通过"]}
+      },
+      "additionalProperties": false
+    },
+    "issues": {
+      "type": "array",
+      "description": "## 意见汇总 markdown 表条目（每行 | P0/P1/P2 | type | content |）",
+      "items": {
+        "type": "object",
+        "required": ["priority", "type", "content"],
+        "properties": {
+          "priority": {"type": "string", "enum": ["P0", "P1", "P2"]},
+          "type": {"type": "string", "minLength": 1},
+          "content": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

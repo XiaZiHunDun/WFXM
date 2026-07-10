@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "作家章节结构",
+  "description": "作家 Agent 输出的 ch{NNN}.md 现状结构校验。当前 363 章均无 YAML frontmatter（纯叙事 markdown），schema 仅验：文件名格式 + H1 章节号与文件名一致 + 段落数 / 字符数下限（防 silent stub）。frontmatter 字段预留给未来作家采用。",
+  "type": "object",
+  "required": [
+    "filename",
+    "h1_heading",
+    "body_paragraphs",
+    "length_chars",
+    "chapter_no_consistent",
+    "frontmatter"
+  ],
+  "properties": {
+    "filename": {
+      "type": "string",
+      "pattern": "^ch\\d{3}\\.md$",
+      "description": "章节文件名约定 chNNN.md（3 位补零）"
+    },
+    "h1_heading": {
+      "type": "string",
+      "pattern": "^第[零一二三四五六七八九十百千]+章\\s+.+$",
+      "description": "首行 H1 文本，去除前导 '#' 后必须为中文数字章节号 + 标题"
+    },
+    "body_paragraphs": {
+      "type": "integer",
+      "minimum": 5,
+      "description": "正文段落数（连续 ≥1 空行分隔的块）；防止 silent empty file"
+    },
+    "length_chars": {
+      "type": "integer",
+      "minimum": 500,
+      "description": "总字符数下限；防御 1-2 行 stub"
+    },
+    "chapter_no_consistent": {
+      "type": "boolean",
+      "const": true,
+      "description": "filename 数字前缀（NNN）必须与 H1 中文数字解析结果一致（schema 化版本 of run_check_naming.sh）"
+    },
+    "frontmatter": {
+      "type": ["object", "null"],
+      "description": "可选 YAML frontmatter；当前 0 章使用，未来作家采用时启用。null 表示无 frontmatter。",
+      "properties": {
+        "chapter_no": {"type": "integer", "minimum": 1},
+        "title": {"type": "string", "minLength": 1},
+        "writer": {"type": "string", "minLength": 1},
+        "batch_id": {"type": "string"},
+        "drafted_at": {"type": "string", "format": "date"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
