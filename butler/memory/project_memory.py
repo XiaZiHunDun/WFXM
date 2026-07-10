@@ -327,10 +327,20 @@ class MarkdownMemory:
             return "fact"
 
     def _append_bullet_unlocked(self, section: str, content: str) -> None:
+        payload = content.strip()
+        if not payload:
+            return
         text = self._read_unlocked()
         marker = f"## {section}"
+        if self._bullet_exists_unlocked(text, section, payload):
+            logger.debug(
+                "Skip duplicate bullet in section %r: %s",
+                section,
+                payload[:80],
+            )
+            return
         ts = _now_ts()
-        entry = f"- [{ts}] {content.strip()}\n"
+        entry = f"- [{ts}] {payload}\n"
         if marker not in text:
             text = text.rstrip() + f"\n\n{marker}\n\n{entry}"
             self._write_unlocked(text)
@@ -341,6 +351,20 @@ class MarkdownMemory:
         insert_at = nxt if nxt != -1 else len(text)
         text = text[:insert_at] + entry + text[insert_at:]
         self._write_unlocked(text)
+
+    def _bullet_exists_unlocked(self, text: str, section: str, payload: str) -> bool:
+        block = self._extract_section(text, section)
+        if not block:
+            return False
+        for line in block.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("- "):
+                continue
+            match = self._FORMAL_BULLET_RE.match(stripped)
+            body = match.group(1).strip() if match else stripped[2:].strip()
+            if body == payload:
+                return True
+        return False
 
     def _append_pending_unlocked(self, target_section: str, content: str) -> None:
         text = self._read_unlocked()
