@@ -17,6 +17,7 @@ from butler.gateway.message_handler import ButlerMessageHandler, _is_sessionless
 from butler.memory.project_memory import ProjectMemory
 from butler.project import Project
 from butler.tools.path_safety import prepare_shell_command
+from butler.execution_context import use_loop_role
 from butler.workflows.loader import resolve_workflow
 
 
@@ -141,6 +142,19 @@ class TestTerminalExtraAllowlist:
         monkeypatch.delenv("BUTLER_TERMINAL_PROFILE", raising=False)
         result = prepare_shell_command("python3 --version")
         assert not result.allowed
+
+    def test_find_allowed_for_butler_role(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("BUTLER_ENABLE_TERMINAL", "1")
+        with use_loop_role("butler"):
+            result = prepare_shell_command("find . -maxdepth 2 -type d -iname demo")
+        assert result.allowed, result.error
+
+    def test_find_exec_blocked(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_ENABLE_TERMINAL", "1")
+        result = prepare_shell_command("find . -name foo -exec rm {{}} \\;")
+        assert not result.allowed
+        assert "not allowed" in result.error
 
 
 @pytest.mark.module_test
