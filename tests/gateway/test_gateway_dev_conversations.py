@@ -73,6 +73,7 @@ def _setup_lingwen_gateway_project(tmp_path: Path, monkeypatch) -> Path:
         encoding="utf-8",
     )
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
+    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
     from butler.config import reload_butler_settings
     from tests.gateway.test_gateway_handler import _reset_singletons
 
@@ -116,6 +117,7 @@ def _setup_dual_gateway_projects(tmp_path: Path, monkeypatch) -> Path:
             encoding="utf-8",
         )
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
+    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
     _reset_singletons()
     reload_butler_settings()
     return projects_dir

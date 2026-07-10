@@ -142,7 +142,7 @@ class TestGitForWechat:
             result = format_git_for_wechat()
             assert "未启用" in result
 
-    def test_git_status_default(self):
+    def test_git_status_default(self, tmp_path, monkeypatch):
         from butler.gateway.commands.dev_handlers import format_git_for_wechat
 
         status_payload = {
@@ -154,15 +154,16 @@ class TestGitForWechat:
             "stdout": "abc123 2h ago fix bug\ndef456 1d ago add feature\n",
         }
 
-        with patch.dict(os.environ, {"BUTLER_ENABLE_GIT": "1"}):
-            with patch("butler.gateway.commands.dev_handlers._project_workspace", return_value=Path("/tmp")):
-                with patch("butler.tools.git_tools._run_git") as mock_git:
-                    mock_git.side_effect = [status_payload, log_payload]
-                    result = format_git_for_wechat()
-                    assert "main" in result
-                    assert "Git 状态" in result
+        monkeypatch.setenv("BUTLER_ENABLE_GIT", "1")
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        with patch("butler.gateway.commands.dev_handlers._project_workspace", return_value=tmp_path):
+            with patch("butler.gateway.commands.dev_handlers._run_git") as mock_git:
+                mock_git.side_effect = [status_payload, log_payload]
+                result = format_git_for_wechat()
+                assert "main" in result
+                assert "Git 状态" in result
 
-    def test_git_diff_subcommand(self):
+    def test_git_diff_subcommand(self, tmp_path, monkeypatch):
         from butler.gateway.commands.dev_handlers import format_git_for_wechat
 
         diff_payload = {
@@ -170,13 +171,14 @@ class TestGitForWechat:
             "stdout": " file1.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n",
         }
 
-        with patch.dict(os.environ, {"BUTLER_ENABLE_GIT": "1"}):
-            with patch("butler.gateway.commands.dev_handlers._project_workspace", return_value=Path("/tmp")):
-                with patch("butler.tools.git_tools._run_git", return_value=diff_payload):
-                    result = format_git_for_wechat("diff")
-                    assert "Diff" in result
+        monkeypatch.setenv("BUTLER_ENABLE_GIT", "1")
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        with patch("butler.gateway.commands.dev_handlers._project_workspace", return_value=tmp_path):
+            with patch("butler.gateway.commands.dev_handlers._run_git", return_value=diff_payload):
+                result = format_git_for_wechat("diff")
+                assert "Diff" in result
 
-    def test_git_log_subcommand(self):
+    def test_git_log_subcommand(self, tmp_path, monkeypatch):
         from butler.gateway.commands.dev_handlers import format_git_for_wechat
 
         log_payload = {
@@ -184,24 +186,26 @@ class TestGitForWechat:
             "stdout": "abc | 2h | dev | fix\ndef | 1d | dev | feat\n",
         }
 
-        with patch.dict(os.environ, {"BUTLER_ENABLE_GIT": "1"}):
-            with patch("butler.gateway.commands.dev_handlers._project_workspace", return_value=Path("/tmp")):
-                with patch("butler.tools.git_tools._run_git", return_value=log_payload):
-                    result = format_git_for_wechat("log 5")
-                    assert "提交" in result
+        monkeypatch.setenv("BUTLER_ENABLE_GIT", "1")
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        with patch("butler.gateway.commands.dev_handlers._project_workspace", return_value=tmp_path):
+            with patch("butler.gateway.commands.dev_handlers._run_git", return_value=log_payload):
+                result = format_git_for_wechat("log 5")
+                assert "提交" in result
 
-    def test_git_status_clean_workspace(self):
+    def test_git_status_clean_workspace(self, tmp_path, monkeypatch):
         from butler.gateway.commands.dev_handlers import format_git_for_wechat
 
         status_payload = {"exit_code": 0, "stdout": "## main\n"}
         log_payload = {"exit_code": 0, "stdout": "abc 2h fix\n"}
 
-        with patch.dict(os.environ, {"BUTLER_ENABLE_GIT": "1"}):
-            with patch("butler.gateway.commands.dev_handlers._project_workspace", return_value=Path("/tmp")):
-                with patch("butler.tools.git_tools._run_git") as mock_git:
-                    mock_git.side_effect = [status_payload, log_payload]
-                    result = format_git_for_wechat()
-                    assert "干净" in result
+        monkeypatch.setenv("BUTLER_ENABLE_GIT", "1")
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        with patch("butler.gateway.commands.dev_handlers._project_workspace", return_value=tmp_path):
+            with patch("butler.gateway.commands.dev_handlers._run_git") as mock_git:
+                mock_git.side_effect = [status_payload, log_payload]
+                result = format_git_for_wechat()
+                assert "干净" in result
 
 
 # ── /测试 command ──────────────────────────────────────────────
@@ -513,8 +517,8 @@ class TestDevSessionChanges:
 
 
 class TestDelegateDiffSummary:
-    def test_attaches_diff(self):
-        from butler.runtime.delegate_job import _try_attach_diff_summary, DelegateJob
+    def test_attaches_diff(self, tmp_path, monkeypatch):
+        from butler.runtime.delegate_job import attach_delegate_diff_summary, DelegateJob
 
         report = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         report.summary = "Task done."
@@ -525,29 +529,29 @@ class TestDelegateDiffSummary:
             "stdout": " file1.py | 2 +-\n 1 file changed\n",
         }
 
-        with patch.dict(os.environ, {"BUTLER_ENABLE_GIT": "1"}):
-            with patch("butler.tools.git_tools._run_git", return_value=diff_result):
-                mock_proj = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
-                mock_proj.workspace = "/tmp"
-                mock_pm = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
-                mock_pm.active_project = mock_proj
-                with patch("butler.project.manager.ProjectManager", return_value=mock_pm):
-                    _try_attach_diff_summary(report, job)
-                    assert "变更摘要" in report.summary
+        monkeypatch.setenv("BUTLER_ENABLE_GIT", "1")
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        with patch("butler.runtime.delegate_job_finalize._run_git", return_value=diff_result):
+            mock_proj = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+            mock_proj.workspace = str(tmp_path)
+            mock_pm = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+            mock_pm.get_current.return_value = mock_proj
+            with patch("butler.runtime.delegate_job_finalize.ProjectManager", return_value=mock_pm):
+                attach_delegate_diff_summary(report, job)
+                assert "变更摘要" in report.summary
 
-    def test_no_diff_when_git_disabled(self):
-        from butler.runtime.delegate_job import _try_attach_diff_summary, DelegateJob
+    def test_no_diff_when_git_disabled(self, monkeypatch):
+        from butler.runtime.delegate_job import attach_delegate_diff_summary, DelegateJob
 
         report = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         report.summary = "Task done."
         job = MagicMock(spec=DelegateJob)  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("BUTLER_ENABLE_GIT", None)
-            _try_attach_diff_summary(report, job)
-            assert "变更摘要" not in report.summary
+        monkeypatch.delenv("BUTLER_ENABLE_GIT", raising=False)
+        attach_delegate_diff_summary(report, job)
+        assert "变更摘要" not in report.summary
 
     def test_none_report_safe(self):
-        from butler.runtime.delegate_job import _try_attach_diff_summary
+        from butler.runtime.delegate_job import attach_delegate_diff_summary
 
-        _try_attach_diff_summary(None, None)
+        attach_delegate_diff_summary(None, None)
