@@ -17,7 +17,7 @@
 |---|--------|------|------|
 | 4 | content vs dev 委派边界 | content 只碰 `docs/`；dev 改代码须走 safe_root + owner 验收 | 已约定 |
 | 5 | runtime jobs 可见性 | `runtime/jobs.yaml` 已注册 7 个 job，微信端缺一览命令 | ✅ 已实现（Sprint 3）`/定时` 或 `/runtime`/`/定时任务` 返回 7 jobs + schedule/last/next run |
-| 6 | 记忆 Pending 去重 | fact 提取重复写入 Decisions（验收日三条） | 待做 |
+| 6 | 记忆 Pending 去重 | fact 提取重复写入 Decisions（验收日三条） | ✅ 已实现：formal bullet 按 section+content 精确去重；Pending approve/approve_all 覆盖 |
 | 7 | 项目待办与 MEMORY 联动 | `/项目待办` 持久盘 vs MEMORY Pending 应定期对齐 | 待做 |
 
 ## P2 — 维护态 backlog
