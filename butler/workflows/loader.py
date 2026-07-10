@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -191,7 +192,29 @@ def format_workflows_for_wechat(project: "Project | None") -> str:
             "当前项目未配置工作流。\n"
             "可在 project.yaml 的 workflows 中声明，或使用内置名 novel-factory。"
         )
-    lines: list[str] = ["工作流列表："]
+    lines: list[str] = []
+    # D #2: prepend workflow_state status header if novel-factory has one.
+    # Aligns with builtin:workflow_state_digest (butler/runtime/builtin_handlers.py:26)
+    # so `/工作流 list` 微信口径与 factory-status-daily 摘要字段一致。
+    if project is not None:
+        state_path = project.workspace / "novel-factory" / "workflow_state.json"
+        if state_path.is_file():
+            try:
+                data = json.loads(state_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                data = None
+            if isinstance(data, dict):
+                phase = data.get("current_phase") or "?"
+                step = data.get("current_step") or "?"
+                status_raw = data.get("project_status")
+                status = status_raw if isinstance(status_raw, dict) else {}
+                pname = status.get("name") or "?"
+                pphase = status.get("phase") or "?"
+                lines.append(f"项目: {pname}")
+                lines.append(f"current_phase: {phase}")
+                lines.append(f"current_step: {step}")
+                lines.append(f"project_status.phase: {pphase}")
+    lines.append("工作流列表：")
     for wf in workflows:
         status = "可执行" if wf.runnable else "未定义步骤"
         lines.append(f"1. {wf.name}（{status}）")
