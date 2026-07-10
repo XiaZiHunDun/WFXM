@@ -39,9 +39,18 @@ def workspace_anchor_strict_for_paths() -> bool:
     )
 
 
+def project_relative_path_anchors_to_workspace() -> bool:
+    """When a project is active, relative paths resolve under its workspace (even in environment scope)."""
+    if not environment_tool_scope_enabled():
+        return workspace_anchor_strict_for_paths()
+    raw = (os.getenv("BUTLER_TOOL_PROJECT_ANCHOR", "1") or "1").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
 __all__ = [
     "bind_default_project_enabled",
     "environment_tool_scope_enabled",
+    "project_relative_path_anchors_to_workspace",
     "resolve_environment_tool_root",
     "workspace_anchor_strict_for_paths",
 ]

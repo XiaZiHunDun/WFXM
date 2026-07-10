@@ -54,6 +54,10 @@ def filter_definitions_by_toolset(
     *,
     toolset: str | None = None,
 ) -> list[dict[str, Any]]:
+    from butler.execution_context import get_current_loop_role
+
+    if get_current_loop_role() == "butler":
+        return definitions
     allowed = toolset_allowed_names(toolset)
     if allowed is None:
         return definitions

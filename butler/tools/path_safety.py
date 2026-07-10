@@ -26,6 +26,7 @@ from butler.tools.path_safety_ops import (
 )
 from butler.tools.tool_scope import (
     environment_tool_scope_enabled,
+    project_relative_path_anchors_to_workspace,
     resolve_environment_tool_root,
     workspace_anchor_strict_for_paths,
 )
@@ -34,6 +35,7 @@ _BASE_TERMINAL_COMMANDS = {
     "cat",
     "echo",
     "false",
+    "find",
     "head",
     "ls",
     "pwd",
@@ -68,6 +70,11 @@ def _allowed_terminal_commands() -> set[str]:
     profile = os.getenv(_PROFILE_ENV, "").strip().lower()
     if profile in _TERMINAL_PROFILES:
         allowed.update(_TERMINAL_PROFILES[profile])
+    from butler.execution_context import get_current_loop_role
+
+    loop_role = get_current_loop_role()
+    if loop_role == "butler":
+        allowed.update(_TERMINAL_PROFILES.get("dev", frozenset()))
     raw = os.getenv(_EXTRA_TERMINAL_ENV, "").strip()
     if raw:
         for part in raw.replace(";", ",").split(","):
@@ -195,12 +202,16 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
         )
     session_ws = current_workspace_root()
     rel = not Path(raw).expanduser().is_absolute()
-    if workspace_anchor_strict_enabled() and session_ws is not None and rel:
+    if session_ws is not None and rel and (
+        workspace_anchor_strict_enabled() or project_relative_path_anchors_to_workspace()
+    ):
         root = session_ws
     else:
         root = tool_safe_root()
     resolved = _resolve_tool_path(raw, root)
-    if workspace_anchor_strict_enabled() and session_ws is not None and rel:
+    if session_ws is not None and rel and (
+        workspace_anchor_strict_enabled() or project_relative_path_anchors_to_workspace()
+    ):
         try:
             if not resolved.is_relative_to(session_ws.resolve(strict=False)):
                 alt = _resolve_tool_path(raw, session_ws)
@@ -306,6 +317,12 @@ def _validate_pipe_segment(segment: str, allowed: set[str]) -> CommandSafetyResu
 
 def _dangerous_search_flags(command_name: str, argv: list[str]) -> str | None:
     """Block search tools flags that bypass workspace boundaries or run shell."""
+    if command_name == "find":
+        for tok in argv[1:]:
+            if tok in ("-exec", "-execdir", "-delete", "-ok", "-okdir"):
+                return f"find {tok} is not allowed in terminal commands"
+            if tok.startswith(("-exec=", "-execdir=", "-ok=", "-okdir=")):
+                return f"find {tok.split('=')[0]} is not allowed in terminal commands"
     if command_name == "rg":
         for tok in argv[1:]:
             if tok == "--pre" or tok.startswith("--pre="):
@@ -463,8 +480,20 @@ def _existing_argv_paths(tokens: list[str]) -> list[str]:
     return out
 
 
+def _strip_safe_io_redirections(command: str) -> str:
+    """Remove stderr/stdout null redirects before metacharacter scan."""
+    stripped = command
+    for pattern in (
+        r"\s+2>/dev/null",
+        r"\s+1>/dev/null",
+        r"\s+2>&1",
+    ):
+        stripped = re.sub(pattern, "", stripped)
+    return stripped.strip()
+
+
 def _has_shell_metacharacters(command: str) -> bool:
-    return bool(re.search(r"[|&;<>()`]", command))
+    return bool(re.search(r"[|&;<>()`]", _strip_safe_io_redirections(command)))
 
 
 def _uses_dynamic_interpreter(argv: list[str]) -> bool:

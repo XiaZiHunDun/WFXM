@@ -8,7 +8,10 @@ from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.preread_context import build_preread_block, inject_preread_into_args
-from butler.core.session_recall_intent import check_session_read_recall_tool_block
+from butler.core.session_recall_intent import (
+    check_local_project_inventory_tool_block,
+    check_session_read_recall_tool_block,
+)
 from butler.core.tool_error_policy import apply_tool_error_policy
 from butler.execution_context import get_current_orchestrator, get_current_session_key
 from butler.hooks.runner import (
@@ -168,6 +171,20 @@ def session_read_recall_block(name: str) -> str | None:
         safe_best_effort(
             _run,
             label="registry.session_read_recall",
+            default=None,
+        ),
+    )
+
+
+def local_project_inventory_block(name: str) -> str | None:
+    def _run() -> str | None:
+        return cast(str | None, check_local_project_inventory_tool_block(name))
+
+    return cast(
+        str | None,
+        safe_best_effort(
+            _run,
+            label="registry.local_project_inventory",
             default=None,
         ),
     )
@@ -347,6 +364,7 @@ __all__ = [
     "plan_mode_mcp_block",
     "pre_tool_hooks_block",
     "project_permission_block",
+    "local_project_inventory_block",
     "session_read_recall_block",
     "tool_error_payload",
 ]

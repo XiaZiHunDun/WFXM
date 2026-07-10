@@ -30,6 +30,7 @@ from butler.tools.registry_gates import (
     plan_mode_mcp_block,
     pre_tool_hooks_block,
     project_permission_block,
+    local_project_inventory_block,
     session_read_recall_block,
 )
 from butler.tools.tool_audit import (  # noqa: F401
@@ -260,6 +261,15 @@ def dispatch_tool(name: str, args: dict[str, Any]) -> str:
             args,
             recall_block,
             code="SESSION_READ_RECALL_BLOCKED",
+        )
+
+    inventory_block = local_project_inventory_block(name)
+    if inventory_block:
+        return _permission_denied_tool_result(
+            name,
+            args,
+            inventory_block,
+            code="LOCAL_PROJECT_INVENTORY_BLOCKED",
         )
 
     perm_block = project_permission_block(name, args)

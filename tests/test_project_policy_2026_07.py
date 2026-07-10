@@ -131,25 +131,49 @@ def test_delete_file_tool_returns_maturity_error(monkeypatch, tmp_path):
 
 
 @pytest.mark.unit
-def test_personal_butler_excludes_run_workflow(monkeypatch):
+def test_personal_butler_unrestricted_tools(monkeypatch):
     from butler.tools.project_tools import allowed_tool_names_for_project
 
     allowed = allowed_tool_names_for_project(None, role="butler")
-    assert allowed is not None
-    assert "terminal" in allowed
-    assert "run_workflow" not in allowed
-    assert "delegate_task" not in allowed
+    assert allowed is None
 
 
 @pytest.mark.unit
-def test_wechat_minimal_includes_terminal():
+def test_lead_role_keeps_read_only_allowlist():
+    from butler.tools.project_tools import allowed_tool_names_for_project
+
+    allowed = allowed_tool_names_for_project(None, role="lead")
+    assert allowed is not None
+    assert "read_file" in allowed
+    assert "terminal" not in allowed
+    assert "write_file" not in allowed
+
+
+@pytest.mark.unit
+def test_wechat_minimal_filters_without_butler_role():
+    from butler.execution_context import use_loop_role
     from butler.tools.toolset_profiles import TOOLSET_WECHAT_MINIMAL, filter_definitions_by_toolset
 
     defs = [
         {"type": "function", "function": {"name": n, "parameters": {}}}
         for n in ("read_file", "terminal", "run_workflow", "delete_file")
     ]
-    names = {d["function"]["name"] for d in filter_definitions_by_toolset(defs, toolset=TOOLSET_WECHAT_MINIMAL)}
+    with use_loop_role("lead"):
+        names = {d["function"]["name"] for d in filter_definitions_by_toolset(defs, toolset=TOOLSET_WECHAT_MINIMAL)}
     assert "terminal" in names
     assert "run_workflow" in names
     assert "delete_file" not in names
+
+
+@pytest.mark.unit
+def test_wechat_minimal_bypassed_for_butler_role():
+    from butler.execution_context import use_loop_role
+    from butler.tools.toolset_profiles import TOOLSET_WECHAT_MINIMAL, filter_definitions_by_toolset
+
+    defs = [
+        {"type": "function", "function": {"name": n, "parameters": {}}}
+        for n in ("read_file", "terminal", "delete_file")
+    ]
+    with use_loop_role("butler"):
+        names = {d["function"]["name"] for d in filter_definitions_by_toolset(defs, toolset=TOOLSET_WECHAT_MINIMAL)}
+    assert names == {"read_file", "terminal", "delete_file"}

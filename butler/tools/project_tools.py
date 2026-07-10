@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
-from butler.tools.project_tools_ops import opencode_tool_enabled
 from butler.tools.project_tools_ops import dev_engine_extra_tools
 from butler.tools.project_tools_ops import mcp_tool_allowed
 from butler.tools.project_tools_ops import workflow_step_tool_allowlist
@@ -120,21 +119,8 @@ _DEV_EXTRA_TOOLS = frozenset({
     "run_pytest",
 })
 
-# A3/T8: butler main loop must not inherit project mutating tools from project.yaml.
-_BUTLER_BLOCKED_PROJECT_TOOLS = frozenset({
-    "write_file",
-    "patch",
-    "delete_file",
-    "terminal",
-    "git_add",
-    "git_commit",
-    "execute_code",
-})
-
-
-def _butler_tools_from_project(mapped: set[str]) -> set[str]:
-    """Read-only / orchestration tools from project.yaml; strip file/shell mutators."""
-    return {name for name in mapped if name not in _BUTLER_BLOCKED_PROJECT_TOOLS}
+# Lead (厂长) 对话引擎：只读 + 编排；改盘仍走 delegate。
+# Butler (管家) 对话引擎：allowed=None，不受 project.yaml / wechat_minimal 裁剪。
 
 
 def _mcp_allowlist_from_mapped(mapped: set[str]) -> set[str]:
@@ -154,20 +140,14 @@ def _lead_network_from_mapped(mapped: set[str]) -> set[str]:
 def _lead_allowed_tools(mapped: set[str]) -> set[str]:
     """Lead read-only core + orchestration; honor MCP opt-in from project.yaml."""
     read_only = {n for n in mapped if n in _LEAD_READ_TOOLS}
+    if not read_only:
+        read_only = set(_LEAD_READ_TOOLS)
     return (
         read_only
         | set(_LEAD_EXTRA_TOOLS)
         | _mcp_allowlist_from_mapped(mapped)
         | _lead_network_from_mapped(mapped)
     )
-
-
-def _butler_allowed_tools(mapped: set[str]) -> set[str]:
-
-    extras = set(_BUTLER_EXTRA_TOOLS)
-    if opencode_tool_enabled():
-        extras.add("opencode_task")
-    return _butler_tools_from_project(mapped) | extras
 
 
 def canonical_tool_name(name: str) -> str:
@@ -185,10 +165,31 @@ def allowed_tool_names_for_project(
 ) -> set[str] | None:
     """Return allowed registry tool names, or ``None`` if unrestricted."""
     norm_early = role.replace("_agent", "").strip().lower()
+    if norm_early == "plan":
+        return set(_PLAN_MODE_TOOLS)
+    if norm_early == "lead":
+        mapped: set[str] = set()
+        if project is not None:
+            raw = [canonical_tool_name(n) for n in (project.tools or [])]
+            mapped = {n for n in raw if n}
+            modes = getattr(project, "tool_modes", None) or {}
+            if isinstance(modes, dict) and modes:
+                mode_list = modes.get("lead") or modes.get(role) or modes.get(role.replace("_agent", ""))
+                if isinstance(mode_list, list) and mode_list:
+                    mode_set = {canonical_tool_name(str(n)) for n in mode_list if str(n).strip()}
+                    mode_set = {n for n in mode_set if n}
+                    read_only = mode_set & _LEAD_READ_TOOLS if mode_set else set(_LEAD_READ_TOOLS)
+                    return (
+                        read_only
+                        | set(_LEAD_EXTRA_TOOLS)
+                        | _mcp_allowlist_from_mapped(mapped)
+                        | _lead_network_from_mapped(mapped)
+                    )
+        return _lead_allowed_tools(mapped)
+    if norm_early in {"butler", "default", ""} or role == "butler":
+        return None
     if project is None:
-        if norm_early == "plan":
-            return set(_PLAN_MODE_TOOLS)
-        return set(_PERSONAL_BUTLER_TOOLS)
+        return None
     raw = [canonical_tool_name(n) for n in (project.tools or [])]
     mapped = {n for n in raw if n}
     if not mapped:
@@ -200,27 +201,8 @@ def allowed_tool_names_for_project(
         if isinstance(mode_list, list) and mode_list:
             mode_set = {canonical_tool_name(str(n)) for n in mode_list if str(n).strip()}
             mode_set = {n for n in mode_set if n}
-            if norm == "plan":
-                return mode_set & set(_PLAN_MODE_TOOLS) if mode_set else set(_PLAN_MODE_TOOLS)
-            if norm == "lead":
-                read_only = mode_set & _LEAD_READ_TOOLS if mode_set else set(_LEAD_READ_TOOLS)
-                return (
-                    read_only
-                    | set(_LEAD_EXTRA_TOOLS)
-                    | _mcp_allowlist_from_mapped(mapped)
-                    | _lead_network_from_mapped(mapped)
-                )
-            if norm in {"butler", "default", ""} or role == "butler":
-                return _butler_allowed_tools(mode_set)
-            return mode_set
-    if norm == "plan":
-        return set(_PLAN_MODE_TOOLS)
-    if norm == "lead":
-        return _lead_allowed_tools(mapped)
-    if norm in {"butler", "default", ""} or role == "butler":
-        return _butler_allowed_tools(mapped)
+            return mode_set if mode_set else None
     if norm == "dev":
-
         return mapped | set(dev_engine_extra_tools())
     return mapped
 
@@ -270,8 +252,13 @@ def get_tool_definitions_for_project(
     optimize_schema: bool = True,
 ) -> list[dict[str, Any]]:
 
+    norm = role.replace("_agent", "").strip().lower()
+    if norm in {"butler", "default", ""}:
+        from butler.tools.registry import get_tool_definitions_unfiltered
 
-    all_tools = get_tool_definitions()
+        all_tools = get_tool_definitions_unfiltered()
+    else:
+        all_tools = get_tool_definitions()
     allowed = allowed_tool_names_for_project(project, role=role)
     allowed = intersect_allowed_names(allowed, _workflow_step_tool_allowlist(project))
     filtered = filter_tool_definitions(all_tools, allowed)

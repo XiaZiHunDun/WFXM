@@ -55,18 +55,17 @@ class TestProjectToolAliases:
 
 @pytest.mark.module_test
 class TestProjectToolFilter:
-    def test_butler_gets_delegate_and_skills(self, tmp_path):
+    def test_butler_role_unrestricted(self, tmp_path):
         proj = _project_with_tools(tmp_path)
-        allowed = allowed_tool_names_for_project(proj, role="butler")
-        assert "read_file" in allowed
-        assert "search_files" in allowed
-        assert "delegate_task" in allowed
-        assert "skills_list" in allowed
-        assert "butler_remember" in allowed
-        assert "butler_recall" in allowed
-        assert "patch" not in allowed
-        assert "write_file" not in allowed
-        assert "terminal" not in allowed
+        assert allowed_tool_names_for_project(proj, role="butler") is None
+
+    def test_butler_definitions_include_full_registry(self, tmp_path):
+        proj = _project_with_tools(tmp_path)
+        filtered = get_tool_definitions_for_project(proj, role="butler")
+        names = {t["function"]["name"] for t in filtered}
+        assert "write_file" in names
+        assert "terminal" in names
+        assert "delegate_task" in names
 
     def test_dev_role_excludes_delegate(self, tmp_path):
         proj = _project_with_tools(tmp_path)
@@ -127,6 +126,5 @@ class TestGatewayUsesProjectTools:
         names = {t["function"]["name"] for t in loop.tools}
         assert "read_file" in names
         assert "delegate_task" in names
-        assert "write_file" not in names
-        assert "terminal" not in names
-        assert "patch" not in names
+        assert "write_file" in names
+        assert "terminal" in names
