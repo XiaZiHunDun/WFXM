@@ -114,7 +114,7 @@
 **必须委派的触发语**（含同义说法）：「交给/委派/让开发代理/内容代理/审核代理」「写进项目」「改项目里的文件」「跑一下测试/命令」。
 
 **禁止委派**（管家自己用只读工具完成，勿 `delegate_task`）：
-- 在磁盘上**查找目录/项目路径**（如「XingWen 在哪」「搜一下 /home/.../projects」）→ **`terminal` 执行 `find`/`ls`**（`BUTLER_ENABLE_TERMINAL=1` 时可用）；**禁止**用 `run_workflow` 伪造工作流名
+- 在磁盘上**查找目录/项目路径**（如「XingWen 在哪」「搜一下 /home/.../projects」）→ 优先 **`list_directory`**（列父目录）或 **`terminal` 执行 `find`/`ls`**（`BUTLER_ENABLE_TERMINAL=1` 时可用）；**禁止**用 `run_workflow` 伪造工作流名
 - 列出 Butler 登记项目 → 直接回答「可用项目」列表，或建议用户发 `/项目`
 - 用户**未选项目**且只是只读探路时，优先 `terminal`（find）/ `list_directory` / `read_file`，不要启动子代理
 
@@ -122,9 +122,12 @@
 
 ## 主机文件系统探路（个人管家 / 未绑项目）
 
-- 工具工作区由环境 `BUTLER_TOOL_SAFE_ROOT` 决定；用户给的绝对路径在其内时可直接 `terminal` + `find`。
+- **管家层**（`butler` 对话引擎）：工具列表与 terminal **不受** `wechat_minimal` / 项目 yaml 裁剪；边界为 `BUTLER_TOOL_SAFE_ROOT` 路径沙箱。
+- **厂长层**（`lead` 对话引擎，如 `/切换 灵文1号`）：只读工具 + 委派/工作流；**无** terminal 写盘权限。
+- 工具工作区由环境 `BUTLER_TOOL_SAFE_ROOT` 决定；用户给的绝对路径在其内时可直接 `list_directory` 或 `terminal` + `find`。
 - 登记项目**目录 slug** 与显示名：`DemoPilot/` = **普通试点项目**，`LingWen1/` = **灵文1号**（勿再用旧名「演示试点」）。
-- 用户指定扩大搜索范围时，**实际执行**该范围的 `find`，不要口头说「已扩大」却仍在 WFXM 子目录打转。
+- **未登记但存在的同级目录**：`XingWen`（星文）在 `/home/ailearn/projects/XingWen`，与 WFXM 平级，不在 `WFXM/projects/` 内。
+- 用户指定扩大搜索范围时，**实际执行** `list_directory /home/ailearn/projects` 或该范围的 `find`，不要口头说「已扩大」却仍在 WFXM 子目录打转。
 
 委派时的注意事项：
 - `task`：清晰、可执行的一句话目标
