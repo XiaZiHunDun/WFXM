@@ -20,6 +20,8 @@ def run_builtin(handler: str, workspace: Path) -> dict[str, Any]:
         return _memory_offline_consolidate(workspace)
     if name == "builtin:experience_mining_weekly":
         return _experience_mining_weekly(workspace)
+    if name == "builtin:todos_pending_drift":
+        return _todos_pending_drift(workspace)
     raise ValueError(f"Unknown builtin handler: {handler}")
 
 
@@ -152,3 +154,59 @@ def _experience_mining_weekly(workspace: Path) -> dict[str, Any]:
         "stderr": "",
         "summary": report_text,
     }
+
+
+def _todos_pending_drift(workspace: Path) -> dict[str, Any]:
+    """Read-only drift report between .butler/todos.json and MEMORY.md ## Pending."""
+    from butler.tools.project_todos_drift_ops import collect_todos_pending_drift
+
+    drift = collect_todos_pending_drift(workspace)
+    summary = _format_drift_summary(drift)
+    return {
+        "success": True,
+        "stdout": summary,
+        "stderr": "",
+        "summary": summary,
+    }
+
+
+def _format_drift_summary(drift: dict[str, Any]) -> str:
+    """Compact Chinese summary for WeChat push; cap samples per category."""
+    counts = drift.get("counts", {})
+    lines = [
+        "待办 vs Pending 漂移：",
+        f"  drift: {counts.get('drift_total', 0)} (todos_open={counts.get('todos_open', 0)}, "
+        f"todos_completed={counts.get('todos_completed', 0)}, pending_open={counts.get('pending_open', 0)})",
+    ]
+
+    completed = drift.get("completed_todo_with_open_pending", [])
+    if completed:
+        lines.append(f"  · todo 已完成但 Pending 仍开（疑似 stale，建议 /拒绝记忆）: {len(completed)}")
+        for row in completed[:5]:
+            lines.append(
+                f"      [{row['todo'].get('id', '')}] {row['pending'].get('content', '')[:60]}"
+            )
+
+    pending_no_todo = drift.get("pending_with_no_todo", [])
+    if pending_no_todo:
+        lines.append(f"  · Pending 未跟踪（无对应 todo，建议手动建 todo）: {len(pending_no_todo)}")
+        for row in pending_no_todo[:5]:
+            lines.append(
+                f"      [{row['pending'].get('timestamp', '')}] {row['pending'].get('content', '')[:60]}"
+            )
+
+    open_no_pending = drift.get("open_todo_with_no_pending", [])
+    if open_no_pending:
+        lines.append(f"  · todo 未走 owner 审核（无 Pending，建议 /批准记忆）: {len(open_no_pending)}")
+        for row in open_no_pending[:5]:
+            lines.append(
+                f"      [{row['todo'].get('id', '')}] {row['todo'].get('content', '')[:60]}"
+            )
+
+    if counts.get("drift_total", 0) == 0:
+        lines.append("  · 一致 ✓")
+
+    out = "\n".join(lines)
+    if len(out) > 700:
+        out = out[:697] + "…"
+    return out
