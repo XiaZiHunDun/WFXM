@@ -242,8 +242,12 @@ def test_evaluation_reply_text_includes_delegate_summary(monkeypatch):
         summary = "PASS\n标题与日期齐全。"
         child_session_key = ""
 
+    # F-C: patch the consumer module's locally-bound name, not the source
+    # module — wechat_scenario_sim.py:28 does `from butler.report import
+    # get_last_report` so patching `butler.report.get_last_report` is
+    # shadowed by the local binding (R2 mock shadowing).
     monkeypatch.setattr(
-        "butler.report.get_last_report",
+        "butler.gateway.wechat_scenario_sim.get_last_report",
         lambda _sk: _Report(),
     )
     out = evaluation_reply_text(
