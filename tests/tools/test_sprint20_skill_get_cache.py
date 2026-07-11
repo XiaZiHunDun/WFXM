@@ -59,7 +59,10 @@ class TestGetSkillCachesFileRead:
     def test_second_get_skill_uses_cache(self, tmp_path: Path):
         """同一 mtime 下, get_skill("foo") 第二次调用不触发 _load_skill_from_path."""
         mgr = SkillManager(tmp_path)
-        mgr.create("foo", "Foo", ["foo"], "Body 1")
+        mgr.create("foo", "Foo", ["foo"], "Body 1", _bypass_approval=True)
+        # create() pre-populates _full_cache via _load_all(); clear it so the
+        # patched spy below actually sees the first load.
+        mgr._full_cache.clear()
 
         # Spy on _load_skill_from_path via a wrapper.
         original = mgr._load_skill_from_path
@@ -92,8 +95,12 @@ class TestGetSkillCachesFileRead:
     def test_get_skills_uses_cache_for_repeated_calls(self, tmp_path: Path):
         """get_skills 多次调用应复用缓存."""
         mgr = SkillManager(tmp_path)
-        mgr.create("skill-a", "A", ["a"], "Body A")
-        mgr.create("skill-b", "B", ["b"], "Body B", similarity_threshold=1.1)
+        mgr.create("skill-a", "A", ["a"], "Body A", _bypass_approval=True)
+        mgr.create(
+            "skill-b", "B", ["b"], "Body B",
+            similarity_threshold=1.1, _bypass_approval=True,
+        )
+        mgr._full_cache.clear()
 
         original = mgr._load_skill_from_path
         calls: list[str] = []
@@ -123,7 +130,7 @@ class TestCacheInvalidation:
     def test_mtime_change_invalidates_cache(self, tmp_path: Path):
         """修改 skill body 后, 下次 get_skill 应拿到新内容."""
         mgr = SkillManager(tmp_path)
-        mgr.create("foo", "Foo", ["foo"], "Original body")
+        mgr.create("foo", "Foo", ["foo"], "Original body", _bypass_approval=True)
         path = tmp_path / "foo.md"
 
         # 第一次: 拿到 original
@@ -154,7 +161,7 @@ class TestCacheInvalidation:
         正确行为 (签名一致性 > 内容实时性).
         """
         mgr = SkillManager(tmp_path)
-        mgr.create("foo", "Foo", ["foo"], "Original body")
+        mgr.create("foo", "Foo", ["foo"], "Original body", _bypass_approval=True)
         path = tmp_path / "foo.md"
         cached_mtime = path.stat().st_mtime_ns
         cached_size = path.stat().st_size
@@ -195,7 +202,7 @@ class TestReturnedDictIsCopy:
 
     def test_modifying_returned_dict_does_not_corrupt_cache(self, tmp_path: Path):
         mgr = SkillManager(tmp_path)
-        mgr.create("foo", "Foo", ["foo"], "Original body")
+        mgr.create("foo", "Foo", ["foo"], "Original body", _bypass_approval=True)
 
         first = mgr.get_skill("foo")
         first["content"] = "MUTATED"
@@ -217,7 +224,7 @@ class TestEdgeCases:
     def test_missing_file_returns_none(self, tmp_path: Path):
         """skill 文件不存在 → get_skill 返 None, 不抛异常."""
         mgr = SkillManager(tmp_path)
-        mgr.create("foo", "Foo", ["foo"], "Body")
+        mgr.create("foo", "Foo", ["foo"], "Body", _bypass_approval=True)
         # 删除文件
         (tmp_path / "foo.md").unlink()
         result = mgr.get_skill("foo")
@@ -226,8 +233,11 @@ class TestEdgeCases:
     def test_multiple_skills_cached_independently(self, tmp_path: Path):
         """多个 skill 各自缓存, 一个失效不影响其他."""
         mgr = SkillManager(tmp_path)
-        mgr.create("skill-a", "A", ["a"], "A body")
-        mgr.create("skill-b", "B", ["b"], "B body", similarity_threshold=1.1)
+        mgr.create("skill-a", "A", ["a"], "A body", _bypass_approval=True)
+        mgr.create(
+            "skill-b", "B", ["b"], "B body",
+            similarity_threshold=1.1, _bypass_approval=True,
+        )
 
         a_first = mgr.get_skill("skill-a")
         b_first = mgr.get_skill("skill-b")

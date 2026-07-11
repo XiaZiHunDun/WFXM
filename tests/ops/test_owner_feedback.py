@@ -21,7 +21,9 @@ def test_is_owner_explicit_trigger():
 
 @pytest.mark.unit
 def test_record_owner_hard_feedback(tmp_path, monkeypatch):
-    monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+    # append_eval_feedback imports get_butler_home at module load;
+    # monkeypatch the local binding in eval_actions.
+    monkeypatch.setattr("butler.ops.eval_actions.get_butler_home", lambda: tmp_path)
     record_owner_hard_feedback(
         "委派结果不对，应该只读",
         session_key="wechat:u1:proj",
@@ -38,7 +40,9 @@ def test_record_owner_hard_feedback(tmp_path, monkeypatch):
 
 @pytest.mark.unit
 def test_record_owner_reject(tmp_path, monkeypatch):
-    monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+    # append_eval_feedback imports get_butler_home at module load;
+    # monkeypatch the local binding in eval_actions.
+    monkeypatch.setattr("butler.ops.eval_actions.get_butler_home", lambda: tmp_path)
     record_owner_hard_feedback(
         "测试未绿",
         kind="reject",

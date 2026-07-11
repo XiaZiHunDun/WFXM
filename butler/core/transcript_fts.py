@@ -17,6 +17,25 @@ logger = logging.getLogger(__name__)
 
 _LOCK = threading.RLock()
 _CONN: sqlite3.Connection | None = None
+_CONN_PATH: Path | None = None
+
+
+def reset_transcript_fts_connection() -> None:
+    """Close + drop the module-level cached FTS connection (test isolation hook).
+
+    Used by autouse fixtures that swap ``BUTLER_HOME`` so the cached
+    connection — which is bound to a specific ``fts_db_path()`` — doesn't
+    leak between tests pointing at different homes.
+    """
+    global _CONN, _CONN_PATH
+    with _LOCK:
+        if _CONN is not None:
+            try:
+                _CONN.close()
+            except sqlite3.Error:
+                pass
+        _CONN = None
+        _CONN_PATH = None
 
 _CRON_SESSION_RE = re.compile(r"(?:^|[_/])cron(?:[_/]|$)", re.I)
 
@@ -34,11 +53,18 @@ def _is_cron_session(session_key: str) -> bool:
 
 
 def _connect() -> sqlite3.Connection:
-    global _CONN
+    global _CONN, _CONN_PATH
     with _LOCK:
-        if _CONN is not None:
-            return _CONN
         path = fts_db_path()
+        if _CONN is not None and _CONN_PATH == path:
+            return _CONN
+        if _CONN is not None:
+            # Path changed (BUTLER_HOME swap) — drop stale connection.
+            try:
+                _CONN.close()
+            except sqlite3.Error:
+                pass
+            _CONN = None
         path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(path), check_same_thread=False)
         conn.row_factory = sqlite3.Row
@@ -50,7 +76,7 @@ def _connect() -> sqlite3.Connection:
                 line_no INTEGER NOT NULL,
                 event_type TEXT NOT NULL DEFAULT '',
                 body TEXT NOT NULL,
-                PRIMARY KEY (session_key, line_no))
+                PRIMARY KEY (session_key, line_no)
             );
             CREATE VIRTUAL TABLE IF NOT EXISTS transcript_fts USING fts5(
                 session_key,
@@ -61,6 +87,7 @@ def _connect() -> sqlite3.Connection:
             """
         )
         _CONN = conn
+        _CONN_PATH = path
         return conn
 
 
@@ -225,5 +252,6 @@ __all__ = [
     "index_transcript_file",
     "index_transcript_line",
     "rebuild_all_transcripts",
+    "reset_transcript_fts_connection",
     "search_fts",
 ]

@@ -5,13 +5,21 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional, cast
 
-from croniter import croniter  # type: ignore[import-untyped]
+try:
+    from croniter import croniter as _croniter_factory  # type: ignore[import-untyped]
+except ImportError:  # croniter not installed (e.g. minimal env)
+    _croniter_factory = None  # type: ignore[assignment]
+
+# Back-compat: tests / older callers may do ``schedule.croniter(expr, now)``
+# or monkeypatch ``schedule.croniter = None``. Expose ``croniter`` as the
+# factory (callable) when available, else ``None``.
+croniter = _croniter_factory
 
 
 def job_is_due(schedule: str, *, now: Optional[datetime] = None) -> bool:
     """True if cron expression matches current minute (UTC)."""
     expr = (schedule or "").strip()
-    if not expr:
+    if not expr or croniter is None:
         return False
     now = now or datetime.now(timezone.utc)
     try:
@@ -33,7 +41,7 @@ def format_schedule_hint(schedule: str) -> str:
 def next_run_iso(schedule: str, *, now: Optional[datetime] = None) -> str | None:
     """Next cron fire time (UTC ISO) or None."""
     expr = (schedule or "").strip()
-    if not expr:
+    if not expr or croniter is None:
         return None
     now = now or datetime.now(timezone.utc)
     try:

@@ -39,7 +39,7 @@ class TestOwnerGateNoLongerNoOp:
     def test_non_owner_call_returns_owner_error(self):
         """非 owner 调 registry_install_skill → 返 owner 错误, 不调 svc.install."""
         with patch(
-            "butler.gateway.owner_gate.is_gateway_owner", return_value=False
+            "butler.execution_context.is_current_turn_owner", return_value=False
         ), patch(
             "butler.registry.skill_service.SkillRegistryService.install"
         ) as mock_install:
@@ -53,7 +53,7 @@ class TestOwnerGateNoLongerNoOp:
     def test_owner_call_proceeds_to_install(self):
         """owner 调 registry_install_skill → 走 svc.install, 不返 owner 错误."""
         with patch(
-            "butler.gateway.owner_gate.is_gateway_owner", return_value=True
+            "butler.execution_context.is_current_turn_owner", return_value=True
         ), patch(
             "butler.registry.skill_service.SkillRegistryService.install"
         ) as mock_install:
@@ -68,10 +68,10 @@ class TestOwnerGateNoLongerNoOp:
     def test_no_session_key_fails_closed(self):
         """无 session_key (chat_id 空) → owner gate fail-closed.
 
-        is_gateway_owner 真源: 无 external_id 且无 session_key 解析时返 False.
+        is_current_turn_owner 真源: 无 external_id 且无 session_key 解析时返 False.
         """
         with patch(
-            "butler.gateway.owner_gate.is_gateway_owner", return_value=False
+            "butler.execution_context.is_current_turn_owner", return_value=False
         ), patch(
             "butler.registry.skill_service.SkillRegistryService.install"
         ) as mock_install:
@@ -83,9 +83,9 @@ class TestOwnerGateNoLongerNoOp:
 
     def test_owner_check_does_not_swallow_exception(self):
         """owner gate 检查内部异常应传播 (fail-loud), 不应默默绕过."""
-        # 模拟 is_gateway_owner 自身抛异常 (例如 owner_gate.py 损坏)
+        # 模拟 is_current_turn_owner 自身抛异常 (例如 owner gate 损坏)
         with patch(
-            "butler.gateway.owner_gate.is_gateway_owner",
+            "butler.execution_context.is_current_turn_owner",
             side_effect=RuntimeError("owner_gate broken"),
         ):
             with pytest.raises(RuntimeError, match="owner_gate broken"):

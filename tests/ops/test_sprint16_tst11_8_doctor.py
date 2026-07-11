@@ -121,7 +121,7 @@ class TestDataDirsSection:
         为了真正测到 'missing' 分支, patch 一个不存在的子目录。
         """
         with patch.object(security_audit_mod, "run_security_audit", return_value=[]), \
-             patch("butler.config.BUTLER_RUNTIME_DIRS", ("nonexistent_dir_xyz",)):
+             patch("butler.cli.doctor_sections.BUTLER_RUNTIME_DIRS", ("nonexistent_dir_xyz",)):
             doctor.cmd_doctor(argparse.Namespace())
         out = capsys.readouterr().out
         assert "✗ (missing)" in out

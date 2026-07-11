@@ -29,6 +29,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from butler.tools import execute_code
+from butler.tools import execute_code_ops
 from butler.tools.execute_code import (
     _MAX_CODE_CHARS,
     _workspace_cwd,
@@ -111,7 +112,7 @@ class TestInputValidation:
 
     def test_python_alias_accepted(self, enabled_env):
         """language='py' 是 'python' 别名, 应进入正常路径。"""
-        with patch.object(execute_code.subprocess, "run") as mock_run:
+        with patch.object(execute_code_ops.subprocess, "run") as mock_run:
             mock_proc = MagicMock()  # noqa: magicmock-no-spec — subprocess proc facade
             mock_proc.returncode = 0
             mock_proc.stdout = "2\n"
@@ -123,7 +124,7 @@ class TestInputValidation:
 
     def test_language_normalized_lowercase(self, enabled_env):
         """language='PYTHON' → 走正常路径。"""
-        with patch.object(execute_code.subprocess, "run") as mock_run:
+        with patch.object(execute_code_ops.subprocess, "run") as mock_run:
             mock_proc = MagicMock()  # noqa: magicmock-no-spec — subprocess proc facade
             mock_proc.returncode = 0
             mock_proc.stdout = "ok"
@@ -181,7 +182,7 @@ class TestSubprocessErrors:
     def test_timeout_returns_timeout_code(self, enabled_env):
         with patch.object(execute_code, "_workspace_cwd", return_value=MagicMock()):  # noqa: magicmock-no-spec — workspace cwd shim
             with patch.object(
-                execute_code.subprocess, "run",
+                execute_code_ops.subprocess, "run",
                 side_effect=subprocess.TimeoutExpired(cmd="python3", timeout=30),
             ):
                 out = run_execute_code("import time; time.sleep(60)")
@@ -191,7 +192,7 @@ class TestSubprocessErrors:
     def test_subprocess_generic_exception(self, enabled_env):
         with patch.object(execute_code, "_workspace_cwd", return_value=MagicMock()):  # noqa: magicmock-no-spec — workspace cwd shim
             with patch.object(
-                execute_code.subprocess, "run",
+                execute_code_ops.subprocess, "run",
                 side_effect=OSError("binary not found"),
             ):
                 out = run_execute_code("print(1)")
@@ -213,7 +214,7 @@ class TestSubprocessErrors:
         with patch.object(execute_code, "_workspace_cwd", return_value=tmp_path):
             with patch.object(execute_code.tempfile, "NamedTemporaryFile", tracking_ntf):
                 with patch.object(
-                    execute_code.subprocess, "run",
+                    execute_code_ops.subprocess, "run",
                     side_effect=subprocess.TimeoutExpired(cmd="x", timeout=1),
                 ):
                     run_execute_code("print(1)")
@@ -231,7 +232,7 @@ class TestEnvConstruction:
     def test_network_disabled_sets_proxy_blockers(self, enabled_env, monkeypatch):
         """默认网络关闭 → env 含空 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY=*。"""
         with patch.object(execute_code, "_workspace_cwd", return_value=MagicMock()):  # noqa: magicmock-no-spec — workspace cwd shim
-            with patch.object(execute_code.subprocess, "run") as mock_run:
+            with patch.object(execute_code_ops.subprocess, "run") as mock_run:
                 mock_proc = MagicMock()  # noqa: magicmock-no-spec — subprocess proc facade
                 mock_proc.returncode = 0
                 mock_proc.stdout = ""
@@ -248,7 +249,7 @@ class TestEnvConstruction:
         """BUTLER_EXECUTE_CODE_ALLOW_NETWORK=1 → 不注入空 proxy。"""
         monkeypatch.setenv("BUTLER_EXECUTE_CODE_ALLOW_NETWORK", "1")
         with patch.object(execute_code, "_workspace_cwd", return_value=MagicMock()):  # noqa: magicmock-no-spec — workspace cwd shim
-            with patch.object(execute_code.subprocess, "run") as mock_run:
+            with patch.object(execute_code_ops.subprocess, "run") as mock_run:
                 mock_proc = MagicMock()  # noqa: magicmock-no-spec — subprocess proc facade
                 mock_proc.returncode = 0
                 mock_proc.stdout = ""
@@ -262,7 +263,7 @@ class TestEnvConstruction:
     def test_env_has_python_isolation_flags(self, enabled_env):
         """env 应含 PYTHONNOUSERSITE=1, PYTHONDONTWRITEBYTECODE=1, -I 标志。"""
         with patch.object(execute_code, "_workspace_cwd", return_value=MagicMock()):  # noqa: magicmock-no-spec — workspace cwd shim
-            with patch.object(execute_code.subprocess, "run") as mock_run:
+            with patch.object(execute_code_ops.subprocess, "run") as mock_run:
                 mock_proc = MagicMock()  # noqa: magicmock-no-spec — subprocess proc facade
                 mock_proc.returncode = 0
                 mock_proc.stdout = ""

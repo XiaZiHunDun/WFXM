@@ -20,6 +20,11 @@ from butler.tools.config_tools import tool_butler_config
 @pytest.fixture(autouse=True)
 def _owner_env(monkeypatch):
     """默认 u1 是 owner，create_open 不 bypass。"""
+    # R1-10: owner check goes through butler.contracts.get_owner_gate();
+    # gateway layer wires the real impl at runner startup. Tests must do
+    # the same so is_current_turn_owner() can resolve to is_gateway_owner.
+    from butler.gateway.gateway_contracts import register_gateway_contracts
+    register_gateway_contracts()
     monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "u1")
     monkeypatch.delenv("BUTLER_PROJECT_CREATE_OPEN", raising=False)
 

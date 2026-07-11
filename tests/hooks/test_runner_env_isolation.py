@@ -33,7 +33,11 @@ def test_run_hook_uses_sanitized_env(monkeypatch):
     )
     payload = {"hook_event_name": "PreToolUse", "tool_name": "read_file"}
 
-    with mock.patch("butler.hooks.runner.subprocess.run", side_effect=fake_run):
+    # runner.py now delegates to runner_ops.run_hook_command_safe which owns
+    # the subprocess.run call; patch at that location.
+    with mock.patch(
+        "butler.hooks.runner_ops.subprocess.run", side_effect=fake_run
+    ):
         code, out, err = _run_hook(rule, payload)
 
     assert code == 0
