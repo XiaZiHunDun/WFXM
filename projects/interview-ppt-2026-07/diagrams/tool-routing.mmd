@@ -1,0 +1,55 @@
+%% WFXM Butler · 跨进程工具路由（口播精简版：5 道防线 + 3 道回退）
+%% 用途：PPT §4 工具调用页
+%% 标签对应："跨进程工具路由" 的核心可视化
+%% ⚠ 真实架构为 2 层 15 道门（入站管线 9 步 + 工具执行链 6 层），见 02-action.md §4；
+%%    本图取最好记的 5 道核心防线用于白板/口播，追问时再展开 15 道。
+%% ⚠ 图例：红=防御链 / 蓝=回退 / 紫=子进程 / 黄=执行
+
+flowchart TB
+    LLM(["🧠 LLM 决策<br/>调哪个工具 / 传什么参数"])
+
+    subgraph Defenses["🛡 5 道核心幻觉防线（串行）"]
+        D1["1️⃣ permissions.yaml<br/>allow / deny / ask"]
+        D2["2️⃣ filter_tools_for_subagent<br/>⭐ 子代理工具窄化（核心）"]
+        D3["3️⃣ read-before-edit<br/>patch 前必须 read_file"]
+        D4["4️⃣ DELEGATE_BLOCKED_TOOLS<br/>禁止子代理再次 delegate"]
+        D5["5️⃣ typed schema 校验<br/>参数类型严格匹配"]
+    end
+
+    subgraph Execute["执行"]
+        EX["调用工具"]
+    end
+
+    subgraph Fallbacks["🔄 3 道异常回退"]
+        FB1["llm_fallback<br/>API 失败 → 切备用 Provider"]
+        FB2["reactive_compact<br/>413 → 压缩后重试"]
+        FB3["微信 outbox 重试<br/>durable · 出站抖动"]
+    end
+
+    subgraph SubProcs["跨进程：委派出去的子 Loop<br/>⭐ 工具集 = 父代理子集"]
+        DEV["dev 子代理<br/>safe_root + 窄化工具"]
+        CON["content 子代理<br/>safe_root + 窄化工具"]
+        REV["review 子代理<br/>safe_root + 窄化工具"]
+    end
+
+    LLM --> D1
+    D1 -->|deny| REJ["拒绝 + 报错回 LLM"]
+    D1 -->|ask| ASK["Owner 确认（微信验收卡）"]
+    D1 -->|allow| D2
+    D2 --> D3
+    D3 --> D4
+    D4 --> D5
+    D5 --> EX
+
+    EX -->|delegate_task| SubProcs
+    EX -->|其他工具| R["返回结果"]
+
+    R -->|失败| Fallbacks
+    FB1 --> R
+    FB2 --> R
+    FB3 --> R
+
+    style Defenses fill:#fef2f2,stroke:#dc2626
+    style Fallbacks fill:#eff6ff,stroke:#2563eb
+    style SubProcs fill:#f3e8ff,stroke:#7c3aed
+    style Execute fill:#fef3c7,stroke:#d97706

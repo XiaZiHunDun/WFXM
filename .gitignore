@@ -105,6 +105,9 @@ vendor/
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+
+# Claude Code local state（自动生成的 per-project memory；settings.json 仍纳入版本库）
+.claude/projects/
 .coverage
 .coverage.*
 coverage.json

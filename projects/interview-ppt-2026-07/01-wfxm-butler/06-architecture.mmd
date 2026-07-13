@@ -1,0 +1,77 @@
+%% WFXM Butler · Agent Loop 消息链路（详细）
+%% 用途：PPT §1 架构范式页
+%% 渲染：mermaid-cli / 在线工具转图
+%% ⚠ 注意：fact_extraction 必须在 compress 之前（02-action.md §3 步骤 1），
+%%    本图已修正箭头方向。
+
+flowchart LR
+    subgraph Input["入站"]
+        MSG["微信 / CLI 消息"]
+    end
+
+    subgraph Gateway["微信网关层<br/>(butler/gateway/)"]
+        IL["wechat_ilink<br/>iLink 适配"]
+        MH["message_handler<br/>排队 · 去重 · session_key"]
+    end
+
+    subgraph Orch["调度层<br/>(butler/core/)"]
+        BO["ButlerOrchestrator<br/>选 Lead / Butler / Plan"]
+        AL["AgentLoop<br/>主循环"]
+        CTX["context_pipeline<br/>剪裁 + 锚点注入"]
+        FE["fact_extraction<br/>⭐ 压缩前抽 fact 写回 MEMORY"]
+        CMP["压缩（主动 + 被动）"]
+    end
+
+    subgraph Mem["记忆三层<br/>SSOT 是文件 + 派生索引"]
+        OL["Owner 层<br/>profile.json · SSOT"]
+        PL["项目层<br/>MEMORY.md · SSOT"]
+        SL["会话层<br/>transcript.jsonl · SSOT"]
+        VEC["memory_vectors.db<br/>⚙ 派生索引"]
+        FTS["transcript_fts.db<br/>⚙ 派生索引"]
+    end
+
+    subgraph Tools["工具路由<br/>(butler/tools/)"]
+        REG["registry.py<br/>内置 + MCP + 项目白名单"]
+        DT["delegate_task<br/>委派 dev / content / review"]
+        MR["memory_recall<br/>跨层检索"]
+    end
+
+    subgraph SubLoop["子 Loop（独立 session）"]
+        DEV["dev 子代理"]
+        CON["content 子代理"]
+        REV["review 子代理"]
+    end
+
+    LLM["LLM Provider<br/>OpenAI / Anthropic"]
+    OUT["出站<br/>Report Pipeline → 微信 / CLI"]
+
+    MSG --> IL --> MH --> BO --> AL
+    AL --> CTX --> FE --> CMP --> AL
+    AL <--> LLM
+    AL <--> REG
+    AL <--> MR
+    MR <--> OL
+    MR <--> PL
+    MR <--> SL
+    FE -.写回.-> PL
+    FE -.写回.-> OL
+    OL -.rebuild.-> VEC
+    SL -.rebuild.-> FTS
+    PL -.rebuild.-> VEC
+
+    REG --> DT
+    DT --> DEV
+    DT --> CON
+    DT --> REV
+
+    DEV -.child_session_key.-> AL
+    CON -.child_session_key.-> AL
+    REV -.child_session_key.-> AL
+
+    AL --> OUT
+
+    style Gateway fill:#fef3c7
+    style Orch fill:#dbeafe
+    style Mem fill:#dcfce7
+    style Tools fill:#fce7f3
+    style SubLoop fill:#f3e8ff

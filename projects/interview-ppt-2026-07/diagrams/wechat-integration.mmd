@@ -1,0 +1,54 @@
+%% WFXM Butler · 微信集成消息流（flowchart 版）
+%% 用途：PPT 讲解 Owner 通过微信指挥 Agent 的完整链路
+%% ⚠ 原版用 sequenceDiagram，但 mmdc 11.15.0 在 >5 participant 时解析失败；
+%%    改为 flowchart 保留消息顺序，且补全验收卡 HITL 流程。
+
+flowchart TB
+    Owner([👤 Owner<br/>手机微信])
+
+    subgraph In["① 微信入口"]
+        iLink["iLink 适配"]
+        MH["ButlerMessageHandler<br/>排队 + 去重 + session_key"]
+    end
+
+    subgraph Orch["② 调度层"]
+        ORCH["ButlerOrchestrator<br/>选 Lead / Butler / Plan"]
+        LOOP["AgentLoop<br/>主循环"]
+    end
+
+    subgraph Core["③ 核心循环"]
+        MEM["记忆三层<br/>unified_recall"]
+        LLM["LLM Provider"]
+        TOOLS["工具路由<br/>registry + 权限门控"]
+        SUB["子代理<br/>dev / content / review"]
+    end
+
+    subgraph Card["④ 验收卡 (HITL)"]
+        VC["verify_card<br/>⭐ human-in-the-loop 唯一入口"]
+        OUT["微信出站<br/>durable outbox"]
+    end
+
+    Owner -->|"文字/语音"| iLink
+    iLink --> MH
+    MH --> ORCH
+    ORCH --> LOOP
+
+    LOOP <-->|"记忆注入/召回"| MEM
+    LOOP <-->|"决策/工具调用"| LLM
+    LOOP --> TOOLS
+    TOOLS -->|"delegate_task"| SUB
+    SUB -.->|"子代理结果"| TOOLS
+    TOOLS -.->|"工具结果"| LOOP
+
+    LOOP -->|"AgentReport"| ORCH
+    ORCH --> VC
+    VC --> OUT
+    OUT -->|"微信回复 + 验收卡"| Owner
+
+    VC -.->|"confirm/abort/超时"| Owner
+
+    style In fill:#fef3c7
+    style Orch fill:#dbeafe
+    style Core fill:#dcfce7
+    style Card fill:#f3e8ff
+    style VC fill:#fef2f2,stroke:#dc2626,stroke-width:2px

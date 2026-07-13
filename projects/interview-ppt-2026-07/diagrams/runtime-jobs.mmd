@@ -1,0 +1,38 @@
+%% WFXM Butler · Runtime Jobs（7 个 cron 调度）
+%% 用途：PPT §4 实际业务结果页
+%% ⚠ 原版用 gantt 但所有任务 duration 都是 0m（本质是 milestone，不是时段），
+%%    gantt 表达错误；改用 flowchart 按"频率分组 + cron 时间"表达。
+
+flowchart LR
+    subgraph Daily["📅 每日（Daily）"]
+        D1["todos-pending-drift-daily<br/>06:00 UTC<br/>MEMORY vs todo 漂移检测"]
+        D2["factory-status-daily<br/>08:00 UTC<br/>项目状态摘要"]
+    end
+
+    subgraph Weekly["📅 每周（Weekly）"]
+        W1["memory-offline-weekly<br/>周日 03:00 UTC<br/>记忆离线索引重建"]
+        W2["experience-mining-weekly<br/>周日 04:00 UTC<br/>跨项目经验挖掘"]
+        W3["publish-preflight<br/>周日 07:00 UTC<br/>发布前预检"]
+        W4["consistency-weekly<br/>周一 09:00 UTC<br/>一致性报告（详）"]
+        W5["consistency-summary-weekly<br/>⭐ 周一 09:30 UTC<br/>一致性微信推送（P0/P1/P2）"]
+    end
+
+    W4 --> W5
+
+    W1 -.reindex.-> D1
+    W1 -.reindex.-> W4
+
+    subgraph Out["📤 消费方"]
+        O1["微信推送<br/>P0/P1/P2 + verdict"]
+        O2["Owner 验收<br/>周报"]
+        O3["但ler doctor<br/>健康指标"]
+    end
+
+    W5 --> O1
+    W2 --> O2
+    D1 --> O3
+
+    style Daily fill:#fef3c7
+    style Weekly fill:#dbeafe
+    style Out fill:#dcfce7
+    style W5 fill:#fef2f2,stroke:#dc2626,stroke-width:2px

@@ -1,0 +1,52 @@
+%% WFXM Butler · 多源记忆治理（SSOT + 派生索引 + 三层架构）
+%% 用途：PPT §3 记忆机制页
+%% 标签对应："多源记忆治理" 的核心可视化
+%% ⚠ "三层架构"与"SSOT"是同一组数据的两种视图：SSOT 讲存储格式，
+%%    三层讲访问域；二者并行而非上下游。
+
+flowchart TB
+    subgraph SSOT["📜 SSOT（人读 · git diff 可审计）"]
+        direction LR
+        MD["📄 MEMORY.md<br/>项目架构 / 决策 / 约定"]
+        JSONL["📄 transcript.jsonl<br/>会话对话轨迹"]
+        PROF["📄 profile.json<br/>Owner 画像"]
+        FACTS["📄 facts.json<br/>抽取的事实"]
+    end
+
+    subgraph Indices["🗂 派生索引（SQLite · 可 reindex）"]
+        direction LR
+        VEC["memory_vectors.db<br/>Embedding 索引"]
+        FTS["transcript_fts.db<br/>FTS5 全文索引"]
+        EXP["experience.db<br/>跨项目经验"]
+    end
+
+    subgraph Layers["🧠 三层架构（同一组数据的访问域）"]
+        direction LR
+        OL["Owner 层<br/>profile.json + facts"]
+        PL["项目层<br/>MEMORY.md"]
+        SL["会话层<br/>transcript.jsonl"]
+    end
+
+    subgraph Recall["🔍 统一召回（opt-in）"]
+        UR["unified_recall<br/>--scope hybrid"]
+    end
+
+    subgraph Agent["Agent Loop"]
+        AL["LLM 调用前的记忆注入"]
+    end
+
+    SSOT -.reindex.-> Indices
+    SSOT -.访问域视角.-> Layers
+    Layers --> Recall
+    Indices --> Recall
+    Recall --> AL
+
+    MD -.fact 抽取.-> FACTS
+    JSONL -.FTS5 索引.-> FTS
+    PROF -.Embedding.-> VEC
+    FACTS -.Embedding.-> VEC
+
+    style SSOT fill:#fef3c7,stroke:#d97706
+    style Indices fill:#dbeafe,stroke:#2563eb
+    style Layers fill:#dcfce7,stroke:#16a34a
+    style Recall fill:#f3e8ff,stroke:#7c3aed

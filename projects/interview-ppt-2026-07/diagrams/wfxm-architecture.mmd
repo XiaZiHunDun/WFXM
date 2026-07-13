@@ -1,0 +1,61 @@
+%% WFXM Butler · 整体架构（一页纸总览）
+%% 用途：PPT 封面 / 开场页 · 跨章节复用
+%% 渲染：mermaid-cli / 在线工具转图
+%% ⚠ Skill 桥接从"能力层"移出（它是 tool 调用机制，非独立能力）
+
+flowchart TB
+    Owner(["👤 Owner<br/>手机微信 / 终端 CLI"])
+
+    subgraph Boundary["Butler v4 · 自托管 Agent 平台"]
+        direction TB
+
+        subgraph Layer1["① 接入层"]
+            WC["微信网关<br/>iLink + message_handler"]
+            CLI["CLI<br/>butler chat / exec"]
+        end
+
+        subgraph Layer2["② 调度层"]
+            ORCH["Orchestrator<br/>Lead / Butler / Plan 角色路由"]
+            LOOP["AgentLoop<br/>context → LLM → tools → report"]
+        end
+
+        subgraph Layer3["③ 能力层"]
+            MEM["记忆三层<br/>Owner / 项目 / 会话"]
+            TOOLS["工具路由<br/>registry + delegate_task"]
+            RUNTIME["Runtime Jobs<br/>7 个 cron"]
+        end
+
+        subgraph Layer4["④ 子代理"]
+            DEV["dev"]
+            CON["content"]
+            REV["review"]
+        end
+
+        LLM["LLM Provider<br/>（核心依赖 · 主备可切换）"]
+    end
+
+    Owner -.微信.-> WC
+    Owner -.终端.-> CLI
+    WC --> ORCH
+    CLI --> ORCH
+    ORCH --> LOOP
+    ORCH -.cron.-> RUNTIME
+    LOOP <--> MEM
+    LOOP <--> LLM
+    TOOLS --> DEV
+    TOOLS --> CON
+    TOOLS --> REV
+    LOOP --> TOOLS
+
+    subgraph External["外部依赖（opt-in）"]
+        MCP["MCP 扩展<br/>GitHub / Todoist / Firecrawl"]
+    end
+
+    TOOLS -. opt-in .-> MCP
+
+    style Boundary fill:#f9fafb,stroke:#374151,stroke-width:2px
+    style Layer1 fill:#fef3c7
+    style Layer2 fill:#dbeafe
+    style Layer3 fill:#dcfce7
+    style Layer4 fill:#f3e8ff
+    style External fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray: 5 5
