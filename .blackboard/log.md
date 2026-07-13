@@ -8,3 +8,11 @@
 
 黑板体系首张班次卡：spec + 实施计划提交；验证手工写卡流程跑通。
 下一班：Phase 2/3（写第一张卡 + validator + CLI）。
+
+## 2026-07-13-cursor-001 · cursor
+
+模拟 Cursor 班次：调整 log.md 格式；测试异构 Agent 流程。
+
+## 2026-07-13-codex-001 · codex
+
+模拟 Codex 班次：读 README 后改 .gitkeep；验证异构 Agent schema 一致性。
