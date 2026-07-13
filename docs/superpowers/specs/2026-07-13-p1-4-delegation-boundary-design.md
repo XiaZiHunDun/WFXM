@@ -65,18 +65,19 @@ delegation:
 
 ### 2.3 Hook 落点
 
-**全局 PreToolUse**（沿用 brainstorming 决定）：
+**接入现成 butler/hooks framework**（T1 子代理发现 spec 假设错了，2026-07-13 修正）：
 
-文件：`butler/hooks/delegation_boundary_hook.py`
+文件：`butler/hooks/delegation_boundary_hook.py`（hook 主体）
 
-注册：`.claude/settings.json` → `hooks.PreToolUse[].command` 加：
+注册：`projects/LingWen1/.butler/hooks.yaml` 加 PreToolUse 规则（由 `butler/hooks/loader.py` + `runner.py` 现有 framework 驱动）：
 
-```json
-{
-  "matcher": "Write|Edit|MultiEdit",
-  "command": "python3 -m butler.hooks.delegation_boundary_hook"
-}
+```yaml
+PreToolUse:
+  - matcher: "Write|Edit|MultiEdit"
+    command: "python3 -m butler.hooks.delegation_boundary_hook"
 ```
+
+**为什么不直接改 `.claude/settings.json`**：那是 Claude Code 自家 hook spec，与 butler 框架是两层不同体系；走 `butler/hooks` framework 才能复用现有 telemetry（`telemetry.py` 已有 `format_hook_diagnostic_lines`）和 hook config override（`~/.butler/config.yaml` / `<project>/.butler/hooks.yaml` 三层覆盖），与项目激活逻辑对齐。
 
 读取 stdin JSON `{tool_name, tool_input}`；判定逻辑：
 

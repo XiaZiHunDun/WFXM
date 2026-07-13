@@ -416,11 +416,13 @@ git commit -m "test(p1#4): fail-open + unknown role passthrough cases"
 
 ---
 
-## Task 5: smoke 脚本 + Claude Code PreToolUse 注册
+## Task 5: smoke 脚本 + butler/hooks framework 接入
 
 **Files:**
 - Create: `scripts/butler-delegation-boundary-smoke.sh`
-- Modify: `.claude/settings.json`（追加 PreToolUse 数组项）
+- Modify: `projects/LingWen1/.butler/hooks.yaml`（追加 PreToolUse 规则；如缺则新建）
+
+> **2026-07-13 修正**：原 plan 设计改 `.claude/settings.json` PreToolUse 段；T1 子代理发现 `butler/hooks/` 已有完整 framework（loader.py + runner.py + telemetry.py），正确做法是走 butler 框架：注册 `PreToolUse` 规则到 `projects/LingWen1/.butler/hooks.yaml`，由 `butler/hooks/loader.py` 加载、`runner.py` 在 PreToolUse 时调 command。`.claude/settings.json` 维持不变（它是 Claude Code 自家 hook spec，与 butler 框架是两层）。
 
 - [ ] **Step 1: 创建 smoke 脚本**
 
@@ -468,70 +470,56 @@ Run: `bash scripts/butler-delegation-boundary-smoke.sh`
 
 Expected: 4 行 `PASS` + 末行 `ALL PASS`。
 
-- [ ] **Step 4: 注册 Claude Code PreToolUse hook**
+- [ ] **Step 4: 注册 hook 到 butler framework**
 
-读当前 `.claude/settings.json`：
+检查 `projects/LingWen1/.butler/hooks.yaml` 是否存在：
 
 ```bash
-cat .claude/settings.json
+ls projects/LingWen1/.butler/hooks.yaml 2>/dev/null && echo "exists" || echo "missing"
 ```
 
-预期现有内容形如：
-```json
-{
-  "hooks": {
-    "Stop": [
-      { "command": "BLACKBOARD_STRICT=1 BLACKBOARD_AGENT=claude-code python3 -m butler.blackboard.integrations.claude_session_end" }
-    ]
-  }
-}
+**若 missing**：复制 `butler/hooks/hooks.yaml.example`：
+
+```bash
+cp butler/hooks/hooks.yaml.example projects/LingWen1/.butler/hooks.yaml
 ```
 
-用 Edit 工具追加 PreToolUse（注意 JSON 数组闭合 + 逗号）：
+**若已存在**：在 `hooks:` 段下追加 PreToolUse 规则（确保不与现有 PreToolUse 冲突；保留其他事件规则）。
 
-把：
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "command": "BLACKBOARD_STRICT=1 BLACKBOARD_AGENT=claude-code python3 -m butler.blackboard.integrations.claude_session_end"
-      }
-    ]
-  }
-}
+```yaml
+hooks:
+  PreToolUse:
+    - matcher: "Write|Edit|MultiEdit"
+      command: "python3 -m butler.hooks.delegation_boundary_hook"
 ```
 
-改成：
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "command": "BLACKBOARD_STRICT=1 BLACKBOARD_AGENT=claude-code python3 -m butler.blackboard.integrations.claude_session_end"
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "command": "python3 -m butler.hooks.delegation_boundary_hook"
-      }
-    ]
-  }
-}
+> matcher 用 regex 风格（Write|Edit|MultiEdit），与 `butler/hooks/loader.py` 的 `match_tool` 行为一致。
+
+- [ ] **Step 5: 验证 YAML 合法 + hook 被 loader 识别**
+
+Run:
+```bash
+cd /home/ailearn/projects/WFXM
+python3 -c "import yaml; data=yaml.safe_load(open('projects/LingWen1/.butler/hooks.yaml')); print('YAML OK, PreToolUse rules:', len(data.get('hooks', {}).get('PreToolUse', [])))"
+PYTHONPATH=. python3 -c "
+from butler.hooks.loader import load_hooks_config, match_tool
+rules = load_hooks_config()
+ptu = [r for r in rules if r.event == 'PreToolUse']
+print(f'PreToolUse rules loaded: {len(ptu)}')
+for r in ptu:
+    if match_tool(r, 'Write'):
+        print(f'  Write → match: command={r.command[:60]}')
+        break
+"
 ```
 
-- [ ] **Step 5: 验证 JSON 合法**
-
-Run: `python3 -c "import json; json.load(open('.claude/settings.json')); print('JSON OK')"`
-
-Expected: `JSON OK`。如失败，回滚修改。
+Expected: `YAML OK, PreToolUse rules: <≥1>` + `Write → match: command=python3 -m butler.hooks.delegation_boundary_hook`。
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add scripts/butler-delegation-boundary-smoke.sh .claude/settings.json
-git commit -m "feat(p1#4): smoke script + Claude Code PreToolUse registration"
+git add scripts/butler-delegation-boundary-smoke.sh projects/LingWen1/.butler/hooks.yaml
+git commit -m "feat(p1#4): smoke script + butler framework PreToolUse registration"
 ```
 
 ---
@@ -757,6 +745,8 @@ git push origin main
 ```
 
 Expected: 推到 origin/main 成功。
+
+> **2026-07-13 修正**：原 plan 提到验证 `.claude/settings.json` 的 PreToolUse 注册；T1 子代理发现该假设错（butler 已有 framework），T5 已改用 `projects/LingWen1/.butler/hooks.yaml` 走 butler loader 路径。`.claude/settings.json` 不动。
 
 ---
 
