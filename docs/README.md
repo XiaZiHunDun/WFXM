@@ -1,6 +1,6 @@
 # Butler 文档索引
 
-> 更新：**2026-06-09** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
+> 更新：**2026-07-13** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
 > **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md)  
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 

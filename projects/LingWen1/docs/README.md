@@ -9,10 +9,13 @@
 | `LingWen1/` | 灵文项目核心代码（厂长模式、流水线） |
 | `novel-factory/` | 小说工厂流水线（灵感库→作家工作室→各创作阶段→发布） |
 | `docs/` | 项目文档（本文档及验收/规范文档） |
-| `skills/` | Butler 技能定义（厂长模式等 Skill 配置） |
+| `.butler/skills/` | Butler 技能定义（厂长模式等 Skill 配置；实例目录，模板见 `docs/templates/skills/`） |
 | `runtime/` | 运行时任务注册表（jobs.yaml 自动化任务） |
 | `MagicMock/` | 外部依赖模拟/测试桩 |
 | `demo/` | 演示与示例文件 |
+| `docs/research/` | 外部研究资料（如 `xingyun-genre-positioning-2026-06.md`） |
+| `docs/reference-snapshot/` | 外部项目快照（**gitignored**，参考用） |
+| `docs/archive/` | 过期单次产物归档 |
 
 ## 核心工作流
 
