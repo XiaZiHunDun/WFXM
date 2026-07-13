@@ -7,12 +7,12 @@ import pytest
 
 @pytest.fixture
 def tmp_blackboard(tmp_path, monkeypatch):
-    """建临时 .blackboard/ 并 monkeypatch CWD；返回路径。"""
+    """建临时 .blackboard/ 并通过 BLACKBOARD_ROOT 环境变量指向它；返回路径。"""
     bb = tmp_path / ".blackboard"
     (bb / "shifts").mkdir(parents=True)
     (bb / "tasks" / "claims").mkdir(parents=True)
     (bb / "README.md").write_text("# Test blackboard\n")
     (bb / "state.md").write_text("# Test state\n_last_synced: test_\n_last_shift: (none)_\n")
     (bb / "log.md").write_text("# Test log\n\n---\n\n")
-    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BLACKBOARD_ROOT", str(bb))
     return bb
