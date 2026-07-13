@@ -22,7 +22,7 @@ def _run_hook(monkeypatch: pytest.MonkeyPatch, payload: dict, env_role: str | No
         monkeypatch.delenv("BUTLER_AGENT_ROLE", raising=False)
     else:
         monkeypatch.setenv("BUTLER_AGENT_ROLE", env_role)
-    monkeypatch.setenv("BUTLER_ACTIVE_PROJECT", "灵文1号")
+    monkeypatch.setenv("BUTLER_ACTIVE_PROJECT", "LingWen1")
     from butler.hooks.delegation_boundary_hook import _run_for_test
     return _run_for_test()
 

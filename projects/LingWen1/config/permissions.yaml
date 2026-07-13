@@ -1,0 +1,45 @@
+# 灵文1号 — 工具权限（EXT-1 Firecrawl 外联计费走确认）
+rules:
+  - tool: terminal
+    action: deny
+    reason: 微信/Lead 场景禁止 shell
+
+  - tool: write_file
+    path: ".env*"
+    action: deny
+    reason: 禁止通过 Agent 写环境密钥文件
+
+  - tool: "mcp_firecrawl_*"
+    action: ask
+    reason: 外部网页采集（Firecrawl 计费）
+
+# P1 #4 — content vs dev 委派边界（path-prefix ACL，deny 优先于 allow）
+# 配合 butler/hooks/delegation_boundary_hook.py 拦截；rule 中的路径 pattern
+# 用 fnmatch 匹配（与目录名 slug 解耦，spec §2.2）。
+delegation:
+  content:
+    write_allow:
+      - "projects/灵文1号/docs/**"
+      - "projects/灵文1号/docs/archive/**"
+      - "README.md"
+      - "docs/interview-demo-backlog.md"
+    write_deny:
+      - "src/**"
+      - "tests/**"
+      - "butler/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - ".pre-commit-config.yaml"
+  dev:
+    write_allow:
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - "butler/**"
+      - "pyproject.toml"
+      - ".pre-commit-config.yaml"
+      - "projects/LingWen1/.butler/permissions.yaml"
+      - "projects/LingWen1/runtime/jobs.yaml"
+    write_deny:
+      - "projects/灵文1号/docs/**"
+      - "projects/灵文1号/docs/archive/**"
