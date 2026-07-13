@@ -21,3 +21,10 @@
 
 Phase 5 验收：Cursor/Codex 异构演练通过；fast gate 绿；44 测试 / 91% 覆盖；
 docs/README.md 导航就位；20/20 任务收口。下一阶段接 Stop hook hard gate。
+
+## 2026-07-13-claude-code-003 · claude-code
+
+P1 #4 content vs dev 委派边界硬化：从 brainstorming 8 问到 subagent-driven 8 task
+完整跑完。10 commit / 27 单测 / 4-case smoke ALL PASS / 守门 26 passed。
+抓出 3 个 spec 假设错（hook framework 已存在、.butler/ gitignore、smoke bash bug）；
+已写入 feedback memory。下次会话读 state + 本卡即可接活。

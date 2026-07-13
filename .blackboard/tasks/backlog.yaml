@@ -1,5 +1,5 @@
 schema_version: 1
-last_updated: 2026-07-13T00:00:00+08:00
+last_updated: 2026-07-13T22:30:00+08:00
 tasks:
   # 已交付
   - id: P0-#1
@@ -60,9 +60,10 @@ tasks:
   - id: P1-#4
     title: "content vs dev 委派边界硬化为 smoke test"
     priority: P1
-    status: open
-    claimed_by: null
-    claim_ref: null
+    status: done
+    claimed_by: claude-code
+    claim_ref: shifts/2026-07-13-claude-code-003.md
+    completed_at: '2026-07-13T22:30:00+08:00'
     refs:
       - file: projects/LingWen1/docs/interview-demo-backlog.md
         anchor: "P1 #4"
