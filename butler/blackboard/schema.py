@@ -120,6 +120,11 @@ class BacklogFile(BaseModel):
     last_updated: str
     tasks: list[BacklogTask]
 
+    @field_validator("last_updated", mode="before")
+    @classmethod
+    def _validate_last_updated(cls, v: str | datetime) -> str:
+        return _to_iso_string(v)
+
 
 class ClaimStatus(str, Enum):
     CLAIMED = "claimed"
