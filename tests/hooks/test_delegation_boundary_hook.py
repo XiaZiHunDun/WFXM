@@ -58,3 +58,31 @@ def test_dev_denied_archive_docs(monkeypatch):
 def test_no_role_passthrough(monkeypatch):
     """Lead 本体：role 缺失 → 静默放行（兼容主公）。"""
     assert _run_hook(monkeypatch, {"tool_name": "Write", "tool_input": {"file_path": "projects/灵文1号/docs/x.md"}}, None) == 0
+
+
+def test_unknown_role_passthrough(monkeypatch):
+    """role 既不是 content 也不是 dev（如 'qa'）→ 静默放行。"""
+    assert _run_hook(monkeypatch, {"tool_name": "Write", "tool_input": {"file_path": "src/x.py"}}, "qa") == 0
+
+
+def test_no_delegation_section_fails_open(monkeypatch, tmp_path, capsys):
+    """新项目无 delegation: 段 → fail-open + stderr warn。"""
+    from butler.hooks import delegation_boundary_hook as h
+
+    fake_repo = tmp_path
+    (fake_repo / "projects" / "新项目" / "config").mkdir(parents=True)
+    (fake_repo / "projects" / "新项目" / "config" / "permissions.yaml").write_text(
+        "# 无 delegation 段\nrules: []\n", encoding="utf-8"
+    )
+
+    monkeypatch.setattr(h, "REPO_ROOT", fake_repo)
+    monkeypatch.setenv("BUTLER_AGENT_ROLE", "content")
+    monkeypatch.setenv("BUTLER_ACTIVE_PROJECT", "新项目")
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"tool_name": "Write", "tool_input": {"file_path": "src/x.py"}})))
+    from butler.hooks.delegation_boundary_hook import _run_for_test
+
+    rc = _run_for_test()
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "WARN" in captured.err
+    assert "无 delegation 段" in captured.err
