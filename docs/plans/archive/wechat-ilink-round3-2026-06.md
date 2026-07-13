@@ -99,8 +99,8 @@ bash scripts/butler-wechat-attach-probe.sh
 
 | 文档 | 关系 |
 |------|------|
-| [`software-engineering-refactor-2026-06.md`](software-engineering-refactor-2026-06.md) §2.G | 条件触发工程债总表 |
-| [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) D8 | 识图 P3 — **产品**，非本拆分 |
+| [`software-engineering-refactor-2026-06.md`](../active/software-engineering-refactor-2026-06.md) §2.G | 条件触发工程债总表 |
+| [`post-consolidation-roadmap-2026-05.md`](../active/post-consolidation-roadmap-2026-05.md) D8 | 识图 P3 — **产品**，非本拆分 |
 | PROD-P2-01 | 第一轮子包 — **done** |
 
 ---

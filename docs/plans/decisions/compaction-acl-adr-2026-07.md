@@ -43,7 +43,7 @@
 
 - **pre_compact** `additionalContext` → `hook_context_adapter` → `compaction_pre_hook_context`
 - **checkpoint restore** 摘要 preview 再过 `to_loop_compaction_view`
-- **UserPromptSubmit / Stop** hooks → `HookContextView`（[`hook_context_ports.py`](../../butler/contracts/hook_context_ports.py)）
+- **UserPromptSubmit / Stop** hooks → `HookContextView`（[`hook_context_ports.py`](../../../butler/contracts/hook_context_ports.py)）
 
 ## 验收
 

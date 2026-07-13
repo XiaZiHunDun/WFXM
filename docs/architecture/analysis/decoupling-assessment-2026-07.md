@@ -47,7 +47,7 @@
 
 ### 2.2 当前 gateway allowlist（仅 1 项）
 
-定义：[`tests/layer_import_rules.py`](../../tests/layer_import_rules.py) `FILE_GATEWAY_IMPORT_ALLOWLIST`。
+定义：[`tests/layer_import_rules.py`](../../../tests/layer_import_rules.py) `FILE_GATEWAY_IMPORT_ALLOWLIST`。
 
 | 文件 | 层 | 理由 |
 |------|-----|------|
@@ -132,5 +132,5 @@
 ## 5. 相关文档
 
 - [`formal-theory-2026-07.md`](formal-theory-2026-07.md) — 定理复验（含 MT/CT 逐条表）  
-- [`butler/contracts/README.md`](../../butler/contracts/README.md) — Port 清单  
+- [`butler/contracts/README.md`](../../../butler/contracts/README.md) — Port 清单  
 - [`project-optimization-directions-2026-06.md`](../../plans/active/project-optimization-directions-2026-06.md) §S2 — lazy import 基线

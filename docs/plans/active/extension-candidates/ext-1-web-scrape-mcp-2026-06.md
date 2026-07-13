@@ -94,7 +94,7 @@ FIRECRAWL_API_KEY=fc-xxxxxxxx
 
 ### 6.3 MCP 配置
 
-复制 [`.butler/mcp.yaml.example`](../../../.butler/mcp.yaml.example) 中 **`firecrawl`** 段到 `~/.butler/mcp.yaml`（或项目 `.butler/mcp.yaml`）。
+复制 [`.butler/mcp.yaml.example`](../../../../.butler/mcp.yaml.example) 中 **`firecrawl`** 段到 `~/.butler/mcp.yaml`（或项目 `.butler/mcp.yaml`）。
 
 进程 env（`.env` 或 systemd）：
 

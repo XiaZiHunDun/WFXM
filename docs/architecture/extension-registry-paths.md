@@ -2,7 +2,7 @@
 
 > **状态**：2026-06-09  
 > **用途**：Hook / MCP / Skill 配置「放哪、谁覆盖谁」；仿 L0–L3 写法，**只描述路径**。  
-> **关联**：[`hooks/loader.py`](../../butler/hooks/loader.py) · [`mcp/config.py`](../../butler/mcp/config.py) · [`registry/mcp_merge.py`](../../butler/registry/mcp_merge.py) · [`orchestrator.py`](../../butler/orchestrator.py)
+> **关联**：[`hooks/loader.py`](../../butler/hooks/loader.py) · [`mcp/config.py`](../../butler/mcp/config.py) · [`registry/mcp_merge.py`](../../butler/registry/mcp_merge.py) · [`orchestrator/`](../../butler/orchestrator/__init__.py)（原 `orchestrator.py` 已重构为包）
 
 ---
 

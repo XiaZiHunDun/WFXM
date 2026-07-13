@@ -28,7 +28,7 @@
 
 运维契约（结构示例、`BUTLER_TOOLS_ENGINE_SSOT`）：[`execution-surface-design.md`](../../architecture/execution-surface-design.md) §4.6。
 
-示例见仓库根目录 [`.butler/mcp.yaml.example`](../../.butler/mcp.yaml.example)。
+示例见仓库根目录 [`.butler/mcp.yaml.example`](../../../.butler/mcp.yaml.example)。
 
 ## 环境变量
 

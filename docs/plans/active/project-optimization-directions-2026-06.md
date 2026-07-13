@@ -2,7 +2,7 @@
 
 > **分析日期**：2026-06-26
 > **分析范围**：架构 / 代码质量 / 运维 / 记忆 / 测试
-> **后续 SSOT**：与 [`software-engineering-refactor-2026-06.md`](active/software-engineering-refactor-2026-06.md) 互补
+> **后续 SSOT**：与 [`software-engineering-refactor-2026-06.md`](software-engineering-refactor-2026-06.md) 互补
 
 ---
 

@@ -6,8 +6,8 @@
 
 | 资源 | 路径 |
 |------|------|
-| 约定 | [`tests/corpus/schemas/corpus-intent-v1.md`](../tests/corpus/schemas/corpus-intent-v1.md) |
-| 交叉表 | [`tests/corpus/intent_crosswalk.yaml`](../tests/corpus/intent_crosswalk.yaml) |
+| 约定 | [`tests/corpus/schemas/corpus-intent-v1.md`](../../../tests/corpus/schemas/corpus-intent-v1.md) |
+| 交叉表 | [`tests/corpus/intent_crosswalk.yaml`](../../../tests/corpus/intent_crosswalk.yaml) |
 | 生成 | `python3 scripts/corpus/build_intent_crosswalk.py` |
 
 P0 意图（两侧都要有代表用例）：`clarify`、`delegate`、`detail`、`switch`、`safety`。

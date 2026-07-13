@@ -190,7 +190,7 @@ fetch(identifier)
 | trusted（白名单 repo） | 允许；需 `BUTLER_SKILL_TRUSTED_REPOS` |
 | community | 默认 **需 Owner 确认**；`scan_verdict != clean` 则拒绝 |
 
-**2026-06 实现（加载路径，非 hub 全链）**：[`butler/skills/guard.py`](../../butler/skills/guard.py) 的 `evaluate_skill_load_policy` 将 `scan_verdict` × `infer_trust_from_source` 映射为 `inject` / `warn_inject` / `block`；`SkillManager._load_skill_from_path` 在 `block` 时跳过加载；hub/registry 路径默认 `warn_inject` 并在注入标题加 `[hub/社区 — 未验证]`。全链安装管线仍属 H-P2-1 backlog。
+**2026-06 实现（加载路径，非 hub 全链）**：[`butler/skills/guard.py`](../../../butler/skills/guard.py) 的 `evaluate_skill_load_policy` 将 `scan_verdict` × `infer_trust_from_source` 映射为 `inject` / `warn_inject` / `block`；`SkillManager._load_skill_from_path` 在 `block` 时跳过加载；hub/registry 路径默认 `warn_inject` 并在注入标题加 `[hub/社区 — 未验证]`。全链安装管线仍属 H-P2-1 backlog。
 
 微信确认：安装前推送摘要 + 「回复 /确认安装 &lt;id&gt;」或 Owner 在 CLI 执行。
 

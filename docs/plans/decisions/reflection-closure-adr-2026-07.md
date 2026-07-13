@@ -2,7 +2,7 @@
 
 > **状态**：已采纳（2026-06-30）  
 > **边界**：`record_reflect_step` / Reflexion → `reflexion.jsonl` → 下轮 `memory_prefetch` 注入  
-> **关联**：五报告 H · [`reflection_closure.py`](../../butler/core/reflection_closure.py)
+> **关联**：五报告 H · [`reflection_closure.py`](../../../butler/core/reflection_closure.py)
 
 ## 背景
 

@@ -56,7 +56,7 @@ PYTHONPATH=. pytest tests/gateway/test_gateway_dev_conversations.py -q
 
 ## 三、按 intent 交叉（阶段 5）
 
-权威索引：[`tests/corpus/intent_crosswalk.yaml`](../tests/corpus/intent_crosswalk.yaml)
+权威索引：[`tests/corpus/intent_crosswalk.yaml`](../../../tests/corpus/intent_crosswalk.yaml)
 
 | intent | AgentLoop 代表 | Gateway 代表 | 说明 |
 |--------|----------------|--------------|------|

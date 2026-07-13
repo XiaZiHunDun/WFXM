@@ -80,7 +80,7 @@ MCP（薄 Client，默认关）
 | L2 | `github_grounding`（首版） | 列表意图 → direct reply |
 | L3 | `outbound_grounding_gate` | LLM 编造时回退工具 summary |
 
-**网络检索路由**（G1-12 / G1-12b）：[`.butler/routing/network-search-routes.yaml`](../../../../.butler/routing/network-search-routes.yaml) — policy golden + 可选 `bash scripts/butler-web-search-route-sim.sh --handler`（soft）/ `--handler --strict-handler`（发版前硬断言）。
+**网络检索路由**（G1-12 / G1-12b）：[`.butler/routing/network-search-routes.yaml`](../../../.butler/routing/network-search-routes.yaml) — policy golden + 可选 `bash scripts/butler-web-search-route-sim.sh --handler`（soft）/ `--handler --strict-handler`（发版前硬断言）。
 
 ---
 

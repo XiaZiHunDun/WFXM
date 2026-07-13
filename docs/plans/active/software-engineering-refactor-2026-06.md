@@ -239,7 +239,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 2. **不与 G1-04 抢窗**：07-31 前不做 ENG-11/12 级大动。  
 3. **延迟 import 禁止恶化**：拆模块时优先 **依赖倒置**，禁止新增 `core→gateway` 顶层 import。  
 4. **审计 SSOT**：修完 R1-xx 在 `project-deep-audit-2026-06-r1to8.md` 标 ✅，勿另起表格。  
-5. **产品边界**：[`roadmap-backlog` §1](roadmap-backlog-and-boundaries-2026-05.md) 否决项不适用本计划「优化」名义复活。
+5. **产品边界**：[`roadmap-backlog` §1](../decisions/roadmap-backlog-and-boundaries-2026-05.md) 否决项不适用本计划「优化」名义复活。
 
 ---
 
