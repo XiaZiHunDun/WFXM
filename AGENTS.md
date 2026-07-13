@@ -2,6 +2,8 @@
 
 > 新会话先读本文。**不要**用 `docs/history/` 或训练记忆推断实现。
 
+> **新会话开篇前 30 秒**：读 `.blackboard/state.md` + `.blackboard/shifts/` 最近一张卡 + `MEMORY.md` — 然后再按下面的必读表选读。
+
 ## 必读（按顺序）
 
 | # | 文档 | 何时读 |
@@ -15,6 +17,33 @@
 | 7 | [`docs/guides/maintainer-cheat-sheet-2026-07.md`](docs/guides/maintainer-cheat-sheet-2026-07.md) | **维护者/面试**：架构一页纸、角色、记忆、委派、实验清单 |
 
 **发版**：[`docs/guides/release-runbook-2026-05.md`](docs/guides/release-runbook-2026-05.md)
+
+## 黑板（班次交接）
+
+**会话开始**：
+
+```bash
+# 1. 看快照
+cat .blackboard/state.md
+# 2. 看上一班次（最近 1-2 张）
+ls -t .blackboard/shifts/ | head -2
+# 3. 看交接包（若想一屏看完）
+butler blackboard handoff --root .
+```
+
+**会话结束**（hard gate）：
+
+```bash
+# 写卡：手动按 .blackboard/README.md 规约；或跑
+butler blackboard validate --shift-id <shift_id>   # 校验
+# append log.md 一段
+# 更新 claim（如有）+ backlog.yaml（如有状态变化）
+# commit 这一组变更
+```
+
+**Hook 提醒**：`~/.claude/settings.json` 可配 Stop hook 自动跑
+`python3 -m butler.blackboard.integrations.claude_session_end`，
+缺卡时给 stderr 提醒（不阻断退出）。
 
 ## 代码入口
 
