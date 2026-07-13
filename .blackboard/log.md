@@ -16,3 +16,8 @@
 ## 2026-07-13-codex-001 · codex
 
 模拟 Codex 班次：读 README 后改 .gitkeep；验证异构 Agent schema 一致性。
+
+## 2026-07-13-claude-code-002 · claude-code
+
+Phase 5 验收：Cursor/Codex 异构演练通过；fast gate 绿；44 测试 / 91% 覆盖；
+docs/README.md 导航就位；20/20 任务收口。下一阶段接 Stop hook hard gate。

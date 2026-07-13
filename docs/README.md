@@ -4,6 +4,14 @@
 > **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md)  
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 
+## 协调与黑板
+
+| 文档 | 说明 |
+|------|------|
+| [`.blackboard/README.md`](../.blackboard/README.md) | 异构 Agent 班次交接黑板（append-only shift card + state.md + log.md） |
+| [`plans/specs/2026-07-13-wfxm-blackboard-design.md`](superpowers/specs/2026-07-13-wfxm-blackboard-design.md) | 黑板体系设计 spec（4 痛点 + 串行仲裁 + Markdown + YAML） |
+| [`plans/2026-07-13-wfxm-blackboard.md`](superpowers/plans/2026-07-13-wfxm-blackboard.md) | 黑板 20 任务实施计划 |
+
 ## 快速入口
 
 | 我要… | 读这里 |
