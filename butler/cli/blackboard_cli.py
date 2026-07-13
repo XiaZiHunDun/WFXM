@@ -12,6 +12,7 @@ from butler.blackboard.handoff import build_handoff
 from butler.blackboard.paths import configure_root
 from butler.blackboard.shift_io import list_shift_cards
 from butler.blackboard.snapshot import render_snapshot
+from butler.blackboard.sync import sync_backlog_from_todos, sync_todos_from_backlog
 from butler.blackboard.validator import parse_shift_card_file
 
 
@@ -95,8 +96,16 @@ def cmd_handoff(args: argparse.Namespace) -> int:
 
 
 def cmd_sync_todos(args: argparse.Namespace) -> int:
-    """P4 实装；这里先 stub。"""
-    print("(sync-todos 将在 Task 16 实装)")
+    """Backlog ↔ ~/.butler/todos.json 同步。"""
+    _root_arg(args)
+    if args.from_todos:
+        added = sync_todos_from_backlog()
+        print(f"synced from todos: added {len(added)} task(s) → backlog.yaml")
+        for tid in added:
+            print(f"  + {tid}")
+    else:
+        n = sync_backlog_from_todos()
+        print(f"synced backlog → todos.json: {n} item(s) updated")
     return 0
 
 
@@ -131,5 +140,6 @@ def register_blackboard_parser(sub: argparse._SubParsersAction) -> None:
     ho.add_argument("--last-n", type=int, default=3, help="包含最近几张班次卡")
     ho.set_defaults(func=cmd_handoff)
 
-    sync = bb_sub.add_parser("sync-todos", parents=[common], help="同步 backlog ↔ ~/.butler/todos.json")
+    sync = bb_sub.add_parser("sync-todos", parents=[common], help="同步 backlog ↔ ~/.butler/todos.json（默认 backlog→todos；--from-todos 反向）")
+    sync.add_argument("--from-todos", action="store_true", help="反向：从 todos.json 拉新任务到 backlog.yaml")
     sync.set_defaults(func=cmd_sync_todos)
