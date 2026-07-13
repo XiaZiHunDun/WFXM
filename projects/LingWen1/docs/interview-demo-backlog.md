@@ -15,7 +15,7 @@
 
 | # | 改进项 | 说明 | 状态 |
 |---|--------|------|------|
-| 4 | content vs dev 委派边界 | content 只碰 `docs/`；dev 改代码须走 safe_root + owner 验收 | 已约定 |
+| 4 | content vs dev 委派边界 | content 只碰 `docs/`；dev 改代码须走 safe_root + owner 验收 | ✅ 已硬化：`butler.hooks.delegation_boundary_hook`（deny 优先 ACL）+ `scripts/butler-delegation-boundary-smoke.sh`（4 case ALL PASS）+ `projects/LingWen1/config/hooks.yaml` 注册 PreToolUse + `projects/LingWen1/config/permissions.yaml` delegation 段。10 单测 + smoke 双轨；role 缺失静默放行；新项目无 delegation 段 fail-open + WARN |
 | 5 | runtime jobs 可见性 | `runtime/jobs.yaml` 已注册 7 个 job，微信端缺一览命令 | ✅ 已实现（Sprint 3）`/定时` 或 `/runtime`/`/定时任务` 返回 7 jobs + schedule/last/next run |
 | 6 | 记忆 Pending 去重 | fact 提取重复写入 Decisions（验收日三条） | ✅ 已实现：formal bullet 按 section+content 精确去重；Pending approve/approve_all 覆盖 |
 | 7 | 项目待办与 MEMORY 联动 | `/项目待办` 持久盘 vs MEMORY Pending 应定期对齐 | ✅ 已实现（每日 06:00 UTC `todos-pending-drift-daily`，只读漂移报告推送微信） |
