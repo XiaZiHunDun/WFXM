@@ -17,6 +17,7 @@
 | 日期 | 主题 | spec | plan |
 |------|------|------|------|
 | 2026-07-13 | wfxm-blackboard | [`specs/2026-07-13-wfxm-blackboard-design.md`](specs/2026-07-13-wfxm-blackboard-design.md) | [`plans/2026-07-13-wfxm-blackboard.md`](plans/2026-07-13-wfxm-blackboard.md) |
+| 2026-07-13 | p1-4-delegation-boundary | [`specs/2026-07-13-p1-4-delegation-boundary-design.md`](specs/2026-07-13-p1-4-delegation-boundary-design.md) | [`plans/2026-07-13-p1-4-delegation-boundary.md`](plans/2026-07-13-p1-4-delegation-boundary.md)（`eeaa4e01`）|
 
 ## 流程
 
