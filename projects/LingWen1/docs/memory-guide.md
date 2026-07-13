@@ -120,7 +120,7 @@ bash scripts/butler-memory-reindex.sh
 
 ## 路线图
 
-向量语义见 [`docs/architecture/memory-roadmap.md`](../../docs/architecture/memory-roadmap.md)。
+向量语义见 [`docs/architecture/memory-roadmap.md`](../../../docs/architecture/memory-roadmap.md)。
 
 ## 命令（记忆）
 

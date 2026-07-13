@@ -1,6 +1,6 @@
 # wechat_real.lw_real — 微信真实语料套件
 
-**Schema**：[`../../schemas/gateway-utterance-v1.md`](../../schemas/gateway-utterance-v1.md)  
+**Schema**：[`../../../schemas/gateway-utterance-v1.md`](../../../schemas/gateway-utterance-v1.md)  
 **元数据**：[`meta.yaml`](meta.yaml)  
 **覆盖矩阵**：[`docs/plans/corpus/wechat-real-coverage-matrix-2026-05.md`](../../../../../docs/plans/corpus/wechat-real-coverage-matrix-2026-05.md)
 

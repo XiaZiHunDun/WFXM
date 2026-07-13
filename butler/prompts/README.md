@@ -12,7 +12,7 @@
 | [`butler_plan_mode.md`](butler_plan_mode.md) | 只读规划模式附录 | 由 `/规划` 注入 |
 | [`dev_engine_system.md`](dev_engine_system.md) | Dev Engine 子系统 | 编码知识 / Synth |
 
-加载与缓存：[`butler/orchestrator.py`](../orchestrator.py) · 渲染：[`butler/core/prompt_renderer.py`](../core/prompt_renderer.py)
+加载与缓存：[`butler/orchestrator/](../orchestrator/__init__.py)`（原 `orchestrator.py` 已重构为包） · 渲染：[`butler/core/prompt_renderer.py`](../core/prompt_renderer.py)
 
 ## 内联 Profile（Python）
 
