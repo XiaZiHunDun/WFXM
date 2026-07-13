@@ -18,6 +18,7 @@ import argparse
 import logging
 from typing import TYPE_CHECKING, Sequence
 
+from butler.cli.blackboard_cli import register_blackboard_parser
 from butler.cli.chat_cli import register_chat_parser
 from butler.cli.cost_cli import register_cost_parser
 from butler.cli.doctor import cmd_doctor
@@ -82,6 +83,7 @@ def _register_per_area_parsers(sub: argparse._SubParsersAction[argparse.Argument
     register_runtime_parser(sub)
     register_gateway_parser(sub)
     register_mcp_parser(sub)
+    register_blackboard_parser(sub)
 
 
 def _register_preexisting_parsers(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
