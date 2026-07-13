@@ -1,0 +1,49 @@
+# 项目权限模板 — 含 P1 #4 delegation 段
+#
+# 使用方法：
+#   cp projects/_template/config/permissions.yaml.example \
+#      projects/<你的项目>/config/permissions.yaml
+#   把 <slug> 替换为项目目录名（拼音）
+#   rules: 段按需改（参考 docs/architecture/permission-gate-stack.md）
+#   delegation: 段默认路径已开，可按需收紧
+#
+# 注：路径 pattern 用 fnmatch 匹配（与目录名 slug 解耦），
+#     项目显示名（如"灵文1号"）可自由写。
+#
+# 配套：
+#   - hook 主体：butler/hooks/delegation_boundary_hook.py
+#   - hook 注册：projects/<slug>/config/hooks.yaml
+#   - loader 支持：butler/hooks/loader.py（先查 config/hooks.yaml，再查 .butler/hooks.yaml）
+
+rules:
+  - tool: terminal
+    action: deny
+    reason: 微信/Lead 场景禁止 shell
+
+# P1 #4 — content vs dev 委派边界（path-prefix ACL，deny 优先于 allow）
+delegation:
+  content:
+    write_allow:
+      - "projects/<slug>/docs/**"
+      - "projects/<slug>/docs/archive/**"
+      - "README.md"
+    write_deny:
+      - "src/**"
+      - "tests/**"
+      - "butler/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - ".pre-commit-config.yaml"
+  dev:
+    write_allow:
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - "butler/**"
+      - "pyproject.toml"
+      - ".pre-commit-config.yaml"
+      - "projects/<slug>/.butler/permissions.yaml"
+      - "projects/<slug>/runtime/jobs.yaml"
+    write_deny:
+      - "projects/<slug>/docs/**"
+      - "projects/<slug>/docs/archive/**"
