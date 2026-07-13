@@ -69,7 +69,7 @@ def _hooks_dict_from_data(data: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def load_hooks_config(workspace: Path | None = None) -> list[HookRule]:
-    """Merge hooks: ``~/.butler/config.yaml`` → ``~/.butler/.butler/hooks.yaml`` → project."""
+    """Merge hooks: ``~/.butler/config.yaml`` → ``~/.butler/.butler/hooks.yaml`` → project hooks (``config/hooks.yaml`` tracked first, then ``.butler/hooks.yaml`` runtime override)."""
     from butler.hooks.loader_ops import load_butler_global_hooks_safe
 
     rules: list[HookRule] = list(load_butler_global_hooks_safe(_load_file))
@@ -77,6 +77,10 @@ def load_hooks_config(workspace: Path | None = None) -> list[HookRule]:
     if workspace is not None:
         # R3-2: project hooks are loaded here; tool writes to this path are
         # blocked in path_safety._hooks_config_write_error (persistent RCE).
+        # 2026-07-13: P1#4 — also load from tracked config/hooks.yaml
+        # (gitignored .butler/ cannot host checked-in hook config).
+        config_tracked = Path(workspace) / "config" / "hooks.yaml"
+        rules.extend(_load_file(config_tracked))
         rules.extend(_load_file(Path(workspace) / ".butler" / "hooks.yaml"))
     return rules
 

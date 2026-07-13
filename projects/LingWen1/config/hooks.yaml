@@ -1,0 +1,5 @@
+# P1 #4 — 灵文1号 project hooks (tracked via config/hooks.yaml, override .butler/hooks.yaml)
+hooks:
+  PreToolUse:
+    - matcher: "Write|Edit|MultiEdit"
+      command: "python3 -m butler.hooks.delegation_boundary_hook"
