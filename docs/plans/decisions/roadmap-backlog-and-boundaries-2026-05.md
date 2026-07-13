@@ -567,7 +567,7 @@ butler onboard --profile gateway                # 新机上手
 | D8 | 识图 P3 降级链 | 仅 MiniMax 剖面 | **低** · post-consolidation |
 | D9 | `terminal` 白名单 | ADR 后 | **低** · post-consolidation |
 
-专文：[`wechat-ilink-round3-2026-06.md`](../active/wechat-ilink-round3-2026-06.md)
+专文：[`wechat-ilink-round3-2026-06.md`](../archive/wechat-ilink-round3-2026-06.md)（已归档 done 2026-06-29）
 
 ### 3.13 Agent 生产化（AP-1–AP-16，2026 H2）
 

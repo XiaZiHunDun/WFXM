@@ -30,7 +30,7 @@
 | `main.py` | **177** | ✅ R1-7 已薄化（原 1340） |
 | `delegate_phases.py` | **125** | ✅ ENG-2 门面；阶段在 `delegate_phases/` 子包 |
 | `delegate_impl.py` | **385** | ✅ R1-5 已拆出 `delegate_phases` |
-| `wechat_ilink` | **子包** | ✅ PROD-P2-01 + ENG-5；**第三轮**见 [`wechat-ilink-round3-2026-06.md`](wechat-ilink-round3-2026-06.md) |
+| `wechat_ilink` | **子包** | ✅ PROD-P2-01 + ENG-5；**第三轮**见 [`wechat-ilink-round3-2026-06.md`](../archive/wechat-ilink-round3-2026-06.md)（已归档 done） |
 | 延迟 `from butler.` | **~3627** | 预算守门 `LAZY_IMPORT_BUDGET=3650` |
 | `core/` → `gateway/` 顶层 import | **0** | ✅ R1-3：`events_sink` + AST 守门 |
 | 全量 `pytest tests/` | **0 fail**（2026-06-27；6250 pass，排除 corpus） | 泄漏 + `.env` 耦合已修；发版 gate 绿 |
@@ -131,7 +131,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 
 | ID | 名称 | 触发 | SSOT |
 |----|------|------|------|
-| **ENG-13** | `wechat_ilink/__init__.py` 第三轮薄化 | 改 iLink/出站/登录 或 `__init__.py` 难维护 | [`wechat-ilink-round3-2026-06.md`](wechat-ilink-round3-2026-06.md) |
+| **ENG-13** | `wechat_ilink/__init__.py` 第三轮薄化 | 改 iLink/出站/登录 或 `__init__.py` 难维护 | [`wechat-ilink-round3-2026-06.md`](../archive/wechat-ilink-round3-2026-06.md)（已归档 done） |
 | **—** | `tool_batch.py` 辅助状态外提 | 动 tool 并行/护栏/两阶段逻辑时顺带 | 本文 §2.B；`process_tool_calls` 已 ~171 行 |
 | **D7–D9** | PIM 加密 / 识图 P3 / terminal 白名单 | 产品/合规/剖面诉求 | [`post-consolidation-roadmap` §轨道 D](post-consolidation-roadmap-2026-05.md) |
 
@@ -308,7 +308,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-29 | **R1-16/R1-18**：config import 不 load dotenv 单测；lazy import 预算守门 3400 |
 | 2026-06-29 | **P6-05/06**：PMF report 单测；P6-06 收束为 ENG-9 |
 | 2026-06-29 | **B1 done**：`butler-wechat-dual-playbook-probe.sh` |
-| 2026-06-29 | **R1-3 done**（文档收口）；**ENG-13** 条件触发专文 `wechat-ilink-round3-2026-06.md` |
+| 2026-06-29 | **R1-3 done**（文档收口）；**ENG-13** 条件触发专文 `archive/wechat-ilink-round3-2026-06.md`（已归档） |
 | 2026-06-29 | **P2-G 续**：`project-optimization` S1–S3/§四 与 P0-A/B、P1-C 对齐；`butler-p2g-doc-gate.sh` |
 | 2026-06-30 | **P1-D 验收** + **P2-E 收口**：`project-optimization` / `agent-testing-strategy` / bisect 记录对齐 `4d064b9` |
 | 2026-06-30 | **P2-F 扩面**：mypy strict **37** 模块（contracts 全包 + P1-C core seams）；`butler-mypy-strict-gate.sh` |
