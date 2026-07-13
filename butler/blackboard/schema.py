@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Literal
 
@@ -13,6 +14,22 @@ from pydantic import BaseModel, Field, field_validator
 
 
 SCHEMA_VERSION = 1
+
+
+def _to_iso_string(v: str | datetime) -> str:
+    """接受 ISO8601 字符串或 datetime，统一规范化为字符串。
+
+    PyYAML 自动把 `2026-07-13T09:00:00+08:00` 解析为 datetime，
+    所以必须容忍两种输入。
+    """
+    if isinstance(v, datetime):
+        # 保留时区；若 naive 当作 UTC
+        if v.tzinfo is None:
+            return v.isoformat()
+        return v.isoformat()
+    if "T" not in v:
+        raise ValueError(f"must be ISO8601 with T separator: {v!r}")
+    return v
 
 
 class AgentEnum(str, Enum):
@@ -24,16 +41,20 @@ class AgentEnum(str, Enum):
 
 
 class SessionWindow(BaseModel):
-    start: str  # ISO8601
+    start: str  # ISO8601（写盘前已规范化）
     end: str | None = None  # 进行中可空
 
-    @field_validator("start")
+    @field_validator("start", mode="before")
     @classmethod
-    def _validate_iso(cls, v: str) -> str:
-        # 宽松校验：含 T 与时区
-        if "T" not in v:
-            raise ValueError(f"session_window.start must be ISO8601 with T separator: {v!r}")
-        return v
+    def _validate_start(cls, v: str | datetime) -> str:
+        return _to_iso_string(v)
+
+    @field_validator("end", mode="before")
+    @classmethod
+    def _validate_end(cls, v: str | datetime | None) -> str | None:
+        if v is None:
+            return None
+        return _to_iso_string(v)
 
 
 class ProducedItem(BaseModel):
@@ -118,3 +139,10 @@ class Claim(BaseModel):
     handoff_to: str | None = None
     shift_refs: list[str] = Field(default_factory=list)
     notes: str | None = None
+
+    @field_validator("claimed_at", "expected_close_at", mode="before")
+    @classmethod
+    def _validate_iso_optional(cls, v: str | datetime | None) -> str | None:
+        if v is None:
+            return None
+        return _to_iso_string(v)
