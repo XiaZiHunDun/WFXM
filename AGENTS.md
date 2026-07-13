@@ -41,9 +41,13 @@ butler blackboard validate --shift-id <shift_id>   # 校验
 # commit 这一组变更
 ```
 
-**Hook 提醒**：`~/.claude/settings.json` 可配 Stop hook 自动跑
-`python3 -m butler.blackboard.integrations.claude_session_end`，
-缺卡时给 stderr 提醒（不阻断退出）。
+**Hook 提醒**：项目根 `.claude/settings.json` 已配 Stop hook，跑
+`BLACKBOARD_STRICT=1 BLACKBOARD_AGENT=claude-code python3 -m butler.blackboard.integrations.claude_session_end`：
+- 缺卡 → stderr 提醒 + exit 2（**hard gate**，阻断退出）。
+- 有卡 → 自动找今日最新卡并跑 `butler blackboard validate`；通过 exit 0，
+  失败 exit 2。
+- 关掉 hard gate：删 `.claude/settings.json` 的 `hooks.Stop`，或去掉命令前的
+  `BLACKBOARD_STRICT=1`（退回软提醒模式）。
 
 ## 代码入口
 
