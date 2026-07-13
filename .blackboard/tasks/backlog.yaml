@@ -1,0 +1,78 @@
+schema_version: 1
+last_updated: 2026-07-13T00:00:00+08:00
+tasks:
+  # 已交付
+  - id: P0-#1
+    title: "Agent JSON schema 校验"
+    priority: P0
+    status: done
+    claimed_by: null
+    claim_ref: null
+    refs:
+      - file: projects/LingWen1/docs/interview-demo-backlog.md
+        anchor: "P0 #1"
+  - id: P0-#2
+    title: "workflow_state 微信口径"
+    priority: P0
+    status: done
+    claimed_by: null
+    claim_ref: null
+    refs:
+      - file: projects/LingWen1/docs/interview-demo-backlog.md
+        anchor: "P0 #2"
+  - id: P0-#3
+    title: "验收文档日期卫生"
+    priority: P0
+    status: done
+    claimed_by: null
+    claim_ref: null
+    refs:
+      - file: projects/LingWen1/docs/interview-demo-backlog.md
+        anchor: "P0 #3"
+  - id: P1-#7
+    title: "项目待办与 MEMORY 联动"
+    priority: P1
+    status: done
+    claimed_by: null
+    claim_ref: null
+    refs:
+      - file: projects/LingWen1/docs/interview-demo-backlog.md
+        anchor: "P1 #7"
+  - id: P2-#8
+    title: "旧 sprint 测试迁入域目录"
+    priority: P2
+    status: done
+    claimed_by: null
+    claim_ref: null
+    refs:
+      - file: projects/LingWen1/docs/interview-demo-backlog.md
+        anchor: "P2 #8"
+  - id: P2-#9
+    title: "consistency 报告结构化"
+    priority: P2
+    status: done
+    claimed_by: null
+    claim_ref: null
+    refs:
+      - file: projects/LingWen1/docs/interview-demo-backlog.md
+        anchor: "P2 #9"
+  # 待办
+  - id: P1-#4
+    title: "content vs dev 委派边界硬化为 smoke test"
+    priority: P1
+    status: open
+    claimed_by: null
+    claim_ref: null
+    refs:
+      - file: projects/LingWen1/docs/interview-demo-backlog.md
+        anchor: "P1 #4"
+  - id: P2-#10
+    title: "publish-archive / publish-merge 审批流"
+    priority: P2
+    status: deferred
+    claimed_by: null
+    claim_ref: null
+    notes: "已配齐（enabled: false + approval.required: true），演示时口头说明"
+    refs:
+      - file: projects/LingWen1/docs/interview-demo-backlog.md
+        anchor: "P2 #10"
