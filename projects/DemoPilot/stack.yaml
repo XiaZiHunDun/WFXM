@@ -1,0 +1,61 @@
+# 普通试点项目 · 依赖清单（轻量 software 试点）
+# schema v2：与 docs/templates/project-archetypes/ 配合使用
+# 模板源：projects/_template/stack.yaml
+# 术语：docs/guides/dependency-terminology-2026-06.md
+
+version: 2
+project: 普通试点项目
+workspace: projects/DemoPilot
+
+python_extras:
+  install: gateway
+  includes: [wechat, mcp, embeddings, vectors, web]
+  # DemoPilot 轻量试点：不跑 OCR / observability extras
+
+# process_env: 暂不声明（DemoPilot 不跑深度检索，无 HTTP_PROXY 需求）
+
+host:
+  - name: butler-gateway
+    unit: butler-gateway.service
+    script: scripts/butler-gateway-ops.sh
+    required: true
+  # DemoPilot 共享 butler-gateway，不另开 runtime timer（runtime 走 BUTLER_RUNTIME）
+  # 不接 http-proxy（无 web_search）/ node（无 MCP_FIRECRAWL）/ langfuse（轻量无 L4 观测）
+
+apis:
+  - id: minimax
+    env: [MINIMAX_API_KEY, MINIMAX_CN_API_KEY]
+    required: true
+  - id: ilink-wechat
+    env: [WECHAT_TOKEN, WECHAT_ACCOUNT_ID]
+    required: true
+  # DemoPilot 轻量试点：不接 Firecrawl / 第三方 MCP
+
+runtime:
+  jobs: projects/DemoPilot/runtime/jobs.yaml
+  pack: software-default  # 与 project.yaml type=software 对齐
+
+skills:
+  bundled_tenant: [deep-research, design-system, research-program]
+  project: []  # 无项目级 Skill（区别于灵文1号的 lingwen-project-lead）
+  marketplace_install: []
+  skills_expected:
+    - deep-research  # 共享 tenant skill
+  directory_skills: []
+  boundaries:
+    - "不接 novel-factory（L1 边界，区分灵文1号）"
+    - "runtime 任务仅 pilot-heartbeat + test-unit-smoke（L2 边界）"
+    - "默认 BUTLER_DEFAULT_PROJECT 仍是灵文1号；本项目走 /切换 进入"
+
+ingest_pilot_dirs: []  # 无独立 pilot 内容；不与灵文1号共享 docs/research
+
+env_recommended:
+  BUTLER_MCP_ENABLED: "1"
+  BUTLER_SEMANTIC_MEMORY: "1"
+  BUTLER_EMBEDDING_PROVIDER: fastembed
+  BUTLER_DEFAULT_PROJECT: 灵文1号  # 默认仍是灵文；DemoPilot 由 /切换 切到
+  BUTLER_INGEST_ENABLED: "0"  # DemoPilot 不 ingest
+
+deploy_profile: gateway
+
+# 注：plugin_adoption 段（如灵文1号 webnovel-writer 兼容卡）DemoPilot 不需要
