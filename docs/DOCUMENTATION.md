@@ -3,6 +3,8 @@
 > **更新**：2026-07-13 | **读者**：主公、Claude Code Session、Cursor Agent、Codex 等异构 Agent、贡献者  
 > **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md) → 本文（按需）
 > **黑板入口**：`.blackboard/README.md` · 设计 spec [`superpowers/specs/2026-07-13-wfxm-blackboard-design.md`](superpowers/specs/2026-07-13-wfxm-blackboard-design.md) · 实施计划 [`superpowers/plans/2026-07-13-wfxm-blackboard.md`](superpowers/plans/2026-07-13-wfxm-blackboard.md)
+>
+> **与 [`README.md`](README.md) 的关系**：本文是**手册**（分层 / 维护规则 / 索引结构 / 变更记录），适合「我在维护文档 / 改代码时想知道动哪」；[`README.md`](README.md) 是**卡片**（「我要…」问答快速链接表），适合「我想找具体某篇文档」。两者都列文档清单但视角不同——本文按层级 + 维护规则组织，README 按"我要…"问答组织。
 
 ---
 
