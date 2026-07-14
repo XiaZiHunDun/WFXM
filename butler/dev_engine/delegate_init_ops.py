@@ -61,10 +61,10 @@ def infer_b9_task_id_safe(state: DelegateRunState) -> str:
     return str(result or "")
 
 
-def effective_coding_strict_safe(*, default: bool = True) -> bool:
+def effective_coding_strict_safe(*, default: bool = False) -> bool:
     def _run() -> bool:
-
-        return bool(effective_coding_knowledge_strict(True))
+        from butler.ops.eval_config_overrides import effective_coding_knowledge_strict
+        return bool(effective_coding_knowledge_strict(default))
 
     result = safe_best_effort(_run, label="delegate_init.coding_strict", default=default)
     return bool(result)

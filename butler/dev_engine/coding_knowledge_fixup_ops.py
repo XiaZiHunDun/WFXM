@@ -7,7 +7,7 @@ from typing import Any, cast
 from butler.core.best_effort import safe_best_effort
 
 
-def effective_coding_knowledge_strict_safe(*, default: bool = True) -> bool:
+def effective_coding_knowledge_strict_safe(*, default: bool = False) -> bool:
     def _run() -> bool:
         from butler.ops.eval_config_overrides import effective_coding_knowledge_strict
 
