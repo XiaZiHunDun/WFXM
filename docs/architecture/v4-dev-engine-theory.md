@@ -807,7 +807,7 @@ OpenCode 等外部工具通过 `opencode_task` 工具可选接入。核心循环
 | CD0（规格解析） | 任务 → 结构化规格 \(S\) | 关键词启发式 `process_task()`，无 `parse_spec()` | T1 |
 | CD6（GenTC） | 等价类测试生成 + 执行 | 静态 `_THEOREM_TEST_PATTERNS`，未在 DevLoop 执行 | T1 |
 | CD8（Synth） | 定理约束下的程序合成 | `synthesize()` 函数存在，未注入 delegate prompt | T1 |
-| CA4（严格模式） | 双重验证失败则 STUCK 不输出 | `apply_coding_strict_pilot_gate` 已接 4-gate 链；首次 pilot 实证 2026-07-13 | T2（advisory）/ T3（opt-in 实证） |
+| CA4（严格模式） | 双重验证失败则 STUCK 不输出 | `apply_coding_strict_pilot_gate` 已接 4-gate 链；首次 pilot 真跑 2026-07-14（verdict NO_VIOLATIONS，捕获率 0.0000）：`docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14.md` | T2（advisory）/ T3（opt-in + 真跑实证） |
 | T02/T07 checkers | 组合性 / 幂等性形式化验证 | AST 启发式，覆盖窄于完整形式化陈述 | T2 |
 | 经验库 | 跨任务知识积累 | 种子 15 条 + 成功 delegate 提取；挖掘未触发 | T2 |
 
