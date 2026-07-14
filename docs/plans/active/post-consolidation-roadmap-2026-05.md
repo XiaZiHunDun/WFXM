@@ -145,7 +145,7 @@
 | D3-7 | **知识层嵌入 DevLoop** ✅ | CD7 | DevState 扩展 + process_task 接入 + dual_verify 桥接 + 上下文注入 | CD7 / D-L4-8 | 已完成 |
 | D3-8 | **经验库持久化 + 自动提取** ✅ | CA3 + CT3 | JSON 持久化 + 成功任务经验候选提取 | CA3 / CT3 / CD4 | 已完成 |
 | D3-9 | **PIM 状态上下文注入** ✅ | PIMState | memory_prefetch 注入 PIM 概览 | 理论 S 中 PIMState | 已完成 |
-| D3-10 | **CA4 严格模式 + auto_verify 定理门** ✅ | CA4 | `BUTLER_CODING_STRICT` env + `_run_auto_verify` 定理集成 + 56 tests | CA4 / CT5 | 已完成 |
+| D3-10 | **CA4 严格模式 + auto_verify 定理门** ✅ | CA4 | `BUTLER_CODING_STRICT` env + `_run_auto_verify` 定理集成 + 56 tests；2026-07-13 已接 `apply_coding_strict_pilot_gate` 4-gate 链 + pilot opt-in 实证 | CA4 / CT5 | 已完成 |
 | D3-11 | **部署依赖补齐** ✅ | 部署 | `pyproject.toml [all]` 含 fastembed/chromadb + 配置文档修正 | — | 已完成 |
 
 ### 轨道 O — 观测演化闭环（v3.1 新增，优先于 A）
@@ -333,7 +333,7 @@ PIM 查询 → 结果 2 轮 pii_clearable 清空 → fact extraction 跳过 PIM 
 | G2-02 | 推送限流缓解 | `PUSH_DRAIN_COOLDOWN` + outbox + drain | ✅ 2026-06-10 主公确认收到 |
 | G2-03 | P-PIM live 门检 | `TestPPIMLiveRouting` ≥85% | ✅ 2026-06-09 MiniMax 94% / DeepSeek 92% |
 | G2-01/04/05/06/07/09 | 诚实边界缓解 | `boundary_observability` 全 ok | ✅ 边界已接受 |
-| G2-08 | CA4 strict 默认 advisory | `BUTLER_CODING_STRICT=0`；硬阻断未接线 | ⏸️ **保持现状** |
+| G2-08 | CA4 strict 默认 advisory | `BUTLER_CODING_STRICT=0`；已接 4-gate 链；pilot opt-in 实证 | ✅ **pilot opt-in**（2026-07-13） |
 | G3 | 文档同步 G3-01～09 | v3.1.1 + 子理论 §8.5 / memory v1.2 | ✅ |
 | G1-02 | 成本 baseline | — | ⏸️ **搁置** |
 | G1-08 | 灵文新书态 | 维护态已验 | ⏸️ **搁置**（试点业务） |

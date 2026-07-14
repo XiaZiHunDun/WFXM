@@ -798,7 +798,7 @@ OpenCode 等外部工具通过 `opencode_task` 工具可选接入。核心循环
 |------|------|------|
 | **T1 测试级** | 模块存在 + pytest 通过，未接入生产路径 | CD0 Parse/Spec、`synthesize()`、`generate_test_cases()` |
 | **T2 检测级** | 接入 post-edit / delegate 初始化，起 advisory 作用 | `dual_verify()`、T01–T10 AST checkers、`process_task()`、`load_seed_if_empty()` |
-| **T3 阻断级** | 违反时阻止输出或中断流程 | CA4 严格模式（`BUTLER_CODING_STRICT=1`）——**env 已实现，生产默认关闭，零阻断调用** |
+| **T3 阻断级** | 违反时阻止输出或中断流程 | CA4 严格模式（`BUTLER_CODING_STRICT=1`）——**已 opt-in 实证**（2026-07-13，pilot report 见 `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-13.md`） |
 
 **关键收窄声明**：
 
@@ -807,7 +807,7 @@ OpenCode 等外部工具通过 `opencode_task` 工具可选接入。核心循环
 | CD0（规格解析） | 任务 → 结构化规格 \(S\) | 关键词启发式 `process_task()`，无 `parse_spec()` | T1 |
 | CD6（GenTC） | 等价类测试生成 + 执行 | 静态 `_THEOREM_TEST_PATTERNS`，未在 DevLoop 执行 | T1 |
 | CD8（Synth） | 定理约束下的程序合成 | `synthesize()` 函数存在，未注入 delegate prompt | T1 |
-| CA4（严格模式） | 双重验证失败则 STUCK 不输出 | `coding_strict_enabled()` 存在，生产路径未调用 | T1（env）/ T2（advisory） |
+| CA4（严格模式） | 双重验证失败则 STUCK 不输出 | `apply_coding_strict_pilot_gate` 已接 4-gate 链；首次 pilot 实证 2026-07-13 | T2（advisory）/ T3（opt-in 实证） |
 | T02/T07 checkers | 组合性 / 幂等性形式化验证 | AST 启发式，覆盖窄于完整形式化陈述 | T2 |
 | 经验库 | 跨任务知识积累 | 种子 15 条 + 成功 delegate 提取；挖掘未触发 | T2 |
 
