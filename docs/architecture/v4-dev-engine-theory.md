@@ -798,7 +798,7 @@ OpenCode 等外部工具通过 `opencode_task` 工具可选接入。核心循环
 |------|------|------|
 | **T1 测试级** | 模块存在 + pytest 通过，未接入生产路径 | CD0 Parse/Spec、`synthesize()`、`generate_test_cases()` |
 | **T2 检测级** | 接入 post-edit / delegate 初始化，起 advisory 作用 | `dual_verify()`、T01–T10 AST checkers、`process_task()`、`load_seed_if_empty()` |
-| **T3 阻断级** | 违反时阻止输出或中断流程 | CA4 严格模式（`BUTLER_CODING_STRICT=1`）——**已 opt-in 实证（Phase A 控型 + Phase B 端到端 4-gate chain MATCH）**（2026-07-14，捕获率 100% 2/2；pilot report 见 `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14.md`） |
+| **T3 阻断级** | 违反时阻止输出或中断流程 | CA4 严格模式（`BUTLER_CODING_STRICT=1`）——**已 opt-in 实证（Phase A 控型 + Phase B 端到端 4-gate chain MATCH）**（2026-07-14，捕获率 100% 2/2；pilot report 见 `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14.md`）。**默认升级 defer** 至 G3 1-2 周观察窗口（详见 `docs/plans/decisions/butler-coding-strict-default-decision-2026-07-14.md`） |
 
 **关键收窄声明**：
 

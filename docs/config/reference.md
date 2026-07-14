@@ -745,6 +745,7 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_DEV_DIAGNOSTICS_INJECT` | `1` | `0` = 不将验证诊断注入下一轮上下文 |
 | `BUTLER_CODING_STRICT` | `0` | `1` = CA4 严格模式；生产 pilot 类别（`deep`/`quick`/`nexus-sprint`/`lingwen-*` 等）若 `coding_knowledge.violated` 非空则 `success=false`（`CODING_STRICT_GATE`）。默认 `0` 不阻断 |
 - **已接入**：`apply_coding_strict_pilot_gate`（`butler/dev_engine/b9_delegate_gate.py:370`）；4-gate 链在 `butler/tools/delegate_impl.py:323`。2026-07-14 Phase A 4 case + Phase B 端到端 4-gate chain 实证（捕获率 100% 2/2, verdict MATCH）见 `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14.md`；运维 opt-in 工具 + 默认协调已落地。
+- **默认升级决策 defer (2026-07-14)**：Phase B 2/2 sample 不足估计 production false positive 率；改 `"0" → "1"` 推迟至 G3 1-2 周观察窗口（≥3 任务类型 + 0 false positive + ≥85% capture rate 三条件满足后重拍）。详见 `docs/plans/decisions/butler-coding-strict-default-decision-2026-07-14.md`。
 | `BUTLER_DEV_VERIFY_FIX_PIN` | `1` | `1` = verify 失败后将 `<dev-verify-feedback>` 置顶到最近 user 轮之前 |
 | `BUTLER_GENTC_MUTATION_MIN_SCORE` | `0.6` | P-CT4a/H10：GenTC 变异测试得分下限（`evaluate_pct4a`） |
 | `BUTLER_EXPERIENCE_MINING` | `1` | `0` = 关闭 D3-6 经验挖掘（含 runtime `builtin:experience_mining_weekly`） |

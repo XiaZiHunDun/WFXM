@@ -30,11 +30,13 @@
   - 不走 fixture 注入违例：fixture 是 dev_engine 终态，与真实 `_run_auto_verify` 产出数据形态完全一致
   - 跳过 LLM 子代理：避免误触发生产 LLM；4-gate chain 端到端已验证
 - **下次会话建议**：
-  - 决策 `BUTLER_CODING_STRICT` 默认是否 0 → 1：基于本次 100% 捕获率（远超 85% 阈值），可考虑升级；建议先在 G3 测试期跑 1-2 周观察 false positive 率
-  - 生产真 subagent pilot（runner 脚本可复用，把 Python inline 的 dev_engine fixture 替换为真实 subagent 终态）
+  - ~~决策 `BUTLER_CODING_STRICT` 默认是否 0 → 1~~ → **decision: DEFER (2026-07-14)** 至 G3 1-2 周观察窗口；详见 `docs/plans/decisions/butler-coding-strict-default-decision-2026-07-14.md`。理由：Phase B 2/2 sample 不足估计 production false positive 率；改 `"0" → "1"` 等 ≥3 任务类型 + 0 false positive + ≥85% capture rate 三条件满足后重拍。
+  - 生产真 subagent pilot（runner 脚本可复用，把 Python inline 的 dev_engine fixture 替换为真实 subagent 终态 — 这是 G3 观察窗口内的关键证据来源）
+- **2026-07-14 决策补充**：默认升级 defer 至 G3 观察；pilot runner / opt-in 工具 / 测试矩阵维持现状不变；G3 观察期满后，由下次会话按决策文档的"升级触发条件"再拍板。
 - **关联**：
   - spec: `docs/superpowers/specs/2026-07-13-g2-08-strict-pilot-design.md`
   - plan: `docs/superpowers/plans/2026-07-13-g2-08-strict-pilot.md`
   - caveat（前置）: `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14-caveat.md`
   - 真 pilot report: `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14.md`
-  - shift 卡: `.blackboard/shifts/2026-07-14-claude-code-001.md`
+  - decision doc: `docs/plans/decisions/butler-coding-strict-default-decision-2026-07-14.md`
+  - shift 卡: `.blackboard/shifts/2026-07-14-claude-code-001.md`, `2026-07-14-claude-code-002.md`, `2026-07-14-claude-code-003.md`（待）
