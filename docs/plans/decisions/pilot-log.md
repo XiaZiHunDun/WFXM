@@ -33,10 +33,12 @@
   - ~~决策 `BUTLER_CODING_STRICT` 默认是否 0 → 1~~ → **decision: DEFER (2026-07-14)** 至 G3 1-2 周观察窗口；详见 `docs/plans/decisions/butler-coding-strict-default-decision-2026-07-14.md`。理由：Phase B 2/2 sample 不足估计 production false positive 率；改 `"0" → "1"` 等 ≥3 任务类型 + 0 false positive + ≥85% capture rate 三条件满足后重拍。
   - 生产真 subagent pilot（runner 脚本可复用，把 Python inline 的 dev_engine fixture 替换为真实 subagent 终态 — 这是 G3 观察窗口内的关键证据来源）
 - **2026-07-14 决策补充**：默认升级 defer 至 G3 观察；pilot runner / opt-in 工具 / 测试矩阵维持现状不变；G3 观察期满后，由下次会话按决策文档的"升级触发条件"再拍板。
+- **2026-07-14 G3 首批累计**：新增 `scripts/butler-coding-strict-pilot-multi.sh`（3 categories × 2 cases + smoke），3/3 类别 MATCH + 0 false positive，捕获率 100%（quick 1/1、deep 2/2、lingwen-drill 2/2）；runner 修复 Python `|||` 拆分被 `tr` 当字符类处理 + 缺 EXIT/INT/TERM trap 两个 bug；详见 `docs/plans/pilot-reports/pilot-report-G3-2026-07-14-001.md` 与决策文档 G3 progress 段。**注意**：fixture-driven；真 subagent 终端仍待绕过 `butler.memory.diagnostics` circular import 的 harness；3 类别同属 dev role，content/其他 role 的真 subagent 证据留待后续批次。
 - **关联**：
   - spec: `docs/superpowers/specs/2026-07-13-g2-08-strict-pilot-design.md`
   - plan: `docs/superpowers/plans/2026-07-13-g2-08-strict-pilot.md`
   - caveat（前置）: `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14-caveat.md`
   - 真 pilot report: `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14.md`
+  - G3 首批 multi-category report: `docs/plans/pilot-reports/pilot-report-G3-2026-07-14-001.md`
   - decision doc: `docs/plans/decisions/butler-coding-strict-default-decision-2026-07-14.md`
-  - shift 卡: `.blackboard/shifts/2026-07-14-claude-code-001.md`, `2026-07-14-claude-code-002.md`, `2026-07-14-claude-code-003.md`（待）
+  - shift 卡: `.blackboard/shifts/2026-07-14-claude-code-001.md`, `2026-07-14-claude-code-002.md`, `2026-07-14-claude-code-003.md`, `2026-07-14-claude-code-004.md`

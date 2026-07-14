@@ -119,3 +119,36 @@ def coding_strict_enabled() -> bool:
 ## 变更日志
 
 - **2026-07-14**: 决策 defer + 观察窗口开启（claude-code 拍板，待用户 ratify）
+
+---
+
+## G3 progress — 首批多 category 累计 (2026-07-14)
+
+### 范围
+- `scripts/butler-coding-strict-pilot-multi.sh` 新建：3 categories × 2 cases = 6 fixture pilots + 1 `butler exec` smoke。
+- Runner 修复：
+  - 原 Python 输出 `|||` 三字符连接 → `tr '|||' '\n'` 把它当字符类拆解，`cut -d'|' -f3` 只读到首条 — 改成 JSON 透传 + Python 二次解析（保留所有违例 ID）。
+  - 缺 EXIT/INT/TERM trap → 异常退出可能遗留 `strict=on`，已加 `cleanup_strict` + 3 信号 trap + 末端显式 `trap -` 避免重复清理。
+- 类别 fixture 与 BUTLER_CODING_STRICT 默认 "0" 流程保持一致：`verify_passed=True` 让 DEV_VERIFY_GATE 放行，由 CODING_STRICT_GATE 判定。
+
+### 结果
+
+| 类别 | fixture | 捕获率 | clean verdict | false positive |
+|---|---|---|---|---|
+| `quick` | `[T2]` | 100% (1/1) | CLEAN_PASS | no |
+| `deep` | `[CA4,T8]` | 100% (2/2) | CLEAN_PASS | no |
+| `lingwen-drill` | `[T7,T8]` | 100% (2/2) | CLEAN_PASS | no |
+
+- **3/3 categories MATCH + 0 false positive** — 三类 gate 端到端实证与 Phase B MATCH 一致。
+- `butler exec` smoke：rc=0，仅作为 LLM provider 路径可达的辅助证据，不计入 capture rate。
+- 跑完 strict 自动 off（`state: off`），baseline 复位。
+
+### 仍待 G3 满足
+- **真实 subagent 终端**：本批为 fixture-driven，端到端走真实 4-gate chain，但 `dev_engine` 仍由 Python fixture 控型；直接 `_tool_delegate_task` 因 `butler.memory.diagnostics` 循环导入在 fresh-python env 无法跑通；`butler exec` 又不会自动 invoke delegate_task。需要后续构造 test harness 绕过 circular import 后才能得到 per-category 真 subagent 实证。
+- **≥3 任务类型**：本批 3 类别都在 `PROD_PLAYBOOK_CATEGORIES` 内，但语义上仍属 "dev" 类（quick/deep/lingwen-drill 全为 dev role）。需要 content 类（或 dev 之外的另一 role）的真 subagent pilot 才能正式满足升级条件中"任务类型多样性"。
+- **0 false positive 回退事件**：本批 fixture clean case 全部 `ok=True`；但生产 subagent 在 strict=on 下的回退事件尚无运行记录（默认仍是 "0"，尚未启用）。
+
+### 后续动作
+- 启动 content 类或非 dev role 的真 subagent pilot（绕过 circular import 的 test harness）。
+- 跑过 14 天观察窗或任一升级条件提前满足即再决策。
+- 本批 evidence 已落到 `docs/plans/pilot-reports/pilot-report-G3-2026-07-14-001.md` + shift 卡 004。
