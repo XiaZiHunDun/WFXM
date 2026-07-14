@@ -25,10 +25,37 @@ task_rc=$?
 set -e
 
 violated_set=$(echo "$out" | grep -oE "violated[^]]*\]" | head -1 || echo "[]")
-gate_count=$(echo "$out" | grep -c "CODING_STRICT_GATE" || true)
+# spec §4 阶段5: 精确捕获率 = |violated_set ∩ gate_blocked_ids| / |violated_set|
+# gate_blocked_ids 来自 CODING_STRICT_GATE 行末尾括号内的 ID 列表 (参考 b9_delegate_gate.py:404)
+gate_blocked=$(echo "$out" | grep -oE "CODING_STRICT_GATE: theorem violations remain \([^)]+\)" | sed -E 's/.*\(([^)]+)\).*/\1/' | tr ',' '\n' | tr -d ' ' | sort -u | paste -sd, -)
+# violated_set 形如 "violated ['CA4', 'T8']"，剥出 ID 列表
+violated_ids=$(echo "$violated_set" | grep -oE "\[[^]]*\]" | tr -d '[]' | tr ',' '\n' | tr -d ' "' | sort -u | paste -sd, -)
+violated_count=0
+captured_count=0
+if [ -n "$violated_ids" ]; then
+    violated_count=$(echo "$violated_ids" | tr ',' '\n' | wc -l)
+    if [ -n "$gate_blocked" ]; then
+        captured_count=$(comm -12 <(echo "$violated_ids" | tr ',' '\n' | sort -u) <(echo "$gate_blocked" | tr ',' '\n' | sort -u) | wc -l)
+    fi
+fi
+if [ "$violated_count" -gt 0 ]; then
+    capture_rate=$(awk -v c="$captured_count" -v v="$violated_count" 'BEGIN{printf "%.4f", c/v}')
+else
+    capture_rate="0.0000"
+fi
 verdict="UNDETERMINED"
-if [ "$gate_count" -gt 0 ]; then
-    verdict="GATE_TRIGGERED"
+if [ "$violated_count" -eq 0 ]; then
+    verdict="NO_VIOLATIONS"
+elif [ "$captured_count" -eq 0 ]; then
+    verdict="NO_GATE"
+else
+    # 阈值 85%
+    pass=$(awk -v r="$capture_rate" 'BEGIN{print (r+0 >= 0.85) ? 1 : 0}')
+    if [ "$pass" -eq 1 ]; then
+        verdict="MATCH"
+    else
+        verdict="PARTIAL"
+    fi
 fi
 
 cat > "$REPORT" <<EOF
@@ -41,7 +68,10 @@ cat > "$REPORT" <<EOF
 | Sample | 灵文1号 ch001 复现任务 |
 | Env | \`BUTLER_CODING_STRICT=1\` \`BUTLER_ACTIVE_PROJECT=LingWen1\` |
 | Exit code | $task_rc |
-| Gate 触发次数 | $gate_count |
+| Violated 集合 | $violated_set |
+| Gate 阻断 ID | $gate_blocked |
+| 捕获数 / 违例数 | $captured_count / $violated_count |
+| 捕获率 | $capture_rate |
 | Verdict | $verdict |
 
 ## 详细
@@ -58,10 +88,16 @@ $(echo "$out" | tail -c 2000)
 $violated_set
 \`\`\`
 
+### Gate 阻断 ID（来自 CODING_STRICT_GATE 行）
+
+\`\`\`
+$gate_blocked
+\`\`\`
+
 ### 阈值判定
 
-- 阈值：违例捕获率 ≥ 85%
-- 实测捕获率：$( [ "$gate_count" -gt 0 ] && echo "100%（gate 触发即捕获）" || echo "0%（gate 未触发）" )
+- 阈值：违例捕获率 ≥ 85%（spec §4 阶段5）
+- 实测捕获率：$capture_rate ($captured_count / $violated_count)
 - 结论：**$verdict**
 
 ## 关联
