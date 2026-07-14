@@ -28,3 +28,12 @@ P1 #4 content vs dev 委派边界硬化：从 brainstorming 8 问到 subagent-dr
 完整跑完。10 commit / 27 单测 / 4-case smoke ALL PASS / 守门 26 passed。
 抓出 3 个 spec 假设错（hook framework 已存在、.butler/ gitignore、smoke bash bug）；
 已写入 feedback memory。下次会话读 state + 本卡即可接活。
+
+## 2026-07-14-claude-code-001 · claude-code
+
+G2-08 CA4 strict pilot opt-in + 基础设施实证：从 ⏸️ 搁置 → ✅ pilot opt-in。
+brainstorming 5 问 → writing-plans 8 task → subagent-driven 完整跑 6 阶段。
+8 commit + 1 revert + 1 修复；11/11 测试矩阵全过（3 pytest + 4 bash opt-in + 4 bash Phase A）。
+Phase B 真 sample deferred — `ch001-reproduce` 不在 `delegate_impl` task registry；
+用户拍板走"回退 T6 + 接受基础设施实证"路径。pilot runner 已修空 grep bug，可下次复用。
+详见 pilot-log §G2-08 + caveat `pilot-report-G2-08-2026-07-14-caveat.md`。
