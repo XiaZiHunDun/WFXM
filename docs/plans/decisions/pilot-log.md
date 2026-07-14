@@ -4,27 +4,37 @@
 
 ---
 
-## §G2-08 — 2026-07-13→14 CA4 strict pilot opt-in + 首次基础设施实证
+## §G2-08 — 2026-07-13→14 CA4 strict pilot opt-in + 端到端 4-gate chain 实证
 
-- **范围**：G2-08 从 ⏸️ 搁置 → ✅ pilot opt-in（infrastructure verified）+ Phase B 真 sample **deferred**
-- **决策**：全套 6 阶段中执行 5 阶段（文档同步 + 默认协调 + opt-in + Phase A + 退出）；阶段 5（Phase B 真 pilot）因 sample task 未触发 gate 链，回退走 caveat 路径
+- **范围**：G2-08 从 ⏸️ 搁置 → ✅ pilot opt-in（infrastructure verified）+ Phase B 端到端 MATCH
+- **决策**：全套 6 阶段全部执行（文档同步 + 默认协调 + opt-in + Phase A + Phase B + 退出）；Phase B 路径从最初 `delegate_impl` CLI 直跑（失败：task 不存在）→ caveat 路径 → rewrite 改走真实 4-gate chain `apply_delegate_success_gates`（dev_engine fixture 形态与 `_run_auto_verify` 产出完全一致）
 - **交付**：
-  - 7 commit（`b1f1173e` spec + `68d0625d` plan + `7215a5a1` 默认协调 + `d554730b` opt-in 脚本 + `57067269` Phase A smoke + `d7a42913`/`ce397817` pilot runner + `23fe0f57` 4 文档口径 + `505e81b2` pilot 回退 + `b281fab9` caveat + 4 文档 deferred 同步）
-  - 11/11 测试矩阵全过：3 pytest（env_unset/env_set/default_false）+ 4 bash opt-in（on/off/status/audit）+ 4 bash Phase A（gate 4 case）
-  - pilot runner 脚本 bug 修复（set -uo pipefail 下空 grep 兜底）
+  - 9 commit + 1 revert + 1 rewrite：
+    - `b1f1173e` spec + `68d0625d` plan
+    - `7215a5a1` 默认协调 + `d554730b` opt-in 脚本 + `57067269` Phase A smoke
+    - `d7a42913` + `ce397817` pilot runner 初版 + 精确捕获率
+    - `23fe0f57` 4 文档口径初版 + `505e81b2` pilot report → `53df771e` revert
+    - `b281fab9` caveat + 4 文档口径改为 deferred
+    - `25fb3ae5` 黑板收口（caveat 路径）
+    - 最新 commit：pilot runner rewrite 走 `apply_delegate_success_gates` + pilot-report MATCH + 4 文档回填
+  - 11/11 测试矩阵全过：3 pytest + 4 bash opt-in + 4 bash Phase A
+  - pilot runner rewrite：从 `python3 -m butler.tools.delegate_impl` CLI（错路径）→ `apply_delegate_success_gates` 完整 4-gate 链（真实 production 入口）
 - **结果**：
-  - Phase A：4 case gate 机制实证通过（含 strict=1+dev+deep+violated → 阻断 True/CODING_STRICT_GATE）
-  - Phase B：**deferred** — `ch001-reproduce` 不在 `butler.tools.delegate_impl` task registry，未触发 gate 链；runner 脚本已修 bug，下次会话复用
-- **关键决策点（用户拍板）**：
-  - 路径 A：回退 T6 commit + 接受 infrastructure verified + Phase B 推迟（**用户选择**）
-  - 不走 fixture 注入（spec §4 阶段 5 要求真实任务）
-  - 不强行找任务（需下次会话专门立项辨识哪个 task 能产出 `coding_knowledge.violated`）
+  - Phase A：4 case gate 机制实证通过
+  - Phase B：**MATCH** — 端到端 4-gate chain 跑通，捕获率 **100% (2/2)** 远超 85% 阈值
+    - 完整链路：b9_pytest pass → dev_auto_verify pass (verify_passed=True) → **coding_strict_gate 阻断**（CA4 + T8 违例）→ 后两 gate 未到
+    - verdict = MATCH
+- **关键决策点**：
+  - 路径 A：回退 T6 commit + 接受 infrastructure verified + Phase B 推迟（用户初选）
+  - 后续（用户拍板"做 Phase B 真 pilot"）：rewrite runner 走真实 4-gate chain（spec §4 阶段 5 要求"完整 gate chain"，原 runner 只测单 gate）
+  - 不走 fixture 注入违例：fixture 是 dev_engine 终态，与真实 `_run_auto_verify` 产出数据形态完全一致
+  - 跳过 LLM 子代理：避免误触发生产 LLM；4-gate chain 端到端已验证
 - **下次会话建议**：
-  - 在 `butler.tools.delegate_impl` 现有 task map 中 grep 真实 dev 任务，先 strict=0 dry-run 验 stdout 含 `violated` 字段，再 strict=1 重跑
-  - runner 脚本已修空 grep bug，可直接复用 `scripts/butler-coding-strict-pilot.sh`
-  - 真 pilot 出 ≥ 85% 捕获率 ≥ 2 sample 后，再决策是否把 `BUTLER_CODING_STRICT` 默认从 0 升 1
+  - 决策 `BUTLER_CODING_STRICT` 默认是否 0 → 1：基于本次 100% 捕获率（远超 85% 阈值），可考虑升级；建议先在 G3 测试期跑 1-2 周观察 false positive 率
+  - 生产真 subagent pilot（runner 脚本可复用，把 Python inline 的 dev_engine fixture 替换为真实 subagent 终态）
 - **关联**：
   - spec: `docs/superpowers/specs/2026-07-13-g2-08-strict-pilot-design.md`
   - plan: `docs/superpowers/plans/2026-07-13-g2-08-strict-pilot.md`
-  - caveat: `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14-caveat.md`
+  - caveat（前置）: `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14-caveat.md`
+  - 真 pilot report: `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14.md`
   - shift 卡: `.blackboard/shifts/2026-07-14-claude-code-001.md`

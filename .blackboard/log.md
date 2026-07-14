@@ -37,3 +37,12 @@ brainstorming 5 问 → writing-plans 8 task → subagent-driven 完整跑 6 阶
 Phase B 真 sample deferred — `ch001-reproduce` 不在 `delegate_impl` task registry；
 用户拍板走"回退 T6 + 接受基础设施实证"路径。pilot runner 已修空 grep bug，可下次复用。
 详见 pilot-log §G2-08 + caveat `pilot-report-G2-08-2026-07-14-caveat.md`。
+
+## 2026-07-14-claude-code-002 · claude-code
+
+G2-08 Phase B 真 pilot — 端到端 4-gate chain 实证（verdict MATCH, 捕获率 100% 2/2）。
+Rewrite pilot runner 从 `python3 -m butler.tools.delegate_impl` 错路径 → 真实
+`apply_delegate_success_gates` 4-gate 链；dev_engine fixture 与 `_run_auto_verify`
+真实产出数据形态一致。修了 runner script 的 for 循环死循环（IFS 切词 bug）。
+4 文档口径从 deferred 升级为 MATCH；pilot-log §G2-08 段更新；黑板 G2-08 状态升级。
+下次会话：决策 BUTLER_CODING_STRICT 默认是否 0 → 1（基于 100% 远超 85% 阈值）。

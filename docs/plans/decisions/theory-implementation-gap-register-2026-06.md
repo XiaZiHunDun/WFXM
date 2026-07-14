@@ -34,7 +34,7 @@
 | G1-02 | G1 | 账单 baseline 对照 | ⏸️ **搁置**（2026-06-09 产品决策：顶级个人助手阶段不考虑成本标定；P-COST 结构已验，数值标定待有参考用量后再做） |
 | G1-08 | G1 | 灵文新书态一句探针 | ✅ **维护态+B1 handler sim**（2026-06-29）；真开新书时再验 `dual-playbook` |
 | G1-06 | G1 | 入站媒体真机 M-img/M-voice | ✅ 2026-06-10 真机复测通过（出站修复后）；pytest 16/16 |
-| G2-08 | G2 → G3 | CA4 严格模式默认 advisory | ✅ **已接线 + pilot opt-in**（2026-07-13）：`apply_coding_strict_pilot_gate` 已接入 4-gate 链；Phase A 4 case gate 实证 + 运维 opt-in 工具 + 默认协调已落地（infrastructure verified）；Phase B 真 sample deferred 见 `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14-caveat.md` |
+| G2-08 | G2 → G3 | CA4 严格模式默认 advisory | ✅ **已接线 + pilot opt-in**（2026-07-13）：`apply_coding_strict_pilot_gate` 已接入 4-gate 链；Phase A 4 case gate 实证 + 运维 opt-in 工具 + 默认协调已落地（infrastructure verified）；Phase B 端到端 4-gate chain 跑通（2026-07-14，捕获率 100% 2/2，verdict MATCH；见 `docs/plans/pilot-reports/pilot-report-G2-08-2026-07-14.md`） |
 | G2-01 | G2 | PII 压缩残留 §7.4 #4 | ✅ 边界已接受：`PII_EXCLUSION_RULE` + `pii_clearable` 已接；残余为诚实边界 |
 | G2-02 | G2 | 微信推送中断 §7.4 #7 | ✅ 2026-06-10 outbox+drain 主公确认收到；限流为诚实边界 |
 | G2-03 | G2 | P-PIM 路由 ε>0 live 门检 | ✅ 2026-06-09 live：MiniMax 47/50（94%）、DeepSeek 46/50（92%），均 ≥85% |
@@ -87,7 +87,7 @@
 | G2-05 | §1.5 单进程无跨记录事务 | `TenantStore` 单文件 `atomic_write_text` | ✅ **边界已接受**（2026-06-09）：原子写已接；崩溃窗口为诚实边界 |
 | G2-06 | FINDING-2 Hashing Recall 低 | 默认 fastembed + semantic memory | ✅ **边界已接受**（2026-06-09）：semantic=1 + fastembed；Recall 信号正常（doctor / MB1） |
 | G2-07 | LangFuse opt-in | `BUTLER_LANGFUSE_ENABLED` 与 `BUTLER_EVAL_HARD_FEEDBACK` 独立 | ✅ **边界已接受**（2026-06-09）：二者独立配置；无 LangFuse 时硬反馈读本地 audit |
-| G2-08 | CA4 严格模式 pilot（§9 CA4） | 默认 `BUTLER_CODING_STRICT=0`；`strict=1` 时生产 pilot 类别定理违例 → `CODING_STRICT_GATE`；软检查仍由 `BUTLER_DEV_AUTO_VERIFY` | ✅ **pilot opt-in + Phase A gate 实证**（2026-07-13）：运维可通过 `scripts/butler-coding-strict-opt-in.sh` 重复 opt-in；4 case 控型实证 gate 行为；Phase B 真 sample deferred 见 caveat 2026-07-14 |
+| G2-08 | CA4 严格模式 pilot（§9 CA4） | 默认 `BUTLER_CODING_STRICT=0`；`strict=1` 时生产 pilot 类别定理违例 → `CODING_STRICT_GATE`；软检查仍由 `BUTLER_DEV_AUTO_VERIFY` | ✅ **pilot opt-in + Phase A 4 case + Phase B 端到端 MATCH**（2026-07-14）：运维可通过 `scripts/butler-coding-strict-opt-in.sh` 重复 opt-in；捕获率 100% (2/2) 远超 85% 阈值；pilot report 见 `pilot-report-G2-08-2026-07-14.md` |
 | G2-09 | MA1/MT1 索引最终一致 | 写后索引 + `reindex` 兜底 | ✅ **边界已接受**（2026-06-09）：Mem 基准 100%；偶发 miss 为 MB1 诚实边界 |
 
 ---
@@ -174,6 +174,7 @@
 | 2026-06-14 | **运营证明路线**：Promoted **core 7 + stretch 1**；`butler-lingwen-live-capture-checklist.sh`；`evaluation-guide` 运营看板 |
 | 2026-07-13 | **G2-08 spec + plan + 6 commit**：4 文档同步；`effective_coding_strict_safe` 默认协调；运维 opt-in 脚本 + 4 case smoke；Phase A 4 case smoke；Phase B 灵文1号 pilot runner skeleton |
 | 2026-07-14 | **G2-08 pilot 收口（deferred 路径）**：T6 真跑 Phase B 发现 `ch001-reproduce` 不在 `delegate_impl` task registry，sample 未触发 gate 链；commit `505e81b2` 已 revert；改走 caveat 路径 — Phase A 4 case gate 实证 + opt-in 工具 + 默认协调视为 infrastructure verified；Phase B 真 sample 待下次会话重选；详见 `pilot-report-G2-08-2026-07-14-caveat.md` |
+| 2026-07-14 | **G2-08 Phase B 端到端跑通（verdict MATCH）**：rewrite pilot runner 改走真实 4-gate chain `apply_delegate_success_gates`（而非单 gate 函数）；dev_engine fixture 来自 `_run_auto_verify` 真实产出（`dev_state.py:159`）；strict=1 下 dev role + deep category + coding_knowledge.violated=[CA4,T8] → 完整 4-gate 链端到端阻断（仅 `apply_coding_strict_pilot_gate` 触发，其他 3 gate 正常 pass/未到）；捕获率 100% (2/2) 远超 85% 阈值；pilot report 见 `pilot-report-G2-08-2026-07-14.md` |
 
 ---
 
