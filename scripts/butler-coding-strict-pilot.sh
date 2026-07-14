@@ -24,12 +24,17 @@ out=$(BUTLER_CODING_STRICT=1 BUTLER_ACTIVE_PROJECT="$PROJECT" \
 task_rc=$?
 set -e
 
-violated_set=$(echo "$out" | grep -oE "violated[^]]*\]" | head -1 || echo "[]")
+# 注: set -uo pipefail 下, grep 无匹配时返 rc=1; pipefail 会让整个管道退出非零,
+#     进而 set -e 在赋值后退出脚本 → 报告未写。所有 grep 末端加 || true 兜底。
+violated_set=$(echo "$out" | grep -oE "violated[^]]*\]" | head -1 || true)
+violated_set="${violated_set:-[]}"
 # spec §4 阶段5: 精确捕获率 = |violated_set ∩ gate_blocked_ids| / |violated_set|
 # gate_blocked_ids 来自 CODING_STRICT_GATE 行末尾括号内的 ID 列表 (参考 b9_delegate_gate.py:404)
-gate_blocked=$(echo "$out" | grep -oE "CODING_STRICT_GATE: theorem violations remain \([^)]+\)" | sed -E 's/.*\(([^)]+)\).*/\1/' | tr ',' '\n' | tr -d ' ' | sort -u | paste -sd, -)
+gate_blocked=$(echo "$out" | grep -oE "CODING_STRICT_GATE: theorem violations remain \([^)]+\)" | sed -E 's/.*\(([^)]+)\).*/\1/' | tr ',' '\n' | tr -d ' ' | sort -u | paste -sd, - || true)
+gate_blocked="${gate_blocked:-}"
 # violated_set 形如 "violated ['CA4', 'T8']"，剥出 ID 列表
-violated_ids=$(echo "$violated_set" | grep -oE "\[[^]]*\]" | tr -d '[]' | tr ',' '\n' | tr -d ' "' | sort -u | paste -sd, -)
+violated_ids=$(echo "$violated_set" | grep -oE "\[[^]]*\]" | tr -d '[]' | tr ',' '\n' | tr -d ' "' | sort -u | paste -sd, - || true)
+violated_ids="${violated_ids:-}"
 violated_count=0
 captured_count=0
 if [ -n "$violated_ids" ]; then
