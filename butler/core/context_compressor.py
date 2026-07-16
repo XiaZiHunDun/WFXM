@@ -183,12 +183,22 @@ def _split_head_tail(
     tail_token_budget: int = 8000,
     max_tail_messages: int = 12,
     min_tail_messages: int = 4,
+    protect_keywords: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     system = [m for m in messages if m.get("role") == "system"]
     rest = [m for m in messages if m.get("role") != "system"]
 
     if len(rest) <= head_count + min_tail_messages:
         return system, [], rest
+
+    protected_indices: set[int] = set()
+    if protect_keywords and rest:
+        for i, m in enumerate(rest):
+            content = str(m.get("content") or "").lower()
+            for kw in protect_keywords:
+                if kw.lower() in content:
+                    protected_indices.add(i)
+                    break
 
     head = rest[:head_count]
     tail_candidates = rest[head_count:]
@@ -204,6 +214,14 @@ def _split_head_tail(
     from butler.core.compaction_cutoff import find_safe_tail_start
 
     middle_end = find_safe_tail_start(rest, middle_end)
+
+    if protected_indices:
+        protected_in_middle = [
+            i for i in protected_indices if head_count <= i < middle_end
+        ]
+        if protected_in_middle:
+            middle_end = min(protected_in_middle)
+
     tail = rest[middle_end:]
     middle = rest[head_count:middle_end] if middle_end > head_count else []
     return system, middle, head + tail
@@ -333,9 +351,21 @@ def compress_messages(
     max_output_tokens: int | None = None,
     initial_injection: Any = None,
     diagnostics: dict[str, Any] | None = None,
+    protected_keywords: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], str, bool]:
-    """Compress messages if over threshold. Returns (messages, summary, did_compress)."""
+    """Compress messages if over threshold. Returns (messages, summary, did_compress).
+
+    Args:
+        protected_keywords: List of keywords that, if found in middle messages,
+            will protect those messages from summarization and include them in the tail.
+    """
     from butler.core.context_compress_pipeline import run_compress_messages
+
+    if protected_keywords is None:
+        protected_keywords = _extract_keywords_from_latest_user(messages)
+
+    if isinstance(diagnostics, dict) and protected_keywords:
+        diagnostics["semantic_protection_keywords"] = len(protected_keywords)
 
     return cast(
         tuple[list[dict[str, Any]], str, bool],
@@ -352,5 +382,18 @@ def compress_messages(
             max_output_tokens=max_output_tokens,
             initial_injection=initial_injection,
             diagnostics=diagnostics,
+            protected_keywords=protected_keywords,
         ),
     )
+
+
+def _extract_keywords_from_latest_user(messages: list[dict[str, Any]]) -> list[str]:
+    """Extract keywords from the latest user message for semantic protection."""
+    import re
+
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            content = str(m.get("content") or "")
+            words = re.findall(r"[\w\u4e00-\u9fff]{3,}", content)
+            return words[:10]
+    return []

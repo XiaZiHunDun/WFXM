@@ -48,10 +48,64 @@ def build_post_compact_anchor_text(
     if facts_block:
         parts.append(facts_block)
 
+    conversation_anchor = _build_conversation_state_anchor(diagnostics)
+    if conversation_anchor:
+        parts.insert(0, conversation_anchor)
+
     body = "\n\n".join(p for p in parts if p.strip())
     if not body:
         return ""
     return POST_COMPACT_PREFIX + body
+
+
+def _build_conversation_state_anchor(diagnostics: dict[str, Any] | None = None) -> str:
+    """Build a compact anchor from conversation state for post-compaction injection."""
+    if diagnostics is None:
+        return ""
+    state_data = diagnostics.get("conversation_state")
+    if state_data is None:
+        return ""
+    parts: list[str] = []
+
+    def _add_field(label: str, value: str, max_len: int = 150) -> None:
+        if value:
+            parts.append(f"**{label}**: {value[:max_len]}")
+
+    if isinstance(state_data, dict):
+        _add_field("对话目标", str(state_data.get("conversation_goal") or "").strip())
+        _add_field("当前任务", str(state_data.get("current_task_summary") or "").strip())
+        _add_field("当前分支", str(state_data.get("current_branch") or "").strip())
+        _add_field("构建状态", str(state_data.get("last_build_status") or "").strip())
+        files = state_data.get("files_modified") or []
+        if files:
+            parts.append(f"**已修改文件**: {', '.join(str(f)[:50] for f in files[:5])}")
+        chapters = state_data.get("chapter_summaries") or []
+        if chapters:
+            for ch in chapters[-2:]:
+                summary = str(ch.get("summary", "") or "")[:200]
+                parts.append(f"**章节{ch.get('chapter_number','')}**: {summary}")
+    elif hasattr(state_data, "to_compact_anchor"):
+        anchor = state_data.to_compact_anchor()
+        if anchor:
+            return anchor
+        if hasattr(state_data, "conversation_goal"):
+            _add_field("对话目标", str(state_data.conversation_goal).strip())
+        if hasattr(state_data, "current_task_summary"):
+            _add_field("当前任务", str(state_data.current_task_summary).strip())
+        if hasattr(state_data, "current_branch"):
+            _add_field("当前分支", str(state_data.current_branch).strip())
+        if hasattr(state_data, "last_build_status"):
+            _add_field("构建状态", str(state_data.last_build_status).strip())
+        if hasattr(state_data, "files_modified"):
+            files = getattr(state_data, "files_modified", [])
+            if files:
+                parts.append(f"**已修改文件**: {', '.join(str(f)[:50] for f in files[:5])}")
+        if hasattr(state_data, "chapter_summaries"):
+            chapters = getattr(state_data, "chapter_summaries", [])
+            for ch in chapters[-2:]:
+                summary = str(ch.summary)[:200] if hasattr(ch, "summary") else ""
+                parts.append(f"**章节{ch.chapter_number}**: {summary}")
+    return "\n".join(parts)
 
 
 def inject_post_compact_anchors(

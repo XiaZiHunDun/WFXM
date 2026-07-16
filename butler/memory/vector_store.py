@@ -11,6 +11,10 @@ Falls back to in-memory brute-force search when ChromaDB is not installed.
 from __future__ import annotations
 
 import logging
+import os
+
+# Disable ChromaDB telemetry to avoid capture() errors
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 from butler.memory.embedding import Embedder
 from butler.memory.vector_store_ops import (

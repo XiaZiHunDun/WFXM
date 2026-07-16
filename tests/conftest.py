@@ -1,214 +1,121 @@
-"""Shared test fixtures for Butler v4 test suite."""
+"""Shared fixtures and pytest markers for conversation state tests.
 
-from __future__ import annotations
+Test Layers:
+- L0: Fast unit tests (< 1 second) - run on every commit
+- L1: Integration tests (< 60 seconds) - run on PR
+- L2: Scenario/property/edge tests (< 5 minutes) - run before merge
+- L3: Real LLM end-to-end tests - run on release
+"""
 
-import sys
-from pathlib import Path
-from unittest.mock import MagicMock
-
+import os
 import pytest
+from typing import Any, List
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
+os.environ["BUTLER_CONVERSATION_STATE_PERSIST"] = "0"
 
-
-@pytest.fixture(scope="session", autouse=True)
-def _session_env_defaults():
-    """Session-wide defaults so cross-test env coupling stays predictable (P2-E)."""
-    import os
-
-    defaults = {
-        "BUTLER_TERMINAL_SANDBOX": "0",
-        "BUTLER_READ_BEFORE_EDIT": "0",
-    }
-    saved = {k: os.environ.get(k) for k in defaults}
-    for key, value in defaults.items():
-        os.environ[key] = value
-    yield
-    for key, prior in saved.items():
-        if prior is None:
-            os.environ.pop(key, None)
-        else:
-            os.environ[key] = prior
+from butler.core.conversation_state import ConversationState
 
 
-@pytest.fixture(scope="session")
-def repo_root() -> Path:
-    """Repository root (portable on CI runners)."""
-    return _REPO_ROOT
-
-# Import butler.gateway.commands so all CommandDef + aliases are registered
-# before any test runs. Sprint 18-4: _is_sessionless_command 真源 = registry.
-# Without this, /test /build /project-dashboard (aliases of /测试 /构建 /项目概况)
-# would appear unregistered, breaking sessionless detection.
-import butler.gateway.commands  # noqa: F401, E402
-
-# Gateway corpus L1 fixtures (must be registered from top-level conftest)
-pytest_plugins = ["tests.corpus.conftest_gateway"]
-
-
-@pytest.fixture(autouse=True)
-def _isolate_butler_home(tmp_path, monkeypatch):
-    """Every test gets its own BUTLER_HOME so nothing leaks."""
-    from butler.config_service import reset_runtime_config_env
-    from butler.plan.mode import clear_all_plan_modes
-    from butler.permissions.rules import reset_permission_failures
-    from butler.project.manager import ProjectManager
-    from butler.tools.registry import reset_tool_audit_events, reset_tool_registry
-
-    reset_runtime_config_env()
-    reset_tool_registry()
-    reset_permission_failures()
-    clear_all_plan_modes()
-    reset_tool_audit_events()
-    ProjectManager._instance = None
-    home = tmp_path / ".butler"
-    home.mkdir()
-    monkeypatch.setenv("BUTLER_HOME", str(home))
-    monkeypatch.setenv("BUTLER_READ_BEFORE_EDIT", "0")
-    monkeypatch.delenv("BUTLER_DEFAULT_PROJECT", raising=False)
-    # Isolate deploy-profile switches that leak from repo .env (P2-E).
-    monkeypatch.setenv("BUTLER_WORKFLOW_AUTO_RESUME", "0")
-    monkeypatch.setenv("BUTLER_MEMORY_AUTO_APPROVE", "")
-    monkeypatch.setenv("BUTLER_MEMORY_AUTO_FACT", "1")
-    # Prevent repo .env deploy flags from leaking when reload_butler_settings runs (P2-E / ENG-9).
-    # Explicit 0: delenv would fall back to ONBOARDING_WELCOME_DEFAULT ("1").
-    monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "0")
-    monkeypatch.setenv("BUTLER_TERMINAL_PIPE", "0")
-    monkeypatch.setenv("BUTLER_MCP_ENABLED", "0")
-    from butler.config import reload_butler_settings
-
-    reload_butler_settings()
-    yield home
-    reset_runtime_config_env()
-    reset_tool_registry()
-    reset_permission_failures()
-    clear_all_plan_modes()
-    reset_tool_audit_events()
-    ProjectManager._instance = None
+def pytest_configure(config: Any) -> None:
+    config.addinivalue_line(
+        "markers", "l0: Fast unit tests - run on every commit"
+    )
+    config.addinivalue_line(
+        "markers", "l1: Integration tests - run on PR"
+    )
+    config.addinivalue_line(
+        "markers", "l2: Scenario/property/edge tests - run before merge"
+    )
+    config.addinivalue_line(
+        "markers", "l3: Real LLM end-to-end tests - run on release"
+    )
 
 
 @pytest.fixture
-def tmp_butler_home(_isolate_butler_home):
-    """Explicit access to the isolated BUTLER_HOME directory."""
-    return _isolate_butler_home
+def empty_conversation_state() -> ConversationState:
+    return ConversationState()
 
 
 @pytest.fixture
-def mock_llm_response():
-    """Factory: create a NormalizedResponse with defaults."""
-    from butler.transport.types import NormalizedResponse, Usage
-
-    def _factory(
-        content: str | None = "hello",
-        tool_calls=None,
-        finish_reason: str = "stop",
-        reasoning: str | None = None,
-        prompt_tokens: int = 10,
-        completion_tokens: int = 5,
-    ):
-        return NormalizedResponse(
-            content=content,
-            tool_calls=tool_calls,
-            finish_reason=finish_reason,
-            reasoning=reasoning,
-            usage=Usage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens,
-            ),
+def populated_conversation_state() -> ConversationState:
+    state = ConversationState()
+    state.update_conversation_goal("开发一个电商平台")
+    state.update_task_summary("完成用户认证模块")
+    state.add_plan_step("创建用户模型")
+    state.add_plan_step("实现登录接口")
+    state.add_plan_step("实现注册接口")
+    state.add_open_question("使用JWT还是Session?")
+    state.add_decision(1, "使用FastAPI框架", "高性能异步支持", "已确认")
+    for i in range(1, 6):
+        state.add_turn_summary(
+            turn_number=i,
+            user_intent=f"第{i}轮用户意图",
+            assistant_action=f"第{i}轮助手操作",
+            result_summary=f"第{i}轮结果",
+            files_touched=[f"file{i}.py"],
         )
-
-    return _factory
-
-
-def link_llm_stream_mock(mock_complete, mock_stream) -> None:
-    """Route LLMClient.stream() through complete() so side_effect lists advance in order."""
-    mock_stream.side_effect = lambda *args, **kwargs: mock_complete(*args, **kwargs)
+    return state
 
 
 @pytest.fixture
-def mock_llm_client(mock_llm_response):
-    """LLMClient with mocked complete/stream methods."""
-    from butler.transport.llm_client import LLMClient
-
-    client = LLMClient(provider="minimax", model="test-model")
-    client.complete = MagicMock(return_value=mock_llm_response())  # noqa: magicmock-no-spec — conftest LLM client shim
-    client.stream = MagicMock(return_value=mock_llm_response())  # noqa: magicmock-no-spec — conftest LLM client shim
-    return client
-
-
-@pytest.fixture
-def sample_agent_loop(mock_llm_client):
-    """AgentLoop pre-wired with mock client and real tools."""
-    from butler.core.agent_loop import AgentLoop, LoopConfig
-    from butler.tools.registry import get_tool_definitions, dispatch_tool
-
-    return AgentLoop(
-        client=mock_llm_client,
-        system_prompt="You are a test assistant.",
-        tools=get_tool_definitions(),
-        tool_dispatcher=dispatch_tool,
-        config=LoopConfig(stream=False),
-    )
-
-
-@pytest.fixture
-def butler_orchestrator(tmp_butler_home, monkeypatch):
-    """Isolated ButlerOrchestrator instance.
-
-    Sprint 17 SEC-11 owner-gate completion: 多数 slash 命令的 registry handler
-    现在有 owner gate. e2e 测试不验证 owner gate (有 test_sprint11_sec* 专门
-    覆盖), 走 BUTLER_PROJECT_CREATE_OPEN=1 dev 旁路, 避免每个测试都伪造
-    owner 身份. tmp_butler_home 来自上游 fixture.
-    """
-    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
-    from butler.orchestrator import ButlerOrchestrator
-
-    return ButlerOrchestrator(user_id="test_user", channel="test")
-
-
-@pytest.fixture
-def sample_project_dir(tmp_path):
-    """Temp directory with a minimal project.yaml."""
-    proj_dir = tmp_path / "test-project"
-    proj_dir.mkdir()
-    yaml_content = (
-        "name: test-project\n"
-        "type: software\n"
-        "description: A test project\n"
-        "workspace: {workspace}\n"
-    ).format(workspace=str(proj_dir))
-    (proj_dir / "project.yaml").write_text(yaml_content, encoding="utf-8")
-    return proj_dir
+def full_conversation_state() -> ConversationState:
+    state = ConversationState()
+    state.update_conversation_goal("开发一个复杂的Web应用")
+    state.update_task_summary("完成核心功能开发")
+    state.current_branch = "feature/auth"
+    state.last_build_status = "PASSED"
+    state.add_pending_todo("修复登录页面样式")
+    state.add_pending_todo("添加单元测试")
+    
+    for i in range(1, 25):
+        state.add_turn_summary(
+            turn_number=i,
+            user_intent=f"用户意图{i}",
+            assistant_action=f"助手操作{i}",
+            result_summary=f"结果{i}",
+            files_touched=[f"src/{i}.py"],
+        )
+    
+    for i in range(1, 35):
+        state.add_decision(i, f"决策{i}", f"理由{i}", f"结果{i}")
+    
+    for i in range(1, 15):
+        state.add_open_question(f"问题{i}")
+    
+    for i in range(1, 25):
+        state.add_plan_step(f"计划步骤{i}")
+    
+    for i in range(1, 55):
+        state.add_file_change(f"file{i}.py", "write", f"描述{i}", i)
+    
+    for i in range(1, 12):
+        state.add_chapter_summary(
+            chapter_number=i,
+            start_turn=(i-1)*10 + 1,
+            end_turn=i*10,
+            summary=f"章节{i}摘要",
+            key_decisions=[f"决策{i}-1", f"决策{i}-2"],
+            key_files=[f"file{i}-1.py", f"file{i}-2.py"],
+        )
+    
+    return state
 
 
 @pytest.fixture
-def sample_report():
-    """Standard AgentReport for testing."""
-    from butler.report import AgentReport, Change
-
-    return AgentReport(
-        headline="Test operation completed",
-        changes=[
-            Change(file="main.py", action="modified", description="Updated logic"),
-            Change(file="utils.py", action="created", description="New helper"),
-        ],
-        decisions=["Used dataclass over dict"],
-        issues=["Needs unit tests"],
-        summary="Successfully completed test operation",
-        success=True,
-        iterations=3,
-        tool_calls=5,
-        tokens_used=1500,
-        elapsed_seconds=8.2,
-    )
+def mock_tool_call_factory():
+    def create_tool_call(name: str, args: dict[str, Any]) -> dict[str, Any]:
+        return {"name": name, "args": args}
+    return create_tool_call
 
 
-def pytest_collection_modifyitems(config, items):
-    """Tag historical sprint regression files at tests/ root (domain migration backlog)."""
-    legacy = pytest.mark.legacy_sprint
-    for item in items:
-        path = Path(str(item.fspath))
-        if path.name.startswith("test_sprint") and path.parent == _REPO_ROOT / "tests":
-            item.add_marker(legacy)
+@pytest.fixture
+def turn_summary_factory():
+    def create_summary(turn_number: int, intent: str, action: str, result: str, files: List[str] = None) -> dict[str, Any]:
+        return {
+            "turn_number": turn_number,
+            "user_intent": intent,
+            "assistant_action": action,
+            "result_summary": result,
+            "files_touched": files or [],
+        }
+    return create_summary

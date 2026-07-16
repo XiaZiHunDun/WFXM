@@ -1,7 +1,7 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-07-14 18:00_
-_last_shift: 2026-07-14-claude-code-004_
+_last_synced: 2026-07-16 16:00_
+_last_shift: 2026-07-16-claude-code-001_
 
 ## 进行中
 （暂无）
@@ -32,13 +32,25 @@ _last_shift: 2026-07-14-claude-code-004_
   - `butler exec` smoke rc=0 仅证 LLM provider 路径可达
   - 报告 `docs/plans/pilot-reports/pilot-report-G3-2026-07-14-001.md`；决策文档追加 G3 progress 段；pilot-log §G2-08 补 G3 首批行
   - opt-in off 复位（`state: off` / `BUTLER_CODING_STRICT=0` default）
+- **G3-002 循环导入修复 + 工程完善**（2026-07-15 09:00–10:00）
+  - 修复 `butler.memory.diagnostics` ↔ `butler.session.memory_prefetch` 循环导入：将 `memory_prefetch.py` 第 31 行顶层导入改为函数内延迟导入
+  - 验证：`_tool_delegate_task` 可在 fresh-python env 正常导入
+  - 工作区卫生：`.claude/worktrees/` 和 `interview-明天演示.md` 添加至 .gitignore；`.butler/todos.json` 为项目级文件，根目录不需要
+  - 快速门禁测试全部通过（smoke 139/139, attach 12/12, CC harness 109, P0-A 788, P0-B 19, P1-C 430）
+  - mypy 严格模式仅 1 个无关错误；层依赖矩阵 1237/1238 通过（1 个预先存在的 L3→L9 违规）
+- **Agent Loop 主要流程优化（P0-P2）**（2026-07-16 09:00–16:00）
+  - **P0**: 智能工具选择集成 + 工具执行优化（缓存/去重/监控）
+  - **P1**: 预回合经验注入 + 对话结束经验写入
+  - **P2**: 语义感知上下文压缩（关键词提取 + 语义保护）
+  - 验证：工具缓存 call_count=1、经验读写正常、语义保护 middle从8→0
+  - 新增诊断指标：`experience_injected`、`experience_written`、`semantic_protection_keywords`
 
 ## 最近 5 个班次
+- 2026-07-16-claude-code-001: Agent Loop 主要流程优化（P0-P2）完成 — 智能工具选择、经验注入/写入、语义感知上下文压缩
+- 2026-07-15-claude-code-001: G3-002 循环导入修复 + 工程完善 — 修 diagnostics↔memory_prefetch 循环导入 + 工作区卫生 + 快速门禁全部通过
 - 2026-07-14-claude-code-004: G3 首批 multi-category 累计 — 修 runner 2 bug + 3/3 MATCH 100% + 0 false positive
 - 2026-07-14-claude-code-003: G2-08 BUTLER_CODING_STRICT 默认升级决策 — DEFER 至 G3 1-2 周观察窗口
 - 2026-07-14-claude-code-002: G2-08 Phase B 真 pilot — rewrite runner 走 4-gate chain → MATCH 100% 2/2
-- 2026-07-14-claude-code-001: G2-08 CA4 strict pilot opt-in + 基础设施实证 — spec→plan→6 阶段→11/11 测试→caveat 路径收口
-- 2026-07-13-claude-code-003: P1 #4 content vs dev 委派边界硬化 — spec→plan→TDD→hook→10 单测→smoke→loader 扩→配置收口
 
 ## 后续任务建议（用户主导）
 
@@ -53,9 +65,9 @@ _last_shift: 2026-07-14-claude-code-004_
 - 14 份 `plans/active/` 持续规划文档 — 多数为对照/收口挂载点，等主线触发
 
 ### 工作区卫生（提醒）
-- `.claude/` 未跟踪未提交
-- `projects/LingWen1/docs/interview-明天演示.md` 未跟踪未提交
-- `.butler/todos.json` 引用但当前不存在，需用户口径确认
+- `.claude/worktrees/` 已添加至 .gitignore
+- `projects/LingWen1/docs/interview-明天演示.md` 已添加至 .gitignore
+- `.butler/todos.json` 为项目级文件，位于各项目目录下（如 `projects/LingWen1/.butler/todos.json`），根目录不需要
 
 ### 下次会话
 按 README §会话开始：读 state.md + 最新 shift 卡 → 接活。

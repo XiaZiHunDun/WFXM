@@ -203,6 +203,9 @@ def _register_builtin_tools() -> None:
     register_multimodal_tools(register)
     register_config_tools(register)
 
+    from butler.tools.conversation_state_tools import register_conversation_state_tools
+    register_conversation_state_tools(register)
+
     if opencode_enabled():
         _register_opencode_tool()
 

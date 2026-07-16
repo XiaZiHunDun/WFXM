@@ -45,7 +45,14 @@ def _split_for_compaction(
     min_tail_messages: int,
     max_output_tokens: int | None,
     diagnostics: dict[str, Any] | None,
+    protected_keywords: list[str] | None = None,
 ) -> _CompactionSplit:
+    from functools import partial
+
+    legacy_split_fn_with_keywords = partial(
+        _split_head_tail, protect_keywords=protected_keywords
+    )
+
     turn_split = split_for_compaction_turn(
         pruned,
         max_tokens=max_tokens,
@@ -55,7 +62,7 @@ def _split_for_compaction(
         max_output_tokens=max_output_tokens,
         diagnostics=diagnostics,
         estimate_fn=_estimate_tokens,
-        legacy_split_fn=_split_head_tail,
+        legacy_split_fn=legacy_split_fn_with_keywords,
         write_diagnostics_fn=_write_compaction_diagnostics,
     )
     if turn_split is not None:
@@ -68,7 +75,7 @@ def _split_for_compaction(
             head_count=head_count,
             max_tail_messages=max_tail_messages,
             min_tail_messages=min_tail_messages,
-            legacy_split_fn=_split_head_tail,
+            legacy_split_fn=legacy_split_fn_with_keywords,
             write_diagnostics_fn=_write_compaction_diagnostics,
         ),
     )
@@ -88,8 +95,14 @@ def run_compress_messages(
     max_output_tokens: int | None = None,
     initial_injection: Any = None,
     diagnostics: dict[str, Any] | None = None,
+    protected_keywords: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], str, bool]:
-    """Compress messages if over threshold. Returns (messages, summary, did_compress)."""
+    """Compress messages if over threshold. Returns (messages, summary, did_compress).
+
+    Args:
+        protected_keywords: List of keywords that, if found in middle messages,
+            will protect those messages from summarization.
+    """
     estimated = _estimate_tokens(messages)
     threshold = int(max_tokens * threshold_ratio)
     if estimated <= threshold or len(messages) < min_messages_to_compress:
@@ -113,6 +126,7 @@ def run_compress_messages(
         min_tail_messages=min_tail_messages,
         max_output_tokens=max_output_tokens,
         diagnostics=diagnostics,
+        protected_keywords=protected_keywords,
     )
 
     if not middle:

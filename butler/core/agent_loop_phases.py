@@ -825,10 +825,35 @@ def _phase_enrich_user_text(
         skill_pt, tools = _prepare_skill_tool_context(
             loop, user_content, steer_session, turn_tools,
         )
+
+        # ── Smart Tool Recommendation (Experience-based) ──
+        def _add_experience_recommendations() -> set[str]:
+            try:
+                from butler.tools.tool_service import recommend_tools
+
+                recommended = recommend_tools(user_content, top_k=10)
+                recommended_names = {
+                    rec["tool_name"] for rec in recommended if rec["score"] > 0.3
+                }
+                if recommended_names:
+                    loop.diagnostics["experience_recommended_tools"] = len(recommended_names)
+                return recommended_names
+            except Exception as e:
+                loop._record_skipped_plugin("tool_service_recommend", e)
+                return set()
+
+        exp_recommended = safe_best_effort(
+            _add_experience_recommendations,
+            label="agent_loop.experience_tool_recommend",
+            default=set(),
+        )
+
+        combined_preferred = (skill_pt or set()) | exp_recommended
+
         selected, sel_diag = select_tools_for_context(
             tools,
             user_hint=user_content,
-            skill_preferred_tools=skill_pt or None,
+            skill_preferred_tools=combined_preferred or None,
         )
         for key, val in sel_diag.items():
             loop.diagnostics[key] = val

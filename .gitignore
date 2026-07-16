@@ -116,3 +116,5 @@ htmlcov/
 MagicMock/
 # Accidental pytest mock path leaks at repo root
 <MagicMock*
+.claude/worktrees/
+projects/LingWen1/docs/interview-明天演示.md

@@ -214,6 +214,7 @@ def dispatch_tool(name: str, args: dict[str, Any]) -> str:
     """Dispatch a tool call by name. Returns result as string."""
     _ensure_builtins()
     started_at = time.monotonic()
+
     blocked = network_search_gate(
         name,
         args,
