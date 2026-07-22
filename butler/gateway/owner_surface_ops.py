@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import yaml  # type: ignore[import-untyped]
 from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.ops.butler_inbox_ops import project_todos_info_safe
+from butler.ops.degradation_registry import refresh_degradations_for_owner_brief
+from butler.resilience.durable_outbox import outbox_counts
+from butler.runtime.task_store import list_recent_tasks
 
 
 def pending_delegate_line_safe(session_key: str) -> str:
     def _run() -> str:
-        from butler.runtime.task_store import list_recent_tasks
-
         for row in list_recent_tasks(session_key, limit=5):
             status = str(row.get("status") or "")
             if status not in ("running", "pending", "queued"):
@@ -29,8 +32,6 @@ def pending_delegate_line_safe(session_key: str) -> str:
 
 def project_todos_brief_safe(ws: Path) -> str | None:
     def _run() -> str | None:
-        from butler.ops.butler_inbox_ops import project_todos_info_safe
-
         open_n, samples = project_todos_info_safe(ws)
         if open_n:
             sample = samples[0] if samples else ""
@@ -48,7 +49,6 @@ def outbound_brief_line_safe(*, session_key: str = "", chat_id: str = "") -> str
             completion_push_stats,
             push_queue_pending_count,
         )
-        from butler.gateway.durable_outbox import outbox_counts
         from butler.gateway.owner_surface import _health_icon
 
         key = str(chat_id or session_key or "").strip()
@@ -88,7 +88,6 @@ def degradation_brief_line_safe(
 ) -> str | None:
     def _run() -> str | None:
         from butler.gateway.owner_surface import _health_icon
-        from butler.ops.degradation_registry import refresh_degradations_for_owner_brief
 
         body = refresh_degradations_for_owner_brief(
             orchestrator,
@@ -105,8 +104,6 @@ def degradation_brief_line_safe(
 
 def runtime_jobs_lines_safe(workspace: Path) -> list[str]:
     def _run() -> list[str]:
-        import yaml  # type: ignore[import-untyped]
-
         jobs_path = workspace / "runtime" / "jobs.yaml"
         if not jobs_path.is_file():
             return []

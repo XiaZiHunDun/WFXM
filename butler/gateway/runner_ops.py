@@ -9,11 +9,11 @@ from typing import Any
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
 from butler.skills.similarity import _ensure_jieba
 from butler.ops.degradation_registry import sync_all_startup_degradations
-from butler.gateway.message_queue import restore_persisted_queue
+from butler.resilience.message_queue import restore_persisted_queue
 from butler.mcp.async_runner import graceful_shutdown_mcp_stack
 from butler.memory.semantic_index import close_all_semantic_indices
 from butler.tools.reminder import poll_due_reminders
-from butler.gateway.durable_outbox import (
+from butler.resilience.durable_outbox import (
     durable_outbox_enabled,
     enqueue_outbox_message,
     list_pending_outbox,

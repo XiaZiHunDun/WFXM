@@ -16,6 +16,7 @@ import time
 from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.effects import with_retry
 from butler.tools.registry_gates import (
     apply_post_tool_hooks,
     dispatch_mcp_if_applicable,
@@ -33,6 +34,7 @@ from butler.tools.registry_gates import (
     project_permission_block,
     session_read_recall_block,
 )
+from butler.tools.registry_invoke_ops import call_tool_with_retry
 from butler.tools.tool_audit import (  # noqa: F401
     _finalize_tool_result,
     _maybe_record_tool_observation,
@@ -186,7 +188,20 @@ def _dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str:
             started_at=started_at,
         )
 
-    result = dispatch_mcp_tool(name, args)
+    try:
+        result = call_tool_with_retry(name, lambda: dispatch_mcp_tool(name, args))
+    except Exception as exc:
+        logger.error("MCP tool %s failed: %s", name, exc)
+        return cast(
+            str,
+            _finalize_tool_result(
+                name,
+                args,
+                {"error": f"MCP tool failed: {exc}"},
+                started_at=started_at,
+            ),
+        )
+
     if result is None:
         return cast(
             str,

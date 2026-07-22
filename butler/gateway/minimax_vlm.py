@@ -10,6 +10,19 @@ from typing import cast
 
 import requests
 
+from butler.configuration.gateway import (
+    resolve_gateway_inbound_config,
+    vision_api_host,
+    vision_endpoint_path,
+)
+from butler.defaults.model_defaults import GATEWAY_VISION_PROVIDER
+from butler.gateway.media_telemetry import record_media_event
+from butler.gateway.minimax_vlm_ops import (
+    describe_minimax_primary_safe,
+    describe_with_fallbacks_safe,
+)
+from butler.gateway.vision_fallback import describe_image_with_fallbacks
+
 _VISION_PROMPT = (
     "你是微信助手的前置视觉模块。请用中文简要说明图片内容；"
     "若像截图或文档则优先提取可见文字（OCR）。控制在 200 字以内。"
@@ -19,8 +32,6 @@ _VISION_PROMPT = (
 
 def _api_host() -> str:
     """Align with main Butler LLM (``MINIMAX_BASE_URL``), not a separate global host."""
-    from butler.gateway_settings import vision_api_host
-
     return cast(str, vision_api_host())
 
 
@@ -55,8 +66,6 @@ def _describe_minimax(path: str, *, caption: str = "", timeout: float) -> str:
         "prompt": prompt,
         "image_url": _image_to_data_url(Path(path)),
     }
-    from butler.gateway_settings import vision_endpoint_path
-
     url = f"{_api_host()}/v1/{vision_endpoint_path()}"
     resp = requests.post(
         url,
@@ -83,16 +92,8 @@ def _describe_minimax(path: str, *, caption: str = "", timeout: float) -> str:
 
 def describe_image(path: str, *, caption: str = "", timeout: float | None = None) -> str:
     """MiniMax VLM, then optional OpenAI/OCR fallbacks. Records telemetry."""
-    from butler.gateway.media_telemetry import record_media_event
-    from butler.defaults.model_defaults import GATEWAY_VISION_PROVIDER
-    from butler.gateway_settings import resolve_gateway_inbound_config
-
     to = timeout if timeout is not None else resolve_gateway_inbound_config().vision.timeout_seconds
     t0 = time.monotonic()
-    from butler.gateway.minimax_vlm_ops import (
-        describe_minimax_primary_safe,
-        describe_with_fallbacks_safe,
-    )
 
     text, primary_exc = describe_minimax_primary_safe(
         lambda: _describe_minimax(path, caption=caption, timeout=to),
@@ -106,8 +107,6 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
             duration_ms=(time.monotonic() - t0) * 1000,
         )
         return cast(str, text)
-
-    from butler.gateway.vision_fallback import describe_image_with_fallbacks
 
     fallback_text, provider, fallback_exc = describe_with_fallbacks_safe(
         lambda: describe_image_with_fallbacks(

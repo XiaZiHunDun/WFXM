@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def outbox_diagnostic_lines_safe(chat_id: str) -> list[str]:
     def _run() -> list[str]:
-        from butler.gateway.durable_outbox import outbox_counts
+        from butler.resilience.durable_outbox import outbox_counts
 
         counts = outbox_counts(chat_id=chat_id)
         if not any(counts.values()):

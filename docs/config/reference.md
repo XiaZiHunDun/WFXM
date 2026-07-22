@@ -303,6 +303,11 @@
 | `GITHUB_TOKEN` | — | GitHub API（技能拉取；EXT-4 OpenAPI MCP 只读 PAT） |
 | `BUTLER_SESSION_TRANSCRIPT` | 1 | `~/.butler/sessions/<key>/transcript.jsonl`；含 compact / `bot_loop_suppressed` 等事件 |
 | `BUTLER_SESSION_TRANSCRIPT_MAX_BYTES` | 52428800 | transcript 轮转阈值 |
+| `BUTLER_CONVERSATION_STATE_PERSIST` | 1 | `0` 关闭会话状态持久化（测试用） |
+| `BUTLER_ACTIVE_PROJECT` | — | 当前活跃项目名（子进程注入） |
+| `BUTLER_AGENT_ROLE` | — | Agent 角色标识（子进程注入） |
+| `BUTLER_BIN` | — | Butler 二进制文件路径 |
+| `BUTLER_TOOLS` | — | 工具集配置（运行时投影） |
 | `BUTLER_REASONING_TRACE` | 1 | `0` 关闭 transcript `reasoning_step` / `reflect_step` 与 `/诊断` 推理摘要行 |
 | `BUTLER_REASONING_DIAG_SCAN_LINES` | 2000 | `/诊断` 扫描最近 N 行 transcript 取最近推理/反思（避免 tail=80 被淹没） |
 | `BUTLER_PLAN_REASON_GRAPH` | 1 | `0` 关闭规划模式 DoT-lite 图（`~/.butler/sessions/<key>/reason_graph.json`） |
@@ -434,6 +439,7 @@
 | `BUTLER_OUTBOUND_BLOCK_DELAY_MS` | 0 | 微信多分块出站随机间隔（未设则用 `WECHAT_SEND_CHUNK_DELAY_SECONDS`） |
 | `BUTLER_TRANSCRIPT_INDEX_MIN_BYTES` | 262144 | transcript 大于此值启用尾索引 |
 | `BUTLER_HOOK_FAIL_CLOSED` | 0 | `1` 时 PreToolUse 非 0 退出即阻断工具 |
+| `BUTLER_DATA_DIR` | `./data` | 数据存储根目录，用于 EventStore 等持久化模块 |
 
 > **Hook 子进程运行时注入**（非用户配置）：`BUTLER_HOOK_EVENT` / `BUTLER_HOOK_INPUT` / `BUTLER_HOOK_TOOL` 由 `hooks/runner.py` 注入子进程，勿写入 `.env`。
 
@@ -523,6 +529,7 @@
 | `BUTLER_TASK_STALE_AUTO_FAIL` | 0 | 是否自动将 stale 任务标为 failed |
 | `BUTLER_TOOL_MASK_ENABLED` | 1 | 统一 tool output masking（Gemini 子集） |
 | `BUTLER_TOOL_MASK_PROTECT_TOKENS` | 50000 | masking 保护最近 tool token 预算 |
+| `BUTLER_TOOL_PROJECT_ANCHOR` | 1 | project 模式下相对路径锚定到项目工作空间 |
 | `BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET` | 50000 | 压缩摘要前 tool 消息 token 硬截断 |
 | `BUTLER_IO_GUARDRAIL` | 1 | 入站明文密钥/过长消息检测 |
 | `BUTLER_IO_GUARDRAIL_BLOCK` | 0 | 检测到 tripwire 时是否拦截（否则仅记录） |

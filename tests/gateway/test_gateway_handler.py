@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.core.agent_loop import LoopResult, LoopStatus
 from butler.core.loop_types import LoopConfig
 from butler.execution_context import use_execution_context
@@ -54,6 +54,9 @@ def handler(tmp_path, monkeypatch, tmp_butler_home):
     empty_projects = tmp_path / "empty-projects"
     empty_projects.mkdir()
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(empty_projects))
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+    # 关闭首次欢迎前缀，避免 _WELCOMED_SESSIONS 模块级集合导致测试互相依赖
+    monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "0")
     # Sprint 17 SEC-11 owner-gate completion: 多数 registry handler 现在有 owner gate.
     # 这些 integration 测试不验证 owner gate (有 test_sprint11_sec* 专门覆盖),
     # 走 BUTLER_PROJECT_CREATE_OPEN=1 dev 旁路, 避免每个测试都伪造 owner 身份.
@@ -366,7 +369,7 @@ class TestSlashCommands:
         handler._sessions["default"] = mock_loop
         handler._health_by_session["default"] = {"stale": True}
         with patch(
-            "butler.session.post_session_ops.trigger_session_end",
+            "butler.session.new_session.trigger_session_end",
             return_value={"memory_updates": 1, "skills_extracted": 0},
         ):
             text = handler._handle_command("/new")
@@ -386,7 +389,7 @@ class TestSlashCommands:
         handler._health_by_session["b"] = {"keep": "b"}
 
         with patch(
-            "butler.session.post_session_ops.trigger_session_end",
+            "butler.session.new_session.trigger_session_end",
             return_value={"skipped": True, "reason": "short_history"},
         ) as finalize:
             text = handler.handle_message("/new", session_key="a")
@@ -491,6 +494,7 @@ class TestSlashCommands:
         assert handler._handle_command("/unknowncmd") is None
 
     def test_sessionless_commands_are_detected(self):
+        import butler.gateway.commands  # noqa: F401 — 注册 handler
         assert _is_sessionless_command("/switch test-project") is True
         assert _is_sessionless_command("/模型 butler minimax/test") is True
         assert _is_sessionless_command("/批准") is True
@@ -531,7 +535,8 @@ class TestSlashCommands:
                 text = handler.handle_message("/unknowncmd", session_key="s1")
 
         assert text == "assistant reply"
-        assert mock_loop.run.call_args.args[0] == "/unknowncmd"
+        # Skill injection may prepend "## 相关知识（Butler Skill）..." context
+        assert mock_loop.run.call_args.args[0].endswith("/unknowncmd")
 
 
 @pytest.mark.integration
@@ -540,9 +545,9 @@ class TestHandleMessage:
         mock_loop.hygiene_compress_if_needed.return_value = True
         mock_loop.run.return_value.diagnostics = {"schema_recovered": True}
         with patch.object(handler, "_get_or_create_loop", return_value=mock_loop):
-            with patch("butler.gateway.locked_phases.attach_turn_memory_prefetch") as prefetch:
+            with patch("butler.gateway.locked_phases.validation_phase.attach_turn_memory_prefetch") as prefetch:
                 with patch(
-                    "butler.gateway.locked_phases.sync_turn_memory",
+                    "butler.gateway.locked_phases.finalize_phase.sync_turn_memory",
                     return_value={"skipped": False, "provider_synced": True},
                 ) as sync:
                     text = handler.handle_message("hello", session_key="s1")

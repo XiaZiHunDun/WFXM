@@ -7,10 +7,26 @@ import os
 from pathlib import Path
 from typing import Any, Callable
 
-from butler.config import get_butler_settings
+from butler.configuration.settings import get_butler_settings
+from butler.project.archetypes import (
+    ensure_experiment_skeleton,
+    ensure_memory_skeleton,
+    ensure_runtime_jobs_skeleton,
+    load_template,
+    validate_slug,
+    write_project_yaml,
+)
 from butler.project.model import Project
-from butler.session.keys import project_from_session_key
 from butler.project.policy_env import bind_default_project_enabled
+from butler.project.manager_ops import (
+    chat_project_from_session_key_safe,
+    current_session_key_safe,
+    invoke_switch_callbacks_safe,
+    load_project_yaml_safe,
+)
+from butler.session.keys import project_from_session_key
+
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +55,6 @@ class ProjectManager:
             projects_dir if projects_dir is not None else settings.projects_dir
         )
         self.projects_dir = self.projects_dir.expanduser().resolve()
-        import threading
-
         self._lock = threading.RLock()
         self._projects: dict[str, Project] = {}
         self.current_project: str = ""
@@ -67,8 +81,6 @@ class ProjectManager:
             config = item / "project.yaml"
             if not config.exists():
                 continue
-            from butler.project.manager_ops import load_project_yaml_safe
-
             proj = load_project_yaml_safe(config)
             if proj is None:
                 continue
@@ -166,8 +178,6 @@ class ProjectManager:
         with self._lock:
             old = self.current_project
             self.current_project = matched
-        from butler.project.manager_ops import invoke_switch_callbacks_safe
-
         invoke_switch_callbacks_safe(self._on_switch_callbacks, old, matched)
         return True
 
@@ -180,8 +190,6 @@ class ProjectManager:
         with self._lock:
             old = self._chat_project.get(scope, "")
             self._chat_project[scope] = matched
-        from butler.project.manager_ops import invoke_switch_callbacks_safe
-
         invoke_switch_callbacks_safe(self._on_switch_callbacks, old, matched)
         return True
 
@@ -200,8 +208,6 @@ class ProjectManager:
         """Resolve project for CLI (global) or gateway (per-chat map + session key)."""
         key = str(session_key or "").strip()
         if not key:
-            from butler.project.manager_ops import current_session_key_safe
-
             key = current_session_key_safe()
         if key and "::delegate::" in key:
             parent_key = key.split("::delegate::", 1)[0].strip()
@@ -223,8 +229,6 @@ class ProjectManager:
                     return chat_name
         chat_only = ""
         if key:
-            from butler.project.manager_ops import chat_project_from_session_key_safe
-
             chat_only = chat_project_from_session_key_safe(self, key)
         if chat_only:
             return chat_only
@@ -260,15 +264,6 @@ class ProjectManager:
         template: str = "",
         with_runtime: bool = True,
     ) -> Project | None:
-        from butler.project.archetypes import (
-            ensure_experiment_skeleton,
-            ensure_memory_skeleton,
-            ensure_runtime_jobs_skeleton,
-            load_template,
-            validate_slug,
-            write_project_yaml,
-        )
-
         ok, err = validate_slug(slug)
         if not ok:
             raise ValueError(err)
