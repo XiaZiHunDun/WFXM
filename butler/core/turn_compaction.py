@@ -6,13 +6,15 @@ import os
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from butler.env_parse import env_truthy
-
-# OpenCode compaction.ts defaults
-_DEFAULT_TAIL_TURNS = 2
-_MIN_PRESERVE_RECENT = 2_000
-_MAX_PRESERVE_RECENT = 8_000
-_DEFAULT_PRESERVE_RATIO = 0.25
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import (
+    COMPACTION_MAX_PRESERVE_RECENT,
+    COMPACTION_MIN_PRESERVE_RECENT,
+    COMPACTION_PRESERVE_RECENT_RATIO,
+    COMPACTION_SPLIT_TURN_DEFAULT,
+    COMPACTION_TAIL_TURNS,
+    COMPACTION_USE_TURNS_DEFAULT,
+)
 
 _SUMMARY_MARKERS = (
     "[CONTEXT COMPACTION",
@@ -62,17 +64,17 @@ class TurnSpan:
 
 
 def turn_compaction_enabled() -> bool:
-    return bool(env_truthy("BUTLER_COMPACTION_USE_TURNS", default=True))
+    return bool(env_truthy("BUTLER_COMPACTION_USE_TURNS", default=COMPACTION_USE_TURNS_DEFAULT))
 
 
 def tail_turns_limit() -> int:
-    from butler.env_parse import int_env
+    from butler.utilities.env_parse import int_env
 
-    return int(int_env("BUTLER_COMPACTION_TAIL_TURNS", _DEFAULT_TAIL_TURNS, min=0))
+    return int(int_env("BUTLER_COMPACTION_TAIL_TURNS", COMPACTION_TAIL_TURNS, min=0))
 
 
 def split_turn_enabled() -> bool:
-    return bool(env_truthy("BUTLER_COMPACTION_SPLIT_TURN", default=True))
+    return bool(env_truthy("BUTLER_COMPACTION_SPLIT_TURN", default=COMPACTION_SPLIT_TURN_DEFAULT))
 
 
 def preserve_recent_token_budget(
@@ -84,22 +86,22 @@ def preserve_recent_token_budget(
     from butler.core.context_budget import get_effective_context_window
 
     usable = get_effective_context_window(max_context_tokens, max_output_tokens=max_output_tokens)
-    from butler.env_parse import int_env
+    from butler.utilities.env_parse import int_env
 
-    fixed = int_env("BUTLER_COMPACTION_PRESERVE_RECENT_TOKENS", 0)
+    fixed = int_env("BUTLER_COMPACTION_PRESERVE_RECENT_TOKENS", COMPACTION_PRESERVE_RECENT_TOKENS_DEFAULT)
     if fixed > 0:
-        return int(max(_MIN_PRESERVE_RECENT, min(_MAX_PRESERVE_RECENT, fixed)))
+        return int(max(COMPACTION_MIN_PRESERVE_RECENT, min(COMPACTION_MAX_PRESERVE_RECENT, fixed)))
     try:
-        from butler.env_parse import float_env
+        from butler.utilities.env_parse import float_env
 
         ratio = float_env(
             "BUTLER_COMPACTION_PRESERVE_RECENT_RATIO",
-            float(_DEFAULT_PRESERVE_RATIO),
+            float(COMPACTION_PRESERVE_RECENT_RATIO),
         )
     except ValueError:
-        ratio = _DEFAULT_PRESERVE_RATIO
+        ratio = COMPACTION_PRESERVE_RECENT_RATIO
     scaled = int(usable * ratio)
-    return min(_MAX_PRESERVE_RECENT, max(_MIN_PRESERVE_RECENT, scaled))
+    return min(COMPACTION_MAX_PRESERVE_RECENT, max(COMPACTION_MIN_PRESERVE_RECENT, scaled))
 
 
 def is_compaction_summary_message(msg: dict[str, Any]) -> bool:

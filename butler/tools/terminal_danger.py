@@ -33,7 +33,9 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 
 
 def danger_patterns_enabled() -> bool:
-    raw = os.getenv("BUTLER_TERMINAL_DANGER_CHECK", "1").strip().lower()
+    from butler.defaults.env_defaults import TERMINAL_DANGER_CHECK_DEFAULT
+
+    raw = os.getenv("BUTLER_TERMINAL_DANGER_CHECK", str(int(TERMINAL_DANGER_CHECK_DEFAULT))).strip().lower()
     return raw not in ("0", "false", "no", "off")
 
 

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import COMPACTION_INBOUND_BRIDGE_DEFAULT
 
 
 def compaction_inbound_bridge_enabled() -> bool:
-    return bool(env_truthy("BUTLER_COMPACTION_INBOUND_BRIDGE", default=True))
+    return bool(env_truthy("BUTLER_COMPACTION_INBOUND_BRIDGE", default=COMPACTION_INBOUND_BRIDGE_DEFAULT))
 
 
 def apply_compaction_turn_followup(

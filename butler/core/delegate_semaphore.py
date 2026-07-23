@@ -7,21 +7,25 @@ import threading
 from contextlib import contextmanager
 from typing import Iterator
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import (
+    DELEGATE_CONCURRENCY_LIMIT_DEFAULT,
+    DELEGATE_MAX_CONCURRENT,
+)
 
 _LOCK = threading.Lock()
 _SESSION_SLOTS: dict[str, int] = {}
 
 
 def delegate_concurrency_enabled() -> bool:
-    return bool(env_truthy("BUTLER_DELEGATE_CONCURRENCY_LIMIT", default=True))
+    return bool(env_truthy("BUTLER_DELEGATE_CONCURRENCY_LIMIT", default=DELEGATE_CONCURRENCY_LIMIT_DEFAULT))
 
 
 def max_concurrent_delegates() -> int:
     try:
-        return max(1, int(int_env("BUTLER_DELEGATE_MAX_CONCURRENT", 2)))
+        return max(1, int(int_env("BUTLER_DELEGATE_MAX_CONCURRENT", DELEGATE_MAX_CONCURRENT)))
     except ValueError:
-        return 2
+        return DELEGATE_MAX_CONCURRENT
 
 
 def _slot_key(session_key: str) -> str:

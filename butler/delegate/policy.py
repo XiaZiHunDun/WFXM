@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import (
+    DELEGATE_ONE_TOOL_PER_ITERATION_DEFAULT,
+    DELEGATE_MAX_ITERATIONS,
+)
 
 DELEGATE_BLOCKED_TOOLS = frozenset({
     "delegate_task",
@@ -16,7 +20,7 @@ MAX_DELEGATE_DEPTH = 2
 
 def delegate_one_tool_per_iteration() -> bool:
     """Manus-style single tool call per delegate iteration (default off — slower reads)."""
-    return bool(env_truthy("BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION", default=False))
+    return bool(env_truthy("BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION", default=DELEGATE_ONE_TOOL_PER_ITERATION_DEFAULT))
 
 
 def resolve_delegate_max_iterations(category_meta: dict[str, Any] | None = None) -> int:
@@ -29,9 +33,9 @@ def resolve_delegate_max_iterations(category_meta: dict[str, Any] | None = None)
         except (TypeError, ValueError):
             pass
     try:
-        base = int_env("BUTLER_DELEGATE_MAX_ITERATIONS", 24, min=1, max=200)
+        base = int_env("BUTLER_DELEGATE_MAX_ITERATIONS", DELEGATE_MAX_ITERATIONS, min=1, max=200)
     except ValueError:
-        base = 24
+        base = DELEGATE_MAX_ITERATIONS
     from butler.delegate.policy_ops import effective_delegate_max_iterations_safe
 
     return int(effective_delegate_max_iterations_safe(base))

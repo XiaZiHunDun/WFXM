@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import os
 
+from butler.defaults.env_defaults import (
+    COMPACTION_PREFLIGHT_CHECKLIST_DEFAULT,
+    COMPACTION_USE_HERMES_TEMPLATE_DEFAULT,
+    COMPACTION_USE_OPENCODE_TEMPLATE_DEFAULT,
+)
+
 # Mirrors OpenCode SUMMARY_TEMPLATE section order (without <template> wrapper).
 IDENTIFIER_PRESERVATION = """
 Preserve verbatim when present: URLs, file paths, hostnames, task_id, session_key, child_session_key,
@@ -59,19 +65,19 @@ Do not mention compaction.
 
 
 def use_opencode_compaction_template() -> bool:
-    flag = os.getenv("BUTLER_COMPACTION_USE_OPENCODE_TEMPLATE", "1").strip().lower()
+    flag = os.getenv("BUTLER_COMPACTION_USE_OPENCODE_TEMPLATE", str(int(COMPACTION_USE_OPENCODE_TEMPLATE_DEFAULT))).strip().lower()
     return flag not in ("0", "false", "no", "off")
 
 
 def use_hermes_compaction_template() -> bool:
-    flag = os.getenv("BUTLER_COMPACTION_USE_HERMES_TEMPLATE", "0").strip().lower()
+    flag = os.getenv("BUTLER_COMPACTION_USE_HERMES_TEMPLATE", str(int(COMPACTION_USE_HERMES_TEMPLATE_DEFAULT))).strip().lower()
     return flag in ("1", "true", "yes", "on")
 
 
 def compaction_preflight_checklist_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
-    return bool(env_truthy("BUTLER_COMPACTION_PREFLIGHT_CHECKLIST", default=True))
+    return bool(env_truthy("BUTLER_COMPACTION_PREFLIGHT_CHECKLIST", default=COMPACTION_PREFLIGHT_CHECKLIST_DEFAULT))
 
 
 PREFLIGHT_CHECKLIST_APPENDIX = """

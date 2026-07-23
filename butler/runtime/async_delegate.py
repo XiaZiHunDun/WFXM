@@ -6,8 +6,9 @@ import logging
 import threading
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.runtime.delegate_job_types import DelegateJob, DelegatePushTarget
+from butler.defaults.env_defaults import DELEGATE_ASYNC_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ _LOCK = threading.Lock()
 
 
 def delegate_async_enabled() -> bool:
-    return bool(env_truthy("BUTLER_DELEGATE_ASYNC", default=True))
+    return bool(env_truthy("BUTLER_DELEGATE_ASYNC", default=DELEGATE_ASYNC_DEFAULT))
 
 
 def should_delegate_async(

@@ -281,7 +281,9 @@ def tool_safe_root() -> Path:
 
 
 def _pipe_mode_enabled() -> bool:
-    return os.getenv("BUTLER_TERMINAL_PIPE", "").strip() == "1"
+    from butler.defaults.env_defaults import TERMINAL_PIPE_DEFAULT
+
+    return os.getenv("BUTLER_TERMINAL_PIPE", str(int(TERMINAL_PIPE_DEFAULT))).strip() == "1"
 
 
 _PIPE_SAFE_COMMANDS = frozenset({

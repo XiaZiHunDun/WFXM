@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import (
+    COMPACTION_EXPLICIT_TURN_DEFAULT,
+    COMPACTION_TURN_MIN_MSGS,
+)
 
 
 def explicit_compaction_turn_enabled() -> bool:
-    return bool(env_truthy("BUTLER_COMPACTION_EXPLICIT_TURN", default=True))
+    return bool(env_truthy("BUTLER_COMPACTION_EXPLICIT_TURN", default=COMPACTION_EXPLICIT_TURN_DEFAULT))
 
 
 def should_run_compaction_turn(
@@ -93,7 +97,7 @@ def run_compaction_turn(
     compressed = compress(
         list(messages),
         threshold_ratio=0.0,
-        min_messages_to_compress=int_env("BUTLER_COMPACTION_TURN_MIN_MSGS", 8, min=6),
+        min_messages_to_compress=int_env("BUTLER_COMPACTION_TURN_MIN_MSGS", COMPACTION_TURN_MIN_MSGS, min=6),
         diagnostics=diag,
     )
     after_est = estimate_tokens_safe(compressed)

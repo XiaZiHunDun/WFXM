@@ -11,8 +11,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.tools.butlerignore import credential_mask_paths
+from butler.defaults.env_defaults import (
+    TERMINAL_SANDBOX_DEFAULT,
+    TERMINAL_SANDBOX_NETWORK_ALLOWLIST_DEFAULT,
+    TERMINAL_SANDBOX_FAIL_UNAVAILABLE_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,16 +73,16 @@ class SandboxFailure:
 
 
 def terminal_sandbox_enabled() -> bool:
-    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX", default=False))
+    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX", default=TERMINAL_SANDBOX_DEFAULT))
 
 
 def sandbox_network_allowlist_mode() -> bool:
     """When true and sandbox.json has network allow entries, skip full net unshare."""
-    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX_NETWORK_ALLOWLIST", default=False))
+    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX_NETWORK_ALLOWLIST", default=TERMINAL_SANDBOX_NETWORK_ALLOWLIST_DEFAULT))
 
 
 def sandbox_fail_if_unavailable() -> bool:
-    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE", default=False))
+    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE", default=TERMINAL_SANDBOX_FAIL_UNAVAILABLE_DEFAULT))
 
 
 def bubblewrap_path() -> str | None:
@@ -93,7 +98,7 @@ def sandbox_runtime_available() -> bool:
 
 
 def _butler_home() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home())
 

@@ -6,7 +6,11 @@ import json
 import os
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import (
+    TURN_SUMMARY_LINE_DEFAULT,
+    TURN_SUMMARY_MIN_CHARS,
+)
 
 _READ_TOOLS = frozenset({"read_file"})
 _LOCAL_SEARCH_TOOLS = frozenset({"grep", "search_files", "glob"})
@@ -25,14 +29,14 @@ def _is_network_search_tool(tool: str) -> bool:
 
 
 def turn_summary_enabled() -> bool:
-    return bool(env_truthy("BUTLER_TURN_SUMMARY_LINE", default=True))
+    return bool(env_truthy("BUTLER_TURN_SUMMARY_LINE", default=TURN_SUMMARY_LINE_DEFAULT))
 
 
 def turn_summary_min_out_chars() -> int:
     try:
-        return max(0, int(os.getenv("BUTLER_TURN_SUMMARY_MIN_CHARS", "400")))
+        return max(0, int(os.getenv("BUTLER_TURN_SUMMARY_MIN_CHARS", str(TURN_SUMMARY_MIN_CHARS))))
     except ValueError:
-        return 400
+        return TURN_SUMMARY_MIN_CHARS
 
 
 def _parse_args(raw: str) -> dict[str, Any]:

@@ -7,19 +7,23 @@ import time
 from pathlib import Path
 from typing import cast
 
-from butler.env_parse import env_truthy, float_env
+from butler.utilities.env_parse import env_truthy, float_env
 from butler.permissions.approvals import approvals_path
+from butler.defaults.env_defaults import (
+    TERMINAL_SMART_APPROVE_DEFAULT,
+    TERMINAL_PATTERN_APPROVE_TTL,
+)
 
 
 def smart_pattern_approve_enabled() -> bool:
-    return bool(env_truthy("BUTLER_TERMINAL_SMART_APPROVE", default=True))
+    return bool(env_truthy("BUTLER_TERMINAL_SMART_APPROVE", default=TERMINAL_SMART_APPROVE_DEFAULT))
 
 
 def _ttl_seconds() -> float:
     try:
-        return float(float_env("BUTLER_TERMINAL_PATTERN_APPROVE_TTL", 86400, min=300.0))
+        return float(float_env("BUTLER_TERMINAL_PATTERN_APPROVE_TTL", TERMINAL_PATTERN_APPROVE_TTL, min=300.0))
     except ValueError:
-        return 86400.0
+        return TERMINAL_PATTERN_APPROVE_TTL
 
 
 def _patterns_path(session_key: str) -> Path:
@@ -30,7 +34,7 @@ def _patterns_path(session_key: str) -> Path:
 def _legacy_patterns_path(session_key: str) -> Path:
     import hashlib
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     digest = hashlib.sha256(str(session_key or "default").encode("utf-8")).hexdigest()[:16]
     return Path(get_butler_home()) / "exec_approvals" / "patterns" / f"{digest}.json"

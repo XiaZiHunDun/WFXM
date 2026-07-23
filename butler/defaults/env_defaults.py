@@ -23,6 +23,7 @@ GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS: Final[float] = 90.0
 GATEWAY_MAX_SUPPLEMENTARY_PER_TURN: Final[int] = 2
 
 # --- Provider circuit breaker ---
+PROVIDER_CIRCUIT_DEFAULT: Final[bool] = True
 PROVIDER_CIRCUIT_FAILURES: Final[int] = 3
 PROVIDER_CIRCUIT_OPEN_SECONDS: Final[float] = 120.0
 
@@ -30,6 +31,12 @@ PROVIDER_CIRCUIT_OPEN_SECONDS: Final[float] = 120.0
 TURN_BUDGET_DEFAULT: Final[int] = 500_000
 TURN_BUDGET_MAX_ITERATIONS: Final[int] = 60
 TURN_BUDGET_MIN_ITERATIONS: Final[int] = 30
+TURN_BUDGET_MAX_CONTINUATIONS: Final[int] = 3
+TURN_BUDGET_MIN_DELTA: Final[int] = 500
+
+# --- Turn summary line (turn_summary_line.py) ---
+TURN_SUMMARY_LINE_DEFAULT: Final[bool] = True
+TURN_SUMMARY_MIN_CHARS: Final[int] = 400
 
 # --- Tool output prune ---
 TOOL_PRUNE_KEEP_RECENT: Final[int] = 4
@@ -38,6 +45,10 @@ TOOL_PRUNE_PII_CHARS: Final[int] = 200
 TOOL_PRUNE_CLEARABLE_CHARS: Final[int] = 400
 TOOL_PRUNE_PRESERVE_CHARS: Final[int] = 2400
 TOOL_PRUNE_DEFAULT_CHARS: Final[int] = 800
+
+# --- Tool output masking ---
+TOOL_MASK_PROTECT_TOKENS: Final[int] = 50_000
+TOOL_MASK_MIN_PRUNABLE: Final[int] = 30_000
 
 # --- Instruction walkup (read_file → AGENTS.md) ---
 INSTRUCTION_WALKUP_MAX_CHARS: Final[int] = 4000
@@ -58,6 +69,40 @@ GATEWAY_DELEGATE_COMPLETION_MAX_EACH: Final[int] = 3
 
 # --- Memory observation store ---
 OBSERVATION_TTL_DAYS: Final[int] = 90
+
+# --- Delegate policy (delegate/policy.py, delegate_semaphore.py) ---
+DELEGATE_ASYNC_DEFAULT: Final[bool] = True
+DELEGATE_CONCURRENCY_LIMIT_DEFAULT: Final[bool] = True
+DELEGATE_MAX_CONCURRENT: Final[int] = 2
+DELEGATE_MAX_ITERATIONS: Final[int] = 24
+DELEGATE_ONE_TOOL_PER_ITERATION_DEFAULT: Final[bool] = False
+DELEGATE_SUMMARY_MAX_CHARS: Final[int] = 4000
+DELEGATE_SUMMARY_RESERVE_RATIO: Final[float] = 0.0
+
+# --- Compaction (turn_compaction.py, compaction_task.py, compaction_prompt.py) ---
+COMPACTION_EXPLICIT_TURN_DEFAULT: Final[bool] = True
+COMPACTION_INBOUND_BRIDGE_DEFAULT: Final[bool] = True
+COMPACTION_PREFLIGHT_CHECKLIST_DEFAULT: Final[bool] = True
+COMPACTION_PRESERVE_RECENT_RATIO: Final[float] = 0.25
+COMPACTION_PRESERVE_RECENT_TOKENS_DEFAULT: Final[int] = 0
+COMPACTION_SPLIT_TURN_DEFAULT: Final[bool] = True
+COMPACTION_TAIL_TURNS: Final[int] = 2
+COMPACTION_TURN_MIN_MSGS: Final[int] = 8
+COMPACTION_USE_HERMES_TEMPLATE_DEFAULT: Final[bool] = False
+COMPACTION_USE_OPENCODE_TEMPLATE_DEFAULT: Final[bool] = True
+COMPACTION_USE_TURNS_DEFAULT: Final[bool] = True
+COMPACTION_MIN_PRESERVE_RECENT: Final[int] = 2_000
+COMPACTION_MAX_PRESERVE_RECENT: Final[int] = 8_000
+
+# --- Terminal (terminal_sandbox.py, terminal_danger.py, terminal_approval.py) ---
+TERMINAL_SANDBOX_DEFAULT: Final[bool] = False
+TERMINAL_SANDBOX_NETWORK_ALLOWLIST_DEFAULT: Final[bool] = False
+TERMINAL_SANDBOX_FAIL_UNAVAILABLE_DEFAULT: Final[bool] = False
+TERMINAL_DANGER_CHECK_DEFAULT: Final[bool] = True
+TERMINAL_REQUIRE_APPROVAL_DEFAULT: Final[bool] = False
+TERMINAL_PIPE_DEFAULT: Final[bool] = False
+TERMINAL_SMART_APPROVE_DEFAULT: Final[bool] = True
+TERMINAL_PATTERN_APPROVE_TTL: Final[float] = 86400.0
 
 # --- Gateway inbound queue (queue_settings.py / gateway.queue yaml) ---
 GATEWAY_QUEUE_CAP: Final[int] = 20

@@ -9,10 +9,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from butler.defaults.env_defaults import (
+    PROVIDER_CIRCUIT_DEFAULT,
     PROVIDER_CIRCUIT_FAILURES,
     PROVIDER_CIRCUIT_OPEN_SECONDS,
 )
-from butler.env_parse import env_truthy, float_env, int_env
+from butler.utilities.env_parse import env_truthy, float_env, int_env
 from butler.transport.fallback import FallbackEntry
 
 _STATE_LOCK = threading.Lock()
@@ -27,7 +28,7 @@ class _CircuitState:
 
 
 def provider_circuit_enabled() -> bool:
-    return bool(env_truthy("BUTLER_PROVIDER_CIRCUIT", default=True))
+    return bool(env_truthy("BUTLER_PROVIDER_CIRCUIT", default=PROVIDER_CIRCUIT_DEFAULT))
 
 
 def _failure_threshold() -> int:
