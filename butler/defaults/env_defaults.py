@@ -122,6 +122,29 @@ CLI_STREAM_MODE_DEFAULT: Final[str] = "live"
 CATALOG_INTEGRITY_DEFAULT: Final[bool] = True
 CATALOG_INTEGRITY_FAIL_CLOSED_DEFAULT: Final[bool] = True
 
+# --- Gateway delegate push (delegate_push_dedup.py) ---
+GATEWAY_DELEGATE_PUSH_DEDUP_DEFAULT: Final[bool] = True
+GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND_DEFAULT: Final[bool] = True
+GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS: Final[float] = 600.0
+
+# --- Gateway durable outbox (durable_outbox.py) ---
+GATEWAY_DURABLE_OUTBOX_DEFAULT: Final[bool] = True
+GATEWAY_DURABLE_OUTBOX_MAX: Final[int] = 200
+
+# --- Gateway progressive stream (progressive_stream.py) ---
+GATEWAY_PROGRESSIVE_STREAM_DEFAULT: Final[bool] = False
+GATEWAY_PROGRESSIVE_MIN_CHARS: Final[int] = 240
+GATEWAY_PROGRESSIVE_INTERVAL_SECONDS: Final[float] = 45.0
+
+# --- B9 dev engine (b9_live_tuning.py, b9_tiers.py, b9_oracle_fewshot.py) ---
+B9_LIVE_TUNING_DEFAULT: Final[bool] = True
+B9_ORACLE_FEWSHOT_DEFAULT: Final[bool] = True
+B9_TIER2_GATE_ENABLED_DEFAULT: Final[bool] = True
+B9_TIER2_GATE_MIN_PASSED: Final[int] = 2
+
+# --- Coding strict mode (dev_tools.py, boundary_observability.py) ---
+CODING_STRICT_DEFAULT: Final[bool] = False
+
 # --- Gateway inbound queue (queue_settings.py / gateway.queue yaml) ---
 GATEWAY_QUEUE_CAP: Final[int] = 20
 GATEWAY_DEFAULT_QUEUE_MODE: Final[str] = "followup"

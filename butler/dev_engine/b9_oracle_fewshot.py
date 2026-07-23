@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 # Curated from passing oracle_apply paths — pattern only, not task-specific files.
 B9_ORACLE_FEWSHOT_CASES: tuple[dict[str, str], ...] = (
@@ -40,7 +40,9 @@ B9_ORACLE_FEWSHOT_CASES: tuple[dict[str, str], ...] = (
 
 
 def b9_oracle_fewshot_enabled() -> bool:
-    return bool(env_truthy("BUTLER_B9_ORACLE_FEWSHOT", default=True))
+    from butler.defaults.env_defaults import B9_ORACLE_FEWSHOT_DEFAULT
+
+    return bool(env_truthy("BUTLER_B9_ORACLE_FEWSHOT", default=B9_ORACLE_FEWSHOT_DEFAULT))
 
 
 def format_b9_oracle_fewshot_block(*, max_cases: int = 2) -> str:

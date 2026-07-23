@@ -58,7 +58,9 @@ def diagnostics_inject_enabled() -> bool:
 
 def coding_strict_enabled() -> bool:
     """CA4: strict mode — output only if both theorem + test pass."""
-    raw = os.getenv("BUTLER_CODING_STRICT", "0")
+    from butler.defaults.env_defaults import CODING_STRICT_DEFAULT
+
+    raw = os.getenv("BUTLER_CODING_STRICT", str(int(CODING_STRICT_DEFAULT)))
     return raw.strip().lower() in ("1", "true", "yes")
 
 

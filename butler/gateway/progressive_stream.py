@@ -6,28 +6,33 @@ import os
 import time
 from typing import cast
 
-from butler.env_parse import env_truthy, int_env, float_env
+from butler.utilities.env_parse import env_truthy, int_env, float_env
+from butler.defaults.env_defaults import (
+    GATEWAY_PROGRESSIVE_STREAM_DEFAULT,
+    GATEWAY_PROGRESSIVE_MIN_CHARS,
+    GATEWAY_PROGRESSIVE_INTERVAL_SECONDS,
+)
 
 
 def progressive_stream_enabled() -> bool:
-    return cast(bool, env_truthy("BUTLER_GATEWAY_PROGRESSIVE_STREAM", default=False))
+    return cast(bool, env_truthy("BUTLER_GATEWAY_PROGRESSIVE_STREAM", default=GATEWAY_PROGRESSIVE_STREAM_DEFAULT))
 
 
 def progressive_stream_min_chars() -> int:
     try:
-        return cast(int, int_env("BUTLER_GATEWAY_PROGRESSIVE_MIN_CHARS", 240, min=80))
+        return cast(int, int_env("BUTLER_GATEWAY_PROGRESSIVE_MIN_CHARS", GATEWAY_PROGRESSIVE_MIN_CHARS, min=80))
     except ValueError:
-        return 240
+        return GATEWAY_PROGRESSIVE_MIN_CHARS
 
 
 def progressive_stream_interval_seconds() -> float:
     try:
         return cast(
             float,
-            float_env("BUTLER_GATEWAY_PROGRESSIVE_INTERVAL", 45, min=15.0),
+            float_env("BUTLER_GATEWAY_PROGRESSIVE_INTERVAL", GATEWAY_PROGRESSIVE_INTERVAL_SECONDS, min=15.0),
         )
     except ValueError:
-        return 45.0
+        return GATEWAY_PROGRESSIVE_INTERVAL_SECONDS
 
 
 def format_progressive_chunk(preview: str) -> str:

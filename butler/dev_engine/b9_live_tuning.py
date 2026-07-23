@@ -101,7 +101,9 @@ _DELEGATE_RESCUE_PATCH: dict[str, Any] = {
 
 
 def b9_live_tuning_enabled() -> bool:
-    raw = os.getenv("BUTLER_B9_LIVE_TUNING", "1").strip().lower()
+    from butler.defaults.env_defaults import B9_LIVE_TUNING_DEFAULT
+
+    raw = os.getenv("BUTLER_B9_LIVE_TUNING", str(int(B9_LIVE_TUNING_DEFAULT))).strip().lower()
     return raw not in ("0", "false", "no", "off")
 
 

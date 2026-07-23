@@ -56,15 +56,19 @@ def summarize_tier_results(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def tier2_probe_gate_enabled() -> bool:
-    raw = os.getenv("BUTLER_B9_TIER2_GATE_ENABLED", "1").strip().lower()
+    from butler.defaults.env_defaults import B9_TIER2_GATE_ENABLED_DEFAULT
+
+    raw = os.getenv("BUTLER_B9_TIER2_GATE_ENABLED", str(int(B9_TIER2_GATE_ENABLED_DEFAULT))).strip().lower()
     return raw in ("1", "true", "yes", "on")
 
 
 def tier2_probe_gate_min_passed() -> int:
+    from butler.defaults.env_defaults import B9_TIER2_GATE_MIN_PASSED
+
     try:
-        return max(0, int(os.getenv("BUTLER_B9_TIER2_GATE_MIN_PASSED", "2")))
+        return max(0, int(os.getenv("BUTLER_B9_TIER2_GATE_MIN_PASSED", str(B9_TIER2_GATE_MIN_PASSED))))
     except ValueError:
-        return 2
+        return B9_TIER2_GATE_MIN_PASSED
 
 
 def evaluate_tier2_probe_gate(*, passed: int, total: int) -> dict[str, Any]:

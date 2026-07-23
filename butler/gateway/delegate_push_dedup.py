@@ -24,21 +24,24 @@ _DEFERRED: dict[str, list[tuple[str, str]]] = {}
 
 
 def delegate_push_dedup_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
+    from butler.defaults.env_defaults import GATEWAY_DELEGATE_PUSH_DEDUP_DEFAULT
 
-    return bool(env_truthy("BUTLER_GATEWAY_DELEGATE_PUSH_DEDUP", default=True))
+    return bool(env_truthy("BUTLER_GATEWAY_DELEGATE_PUSH_DEDUP", default=GATEWAY_DELEGATE_PUSH_DEDUP_DEFAULT))
 
 
 def defer_delegate_push_during_inbound_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
+    from butler.defaults.env_defaults import GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND_DEFAULT
 
-    return bool(env_truthy("BUTLER_GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND", default=True))
+    return bool(env_truthy("BUTLER_GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND", default=GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND_DEFAULT))
 
 
 def delegate_push_max_age_seconds() -> float:
-    from butler.env_parse import float_env
+    from butler.utilities.env_parse import float_env
+    from butler.defaults.env_defaults import GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS
 
-    return float(max(60.0, float_env("BUTLER_GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS", 600.0)))
+    return float(max(60.0, float_env("BUTLER_GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS", GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS)))
 
 
 def extract_task_id_from_text(text: str) -> str:

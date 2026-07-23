@@ -161,7 +161,7 @@ def g1_04_observation_window_status(
     today: date | None = None,
 ) -> dict[str, Any]:
     """G1-04 OT2 window progress for ops scripts and /诊断."""
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     home = Path(butler_home or get_butler_home()).expanduser().resolve()
     day = today or date.today()
@@ -295,7 +295,7 @@ def _fmt_age(ts: float | None) -> str:
 
 def collect_boundary_observations() -> list[BoundaryObservation]:
     """Snapshot signals for open G1/G2 backlog items (no live LLM)."""
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     home = get_butler_home()
     out: list[BoundaryObservation] = []
@@ -407,7 +407,9 @@ def collect_boundary_observations() -> list[BoundaryObservation]:
         "边界已接受；无 LangFuse 时读本地 audit",
     ))
 
-    strict = os.getenv("BUTLER_CODING_STRICT", "0").strip() in ("1", "true", "yes")
+    from butler.defaults.env_defaults import CODING_STRICT_DEFAULT
+
+    strict = os.getenv("BUTLER_CODING_STRICT", str(int(CODING_STRICT_DEFAULT))).strip() in ("1", "true", "yes")
     if strict:
         out.append(BoundaryObservation(
             "G2-08",
