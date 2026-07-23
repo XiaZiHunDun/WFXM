@@ -12,7 +12,7 @@ from butler import get_build_identity
 from butler.core.best_effort import safe_best_effort
 from butler.core.context_budget import format_context_budget_line
 from butler.gateway.completion_notify import format_outbound_diagnostic_lines
-from butler.gateway.message_queue import pending_count
+from butler.resilience.message_queue import pending_count
 from butler.gateway.queue_settings import format_queue_status_line
 from butler.hooks.telemetry import format_hook_diagnostic_lines
 from butler.memory.diagnostics import collect_memory_layer_stats, format_memory_diagnostic_lines
@@ -52,7 +52,6 @@ from butler.permissions.approvals import summarize_approvals
 from butler.project.meta import format_default_project_policy_lines, format_project_meta_lines
 from butler.runtime.diagnostics import format_runtime_diagnostic_lines
 from butler.transport.provider_health import format_circuit_diagnostic_lines
-from butler.transport.stream_probe import format_stream_probe_lines
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +250,7 @@ def _shared_diagnostic_lines(
     _append_diag_lines(lines, "boundary_obs", _boundary_lines)
 
     def _stream_probe_lines() -> list[str]:
+        from butler.transport.stream_probe import format_stream_probe_lines
         return cast(list[str], format_stream_probe_lines())
 
     _append_diag_lines(lines, "stream_probe", _stream_probe_lines)
