@@ -15,7 +15,9 @@ StreamMode = Literal["live", "buffer"]
 
 
 def _resolve_stream_mode(mode: str | None) -> StreamMode:
-    raw = (mode or os.getenv("BUTLER_CLI_STREAM_MODE") or "live").strip().lower()
+    from butler.defaults.env_defaults import CLI_STREAM_MODE_DEFAULT
+
+    raw = (mode or os.getenv("BUTLER_CLI_STREAM_MODE") or CLI_STREAM_MODE_DEFAULT).strip().lower()
     return "buffer" if raw == "buffer" else "live"
 
 

@@ -9,12 +9,15 @@ from pathlib import Path
 
 from typing import Any
 
-from butler.config import get_butler_home
-from butler.env_parse import env_truthy, int_env
-from butler.gateway.outbound_files import (
-    append_wechat_file_delivery_line,
-    export_wechat_file_enabled,
-    export_wechat_max_bytes,
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import (
+    WECHAT_ATTACH_MIN_CHARS,
+    WECHAT_ATTACH_BRIEF_CHARS,
+    WECHAT_ATTACH_DELEGATE_DEFAULT,
+    WECHAT_ATTACH_DETAIL_DEFAULT,
+    WECHAT_ATTACH_DIAGNOSTIC_DEFAULT,
+    WECHAT_ATTACH_RUNTIME_DEFAULT,
+    WECHAT_ATTACH_SUFFIX_DEFAULT,
 )
 
 
@@ -23,12 +26,12 @@ def is_wechat_platform(platform: str) -> bool:
 
 
 def attach_min_chars() -> int:
-    return int(int_env("BUTLER_WECHAT_ATTACH_MIN_CHARS", 400, min=0))
+    return int(int_env("BUTLER_WECHAT_ATTACH_MIN_CHARS", WECHAT_ATTACH_MIN_CHARS, min=0))
 
 
 def wechat_attach_brief_chars() -> int:
     """Max chars for WeChat chat bubble when a file attachment is also sent."""
-    return int(int_env("BUTLER_WECHAT_ATTACH_BRIEF_CHARS", 280, min=80))
+    return int(int_env("BUTLER_WECHAT_ATTACH_BRIEF_CHARS", WECHAT_ATTACH_BRIEF_CHARS, min=80))
 
 
 def _cap_wechat_attach_summary(text: str) -> str:
@@ -40,24 +43,32 @@ def _cap_wechat_attach_summary(text: str) -> str:
 
 
 def attach_delegate_enabled() -> bool:
-    return bool(env_truthy("BUTLER_WECHAT_ATTACH_DELEGATE", default=True) and export_wechat_file_enabled())
+    from butler.gateway.outbound_files import export_wechat_file_enabled
+
+    return bool(env_truthy("BUTLER_WECHAT_ATTACH_DELEGATE", default=WECHAT_ATTACH_DELEGATE_DEFAULT) and export_wechat_file_enabled())
 
 
 def attach_detail_enabled() -> bool:
-    return bool(env_truthy("BUTLER_WECHAT_ATTACH_DETAIL", default=True) and export_wechat_file_enabled())
+    from butler.gateway.outbound_files import export_wechat_file_enabled
+
+    return bool(env_truthy("BUTLER_WECHAT_ATTACH_DETAIL", default=WECHAT_ATTACH_DETAIL_DEFAULT) and export_wechat_file_enabled())
 
 
 def attach_diagnostic_enabled() -> bool:
-    return bool(env_truthy("BUTLER_WECHAT_ATTACH_DIAGNOSTIC", default=True) and export_wechat_file_enabled())
+    from butler.gateway.outbound_files import export_wechat_file_enabled
+
+    return bool(env_truthy("BUTLER_WECHAT_ATTACH_DIAGNOSTIC", default=WECHAT_ATTACH_DIAGNOSTIC_DEFAULT) and export_wechat_file_enabled())
 
 
 def attach_runtime_enabled() -> bool:
-    return bool(env_truthy("BUTLER_WECHAT_ATTACH_RUNTIME", default=True) and export_wechat_file_enabled())
+    from butler.gateway.outbound_files import export_wechat_file_enabled
+
+    return bool(env_truthy("BUTLER_WECHAT_ATTACH_RUNTIME", default=WECHAT_ATTACH_RUNTIME_DEFAULT) and export_wechat_file_enabled())
 
 
 def wechat_attach_suffix() -> str:
     """WeChat file attachment extension; default ``.txt`` (phone-friendly plain text)."""
-    raw = os.getenv("BUTLER_WECHAT_ATTACH_SUFFIX", ".txt").strip().lower()
+    raw = os.getenv("BUTLER_WECHAT_ATTACH_SUFFIX", WECHAT_ATTACH_SUFFIX_DEFAULT).strip().lower()
     if raw in ("txt", ".txt"):
         return ".txt"
     if raw in ("md", "markdown", ".md", ".markdown"):
@@ -71,6 +82,8 @@ def _safe_segment(value: str) -> str:
 
 
 def _export_dir(workspace: Path | None) -> Path:
+    from butler.configuration.settings import get_butler_home
+
     if workspace is not None:
         out = Path(workspace) / ".butler" / "exports"
     else:
@@ -88,6 +101,7 @@ def write_text_export(
 ) -> Path | None:
     """Write scrubbed text under exports/; return path or None on failure."""
     from butler.gateway.pii_scrub import scrub_outbound_text
+    from butler.gateway.outbound_files import export_wechat_max_bytes
 
     text = scrub_outbound_text(str(body or ""))
     if not text.strip():
@@ -132,6 +146,8 @@ def maybe_attach_wechat_file(
     On WeChat, when ``full_body`` is long enough, write it to exports/ and
     append a deliverable path line for ``WeChatAdapter.send()``.
     """
+    from butler.gateway.outbound_files import export_wechat_file_enabled, append_wechat_file_delivery_line
+
     if not is_wechat_platform(platform):
         return chat_text if chat_text.strip() else full_body
     if not enabled or not export_wechat_file_enabled():

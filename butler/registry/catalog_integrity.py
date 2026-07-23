@@ -7,8 +7,12 @@ import logging
 import os
 from pathlib import Path
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.registry.paths import catalog_dir
+from butler.defaults.env_defaults import (
+    CATALOG_INTEGRITY_DEFAULT,
+    CATALOG_INTEGRITY_FAIL_CLOSED_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +20,7 @@ _MANIFEST_NAME = "manifest.sha256"
 
 
 def catalog_integrity_enabled() -> bool:
-    return bool(env_truthy("BUTLER_CATALOG_INTEGRITY", default=True))
+    return bool(env_truthy("BUTLER_CATALOG_INTEGRITY", default=CATALOG_INTEGRITY_DEFAULT))
 
 
 def _manifest_path() -> Path:
@@ -99,7 +103,7 @@ def ensure_catalog_integrity() -> None:
     ok, errors = verify_catalog_integrity()
     if ok:
         return
-    if os.getenv("BUTLER_CATALOG_INTEGRITY_FAIL_CLOSED", "1").strip().lower() in (
+    if os.getenv("BUTLER_CATALOG_INTEGRITY_FAIL_CLOSED", str(int(CATALOG_INTEGRITY_FAIL_CLOSED_DEFAULT))).strip().lower() in (
         "0",
         "false",
         "no",

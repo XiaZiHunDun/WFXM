@@ -15,7 +15,7 @@ from butler.cli.display import (
 )
 from butler.cli.spinner import WaitSpinner
 from butler.cli.stream import StreamRenderer
-from butler.core.agent_loop import LoopCallbacks, LoopResult, LoopStatus
+from butler.core.loop_types import LoopCallbacks, LoopResult, LoopStatus
 from butler.transport.error_classifier import classify_api_error
 
 if TYPE_CHECKING:
@@ -97,7 +97,9 @@ class ChatSessionUI:
                 )
             )
 
-        show_reasoning = os.getenv("BUTLER_CLI_SHOW_REASONING", "").strip() in (
+        from butler.defaults.env_defaults import CLI_SHOW_REASONING_DEFAULT
+
+        show_reasoning = os.getenv("BUTLER_CLI_SHOW_REASONING", str(int(CLI_SHOW_REASONING_DEFAULT))).strip() in (
             "1",
             "true",
             "yes",

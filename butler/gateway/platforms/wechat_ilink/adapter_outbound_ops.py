@@ -8,7 +8,7 @@ import os
 from typing import TYPE_CHECKING, Any, Optional
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
-from butler.env_parse import float_env
+from butler.utilities.env_parse import float_env
 from butler.gateway.platforms.types import SendResult
 from butler.gateway.platforms.wechat_ilink import _get_config, _safe_id
 from butler.gateway.platforms.wechat_ilink import _send_typing
@@ -21,11 +21,13 @@ logger = logging.getLogger(__name__)
 
 
 async def backoff_for_rate_limit(adapter: "WeChatAdapter", chat_id: str, attempt: int) -> None:
-    cap = 90.0
+    from butler.defaults.env_defaults import WECHAT_RATE_LIMIT_BACKOFF_MAX
+
+    cap = WECHAT_RATE_LIMIT_BACKOFF_MAX
     try:
-        cap = max(10.0, float(float_env("BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX", 90)))
+        cap = max(10.0, float(float_env("BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX", WECHAT_RATE_LIMIT_BACKOFF_MAX)))
     except ValueError:
-        cap = 90.0
+        cap = WECHAT_RATE_LIMIT_BACKOFF_MAX
     wait = min(cap, adapter._send_chunk_retry_delay_seconds * (3 ** attempt))
     logger.warning(
         "[%s] rate limited for %s; backing off %.1fs before retry",

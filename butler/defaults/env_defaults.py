@@ -104,6 +104,24 @@ TERMINAL_PIPE_DEFAULT: Final[bool] = False
 TERMINAL_SMART_APPROVE_DEFAULT: Final[bool] = True
 TERMINAL_PATTERN_APPROVE_TTL: Final[float] = 86400.0
 
+# --- WeChat (wechat_text_export.py, adapter_outbound_ops.py) ---
+WECHAT_ATTACH_MIN_CHARS: Final[int] = 400
+WECHAT_ATTACH_BRIEF_CHARS: Final[int] = 280
+WECHAT_ATTACH_DELEGATE_DEFAULT: Final[bool] = True
+WECHAT_ATTACH_DETAIL_DEFAULT: Final[bool] = True
+WECHAT_ATTACH_DIAGNOSTIC_DEFAULT: Final[bool] = True
+WECHAT_ATTACH_RUNTIME_DEFAULT: Final[bool] = True
+WECHAT_ATTACH_SUFFIX_DEFAULT: Final[str] = ".txt"
+WECHAT_RATE_LIMIT_BACKOFF_MAX: Final[float] = 90.0
+
+# --- CLI (session_ui.py, stream.py) ---
+CLI_SHOW_REASONING_DEFAULT: Final[bool] = False
+CLI_STREAM_MODE_DEFAULT: Final[str] = "live"
+
+# --- Catalog (catalog_integrity.py) ---
+CATALOG_INTEGRITY_DEFAULT: Final[bool] = True
+CATALOG_INTEGRITY_FAIL_CLOSED_DEFAULT: Final[bool] = True
+
 # --- Gateway inbound queue (queue_settings.py / gateway.queue yaml) ---
 GATEWAY_QUEUE_CAP: Final[int] = 20
 GATEWAY_DEFAULT_QUEUE_MODE: Final[str] = "followup"
