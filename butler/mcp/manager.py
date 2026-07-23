@@ -238,6 +238,17 @@ class McpConnectionManager:
         *,
         workspace: Path | None = None,
     ) -> str:
+        # Validate MCP tool call arguments before dispatch
+        from butler.mcp.types import validate_mcp_request
+
+        is_valid, result = validate_mcp_request({
+            "id": "mcp_call",
+            "method": "callTool",
+            "params": {"name": ref.original_name, "arguments": arguments},
+        })
+        if not is_valid:
+            return _error_payload(ref.registered_name, str(result.get("error", "Invalid MCP request")))
+
         # Sprint 16 REL-11-6: snapshot 拿不到可写的 handle ref; 用 _with_handles
         # 持锁拿 live ref, 验证 handle 后立即释放, 后续 await 不持锁。
         with self._with_handles(session_key) as handles:

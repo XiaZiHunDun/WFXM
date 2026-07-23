@@ -41,6 +41,7 @@ from butler.tool_guardrails import (
     append_guidance,
     synthetic_result,
 )
+from butler.tools.tool_types import validate_tool_args
 
 
 def dispatch_one_tool(
@@ -85,6 +86,16 @@ def dispatch_one_tool(
     boundary_blocked = safe_best_effort(_boundary_block, label="tool_dispatch.boundary")
     if isinstance(boundary_blocked, str):
         return boundary_blocked
+
+    def _args_validation() -> str | None:
+        is_valid, result = validate_tool_args(name, args)
+        if is_valid:
+            return None
+        return str(finalize_fallback_tool_result(name, args, result))
+
+    args_blocked = safe_best_effort(_args_validation, label="tool_dispatch.args_validation")
+    if isinstance(args_blocked, str):
+        return args_blocked
 
     if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
         code = (

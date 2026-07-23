@@ -1,13 +1,17 @@
-"""Per-tool automatic retry for transient failures (LangChain ToolRetryMiddleware subset)."""
+"""Per-tool automatic retry for transient failures (LangChain ToolRetryMiddleware subset).
+
+This module supports both traditional string-based return and Result monad return.
+"""
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from typing import Any, Callable
 
-from butler.env_parse import env_truthy, int_env, float_env
-import logging
+from butler.core.effects import Ok, Err, Result, result_from_fn
+from butler.utilities.env_parse import env_truthy, int_env, float_env
 
 logger = logging.getLogger(__name__)
 
@@ -97,3 +101,30 @@ def run_tool_with_retry(
         attempt += 1
         last = dispatch(name, args)
     return last
+
+
+def run_tool_with_retry_result(
+    name: str,
+    args: dict[str, Any],
+    dispatch: Callable[[str, dict[str, Any]], str],
+) -> Result[str, Exception]:
+    """Invoke tool dispatch with bounded retries, returning Result monad."""
+
+    def _dispatch() -> str:
+        return dispatch(name, args)
+
+    result = result_from_fn(_dispatch)
+    if result.is_err():
+        return result
+
+    last = result.unwrap()
+    attempt = 0
+    while should_retry_tool(name, last, attempt):
+        time.sleep(tool_retry_backoff_seconds(attempt))
+        attempt += 1
+        result = result_from_fn(_dispatch)
+        if result.is_err():
+            return result
+        last = result.unwrap()
+
+    return Ok(last)
