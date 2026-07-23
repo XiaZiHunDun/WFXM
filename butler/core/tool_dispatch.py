@@ -30,7 +30,8 @@ from butler.core.tool_error_policy import (
     should_halt_loop_on_tool_error,
 )
 from butler.core.tool_result_cache import get_cached_result, set_cached_result
-from butler.core.tool_retry import run_tool_with_retry
+from butler.core.tool_retry import run_tool_with_retry_result
+from butler.core.effects import Ok, Err
 from butler.core.two_phase_confirm import two_phase_block_message
 from butler.execution_context import get_current_session_key
 from butler.ops.retry_buckets import record_recovery_event
@@ -42,6 +43,8 @@ from butler.tool_guardrails import (
     synthetic_result,
 )
 from butler.tools.tool_types import validate_tool_args
+from butler.core.event_store_events import create_tool_call_event
+from butler.core.event_store import append_event
 
 
 def dispatch_one_tool(
@@ -152,7 +155,17 @@ def dispatch_one_tool(
             return str(finalize_fallback_tool_result(name, args, synthetic_result(before)))
 
     capture_pre_edit_snapshot(name, args)
-    result = str(run_tool_with_retry(name, args, dispatch_tool))
+    retry_result = run_tool_with_retry_result(name, args, dispatch_tool)
+    if isinstance(retry_result, Ok):
+        result = str(retry_result.value)
+    else:
+        # Handle exception caught by Result monad
+        result = str(finalize_fallback_tool_result(name, args, {
+            "ok": False,
+            "code": "TOOL_EXECUTION_ERROR",
+            "error": str(retry_result.error),
+            "tool": name,
+        }))
 
     def _emit_tool_event() -> None:
         outcome = "error" if '"error"' in str(result)[:200].lower() else "ok"
@@ -164,6 +177,18 @@ def dispatch_one_tool(
         )
 
     safe_best_effort(_emit_tool_event, label="tool_dispatch.structured_event")
+
+    # Emit ToolCallEvent for event sourcing (append-only)
+    def _emit_tool_call_event() -> None:
+        event = create_tool_call_event(
+            session_key=str(get_current_session_key() or ""),
+            tool_name=name,
+            args=args,
+            args_preview=str(args)[:200],
+        )
+        append_event(event)
+
+    safe_best_effort(_emit_tool_call_event, label="tool_dispatch.tool_call_event")
 
     def _apply_error_policy() -> None:
         nonlocal result

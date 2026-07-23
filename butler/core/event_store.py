@@ -259,4 +259,34 @@ def create_default_event_store() -> EventStore:
     return EventStore(data_dir / "events.db")
 
 
-__all__ = ["EventStore", "StoredEvent", "create_default_event_store"]
+# Global event store instance for convenience
+_event_store = create_default_event_store()
+
+
+def append_event(event: Any) -> None:
+    """Append a domain event to the event store.
+    
+    Accepts any event object with:
+    - event_id
+    - event_type  
+    - session_key
+    - timestamp
+    - to_dict() method
+    """
+    from butler.core.best_effort import safe_best_effort
+
+    def _store() -> None:
+        payload = getattr(event, "to_dict", lambda: event.__dict__)()
+        stored = StoredEvent(
+            event_id=getattr(event, "event_id", ""),
+            event_type=getattr(event, "event_type", ""),
+            payload=payload,
+            session_key=getattr(event, "session_key", ""),
+            timestamp=getattr(event, "timestamp", time.time()),
+        )
+        _event_store.store(stored)
+
+    safe_best_effort(_store, label="event_store.append_event")
+
+
+__all__ = ["EventStore", "StoredEvent", "create_default_event_store", "append_event"]
