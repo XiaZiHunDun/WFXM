@@ -45,7 +45,11 @@ class LazyInstance(Generic[T]):
 
 
 class ServiceContainer:
-    """Explicit dependency container for Butler services."""
+    """Explicit dependency container for Butler services.
+    
+    Replaces scattered singletons with managed lifecycle.
+    Supports override/reset for testing.
+    """
 
     def __init__(self) -> None:
         self._project_manager = LazyInstance(self._create_project_manager)
@@ -53,6 +57,10 @@ class ServiceContainer:
         self._session_monitor = LazyInstance(self._create_session_monitor)
         self._memory_metrics = LazyInstance(self._create_memory_metrics)
         self._events_sink = LazyInstance(self._create_events_sink)
+        self._conversation_store = LazyInstance(self._create_conversation_store)
+        self._knowledge_graph = LazyInstance(self._create_knowledge_graph)
+        self._hybrid_retriever = LazyInstance(self._create_hybrid_retriever)
+        self._experience_store = LazyInstance(self._create_experience_store)
 
     def project_manager(self):
         return self._project_manager.get()
@@ -84,6 +92,30 @@ class ServiceContainer:
     def override_events_sink(self, value) -> None:
         self._events_sink.override(value)
 
+    def conversation_store(self):
+        return self._conversation_store.get()
+
+    def override_conversation_store(self, value) -> None:
+        self._conversation_store.override(value)
+
+    def knowledge_graph(self):
+        return self._knowledge_graph.get()
+
+    def override_knowledge_graph(self, value) -> None:
+        self._knowledge_graph.override(value)
+
+    def hybrid_retriever(self):
+        return self._hybrid_retriever.get()
+
+    def override_hybrid_retriever(self, value) -> None:
+        self._hybrid_retriever.override(value)
+
+    def experience_store(self):
+        return self._experience_store.get()
+
+    def override_experience_store(self, value) -> None:
+        self._experience_store.override(value)
+
     def reset_all(self) -> None:
         """Reset all services (for testing)."""
         self._project_manager.reset()
@@ -91,6 +123,10 @@ class ServiceContainer:
         self._session_monitor.reset()
         self._memory_metrics.reset()
         self._events_sink.reset()
+        self._conversation_store.reset()
+        self._knowledge_graph.reset()
+        self._hybrid_retriever.reset()
+        self._experience_store.reset()
 
     def _create_project_manager(self):
         from butler.project.manager import ProjectManager
@@ -116,6 +152,26 @@ class ServiceContainer:
         from butler.contracts.events import NullEventsSink
 
         return NullEventsSink()
+
+    def _create_conversation_store(self):
+        from butler.memory.conversation_store import ConversationStore
+
+        return ConversationStore()
+
+    def _create_knowledge_graph(self):
+        from butler.memory.knowledge_graph import KnowledgeGraph
+
+        return KnowledgeGraph()
+
+    def _create_hybrid_retriever(self):
+        from butler.memory.hybrid_retriever import HybridRetriever
+
+        return HybridRetriever()
+
+    def _create_experience_store(self):
+        from butler.memory.experience.store import ExperienceStore
+
+        return ExperienceStore()
 
 
 container = ServiceContainer()

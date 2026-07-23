@@ -1,9 +1,14 @@
-"""MCP configuration types."""
+"""MCP configuration types with pydantic models for runtime validation."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Optional
+
+import pydantic
+
+
+# ── Legacy Dataclasses (backward compatible) ──
 
 
 @dataclass(frozen=True)
@@ -47,3 +52,137 @@ class McpServerStatus:
     tool_count: int = 0
     last_error: str = ""
     degraded: bool = False
+
+
+# ── Pydantic Models (new runtime validation) ──
+
+
+class McpRequest(pydantic.BaseModel):
+    """MCP request message."""
+
+    jsonrpc: str = "2.0"
+    id: str | int
+    method: str
+    params: dict[str, Any] = pydantic.Field(default_factory=dict)
+
+
+class McpResponse(pydantic.BaseModel):
+    """MCP response message."""
+
+    jsonrpc: str = "2.0"
+    id: str | int | None = None
+
+
+class McpSuccessResponse(McpResponse):
+    """Successful MCP response."""
+
+    result: dict[str, Any]
+
+
+class McpErrorResponse(McpResponse):
+    """Error MCP response."""
+
+    error: "McpError"
+
+
+class McpError(pydantic.BaseModel):
+    """MCP error object."""
+
+    code: int
+    message: str
+    data: Optional[Any] = None
+
+
+class McpToolCall(pydantic.BaseModel):
+    """MCP tool call request."""
+
+    name: str
+    arguments: dict[str, Any] = pydantic.Field(default_factory=dict)
+
+
+class McpToolResult(pydantic.BaseModel):
+    """MCP tool execution result."""
+
+    success: bool
+    content: Any = None
+    error: str = ""
+    server_id: str = ""
+    tool_name: str = ""
+    duration_ms: float = 0.0
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+
+class McpCapability(pydantic.BaseModel):
+    """MCP server capability."""
+
+    name: str
+    version: str = "1.0"
+
+
+class McpToolDescription(pydantic.BaseModel):
+    """MCP tool description."""
+
+    name: str
+    description: str = ""
+    inputSchema: dict[str, Any] = pydantic.Field(default_factory=dict)
+
+
+# ── Validation Functions ──
+
+
+def validate_mcp_request(data: dict[str, Any]) -> tuple[bool, McpRequest | dict[str, Any]]:
+    """Validate MCP request data."""
+    try:
+        return True, McpRequest(**data)
+    except pydantic.ValidationError as e:
+        errors = []
+        for error in e.errors():
+            loc = ".".join(str(l) for l in error.get("loc", []))
+            msg = error.get("msg", "")
+            errors.append(f"{loc}: {msg}")
+        return False, {
+            "error": f"Invalid MCP request: {', '.join(errors)}",
+            "code": "MCP_REQUEST_VALIDATION_FAILED",
+            "validation_errors": errors,
+        }
+
+
+def validate_mcp_response(data: dict[str, Any]) -> tuple[bool, McpResponse | dict[str, Any]]:
+    """Validate MCP response data."""
+    try:
+        if "error" in data:
+            return True, McpErrorResponse(**data)
+        elif "result" in data:
+            return True, McpSuccessResponse(**data)
+        return True, McpResponse(**data)
+    except pydantic.ValidationError as e:
+        errors = []
+        for error in e.errors():
+            loc = ".".join(str(l) for l in error.get("loc", []))
+            msg = error.get("msg", "")
+            errors.append(f"{loc}: {msg}")
+        return False, {
+            "error": f"Invalid MCP response: {', '.join(errors)}",
+            "code": "MCP_RESPONSE_VALIDATION_FAILED",
+            "validation_errors": errors,
+        }
+
+
+__all__ = [
+    "McpToolPolicy",
+    "McpServerConfig",
+    "McpToolRef",
+    "McpServerStatus",
+    "McpRequest",
+    "McpResponse",
+    "McpSuccessResponse",
+    "McpErrorResponse",
+    "McpError",
+    "McpToolCall",
+    "McpToolResult",
+    "McpCapability",
+    "McpToolDescription",
+    "validate_mcp_request",
+    "validate_mcp_response",
+]
