@@ -9,6 +9,7 @@ Test Layers:
 
 import os
 import pytest
+from pathlib import Path
 from typing import Any, List
 
 os.environ["BUTLER_CONVERSATION_STATE_PERSIST"] = "0"
@@ -109,6 +110,28 @@ def mock_tool_call_factory():
 
 
 @pytest.fixture
+def tmp_butler_home(tmp_path: Path):
+    """Create a minimal Butler home with tenant directories."""
+    home = tmp_path / "butler_home"
+    home.mkdir(parents=True, exist_ok=True)
+    tenant_dir = home / "tenants" / "default" / "memory"
+    tenant_dir.mkdir(parents=True, exist_ok=True)
+    return home
+
+
+def link_llm_stream_mock(mock_complete, mock_stream):
+    """Link stream mock to return chunks from complete mock result."""
+    async def _stream(*args, **kwargs):
+        result = mock_complete(*args, **kwargs)
+        if hasattr(result, "content"):
+            for chunk in result.content:
+                yield type(result)(content=chunk, usage=None)
+        else:
+            yield result
+    mock_stream.return_value = _stream()
+
+
+@pytest.fixture
 def turn_summary_factory():
     def create_summary(turn_number: int, intent: str, action: str, result: str, files: List[str] = None) -> dict[str, Any]:
         return {
@@ -119,3 +142,45 @@ def turn_summary_factory():
             "files_touched": files or [],
         }
     return create_summary
+
+
+@pytest.fixture(autouse=True)
+def _reset_module_globals():
+    """Reset module-level globals before each test to ensure isolation."""
+    from butler.core.container import container
+    from butler.gateway.message_handler import _WELCOMED_SESSIONS
+    from butler.tools.registry import reset_tool_audit_events
+    from butler.configuration.settings import reload_butler_settings
+
+    _WELCOMED_SESSIONS.clear()
+    reset_tool_audit_events()
+    container.reset_all()
+    reload_butler_settings()
+    yield
+
+
+@pytest.fixture
+def mock_llm_client():
+    """Mock LLM client fixture for agent loop tests."""
+    from unittest.mock import MagicMock
+
+    client = MagicMock()
+    client.complete = MagicMock()
+    client.stream = MagicMock()
+    client.provider = "mock"
+    client.model = "mock-model"
+    return client
+
+
+@pytest.fixture
+def mock_llm_response():
+    """Mock LLM response factory fixture."""
+    def create_response(content: str = "", tool_calls: list = None):
+        from butler.transport.types import NormalizedResponse, Usage
+
+        return NormalizedResponse(
+            content=content,
+            tool_calls=tool_calls or [],
+            usage=Usage(prompt_tokens=10, completion_tokens=len(content)),
+        )
+    return create_response

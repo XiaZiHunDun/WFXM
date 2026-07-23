@@ -57,6 +57,7 @@ class ServiceContainer:
         self._session_monitor = LazyInstance(self._create_session_monitor)
         self._memory_metrics = LazyInstance(self._create_memory_metrics)
         self._events_sink = LazyInstance(self._create_events_sink)
+        self._event_store = LazyInstance(self._create_event_store)
         self._conversation_store = LazyInstance(self._create_conversation_store)
         self._knowledge_graph = LazyInstance(self._create_knowledge_graph)
         self._hybrid_retriever = LazyInstance(self._create_hybrid_retriever)
@@ -92,6 +93,12 @@ class ServiceContainer:
     def override_events_sink(self, value) -> None:
         self._events_sink.override(value)
 
+    def event_store(self):
+        return self._event_store.get()
+
+    def override_event_store(self, value) -> None:
+        self._event_store.override(value)
+
     def conversation_store(self):
         return self._conversation_store.get()
 
@@ -123,6 +130,7 @@ class ServiceContainer:
         self._session_monitor.reset()
         self._memory_metrics.reset()
         self._events_sink.reset()
+        self._event_store.reset()
         self._conversation_store.reset()
         self._knowledge_graph.reset()
         self._hybrid_retriever.reset()
@@ -152,6 +160,11 @@ class ServiceContainer:
         from butler.contracts.events import NullEventsSink
 
         return NullEventsSink()
+
+    def _create_event_store(self):
+        from butler.core.event_store import create_default_event_store
+
+        return create_default_event_store()
 
     def _create_conversation_store(self):
         from butler.memory.conversation_store import ConversationStore

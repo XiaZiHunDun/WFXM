@@ -79,18 +79,18 @@ class McpSuccessResponse(McpResponse):
     result: dict[str, Any]
 
 
-class McpErrorResponse(McpResponse):
-    """Error MCP response."""
-
-    error: "McpError"
-
-
 class McpError(pydantic.BaseModel):
     """MCP error object."""
 
     code: int
     message: str
     data: Optional[Any] = None
+
+
+class McpErrorResponse(McpResponse):
+    """Error MCP response."""
+
+    error: McpError
 
 
 class McpToolCall(pydantic.BaseModel):

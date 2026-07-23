@@ -259,13 +259,10 @@ def create_default_event_store() -> EventStore:
     return EventStore(data_dir / "events.db")
 
 
-# Global event store instance for convenience
-_event_store = create_default_event_store()
-
-
 def append_event(event: Any) -> None:
     """Append a domain event to the event store.
     
+    Uses ServiceContainer to get the event store instance.
     Accepts any event object with:
     - event_id
     - event_type  
@@ -274,8 +271,10 @@ def append_event(event: Any) -> None:
     - to_dict() method
     """
     from butler.core.best_effort import safe_best_effort
+    from butler.core.container import container
 
     def _store() -> None:
+        event_store_instance = container.event_store()
         payload = getattr(event, "to_dict", lambda: event.__dict__)()
         stored = StoredEvent(
             event_id=getattr(event, "event_id", ""),
@@ -284,7 +283,7 @@ def append_event(event: Any) -> None:
             session_key=getattr(event, "session_key", ""),
             timestamp=getattr(event, "timestamp", time.time()),
         )
-        _event_store.store(stored)
+        event_store_instance.store(stored)
 
     safe_best_effort(_store, label="event_store.append_event")
 
