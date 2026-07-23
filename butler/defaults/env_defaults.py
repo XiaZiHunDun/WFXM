@@ -252,3 +252,37 @@ HASHLINE_READ_DEFAULT: Final[bool] = False
 HASHLINE_PATCH_DEFAULT: Final[bool] = True
 FINISH_TOOL_TRUNCATE_ENABLED_DEFAULT: Final[bool] = True
 FINISH_TOOL_TRUNCATE_MAX_DEFAULT: Final[int] = 5000
+
+# --- Runtime ---
+RUNTIME_TASK_STALE_AUTO_FAIL_DEFAULT: Final[bool] = False
+RUNTIME_CC_BRIDGE_DEFAULT: Final[bool] = False
+
+# --- Hooks ---
+HOOKS_FAIL_CLOSED_DEFAULT: Final[bool] = False
+
+# --- Transport ---
+TRANSPORT_CACHE_CONTROL_DEFAULT: Final[bool] = True
+TRANSPORT_STREAM_PROBE_DEFAULT: Final[bool] = False
+TRANSPORT_TOOL_WIRE_DEFAULT: Final[bool] = True
+TRANSPORT_THINKING_PROTOCOL_DEFAULT: Final[bool] = False
+TRANSPORT_STREAMING_TOOLS_DEFAULT: Final[bool] = True
+
+# --- Permissions ---
+PERMISSIONS_PARAM_BLACKLIST_DEFAULT: Final[bool] = True
+
+# --- Project ---
+PROJECT_BIND_DEFAULT_PROJECT_DEFAULT: Final[bool] = False
+PROJECT_WORKTREE_DEFAULT: Final[bool] = False
+
+# --- Dev engine ---
+DEV_REFLECTION_CLOSURE_WRITE_DEFAULT: Final[bool] = False
+DEV_REFLEXION_WRITE_EXPERIENCE_DEFAULT: Final[bool] = False
+
+# --- MCP ---
+MCP_TOOLS_ENGINE_DEFAULT: Final[bool] = True
+MCP_TOOLS_ENGINE_FORCE_OFF_DEFAULT: Final[bool] = False
+MCP_TOOLS_ENGINE_SSOT_DEFAULT: Final[bool] = False
+MCP_PROFILES_DEFAULT: Final[bool] = True
+MCP_GITHUB_ISSUE_LIST_DIRECT_DEFAULT: Final[bool] = True
+MCP_GITHUB_REPO_LIST_DIRECT_DEFAULT: Final[bool] = True
+MCP_TODOIST_PROJECT_LIST_DIRECT_DEFAULT: Final[bool] = True

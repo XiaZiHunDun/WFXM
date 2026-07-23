@@ -7,14 +7,15 @@ import time
 from typing import Any
 
 from butler.core.metrics_sink import observe_ms
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import TRANSPORT_STREAM_PROBE_DEFAULT
 
 _PROBE_LOCK = threading.Lock()
 _LAST_PROBE: dict[str, Any] = {}
 
 
 def stream_probe_enabled() -> bool:
-    return bool(env_truthy("BUTLER_STREAM_PROBE", default=False))
+    return bool(env_truthy("BUTLER_STREAM_PROBE", default=TRANSPORT_STREAM_PROBE_DEFAULT))
 
 
 def last_stream_probe() -> dict[str, Any]:

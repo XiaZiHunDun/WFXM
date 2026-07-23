@@ -6,7 +6,8 @@ import json
 import logging
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import TRANSPORT_TOOL_WIRE_DEFAULT
 from butler.transport.model_capabilities import get_provider_capabilities
 from butler.transport.types import ToolCall
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def tool_wire_enabled() -> bool:
-    return bool(env_truthy("BUTLER_TOOL_WIRE", default=True))
+    return bool(env_truthy("BUTLER_TOOL_WIRE", default=TRANSPORT_TOOL_WIRE_DEFAULT))
 
 
 def _provider_key(provider: str) -> str:

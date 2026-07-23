@@ -5,13 +5,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import PROJECT_WORKTREE_DEFAULT
 
 logger = logging.getLogger(__name__)
 
 
 def project_worktree_enabled() -> bool:
-    return bool(env_truthy("BUTLER_PROJECT_WORKTREE", default=False))
+    return bool(env_truthy("BUTLER_PROJECT_WORKTREE", default=PROJECT_WORKTREE_DEFAULT))
 
 
 def read_worktree_spec(workspace: Path) -> str:

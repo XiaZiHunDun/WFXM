@@ -19,15 +19,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.env_parse import env_truthy
-
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import TRANSPORT_CACHE_CONTROL_DEFAULT
 
 _CACHE_CONTROL_MARKER: dict[str, str] = {"type": "ephemeral"}
 
 
 def cache_control_enabled() -> bool:
     """True unless ``BUTLER_TRANSPORT_CACHE_CONTROL`` is explicitly disabled."""
-    return bool(env_truthy("BUTLER_TRANSPORT_CACHE_CONTROL", default=True))
+    return bool(env_truthy("BUTLER_TRANSPORT_CACHE_CONTROL", default=TRANSPORT_CACHE_CONTROL_DEFAULT))
 
 
 def apply_cache_control_to_system(system: Any) -> list[dict[str, Any]]:

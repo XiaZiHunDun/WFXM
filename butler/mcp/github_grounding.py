@@ -6,7 +6,11 @@ import json
 import re
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import (
+    MCP_GITHUB_ISSUE_LIST_DIRECT_DEFAULT,
+    MCP_GITHUB_REPO_LIST_DIRECT_DEFAULT,
+)
 from butler.mcp.extension_grounding import matches_manifest_intent
 
 _GITHUB_REPO_LIST_INTENT = re.compile(
@@ -22,11 +26,11 @@ _GITHUB_ISSUE_LIST_INTENT = re.compile(
 
 
 def github_issue_list_direct_enabled() -> bool:
-    return bool(env_truthy("BUTLER_GITHUB_ISSUE_LIST_DIRECT", default=True))
+    return bool(env_truthy("BUTLER_GITHUB_ISSUE_LIST_DIRECT", default=MCP_GITHUB_ISSUE_LIST_DIRECT_DEFAULT))
 
 
 def github_repo_list_direct_enabled() -> bool:
-    return bool(env_truthy("BUTLER_GITHUB_REPO_LIST_DIRECT", default=True))
+    return bool(env_truthy("BUTLER_GITHUB_REPO_LIST_DIRECT", default=MCP_GITHUB_REPO_LIST_DIRECT_DEFAULT))
 
 
 def is_github_repo_list_intent(text: str) -> bool:

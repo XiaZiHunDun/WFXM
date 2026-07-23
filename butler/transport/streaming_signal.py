@@ -20,7 +20,8 @@ import json
 import logging
 from typing import Any, Callable
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import TRANSPORT_STREAMING_TOOLS_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ _STREAMING_TOOL_NAMES = frozenset({
 
 
 def _streaming_tools_enabled() -> bool:
-    return bool(env_truthy("BUTLER_STREAMING_TOOLS", default=True))
+    return bool(env_truthy("BUTLER_STREAMING_TOOLS", default=TRANSPORT_STREAMING_TOOLS_DEFAULT))
 
 
 def _is_streaming_tool(name: str) -> bool:

@@ -51,9 +51,10 @@ def load_permissions_yaml(workspace: Path | None) -> dict[str, Any]:
 
 def security_blacklist_enabled() -> bool:
     def _run() -> bool:
-        from butler.env_parse import env_truthy
+        from butler.utilities.env_parse import env_truthy
+        from butler.defaults.env_defaults import PERMISSIONS_PARAM_BLACKLIST_DEFAULT
 
-        return bool(env_truthy("BUTLER_PERMISSIONS_PARAM_BLACKLIST", default=True))
+        return bool(env_truthy("BUTLER_PERMISSIONS_PARAM_BLACKLIST", default=PERMISSIONS_PARAM_BLACKLIST_DEFAULT))
 
     result = safe_best_effort(
         _run,

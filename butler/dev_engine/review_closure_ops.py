@@ -23,11 +23,15 @@ def reflection_closure_enabled_safe() -> bool:
 
 def closure_write_flags_safe() -> bool:
     def _run() -> bool:
-        from butler.env_parse import env_truthy
+        from butler.utilities.env_parse import env_truthy
+        from butler.defaults.env_defaults import (
+            DEV_REFLECTION_CLOSURE_WRITE_DEFAULT,
+            DEV_REFLEXION_WRITE_EXPERIENCE_DEFAULT,
+        )
 
         return bool(
-            env_truthy("BUTLER_REFLECTION_CLOSURE_WRITE", default=False)
-            or env_truthy("BUTLER_REFLEXION_WRITE_EXPERIENCE", default=False)
+            env_truthy("BUTLER_REFLECTION_CLOSURE_WRITE", default=DEV_REFLECTION_CLOSURE_WRITE_DEFAULT)
+            or env_truthy("BUTLER_REFLEXION_WRITE_EXPERIENCE", default=DEV_REFLEXION_WRITE_EXPERIENCE_DEFAULT)
         )
 
     result = safe_best_effort(_run, label="review_closure.write_flags", default=False)

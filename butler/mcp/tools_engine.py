@@ -5,19 +5,23 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import (
+    MCP_TOOLS_ENGINE_DEFAULT,
+    MCP_TOOLS_ENGINE_FORCE_OFF_DEFAULT,
+)
 from butler.transport.model_capabilities import get_provider_capabilities
 
 logger = logging.getLogger(__name__)
 
 
 def tools_engine_enabled() -> bool:
-    return bool(env_truthy("BUTLER_TOOLS_ENGINE", default=True))
+    return bool(env_truthy("BUTLER_TOOLS_ENGINE", default=MCP_TOOLS_ENGINE_DEFAULT))
 
 
 def model_supports_function_calling(provider: str, model: str = "") -> bool:
     """Return False only when explicitly disabled via env."""
-    if env_truthy("BUTLER_TOOLS_ENGINE_FORCE_OFF", default=False):
+    if env_truthy("BUTLER_TOOLS_ENGINE_FORCE_OFF", default=MCP_TOOLS_ENGINE_FORCE_OFF_DEFAULT):
         return False
     cap = get_provider_capabilities(provider)
     if cap.get("function_calling") is False:

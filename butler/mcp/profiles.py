@@ -6,7 +6,8 @@ import logging
 import re
 import threading
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import MCP_PROFILES_DEFAULT
 from butler.mcp.config import _resolve_config_paths
 from butler.mcp.types import McpServerConfig
 
@@ -19,7 +20,7 @@ _SESSION_PROFILE: dict[str, str] = {}
 
 
 def mcp_profiles_enabled() -> bool:
-    return bool(env_truthy("BUTLER_MCP_PROFILES", default=True))
+    return bool(env_truthy("BUTLER_MCP_PROFILES", default=MCP_PROFILES_DEFAULT))
 
 
 def _load_profile_config() -> tuple[dict[str, list[str]], list[tuple[str, list[str]]]]:

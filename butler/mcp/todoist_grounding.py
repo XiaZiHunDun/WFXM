@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import MCP_TODOIST_PROJECT_LIST_DIRECT_DEFAULT
 from butler.mcp.extension_grounding import matches_manifest_intent
 
 
 def todoist_project_list_direct_enabled() -> bool:
-    return bool(env_truthy("BUTLER_TODOIST_PROJECT_LIST_DIRECT", default=True))
+    return bool(env_truthy("BUTLER_TODOIST_PROJECT_LIST_DIRECT", default=MCP_TODOIST_PROJECT_LIST_DIRECT_DEFAULT))
 
 
 def is_todoist_project_list_intent(text: str) -> bool:

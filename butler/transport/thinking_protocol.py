@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import TRANSPORT_THINKING_PROTOCOL_DEFAULT
 from butler.transport.model_capabilities import model_supports_thinking
 
 _THINKING_HINT = (
@@ -12,7 +13,7 @@ _THINKING_HINT = (
 
 
 def thinking_protocol_enabled() -> bool:
-    return bool(env_truthy("BUTLER_THINKING_PROTOCOL", default=False))
+    return bool(env_truthy("BUTLER_THINKING_PROTOCOL", default=TRANSPORT_THINKING_PROTOCOL_DEFAULT))
 
 
 def maybe_append_thinking_system_hint(

@@ -6,14 +6,15 @@ import logging
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import MCP_TOOLS_ENGINE_SSOT_DEFAULT
 from butler.mcp.naming import is_mcp_registered_name, safe_segment, tool_prefix
 
 logger = logging.getLogger(__name__)
 
 
 def tools_engine_ssot_enabled() -> bool:
-    return bool(env_truthy("BUTLER_TOOLS_ENGINE_SSOT", default=False))
+    return bool(env_truthy("BUTLER_TOOLS_ENGINE_SSOT", default=MCP_TOOLS_ENGINE_SSOT_DEFAULT))
 
 
 def _resolve_workspace() -> Path | None:
