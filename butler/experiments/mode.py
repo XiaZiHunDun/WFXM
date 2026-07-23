@@ -6,13 +6,14 @@ from pathlib import Path
 
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import EXPERIMENT_MODE_DEFAULT
 
 _PATH_WRITE_TOOLS = frozenset({"write_file", "patch", "delete_file"})
 
 
 def experiment_mode_enabled() -> bool:
-    return bool(env_truthy("BUTLER_EXPERIMENT_MODE", default=False))
+    return bool(env_truthy("BUTLER_EXPERIMENT_MODE", default=EXPERIMENT_MODE_DEFAULT))
 
 
 def _rel_path(workspace: Path, path_str: str) -> str:

@@ -9,19 +9,23 @@ from pathlib import Path
 
 from typing import Any, Callable, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import (
+    EXECUTE_CODE_DEFAULT,
+    EXECUTE_CODE_ALLOW_NETWORK_DEFAULT,
+)
 
 _MAX_CODE_CHARS = 8000
 _DEFAULT_TIMEOUT = 30
 
 
 def execute_code_enabled() -> bool:
-    return bool(env_truthy("BUTLER_EXECUTE_CODE", default=False))
+    return bool(env_truthy("BUTLER_EXECUTE_CODE", default=EXECUTE_CODE_DEFAULT))
 
 
 def execute_code_timeout_seconds() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_EXECUTE_CODE_TIMEOUT", _DEFAULT_TIMEOUT, min=5, max=120))
     except ValueError:
@@ -29,7 +33,7 @@ def execute_code_timeout_seconds() -> int:
 
 
 def execute_code_allow_network() -> bool:
-    return bool(env_truthy("BUTLER_EXECUTE_CODE_ALLOW_NETWORK", default=False))
+    return bool(env_truthy("BUTLER_EXECUTE_CODE_ALLOW_NETWORK", default=EXECUTE_CODE_ALLOW_NETWORK_DEFAULT))
 
 
 def _workspace_cwd() -> Path:

@@ -6,7 +6,8 @@ import logging
 import subprocess
 from pathlib import Path
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import EXPERIMENT_GIT_RESET_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ def current_git_sha(workspace: Path) -> str:
 
 
 def experiment_git_reset_enabled() -> bool:
-    return bool(env_truthy("BUTLER_EXPERIMENT_GIT_RESET", default=False))
+    return bool(env_truthy("BUTLER_EXPERIMENT_GIT_RESET", default=EXPERIMENT_GIT_RESET_DEFAULT))
 
 
 def git_reset_hard(workspace: Path, sha: str) -> tuple[bool, str]:

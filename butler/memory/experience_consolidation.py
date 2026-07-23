@@ -9,9 +9,9 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy, float_env
-
-from butler.config import get_butler_home
+from butler.utilities.env_parse import env_truthy, float_env
+from butler.defaults.env_defaults import EXPERIENCE_MERGE_DEFAULT
+from butler.configuration.settings import get_butler_home
 from butler.memory.semantic_index import (
     index_experience_row,
     SOURCE_EXPERIENCE,
@@ -43,7 +43,7 @@ Output ONLY valid JSON:
 
 
 def experience_merge_enabled() -> bool:
-    return bool(env_truthy("BUTLER_EXPERIENCE_MERGE", default=True))
+    return bool(env_truthy("BUTLER_EXPERIENCE_MERGE", default=EXPERIENCE_MERGE_DEFAULT))
 
 
 def experience_merge_auto_threshold() -> float:

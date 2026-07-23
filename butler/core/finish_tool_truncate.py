@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import FINISH_TOOL_TRUNCATE_ENABLED_DEFAULT
 from butler.transport.types import ToolCall
 
 _FINISH_NAMES = frozenset(
@@ -17,7 +18,7 @@ _FINISH_NAMES = frozenset(
 
 
 def finish_tool_truncate_enabled() -> bool:
-    return bool(env_truthy("BUTLER_FINISH_TOOL_TRUNCATE", default=True))
+    return bool(env_truthy("BUTLER_FINISH_TOOL_TRUNCATE", default=FINISH_TOOL_TRUNCATE_ENABLED_DEFAULT))
 
 
 def truncate_tool_calls_at_finish(tool_calls: list[ToolCall]) -> list[ToolCall]:

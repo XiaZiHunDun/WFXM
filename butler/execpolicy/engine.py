@@ -9,7 +9,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import EXECPOLICY_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class PrefixRule:
 
 
 def execpolicy_enabled() -> bool:
-    return bool(env_truthy("BUTLER_EXECPOLICY", default=True))
+    return bool(env_truthy("BUTLER_EXECPOLICY", default=EXECPOLICY_DEFAULT))
 
 
 def _tokenize_command(command: str) -> list[str]:

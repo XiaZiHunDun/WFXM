@@ -234,7 +234,7 @@ ROUTING_CORPUS_DEFAULT: Final[bool] = False
 ROUTING_DESIGN_CONTEXT_INJECT_DEFAULT: Final[bool] = False
 
 # --- Exec policy ---
-EXECPOLICY_DEFAULT: Final[str] = "default"
+EXECPOLICY_DEFAULT: Final[bool] = True
 EXECUTE_CODE_DEFAULT: Final[bool] = False
 EXECUTE_CODE_ALLOW_NETWORK_DEFAULT: Final[bool] = False
 
@@ -242,11 +242,13 @@ EXECUTE_CODE_ALLOW_NETWORK_DEFAULT: Final[bool] = False
 EXPERIENCE_MERGE_DEFAULT: Final[bool] = True
 EXPERIMENT_MODE_DEFAULT: Final[bool] = False
 EXPERIMENT_GIT_RESET_DEFAULT: Final[bool] = False
-EXPERIMENT_LEDGER_DEFAULT: Final[bool] = False
+EXPERIMENT_LEDGER_DEFAULT: Final[bool] = True
 
 # --- Export ---
 EXPORT_SEND_WECHAT_FILE_DEFAULT: Final[bool] = True
 
 # --- Hashline & finish ---
-HASHLINE_PATCH_DEFAULT: Final[bool] = False
-FINISH_TOOL_TRUNCATE_DEFAULT: Final[int] = 5000
+HASHLINE_READ_DEFAULT: Final[bool] = False
+HASHLINE_PATCH_DEFAULT: Final[bool] = True
+FINISH_TOOL_TRUNCATE_ENABLED_DEFAULT: Final[bool] = True
+FINISH_TOOL_TRUNCATE_MAX_DEFAULT: Final[int] = 5000

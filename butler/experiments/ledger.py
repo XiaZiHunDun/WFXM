@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import EXPERIMENT_LEDGER_DEFAULT
 from butler.experiments.git_utils import current_git_sha
 from butler.experiments.metrics import primary_metric
 
@@ -131,7 +132,7 @@ def maybe_write_last_run_log(workspace: Path, stdout: str, stderr: str) -> Path 
     lines_out = len((stdout or "").splitlines())
     lines_err = len((stderr or "").splitlines())
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         threshold = int_env("BUTLER_EXPERIMENT_LOG_LINES", 200, min=50)
     except ValueError:
@@ -158,7 +159,7 @@ def maybe_record_from_job_result(
     hypothesis: str = "",
 ) -> dict[str, Any] | None:
     """Parse METRIC lines from job stdout; append ledger row on success."""
-    if not env_truthy("BUTLER_EXPERIMENT_LEDGER", default=True):
+    if not env_truthy("BUTLER_EXPERIMENT_LEDGER", default=EXPERIMENT_LEDGER_DEFAULT):
         return None
 
     ws = Path(workspace).expanduser().resolve()

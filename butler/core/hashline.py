@@ -19,13 +19,17 @@ _HASHLINE_LINE_RE = re.compile(r"^(\d+)#([^|]+)\|(.*)$")
 
 
 def hashline_read_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
+    from butler.defaults.env_defaults import HASHLINE_READ_DEFAULT
 
-    return bool(env_truthy("BUTLER_HASHLINE_READ", default=False))
+    return bool(env_truthy("BUTLER_HASHLINE_READ", default=HASHLINE_READ_DEFAULT))
+
+
 def hashline_patch_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
+    from butler.defaults.env_defaults import HASHLINE_PATCH_DEFAULT
 
-    return bool(env_truthy("BUTLER_HASHLINE_PATCH", default=True))
+    return bool(env_truthy("BUTLER_HASHLINE_PATCH", default=HASHLINE_PATCH_DEFAULT))
 def compute_line_hash(line_number: int, content: str) -> str:
     normalized = content.replace("\r", "").rstrip()
     seed = 0 if _RE_SIGNIFICANT.search(normalized) else int(line_number)
