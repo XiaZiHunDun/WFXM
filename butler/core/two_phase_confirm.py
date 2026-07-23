@@ -40,9 +40,10 @@ class PendingToolCall:
 
 
 def _write_confirm_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
+    from butler.defaults.env_defaults import SAFETY_CONFIRM_WRITE_OPS_DEFAULT
 
-    return bool(env_truthy("BUTLER_CONFIRM_WRITE_OPS", default=True))
+    return bool(env_truthy("BUTLER_CONFIRM_WRITE_OPS", default=SAFETY_CONFIRM_WRITE_OPS_DEFAULT))
 
 
 def is_high_risk_tool(tool_name: str, args: dict[str, Any] | None = None) -> bool:
@@ -71,7 +72,7 @@ def _session_key(session_key: str = "") -> str:
 def _pending_path(session_key: str) -> Path:
     import re
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     sk = re.sub(r"[^a-zA-Z0-9._+-]+", "_", _session_key(session_key))[:120] or "default"
     path = get_butler_home() / "sessions" / sk / "pending_tool.json"

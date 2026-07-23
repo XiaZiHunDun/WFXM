@@ -9,7 +9,8 @@ import threading
 import time
 from collections import deque
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import SAFETY_BOT_LOOP_GUARD_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ _PAIR_COUNTS: dict[str, deque[float]] = {}
 
 
 def bot_loop_guard_enabled() -> bool:
-    return bool(env_truthy("BUTLER_BOT_LOOP_GUARD", default=False))
+    return bool(env_truthy("BUTLER_BOT_LOOP_GUARD", default=SAFETY_BOT_LOOP_GUARD_DEFAULT))
 
 
 def pair_threshold() -> int:

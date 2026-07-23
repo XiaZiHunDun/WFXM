@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import WORKFLOW_AUTO_CONTINUE_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ _CONTINUE_MARKERS = frozenset({
 
 
 def auto_continue_enabled() -> bool:
-    return bool(env_truthy("BUTLER_AUTO_CONTINUE", default=True))
+    return bool(env_truthy("BUTLER_AUTO_CONTINUE", default=WORKFLOW_AUTO_CONTINUE_DEFAULT))
 
 
 def auto_continue_max_age_seconds() -> int:

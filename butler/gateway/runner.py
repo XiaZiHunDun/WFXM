@@ -36,7 +36,7 @@ from butler.gateway.runner_ops import (
 from butler.gateway.singleton_lock import acquire_gateway_singleton_lock
 from butler.gateway.events_sink import register_gateway_events_sink
 from butler.gateway.gateway_contracts import register_gateway_contracts
-from butler.logging_config import configure_logging
+from butler.utilities.logging_config import configure_logging
 
 NATIVE_PLATFORMS = SUPPORTED_PLATFORMS  # alias for tests / legacy imports
 from butler.gateway.platforms.types import MessageEvent, PlatformConfig  # noqa: E402
@@ -48,7 +48,11 @@ from butler.gateway import events_sink_impl  # noqa: E402, F401
 from butler.ops.runtime_metrics_sink import install_runtime_metrics_sink  # noqa: E402
 
 install_runtime_metrics_sink()
-from butler.env_parse import float_env, init_dotenv  # noqa: E402
+from butler.utilities.env_parse import float_env, init_dotenv  # noqa: E402
+from butler.defaults.env_defaults import (  # noqa: E402
+    GATEWAY_HANDLER_WORKERS,
+    GATEWAY_HANDLER_TIMEOUT_SECONDS,
+)
 
 init_dotenv()
 
@@ -64,11 +68,11 @@ __all__ = [
 ]
 
 def _handler_worker_count() -> int:
-    raw = os.getenv("BUTLER_GATEWAY_HANDLER_WORKERS", "2")
+    raw = os.getenv("BUTLER_GATEWAY_HANDLER_WORKERS", str(GATEWAY_HANDLER_WORKERS))
     try:
         return max(1, min(8, int(raw)))
     except ValueError:
-        return 2
+        return GATEWAY_HANDLER_WORKERS
 
 
 # Per-chat session locks serialize same user; >1 worker allows /详细 during long turns.
@@ -76,7 +80,7 @@ _HANDLER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
     max_workers=_handler_worker_count(),
     thread_name_prefix="butler-gw-handler",
 )
-_HANDLER_TIMEOUT_SECONDS = float_env("BUTLER_GATEWAY_HANDLER_TIMEOUT", 600.0, min=1.0)
+_HANDLER_TIMEOUT_SECONDS = float_env("BUTLER_GATEWAY_HANDLER_TIMEOUT", GATEWAY_HANDLER_TIMEOUT_SECONDS, min=1.0)
 _HANDLER_SHUTDOWN_GRACE_SECONDS = float_env(
     "BUTLER_GATEWAY_HANDLER_SHUTDOWN_GRACE",
     30.0,

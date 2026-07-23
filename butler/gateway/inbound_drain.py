@@ -33,7 +33,7 @@ def drain_queued_inbound(
     external_id: str | None,
     primary_reply: str = "",
 ) -> str:
-    from butler.gateway.message_queue import (
+    from butler.resilience.message_queue import (
         message_queue_enabled,
         newest_enqueued_at,
         pop_all_merged,
@@ -72,18 +72,20 @@ def drain_queued_inbound(
                 parts.append(part)
     else:
         try:
-            from butler.env_parse import int_env
+            from butler.utilities.env_parse import int_env
+            from butler.defaults.env_defaults import GATEWAY_QUEUE_DRAIN_PER_TURN
 
-            max_drain = int_env("BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN", 1, min=0)
+            max_drain = int_env("BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN", GATEWAY_QUEUE_DRAIN_PER_TURN, min=0)
         except ValueError:
-            max_drain = 1
+            max_drain = GATEWAY_QUEUE_DRAIN_PER_TURN
         if mode == "followup":
             try:
-                from butler.env_parse import int_env
+                from butler.utilities.env_parse import int_env
+                from butler.defaults.env_defaults import GATEWAY_QUEUE_DRAIN_FOLLOWUP
 
                 max_drain = max(
                     max_drain,
-                    int_env("BUTLER_GATEWAY_QUEUE_DRAIN_FOLLOWUP", 1, min=0),
+                    int_env("BUTLER_GATEWAY_QUEUE_DRAIN_FOLLOWUP", GATEWAY_QUEUE_DRAIN_FOLLOWUP, min=0),
                 )
             except ValueError:
                 pass

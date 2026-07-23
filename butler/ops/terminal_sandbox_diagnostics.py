@@ -8,11 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import TOOL_ENABLE_TERMINAL_DEFAULT
 
 
 def _terminal_enabled() -> bool:
-    return bool(env_truthy("BUTLER_ENABLE_TERMINAL", default=False))
+    return bool(env_truthy("BUTLER_ENABLE_TERMINAL", default=TOOL_ENABLE_TERMINAL_DEFAULT))
 
 
 def _sandbox_enabled() -> bool:
@@ -69,7 +70,7 @@ def collect_terminal_sandbox_status(
     *,
     workspace: Path | None = None,
 ) -> TerminalSandboxStatus:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.tools.terminal_sandbox import bubblewrap_path
 
     ws = workspace

@@ -6,7 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import WORKFLOW_AUTO_REVIEW_DEFAULT
 
 _READ_ONLY_HINTS = re.compile(
     r"(?i)\b(git\s+(status|diff|log|show|branch)|pytest\s+--collect|ls\b|pwd\b|cat\s+|head\s+|tail\s+|wc\s+)",
@@ -18,7 +19,7 @@ _WRITE_HINTS = re.compile(
 
 
 def auto_review_enabled() -> bool:
-    return bool(env_truthy("BUTLER_AUTO_REVIEW", default=False))
+    return bool(env_truthy("BUTLER_AUTO_REVIEW", default=WORKFLOW_AUTO_REVIEW_DEFAULT))
 
 
 def max_denials_per_turn() -> int:

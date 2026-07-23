@@ -23,7 +23,8 @@ import os
 import time as _time
 from typing import Any, Optional, cast
 
-from butler.core.agent_loop import AgentLoop, LoopResult
+from butler.core.agent_loop.loop import AgentLoop
+from butler.core.loop_types import LoopResult
 from butler.gateway.message_handler_ops import (
     interrupt_session_loop_safe,
     run_prequeue_interrupt_safe,
@@ -46,10 +47,10 @@ from butler.gateway.handler_commands import (
 from butler.gateway.inbound_drain import drain_queued_inbound
 from butler.gateway.inbound_pipeline import build_default_inbound_pipeline
 from butler.gateway.locked_turn_orchestrator import run_locked_message_turn
-from butler.gateway.message_queue import message_queue_enabled
+from butler.resilience.message_queue import message_queue_enabled
 from butler.gateway.session_loop_factory import create_gateway_loop
 from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.session.keys import chat_id_from_session_key, normalize_session_key
 from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory, trigger_session_end
 from butler.gateway.session_registry import GatewaySessionRegistry
@@ -128,7 +129,9 @@ class ButlerMessageHandler:
         return cast(bool, self._session_registry.is_session_active(session_key))
 
     def _queue_push_via_bridge(self) -> bool:
-        return cast(bool, env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True))
+        from butler.defaults.env_defaults import GATEWAY_QUEUE_PUSH_VIA_BRIDGE_DEFAULT
+
+        return cast(bool, env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=GATEWAY_QUEUE_PUSH_VIA_BRIDGE_DEFAULT))
 
     def _interrupt_session_loop(self, session_key: str) -> None:
         interrupt_session_loop_safe(self._sessions, session_key)

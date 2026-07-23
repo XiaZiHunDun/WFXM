@@ -136,6 +136,30 @@ GATEWAY_PROGRESSIVE_STREAM_DEFAULT: Final[bool] = False
 GATEWAY_PROGRESSIVE_MIN_CHARS: Final[int] = 240
 GATEWAY_PROGRESSIVE_INTERVAL_SECONDS: Final[float] = 45.0
 
+# --- Gateway misc (runner.py, human_gate.py, session_lifecycle.py, completion_policy.py) ---
+GATEWAY_MESSAGE_QUEUE_DEFAULT: Final[bool] = True
+GATEWAY_QUEUE_PERSIST_DEFAULT: Final[bool] = False
+GATEWAY_EXTERNAL_ID_DEDUPE_DEFAULT: Final[bool] = True
+GATEWAY_INFLIGHT_TTL_SECONDS: Final[int] = 60
+GATEWAY_HANDLER_TIMEOUT_SECONDS: Final[float] = 600.0
+GATEWAY_HANDLER_WORKERS: Final[int] = 2
+GATEWAY_HUMAN_GATE_TTL_SECONDS: Final[float] = 3600.0
+GATEWAY_SESSION_INITIALIZING_DEFAULT: Final[bool] = True
+GATEWAY_SUPPRESS_COMPLETION_AFTER_MAIN_DEFAULT: Final[bool] = True
+GATEWAY_DELEGATE_COMPLETION_MODE_DEFAULT: Final[str] = "last"
+GATEWAY_DELEGATE_PROGRESS_MAX: Final[int] = 5
+GATEWAY_DELEGATE_PROGRESS_SECONDS: Final[float] = 90.0
+GATEWAY_PROGRESS_MAX_ACK_MESSAGES: Final[int] = 1
+GATEWAY_STREAM_PREVIEW_DEFAULT: Final[bool] = False
+GATEWAY_QUEUE_PUSH_VIA_BRIDGE_DEFAULT: Final[bool] = True
+GATEWAY_QUEUE_DRAIN_PER_TURN: Final[int] = 1
+GATEWAY_QUEUE_DRAIN_FOLLOWUP: Final[int] = 1
+GATEWAY_TASK_MILESTONE_DEFAULT: Final[bool] = False
+GATEWAY_TASK_MILESTONE_SECONDS: Final[float] = 90.0
+GATEWAY_TASK_MILESTONE_MAX: Final[int] = 5
+GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS: Final[float] = 2.0
+GATEWAY_SYSTEMD_UNIT: Final[str] = "butler-gateway.service"
+
 # --- B9 dev engine (b9_live_tuning.py, b9_tiers.py, b9_oracle_fewshot.py) ---
 B9_LIVE_TUNING_DEFAULT: Final[bool] = True
 B9_ORACLE_FEWSHOT_DEFAULT: Final[bool] = True
@@ -158,3 +182,71 @@ MEMORY_MAX_LINES: Final[int] = 200
 MEMORY_MAX_BYTES: Final[int] = 25 * 1024
 MEMORY_HALF_LIFE_DAYS: Final[float] = 30.0
 MEMORY_ACCESS_BOOST: Final[float] = 0.12
+
+# --- Safety & guard (injection_guard.py, bot_loop_guard.py, two_phase_confirm.py) ---
+SAFETY_ADVERSARIAL_MARK_DEFAULT: Final[bool] = True
+SAFETY_BOT_LOOP_GUARD_DEFAULT: Final[bool] = False
+SAFETY_CONFIRM_WRITE_OPS_DEFAULT: Final[bool] = True
+
+# --- Tool enablement (web_fetch.py, terminal_sandbox_diagnostics.py) ---
+TOOL_ENABLE_TERMINAL_DEFAULT: Final[bool] = False
+TOOL_ENABLE_WEB_FETCH_DEFAULT: Final[bool] = False
+TOOL_ENABLE_DATA_QUERY_DEFAULT: Final[bool] = False
+
+# --- Workflow & routing (workflow_registry.py, corpus_routing.py) ---
+WORKFLOW_AUTO_CONTINUE_DEFAULT: Final[bool] = True
+WORKFLOW_AUTO_REVIEW_DEFAULT: Final[bool] = True
+ROUTING_CORPUS_DEFAULT: Final[bool] = False
+ROUTING_DESIGN_CONTEXT_INJECT_DEFAULT: Final[bool] = False
+
+# --- Grounding & reasoning (grounding.py, ask_clarification.py) ---
+GROUNDING_CALC_DEFAULT: Final[bool] = False
+GROUNDING_API_MESSAGE_ACL_DEFAULT: Final[bool] = False
+REASONING_ASK_CLARIFICATION_DEFAULT: Final[bool] = False
+
+# --- CC features (context_compressor.py) ---
+CC_BRIDGE_DEFAULT: Final[bool] = True
+CC_ROUTE_HINTS_DEFAULT: Final[bool] = False
+CC_COMPACT_SKILL_PRESERVE_DEFAULT: Final[bool] = False
+
+# --- Batch & cache (tool_batch.py, delegate_cache.py) ---
+BATCH_STALE_GUARD_DEFAULT: Final[bool] = True
+CACHE_SAFE_DELEGATE_DEFAULT: Final[bool] = False
+
+# --- Doom loop & bind (doom_loop.py, project_bind.py) ---
+DOOM_LOOP_SOFT_NUDGE_DEFAULT: Final[bool] = False
+BIND_DEFAULT_PROJECT_DEFAULT: Final[bool] = False
+
+# --- Grounding & reasoning ---
+GROUNDING_CALC_DEFAULT: Final[bool] = False
+GROUNDING_API_MESSAGE_ACL_DEFAULT: Final[bool] = False
+REASONING_ASK_CLARIFICATION_DEFAULT: Final[bool] = False
+
+# --- CC features ---
+CC_BRIDGE_DEFAULT: Final[bool] = True
+CC_ROUTE_HINTS_DEFAULT: Final[bool] = False
+CC_COMPACT_SKILL_PRESERVE_DEFAULT: Final[bool] = False
+
+# --- Workflow & routing ---
+WORKFLOW_AUTO_CONTINUE_DEFAULT: Final[bool] = True
+WORKFLOW_AUTO_REVIEW_DEFAULT: Final[bool] = False
+ROUTING_CORPUS_DEFAULT: Final[bool] = False
+ROUTING_DESIGN_CONTEXT_INJECT_DEFAULT: Final[bool] = False
+
+# --- Exec policy ---
+EXECPOLICY_DEFAULT: Final[str] = "default"
+EXECUTE_CODE_DEFAULT: Final[bool] = False
+EXECUTE_CODE_ALLOW_NETWORK_DEFAULT: Final[bool] = False
+
+# --- Experience & experiment ---
+EXPERIENCE_MERGE_DEFAULT: Final[bool] = True
+EXPERIMENT_MODE_DEFAULT: Final[bool] = False
+EXPERIMENT_GIT_RESET_DEFAULT: Final[bool] = False
+EXPERIMENT_LEDGER_DEFAULT: Final[bool] = False
+
+# --- Export ---
+EXPORT_SEND_WECHAT_FILE_DEFAULT: Final[bool] = True
+
+# --- Hashline & finish ---
+HASHLINE_PATCH_DEFAULT: Final[bool] = False
+FINISH_TOOL_TRUNCATE_DEFAULT: Final[int] = 5000

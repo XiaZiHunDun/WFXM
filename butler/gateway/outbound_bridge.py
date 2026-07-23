@@ -13,8 +13,12 @@ from typing import Any, Callable, Optional, Protocol, cast
 from butler.contracts.completion_ports import OutboundCompletionHooks
 from butler.contracts.completion_registry import get_completion_hooks
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
-from butler.defaults.env_defaults import GATEWAY_MAX_SUPPLEMENTARY_PER_TURN
-from butler.env_parse import env_truthy, float_env, int_env
+from butler.defaults.env_defaults import (
+    GATEWAY_MAX_SUPPLEMENTARY_PER_TURN,
+    GATEWAY_PROGRESS_MAX_ACK_MESSAGES,
+    GATEWAY_STREAM_PREVIEW_DEFAULT,
+)
+from butler.utilities.env_parse import env_truthy, float_env, int_env
 from butler.gateway.completion_policy import (
     max_supplementary_per_turn,
     suppress_completion_after_main_enabled,
@@ -97,7 +101,7 @@ class GatewayOutboundBridge:
         default_factory=lambda: _env_float("BUTLER_GATEWAY_PROGRESS_ACK_SECONDS", 30.0)
     )
     max_ack_messages: int = field(default_factory=lambda: int(
-        os.getenv("BUTLER_GATEWAY_PROGRESS_MAX_ACK_MESSAGES", "1") or "1"
+        os.getenv("BUTLER_GATEWAY_PROGRESS_MAX_ACK_MESSAGES", str(GATEWAY_PROGRESS_MAX_ACK_MESSAGES)) or str(GATEWAY_PROGRESS_MAX_ACK_MESSAGES)
     ))
 
     _started_at: float = field(default=0.0, init=False)
@@ -313,7 +317,7 @@ class GatewayOutboundBridge:
     def append_stream_preview(self, delta: str) -> None:
         if self._closed or not delta:
             return
-        if not env_truthy("BUTLER_GATEWAY_STREAM_PREVIEW", default=False):
+        if not env_truthy("BUTLER_GATEWAY_STREAM_PREVIEW", default=GATEWAY_STREAM_PREVIEW_DEFAULT):
             return
 
         def _apply() -> None:

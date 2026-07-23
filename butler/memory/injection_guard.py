@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.memory.butler_memory import _reject_injection
+from butler.defaults.env_defaults import SAFETY_ADVERSARIAL_MARK_DEFAULT
 
 
 def adversarial_mark_enabled() -> bool:
-    return bool(env_truthy("BUTLER_ADVERSARIAL_MARK", default=True))
+    return bool(env_truthy("BUTLER_ADVERSARIAL_MARK", default=SAFETY_ADVERSARIAL_MARK_DEFAULT))
 
 
 def prefetch_injection_filter_enabled() -> bool:

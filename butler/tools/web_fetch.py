@@ -8,11 +8,12 @@ import re
 from html import unescape
 from typing import Any, Callable
 
-from butler.env_parse import env_truthy, int_env, float_env
+from butler.utilities.env_parse import env_truthy, int_env, float_env
+from butler.defaults.env_defaults import TOOL_ENABLE_WEB_FETCH_DEFAULT
 
 
 def web_fetch_enabled() -> bool:
-    return bool(env_truthy("BUTLER_ENABLE_WEB_FETCH", default=False))
+    return bool(env_truthy("BUTLER_ENABLE_WEB_FETCH", default=TOOL_ENABLE_WEB_FETCH_DEFAULT))
 
 
 def _max_bytes() -> int:

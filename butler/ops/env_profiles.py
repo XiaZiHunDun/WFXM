@@ -5,7 +5,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import (
+    TOOL_ENABLE_TERMINAL_DEFAULT,
+    TERMINAL_SANDBOX_DEFAULT,
+    TERMINAL_SANDBOX_FAIL_UNAVAILABLE_DEFAULT,
+)
 
 VALID_PROFILES = frozenset({"lead", "dev-gateway", "dev-local", "dev-remote"})
 
@@ -70,9 +75,9 @@ def profile_mismatch_messages(*, bwrap_available: bool) -> list[str]:
         return []
 
     msgs: list[str] = []
-    term_on = env_truthy("BUTLER_ENABLE_TERMINAL", default=False)
-    sandbox_on = env_truthy("BUTLER_TERMINAL_SANDBOX", default=False)
-    fail_closed = env_truthy("BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE", default=False)
+    term_on = env_truthy("BUTLER_ENABLE_TERMINAL", default=TOOL_ENABLE_TERMINAL_DEFAULT)
+    sandbox_on = env_truthy("BUTLER_TERMINAL_SANDBOX", default=TERMINAL_SANDBOX_DEFAULT)
+    fail_closed = env_truthy("BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE", default=TERMINAL_SANDBOX_FAIL_UNAVAILABLE_DEFAULT)
 
     if term_on != prof.terminal_enabled:
         want = "1" if prof.terminal_enabled else "0"

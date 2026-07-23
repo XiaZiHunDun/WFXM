@@ -11,7 +11,8 @@ import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
 
-from butler.env_parse import float_env
+from butler.utilities.env_parse import float_env
+from butler.defaults.env_defaults import GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS
 from butler.gateway.outbound_prefs import pop_single_bubble_from_metadata
 from butler.gateway.platforms.types import SendResult
 from butler.gateway.platforms.wechat_ilink import (
@@ -66,7 +67,7 @@ async def maybe_fetch_typing_ticket(
 
 
 async def ensure_typing_ticket_for_event(adapter: "WeChatAdapter", event: Any) -> None:
-    timeout = float_env("BUTLER_GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS", 2)
+    timeout = float_env("BUTLER_GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS", GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS)
     await ensure_typing_ticket_safe(adapter, event, timeout=timeout)
 
 

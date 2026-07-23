@@ -15,8 +15,9 @@ from butler.contracts.gateway_registry import get_bridge_access
 from butler.defaults.env_defaults import (
     GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS,
     GATEWAY_DELEGATE_COMPLETION_MAX_EACH,
+    GATEWAY_DELEGATE_COMPLETION_MODE_DEFAULT,
 )
-from butler.env_parse import env_truthy, float_env, int_env
+from butler.utilities.env_parse import env_truthy, float_env, int_env
 from butler.gateway import delegate_push_dedup as _delegate_push_dedup
 from butler.gateway.completion_notify_ops import (
     deliver_completion_push_safe,
@@ -29,7 +30,7 @@ from butler.gateway.completion_telemetry import (
     record_completion_push_failed,
     record_completion_push_sent,
 )
-from butler.gateway.durable_outbox import (
+from butler.resilience.durable_outbox import (
     enqueue_outbox_message,
     mark_outbox_failed,
     mark_outbox_sent,
@@ -105,7 +106,7 @@ def timeout_completion_enabled() -> bool:
 
 def delegate_completion_mode() -> str:
     """last: only the final delegate in a turn pushes; each: up to N; once: first only."""
-    return (os.getenv("BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE", "last") or "last").strip().lower()
+    return (os.getenv("BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE", GATEWAY_DELEGATE_COMPLETION_MODE_DEFAULT) or GATEWAY_DELEGATE_COMPLETION_MODE_DEFAULT).strip().lower()
 
 
 def delegate_completion_max_each() -> int:

@@ -16,20 +16,22 @@ logger = logging.getLogger(__name__)
 
 def _progress_interval_seconds() -> float:
     try:
-        from butler.env_parse import float_env
+        from butler.utilities.env_parse import float_env
+        from butler.defaults.env_defaults import GATEWAY_DELEGATE_PROGRESS_SECONDS
 
-        return float(max(45.0, float_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_SECONDS", 90)))
+        return float(max(45.0, float_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_SECONDS", GATEWAY_DELEGATE_PROGRESS_SECONDS)))
     except ValueError:
-        return 90.0
+        return float(GATEWAY_DELEGATE_PROGRESS_SECONDS)
 
 
 def _progress_max_pushes() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
+        from butler.defaults.env_defaults import GATEWAY_DELEGATE_PROGRESS_MAX
 
-        return int(int_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX", 5, min=1, max=12))
+        return int(int_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX", GATEWAY_DELEGATE_PROGRESS_MAX, min=1, max=12))
     except ValueError:
-        return 5
+        return GATEWAY_DELEGATE_PROGRESS_MAX
 
 
 def _format_progress_line(job: "DelegateJob", *, elapsed: int, n: int) -> str:

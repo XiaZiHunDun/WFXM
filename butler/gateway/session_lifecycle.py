@@ -6,7 +6,8 @@ import logging
 import threading
 from typing import Callable
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import GATEWAY_SESSION_INITIALIZING_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ _WARMING: dict[str, threading.Lock] = {}
 
 
 def session_initializing_enabled() -> bool:
-    return bool(env_truthy("BUTLER_GATEWAY_SESSION_INITIALIZING", default=True))
+    return bool(env_truthy("BUTLER_GATEWAY_SESSION_INITIALIZING", default=GATEWAY_SESSION_INITIALIZING_DEFAULT))
 
 
 def format_initializing_ack(*, pending: int = 0) -> str:
