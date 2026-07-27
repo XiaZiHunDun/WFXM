@@ -1,4 +1,4 @@
-"""Tests for butler.gateway.durable_outbox."""
+"""Tests for butler.resilience.durable_outbox."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from butler.gateway.durable_outbox import (
+from butler.resilience.durable_outbox import (
     durable_outbox_enabled,
     enqueue_outbox_message,
     mark_outbox_failed,
@@ -21,7 +21,7 @@ from butler.gateway.durable_outbox import (
 def _patch_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / ".butler"))
     monkeypatch.setenv("BUTLER_GATEWAY_DURABLE_OUTBOX", "1")
-    import butler.config as _cfg
+    import butler.configuration.settings as _cfg
     _cfg._settings = None
     yield
     _cfg._settings = None

@@ -20,7 +20,7 @@ def test_config_module_has_no_import_time_load_dotenv():
 
 
 def test_init_dotenv_skipped_under_pytest(monkeypatch):
-    import butler.env_parse as ep
+    import butler.utilities.env_parse as ep
 
     ep._dotenv_loaded = False
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/test_env_parse_r8.py::test")
@@ -29,7 +29,7 @@ def test_init_dotenv_skipped_under_pytest(monkeypatch):
 
 
 def test_int_env_invalid_falls_back(monkeypatch, caplog):
-    from butler.env_parse import int_env
+    from butler.utilities.env_parse import int_env
 
     monkeypatch.setenv("BUTLER_TEST_INT_FOO", "abc")
     assert int_env("BUTLER_TEST_INT_FOO", 7, min=1, max=10) == 7
@@ -37,14 +37,14 @@ def test_int_env_invalid_falls_back(monkeypatch, caplog):
 
 
 def test_int_env_empty_uses_default(monkeypatch):
-    from butler.env_parse import int_env
+    from butler.utilities.env_parse import int_env
 
     monkeypatch.setenv("BUTLER_TEST_INT_EMPTY", "")
     assert int_env("BUTLER_TEST_INT_EMPTY", 42) == 42
 
 
 def test_float_env_clamp_warns(monkeypatch, caplog):
-    from butler.env_parse import float_env
+    from butler.utilities.env_parse import float_env
 
     monkeypatch.setenv("BUTLER_TEST_FLOAT_CLAMP", "1.5")
     assert float_env("BUTLER_TEST_FLOAT_CLAMP", 0.75, min=0.5, max=0.95) == 0.95
@@ -52,7 +52,7 @@ def test_float_env_clamp_warns(monkeypatch, caplog):
 
 
 def test_env_truthy_default_true(monkeypatch):
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     monkeypatch.delenv("BUTLER_TEST_TRUTHY_UNSET", raising=False)
     assert env_truthy("BUTLER_TEST_TRUTHY_UNSET", default=True) is True
@@ -61,7 +61,7 @@ def test_env_truthy_default_true(monkeypatch):
 
 
 def test_is_butler_prod_unknown_strict(monkeypatch, caplog):
-    from butler.env_parse import is_butler_prod
+    from butler.utilities.env_parse import is_butler_prod
 
     monkeypatch.setenv("BUTLER_ENV", "weird")
     assert is_butler_prod() is True
@@ -69,14 +69,14 @@ def test_is_butler_prod_unknown_strict(monkeypatch, caplog):
 
 
 def test_is_butler_prod_dev_not_prod(monkeypatch):
-    from butler.env_parse import is_butler_prod
+    from butler.utilities.env_parse import is_butler_prod
 
     monkeypatch.setenv("BUTLER_ENV", "dev")
     assert is_butler_prod() is False
 
 
 def test_float_env_invalid_falls_back(monkeypatch, caplog):
-    from butler.env_parse import float_env
+    from butler.utilities.env_parse import float_env
 
     monkeypatch.setenv("BUTLER_TEST_FLOAT_FOO", "not-a-number")
     assert float_env("BUTLER_TEST_FLOAT_FOO", 2.5) == 2.5
@@ -87,11 +87,11 @@ def test_importing_config_does_not_load_dotenv(monkeypatch):
     """R1-16: ``butler.config`` import must not eagerly load ``.env``."""
     import importlib
 
-    import butler.env_parse as ep
+    import butler.utilities.env_parse as ep
 
     ep._dotenv_loaded = False
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    import butler.config as cfg
+    import butler.configuration.settings as cfg
 
     importlib.reload(cfg)
     assert ep._dotenv_loaded is False
