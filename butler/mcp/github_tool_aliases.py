@@ -6,6 +6,8 @@ import os
 import re
 from typing import Any
 
+from butler.defaults.env_defaults import GITHUB_DEFAULT_OWNER_DEFAULT
+
 _GITHUB_TOOL_ALIASES: dict[str, str] = {
     "mcp_github_get_issues": "mcp_github_lst_repo_issues",
     "mcp_github_list_issues": "mcp_github_lst_repo_issues",
@@ -29,7 +31,7 @@ def resolve_github_mcp_tool_name(name: str) -> str:
 
 
 def default_github_owner() -> str:
-    return os.getenv("BUTLER_GITHUB_DEFAULT_OWNER", "XiaZiHunDun").strip() or "XiaZiHunDun"
+    return os.getenv("BUTLER_GITHUB_DEFAULT_OWNER", GITHUB_DEFAULT_OWNER_DEFAULT).strip() or GITHUB_DEFAULT_OWNER_DEFAULT
 
 
 def parse_github_owner_repo(

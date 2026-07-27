@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from butler.config_secrets import (
+from butler.configuration.secrets import (
     encrypt_secrets_file,
     provider_secrets,
     write_provider_secret,

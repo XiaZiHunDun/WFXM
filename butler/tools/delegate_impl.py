@@ -12,6 +12,16 @@ from butler.execution_context import get_current_turn_bridge
 from butler.report import AgentReport, Change, cache_report
 from butler.runtime.task_store import complete_task
 from butler.tools.delegate_orchestrator import _orchestrator_for_tool
+from butler.dev_engine.b9_delegate_gate import (
+    apply_b9_pytest_success_gate,
+    apply_coding_strict_pilot_gate,
+    apply_dev_auto_verify_success_gate,
+    apply_dev_review_strict_gate,
+)
+from butler.hooks.runner import run_subagent_stop_hooks
+from butler.memory.corrective_recall import build_corrective_recall_block, should_trigger_corrective
+from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
+from butler.tools.delegate_delete_gate import apply_delegate_delete_verify_gate
 
 
 def _project_agent_raw_message(*, task: str, context: str = "") -> str:
@@ -116,7 +126,6 @@ def finalize_delegate_success(
 
 def _extract_changes_from_messages(messages: list[Any]) -> list[Any]:
     import json as _json
-
 
     changes: list[Change] = []
     for msg in messages or []:
@@ -294,14 +303,6 @@ def apply_delegate_success_gates(
     summary: str = "",
 ) -> tuple[bool, list[str]]:
     def _run() -> tuple[bool, list[str]]:
-        from butler.dev_engine.b9_delegate_gate import (
-            apply_b9_pytest_success_gate,
-            apply_coding_strict_pilot_gate,
-            apply_dev_auto_verify_success_gate,
-            apply_dev_review_strict_gate,
-        )
-        from butler.tools.delegate_delete_gate import apply_delegate_delete_verify_gate
-
         out_issues = list(issues or [])
         ok, out_issues = apply_b9_pytest_success_gate(
             category=category,
@@ -364,11 +365,6 @@ def apply_delegate_success_gates(
 
 def inject_corrective_recall_safe(name: str, args: dict[str, Any], result: str) -> str:
     def _run() -> str:
-        from butler.memory.corrective_recall import (
-            build_corrective_recall_block,
-            should_trigger_corrective,
-        )
-
         if not should_trigger_corrective(name, result):
             return result
         task_hint = str(args.get("task") or args.get("query") or args.get("path") or "")
@@ -399,8 +395,6 @@ def run_subagent_stop_hooks_safe(
     summary_preview: str = "",
 ) -> None:
     def _run() -> None:
-        from butler.hooks.runner import run_subagent_stop_hooks
-
         run_subagent_stop_hooks(
             agent_type=role,
             agent_id=agent_id,
@@ -423,8 +417,6 @@ def capture_delegate_failure_safe(
     project: str,
 ) -> None:
     def _run() -> None:
-        from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
-
         maybe_capture_from_delegate_result(
             role=role,
             task=task,

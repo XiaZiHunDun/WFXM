@@ -559,7 +559,7 @@ def _isolate_butler_home_llm(tmp_path, monkeypatch):
     home.mkdir(exist_ok=True)
     monkeypatch.setenv("BUTLER_HOME", str(home))
     monkeypatch.setenv("BUTLER_FACT_EXTRACTION", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     reload_butler_settings()
     yield
 

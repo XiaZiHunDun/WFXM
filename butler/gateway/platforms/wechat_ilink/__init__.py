@@ -47,3 +47,10 @@ async def send_wechat_direct(
             media_files=media_files,
         ),
     )
+
+
+__all__ = [
+    "WeChatAdapter",
+    "qr_login",
+    "send_wechat_direct",
+]

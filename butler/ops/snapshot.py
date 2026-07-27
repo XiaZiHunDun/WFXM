@@ -9,7 +9,17 @@ import time
 from pathlib import Path
 from typing import Any
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
+from butler.defaults.env_defaults import (
+    ENABLE_GIT_DEFAULT,
+    ENABLE_GIT_WRITE_DEFAULT,
+    ENABLE_TERMINAL_DEFAULT,
+    QUEUE_PREFETCH_DEFAULT,
+    RUNTIME_ENABLED_DEFAULT,
+    RUNTIME_PUSH_DEFAULT,
+    SEMANTIC_MEMORY_DEFAULT,
+    WECHAT_DEV_SMOKE_DEFAULT,
+)
 
 def _workspace_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -87,14 +97,14 @@ def _recent_runtime_failures(limit: int = 5) -> list[dict[str, Any]]:
 def collect_ops_snapshot() -> dict[str, Any]:
     """Aggregate local ops signals (read-only)."""
     env_flags = {
-        "runtime_enabled": os.getenv("BUTLER_RUNTIME_ENABLED", "1"),
-        "runtime_push": os.getenv("BUTLER_RUNTIME_PUSH", "1"),
-        "semantic_memory": os.getenv("BUTLER_SEMANTIC_MEMORY", "0"),
-        "queue_prefetch": os.getenv("BUTLER_QUEUE_PREFETCH", "0"),
-        "wechat_dev_smoke": os.getenv("BUTLER_WECHAT_DEV_SMOKE", "0"),
-        "terminal": os.getenv("BUTLER_ENABLE_TERMINAL", "0"),
-        "git": os.getenv("BUTLER_ENABLE_GIT", "0"),
-        "git_write": os.getenv("BUTLER_ENABLE_GIT_WRITE", "0"),
+        "runtime_enabled": os.getenv("BUTLER_RUNTIME_ENABLED", RUNTIME_ENABLED_DEFAULT),
+        "runtime_push": os.getenv("BUTLER_RUNTIME_PUSH", RUNTIME_PUSH_DEFAULT),
+        "semantic_memory": os.getenv("BUTLER_SEMANTIC_MEMORY", SEMANTIC_MEMORY_DEFAULT),
+        "queue_prefetch": os.getenv("BUTLER_QUEUE_PREFETCH", QUEUE_PREFETCH_DEFAULT),
+        "wechat_dev_smoke": os.getenv("BUTLER_WECHAT_DEV_SMOKE", WECHAT_DEV_SMOKE_DEFAULT),
+        "terminal": os.getenv("BUTLER_ENABLE_TERMINAL", ENABLE_TERMINAL_DEFAULT),
+        "git": os.getenv("BUTLER_ENABLE_GIT", ENABLE_GIT_DEFAULT),
+        "git_write": os.getenv("BUTLER_ENABLE_GIT_WRITE", ENABLE_GIT_WRITE_DEFAULT),
     }
     from butler.ops.snapshot_ops import list_active_failure_streaks_safe
 

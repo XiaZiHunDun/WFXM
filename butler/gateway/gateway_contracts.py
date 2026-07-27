@@ -75,7 +75,7 @@ def register_gateway_contracts() -> None:
 
         class _GatewayInboundIdempotencyPort:
             def reset_session(self, session_id: str) -> None:
-                from butler.gateway.inbound_idempotency import reset_session
+                from butler.resilience.inbound_idempotency import reset_session
 
                 reset_session(session_id)
 

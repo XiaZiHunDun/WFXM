@@ -11,7 +11,7 @@ import pytest
 def _reset_projects(monkeypatch, tmp_path: Path, *, projects_subdir: str = "projects") -> Path:
     projects_dir = tmp_path / projects_subdir
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.project.manager import ProjectManager
 
     ProjectManager._instance = None

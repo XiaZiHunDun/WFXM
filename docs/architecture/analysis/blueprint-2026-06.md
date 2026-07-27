@@ -76,10 +76,10 @@
 | 包/目录 | 层 | 核心文件 |
 |---------|-----|----------|
 | `butler/gateway/` | L1 | `message_handler.py`, `message_queue.py`, `outbound_bridge.py`, `session_registry.py`, `runner.py` |
-| `butler/core/` | L2 | `agent_loop.py` (~561行), `context_pipeline.py`, `tool_batch.py`, `llm_retry.py` |
+| `butler/core/` | L2 | `agent_loop/`（包）, `context_pipeline.py`, `tool_batch.py`, `llm_retry.py` |
 | `butler/orchestrator.py` | L2 | Loop 工厂、系统提示、Skill 路由 |
 | `butler/tenant.py` + `butler/tools/{contacts,memo,...}` | L3 | PIM 26 工具 |
-| `butler/dev_engine/` | L4 | `dev_loop.py`, `coding_knowledge.py`, `verify.py`, `b9_*.py` |
+| `butler/dev_engine/` | L4 | `dev_loop.py`, `coding_knowledge/`（包）, `verify.py`, `b9_*.py` |
 | `butler/project/`, `butler/workflows/`, `butler/runtime/` | L5 | 多项目、YAML workflow、cron job |
 | `butler/memory/`, `butler/skills/`, `butler/permissions/`, `butler/human_gate.py` | L6 | 记忆、Skill、门控 |
 | `butler/ops/` | L7 | `eval_*`, `langfuse_tracer`, `eval_diagnostics`, `boundary_observability` |
@@ -170,7 +170,7 @@ post_session → fact extraction / skill 提炼 / pending 审批
 
 | 模块 | 路径 | 行数级 | 职责 |
 |------|------|--------|------|
-| 编排 | `core/agent_loop.py` | ~561 | 主循环、LoopResult、interrupt |
+| 编排 | `core/agent_loop/`（包） | ~561 | 主循环、LoopResult、interrupt |
 | 上下文 | `context_pipeline.py`, `context_compressor.py` | — | 五阶段 + post_compact 锚点 |
 | 工具批 | `tool_batch.py`, `parallel_tools.py` | — | spill、prefetch、guardrails |
 | LLM | `llm_retry.py` + `transport/` | ~800 | 重试、schema 恢复、流式 |
@@ -211,7 +211,7 @@ PLAN → LOCATE → EDIT → VERIFY ⇄ FIX → DONE | STUCK
 | DevLoop | `dev_engine/dev_loop.py` |
 | EditHistory / undo | `dev_engine/edit_ops.py` |
 | Verify / dual_verify | `dev_engine/verify.py` |
-| 知识管线 | `dev_engine/coding_knowledge.py` — TheoremLibrary, ExperienceLibrary, process_task |
+| 知识管线 | `dev_engine/coding_knowledge/`（包）— TheoremLibrary, ExperienceLibrary, process_task |
 | Dev 工具 | `dev_engine/dev_tools.py` — run_pytest 等 |
 | OpenCode 扩展 | `extensions/opencode.py` — 可选 MCP 桥 |
 

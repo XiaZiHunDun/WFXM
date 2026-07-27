@@ -20,15 +20,16 @@ logger = logging.getLogger(__name__)
 _MAX_FACTS_PER_SESSION = 50
 _MAX_FACT_VALUE_LEN = 300
 
+from butler.defaults.env_defaults import FACT_EXTRACTION_DEFAULT
 from butler.tools.pim_schema import ALL_PIM_TOOLS as _PIM_TOOL_NAMES
 
 
 def fact_extraction_enabled() -> bool:
-    return os.getenv("BUTLER_FACT_EXTRACTION", "1").strip() in ("1", "true")
+    return os.getenv("BUTLER_FACT_EXTRACTION", FACT_EXTRACTION_DEFAULT).strip() in ("1", "true")
 
 
 def _facts_dir() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "session_facts"
 

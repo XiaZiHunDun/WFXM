@@ -42,6 +42,7 @@ from butler.ops.eval_config_overrides import temporary_overrides
 from butler.project.model import Project
 from butler.dev_engine.b9_types import B9Mode, B9Report, B9Result, B9TaskSpec
 from butler.dev_engine.edit_ops import apply_patch, apply_write
+from butler.defaults.env_defaults import EVAL_LLM_BENCHMARK_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +326,7 @@ B9_TASKS.extend(B9_LIVE_FIXED_TASKS)
 
 
 def resolve_b9_mode() -> B9Mode:
-    if os.getenv("BUTLER_EVAL_LLM_BENCHMARK", "0").strip() in ("1", "true", "yes"):
+    if os.getenv("BUTLER_EVAL_LLM_BENCHMARK", EVAL_LLM_BENCHMARK_DEFAULT).strip() in ("1", "true", "yes"):
         return B9Mode.LIVE
     return B9Mode.ORACLE
 

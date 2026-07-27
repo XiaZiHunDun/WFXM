@@ -155,7 +155,7 @@ jobs:
         assert data.get("code") == "RUNTIME_MUTATING_REQUIRES_APPROVAL"
 
     def test_readonly_job_via_agent_tool(self, tmp_path, monkeypatch):
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         from butler.project.manager import ProjectManager
 
         monkeypatch.setenv("BUTLER_RUNTIME_ENABLED", "1")

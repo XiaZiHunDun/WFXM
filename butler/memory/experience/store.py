@@ -484,11 +484,8 @@ class ExperienceStore:
         )
 
 
-_singleton: Optional[ExperienceStore] = None
-
-
 def get_experience_store() -> ExperienceStore:
-    global _singleton
-    if _singleton is None:
-        _singleton = ExperienceStore()
-    return _singleton
+    """Shared ``ExperienceStore`` via ServiceContainer."""
+    from butler.core.container import container
+
+    return container.experience_store()

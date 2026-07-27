@@ -6,14 +6,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from butler.core.container import container
 from butler.core.fact_extraction import extract_pre_compact_facts
-from butler.memory.memory_metrics import MemoryMetricsCollector, get_collector
+from butler.memory.memory_metrics import get_collector
 from butler.session.memory_prefetch_ops import emit_prefetch_metrics, prefetch_retrieval_counts
 
 
 class TestPrefetchRetrievalWiring:
     def setup_method(self):
-        MemoryMetricsCollector.reset()
+        container.reset_all()
 
     def test_retrieval_counts_from_diagnostics(self):
         diag = {
@@ -39,7 +40,7 @@ class TestPrefetchRetrievalWiring:
 
 class TestFactExtractionMetricsWiring:
     def setup_method(self):
-        MemoryMetricsCollector.reset()
+        container.reset_all()
 
     def test_extract_emits_fact_metrics(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_FACT_EXTRACTION", "1")

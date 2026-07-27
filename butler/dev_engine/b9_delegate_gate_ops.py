@@ -7,12 +7,14 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.delegate.task_kind import is_dev_verify_exempt
+from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
+from butler.dev_engine.dev_tools import auto_verify_enabled, coding_strict_enabled, review_strict_enabled
+from butler.tools.path_safety import tool_safe_root
 
 
 def tool_safe_root_workspace_safe() -> Path | None:
     def _run() -> Path:
-        from butler.tools.path_safety import tool_safe_root
-
         return cast(Path, tool_safe_root())
 
     return cast(Path, safe_best_effort(_run, label="b9_delegate_gate.tool_safe_root", default=None))
@@ -20,8 +22,6 @@ def tool_safe_root_workspace_safe() -> Path | None:
 
 def build_b9_verify_hint_safe(failure_tail: str) -> str:
     def _run() -> str:
-        from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
-
         return str(build_b9_verify_hint(failure_tail) or "")
 
     result = safe_best_effort(_run, label="b9_delegate_gate.verify_hint", default="")
@@ -37,8 +37,6 @@ def is_dev_verify_exempt_safe(
     category_meta: dict[str, Any] | None,
 ) -> bool | None:
     def _run() -> bool:
-        from butler.delegate.task_kind import is_dev_verify_exempt
-
         return bool(
             is_dev_verify_exempt(
                 role=role,
@@ -54,8 +52,6 @@ def is_dev_verify_exempt_safe(
 
 def auto_verify_enabled_safe() -> bool | None:
     def _run() -> bool:
-        from butler.dev_engine.dev_tools import auto_verify_enabled
-
         return bool(auto_verify_enabled())
 
     return cast(bool | None, safe_best_effort(_run, label="b9_delegate_gate.auto_verify_enabled", default=None))
@@ -63,8 +59,6 @@ def auto_verify_enabled_safe() -> bool | None:
 
 def coding_strict_enabled_safe() -> bool | None:
     def _run() -> bool:
-        from butler.dev_engine.dev_tools import coding_strict_enabled
-
         return bool(coding_strict_enabled())
 
     return cast(bool | None, safe_best_effort(_run, label="b9_delegate_gate.coding_strict_enabled", default=None))
@@ -72,8 +66,6 @@ def coding_strict_enabled_safe() -> bool | None:
 
 def review_strict_enabled_safe() -> bool | None:
     def _run() -> bool:
-        from butler.dev_engine.dev_tools import review_strict_enabled
-
         return bool(review_strict_enabled())
 
     return cast(bool | None, safe_best_effort(_run, label="b9_delegate_gate.review_strict_enabled", default=None))

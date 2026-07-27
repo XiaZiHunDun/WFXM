@@ -6,6 +6,8 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.events_sink import emit_context_compaction
+from butler.core.session_transcript import record_compact_boundary, record_compact_done, record_compact_failed, record_compact_scheduled, record_compact_started, record_overflow_replay as _record_overflow_replay
 
 MessageDict = dict[str, Any]
 CompactionSplit = tuple[list[MessageDict], list[MessageDict], list[MessageDict]]
@@ -18,8 +20,6 @@ def record_compress_scheduled(
     tokens_estimated: int,
 ) -> None:
     def _run() -> None:
-        from butler.core.session_transcript import record_compact_scheduled
-
         record_compact_scheduled(
             session_key,
             source="context_compressor",
@@ -36,8 +36,6 @@ def record_compress_started(
     overflow_replay: bool,
 ) -> None:
     def _run() -> None:
-        from butler.core.session_transcript import record_compact_started
-
         record_compact_started(
             session_key,
             source="context_compressor",
@@ -59,11 +57,6 @@ def record_compress_completed(
     remote: bool,
 ) -> None:
     def _transcript() -> None:
-        from butler.core.session_transcript import (
-            record_compact_boundary,
-            record_compact_done,
-        )
-
         record_compact_boundary(session_key, summary_len)
         record_compact_done(
             session_key,
@@ -76,8 +69,6 @@ def record_compress_completed(
     safe_best_effort(_transcript, label="context_compress.done")
 
     def _emit() -> None:
-        from butler.core.events_sink import emit_context_compaction
-
         emit_context_compaction(
             phase="completed",
             thread_id=session_key,
@@ -94,10 +85,8 @@ def record_compress_completed(
 
 def record_overflow_replay(*, session_key: str, replay_user: MessageDict) -> None:
     def _run() -> None:
-        from butler.core.session_transcript import record_overflow_replay
-
         content = str(replay_user.get("content") or "")
-        record_overflow_replay(
+        _record_overflow_replay(
             session_key,
             source="context_compressor",
             content_preview=content,

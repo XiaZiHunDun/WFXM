@@ -49,7 +49,7 @@ def record_fix_reactivation_selection_safe(
 
 def reactivate_coding_knowledge_core_safe(state: Any, keywords: list[str]) -> dict[str, Any] | None:
     def _run() -> dict[str, Any]:
-        from butler.config import get_butler_home
+        from butler.configuration.settings import get_butler_home
         from butler.dev_engine.coding_knowledge import (
             TheoremLibrary,
             process_task,

@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from butler.core.best_effort import safe_best_effort
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.core.dev_state_context_adapter import (
     loop_dev_state_view_to_payload,
     to_loop_dev_state_view,

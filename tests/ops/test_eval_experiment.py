@@ -26,7 +26,7 @@ def test_variant_to_scores():
 def test_run_eval_experiment_two_variants(mock_b9, mock_push, tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_LANGFUSE_ENABLED", "0")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
 
@@ -52,7 +52,7 @@ def test_run_eval_experiment_two_variants(mock_b9, mock_push, tmp_path, monkeypa
 @patch("butler.dev_engine.llm_delegate_benchmark.run_llm_delegate_benchmarks")
 def test_run_variant_benchmark_applies_patch(mock_b9, tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
 

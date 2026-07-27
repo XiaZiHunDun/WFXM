@@ -59,7 +59,7 @@ def maybe_queue_experience_candidate(
         return
     lines = [f"- [{f.rule_id}] {f.message}"[:200] for f in errors[:4]]
     content = "Review findings:\n" + "\n".join(lines)
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.dev_engine.review_closure_ops import queue_experience_candidate_safe
     from butler.memory.memory_scope import coding_experiences_save_path
 

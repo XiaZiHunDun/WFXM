@@ -135,7 +135,7 @@ def _format_task_tree(node: TaskNode | None, indent: int = 0) -> str:
 
 def tool_conversation_state_read(mode: str = "quick") -> str:
     """Read conversation state."""
-    from butler.core.agent_loop import AgentLoop
+    from butler.core.agent_loop.loop import AgentLoop
     from butler.execution_context import get_current_orchestrator
 
     orch = get_current_orchestrator()
@@ -196,7 +196,7 @@ def tool_conversation_state_update(
     **kwargs: Any,
 ) -> str:
     """Update conversation state."""
-    from butler.core.agent_loop import AgentLoop
+    from butler.core.agent_loop.loop import AgentLoop
     from butler.execution_context import get_current_orchestrator
 
     orch = get_current_orchestrator()
@@ -281,7 +281,7 @@ def tool_conversation_state_update(
 
 def tool_conversation_state_search(query: str, limit: int = 5, semantic_mode: bool = False) -> str:
     """Search through historical turn summaries and chapter summaries."""
-    from butler.core.agent_loop import AgentLoop
+    from butler.core.agent_loop.loop import AgentLoop
     from butler.execution_context import get_current_orchestrator, get_current_session_key
 
     if semantic_mode:

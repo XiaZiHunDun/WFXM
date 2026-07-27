@@ -8,7 +8,7 @@ from typing import Optional, cast
 try:
     from croniter import croniter as _croniter_factory  # type: ignore[import-untyped]
 except ImportError:  # croniter not installed (e.g. minimal env)
-    _croniter_factory = None  # type: ignore[assignment]
+    _croniter_factory = None
 
 # Back-compat: tests / older callers may do ``schedule.croniter(expr, now)``
 # or monkeypatch ``schedule.croniter = None``. Expose ``croniter`` as the

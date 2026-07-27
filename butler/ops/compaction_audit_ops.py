@@ -22,7 +22,7 @@ def checkpoint_preview_len_safe(session_key: str) -> int | None:
 
 def discover_sessions_imports_ok() -> bool:
     def _run() -> bool:
-        from butler.config import get_butler_home  # noqa: F401
+        from butler.configuration.settings import get_butler_home  # noqa: F401
         from butler.core.session_transcript import transcript_path  # noqa: F401
 
         return True

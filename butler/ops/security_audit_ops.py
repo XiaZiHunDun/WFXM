@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.defaults.env_defaults import MCP_HTTP_HOSTS_ALLOW_DEFAULT
 
 
 def mcp_http_audit_findings_safe(*, workspace: Path | None) -> list[Any]:
@@ -17,7 +18,7 @@ def mcp_http_audit_findings_safe(*, workspace: Path | None) -> list[Any]:
 
         if not http_mcp_servers_configured(workspace=workspace):
             return []
-        hosts = os.getenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", "").strip()
+        hosts = os.getenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", MCP_HTTP_HOSTS_ALLOW_DEFAULT).strip()
         if hosts:
             return []
         return [

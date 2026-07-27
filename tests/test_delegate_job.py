@@ -134,7 +134,7 @@ class TestPushDelegateCompletion:
 class TestRunDelegateJob:
     def test_failure_calls_finalize(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
 
@@ -161,7 +161,7 @@ class TestRunDelegateJob:
             patch("butler.runtime.delegate_registry.unregister_delegate_loop"),
             patch("butler.core.delegate_semaphore.release_delegate_slot") as mock_release,
             patch(
-                "butler.tools.registry._finalize_delegate_failure"
+                "butler.runtime.delegate_job_finalize._finalize_delegate_failure"
             ) as mock_fail,
         ):
             from butler.runtime.delegate_job import run_delegate_job
@@ -174,7 +174,7 @@ class TestRunDelegateJob:
 
     def test_success_path_caches_report(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
 
@@ -216,30 +216,30 @@ class TestRunDelegateJob:
             patch("butler.runtime.delegate_registry.register_delegate_loop"),
             patch("butler.runtime.delegate_registry.unregister_delegate_loop"),
             patch("butler.core.delegate_semaphore.release_delegate_slot"),
-            patch("butler.runtime.delegate_job.sync_turn_memory"),
+            patch("butler.runtime.delegate_job_body.sync_turn_memory"),
             patch(
-                "butler.runtime.delegate_job._extract_changes_from_messages",
+                "butler.runtime.delegate_job_body._extract_changes_from_messages",
                 return_value=[],
             ),
             patch(
-                "butler.runtime.delegate_job._extract_issues_from_messages",
+                "butler.runtime.delegate_job_body._extract_issues_from_messages",
                 return_value=[],
             ),
             patch(
-                "butler.runtime.delegate_job.finalize_delegate_success",
+                "butler.runtime.delegate_job_body.finalize_delegate_success",
                 return_value=(True, []),
             ),
-            patch("butler.runtime.delegate_job._run_subagent_stop_hooks"),
+            patch("butler.runtime.delegate_job_body._run_subagent_stop_hooks"),
             patch(
-                "butler.runtime.delegate_job.attach_delegate_diff_summary",
+                "butler.runtime.delegate_job_finalize.attach_delegate_diff_summary",
             ),
             patch(
                 "butler.runtime.delegate_job.push_delegate_completion",
             ),
-            patch("butler.runtime.delegate_job.cache_report") as mock_cache,
-            patch("butler.runtime.delegate_job.complete_task") as mock_complete,
+            patch("butler.runtime.delegate_job_body.cache_report") as mock_cache,
+            patch("butler.runtime.delegate_job_body.complete_task") as mock_complete,
             patch("butler.core.session_transcript.record_generic_event"),
-            patch("butler.runtime.delegate_job.peek_dev_engine_summary", return_value=None),
+            patch("butler.runtime.delegate_job_body.peek_dev_engine_summary", return_value=None),
         ):
             from butler.runtime.delegate_job import run_delegate_job
 

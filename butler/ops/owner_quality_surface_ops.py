@@ -14,7 +14,7 @@ from butler.mcp.diagnostics import format_mcp_diagnostic_lines
 from butler.dev_engine.b9_tiers import summarize_tier_results
 from butler.ops.eval_diagnostics import collect_eval_quality_snapshot
 from butler.ops.b9_prod_weekly import compare_production_delegate_delta, summarize_production_delegate_quality
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 
 logger = logging.getLogger(__name__)
 

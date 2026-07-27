@@ -81,7 +81,7 @@ class GatewayEventsSink:
         )
 
     def pop_urgent_inbound(self, session_key: str) -> UrgentInbound | None:
-        from butler.gateway.message_queue import pop_urgent_inbound as _pop
+        from butler.resilience.message_queue import pop_urgent_inbound as _pop
 
         item = _pop(session_key)
         if item is None:

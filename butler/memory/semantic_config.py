@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 
 
 def semantic_memory_enabled() -> bool:
@@ -14,20 +14,24 @@ def semantic_memory_enabled() -> bool:
 
 def resolve_embedding_config() -> tuple[str, str]:
     """``config.yaml`` embedding.* → env ``BUTLER_EMBEDDING_*`` (env wins)."""
-    from butler.config import get_butler_settings
+    from butler.configuration.settings import get_butler_settings
     from butler.defaults.model_defaults import (
         DEFAULT_EMBEDDING_MODEL,
         DEFAULT_EMBEDDING_PROVIDER,
+    )
+    from butler.defaults.env_defaults import (
+        EMBEDDING_MODEL_ENV_DEFAULT,
+        EMBEDDING_PROVIDER_ENV_DEFAULT,
     )
 
     settings = get_butler_settings()
     yaml_emb = settings.embedding if isinstance(settings.embedding, dict) else {}
 
-    provider = (os.getenv("BUTLER_EMBEDDING_PROVIDER", "") or "").strip()
+    provider = (os.getenv("BUTLER_EMBEDDING_PROVIDER", EMBEDDING_PROVIDER_ENV_DEFAULT) or "").strip()
     if not provider:
         provider = str(yaml_emb.get("provider") or DEFAULT_EMBEDDING_PROVIDER).strip()
 
-    model = (os.getenv("BUTLER_EMBEDDING_MODEL", "") or "").strip()
+    model = (os.getenv("BUTLER_EMBEDDING_MODEL", EMBEDDING_MODEL_ENV_DEFAULT) or "").strip()
     if not model:
         model = str(yaml_emb.get("model") or DEFAULT_EMBEDDING_MODEL).strip()
 
@@ -56,7 +60,7 @@ def hybrid_fts_weight() -> float:
 def semantic_search_limit(default: int = 8) -> int:
     cfg = resolve_memory_config()
     if default != 8:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_SEMANTIC_SEARCH_LIMIT", default, min=1))
     return int(cfg.search_limit)

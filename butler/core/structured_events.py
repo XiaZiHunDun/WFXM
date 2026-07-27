@@ -11,6 +11,7 @@ import json
 import time
 from typing import Any
 
+from butler.contracts.events import EventType
 from butler.core.metrics_sink import record_event
 
 
@@ -51,7 +52,7 @@ def emit_llm_api_call(
     session_key: str = "",
 ) -> None:
     record_event(
-        "llm_api_call",
+        EventType.LLM_API_CALL,
         {
             "duration_ms": round(float(duration_ms), 2),
             "status": str(status or "ok"),
@@ -73,7 +74,7 @@ def emit_tool_action(
     session_key: str = "",
 ) -> None:
     record_event(
-        "tool_action",
+        EventType.TOOL_ACTION,
         {
             "tool_name": str(tool_name or "")[:64],
             "args_digest": str(args_digest_value or "")[:16],
@@ -92,7 +93,7 @@ def emit_retrieval(
     session_key: str = "",
 ) -> None:
     record_event(
-        "retrieval",
+        EventType.RETRIEVAL,
         {
             "mode": str(mode or "")[:48],
             "degraded": bool(degraded),

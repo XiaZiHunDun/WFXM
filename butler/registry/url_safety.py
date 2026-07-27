@@ -24,7 +24,7 @@ _PRIVATE_NETWORKS = (
 
 
 def _allowed_hosts() -> frozenset[str]:
-    raw = os.getenv("BUTLER_REGISTRY_ALLOWED_HOSTS", "").strip()
+    raw = os.getenv("BUTLER_REGISTRY_ALLOWED_HOSTS", REGISTRY_ALLOWED_HOSTS_DEFAULT).strip()
     if not raw:
         return frozenset()
     return frozenset(h.strip().lower() for h in raw.split(",") if h.strip())

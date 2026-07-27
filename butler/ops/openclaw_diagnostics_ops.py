@@ -18,7 +18,7 @@ from butler.gateway.reply_admission import (
 )
 from butler.gateway.bot_loop_guard import bot_loop_guard_enabled
 from butler.tools.terminal_approval import approval_required
-from butler.config_secrets import secrets_status_line
+from butler.configuration.secrets import secrets_status_line
 from butler.tools.terminal_danger import danger_patterns_enabled
 from butler.tools.terminal_pattern_approval import smart_pattern_approve_enabled
 from butler.ops.terminal_sandbox_diagnostics import format_terminal_sandbox_diagnostic_lines

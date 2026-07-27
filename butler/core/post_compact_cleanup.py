@@ -87,7 +87,7 @@ def _build_conversation_state_anchor(diagnostics: dict[str, Any] | None = None) 
     elif hasattr(state_data, "to_compact_anchor"):
         anchor = state_data.to_compact_anchor()
         if anchor:
-            return anchor
+            return str(anchor)
         if hasattr(state_data, "conversation_goal"):
             _add_field("对话目标", str(state_data.conversation_goal).strip())
         if hasattr(state_data, "current_task_summary"):

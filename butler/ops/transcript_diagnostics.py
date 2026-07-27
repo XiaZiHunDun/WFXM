@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.core.transcript_fts import fts_db_path, fts_enabled
 
 

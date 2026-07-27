@@ -12,7 +12,7 @@ from butler.runtime import task_store
 @pytest.mark.unit
 def test_concurrent_update_task_preserves_fields(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
 

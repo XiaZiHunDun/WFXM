@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
 import pydantic
+from pydantic import ConfigDict, Field, ValidationError
 
 
 # ── Legacy Dataclasses (backward compatible) ──
@@ -57,7 +58,7 @@ class McpServerStatus:
 # ── Pydantic Models (new runtime validation) ──
 
 
-class McpRequest(pydantic.BaseModel):
+class McpRequest(pydantic.BaseModel):  # type: ignore[misc]
     """MCP request message."""
 
     jsonrpc: str = "2.0"
@@ -66,7 +67,7 @@ class McpRequest(pydantic.BaseModel):
     params: dict[str, Any] = pydantic.Field(default_factory=dict)
 
 
-class McpResponse(pydantic.BaseModel):
+class McpResponse(pydantic.BaseModel):  # type: ignore[misc]
     """MCP response message."""
 
     jsonrpc: str = "2.0"
@@ -79,7 +80,7 @@ class McpSuccessResponse(McpResponse):
     result: dict[str, Any]
 
 
-class McpError(pydantic.BaseModel):
+class McpError(pydantic.BaseModel):  # type: ignore[misc]
     """MCP error object."""
 
     code: int
@@ -93,14 +94,14 @@ class McpErrorResponse(McpResponse):
     error: McpError
 
 
-class McpToolCall(pydantic.BaseModel):
+class McpToolCall(pydantic.BaseModel):  # type: ignore[misc]
     """MCP tool call request."""
 
     name: str
     arguments: dict[str, Any] = pydantic.Field(default_factory=dict)
 
 
-class McpToolResult(pydantic.BaseModel):
+class McpToolResult(pydantic.BaseModel):  # type: ignore[misc]
     """MCP tool execution result."""
 
     success: bool
@@ -113,14 +114,14 @@ class McpToolResult(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(frozen=True)
 
 
-class McpCapability(pydantic.BaseModel):
+class McpCapability(pydantic.BaseModel):  # type: ignore[misc]
     """MCP server capability."""
 
     name: str
     version: str = "1.0"
 
 
-class McpToolDescription(pydantic.BaseModel):
+class McpToolDescription(pydantic.BaseModel):  # type: ignore[misc]
     """MCP tool description."""
 
     name: str

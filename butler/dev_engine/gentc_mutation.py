@@ -14,15 +14,16 @@ from butler.dev_engine.coding_knowledge import (
     CodingKnowledgeContext,
     GenTCResult,
     TestCase,
-    _THEOREM_TEST_PATTERNS,
+    THEOREM_TEST_PATTERNS,
     generate_test_cases,
 )
+from butler.defaults.env_defaults import GENTC_MUTATION_MIN_SCORE_DEFAULT
 
 Predicate = Callable[[dict[str, Any]], bool]
 
 
 def default_mutation_min_score() -> float:
-    raw = os.getenv("BUTLER_GENTC_MUTATION_MIN_SCORE", "0.6").strip()
+    raw = os.getenv("BUTLER_GENTC_MUTATION_MIN_SCORE", GENTC_MUTATION_MIN_SCORE_DEFAULT).strip()
     try:
         return max(0.0, min(1.0, float(raw)))
     except ValueError:
@@ -90,7 +91,7 @@ def audit_equivalence_class_coverage(
     """P-CT4a structural check: GenTC includes all pattern categories per theorem."""
     missing: list[str] = []
     for tid in sorted(set(activated_theorem_ids)):
-        patterns = _THEOREM_TEST_PATTERNS.get(tid, [])
+        patterns = THEOREM_TEST_PATTERNS.get(tid, [])
         if not patterns:
             continue
         required = {p.category for p in patterns}
@@ -254,7 +255,7 @@ def evaluate_pct4a(
 
 def categories_for_theorem(tid: str) -> set[str]:
     """Expose pattern categories for tests."""
-    return {p.category for p in _THEOREM_TEST_PATTERNS.get(tid, [])}
+    return {p.category for p in THEOREM_TEST_PATTERNS.get(tid, [])}
 
 
 __all__ = [

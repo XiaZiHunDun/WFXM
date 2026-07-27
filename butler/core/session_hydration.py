@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 _HYDRATION_MARKER = "[SESSION HYDRATED — tool facts from transcript]"
 

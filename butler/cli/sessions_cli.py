@@ -13,7 +13,7 @@ from rich.table import Table
 
 
 def _sessions_root() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home() / "sessions")
 

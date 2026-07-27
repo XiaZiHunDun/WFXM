@@ -9,8 +9,8 @@ from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.transform_overrides import format_transform_diagnostic_lines
-from butler.config import BUTLER_RUNTIME_DIRS, get_butler_home, get_butler_settings
-from butler.config_secrets import secrets_status_line
+from butler.configuration.settings import BUTLER_RUNTIME_DIRS, get_butler_home, get_butler_settings
+from butler.configuration.secrets import secrets_status_line
 from butler.memory.semantic_config import semantic_memory_enabled
 from butler.memory.semantic_index import SemanticMemoryIndex
 from butler.memory.vector_store import chroma_data_present_hint
@@ -43,7 +43,7 @@ from butler.ops.terminal_sandbox_diagnostics import (
     format_terminal_sandbox_diagnostic_lines,
 )
 from butler.ops.transcript_diagnostics import transcript_fts_drift
-from butler.tenant import tenant_memory_dir
+from butler.utilities.tenant import tenant_memory_dir
 from butler.tools.path_safety import _default_project_workspace
 
 

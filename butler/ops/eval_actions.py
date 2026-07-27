@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from butler.env_parse import float_env
 import json
 import logging
 import os
@@ -10,8 +9,10 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
+from butler.utilities.env_parse import float_env
 from butler.ops.eval_feedback import FeedbackReport, FeedbackSuggestion, analyse_scores
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
+from butler.defaults.env_defaults import EVAL_HARD_FEEDBACK_DEFAULT
 from butler.memory.retrieval_ranking import memory_half_life_days
 from butler.ops.eval_config_overrides import adjust_memory_half_life
 from butler.ops.eval_config_overrides import adjust_dev_coding_guidance
@@ -25,7 +26,7 @@ _STATE_PATH_NAME = "eval_hard_feedback_state.json"
 
 
 def hard_feedback_enabled() -> bool:
-    return os.getenv("BUTLER_EVAL_HARD_FEEDBACK", "1").strip() in ("1", "true", "yes")
+    return os.getenv("BUTLER_EVAL_HARD_FEEDBACK", EVAL_HARD_FEEDBACK_DEFAULT).strip() in ("1", "true", "yes")
 
 
 def _min_interval_seconds() -> float:

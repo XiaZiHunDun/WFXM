@@ -19,7 +19,6 @@ from butler.memory.semantic_config import (
     semantic_search_limit,
 )
 from butler.core.best_effort import safe_best_effort
-from butler.memory.butler_memory_ops import close_sqlite_connection
 from butler.memory.query_decompose import search_with_subqueries
 from butler.memory.query_relaxation import hybrid_search_with_relaxation
 from butler.memory.retrieval_ranking import rerank_memory_hits
@@ -88,6 +87,8 @@ class SemanticMemoryIndex:
             conn = self._conn
             if conn is None:
                 return
+            from butler.memory.butler_memory_ops import close_sqlite_connection
+
             close_sqlite_connection(conn)
             self._conn = None  # type: ignore[assignment]
 

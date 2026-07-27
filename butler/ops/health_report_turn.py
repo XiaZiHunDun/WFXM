@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler import get_build_identity
-from butler.context_settings import format_context_config_source_line
+from butler.configuration.context import format_context_config_source_line
 from butler.core.compaction_status import format_compaction_status_line, format_fact_survival_line
 from butler.core.context_budget import format_context_budget_line
 from butler.core.pipeline_steps import format_pipeline_step_lines

@@ -7,7 +7,7 @@ import json
 import os
 from typing import Any
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
 
 _DEFAULT_SHARED_CHARS = 4096
 _DEFAULT_MESSAGES_PREFIX_CHARS = 2048

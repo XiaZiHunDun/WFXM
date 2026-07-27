@@ -17,6 +17,7 @@ from butler.execution_context import get_current_session_key
 from butler.tools.tool_audit_ops import enqueue_tool_observation_safe, record_tool_observation_safe, resolve_observation_workspace_safe
 from butler.execution_context import get_current_orchestrator
 from butler.tools.tool_audit_ops import run_permission_denied_hooks_safe
+from butler.defaults.env_defaults import TOOL_AUDIT_PERSIST_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ def _tool_result_code(name: str, payload: dict[str, Any], *, ok: bool) -> str:
 
 
 def _tool_audit_persist_enabled() -> bool:
-    return os.getenv("BUTLER_TOOL_AUDIT_PERSIST", "1").strip().lower() in (
+    return os.getenv("BUTLER_TOOL_AUDIT_PERSIST", TOOL_AUDIT_PERSIST_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",

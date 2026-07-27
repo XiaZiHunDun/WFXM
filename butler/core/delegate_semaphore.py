@@ -7,6 +7,7 @@ import threading
 from contextlib import contextmanager
 from typing import Iterator
 
+from butler.core.effects.result import Ok, Err, Result
 from butler.utilities.env_parse import env_truthy, int_env
 from butler.defaults.env_defaults import (
     DELEGATE_CONCURRENCY_LIMIT_DEFAULT,
@@ -23,9 +24,11 @@ def delegate_concurrency_enabled() -> bool:
 
 def max_concurrent_delegates() -> int:
     try:
-        return max(1, int(int_env("BUTLER_DELEGATE_MAX_CONCURRENT", DELEGATE_MAX_CONCURRENT)))
+        value: int = int_env("BUTLER_DELEGATE_MAX_CONCURRENT", DELEGATE_MAX_CONCURRENT)
+        result: int = max(1, value)
+        return result
     except ValueError:
-        return DELEGATE_MAX_CONCURRENT
+        return int(DELEGATE_MAX_CONCURRENT)
 
 
 def _slot_key(session_key: str) -> str:
@@ -57,8 +60,24 @@ def release_delegate_slot(session_key: str) -> None:
             _SESSION_SLOTS[key] = n
 
 
+def acquire_delegate_slot_safe(session_key: str) -> Result[None, RuntimeError]:
+    """Try to acquire a delegate slot, returning Result instead of raising.
+
+    Returns:
+        Ok(None) if slot acquired successfully
+        Err(RuntimeError) if slot limit exceeded
+    """
+    if not try_acquire_delegate_slot(session_key):
+        cap = max_concurrent_delegates()
+        return Err(RuntimeError(
+            f"本会话并发委派已达上限 ({cap})，请等待进行中的任务完成。"
+        ))
+    return Ok(None)
+
+
 @contextmanager
 def acquire_delegate_slot(session_key: str) -> Iterator[None]:
+    """Backward-compatible context manager that raises on failure."""
     if not try_acquire_delegate_slot(session_key):
         cap = max_concurrent_delegates()
         raise RuntimeError(
@@ -77,6 +96,7 @@ def running_delegate_count(session_key: str = "") -> int:
 
 __all__ = [
     "acquire_delegate_slot",
+    "acquire_delegate_slot_safe",
     "delegate_concurrency_enabled",
     "max_concurrent_delegates",
     "release_delegate_slot",

@@ -22,7 +22,7 @@ def test_hook_payload_shape():
 
 def test_pre_tool_hook_blocks_on_exit_2(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     hook = tmp_path / "block.sh"
@@ -45,7 +45,7 @@ def test_pre_tool_hook_blocks_on_exit_2(tmp_path, monkeypatch):
 def test_pre_tool_hook_fail_closed_blocks_nonzero(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_HOOK_FAIL_CLOSED", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     hook = tmp_path / "warn.sh"
@@ -67,7 +67,7 @@ def test_pre_tool_hook_fail_closed_blocks_nonzero(tmp_path, monkeypatch):
 
 def test_user_prompt_submit_blocks_on_exit_2(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     hook = tmp_path / "block_prompt.sh"
@@ -90,7 +90,7 @@ def test_user_prompt_submit_blocks_on_exit_2(tmp_path, monkeypatch):
 
 def test_user_prompt_submit_injects_additional_context(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     payload = json.dumps(
@@ -121,7 +121,7 @@ def test_user_prompt_submit_injects_additional_context(tmp_path, monkeypatch):
 
 def test_permission_denied_hook_retry_hint(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     payload = json.dumps(
@@ -155,7 +155,7 @@ def test_permission_denied_hook_retry_hint(tmp_path, monkeypatch):
 
 def test_dispatch_plan_mode_triggers_permission_denied_hint(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.plan.mode import set_plan_mode
 
     reload_butler_settings()
@@ -195,7 +195,7 @@ def test_dispatch_plan_mode_triggers_permission_denied_hint(tmp_path, monkeypatc
 
 def test_session_end_hook_runs_for_clear_reason(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     marker = tmp_path / "session_end.marker"
@@ -218,7 +218,7 @@ def test_session_end_hook_runs_for_clear_reason(tmp_path, monkeypatch):
 
 def test_stop_hook_matches_status(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     marker = tmp_path / "stop.marker"
@@ -247,7 +247,7 @@ def test_stop_hook_matches_status(tmp_path, monkeypatch):
 
 def test_stop_hook_injects_additional_context(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     payload = json.dumps(
@@ -277,7 +277,7 @@ def test_stop_hook_injects_additional_context(tmp_path, monkeypatch):
 
 def test_subagent_start_injects_context(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     payload = json.dumps(
@@ -314,7 +314,7 @@ def test_subagent_start_injects_context(tmp_path, monkeypatch):
 
 def test_health_report_lists_hook_telemetry(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     from butler.hooks.telemetry import record_hook_run
@@ -363,7 +363,7 @@ def test_health_report_lists_hook_telemetry(tmp_path, monkeypatch):
 
 def test_agent_loop_emits_stop_hook(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     marker = tmp_path / "loop_stop.marker"

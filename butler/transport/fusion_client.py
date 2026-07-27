@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-from butler.config import ModelConfig, get_butler_settings
+from butler.configuration.settings import ModelConfig, get_butler_settings
 from butler.transport.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)

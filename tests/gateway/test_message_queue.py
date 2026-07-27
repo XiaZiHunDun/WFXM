@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from butler.gateway import queue_settings as qs
-from butler.gateway.message_queue import (
+from butler.resilience.message_queue import (
     classify_inbound_priority,
     enqueue_inbound,
     format_queued_ack,

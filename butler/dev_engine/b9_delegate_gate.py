@@ -20,6 +20,7 @@ from butler.core.dev_state_context_adapter import dev_engine_dict_to_view
 from butler.dev_engine.b9_delegate_gate_ops import coding_strict_pilot_categories_safe
 from butler.dev_engine.b9_delegate_gate_ops import coding_strict_enabled_safe
 from butler.dev_engine.b9_delegate_gate_ops import review_strict_enabled_safe
+from butler.defaults.env_defaults import DEV_VERIFY_SUCCESS_GATE_DEFAULT
 
 SWE_LIVE_CATEGORY = "swe-benchmark"
 LINGWEN_DRILL_CATEGORY = "lingwen-drill"
@@ -306,7 +307,7 @@ def build_b9_wrong_patch_retry_banner(
 
 
 def dev_verify_success_gate_enabled() -> bool:
-    raw = os.getenv("BUTLER_DEV_VERIFY_SUCCESS_GATE", "1").strip().lower()
+    raw = os.getenv("BUTLER_DEV_VERIFY_SUCCESS_GATE", DEV_VERIFY_SUCCESS_GATE_DEFAULT).strip().lower()
     return raw in ("1", "true", "yes", "on")
 
 

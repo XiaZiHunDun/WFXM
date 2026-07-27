@@ -10,7 +10,10 @@ import time
 from collections import deque
 
 from butler.utilities.env_parse import env_truthy, int_env
-from butler.defaults.env_defaults import SAFETY_BOT_LOOP_GUARD_DEFAULT
+from butler.defaults.env_defaults import (
+    BOT_LOOP_WHITELIST_DEFAULT,
+    SAFETY_BOT_LOOP_GUARD_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,7 @@ def _pair_key(chat_id: str, sender_id: str) -> str:
 
 
 def _is_whitelisted(chat_id: str) -> bool:
-    raw = os.getenv("BUTLER_BOT_LOOP_WHITELIST", "").strip()
+    raw = os.getenv("BUTLER_BOT_LOOP_WHITELIST", BOT_LOOP_WHITELIST_DEFAULT).strip()
     if not raw:
         return False
     allowed = {x.strip() for x in raw.split(",") if x.strip()}

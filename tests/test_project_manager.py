@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.delegate.subagent_permissions import make_child_session_key
 from butler.execution_context import use_execution_context
 from butler.project.manager import ProjectManager

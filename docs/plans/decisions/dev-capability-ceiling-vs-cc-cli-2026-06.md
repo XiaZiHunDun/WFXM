@@ -1,7 +1,7 @@
 # ADR — Dev 能力上限：对标 Claude Code CLI（非 Cursor IDE）
 
 > **状态**：已采纳（2026-06-23）  
-> **实现 SSOT**：`butler/core/agent_loop.py`、`butler/tools/delegate_*`、`butler/dev_engine/`  
+> **实现 SSOT**：`butler/core/agent_loop/`（包）、`butler/tools/delegate_*`、`butler/dev_engine/`  
 > **对照 SSOT**：[`cc-butler-gap-analysis-2026-05.md`](../active/cc-butler-gap-analysis-2026-05.md)  
 > **产品边界**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md) · [`wechat-core-scenario.md`](../../guides/wechat-core-scenario.md)
 

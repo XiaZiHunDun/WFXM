@@ -7,7 +7,7 @@ import sys
 
 
 def cmd_secrets_set(ns: argparse.Namespace) -> int:
-    from butler.config_secrets import write_provider_secret
+    from butler.configuration.secrets import write_provider_secret
 
     provider = str(ns.provider or "").strip()
     key = str(ns.api_key or "").strip()
@@ -20,7 +20,7 @@ def cmd_secrets_set(ns: argparse.Namespace) -> int:
 
 
 def cmd_secrets_status(_ns: argparse.Namespace) -> int:
-    from butler.config_secrets import secrets_status_line
+    from butler.configuration.secrets import secrets_status_line
 
     print(secrets_status_line())
     return 0
@@ -29,7 +29,7 @@ def cmd_secrets_status(_ns: argparse.Namespace) -> int:
 def cmd_secrets_encrypt(ns: argparse.Namespace) -> int:
     import json
 
-    from butler.config_secrets import encrypt_secrets_file
+    from butler.configuration.secrets import encrypt_secrets_file
 
     result = encrypt_secrets_file(dry_run=not bool(getattr(ns, "apply", False)))
     if bool(getattr(ns, "json", False)):

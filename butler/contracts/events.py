@@ -3,7 +3,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum, auto
 from typing import Any, Protocol, runtime_checkable
+
+
+class EventType(StrEnum):
+    SESSION_START = auto()
+    SESSION_END = auto()
+    TOOL_ACTION = auto()
+    CONTEXT_COMPACTION = auto()
+    MESSAGE_RECEIVED = auto()
+    MESSAGE_RESPONDED = auto()
+    MEMORY_UPDATE = auto()
+    SKILL_INJECTED = auto()
+    MODE_CLASSIFIED = auto()
+    INTENT_DETECTED = auto()
+    DELEGATE_TASK = auto()
+    DELEGATE_COMPLETED = auto()
+    DELEGATE_FAILED = auto()
+    EVAL_FEEDBACK = auto()
+    HEALTH_CHECK = auto()
+    LLM_API_CALL = auto()
+    RETRIEVAL = auto()
+    OTHER = auto()
 
 
 @dataclass(frozen=True)
@@ -82,4 +104,4 @@ class NullEventsSink:
         return None
 
 
-__all__ = ["EventsSink", "NullEventsSink", "UrgentInbound"]
+__all__ = ["EventsSink", "EventType", "NullEventsSink", "UrgentInbound"]

@@ -24,7 +24,7 @@ Butler v4 已从 Hermes **模块化提炼**大量运行时能力（压缩、并�
 
 | 维度 | Hermes-Agent | Butler v4 |
 |------|--------------|-----------|
-| 核心循环 | 单体 `AIAgent`（`run_agent.py` ~15.4k 行 / ~790KB） | 模块化 `butler/core/agent_loop.py`（编排 ~580 行）+ 子模块 |
+| 核心循环 | 单体 `AIAgent`（`run_agent.py` ~15.4k 行 / ~790KB） | 模块化 `butler/core/agent_loop/`（包，编排 ~580 行）+ 子模块 |
 | 网关 | 30+ 平台适配、`GatewayRunner`（`gateway/run.py` ~16k 行） | **仅微信 iLink**（`butler/gateway/platforms/wechat_ilink.py`） |
 | 工具集 | 70+ 工具模块、MCP Host、浏览器、沙箱、`execute_code` | **~28** 内置/扩展工具（`get_tool_definitions`）+ 可选 MCP **薄客户端**（非 Host） |
 | 记忆 | 文件 + 可插拔外部 Provider + SQLite FTS5 会话库 | 多项目 `MEMORY.md` + `semantic_index` + turn 围栏 |
@@ -39,7 +39,7 @@ Hermes:
                     → MemoryManager + SessionDB (FTS5)
 
 Butler v4:
-  gateway/message_handler.py → agent_loop.py → tools/registry (~28 + opt. MCP)
+  gateway/message_handler.py → agent_loop/（包） → tools/registry (~28 + opt. MCP)
                                → ButlerMemory + semantic_index
   gateway/message_queue (steer / interrupt / collect / followup)
 ```
@@ -68,7 +68,7 @@ Butler v4:
 
 | 类别 | Butler 模块 | Hermes 参考 | 状态 |
 |------|-------------|-------------|------|
-| 主循环编排 | `butler/core/agent_loop.py` | `run_agent.py` 片段 | ✅ |
+| 主循环编排 | `butler/core/agent_loop/`（包） | `run_agent.py` 片段 | ✅ |
 | 工具批次 | `butler/core/tool_batch.py` | 同左 | ✅ |
 | LLM 重试 | `butler/core/llm_retry.py` | 同左 | ✅ |
 | 上下文管线 | `butler/core/context_pipeline.py` | 同左 | ✅ |

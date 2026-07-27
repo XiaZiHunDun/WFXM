@@ -11,7 +11,7 @@ from butler.core.tool_call_limits import PerToolCallLimiter, per_tool_call_limit
 from butler.core.tool_retry import should_retry_tool
 from butler.delegate.policy import resolve_delegate_max_iterations
 from butler.gateway.pii_scrub import scrub_outbound_text
-from butler.human_gate import PendingGate, _is_gate_expired
+from butler.permissions.human_gate import PendingGate, _is_gate_expired
 from butler.registry.url_safety import is_safe_url, assert_safe_redirect
 from butler.tools.terminal_danger import check_dangerous_command
 from butler.transport.usage_normalize import normalize_usage

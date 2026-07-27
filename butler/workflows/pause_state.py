@@ -29,7 +29,7 @@ def _pause_path(session_key: str, workspace: Path | None = None) -> Path:
         return Path(workspace) / ".butler" / "workflow_pause.json"
     import hashlib
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     digest = hashlib.sha256(str(session_key or "default").encode("utf-8")).hexdigest()[:16]
     return Path(get_butler_home()) / "workflow_pause" / f"{digest}.json"

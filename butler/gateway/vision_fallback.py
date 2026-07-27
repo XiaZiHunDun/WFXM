@@ -9,10 +9,11 @@ from pathlib import Path
 import requests
 
 from butler.defaults.model_defaults import OPENAI_VISION_DEFAULT_MODEL
+from butler.defaults.env_defaults import VISION_FALLBACK_DEFAULT
 
 
 def _fallback_order() -> list[str]:
-    raw = os.getenv("BUTLER_WECHAT_VISION_FALLBACK", "openai,ocr").strip().lower()
+    raw = os.getenv("BUTLER_WECHAT_VISION_FALLBACK", VISION_FALLBACK_DEFAULT).strip().lower()
     if not raw or raw in ("0", "off", "none"):
         return []
     return [p.strip() for p in raw.split(",") if p.strip()]

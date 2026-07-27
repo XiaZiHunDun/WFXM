@@ -101,7 +101,7 @@ def mine_delegate_failure_signatures(
     min_count: int = 3,
 ) -> dict[str, Any]:
     """Mine top B9-benchmark failure signatures from delegate_failures audit."""
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     path = get_butler_home() / "audit" / "delegate_failures.jsonl"
     if not path.is_file():

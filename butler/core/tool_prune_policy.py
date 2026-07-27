@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.context_settings import ToolPruneSettings
+from butler.configuration.context import ToolPruneSettings
 from butler.core.tool_result_storage import is_persisted_tool_result
 
 CLEARED_TOOL_RESULT_MESSAGE = "[旧工具结果已清空]"
@@ -46,7 +46,7 @@ _PRESERVE = frozenset({
 
 
 def _tool_prune_settings() -> ToolPruneSettings:
-    from butler.context_settings import resolve_context_config
+    from butler.configuration.context import resolve_context_config
 
     return resolve_context_config().tool_prune
 

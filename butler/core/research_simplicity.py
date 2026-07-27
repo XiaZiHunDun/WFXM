@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 
 def simplicity_anchor_enabled() -> bool:

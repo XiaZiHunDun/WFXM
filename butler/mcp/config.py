@@ -12,9 +12,14 @@ from urllib.parse import urlparse
 
 import yaml  # type: ignore[import-untyped]
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
 from butler.io.safe_load import safe_load_yaml
 from butler.mcp.types import McpServerConfig, McpToolPolicy
+from butler.defaults.env_defaults import (
+    MCP_CONFIG_DEFAULT,
+    MCP_HTTP_HOSTS_ALLOW_DEFAULT,
+    MCP_STDIO_ALLOW_COMMANDS_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +64,12 @@ def session_scoped() -> bool:
 
 
 def stdio_allow_commands() -> frozenset[str]:
-    raw = os.getenv("BUTLER_MCP_STDIO_ALLOW_COMMANDS", "python,python3,uvx")
+    raw = os.getenv("BUTLER_MCP_STDIO_ALLOW_COMMANDS", MCP_STDIO_ALLOW_COMMANDS_DEFAULT)
     return frozenset(x.strip() for x in raw.split(",") if x.strip())
 
 
 def http_hosts_allow_extra() -> list[str]:
-    raw = os.getenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", "").strip()
+    raw = os.getenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", MCP_HTTP_HOSTS_ALLOW_DEFAULT).strip()
     if not raw:
         return []
     return [x.strip() for x in raw.split(",") if x.strip()]
@@ -91,7 +96,7 @@ def _resolve_config_paths(workspace: Path | None = None) -> list[Path]:
             p = workspace / rel
             if p.is_file():
                 paths.append(p)
-    env_path = os.getenv("BUTLER_MCP_CONFIG", "").strip()
+    env_path = os.getenv("BUTLER_MCP_CONFIG", MCP_CONFIG_DEFAULT).strip()
     if env_path:
         paths.append(Path(env_path).expanduser())
     else:

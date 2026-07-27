@@ -12,7 +12,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
-from butler.env_parse import int_env
+from butler.utilities.env_parse import int_env
+from butler.defaults.env_defaults import EVAL_LLM_BENCHMARK_DEFAULT
 from butler.dev_engine.swebench_lite import get_all_instances
 from butler.dev_engine.swe_curriculum import build_swe_playbook_block, format_swe_replay_block
 from butler.dev_engine.b9_delegate_gate import SWE_LIVE_CATEGORY
@@ -152,7 +153,7 @@ def _swe_instance_to_task_spec(inst: Any) -> Any:
 
 
 def resolve_swe_live_mode() -> str:
-    if os.getenv("BUTLER_EVAL_LLM_BENCHMARK", "0").strip() in ("1", "true", "yes"):
+    if os.getenv("BUTLER_EVAL_LLM_BENCHMARK", EVAL_LLM_BENCHMARK_DEFAULT).strip() in ("1", "true", "yes"):
         return "live"
     return "oracle"
 

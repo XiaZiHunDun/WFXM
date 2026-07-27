@@ -1,5 +1,7 @@
 # 阶段性评估索引
 
+> **⚠️ 历史文档**：本目录下的文件为历史深度审计报告，内容中的代码路径引用（如 `agent_loop.py`、`coding_knowledge.py`）可能已过时。
+> 最新代码结构请参考 [`../../AGENTS.md`](../../AGENTS.md) 和 [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)。
 > 多次 subagent-driven 深度审计（安全 / 性能 / 可靠性 / 测试覆盖 / 死代码）。
 > **非实现规范** — 这些报告找问题、记结论；当前状态以 [`docs/architecture/v4-architecture.md`](../architecture/v4-architecture.md) 与代码为准。
 

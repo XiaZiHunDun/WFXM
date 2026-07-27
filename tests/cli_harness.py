@@ -344,7 +344,7 @@ def run_live_scripted_chat(
 
     import rich.console
 
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.main import _run_interactive_chat
     from butler.orchestrator import ButlerOrchestrator
 

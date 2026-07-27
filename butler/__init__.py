@@ -1,6 +1,18 @@
 """Butler System v4 — 自建 Agent Loop + 微信 Gateway 管家。
 
 提供：用户→管家→项目的层次结构、分层记忆、Skill自动合并、多角色模型配置。
+
+目录结构（基于九层模型）：
+- L1 接入与交互: gateway/, cli/
+- L2 编排与控制: orchestrator/, workflows/, delegate/
+- L3 认知推理环: core/ (agent_loop/, context/, compaction/, tool/, session/, llm/, loop/)
+- L4 工具与能力: tools/, mcp/, skills/, dev_engine/
+- L5 记忆与知识: memory/
+- L6 模型与协议: transport/
+- L7 策略与门控: permissions/
+- L8 可靠性与韧性: resilience/
+- L9 观测与运营: ops/
+- 横切: contracts/, configuration/, utilities/
 """
 
 from __future__ import annotations
@@ -10,6 +22,32 @@ import logging
 import sys
 
 __version__ = "4.0.0"
+
+__all__ = [
+    "core",
+    "gateway",
+    "orchestrator",
+    "tools",
+    "memory",
+    "transport",
+    "permissions",
+    "resilience",
+    "ops",
+    "configuration",
+    "utilities",
+    "contracts",
+    "mcp",
+    "skills",
+    "dev_engine",
+    "workflows",
+    "delegate",
+    "session",
+    "cli",
+    "__version__",
+    "get_build_identity",
+    "format_build_identity_line",
+    "mark_start_time",
+]
 
 _logger = logging.getLogger(__name__)
 

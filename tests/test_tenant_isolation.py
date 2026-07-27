@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.memory.butler_memory import ButlerMemory
 from butler.orchestrator import ButlerOrchestrator
 from butler.orchestrator.templates import combined_skill_manager
@@ -49,7 +49,7 @@ class TestTenantResolution:
         assert resolve_tenant_for_project(proj) == "acme"
 
     def test_inherit_settings_default_tenant(self, tmp_path):
-        from butler.config import ButlerSettings
+        from butler.configuration.settings import ButlerSettings
 
         proj = Project.from_yaml(
             _write_project(tmp_path, "b", name="B") / "project.yaml"
@@ -112,7 +112,7 @@ class TestOrchestratorTenantSwitch:
 @pytest.mark.integration
 class TestTenantSkillDirs:
     def test_global_skills_use_tenant_directory(self, tmp_path):
-        from butler.config import ButlerSettings
+        from butler.configuration.settings import ButlerSettings
 
         settings = ButlerSettings(butler_home=tmp_path / "home")
         mgr = combined_skill_manager(settings, None, tenant_id="acme")

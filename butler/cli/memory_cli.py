@@ -15,7 +15,7 @@ import types
 from pathlib import Path
 from typing import Any, cast
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.cli.memory_cli_ops import resolve_project_workspace_safe
 from butler.dev_engine.prod_delegate_bridge import migrate_lingwen_experiences_to_l3
 from butler.memory.document_ingest import ingest_workspace
@@ -585,8 +585,9 @@ def _resolve_ingest_workspace(ns: argparse.Namespace) -> Path | None:
     project = (getattr(ns, "project", "") or "").strip()
     if not project:
         import os
+        from butler.defaults.env_defaults import DEFAULT_PROJECT_DEFAULT
 
-        project = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+        project = os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_DEFAULT).strip()
     if not project:
         return None
 
@@ -631,11 +632,12 @@ def _cmd_memory_ingest(ns: argparse.Namespace) -> int:
     if bool(getattr(ns, "reindex", False)) and not bool(ns.dry_run):
         import os
         from argparse import Namespace
+        from butler.defaults.env_defaults import DEFAULT_PROJECT_DEFAULT
 
         reindex_ns = Namespace(
             tenant=getattr(ns, "tenant", "default"),
             project=(getattr(ns, "project", "") or "").strip()
-            or os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+            or os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_DEFAULT).strip()
             or None,
             experience_only=False,
             no_clear=False,

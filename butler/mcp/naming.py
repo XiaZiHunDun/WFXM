@@ -5,9 +5,11 @@ from __future__ import annotations
 import os
 import re
 
+from butler.defaults.env_defaults import MCP_TOOL_PREFIX_DEFAULT
+
 
 def tool_prefix() -> str:
-    return re.sub(r"[^a-zA-Z0-9_]+", "_", os.getenv("BUTLER_MCP_TOOL_PREFIX", "mcp").strip() or "mcp")
+    return re.sub(r"[^a-zA-Z0-9_]+", "_", os.getenv("BUTLER_MCP_TOOL_PREFIX", MCP_TOOL_PREFIX_DEFAULT).strip() or MCP_TOOL_PREFIX_DEFAULT)
 
 
 def safe_segment(value: str, *, max_len: int = 48) -> str:

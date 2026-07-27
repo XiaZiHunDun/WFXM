@@ -7,11 +7,16 @@ from typing import cast
 import logging
 import os
 
+from butler.defaults.env_defaults import (
+    DEFAULT_PROJECT_DEFAULT,
+    MORNING_BRIEF_DEFAULT,
+)
+
 logger = logging.getLogger(__name__)
 
 
 def morning_brief_enabled() -> bool:
-    return os.getenv("BUTLER_MORNING_BRIEF", "0").strip().lower() in (
+    return os.getenv("BUTLER_MORNING_BRIEF", MORNING_BRIEF_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",
@@ -25,7 +30,7 @@ def resolve_morning_brief_session_key() -> str:
     cid = resolve_owner_wechat_chat_id()
     if not cid:
         return ""
-    project = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+    project = os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_DEFAULT).strip()
     return cast(str, build_session_key(platform="wechat", chat_id=cid, project=project))
 
 

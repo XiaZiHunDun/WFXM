@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from butler.config import (
+from butler.configuration.settings import (
     BUTLER_RUNTIME_DIRS,
     ButlerSettings,
     LayeredModelConfig,

@@ -7,37 +7,42 @@ PYTEST_CMD="python3 -m pytest"
 LAYER="${1:-l0}"
 VERBOSE="${2:-false}"
 
+L0_FILES="tests/test_l0_unit_fast.py"
+L1_FILES="tests/test_l1_integration.py"
+L2_FILES="tests/test_l2_scenario_parametrized.py tests/test_l2_property_invariants.py tests/test_l2_edge_cases.py"
+L3_FILES="tests/test_l3_e2e_real_llm.py"
+
 case "$LAYER" in
     l0)
         echo "=== 运行 L0 快速单元测试 ==="
         if [ "$VERBOSE" = true ]; then
-            PYTHONPATH=. $PYTEST_CMD tests/test_l0_unit_fast.py -v --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m l0 $L0_FILES -v --tb=short
         else
-            PYTHONPATH=. $PYTEST_CMD tests/test_l0_unit_fast.py -q --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m l0 $L0_FILES -q --tb=short
         fi
         ;;
     l1)
         echo "=== 运行 L1 集成测试 ==="
         if [ "$VERBOSE" = true ]; then
-            PYTHONPATH=. $PYTEST_CMD tests/test_l1_integration.py -v --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m l1 $L1_FILES -v --tb=short
         else
-            PYTHONPATH=. $PYTEST_CMD tests/test_l1_integration.py -q --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m l1 $L1_FILES -q --tb=short
         fi
         ;;
     l0-l1)
         echo "=== 运行 L0 + L1 测试 ==="
         if [ "$VERBOSE" = true ]; then
-            PYTHONPATH=. $PYTEST_CMD tests/test_l0_unit_fast.py tests/test_l1_integration.py -v --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m "l0 or l1" $L0_FILES $L1_FILES -v --tb=short
         else
-            PYTHONPATH=. $PYTEST_CMD tests/test_l0_unit_fast.py tests/test_l1_integration.py -q --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m "l0 or l1" $L0_FILES $L1_FILES -q --tb=short
         fi
         ;;
     l2)
         echo "=== 运行 L2 场景/边界/不变量测试 ==="
         if [ "$VERBOSE" = true ]; then
-            PYTHONPATH=. $PYTEST_CMD tests/test_l2_scenario_parametrized.py tests/test_l2_property_invariants.py tests/test_l2_edge_cases.py -v --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m l2 $L2_FILES -v --tb=short
         else
-            PYTHONPATH=. $PYTEST_CMD tests/test_l2_scenario_parametrized.py tests/test_l2_property_invariants.py tests/test_l2_edge_cases.py -q --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m l2 $L2_FILES -q --tb=short
         fi
         ;;
     l2-scenario)
@@ -72,17 +77,17 @@ case "$LAYER" in
             export $(grep -v '^#' .env | xargs)
         fi
         if [ "$VERBOSE" = true ]; then
-            PYTHONPATH=. $PYTEST_CMD tests/test_l3_e2e_real_llm.py -v --tb=short -o addopts=""
+            PYTHONPATH=. $PYTEST_CMD -m l3 $L3_FILES -v --tb=short -o addopts=""
         else
-            PYTHONPATH=. $PYTEST_CMD tests/test_l3_e2e_real_llm.py -q --tb=short -o addopts=""
+            PYTHONPATH=. $PYTEST_CMD -m l3 $L3_FILES -q --tb=short -o addopts=""
         fi
         ;;
     all)
         echo "=== 运行所有测试 (L0 + L1 + L2) ==="
         if [ "$VERBOSE" = true ]; then
-            PYTHONPATH=. $PYTEST_CMD tests/test_l0_unit_fast.py tests/test_l1_integration.py tests/test_l2_scenario_parametrized.py tests/test_l2_property_invariants.py tests/test_l2_edge_cases.py -v --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m "l0 or l1 or l2" $L0_FILES $L1_FILES $L2_FILES -v --tb=short
         else
-            PYTHONPATH=. $PYTEST_CMD tests/test_l0_unit_fast.py tests/test_l1_integration.py tests/test_l2_scenario_parametrized.py tests/test_l2_property_invariants.py tests/test_l2_edge_cases.py -q --tb=short
+            PYTHONPATH=. $PYTEST_CMD -m "l0 or l1 or l2" $L0_FILES $L1_FILES $L2_FILES -q --tb=short
         fi
         ;;
     all-live)
@@ -92,9 +97,9 @@ case "$LAYER" in
             export $(grep -v '^#' .env | xargs)
         fi
         if [ "$VERBOSE" = true ]; then
-            PYTHONPATH=. $PYTEST_CMD tests/test_l0_unit_fast.py tests/test_l1_integration.py tests/test_l2_scenario_parametrized.py tests/test_l2_property_invariants.py tests/test_l2_edge_cases.py tests/test_l3_e2e_real_llm.py -v --tb=short -o addopts=""
+            PYTHONPATH=. $PYTEST_CMD -m "l0 or l1 or l2 or l3" $L0_FILES $L1_FILES $L2_FILES $L3_FILES -v --tb=short -o addopts=""
         else
-            PYTHONPATH=. $PYTEST_CMD tests/test_l0_unit_fast.py tests/test_l1_integration.py tests/test_l2_scenario_parametrized.py tests/test_l2_property_invariants.py tests/test_l2_edge_cases.py tests/test_l3_e2e_real_llm.py -q --tb=short -o addopts=""
+            PYTHONPATH=. $PYTEST_CMD -m "l0 or l1 or l2 or l3" $L0_FILES $L1_FILES $L2_FILES $L3_FILES -q --tb=short -o addopts=""
         fi
         ;;
     *)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from butler.contracts.eval_ports import SuiteRunResult
-from butler.env_parse import float_env
+from butler.utilities.env_parse import float_env
 
 
 def _min_b9_pass_rate() -> float:
@@ -31,7 +31,7 @@ class B9OracleSuite:
         from butler.ops.eval_diagnostics import append_b9_audit
 
         if push_langfuse is None:
-            push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in (
+            push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in (
                 "1",
                 "true",
                 "yes",

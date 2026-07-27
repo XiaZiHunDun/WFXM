@@ -5,7 +5,7 @@ from butler.plan.mode import clear_plan_mode, is_plan_mode, set_plan_mode
 
 def test_plan_mode_survives_memory_clear(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sk = "wechat:persist:_"

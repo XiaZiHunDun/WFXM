@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from butler.config import ModelConfig, LayeredModelConfig, reload_butler_settings
+from butler.configuration.settings import ModelConfig, LayeredModelConfig, reload_butler_settings
 from butler.model_resolve import (
     format_model_diagnostic_lines,
     handle_model_command,

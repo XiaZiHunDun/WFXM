@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from butler.contracts.eval_ports import SuiteRunResult
-from butler.env_parse import float_env
+from butler.utilities.env_parse import float_env
 
 
 def _min_mem_pass_rate() -> float:
@@ -29,7 +29,7 @@ class MemoryMbSuite:
         from butler.memory.memory_benchmark import run_benchmarks
 
         if push_langfuse is None:
-            push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in (
+            push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in (
                 "1",
                 "true",
                 "yes",

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 DESTRUCTIVE_BATCH_TOOLS = frozenset({
     "write_file",

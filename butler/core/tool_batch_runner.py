@@ -1,10 +1,21 @@
-"""Sequential tool-batch execution and message assembly (P1-C)."""
+"""Sequential tool-batch execution and message assembly (P1-C).
+
+Integrates enhanced tool execution from tool_executor.py for:
+  - Middleware hooks support
+  - Progress callbacks
+  - Concurrent tool execution support
+"""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
 
+from butler.core.tool_executor import (
+    ToolProgressCallbacks,
+    execute_tool_calls_sequential,
+    execute_tool_calls_concurrent,
+)
 from butler.tool_guardrails import ToolCallGuardrailController, synthetic_result
 
 
@@ -121,4 +132,7 @@ __all__ = [
     "append_tool_role_messages",
     "extract_batch_followups",
     "run_sequential_tool_calls",
+    "ToolProgressCallbacks",
+    "execute_tool_calls_sequential",
+    "execute_tool_calls_concurrent",
 ]

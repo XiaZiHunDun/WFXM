@@ -33,7 +33,7 @@ def _isolate_tenant(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_MEMO_ENABLED", "1")
     monkeypatch.setenv("BUTLER_EXPENSE_ENABLED", "1")
     monkeypatch.setenv("BUTLER_HABITS_ENABLED", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.tools._file_cache import clear_cache
     reload_butler_settings()
     clear_cache()

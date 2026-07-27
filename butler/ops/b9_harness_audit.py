@@ -11,7 +11,7 @@ from typing import Any, cast
 
 
 def _audit_paths() -> tuple[Path, Path]:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     home = get_butler_home() / "audit"
     return home / "delegate_failures.jsonl", home / "b9_lessons.jsonl"
@@ -111,7 +111,7 @@ _SNAPSHOTS_NAME = "b9_harness_snapshots.jsonl"
 
 
 def harness_snapshots_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / _SNAPSHOTS_NAME
 

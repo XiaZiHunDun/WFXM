@@ -55,7 +55,7 @@ from butler.ops.owner_feedback import (
 )
 from butler.ops.owner_quality_surface import format_delegate_quality_report
 from butler.ops.owner_trust_surface import format_trust_report
-from butler.provider_presets import format_presets_list
+from butler.configuration.provider_presets import format_presets_list
 from butler.report import format_detail, get_last_report
 from butler.report.format import (
     format_child_session_detail,

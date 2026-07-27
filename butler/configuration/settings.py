@@ -16,6 +16,7 @@ import yaml  # type: ignore[import-untyped]
 import logging
 
 from butler.utilities.env_parse import init_dotenv
+from butler.defaults.env_defaults import PROJECTS_DIR_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def _workspace_root() -> Path:
 
 
 def _default_projects_dir() -> Path:
-    env = os.getenv("BUTLER_PROJECTS_DIR", "").strip()
+    env = os.getenv("BUTLER_PROJECTS_DIR", PROJECTS_DIR_DEFAULT).strip()
     if env:
         return Path(env).expanduser().resolve()
     return _workspace_root() / "projects"

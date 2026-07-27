@@ -9,7 +9,7 @@ from butler.core.best_effort import safe_best_effort
 
 def resolve_butler_home_safe() -> Path:
     def _run() -> Path:
-        from butler.config import get_settings
+        from butler.configuration.settings import get_settings
 
         return Path(get_settings().butler_home).expanduser()
 

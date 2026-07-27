@@ -18,7 +18,7 @@ def test_workflow_gate_confirm_flow_via_port(tmp_butler_home):
     sk = "port-sk"
     gate = get_workflow_gate()
     assert gate.check_workflow_step_approval(sk, "novel-factory", "review") is False
-    from butler.human_gate import resolve_human_gate_message
+    from butler.permissions.human_gate import resolve_human_gate_message
 
     out = resolve_human_gate_message(sk, "确认", owner_verified=True)
     assert out

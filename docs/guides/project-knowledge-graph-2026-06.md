@@ -118,14 +118,14 @@ graph TB
 
 | 域 | 关键路径 | 职责 | 状态 |
 |---|---|---|---|
-| **Loop** | `butler/core/agent_loop.py` + 子模块 ~2100 行 | 主循环、上下文、工具批、委派 | ✅ 已落地 |
+| **Loop** | `butler/core/agent_loop/`（包） + 子模块 ~2100 行 | 主循环、上下文、工具批、委派 | ✅ 已落地 |
 | **Gateway** | `gateway/message_handler.py`, `message_queue.py`, `outbound_bridge.py` | 微信入站/出站、队列 mode、补充回复 | ✅ 已落地 |
 | **Transport** | `butler/transport/*` | 9 厂商 LLM 协议、流式、failover | ✅ 已落地 |
 | **工具** | `butler/tools/registry.py`, `builtin_register.py` | 11 内置 + 按 env 可选 | ✅ 已落地 |
 | **委派** | `delegate_task`, `task_orchestrator`, `cache_safe_delegate` | 子 Agent、DAG、深度限制 | ✅ 已落地 |
 | **记忆** | `memory/vector_store`, `semantic_index`, `fact_extraction` | 双轨 MEMORY + 向量 + fact | ✅ 已落地子集 |
 | **PIM** | `tenant.py` + 26 工具 | 联系人/备忘/习惯/提醒/账单 | ✅ 已落地 |
-| **DevEngine** | `dev_engine/dev_loop.py`, `coding_knowledge.py` | 4 阶段编码 + 定理/经验库 | ✅ 已落地 |
+| **DevEngine** | `dev_engine/dev_loop.py`, `coding_knowledge/`（包） | 4 阶段编码 + 定理/经验库 | ✅ 已落地 |
 | **Runtime** | `runtime/task_store`, `builtin_handlers` | cron job、推送、只读/需批准 mutating | ✅ 已落地 |
 | **观测** | `ops/eval_*`, `langfuse_tracer`, `eval_diagnostics` | per-turn 评分、硬反馈、B9 看板 | ✅ 已落地 |
 | **B9 质量环** | `b9_*`, `llm_delegate_benchmark` | LIVE 委派基准、周循环、生产晋升 | ✅ 活跃演进中 |
@@ -219,7 +219,7 @@ graph TB
 | 子理论 | 代码锚点 | 测试守门 | 成熟度 |
 |--------|----------|----------|--------|
 | 记忆 MA/MT | `memory/*`, `memory_benchmark.py` | 47 tests | T2 生产 |
-| 编码 CA/CT | `coding_knowledge.py`, `verify.py` | 99+ tests | CD7 T2；CD0/6/8 T1 |
+| 编码 CA/CT | `coding_knowledge/`（包）, `verify.py` | 99+ tests | CD7 T2；CD0/6/8 T1 |
 | DevEngine | `dev_loop.py`, `process_task` | 91+ tests | 管道完整 |
 | 观测 L7 | `eval_turn`, `eval_actions`, LangFuse | B1–B8 回归门 | OT1 ✅；OT2 观测中 |
 | B9 委派质量 | `llm_delegate_benchmark`, `b9_delegate_gate` | Tier-1 发版门 | **活跃优化** |

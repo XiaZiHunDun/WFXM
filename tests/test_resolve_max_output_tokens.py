@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from butler.config import ModelConfig
+from butler.configuration.settings import ModelConfig
 from butler.core.model_context import resolve_max_output_tokens
 from butler.model_resolve import EffectiveModel
 

@@ -25,7 +25,7 @@
 | 指标 | 数值 | 说明 |
 |------|------|------|
 | `butler/` Python 文件 | ~453 | 与 06 审计同量级 |
-| **>800 行** 单文件 | **2** | `coding_knowledge.py` 1613、`locked_phases.py` 826 |
+| **>800 行** 单文件 | **2** | `coding_knowledge/`（包）1613、`locked_phases.py` 826 |
 | **>600 行** 单文件 | **~12** | `agent_loop_phases.py` 906；`wechat_ilink/__init__.py` ~1119 |
 | `main.py` | **177** | ✅ R1-7 已薄化（原 1340） |
 | `delegate_phases.py` | **125** | ✅ ENG-2 门面；阶段在 `delegate_phases/` 子包 |
@@ -57,7 +57,7 @@
 
 | 优先级 | 文件 | 行数 | 问题 |
 |--------|------|------|------|
-| **P0** | `butler/dev_engine/coding_knowledge.py` | 1613 | 定理/经验/管线；可接受但需子域边界 |
+| **P0** | `butler/dev_engine/coding_knowledge/`（包） | 1613 | 定理/经验/管线；已拆分为 elements/theorems/experience/verification/context/generation |
 | **P1** | `butler/gateway/platforms/wechat_ilink/__init__.py` | ~1119 | **ENG-13** 条件触发；`phases` 已 ~370 行 |
 | **P1** | `butler/core/agent_loop_phases.py` | 906 | turn 阶段编排；P0-A 已守门 |
 | **P1** | `butler/gateway/locked_phases.py` | 826 | turn 终态 phase；ENG-11 注册表已首步 |

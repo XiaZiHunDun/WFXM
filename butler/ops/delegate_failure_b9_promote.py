@@ -37,7 +37,7 @@ _QUEUE_NAME = "b9_promotion_queue.jsonl"
 
 
 def _queue_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / _QUEUE_NAME
 
@@ -64,19 +64,21 @@ def generate_task_scaffold(candidate: dict[str, Any]) -> str:
 
 def _setup_{slug}(ws: Path) -> None:
     ws.mkdir(parents=True, exist_ok=True)
-    # TODO: reproduce workspace from sanitized production context
+    # NOTE: Implement workspace reproduction from sanitized production context
+    # This requires manual inspection of production logs and context
     raise NotImplementedError("setup for {task_id}")
 
 
 def _oracle_{slug}(ws: Path) -> None:
-    # TODO: oracle patch that makes verify pass in CI
+    # NOTE: Implement oracle patch that makes verify pass in CI
+    # This requires understanding what the correct fix should be
     raise NotImplementedError("oracle for {task_id}")
 
 
 def _verify_{slug}(ws: Path) -> tuple[bool, str]:
-    # TODO: pytest or structural assertion
+    # NOTE: Implement pytest or structural assertion
+    # Define success criteria for this specific task
     return False, "not implemented"
-
 
 B9TaskSpec(
     task_id="{task_id}",
@@ -295,7 +297,7 @@ def export_promotion_bundle(
     out_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Write candidates + queue summary for offline review."""
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     base = out_dir or (get_butler_home() / "audit" / "b9_promotion")
     base.mkdir(parents=True, exist_ok=True)

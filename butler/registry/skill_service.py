@@ -8,6 +8,7 @@ import shutil
 from typing import Any, cast
 
 from butler.registry.paths import enabled_sources, registry_enabled
+from butler.defaults.env_defaults import REGISTRY_AUTO_INSTALL_DEFAULT
 from butler.registry.skill_install import (
     install_from_quarantine,
     quarantine_bundle,
@@ -34,7 +35,7 @@ from butler.registry.skill_service_ops import ensure_catalog_integrity_safe
 from butler.registry.skill_service_ops import search_source_safe
 from butler.registry.skill_service_ops import inspect_source_safe
 from butler.registry.skill_service_ops import fetch_from_source_safe
-from butler.env_parse import is_butler_prod
+from butler.utilities.env_parse import is_butler_prod
 from butler.registry.registry_errors import InstallConfirmationRequired
 from butler.registry.skill_service_ops import run_pre_install_scan_safe
 from butler.registry.marketplace_compat import format_install_followup
@@ -172,7 +173,7 @@ class SkillRegistryService:
 
         if is_butler_prod():
             return True
-        allow = os.getenv("BUTLER_REGISTRY_AUTO_INSTALL", "").strip().lower() in (
+        allow = os.getenv("BUTLER_REGISTRY_AUTO_INSTALL", REGISTRY_AUTO_INSTALL_DEFAULT).strip().lower() in (
             "1",
             "true",
             "yes",

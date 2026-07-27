@@ -17,7 +17,7 @@ from butler.session.lifecycle import trigger_session_end
 ])
 def test_session_end_hook_reason_matcher(tmp_path, monkeypatch, reason, marker_name):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     marker = tmp_path / marker_name

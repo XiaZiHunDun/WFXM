@@ -74,7 +74,7 @@ def _setup_lingwen_gateway_project(tmp_path: Path, monkeypatch) -> Path:
     )
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
     monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(proj))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from tests.gateway.test_gateway_handler import _reset_singletons
 
     _reset_singletons()
@@ -84,7 +84,7 @@ def _setup_lingwen_gateway_project(tmp_path: Path, monkeypatch) -> Path:
 
 def _setup_dual_gateway_projects(tmp_path: Path, monkeypatch) -> Path:
     """灵文1号 + 普通试点项目（多项目切换话术）。"""
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from tests.gateway.test_gateway_handler import _reset_singletons
 
     projects_dir = tmp_path / "projects"

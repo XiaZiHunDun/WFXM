@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.context_compressor import SUMMARY_PREFIX, _prune_tool_outputs
+from butler.core.skill_compact_rescue import extract_skill_rescue_messages, merge_skill_rescue_into_tail
 
 MessageDict = dict[str, Any]
 
@@ -14,8 +15,6 @@ def prune_with_skill_rescue(messages: list[MessageDict]) -> tuple[list[MessageDi
     pruned = _prune_tool_outputs(messages)
 
     def _run() -> tuple[list[MessageDict], list[MessageDict]]:
-        from butler.core.skill_compact_rescue import extract_skill_rescue_messages
-
         return cast(
             tuple[list[MessageDict], list[MessageDict]],
             extract_skill_rescue_messages(pruned),
@@ -55,8 +54,6 @@ def merge_skill_rescue(head_tail: list[MessageDict], skill_rescued: list[Message
         return head_tail
 
     def _run() -> list[MessageDict]:
-        from butler.core.skill_compact_rescue import merge_skill_rescue_into_tail
-
         return cast(list[MessageDict], merge_skill_rescue_into_tail(head_tail, skill_rescued))
 
     merged = safe_best_effort(

@@ -28,7 +28,7 @@ def _child_consume_with_barrier(
     to avoid spawning a server process that leaks across tests.
     """
     os.environ["BUTLER_HOME"] = butler_home
-    from butler.human_gate import consume_injection_bypass
+    from butler.permissions.human_gate import consume_injection_bypass
 
     barrier.wait(timeout=10.0)  # 所有 child 同步放行后再调用
     ok = consume_injection_bypass(session_key)
@@ -41,10 +41,10 @@ def bypass_token(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     # butler.config.get_butler_home() is cached at module level; must reload
     # so the env var change is honored in each test.
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
-    from butler.human_gate import grant_injection_bypass
+    from butler.permissions.human_gate import grant_injection_bypass
 
     grant_injection_bypass("sess-rel11-7", ttl_seconds=300.0)
     files = list((tmp_path / "human_gates").glob("inj_bypass_*.json"))
@@ -93,7 +93,7 @@ class TestConsumeCrossProcessAtomicity:
 
     def test_sequential_consume_only_first_wins(self, bypass_token):
         """单进程串行 2 次: 第 1 次 True, 第 2 次 False (消费一次后 token 应失效)。"""
-        from butler.human_gate import consume_injection_bypass
+        from butler.permissions.human_gate import consume_injection_bypass
 
         first = consume_injection_bypass("sess-rel11-7")
         second = consume_injection_bypass("sess-rel11-7")
@@ -107,7 +107,7 @@ class TestConsumeCrossProcessAtomicity:
 class TestStaticContract:
     def test_consume_uses_atomic_rename(self):
         """consume_injection_bypass 必须用 os.rename() 实现跨进程原子消费。"""
-        from butler.human_gate import consume_injection_bypass
+        from butler.permissions.human_gate import consume_injection_bypass
 
         source = inspect.getsource(consume_injection_bypass)
         assert "os.rename(" in source, (
@@ -117,7 +117,7 @@ class TestStaticContract:
 
     def test_consume_does_not_use_toctou_unlink_pattern(self):
         """不应再出现 is_file() + unlink(missing_ok=True) 这种 TOCTOU 组合。"""
-        from butler.human_gate import consume_injection_bypass
+        from butler.permissions.human_gate import consume_injection_bypass
 
         source = inspect.getsource(consume_injection_bypass)
         assert "is_file()" not in source, (

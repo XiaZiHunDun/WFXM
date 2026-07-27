@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 _SKILL_TOOLS = frozenset({"skill_view", "skills_list", "read_file"})
 _SKILL_PATH_MARKERS = ("/skills/", ".butler/skills", "skills/")

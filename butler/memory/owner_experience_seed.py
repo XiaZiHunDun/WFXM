@@ -207,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
     import sys
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     p = argparse.ArgumentParser(description="Purge MB5 filler and seed owner experience pointers")
     p.add_argument("--tenant", default="default")

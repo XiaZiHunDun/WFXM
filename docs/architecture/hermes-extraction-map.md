@@ -14,7 +14,7 @@
 
 | Butler 模块 | Hermes 参考 | 提炼内容 | 状态 |
 |-------------|-------------|----------|------|
-| `butler/core/agent_loop.py` | `run_agent.py`（片段） | 主循环编排；guardrails/failover/interrupt 接线 | ✅ |
+| `butler/core/agent_loop/`（包） | `run_agent.py`（片段） | 主循环编排；guardrails/failover/interrupt 接线 | ✅ |
 | `butler/core/tool_batch.py` | `run_agent.py`（片段） | 工具批次、envelope、guardrails、顺序/并行 halt 跳过 | ✅ |
 | `butler/core/llm_retry.py` | `run_agent.py`（片段） | LLM 重试、schema 恢复、压缩回退 | ✅ |
 | `butler/core/context_pipeline.py` | `run_agent.py`（片段） | 压缩、hygiene、API 消息准备 | ✅ |
@@ -65,7 +65,7 @@
 
 ## 架构约束
 
-- `butler/core/agent_loop.py` 保持 **< 400 行**（当前 ~300 行，**仅编排**）。
+- `butler/core/agent_loop/`（包）保持 **< 400 行**（当前 ~300 行，**仅编排**）。
 - Loop 实现分布在子模块（约行数，随演进浮动）：
   - `tool_batch.py` — 工具批次与 envelope
   - `llm_retry.py` — LLM 重试与 schema 恢复
@@ -88,7 +88,7 @@
 | `butler/core/steer.py` | L5180–L5293 | `/steer` 不打断插话 | ✅ |
 | `butler/core/delegate_context.py` | L10225 回调传播 | 子 loop 工具进度回调 | ✅ |
 | `butler/core/iteration_budget.py` | L283–L325 | 迭代预算（已移除，P3 未接线） | — |
-| `butler/core/agent_loop.py` + `butler/core/loop_types.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写、Loop 公共类型 | ✅ |
+| `butler/core/agent_loop/`（包） + `butler/core/loop_types.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写、Loop 公共类型 | ✅ |
 
 测试：`tests/test_run_agent_extraction.py`；全量 **pytest 全绿**（默认排除 `live_llm`）。
 
@@ -111,14 +111,14 @@
 | `butler/transport/think_scrubber.py` | `agent/think_scrubber.py` | 流式 think 状态机（跨 chunk 边界） | ✅ |
 | `butler/transport/chat_completions.py` | `_copy_reasoning_content_for_api` | `convert_messages` / `build_kwargs` 注入回放 | ✅ |
 | `butler/transport/llm_client.py` | `_fire_stream_delta` | 流式 `StreamingThinkScrubber` + provider 上下文 | ✅ |
-| `butler/core/agent_loop.py` | `_build_assistant_message` | 会话内持久化 `reasoning` / `reasoning_content` | ✅ |
+| `butler/core/agent_loop/`（包） | `_build_assistant_message` | 会话内持久化 `reasoning` / `reasoning_content` | ✅ |
 | `butler/transport/schema_sanitizer.py` | `tools/schema_sanitizer.py` | strict / 本地后端工具 schema 清洗、`pattern`/`format` 失败后降级 | ✅ |
 | `butler/transport/retry_utils.py` | `agent/retry_utils.py` | transient API 失败的指数退避 + jitter + 上限 | ✅ |
 | `butler/gateway/message_handler.py` + `butler/transport/model_context.py` | `gateway/run.py` L7113+ | Gateway 常驻会话 85% 卫生压缩、模型上下文推断 | ✅ |
 | `butler/session_lifecycle.py` | `memory_provider` / post-session hooks | turn 前记忆预取、turn 后同步、session end 抽取 | ✅ |
 | `butler/memory/semantic_index.py` | `plugins/memory/*`（Honcho 等） | 本地 embedding + hybrid 检索（`memory_vectors.db`）；见 [`memory-roadmap.md`](memory-roadmap.md) | ✅ |
 | `butler/skills/manager.py` + `butler/skills/router.py` + `butler/orchestrator.py` | Skill metadata 路由模式 | frontmatter-only Skill 索引、mtime cache、命中后动态加载正文 | ✅ |
-| `butler/core/agent_loop.py` + `butler/gateway/message_handler.py` | Gateway/Loop health summary | runtime diagnostics 聚合与 `/health`/`/诊断` 命令（压缩、schema 降级、Skill、记忆同步） | ✅ |
+| `butler/core/agent_loop/`（包） + `butler/gateway/message_handler.py` | Gateway/Loop health summary | runtime diagnostics 聚合与 `/health`/`/诊断` 命令（压缩、schema 降级、Skill、记忆同步） | ✅ |
 | `butler/core/hygiene_preflight.py` + `butler/core/schema_recovery.py` + `butler/core/retry_policy.py` | AgentLoop 策略拆分 | hygiene 预检、schema 恢复、retry delay 策略模块化 | ✅ |
 | `butler/execution_context.py` + `butler/tools/registry.py` + `butler/task_orchestrator.py` | 委派执行上下文 | Gateway/CLI/tool 子路径复用宿主 orchestrator，子代理对齐 Skill 注入与 turn memory lifecycle | ✅ |
 | `butler/tools/path_safety.py` + `butler/tools/registry.py` | 工具路径安全 | 项目 workspace sandbox、敏感路径 denylist、文件/搜索/terminal 路径与 workdir 统一校验 | ✅ |
@@ -127,17 +127,17 @@
 | `butler/tools/registry.py` | 工具安全收尾 | `read_file` 大小/行数上限、`search_files` 结果路径二次校验、terminal timeout/output 上限 | ✅ |
 | `butler/tools/registry.py` | 工具原子写入 | `write_file`/`patch` 拒绝 symlink、hardlink、非普通文件目标，并通过同目录临时文件原子替换 | ✅ |
 | `butler/tools/registry.py` + `butler/gateway/message_handler.py` | 工具输出与审计观测 | 工具错误兼容式 envelope、错误码分类、脱敏审计事件和 `/health` 工具摘要 | ✅ |
-| `butler/core/agent_loop.py` + `butler/core/parallel_tools.py` + `butler/tools/registry.py` | 工具护栏审计闭环 | guardrail block、dispatcher 异常、parallel interrupt 统一进入 envelope 与审计事件 | ✅ |
-| `butler/core/agent_loop.py` + `butler/tools/registry.py` | guardrail halt 观测对齐 | `after_call` halt 使用 `TOOL_GUARDRAIL_HALT` envelope/审计，替换重复工具失败审计 | ✅ |
+| `butler/core/agent_loop/`（包） + `butler/core/parallel_tools.py` + `butler/tools/registry.py` | 工具护栏审计闭环 | guardrail block、dispatcher 异常、parallel interrupt 统一进入 envelope 与审计事件 | ✅ |
+| `butler/core/agent_loop/`（包） + `butler/tools/registry.py` | guardrail halt 观测对齐 | `after_call` halt 使用 `TOOL_GUARDRAIL_HALT` envelope/审计，替换重复工具失败审计 | ✅ |
 | `butler/gateway/session_registry.py` + `butler/tools/registry.py` | 审计生命周期对齐 | session `reset`/`reset_all`/idle 驱逐/LRU 驱逐时通过 `on_session_removed` 清理对应 `session_key` 工具审计桶，避免陈旧 `/health` 数据 | ✅ |
-| `butler/core/agent_loop.py` | 顺序多工具批次中断补全 | 同轮多 `tool_call` 顺序执行中途中断时，为剩余 call 补齐 `TOOL_INTERRUPTED` tool 消息与审计，不再 `break` 留空 | ✅ |
-| `butler/tool_guardrails.py` + `butler/core/agent_loop.py` | 并行工具 + guardrails 线程安全 | `ToolCallGuardrailController` 使用 `RLock` 保护计数与 halt 状态；并行批次可安全启用 guardrails | ✅ |
-| `butler/tool_guardrails.py` + `butler/core/agent_loop.py` | guardrail warn 与 JSON envelope | `append_guidance` 将 warn 写入 `guardrail` 结构化字段，保持 tool 结果可 `json.loads`；非 JSON 仍回退文本后缀 | ✅ |
+| `butler/core/agent_loop/`（包） | 顺序多工具批次中断补全 | 同轮多 `tool_call` 顺序执行中途中断时，为剩余 call 补齐 `TOOL_INTERRUPTED` tool 消息与审计，不再 `break` 留空 | ✅ |
+| `butler/tool_guardrails.py` + `butler/core/agent_loop/`（包） | 并行工具 + guardrails 线程安全 | `ToolCallGuardrailController` 使用 `RLock` 保护计数与 halt 状态；并行批次可安全启用 guardrails | ✅ |
+| `butler/tool_guardrails.py` + `butler/core/agent_loop/`（包） | guardrail warn 与 JSON envelope | `append_guidance` 将 warn 写入 `guardrail` 结构化字段，保持 tool 结果可 `json.loads`；非 JSON 仍回退文本后缀 | ✅ |
 | `butler/execution_context.py` + `butler/task_orchestrator.py` + `butler/tools/registry.py` | 无 execution_context 路径审计归属 | TaskOrchestrator spawn 始终绑定 session（继承宿主 / `config.session_key` / `task:{id}`）；审计空 key 回退 `unscoped` | ✅ |
 
 | `tests/test_real_api_smoke.py` | 真实 API smoke | DeepSeek/MiniMax/Qwen 直连与 AgentLoop 完成/工具回路；`live_llm` + `BUTLER_RUN_REAL_API_SMOKE=1` 门控 | ✅ |
 | `butler/gateway/message_handler.py` | `/health` 工具摘要兜底 | 无轮次 health 快照时仍展示当前 session 的工具审计摘要 | ✅ |
-| `butler/core/tool_batch.py` + `butler/core/llm_retry.py` | AgentLoop 模块化（阶段 1） | 工具批次执行与 LLM 重试逻辑从 `agent_loop.py` 抽出，行为保持不变 | ✅ |
+| `butler/core/tool_batch.py` + `butler/core/llm_retry.py` | AgentLoop 模块化（阶段 1） | 工具批次执行与 LLM 重试逻辑从 `agent_loop/` 抽出，行为保持不变 | ✅ |
 | `butler/core/context_pipeline.py` | AgentLoop 模块化（阶段 2） | 上下文压缩、hygiene preflight 与 API 消息准备抽到 `ContextPipeline` | ✅ |
 | `butler/core/parallel_tools.py` + `butler/core/tool_batch.py` | 并行批次 guardrail halt 提前终止 | halt 后通过 `precheck_tool` 跳过后续并行/顺序 dispatch，仍补齐 tool 消息 | ✅ |
 

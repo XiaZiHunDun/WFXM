@@ -296,7 +296,7 @@ def _setup_gateway_project(
     description: str = "Gateway smoke project",
 ) -> Path:
     """Project workspace under tmp_path; returns project directory."""
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from tests.gateway.test_gateway_handler import _reset_singletons
 
     projects_dir = tmp_path / "projects"

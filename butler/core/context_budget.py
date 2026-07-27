@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from typing import Any
 import logging
 
-from butler.context_settings import ContextBudgetSettings
+from butler.configuration.context import ContextBudgetSettings
+from butler.defaults.env_defaults import DISABLE_AUTO_COMPACT_DEFAULT, DISABLE_COMPACT_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class ContextBudgetThresholds:
 
 
 def _budget_settings() -> ContextBudgetSettings:
-    from butler.context_settings import resolve_context_config
+    from butler.configuration.context import resolve_context_config
 
     return resolve_context_config().budget
 
@@ -139,10 +140,10 @@ def load_context_thresholds(
 
 
 def is_auto_compact_enabled() -> bool:
-    flag = os.getenv("BUTLER_DISABLE_AUTO_COMPACT", "").strip().lower()
+    flag = os.getenv("BUTLER_DISABLE_AUTO_COMPACT", DISABLE_AUTO_COMPACT_DEFAULT).strip().lower()
     if flag in ("1", "true", "yes", "on"):
         return False
-    if os.getenv("BUTLER_DISABLE_COMPACT", "").strip().lower() in (
+    if os.getenv("BUTLER_DISABLE_COMPACT", DISABLE_COMPACT_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",

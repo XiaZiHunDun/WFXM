@@ -12,7 +12,7 @@ _INSTRUCTION_FILENAMES = ("AGENTS.md", "CLAUDE.md", "RULES.md")
 
 
 def _walkup_settings() -> Any:
-    from butler.context_settings import resolve_context_config
+    from butler.configuration.context import resolve_context_config
 
     return resolve_context_config().instruction_walkup
 

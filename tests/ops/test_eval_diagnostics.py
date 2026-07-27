@@ -26,7 +26,7 @@ def _write_jsonl(path, rows):
 class TestEvalDiagnostics:
     def test_format_lines_with_audit_records(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         audit = tmp_path / "audit"
@@ -62,7 +62,7 @@ class TestEvalDiagnostics:
 
     def test_format_lines_empty_audit(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         lines = format_eval_quality_lines()
@@ -72,7 +72,7 @@ class TestEvalDiagnostics:
 
     def test_append_b9_audit(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         report = MagicMock()

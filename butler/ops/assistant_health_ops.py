@@ -24,7 +24,7 @@ def read_langfuse_averages_safe(lookback_hours: float) -> dict[str, float]:
 
 def load_audit_health_metrics_safe() -> tuple[dict[str, float], dict[str, str]]:
     def _run() -> tuple[dict[str, float], dict[str, str]]:
-        from butler.config import get_butler_home
+        from butler.configuration.settings import get_butler_home
         from butler.ops.assistant_health import _read_audit_jsonl, _read_audit_metric
         from butler.ops.eval_diagnostics import regression_audit_path
 

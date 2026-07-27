@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from butler.tools.path_safety import check_tool_path, default_tool_workdir, safe_subprocess_env
+from butler.defaults.env_defaults import (
+    ENABLE_GIT_DEFAULT,
+    ENABLE_GIT_PUSH_DEFAULT,
+    ENABLE_GIT_WRITE_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +23,13 @@ _GIT_TIMEOUT_SECONDS = 30
 
 
 def git_read_enabled() -> bool:
-    return os.getenv("BUTLER_ENABLE_GIT", "").strip() == "1"
+    return os.getenv("BUTLER_ENABLE_GIT", ENABLE_GIT_DEFAULT).strip() == "1"
 
 
 def git_write_enabled() -> bool:
     return (
         git_read_enabled()
-        and os.getenv("BUTLER_ENABLE_GIT_WRITE", "").strip() == "1"
+        and os.getenv("BUTLER_ENABLE_GIT_WRITE", ENABLE_GIT_WRITE_DEFAULT).strip() == "1"
     )
 
 
@@ -219,7 +224,7 @@ def _tool_git_push(
     """Push to remote — requires BUTLER_ENABLE_GIT_PUSH=1 and Owner approval."""
     if not git_write_enabled():
         return _disabled_write_msg()
-    push_enabled = os.getenv("BUTLER_ENABLE_GIT_PUSH", "").strip() == "1"
+    push_enabled = os.getenv("BUTLER_ENABLE_GIT_PUSH", ENABLE_GIT_PUSH_DEFAULT).strip() == "1"
     if not push_enabled:
         return json.dumps({
             "error": "Git push requires BUTLER_ENABLE_GIT_PUSH=1 in .env.",

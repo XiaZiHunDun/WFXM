@@ -9,7 +9,7 @@ def extend_gateway_media_diagnostic_lines(lines: list[str]) -> None:
     def _run() -> None:
         from butler.gateway.inbound_media import inbound_media_enabled
         from butler.gateway.media_telemetry import format_media_diagnostic_lines
-        from butler.gateway_settings import (
+        from butler.configuration.gateway import (
             format_gateway_inbound_config_source_line,
             format_gateway_queue_config_source_line,
             resolve_gateway_inbound_config,

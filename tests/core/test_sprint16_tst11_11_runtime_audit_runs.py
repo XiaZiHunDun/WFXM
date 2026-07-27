@@ -20,7 +20,7 @@ import pytest
 def mock_butler_home(tmp_path, monkeypatch):
     """Override get_butler_settings().butler_home to a tmp dir.
 
-    注意: audit.py 用 ``from butler.config import get_butler_settings``,
+    注意: audit.py 用 ``from butler.configuration.settings import get_butler_settings``,
     必须在 audit 模块 patch 而不是 config 模块 (Sprint 16 _tenant_store
     fixture 同款教训).
     """

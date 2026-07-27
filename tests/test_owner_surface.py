@@ -171,12 +171,9 @@ def test_owner_memory_degradation_brief_line_offline(mock_stats):
     assert "降级" in line
 
 
-@patch("butler.gateway.durable_outbox.outbox_counts", return_value={"pending": 0, "sent": 1, "failed": 2})
+@patch("butler.gateway.owner_surface_ops.outbox_counts", return_value={"pending": 0, "sent": 1, "failed": 2})
 @patch("butler.gateway.completion_telemetry.push_queue_pending_count", return_value=0)
-@patch(
-    "butler.gateway.completion_telemetry.completion_push_stats",
-    return_value={"sent": 0, "failed": 0, "enqueued": 0},
-)
+@patch("butler.gateway.completion_telemetry.completion_push_stats", return_value={"sent": 0, "failed": 0, "enqueued": 0})
 def test_owner_outbound_brief_line_failed_outbox(_stats, _queue, _counts):
     from butler.gateway.owner_surface import _owner_outbound_brief_line
 

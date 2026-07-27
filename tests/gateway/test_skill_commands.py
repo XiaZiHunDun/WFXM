@@ -21,7 +21,7 @@ def test_format_skill_pending_empty():
 @pytest.mark.unit
 def test_skill_pending_list_with_items(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.skills.write_approval import queue_skill_pending
 
     reload_butler_settings()
@@ -54,7 +54,7 @@ def test_approve_skill_requires_owner(monkeypatch):
 @pytest.mark.unit
 def test_reject_skill_pending(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.skills.write_approval import list_skill_pending, queue_skill_pending
 
     reload_butler_settings()

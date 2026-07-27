@@ -27,7 +27,7 @@ class McpCatalogEntry:
 
 
 def mcp_catalog_enabled() -> bool:
-    raw = os.getenv("BUTLER_MCP_CATALOG", "1").strip().lower()
+    raw = os.getenv("BUTLER_MCP_CATALOG", MCP_CATALOG_DEFAULT).strip().lower()
     return raw not in ("0", "false", "no", "off")
 
 

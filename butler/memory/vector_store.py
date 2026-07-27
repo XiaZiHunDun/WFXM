@@ -61,7 +61,7 @@ class VectorStore(Protocol):
 
 
 def _store_root() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "vector_store"
 
@@ -149,6 +149,14 @@ class ChromaVectorStore:
 
     def count(self) -> int:
         return int(self._collection.count())
+
+    def close(self) -> None:
+        """Close ChromaDB client and persist data."""
+        try:
+            self._client.persist()
+        except Exception:
+            pass
+        logger.debug("ChromaVectorStore closed")
 
 
 class InMemoryVectorStore:

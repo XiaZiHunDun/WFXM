@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 import logging
 
 logger = logging.getLogger(__name__)

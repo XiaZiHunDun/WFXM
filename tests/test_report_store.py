@@ -6,7 +6,7 @@ from butler.report.store import load_persisted_report, persist_report
 
 def test_persist_and_load_report(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     clear_report_cache("sess-rpt")

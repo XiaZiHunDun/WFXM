@@ -7,21 +7,23 @@ Formal model from v4-dev-engine-theory.md §2.5:
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
 import logging
 import os
 import shlex
 import subprocess
 import time
+
+from butler.utilities.env_parse import int_env
 from pathlib import Path
 from typing import Any, cast
 
+from butler.defaults.env_defaults import DEV_AUTO_VERIFY_LEVELS_DEFAULT, DEV_VERIFY_TIMEOUT_DEFAULT
 from butler.dev_engine.dev_state import VerifyResult, VerifyStatus
 from butler.dev_engine.diagnostics import parse_diagnostics
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_VERIFY_TIMEOUT = int_env("BUTLER_DEV_VERIFY_TIMEOUT", 300)
+DEFAULT_VERIFY_TIMEOUT = int_env("BUTLER_DEV_VERIFY_TIMEOUT", DEV_VERIFY_TIMEOUT_DEFAULT)
 
 
 def _project_dev_env() -> dict[str, str]:
@@ -302,7 +304,7 @@ def select_auto_verify_levels(
 
 def auto_verify_levels() -> str:
     """Return the auto-verify levels from env (default: lint,test)."""
-    default = os.getenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", "lint,test").strip()
+    default = os.getenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", DEV_AUTO_VERIFY_LEVELS_DEFAULT).strip()
     from butler.dev_engine.verify_ops import effective_dev_auto_verify_levels_safe
 
     return cast(str, effective_dev_auto_verify_levels_safe(default=default))

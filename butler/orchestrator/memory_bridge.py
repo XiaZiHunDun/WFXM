@@ -24,7 +24,7 @@ def reload_project_memory(orch: ButlerOrchestrator) -> None:
 
 def get_butler_memory(orch: ButlerOrchestrator) -> ButlerMemory:
     from butler.orchestrator.memory_bridge_ops import close_tenant_memory_safe
-    from butler.tenant import resolve_tenant_for_project
+    from butler.utilities.tenant import resolve_tenant_for_project
 
     tid = resolve_tenant_for_project(
         orch.project_manager.get_current(),

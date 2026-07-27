@@ -12,7 +12,7 @@ import time
 
 import pytest
 
-from butler.gateway.message_queue import (
+from butler.resilience.message_queue import (
     enqueue_inbound,
     pending_count,
     pop_all_merged,

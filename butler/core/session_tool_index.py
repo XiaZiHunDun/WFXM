@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 
 def session_tool_index_enabled() -> bool:

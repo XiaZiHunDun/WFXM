@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.core.reasoning_trace_ops import resolve_session_key_safe
 from butler.core.session_transcript import record_reasoning_step as _record_reasoning
 from butler.core.session_transcript import record_reflect_step as _record_reflect

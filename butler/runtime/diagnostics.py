@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from butler.defaults.env_defaults import RUNTIME_ENABLED_DEFAULT
 from butler.runtime import audit, loader, schedule
 
 def _workspace_for_project(project_name: str) -> Path | None:
@@ -21,14 +22,14 @@ def collect_runtime_stats(project_name: str, *, max_jobs: int = 6) -> dict[str, 
     """Recent run summary per job for diagnostics."""
     name = (project_name or "").strip()
     push_queue_pending = 0
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.runtime.diagnostics_ops import count_runtime_push_queue_pending_safe
 
     qpath = get_butler_home() / "runtime" / "push_queue.jsonl"
     push_queue_pending = count_runtime_push_queue_pending_safe(qpath)
     out: dict[str, Any] = {
         "project": name,
-        "enabled": os.getenv("BUTLER_RUNTIME_ENABLED", "1").strip().lower()
+        "enabled": os.getenv("BUTLER_RUNTIME_ENABLED", RUNTIME_ENABLED_DEFAULT).strip().lower()
         in ("1", "true", "yes", "on"),
         "jobs": [],
         "has_jobs_file": False,

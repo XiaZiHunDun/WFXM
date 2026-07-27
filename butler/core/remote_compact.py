@@ -10,7 +10,8 @@ import urllib.request
 from typing import Any
 from urllib.parse import urlparse
 
-from butler.env_parse import env_truthy
+from butler.defaults.env_defaults import REMOTE_COMPACT_URL_DEFAULT
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def remote_compact_enabled() -> bool:
 
 
 def remote_compact_url_override() -> str:
-    return str(os.getenv("BUTLER_REMOTE_COMPACT_URL", "") or "").strip()
+    return str(os.getenv("BUTLER_REMOTE_COMPACT_URL", REMOTE_COMPACT_URL_DEFAULT) or REMOTE_COMPACT_URL_DEFAULT).strip()
 
 
 def _compact_endpoint(base_url: str) -> str:
@@ -137,7 +138,7 @@ def try_remote_summarize(middle: list[dict[str, Any]], previous_summary: str = "
             }
         ]
 
-    from butler.config import get_butler_settings
+    from butler.configuration.settings import get_butler_settings
 
     compact_model = (
         getattr(client, "model", None)

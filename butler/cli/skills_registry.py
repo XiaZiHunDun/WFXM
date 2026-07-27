@@ -6,7 +6,7 @@ import argparse
 from typing import Any, cast
 
 from butler.cli.skills_registry_ops import default_tenant_id_safe, run_skill_install_cli
-from butler.config import load_settings
+from butler.configuration.settings import load_settings
 from butler.registry.skill_service import SkillRegistryService
 from butler.registry.skills_project_sync import sync_tenant_skills_to_project
 from butler.registry.skills_ssot import sync_skills_ssot
@@ -21,7 +21,7 @@ from butler.skills.write_approval import (
     reject_all_skill_pending,
     reject_skill_pending,
 )
-from butler.tenant import tenant_skills_dir
+from butler.utilities.tenant import tenant_skills_dir
 
 
 def register_skills_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

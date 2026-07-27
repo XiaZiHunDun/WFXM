@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.core.agent_loop import AgentLoop
 from butler.core.loop_types import LoopCallbacks, LoopConfig, LoopTransitionReason
 from butler.core.reactive_compact import group_messages_by_api_round, try_reactive_compact

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from typing import Any
 
-from butler.utilities.env_parse import env_truthy, int_env
+from butler.configuration.settings import get_butler_home
 from butler.defaults.env_defaults import (
     WECHAT_ATTACH_MIN_CHARS,
     WECHAT_ATTACH_BRIEF_CHARS,
@@ -19,6 +19,14 @@ from butler.defaults.env_defaults import (
     WECHAT_ATTACH_RUNTIME_DEFAULT,
     WECHAT_ATTACH_SUFFIX_DEFAULT,
 )
+from butler.gateway.outbound_files import (
+    append_wechat_file_delivery_line,
+    export_wechat_file_enabled,
+    export_wechat_max_bytes,
+)
+from butler.gateway.pii_scrub import scrub_outbound_text
+from butler.report import format_detail, format_for_wechat
+from butler.utilities.env_parse import env_truthy, int_env
 
 
 def is_wechat_platform(platform: str) -> bool:
@@ -43,26 +51,18 @@ def _cap_wechat_attach_summary(text: str) -> str:
 
 
 def attach_delegate_enabled() -> bool:
-    from butler.gateway.outbound_files import export_wechat_file_enabled
-
     return bool(env_truthy("BUTLER_WECHAT_ATTACH_DELEGATE", default=WECHAT_ATTACH_DELEGATE_DEFAULT) and export_wechat_file_enabled())
 
 
 def attach_detail_enabled() -> bool:
-    from butler.gateway.outbound_files import export_wechat_file_enabled
-
     return bool(env_truthy("BUTLER_WECHAT_ATTACH_DETAIL", default=WECHAT_ATTACH_DETAIL_DEFAULT) and export_wechat_file_enabled())
 
 
 def attach_diagnostic_enabled() -> bool:
-    from butler.gateway.outbound_files import export_wechat_file_enabled
-
     return bool(env_truthy("BUTLER_WECHAT_ATTACH_DIAGNOSTIC", default=WECHAT_ATTACH_DIAGNOSTIC_DEFAULT) and export_wechat_file_enabled())
 
 
 def attach_runtime_enabled() -> bool:
-    from butler.gateway.outbound_files import export_wechat_file_enabled
-
     return bool(env_truthy("BUTLER_WECHAT_ATTACH_RUNTIME", default=WECHAT_ATTACH_RUNTIME_DEFAULT) and export_wechat_file_enabled())
 
 
@@ -82,8 +82,6 @@ def _safe_segment(value: str) -> str:
 
 
 def _export_dir(workspace: Path | None) -> Path:
-    from butler.configuration.settings import get_butler_home
-
     if workspace is not None:
         out = Path(workspace) / ".butler" / "exports"
     else:
@@ -100,9 +98,6 @@ def write_text_export(
     suffix: str | None = None,
 ) -> Path | None:
     """Write scrubbed text under exports/; return path or None on failure."""
-    from butler.gateway.pii_scrub import scrub_outbound_text
-    from butler.gateway.outbound_files import export_wechat_max_bytes
-
     text = scrub_outbound_text(str(body or ""))
     if not text.strip():
         return None
@@ -146,8 +141,6 @@ def maybe_attach_wechat_file(
     On WeChat, when ``full_body`` is long enough, write it to exports/ and
     append a deliverable path line for ``WeChatAdapter.send()``.
     """
-    from butler.gateway.outbound_files import export_wechat_file_enabled, append_wechat_file_delivery_line
-
     if not is_wechat_platform(platform):
         return chat_text if chat_text.strip() else full_body
     if not enabled or not export_wechat_file_enabled():
@@ -185,8 +178,6 @@ def build_delegate_completion_message(
     workspace: Path | None = None,
 ) -> str:
     """Compact WeChat text plus optional full report file attachment."""
-    from butler.report import format_detail, format_for_wechat
-
     body = format_for_wechat(report)
     chat = f"{prefix}\n\n{body}".strip() if prefix else body
     if not attach_delegate_enabled() or not is_wechat_platform(platform):

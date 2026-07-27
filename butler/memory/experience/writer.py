@@ -62,6 +62,11 @@ class ExperienceWriter:
         name = self._generate_name(query, meta)
         node_id = self._generate_id(domain_id, category_id, name, content)
 
+        # Step 3: Check for duplicates
+        if self._is_duplicate(node_id):
+            logger.debug("Skipping duplicate experience: %s", node_id)
+            return node_id
+
         node = ExperienceNode(
             node_id=node_id,
             domain=domain_id,
@@ -75,7 +80,7 @@ class ExperienceWriter:
             },
         )
 
-        # Step 3: Store in SQLite
+        # Step 4: Store in SQLite
         self._store.save_node(node)
 
         # Step 4: Store in ChromaDB (semantic)
@@ -138,3 +143,26 @@ class ExperienceWriter:
         content_hash = hashlib.md5(content.encode()).hexdigest()[:8]
         safe_name = name.replace(" ", "_").replace("/", "_")[:50]
         return f"{domain}/{category}/{safe_name}_{content_hash}"
+
+    def _is_duplicate(self, node_id: str) -> bool:
+        """Check if an experience with the same node_id already exists."""
+        try:
+            existing = self._store.get_node(node_id)
+            return existing is not None
+        except Exception:
+            return False
+
+    def batch_write(
+        self,
+        items: list[dict[str, Any]],
+    ) -> list[str]:
+        """Write multiple experiences in batch. Returns list of node_ids."""
+        node_ids = []
+        for item in items:
+            node_id = self.write(
+                query=item.get("query", ""),
+                result=item.get("result", ""),
+                metadata=item.get("metadata"),
+            )
+            node_ids.append(node_id)
+        return node_ids

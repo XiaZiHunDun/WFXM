@@ -270,6 +270,22 @@ class SemanticMemory:
             "total_documents": count,
             "persist_directory": self._persist_directory,
         }
+    
+    def close(self) -> None:
+        """Close ChromaDB client and release resources."""
+        if not CHROMADB_AVAILABLE:
+            return
+        
+        with self._lock:
+            if self._client is not None:
+                try:
+                    self._client.persist()
+                except Exception:
+                    pass
+                self._client = None
+                self._collection = None
+                self._initialized = False
+                logger.debug("Semantic memory closed")
 
 
 _singleton: Optional[SemanticMemory] = None

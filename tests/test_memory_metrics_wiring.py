@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from butler.core.container import container
 from butler.memory.memory_metrics import (
-    MemoryMetricsCollector,
     SessionMemoryMetrics,
     get_collector,
 )
@@ -13,9 +13,9 @@ from butler.memory.memory_metrics import (
 
 @pytest.fixture(autouse=True)
 def _reset_collector():
-    MemoryMetricsCollector.reset()
+    container.reset_all()
     yield
-    MemoryMetricsCollector.reset()
+    container.reset_all()
 
 
 class TestSessionMemoryMetricsComputation:
@@ -147,7 +147,7 @@ class TestCollectorWiring:
         c.save_to_file(path)
         assert path.exists()
 
-        MemoryMetricsCollector.reset()
+        container.reset_all()
         c2 = get_collector()
         c2.load_from_file(path)
         m = c2.get_session_metrics("s1")

@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from butler.human_gate import (
+from butler.permissions.human_gate import (
     check_workflow_step_approval,
     clear_session_gates,
     is_step_approved,
@@ -18,7 +18,7 @@ from butler.human_gate import (
 @pytest.mark.unit
 def test_clear_during_approval_check_no_revival(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sk = "gate-conc"
@@ -56,7 +56,7 @@ def test_clear_during_approval_check_no_revival(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_mark_and_check_under_load(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sk = "gate-load"

@@ -46,7 +46,7 @@ class TestWechatAdapterLoadsPersistedToken:
     def test_init_loads_token_from_accounts_when_env_token_empty(
         self, tmp_butler_home, monkeypatch
     ):
-        from butler.config import get_butler_home, reload_butler_settings
+        from butler.configuration.settings import get_butler_home, reload_butler_settings
 
         monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
         monkeypatch.setenv("WECHAT_TOKEN", "")
@@ -72,7 +72,7 @@ class TestWechatAdapterLoadsPersistedToken:
         assert adapter._account_id == "bot-load-1"
 
     def test_env_token_overrides_persisted_account(self, tmp_butler_home, monkeypatch):
-        from butler.config import get_butler_home, reload_butler_settings
+        from butler.configuration.settings import get_butler_home, reload_butler_settings
 
         monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
         monkeypatch.setenv("WECHAT_TOKEN", "from-env-token")

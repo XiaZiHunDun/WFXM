@@ -27,6 +27,12 @@ import time
 from collections.abc import Callable
 from typing import Any, Optional
 
+from butler.defaults.env_defaults import (
+    LANGFUSE_ENABLED_DEFAULT,
+    PROJECT_NAME_DEFAULT,
+    TENANT_DEFAULT,
+)
+
 logger = logging.getLogger(__name__)
 
 _langfuse_client: Any = None
@@ -45,7 +51,7 @@ def _lf_void(fn: Callable[[], Any], label: str) -> None:
 
 
 def langfuse_enabled() -> bool:
-    return os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in ("1", "true", "yes")
+    return os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in ("1", "true", "yes")
 
 
 def _get_client(project_id: str = "") -> Any:
@@ -59,7 +65,7 @@ def _get_client(project_id: str = "") -> Any:
 
     if project_id:
         def _init_project() -> Any:
-            from butler.config import get_project_langfuse_config
+            from butler.configuration.settings import get_project_langfuse_config
 
             cfg = get_project_langfuse_config(project_id)
             if not cfg or not cfg.get("langfuse_public_key"):
@@ -129,11 +135,11 @@ def shutdown_langfuse() -> None:
 
 
 def _default_project_name() -> str:
-    return os.getenv("BUTLER_PROJECT_NAME", "butler-v4")
+    return os.getenv("BUTLER_PROJECT_NAME", PROJECT_NAME_DEFAULT)
 
 
 def _default_tenant() -> str:
-    return os.getenv("BUTLER_TENANT", "")
+    return os.getenv("BUTLER_TENANT", TENANT_DEFAULT)
 
 
 def _detect_session_source(session_key: str) -> str:

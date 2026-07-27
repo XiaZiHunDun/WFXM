@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ def usage_persist_enabled() -> bool:
 
 
 def _ledger_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "usage" / f"{date.today().isoformat()}.jsonl"
 

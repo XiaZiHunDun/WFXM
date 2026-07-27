@@ -143,7 +143,7 @@ class GitHubSource(SkillSource):  # type: ignore[misc]
 
 
 def _trust_for_repo(owner: str, repo: str) -> str:
-    trusted = os.getenv("BUTLER_SKILL_TRUSTED_REPOS", "").strip()
+    trusted = os.getenv("BUTLER_SKILL_TRUSTED_REPOS", SKILL_TRUSTED_REPOS_DEFAULT).strip()
     key = f"{owner}/{repo}".lower()
     for part in trusted.split(","):
         if part.strip().lower() == key:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 
 def implicit_context_enabled() -> bool:

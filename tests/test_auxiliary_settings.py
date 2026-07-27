@@ -2,7 +2,7 @@
 
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 
 
 def test_auxiliary_from_config_yaml(tmp_butler_home, monkeypatch):

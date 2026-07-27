@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.core.session_transcript import _safe_segment
 
 logger = logging.getLogger(__name__)

@@ -10,7 +10,7 @@ from butler.tools.registry import _tool_delegate_task
 
 def test_delegate_failure_completes_task_and_caches_report(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
 

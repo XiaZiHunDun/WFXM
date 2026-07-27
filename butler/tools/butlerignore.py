@@ -7,6 +7,8 @@ import logging
 import os
 from pathlib import Path
 
+from butler.defaults.env_defaults import SECRETS_PATH_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 _IGNORE_FILENAMES = (".butlerignore",)
@@ -119,7 +121,7 @@ def credential_mask_paths() -> list[str]:
         home / ".config" / "gcloud",
         home / ".docker" / "config.json",
     ]
-    env_path = os.getenv("BUTLER_SECRETS_PATH", "").strip()
+    env_path = os.getenv("BUTLER_SECRETS_PATH", SECRETS_PATH_DEFAULT).strip()
     if env_path:
         candidates.append(Path(env_path).expanduser())
     out: list[str] = []

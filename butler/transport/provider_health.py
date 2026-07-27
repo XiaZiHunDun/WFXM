@@ -12,6 +12,7 @@ from butler.defaults.env_defaults import (
     PROVIDER_CIRCUIT_DEFAULT,
     PROVIDER_CIRCUIT_FAILURES,
     PROVIDER_CIRCUIT_OPEN_SECONDS,
+    PROVIDER_FAILOVER_DEFAULT,
 )
 from butler.utilities.env_parse import env_truthy, float_env, int_env
 from butler.transport.fallback import FallbackEntry
@@ -113,7 +114,7 @@ def filter_fallback_chain(chain: list[FallbackEntry]) -> list[FallbackEntry]:
 
 
 def failover_list_from_env() -> list[tuple[str, str]]:
-    raw = os.getenv("BUTLER_PROVIDER_FAILOVER", "").strip()
+    raw = os.getenv("BUTLER_PROVIDER_FAILOVER", PROVIDER_FAILOVER_DEFAULT).strip()
     if not raw:
         return []
     pairs: list[tuple[str, str]] = []

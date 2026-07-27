@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def stt_provider() -> str:
-    from butler.gateway_settings import resolve_gateway_inbound_config
+    from butler.configuration.gateway import resolve_gateway_inbound_config
 
     return cast(str, resolve_gateway_inbound_config().speech.stt_provider)
 
@@ -52,7 +52,7 @@ def transcribe_wav_local(wav_path: Path) -> str:
             "未安装 faster-whisper，无法转写纯语音文件（pip install faster-whisper）"
         ) from exc
 
-    from butler.gateway_settings import resolve_gateway_inbound_config
+    from butler.configuration.gateway import resolve_gateway_inbound_config
 
     model_size = resolve_gateway_inbound_config().speech.whisper_model
     model = WhisperModel(model_size, device="cpu", compute_type="int8")

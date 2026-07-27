@@ -23,6 +23,10 @@ from typing import Any
 from butler.io.atomic_write import atomic_write_text
 from butler.tools._file_cache import clear_cache, read_json_cached
 from butler.tools.tenant_store_ops import build_fernet_safe, decrypt_fernet_payload_safe
+from butler.defaults.env_defaults import (
+    PIM_ENCRYPT_DEFAULT,
+    PIM_ENCRYPT_KEY_DEFAULT,
+)
 
 __all__ = ["TenantStore", "clear_cache", "read_json_cached"]
 
@@ -30,14 +34,14 @@ logger = logging.getLogger(__name__)
 
 
 def _pim_encrypt_enabled() -> bool:
-    return os.getenv("BUTLER_PIM_ENCRYPT", "0").strip() in ("1", "true", "yes")
+    return os.getenv("BUTLER_PIM_ENCRYPT", PIM_ENCRYPT_DEFAULT).strip() in ("1", "true", "yes")
 
 
 def _get_fernet() -> Any | None:
     """Return a Fernet instance if encryption is enabled, else None."""
     if not _pim_encrypt_enabled():
         return None
-    key = os.getenv("BUTLER_PIM_ENCRYPT_KEY", "").strip()
+    key = os.getenv("BUTLER_PIM_ENCRYPT_KEY", PIM_ENCRYPT_KEY_DEFAULT).strip()
     if not key:
         logger.warning("BUTLER_PIM_ENCRYPT=1 but BUTLER_PIM_ENCRYPT_KEY is empty; encryption disabled")
         return None
@@ -87,8 +91,8 @@ class TenantStore:
         return os.getenv(self._env_toggle, "1").strip() not in ("0", "false", "no")
 
     def storage_dir(self) -> Path:
-        from butler.config import get_butler_home
-        from butler.tenant import DEFAULT_TENANT, tenant_root
+        from butler.configuration.settings import get_butler_home
+        from butler.utilities.tenant import DEFAULT_TENANT, tenant_root
 
         tenant_id = os.getenv("BUTLER_TENANT", DEFAULT_TENANT)
         root = Path(tenant_root(get_butler_home(), tenant_id))

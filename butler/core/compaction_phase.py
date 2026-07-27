@@ -73,7 +73,7 @@ def record_compaction_diagnostics(
 
 
 def mid_turn_compact_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     return bool(env_truthy("BUTLER_MID_TURN_COMPACT", default=True))
 

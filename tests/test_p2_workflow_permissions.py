@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from butler.execution_context import use_workflow_step
-from butler.human_gate import (
+from butler.permissions.human_gate import (
     check_workflow_step_approval,
     clear_session_gates,
     is_step_approved,

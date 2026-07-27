@@ -32,27 +32,35 @@ from butler.dev_engine.review_static import run_static_review
 from butler.dev_engine.verify import verify_layered
 from butler.tools.path_safety import check_tool_path, tool_safe_root
 from butler.tools.safe_root import get_tool_safe_root
+from butler.defaults.env_defaults import (
+    DEV_ENGINE_DEFAULT,
+    DEV_AUTO_VERIFY_DEFAULT,
+    DEV_ROLLBACK_ENABLED_DEFAULT,
+    DEV_DIAGNOSTICS_INJECT_DEFAULT,
+    DEV_AUTO_REVIEW_DEFAULT,
+    DEV_REVIEW_STRICT_DEFAULT,
+)
 
 _active_states: dict[str, Any] = {}
 
 
 def dev_engine_enabled() -> bool:
-    raw = os.getenv("BUTLER_DEV_ENGINE", "1")
+    raw = os.getenv("BUTLER_DEV_ENGINE", DEV_ENGINE_DEFAULT)
     return raw.strip().lower() in ("1", "true", "yes")
 
 
 def auto_verify_enabled() -> bool:
-    raw = os.getenv("BUTLER_DEV_AUTO_VERIFY", "1")
+    raw = os.getenv("BUTLER_DEV_AUTO_VERIFY", DEV_AUTO_VERIFY_DEFAULT)
     return raw.strip().lower() in ("1", "true", "yes")
 
 
 def rollback_enabled() -> bool:
-    raw = os.getenv("BUTLER_DEV_ROLLBACK_ENABLED", "1")
+    raw = os.getenv("BUTLER_DEV_ROLLBACK_ENABLED", DEV_ROLLBACK_ENABLED_DEFAULT)
     return raw.strip().lower() in ("1", "true", "yes")
 
 
 def diagnostics_inject_enabled() -> bool:
-    raw = os.getenv("BUTLER_DEV_DIAGNOSTICS_INJECT", "1")
+    raw = os.getenv("BUTLER_DEV_DIAGNOSTICS_INJECT", DEV_DIAGNOSTICS_INJECT_DEFAULT)
     return raw.strip().lower() in ("1", "true", "yes")
 
 
@@ -65,12 +73,12 @@ def coding_strict_enabled() -> bool:
 
 
 def auto_review_enabled() -> bool:
-    raw = os.getenv("BUTLER_DEV_AUTO_REVIEW", "0")
+    raw = os.getenv("BUTLER_DEV_AUTO_REVIEW", DEV_AUTO_REVIEW_DEFAULT)
     return raw.strip().lower() in ("1", "true", "yes")
 
 
 def review_strict_enabled() -> bool:
-    raw = os.getenv("BUTLER_DEV_REVIEW_STRICT", "0")
+    raw = os.getenv("BUTLER_DEV_REVIEW_STRICT", DEV_REVIEW_STRICT_DEFAULT)
     return raw.strip().lower() in ("1", "true", "yes")
 
 

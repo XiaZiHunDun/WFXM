@@ -12,7 +12,7 @@ from butler.memory.semantic_index import hybrid_experience_search
 from butler.session.lifecycle import filter_non_conversation_experience
 from butler.memory.semantic_config import semantic_memory_enabled
 from butler.memory.semantic_project import prefetch_project_memory_hits, resolve_project_display_name
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.memory.coding_recall import search_coding_experiences
 from butler.memory.observation_recall import search_observation_recall
 from butler.memory.recall_ops import record_scope_retrieval_safe

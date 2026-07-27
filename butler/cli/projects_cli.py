@@ -14,7 +14,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from butler.config import get_butler_settings
+from butler.configuration.settings import get_butler_settings
 from butler.project.archetypes import reindex_project_memory
 from butler.project.manager import get_project_manager
 from butler.project.preflight import (

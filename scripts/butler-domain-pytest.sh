@@ -16,7 +16,7 @@ for d in "${DOMAINS[@]}"; do
       PY="$(command -v python || command -v python3)"
       exec "${PY}" -m pytest tests/ -q --tb=line
       ;;
-    gateway|ops|dev_engine|memory|core|tools|runtime|io|transport|hooks)
+    gateway|ops|dev_engine|memory|core|tools|runtime|io|transport|hooks|contracts)
       if [[ -d "tests/$d" ]]; then
         paths+=("tests/$d/")
       else
@@ -25,7 +25,7 @@ for d in "${DOMAINS[@]}"; do
       fi
       ;;
     *)
-      echo "Usage: $0 [gateway|ops|dev_engine|memory|core|tools|runtime|all ...]" >&2
+      echo "Usage: $0 [gateway|ops|dev_engine|memory|core|tools|runtime|contracts|all ...]" >&2
       exit 2
       ;;
   esac

@@ -27,7 +27,7 @@ Butler v4 是**自托管的多项目 AI 管家**：你在**微信**或 **CLI** �
   → Outbound（微信文字/附件）
 ```
 
-代码入口：[`butler/gateway/message_handler.py`](../../butler/gateway/message_handler.py) → [`session_loop_factory.py`](../../butler/gateway/session_loop_factory.py) → [`butler/core/agent_loop.py`](../../butler/core/agent_loop.py)。
+代码入口：[`butler/gateway/message_handler.py`](../../butler/gateway/message_handler.py) → [`session_loop_factory.py`](../../butler/gateway/session_loop_factory.py) → [`butler/core/agent_loop/`](../../butler/core/agent_loop/)。
 
 ---
 

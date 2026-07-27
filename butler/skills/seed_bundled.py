@@ -18,7 +18,7 @@ _BUNDLED: tuple[tuple[str, str], ...] = (
 
 def ensure_bundled_tenant_skills(butler_home: Path, tenant_id: str = "default") -> list[Path]:
     """Install or refresh bundled skills under ``tenants/<id>/skills/``."""
-    from butler.tenant import normalize_tenant_id, tenant_skills_dir
+    from butler.utilities.tenant import normalize_tenant_id, tenant_skills_dir
 
     home = Path(butler_home).expanduser().resolve()
     tid = normalize_tenant_id(tenant_id)

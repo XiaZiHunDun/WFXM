@@ -5,7 +5,20 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from butler.core.best_effort import safe_best_effort
+from butler.core.tool_result_cache import clear_session_tool_cache
+from butler.memory.prefetch_cache import clear_prefetch_cache
+from butler.memory.semantic_memory import get_semantic_memory
 from butler.session.lifecycle import session_experience_tag
+from butler.session.new_session_ops import (
+    clear_provider_turn_buffer_safe,
+    clear_retrieval_telemetry_safe,
+    purge_conversation_experience_safe,
+    reset_inbound_idempotency_safe,
+    reset_tool_result_state_safe,
+    run_session_start_hooks_safe,
+)
+from butler.session.post_session_ops import reset_post_session_watermark, trigger_session_end
 
 logger = logging.getLogger(__name__)
 
@@ -15,32 +28,41 @@ def clear_session_boundary_memory(
     session_id: str = "",
 ) -> dict[str, Any]:
     """Drop ephemeral chat echoes after /new (loop history is already reset)."""
-    from butler.session.new_session_ops import (
-        clear_provider_turn_buffer_safe,
-        clear_retrieval_telemetry_safe,
-        purge_conversation_experience_safe,
-        reset_inbound_idempotency_safe,
-        reset_tool_result_state_safe,
-    )
-
     tag = session_experience_tag(session_id)
     removed, purge_error = purge_conversation_experience_safe(orchestrator, tag)
     if purge_error:
         return {"removed": 0, "error": purge_error}
 
     clear_provider_turn_buffer_safe(orchestrator)
-
-    from butler.session.post_session_ops import reset_post_session_watermark
-
     reset_post_session_watermark(orchestrator, session_id)
-
-    from butler.memory.prefetch_cache import clear_prefetch_cache
-
     clear_prefetch_cache(session_id)
     reset_inbound_idempotency_safe(session_id)
     clear_retrieval_telemetry_safe(session_id)
     reset_tool_result_state_safe(session_id)
+
+    _cleanup_session_resources_safe(session_id)
+
     return {"removed": removed, "session_tag": tag}
+
+
+def _cleanup_session_resources_safe(session_id: str = "") -> None:
+    """Safely cleanup session resources: semantic memory, caches, and threads."""
+
+    def _cleanup_semantic_memory() -> None:
+        sm = get_semantic_memory()
+        sm.close()
+
+    safe_best_effort(_cleanup_semantic_memory, label="session.new.cleanup.semantic_memory", default=None)
+
+    def _cleanup_tool_result_cache() -> None:
+        clear_session_tool_cache(session_id)
+
+    safe_best_effort(_cleanup_tool_result_cache, label="session.new.cleanup.tool_result_cache", default=None)
+
+    def _cleanup_prefetch_cache() -> None:
+        clear_prefetch_cache(session_id)
+
+    safe_best_effort(_cleanup_prefetch_cache, label="session.new.cleanup.prefetch_cache", default=None)
 
 
 def format_new_session_user_message(
@@ -68,9 +90,6 @@ def handle_new_session_command(
     agent_loop: Any | None,
 ) -> str:
     """Post-session extract, purge ephemeral echoes, return user message."""
-    from butler.session.new_session_ops import run_session_start_hooks_safe
-    from butler.session.post_session_ops import trigger_session_end
-
     extract_result = trigger_session_end(
         orchestrator, agent_loop, session_id=session_id, reason="clear"
     )
@@ -90,7 +109,7 @@ def write_session_summary_snapshot(
     session_id: str = "",
 ) -> None:
     """Structured session summary for recall (claude-mem subset)."""
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     if not env_truthy("BUTLER_SESSION_SUMMARY", default=True):
         return

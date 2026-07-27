@@ -6,6 +6,9 @@ import logging
 from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.review_context_adapter import apply_dev_review_view_to_diagnostics
+from butler.dev_engine.coding_knowledge import dual_verify as ck_dual_verify
+from butler.execution_context import get_current_session_key
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +24,6 @@ def coding_knowledge_verify_safe(
         return []
 
     def _run() -> list[str]:
-        from butler.dev_engine.coding_knowledge import dual_verify as ck_dual_verify
-
         last_edit = state.edit_history[-1]
         code = last_edit.new_content or last_edit.patch_new or ""
         if not code:
@@ -58,8 +59,6 @@ def auto_review_after_verify_safe(
 
 def apply_dev_review_diagnostics_safe(view: Any, diagnostics: dict[str, Any]) -> None:
     def _run() -> None:
-        from butler.core.review_context_adapter import apply_dev_review_view_to_diagnostics
-
         apply_dev_review_view_to_diagnostics(view, diagnostics)
 
     safe_best_effort(_run, label="dev_tools.review_diagnostics", default=None)
@@ -72,7 +71,6 @@ def review_closure_hooks_safe(
     task_preview: str,
 ) -> None:
     def _run() -> None:
-        from butler.execution_context import get_current_session_key
         from butler.dev_engine.review_closure import (
             maybe_persist_review_closure,
             maybe_queue_experience_candidate,

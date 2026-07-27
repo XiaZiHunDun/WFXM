@@ -259,7 +259,7 @@ def backfill_b9_experience_retrieval(*, xlib_path: str | None = None) -> dict[st
     """Rewrite B9_EX_* / B9_FAIL_* entries with retrieval_keywords on disk."""
     import os
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary, TheoremLibrary
 
     path = xlib_path or os.path.join(get_butler_home(), "coding_experiences.json")

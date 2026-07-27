@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
+from butler.utilities.env_parse import int_env
 import json
 import os
 import re
@@ -28,7 +28,7 @@ def search_max_hits() -> int:
 
 
 def _sessions_root() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return Path(get_butler_home() / "sessions")
 

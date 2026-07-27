@@ -11,8 +11,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from butler.config import get_butler_home
-from butler.env_parse import env_truthy
+from butler.configuration.settings import get_butler_home
+from butler.core.text_truncate import truncate_text
+from butler.defaults.env_defaults import (
+    TOOL_RESULT_MESSAGE_MAX_CHARS_DEFAULT,
+    TOOL_RESULT_SPILL_MIN_CHARS_DEFAULT,
+    TOOL_RESULT_THRESHOLDS_DEFAULT,
+)
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +64,7 @@ def spill_threshold_chars(tool_name: str = "") -> int:
     if name and name in per_tool:
         val = per_tool[name]
         return 0 if val <= 0 else max(256, val)
-    raw = os.getenv("BUTLER_TOOL_RESULT_SPILL_MIN_CHARS", "").strip()
+    raw = os.getenv("BUTLER_TOOL_RESULT_SPILL_MIN_CHARS", TOOL_RESULT_SPILL_MIN_CHARS_DEFAULT).strip()
     if not raw:
         return _DEFAULT_SPILL_MIN_CHARS
     try:
@@ -71,7 +77,7 @@ def _load_per_tool_thresholds() -> dict[str, int]:
     global _PER_TOOL_THRESHOLDS_CACHE
     if _PER_TOOL_THRESHOLDS_CACHE is not None:
         return _PER_TOOL_THRESHOLDS_CACHE
-    raw = os.getenv("BUTLER_TOOL_RESULT_THRESHOLDS", "").strip()
+    raw = os.getenv("BUTLER_TOOL_RESULT_THRESHOLDS", TOOL_RESULT_THRESHOLDS_DEFAULT).strip()
     out: dict[str, int] = {}
     if raw:
         try:
@@ -89,7 +95,7 @@ def _load_per_tool_thresholds() -> dict[str, int]:
 
 
 def message_tool_budget_max_chars() -> int:
-    raw = os.getenv("BUTLER_TOOL_RESULT_MESSAGE_MAX_CHARS", "").strip()
+    raw = os.getenv("BUTLER_TOOL_RESULT_MESSAGE_MAX_CHARS", TOOL_RESULT_MESSAGE_MAX_CHARS_DEFAULT).strip()
     if not raw:
         return _DEFAULT_MESSAGE_MAX_CHARS
     try:
@@ -100,7 +106,7 @@ def message_tool_budget_max_chars() -> int:
 
 def spill_preview_chars() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(
             int_env("BUTLER_TOOL_RESULT_SPILL_PREVIEW_CHARS", _DEFAULT_PREVIEW_CHARS, min=200)
@@ -251,8 +257,6 @@ def tool_result_path(session_key: str, tool_use_id: str) -> Path:
 
 
 def generate_preview(content: str, max_chars: int) -> tuple[str, bool]:
-    from butler.core.text_truncate import truncate_text
-
     return cast(
         tuple[str, bool],
         truncate_text(content, max_chars, suffix="\n…(truncated)", prefer_newline=True),

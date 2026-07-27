@@ -10,9 +10,9 @@ from butler.core.session_transcript import record_session_reset
 from butler.hooks.telemetry import reset_hook_telemetry
 from butler.gateway.completion_telemetry import reset_completion_telemetry
 from butler.core.read_state import reset_read_state
-from butler.gateway.message_queue import reset_queue
+from butler.resilience.message_queue import reset_queue
 from butler.gateway.queue_settings import clear_session_override
-from butler.human_gate import clear_session_gates
+from butler.permissions.human_gate import clear_session_gates
 from butler.core.instruction_walkup import reset_instruction_claims
 from butler.core.goal_loop import clear_state as clear_goal_loop
 from butler.core.compaction_checkpoint import clear_checkpoint

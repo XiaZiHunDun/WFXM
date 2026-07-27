@@ -15,6 +15,8 @@ from typing import Any, Optional
 
 import pydantic
 
+from butler.core.effects.result import Err, Ok, Result
+
 
 # ── Base Event Models ──
 
@@ -413,12 +415,15 @@ DOMAIN_EVENT_TYPES = {
 }
 
 
-def deserialize_event(event_type: str, data: dict[str, Any]) -> DomainEvent:
+def deserialize_event(event_type: str, data: dict[str, Any]) -> Result[DomainEvent, ValueError]:
     """Deserialize event data to domain event object."""
     event_class = DOMAIN_EVENT_TYPES.get(event_type)
     if event_class is None:
-        raise ValueError(f"Unknown event type: {event_type}")
-    return event_class(**data)
+        return Err(ValueError(f"Unknown event type: {event_type}"))
+    try:
+        return Ok(event_class(**data))
+    except Exception as exc:
+        return Err(ValueError(f"Failed to deserialize event: {exc}"))
 
 
 __all__ = [

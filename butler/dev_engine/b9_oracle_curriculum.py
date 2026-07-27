@@ -204,7 +204,7 @@ B9_ORACLE_EPISODES: dict[str, B9CurriculumEpisode] = {
 
 
 def curriculum_audit_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / "b9_curriculum.json"
 

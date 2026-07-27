@@ -66,7 +66,7 @@ def test_marketplace_directory_install(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_SKILL_REGISTRY", "1")
     monkeypatch.setenv("BUTLER_SKILL_REGISTRY_SOURCES", "marketplace")
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.tenant import tenant_skills_dir
 
     home = tmp_path / "butler_home"

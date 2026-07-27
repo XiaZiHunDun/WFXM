@@ -210,6 +210,7 @@
 | `BUTLER_TOOL_AUDIT_JSONL` | 0 | `1` 写入工具审计 JSONL |
 | `BUTLER_TOOL_AUDIT_PATH` | — | 审计 JSONL 文件路径 |
 | `BUTLER_TOOL_ERROR_POLICY` | log | 工具错误策略：log/raise/retry |
+| `BUTLER_CONCURRENT_TOOL_TIMEOUT_S` | 420 | 并发工具执行总超时（秒），≤0 表示不超时 |
 | `BUTLER_UTF16_SAFE_TRUNCATE` | 1 | 截断时对齐 UTF-16 边界 |
 | `BUTLER_TOOL_PRUNE_DEFAULT_CHARS` | 800 | 默认工具输出剪枝字符 |
 | `BUTLER_TOOL_PRUNE_PRESERVE_CHARS` | 2400 | 剪枝保护字符 |

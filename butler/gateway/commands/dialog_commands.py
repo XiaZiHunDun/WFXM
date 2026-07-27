@@ -37,7 +37,7 @@ from butler.gateway.commands.dialog_commands_ops import (
     record_session_reset_safe,
 )
 from butler.gateway.queue_settings import apply_queue_command
-from butler.human_gate import resolve_human_gate_message
+from butler.permissions.human_gate import resolve_human_gate_message
 from butler.model_resolve import handle_model_command
 from butler.plan.mode import (
     clear_plan_mode,

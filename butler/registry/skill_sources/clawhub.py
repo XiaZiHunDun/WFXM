@@ -18,6 +18,7 @@ from butler.registry.skill_sources.base import SkillSource
 from butler.registry.skill_sources.zip_safety import is_unsafe_zip_entry
 from butler.registry.skill_types import SkillBundle, SkillSearchHit
 from butler.registry.url_safety import is_safe_url
+from butler.defaults.env_defaults import CLAWHUB_URL_DEFAULT, CLAWHUB_ENABLED_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +26,12 @@ _TEXT_SUFFIXES = (".md", ".txt", ".json", ".yaml", ".yml")
 
 
 def clawhub_base_url() -> str:
-    raw = os.getenv("BUTLER_CLAWHUB_URL", "https://clawhub.ai/api/v1").strip()
+    raw = os.getenv("BUTLER_CLAWHUB_URL", CLAWHUB_URL_DEFAULT).strip()
     return raw.rstrip("/")
 
 
 def clawhub_enabled() -> bool:
-    return os.getenv("BUTLER_CLAWHUB_ENABLED", "1").strip().lower() not in (
+    return os.getenv("BUTLER_CLAWHUB_ENABLED", CLAWHUB_ENABLED_DEFAULT).strip().lower() not in (
         "0",
         "false",
         "no",

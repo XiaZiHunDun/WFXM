@@ -16,6 +16,13 @@ from butler.registry.skill_sources.base import SkillSource
 from butler.registry.skill_sources.zip_safety import is_unsafe_zip_entry
 from butler.registry.skill_types import SkillBundle, SkillSearchHit
 from butler.registry.url_safety import is_safe_url
+from butler.defaults.env_defaults import (
+    LOBEHUB_ENABLED_DEFAULT,
+    LOBEHUB_URL_DEFAULT,
+    LOBEHUB_TOKEN_DEFAULT,
+    LOBEHUB_USE_CLI_DEFAULT,
+    LOBEHUB_LOCALE_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +30,7 @@ _TEXT_SUFFIXES = (".md", ".txt", ".json", ".yaml", ".yml")
 
 
 def lobehub_enabled() -> bool:
-    return os.getenv("BUTLER_LOBEHUB_ENABLED", "1").strip().lower() not in (
+    return os.getenv("BUTLER_LOBEHUB_ENABLED", LOBEHUB_ENABLED_DEFAULT).strip().lower() not in (
         "0",
         "false",
         "no",
@@ -32,15 +39,15 @@ def lobehub_enabled() -> bool:
 
 
 def lobehub_base_url() -> str:
-    return os.getenv("BUTLER_LOBEHUB_URL", "https://market.lobehub.com").strip().rstrip("/")
+    return os.getenv("BUTLER_LOBEHUB_URL", LOBEHUB_URL_DEFAULT).strip().rstrip("/")
 
 
 def lobehub_token() -> str:
-    return os.getenv("BUTLER_LOBEHUB_TOKEN", "").strip()
+    return os.getenv("BUTLER_LOBEHUB_TOKEN", LOBEHUB_TOKEN_DEFAULT).strip()
 
 
 def lobehub_prefer_cli() -> bool:
-    return os.getenv("BUTLER_LOBEHUB_USE_CLI", "").strip().lower() in (
+    return os.getenv("BUTLER_LOBEHUB_USE_CLI", LOBEHUB_USE_CLI_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",
@@ -112,7 +119,7 @@ def _search_api(query: str, *, limit: int) -> list[SkillSearchHit]:
             "q": query,
             "page": 1,
             "pageSize": min(limit, 50),
-            "locale": os.getenv("BUTLER_LOBEHUB_LOCALE", "zh-CN"),
+            "locale": os.getenv("BUTLER_LOBEHUB_LOCALE", LOBEHUB_LOCALE_DEFAULT),
         },
         headers=_api_headers(),
     )
@@ -169,7 +176,7 @@ def _search_cli(query: str, *, limit: int) -> list[SkillSearchHit]:
             "--output",
             "json",
             "--locale",
-            os.getenv("BUTLER_LOBEHUB_LOCALE", "zh-CN"),
+            os.getenv("BUTLER_LOBEHUB_LOCALE", LOBEHUB_LOCALE_DEFAULT),
         ]
     )
     if not data:

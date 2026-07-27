@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 from pathlib import Path
 from typing import cast
 
@@ -18,7 +18,7 @@ def metrics_enabled() -> bool:
 
 
 def metrics_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return Path(get_butler_home()) / "metrics" / "memory_metrics.json"
 

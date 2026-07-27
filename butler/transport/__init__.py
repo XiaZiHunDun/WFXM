@@ -57,3 +57,14 @@ def list_transports() -> list[str]:
     if not _discovered:
         _discover()
     return list(_REGISTRY.keys())
+
+
+__all__ = [
+    "NormalizedResponse",
+    "ToolCall",
+    "Usage",
+    "build_tool_call",
+    "get_transport",
+    "list_transports",
+    "register_transport",
+]

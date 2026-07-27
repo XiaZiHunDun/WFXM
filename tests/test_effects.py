@@ -98,8 +98,10 @@ class TestRace:
             time.sleep(0.5)
             return "slow"
 
-        result, index = race(fast, slow)
-        assert result == "fast"
+        result = race(fast, slow)
+        assert result.is_ok()
+        value, index = result.unwrap()
+        assert value == "fast"
         assert index == 0
 
     def test_race_with_timeout(self):
@@ -107,8 +109,8 @@ class TestRace:
             time.sleep(0.5)
             return "slow"
 
-        with pytest.raises(RuntimeError):
-            race(slow, timeout=0.1)
+        result = race(slow, timeout=0.1)
+        assert result.is_err()
 
 
 @pytest.mark.asyncio
@@ -138,7 +140,8 @@ class TestAsyncEffects:
             return "slow"
 
         result = await async_race(fast(), slow())
-        assert result == "fast"
+        assert result.is_ok()
+        assert result.unwrap() == "fast"
 
 
 if __name__ == "__main__":

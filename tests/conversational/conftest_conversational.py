@@ -20,7 +20,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from butler.config import ModelConfig, get_butler_settings, reload_butler_settings
+from butler.configuration.settings import ModelConfig, get_butler_settings, reload_butler_settings
 from butler.gateway.message_handler import ButlerMessageHandler
 from butler.project.manager import ProjectManager
 from butler.tools.registry import (

@@ -14,7 +14,7 @@ from butler.core.io_guardrail import (
     check_inbound_text,
     io_guardrail_enabled,
 )
-from butler.human_gate import (
+from butler.permissions.human_gate import (
     resolve_human_gate_message,
     consume_injection_bypass,
     format_pending_hint,

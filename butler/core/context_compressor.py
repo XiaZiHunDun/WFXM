@@ -10,11 +10,25 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 from collections.abc import Callable
 from typing import Any, cast
 
-from butler.env_parse import int_env
 from butler.core.best_effort import safe_best_effort
+from butler.core.compaction_cutoff import find_safe_tail_start
+from butler.core.tool_prune_policy import (
+    build_tool_name_index,
+    classify_tool,
+    keep_recent_pim_tool_messages,
+    keep_recent_tool_messages,
+    prune_tool_message_content,
+    _tool_message_indices,
+)
+from butler.core.tool_result_storage import BUDGET_TRUNCATED_TAG
+from butler.ops.runtime_metrics import inc
+from butler.defaults.env_defaults import COMPRESS_TOOL_RESPONSE_BUDGET_DEFAULT, TOKEN_COUNTER_DEFAULT
+from butler.utilities.env_parse import int_env
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +84,7 @@ def _get_token_counter() -> Callable[[str], int]:
       - "tiktoken": precise BPE counting via tiktoken (requires `pip install tiktoken`)
       - "tiktoken:<encoding>": use a specific tiktoken encoding (e.g. tiktoken:o200k_base)
     """
-    import os
-
-    mode = (os.getenv("BUTLER_TOKEN_COUNTER", "heuristic") or "heuristic").strip().lower()
+    mode = (os.getenv("BUTLER_TOKEN_COUNTER", TOKEN_COUNTER_DEFAULT) or TOKEN_COUNTER_DEFAULT).strip().lower()
     if mode == "heuristic":
         return _heuristic_count
 
@@ -113,23 +125,11 @@ def _get_token_counter() -> Callable[[str], int]:
 
 
 def _register_compaction_acl_degradation_safe(*, reason: str) -> None:
-    from butler.core.best_effort import safe_best_effort
-    from butler.ops.degradation_registry import register_degradation
-
-    def _run() -> None:
-        register_degradation("compaction_acl", reason)
-
-    safe_best_effort(_run, label="context_compressor.tiktoken_register", default=None)
+    inc("compaction_degradation", labels={"reason": reason[:50]})
 
 
 def _clear_compaction_acl_degradation_safe() -> None:
-    from butler.core.best_effort import safe_best_effort
-    from butler.ops.degradation_registry import clear_degradation
-
-    def _run() -> None:
-        clear_degradation("compaction_acl")
-
-    safe_best_effort(_run, label="context_compressor.tiktoken_clear", default=None)
+    pass
 
 
 def prune_tool_outputs(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -138,15 +138,6 @@ def prune_tool_outputs(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _prune_tool_outputs(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    from butler.core.tool_prune_policy import (
-        build_tool_name_index,
-        classify_tool,
-        keep_recent_pim_tool_messages,
-        keep_recent_tool_messages,
-        prune_tool_message_content,
-        _tool_message_indices,
-    )
-
     id_to_name = build_tool_name_index(messages)
     tool_idxs = _tool_message_indices(messages)
     recent = set(tool_idxs[-keep_recent_tool_messages() :])
@@ -211,8 +202,6 @@ def _split_head_tail(
             break
 
     middle_end = len(rest) - len(tail)
-    from butler.core.compaction_cutoff import find_safe_tail_start
-
     middle_end = find_safe_tail_start(rest, middle_end)
 
     if protected_indices:
@@ -228,8 +217,6 @@ def _split_head_tail(
 
 
 def compress_tool_response_budget_tokens() -> int:
-    import os
-
     try:
         return int(max(5000, int_env("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", 50000)))
     except ValueError:
@@ -238,9 +225,7 @@ def compress_tool_response_budget_tokens() -> int:
 
 def truncate_tool_responses_to_budget(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Before LLM summarization, cap total tool-role tokens (Gemini pre-compress budget)."""
-    import os
-
-    if os.getenv("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", "").strip().lower() in (
+    if os.getenv("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", COMPRESS_TOOL_RESPONSE_BUDGET_DEFAULT).strip().lower() in (
         "0",
         "false",
         "no",
@@ -252,8 +237,6 @@ def truncate_tool_responses_to_budget(messages: list[dict[str, Any]]) -> list[di
     total = sum(len(str(m.get("content") or "")) // 4 for m in tool_msgs)
     if total <= budget:
         return messages
-
-    from butler.core.tool_result_storage import BUDGET_TRUNCATED_TAG
 
     out: list[dict[str, Any]] = []
     remaining = budget
@@ -389,8 +372,6 @@ def compress_messages(
 
 def _extract_keywords_from_latest_user(messages: list[dict[str, Any]]) -> list[str]:
     """Extract keywords from the latest user message for semantic protection."""
-    import re
-
     for m in reversed(messages):
         if m.get("role") == "user":
             content = str(m.get("content") or "")

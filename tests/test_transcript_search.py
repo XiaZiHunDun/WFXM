@@ -13,7 +13,7 @@ from butler.core.transcript_search import search_transcripts
 def test_fts_index_and_search(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_TRANSCRIPT_FTS", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sessions = tmp_path / "sessions" / "sess-a"
@@ -36,7 +36,7 @@ def test_search_transcripts_uses_fts(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
     monkeypatch.setenv("BUTLER_TRANSCRIPT_FTS", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sessions = tmp_path / "sessions" / "cur"

@@ -7,6 +7,10 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from butler.core.best_effort import safe_best_effort
+from butler.utilities.env_parse import int_env
+from butler.defaults.env_defaults import SKILL_INJECTION_MODE_DEFAULT
+
 _SKILL_REF_RE = re.compile(
     r"skill:([a-z0-9][a-z0-9._-]*)",
     re.IGNORECASE,
@@ -16,14 +20,12 @@ _VALID_MODES = frozenset({"always", "fallback", "ref_only"})
 
 
 def skill_injection_mode() -> str:
-    raw = os.getenv("BUTLER_SKILL_INJECTION_MODE", "fallback").strip().lower()
+    raw = os.getenv("BUTLER_SKILL_INJECTION_MODE", SKILL_INJECTION_MODE_DEFAULT).strip().lower()
     return raw if raw in _VALID_MODES else "fallback"
 
 
 def skill_fallback_min_experience_hits() -> int:
     try:
-        from butler.env_parse import int_env
-
         return int(int_env("BUTLER_SKILL_FALLBACK_MIN_EXPERIENCE_HITS", 1, min=0))
     except ValueError:
         return 1
@@ -209,7 +211,6 @@ def _is_local_project_inventory_intent_safe(query: str) -> bool | None:
 
 
 def _is_session_read_recall_intent_safe(query: str) -> bool | None:
-    from butler.core.best_effort import safe_best_effort
     from butler.core.session_recall_intent import is_session_read_recall_intent
 
     def _run() -> bool:
@@ -224,8 +225,7 @@ def _is_session_read_recall_intent_safe(query: str) -> bool | None:
 
 
 def record_skill_injection_metrics_safe(decision: Any) -> None:
-    from butler.core.best_effort import safe_best_effort
-    from butler.ops.degradation_registry import clear_degradation, register_degradation
+    from butler.ops.degradation_registry_ops import clear_degradation_safe, register_degradation_safe
     from butler.ops.runtime_metrics import inc
 
     def _run() -> None:
@@ -233,8 +233,8 @@ def record_skill_injection_metrics_safe(decision: Any) -> None:
             inc("execution_fallback_skip")
         if decision.skill_names:
             inc("execution_ref_only_load", labels={"reason": decision.reason})
-            clear_degradation("skills")
+            clear_degradation_safe("skills")
         elif decision.reason in ("router_fallback_no_ref", "router_fallback_no_experience"):
-            register_degradation("skills", decision.reason)
+            register_degradation_safe("skills", decision.reason)
 
     safe_best_effort(_run, label="injection_policy.metrics", default=None)

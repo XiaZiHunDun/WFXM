@@ -37,7 +37,7 @@ def _duckdb_available() -> bool:
 
 
 def _analytics_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
     return bool(env_truthy("BUTLER_DATA_QUERY", default=True))
 
 

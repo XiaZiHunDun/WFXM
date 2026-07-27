@@ -81,7 +81,7 @@ def test_deliver_completion_push_enqueues_on_failure(tmp_path, monkeypatch):
     import asyncio
 
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
@@ -134,7 +134,7 @@ def test_deliver_completion_push_persists_sent_outbox(tmp_path, monkeypatch):
     import asyncio
 
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
@@ -162,7 +162,7 @@ def test_deliver_completion_push_marks_failed_outbox(tmp_path, monkeypatch):
     import asyncio
 
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
@@ -185,7 +185,7 @@ def test_deliver_completion_push_marks_failed_outbox(tmp_path, monkeypatch):
 
 def test_workflow_failure_push(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     br = _bridge(ack_sent=True, elapsed=100.0)

@@ -56,7 +56,7 @@ MODULES=(
   butler/orchestrator/skill_bridge.py
   butler/orchestrator/prompt_assembler.py
   butler/core/__init__.py
-  butler/core/agent_loop.py
+  butler/core/agent_loop/
   butler/core/agent_loop_phases.py
   butler/core/agents_md_sections.py
   butler/core/auto_continue.py
@@ -216,7 +216,7 @@ MODULES=(
   butler/dev_engine/b9_types.py
   butler/dev_engine/b9_verify_utils.py
   butler/dev_engine/code_search.py
-  butler/dev_engine/coding_knowledge.py
+  butler/dev_engine/coding_knowledge/
   butler/dev_engine/coding_knowledge_benchmark.py
   butler/dev_engine/coding_knowledge_fixup.py
   butler/dev_engine/delegate_finalize.py
@@ -241,7 +241,7 @@ MODULES=(
   butler/dev_engine/review_knowledge.py
   butler/dev_engine/review_static.py
   butler/dev_engine/swe_curriculum.py
-  butler/dev_engine/swebench_lite.py
+  butler/dev_engine/swebench_lite/
   butler/dev_engine/verify.py
   butler/gateway/__init__.py
   butler/gateway/approval_cards.py
@@ -520,7 +520,7 @@ MODULES=(
   butler/skills/layout.py
   butler/skills/learn.py
   butler/skills/lint.py
-  butler/skills/manager.py
+  butler/skills/manager/
   butler/skills/router.py
   butler/skills/seed_bundled.py
   butler/skills/similarity.py

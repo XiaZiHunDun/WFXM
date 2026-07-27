@@ -49,7 +49,7 @@ def test_write_project_plan_still_allowed(tmp_path):
 
 def test_write_global_hooks_denied(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     target = tmp_path / ".butler" / "hooks.yaml"

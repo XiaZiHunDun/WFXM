@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, cast
 
-from butler.config import ModelConfig
+from butler.configuration.settings import ModelConfig
 from butler.core.delegate_context import child_callbacks, get_parent_callbacks
 from butler.core.meta_flags import MAX_DAG_NODES
 from butler.dag_scheduler import (
@@ -46,7 +46,6 @@ from butler.task_orchestrator_ops import (
 )
 from butler.tools.project_tools import canonical_tool_name, get_tool_definitions_for_project
 from butler.tools.registry import _extract_changes_from_messages, _safe_dispatch
-from butler.workflow_step_runner import run_rescue_steps, run_step_with_retry
 from butler.execution_context import (
     get_current_orchestrator,
     get_current_session_key,
@@ -441,6 +440,8 @@ class TaskOrchestrator:
         node: TaskNode,
         on_progress: Callable[[str, str, str], None] | None = None,
     ) -> AgentResult:
+        from butler.workflows.step_runner import run_step_with_retry
+
         return cast(
             AgentResult,
             await run_step_with_retry(
@@ -457,6 +458,8 @@ class TaskOrchestrator:
         *,
         on_progress: Callable[[str, str, str], None] | None = None,
     ) -> AgentResult:
+        from butler.workflows.step_runner import run_rescue_steps
+
         return cast(
             AgentResult,
             await run_rescue_steps(

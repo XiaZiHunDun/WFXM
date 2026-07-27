@@ -138,7 +138,7 @@ def test_instruction_walkup_after_read(tmp_path, monkeypatch):
 
 def test_create_task_sets_child_session_key(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     from butler.runtime.task_store import create_task, get_task

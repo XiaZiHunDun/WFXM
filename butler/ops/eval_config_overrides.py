@@ -22,7 +22,7 @@ _MAX_GUIDANCE_CASES = 12
 
 
 def _override_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "config" / "eval_overrides.json"
 

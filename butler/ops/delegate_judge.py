@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass
 from typing import Any, cast
 
+from butler.defaults.env_defaults import EVAL_DELEGATE_JUDGE_DEFAULT
+
 
 @dataclass
 class DelegateJudgeResult:
@@ -28,7 +30,7 @@ class DelegateJudgeResult:
 
 
 def judge_mode() -> str:
-    raw = os.getenv("BUTLER_EVAL_DELEGATE_JUDGE", "heuristic").strip().lower()
+    raw = os.getenv("BUTLER_EVAL_DELEGATE_JUDGE", EVAL_DELEGATE_JUDGE_DEFAULT).strip().lower()
     return raw if raw in ("heuristic", "llm", "off") else "heuristic"
 
 

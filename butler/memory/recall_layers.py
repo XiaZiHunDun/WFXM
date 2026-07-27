@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any, cast
 
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 from butler.memory.search_result import chunk_id_for_hit, enrich_search_hit, source_path_for_hit
 import logging
 

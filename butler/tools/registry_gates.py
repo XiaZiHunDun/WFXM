@@ -23,7 +23,6 @@ from butler.mcp.registry_hook import (
     get_mcp_tool_definitions,
     is_mcp_tool,
 )
-from butler.permissions import check_project_permission_block
 from butler.tools.network_search_policy import (
     check_network_search_tool_block,
     note_web_search_outcome as _note_web_search_outcome_impl,
@@ -88,6 +87,8 @@ def plan_mode_mcp_block(name: str) -> str | None:
 
 def project_permission_block(name: str, args: dict[str, Any]) -> str | None:
     def _run() -> str | None:
+        from butler.permissions import check_project_permission_block
+
         return cast(str | None, check_project_permission_block(name, args))
 
     return cast(

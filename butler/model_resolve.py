@@ -6,13 +6,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Iterator, cast
 
-from butler.config import ModelConfig, get_butler_settings, save_butler_config
+from butler.configuration.settings import ModelConfig, get_butler_settings, save_butler_config
 import logging
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from butler.config import ButlerSettings
+    from butler.configuration.settings import ButlerSettings
     from butler.project import Project
 
 _ROLE_ALIASES: dict[str, str] = {

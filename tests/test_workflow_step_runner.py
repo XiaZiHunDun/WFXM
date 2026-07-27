@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from butler.task_orchestrator import AgentResult, AgentSpawnConfig, TaskNode
-from butler.workflow_step_runner import run_rescue_steps, run_step_with_retry
+from butler.workflows.step_runner import run_rescue_steps, run_step_with_retry
 
 
 @pytest.mark.asyncio

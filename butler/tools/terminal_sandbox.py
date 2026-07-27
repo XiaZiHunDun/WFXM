@@ -14,6 +14,7 @@ from typing import Any, cast
 from butler.utilities.env_parse import env_truthy
 from butler.tools.butlerignore import credential_mask_paths
 from butler.defaults.env_defaults import (
+    SANDBOX_CREDENTIAL_ENV_DEFAULT,
     TERMINAL_SANDBOX_DEFAULT,
     TERMINAL_SANDBOX_NETWORK_ALLOWLIST_DEFAULT,
     TERMINAL_SANDBOX_FAIL_UNAVAILABLE_DEFAULT,
@@ -193,7 +194,7 @@ def load_terminal_sandbox_config(workspace: Path) -> TerminalSandboxConfig:
         _parse_network_policy(repo_cfg.get("networkPolicy")),
     )
 
-    env_deny = os.getenv("BUTLER_SANDBOX_CREDENTIAL_ENV", "").strip()
+    env_deny = os.getenv("BUTLER_SANDBOX_CREDENTIAL_ENV", SANDBOX_CREDENTIAL_ENV_DEFAULT).strip()
     credential_env = (
         tuple(x.strip() for x in env_deny.split(",") if x.strip())
         if env_deny

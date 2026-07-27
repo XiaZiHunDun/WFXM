@@ -83,7 +83,7 @@ def _cmd_wechat_setup(ns: argparse.Namespace) -> int:
     """Interactive WeChat iLink QR login (Hermes-style setup wizard)."""
     import asyncio
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.gateway.platforms.wechat import check_wechat_requirements, qr_login
 
     if not check_wechat_requirements():
@@ -117,7 +117,7 @@ def _cmd_wechat_setup(ns: argparse.Namespace) -> int:
 
     write_env = getattr(ns, "write_env", None)
     if write_env is not None:
-        from butler.repo_paths import REPO_ROOT
+        from butler.utilities.repo_paths import REPO_ROOT
 
         env_path = Path(write_env) if str(write_env).strip() else REPO_ROOT / ".env"
         if not env_path.is_absolute():

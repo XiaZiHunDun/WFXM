@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def tool_butler_config(action: str = "list", key: str = "", value: str = "", category: str = "", **_: Any) -> str:
-    from butler.config_service import config_get, config_list, config_set, config_categories
+    from butler.configuration.service import config_get, config_list, config_set, config_categories
 
     action = (action or "list").strip().lower()
 

@@ -21,7 +21,7 @@ def test_classify_prod_delegate_triggers():
 def test_record_production_evidence(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_EVAL_PROD_EVIDENCE", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
 

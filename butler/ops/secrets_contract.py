@@ -9,6 +9,11 @@ from typing import Any, cast
 
 import yaml  # type: ignore[import-untyped]
 
+from butler.defaults.env_defaults import (
+    GATEWAY_SYSTEMD_UNIT,
+    SECRETS_GATEWAY_EXPECTED_DEFAULT,
+)
+
 from butler.mcp.extension_manifest import (
     ExtensionManifest,
     SecretContract,
@@ -184,9 +189,9 @@ def check_all_secrets_contracts(
 
 
 def detect_gateway_expected() -> bool:
-    if os.getenv("BUTLER_SECRETS_GATEWAY_EXPECTED", "").strip() in ("1", "true", "yes"):
+    if os.getenv("BUTLER_SECRETS_GATEWAY_EXPECTED", SECRETS_GATEWAY_EXPECTED_DEFAULT).strip() in ("1", "true", "yes"):
         return True
-    unit = os.getenv("BUTLER_GATEWAY_SYSTEMD_UNIT", "butler-gateway.service")
+    unit = os.getenv("BUTLER_GATEWAY_SYSTEMD_UNIT", GATEWAY_SYSTEMD_UNIT)
     from butler.ops.secrets_contract_ops import is_systemd_unit_active_safe
 
     return cast(bool, is_systemd_unit_active_safe(unit))

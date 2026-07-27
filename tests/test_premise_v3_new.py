@@ -51,7 +51,7 @@ def _isolate_butler_home(tmp_path, monkeypatch):
     home.mkdir(exist_ok=True)
     monkeypatch.setenv("BUTLER_HOME", str(home))
     monkeypatch.setenv("BUTLER_FACT_EXTRACTION", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     reload_butler_settings()
     yield
 
@@ -1111,7 +1111,7 @@ class TestG4OwnerVerifiedGate:
 
     def test_confirm_rejected_without_owner(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.human_gate import (
+        from butler.permissions.human_gate import (
             PendingGate,
             _save_pending,
             resolve_human_gate_message,
@@ -1126,7 +1126,7 @@ class TestG4OwnerVerifiedGate:
 
     def test_confirm_accepted_with_owner(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.human_gate import (
+        from butler.permissions.human_gate import (
             PendingGate,
             _save_pending,
             resolve_human_gate_message,
@@ -1141,7 +1141,7 @@ class TestG4OwnerVerifiedGate:
 
     def test_cancel_allowed_without_owner(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.human_gate import (
+        from butler.permissions.human_gate import (
             PendingGate,
             _save_pending,
             resolve_human_gate_message,

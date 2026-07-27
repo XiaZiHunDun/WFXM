@@ -7,9 +7,8 @@ from pathlib import Path
 from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.execution_context import get_current_orchestrator, get_current_session_key
-from butler.memory import ProjectMemory
 from butler.memory.memory_metrics import get_collector
 from butler.memory.metrics_persist import flush_memory_metrics
 from butler.memory.owner_write_pending import queue_owner_write, scope_requires_write_approval
@@ -217,6 +216,8 @@ def prefetch_project_context(project_memory: Any) -> str:
 
 def load_project_memory(root: Path) -> Any | None:
     def _run() -> Any:
+        from butler.memory import ProjectMemory
+
         pm = ProjectMemory(root)
         refresh_project_facts(pm)
         return pm
@@ -248,6 +249,35 @@ def run_tool_call_safe(fn: Callable[[], str], *, label: str) -> str:
         return json.dumps({"ok": False, "error": str(exc)})
 
 
+def resolve_project_memory_for_diag(
+    orchestrator: Any, session_key: str = "",
+) -> tuple[Any, str] | tuple[None, str]:
+    """Project MEMORY resolution; prefers session_key over global _project_memory."""
+    from butler.memory.semantic_project import resolve_project_display_name
+
+    pm = getattr(orchestrator, "_project_memory", None)
+    proj = None
+    pman = getattr(orchestrator, "project_manager", None)
+    if pman is not None:
+        proj = safe_best_effort(
+            lambda: pman.get_current(session_key=session_key or ""),
+            label="memory.facade.resolve_project",
+            default=None,
+        )
+    if proj is not None:
+        ws = getattr(proj, "workspace", None)
+        if ws is not None:
+            root = Path(ws).expanduser()
+            if root.is_dir():
+                from butler.memory import ProjectMemory
+
+                name = str(getattr(proj, "name", "") or root.name)
+                return ProjectMemory(root), name
+    if pm is not None:
+        return pm, resolve_project_display_name(pm)
+    return None, ""
+
+
 __all__ = [
     "butler_home_configured",
     "close_butler_memory",
@@ -263,6 +293,7 @@ __all__ = [
     "record_recall_telemetry",
     "refresh_project_facts",
     "resolve_active_project_name",
+    "resolve_project_memory_for_diag",
     "run_tool_call_safe",
     "strip_private_tags_safe",
 ]

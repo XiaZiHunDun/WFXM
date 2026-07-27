@@ -12,7 +12,7 @@ from butler.core.goal_loop import (
     record_goal_tokens,
     start_goal_loop,
 )
-from butler.gateway.message_queue import enqueue_inbound, pop_urgent_inbound
+from butler.resilience.message_queue import enqueue_inbound, pop_urgent_inbound
 from butler.mcp.approval import format_mcp_approval_message, mcp_tool_fingerprint
 
 

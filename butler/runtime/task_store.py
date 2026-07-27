@@ -10,7 +10,8 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import RUNTIME_TASK_STALE_AUTO_FAIL_DEFAULT
 from butler.io.safe_load import safe_load_json
 
 _TASK_LOCKS: dict[str, threading.Lock] = {}
@@ -28,7 +29,7 @@ def _lock_for_task(task_id: str) -> threading.Lock:
 
 
 def _tasks_root() -> Path:
-    from butler.config import get_butler_settings
+    from butler.configuration.settings import get_butler_settings
 
     root = get_butler_settings().butler_home / "runtime" / "tasks"
     root.mkdir(parents=True, exist_ok=True)
@@ -47,7 +48,7 @@ def task_stale_minutes() -> int:
 
 
 def task_stale_auto_fail() -> bool:
-    return bool(env_truthy("BUTLER_TASK_STALE_AUTO_FAIL", default=False))
+    return bool(env_truthy("BUTLER_TASK_STALE_AUTO_FAIL", default=RUNTIME_TASK_STALE_AUTO_FAIL_DEFAULT))
 
 
 def _parse_iso(ts: str) -> datetime | None:

@@ -66,9 +66,11 @@ def tier2_probe_gate_min_passed() -> int:
     from butler.defaults.env_defaults import B9_TIER2_GATE_MIN_PASSED
 
     try:
-        return max(0, int(os.getenv("BUTLER_B9_TIER2_GATE_MIN_PASSED", str(B9_TIER2_GATE_MIN_PASSED))))
+        value = int(os.getenv("BUTLER_B9_TIER2_GATE_MIN_PASSED", str(B9_TIER2_GATE_MIN_PASSED)))
+        result: int = max(0, value)
+        return result
     except ValueError:
-        return B9_TIER2_GATE_MIN_PASSED
+        return int(B9_TIER2_GATE_MIN_PASSED)
 
 
 def evaluate_tier2_probe_gate(*, passed: int, total: int) -> dict[str, Any]:

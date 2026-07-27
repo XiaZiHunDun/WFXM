@@ -17,7 +17,7 @@ from butler.dev_engine.b9_oracle_curriculum import (
 from butler.dev_engine.b9_types import B9Result, B9TaskSpec
 from butler.ops.b9_failure_analysis import classify_b9_failure
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.dev_engine.swe_curriculum import get_swe_playbook
 from butler.ops.b9_lessons_ops import follow_up_lesson_experience_safe
 from butler.dev_engine.coding_knowledge import (

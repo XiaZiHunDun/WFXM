@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Iterator, cast
 
 from butler.core.meta_flags import exp_cache_enabled
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +194,7 @@ def reset_default_backend(backend: CacheBackend | None = None) -> None:
 
 
 def _resolve_max_entries() -> int:
-    from butler.env_parse import int_env
+    from butler.utilities.env_parse import int_env
 
     raw = int_env("BUTLER_EXP_CACHE_MAX", _DEFAULT_MAX_ENTRIES)
     return max(_MAX_ENTRIES_FLOOR, min(_MAX_ENTRIES_CEILING, int(raw)))

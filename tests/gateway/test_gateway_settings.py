@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.gateway import queue_settings as qs
-from butler.gateway_settings import (
+from butler.configuration.gateway import (
     format_gateway_inbound_config_source_line,
     format_gateway_queue_config_source_line,
     resolve_gateway_inbound_config,
@@ -73,7 +73,7 @@ def test_save_butler_config_preserves_auxiliary(butler_home):
         encoding="utf-8",
     )
     reload_butler_settings()
-    from butler.config import save_butler_config
+    from butler.configuration.settings import save_butler_config
 
     save_butler_config()
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
@@ -87,7 +87,7 @@ def test_save_butler_config_preserves_gateway(butler_home):
         encoding="utf-8",
     )
     reload_butler_settings()
-    from butler.config import save_butler_config
+    from butler.configuration.settings import save_butler_config
 
     save_butler_config()
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
@@ -158,7 +158,7 @@ def test_save_butler_config_preserves_gateway_queue(butler_home):
         encoding="utf-8",
     )
     reload_butler_settings()
-    from butler.config import save_butler_config
+    from butler.configuration.settings import save_butler_config
 
     save_butler_config()
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))

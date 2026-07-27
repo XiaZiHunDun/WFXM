@@ -256,7 +256,7 @@ def read_secrets_yaml_value(key: str, secrets_path: Path | None = None) -> str:
     val = data.get(key)
     if val is None:
         return ""
-    from butler.config_secrets_crypto import decrypt_secret_value
+    from butler.configuration.secrets_crypto import decrypt_secret_value
 
     return cast(str, decrypt_secret_value(str(val)).strip())
 

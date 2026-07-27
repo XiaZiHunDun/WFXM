@@ -70,9 +70,18 @@ async def connect_http(
 async def call_http_tool(session: Any, tool_name: str, arguments: dict[str, Any]) -> str:
     from butler.mcp.client_stdio import json_dumps_result
 
-    result = await session.call_tool(tool_name, arguments)
-    parts: list[str] = []
-    for content in getattr(result, "content", None) or []:
-        text = getattr(content, "text", None)
-        parts.append(str(text) if text is not None else str(content))
-    return "\n".join(parts) if parts else json_dumps_result(result)
+    async def _call_with_retry() -> str:
+        result = await session.call_tool(tool_name, arguments)
+        parts: list[str] = []
+        for content in getattr(result, "content", None) or []:
+            text = getattr(content, "text", None)
+            parts.append(str(text) if text is not None else str(content))
+        joined: str = "\n".join(parts) if parts else json_dumps_result(result)
+        return joined
+
+    from butler.core.effects import async_with_retry
+    from typing import cast
+
+    decorated = async_with_retry(max_attempts=2, wait_seconds=0.1, retry_on=(OSError, ConnectionError))(_call_with_retry)
+    result: str = cast(str, await decorated())
+    return result

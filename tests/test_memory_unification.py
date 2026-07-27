@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.project.manager import ProjectManager
 
 
@@ -81,7 +81,7 @@ class TestMemorySingleInstance:
             return "spy-prefetch"
 
         monkeypatch.setattr(
-            "butler.session.lifecycle.prefetch_turn_memory",
+            "butler.memory.facade.prefetch_turn_memory",
             _spy,
         )
         provider = orchestrator.memory_provider
@@ -104,5 +104,8 @@ class TestMemorySingleInstance:
             )
         assert '"ok": true' in raw.replace(" ", "").lower() or '"ok":true' in raw.replace(" ", "").lower()
 
-        hits = orchestrator.butler_memory.experience.search("xyzzy", limit=5)
-        assert any("xyzzy" in (h.get("content") or "") for h in hits)
+        # Memory writes go through pending approval queue; verify it's queued
+        from butler.memory.owner_write_pending import list_owner_pending
+
+        pending = list_owner_pending()
+        assert any("xyzzy" in (p.get("content") or "") for p in pending)

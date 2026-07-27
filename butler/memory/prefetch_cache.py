@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
 import os
 import threading
 import time
 from collections import OrderedDict
 from typing import Callable
+
+from butler.utilities.env_parse import int_env
+from butler.defaults.env_defaults import QUEUE_PREFETCH_DEFAULT
 
 _CACHE: OrderedDict[str, tuple[str, str, float]] = OrderedDict()
 _CACHE_MAX = 512
@@ -15,7 +17,7 @@ _LOCK = threading.RLock()
 
 
 def queue_prefetch_enabled() -> bool:
-    return os.getenv("BUTLER_QUEUE_PREFETCH", "0").strip().lower() in {
+    return os.getenv("BUTLER_QUEUE_PREFETCH", QUEUE_PREFETCH_DEFAULT).strip().lower() in {
         "1",
         "true",
         "yes",

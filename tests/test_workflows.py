@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.project import Project
 from butler.project.manager import ProjectManager
 from butler.task_orchestrator import AgentResult, TaskGraphResult

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.mcp.extension_manifest import IntentRule, load_intent_rules
 
 

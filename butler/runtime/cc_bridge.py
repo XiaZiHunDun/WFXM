@@ -14,7 +14,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import CC_CLI_DEFAULT, RUNTIME_CC_BRIDGE_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,11 @@ _QUEUE_FILE = "cc_bridge_queue.jsonl"
 
 
 def cc_bridge_enabled() -> bool:
-    return bool(env_truthy("BUTLER_CC_BRIDGE", default=False))
+    return bool(env_truthy("BUTLER_CC_BRIDGE", default=RUNTIME_CC_BRIDGE_DEFAULT))
 
 
 def claude_cli_path() -> str | None:
-    custom = os.getenv("BUTLER_CC_CLI", "").strip()
+    custom = os.getenv("BUTLER_CC_CLI", CC_CLI_DEFAULT).strip()
     if custom:
         if os.path.isfile(custom):
             return custom
@@ -40,7 +41,7 @@ def cc_bridge_timeout_sec() -> int:
 
 
 def _jobs_dir() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     path = get_butler_home() / _JOB_DIR_NAME
     path.mkdir(parents=True, exist_ok=True)

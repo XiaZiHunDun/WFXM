@@ -61,8 +61,8 @@ def test_injection_llm_gate_disabled_by_default():
 
 @pytest.mark.unit
 def test_injection_review_gate_confirm(monkeypatch, tmp_path):
-    from butler import human_gate as hg
-    from butler.human_gate import (
+    from butler import permissions as hg
+    from butler.permissions.human_gate import (
         consume_injection_bypass,
         grant_injection_bypass,
         has_injection_review_pending,
@@ -70,7 +70,7 @@ def test_injection_review_gate_confirm(monkeypatch, tmp_path):
         resolve_human_gate_message,
     )
 
-    monkeypatch.setattr(hg, "get_butler_home", lambda: tmp_path)
+    monkeypatch.setattr(hg.human_gate, "get_butler_home", lambda: tmp_path)
     sk = "wechat:test"
     request_injection_review_gate(sk, score=92)
     assert has_injection_review_pending(sk)

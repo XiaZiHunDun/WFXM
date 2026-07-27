@@ -92,10 +92,11 @@ def _memory_offline_consolidate(workspace: Path) -> dict[str, Any]:
     """Prune stale conversation experience rows (OpenClaw memory-dreaming subset)."""
     import os
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
+    from butler.defaults.env_defaults import EXPERIENCE_PRUNE_DAYS_DEFAULT
     from butler.memory.butler_memory import ButlerMemory
 
-    raw = os.getenv("BUTLER_EXPERIENCE_PRUNE_DAYS", "30").strip()
+    raw = os.getenv("BUTLER_EXPERIENCE_PRUNE_DAYS", EXPERIENCE_PRUNE_DAYS_DEFAULT).strip()
     if raw in ("0", "off", "false", "no"):
         return {
             "success": True,

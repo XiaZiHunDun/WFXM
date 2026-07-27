@@ -10,7 +10,7 @@ from butler.tools.project_todos import _load
 from butler.tools.reminder import _load_all
 from butler.memory.experience_mining import load_pending
 from butler.core.compaction_status import derive_compaction_status, format_compaction_status_line
-from butler.gateway.message_queue import pending_count
+from butler.resilience.message_queue import pending_count
 from butler.contracts.workflow_gate_registry import get_workflow_gate
 from butler.core.session_tool_index import list_session_read_files
 from butler.ops.owner_quality_surface import format_b9_owner_line, format_mcp_owner_line

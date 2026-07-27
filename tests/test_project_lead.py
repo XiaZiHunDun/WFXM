@@ -114,12 +114,13 @@ class TestLeadToolAllowlist:
 @pytest.mark.module_test
 class TestLeadLoopFactory:
     def test_gateway_creates_lead_loop_for_lingwen_session(self, tmp_path, monkeypatch):
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         from butler.project.manager import ProjectManager
 
-        ProjectManager._instance = None
-        reload_butler_settings()
+        # Set env first, then reload settings so ProjectManager picks up correct projects_dir
         monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(tmp_path / "projects"))
+        reload_butler_settings()
+        ProjectManager._instance = None
         proj_dir = tmp_path / "projects" / "LingWen1"
         proj_dir.mkdir(parents=True)
         (proj_dir / "project.yaml").write_text(
@@ -155,7 +156,7 @@ class TestLeadLoopFactory:
         assert "write_file" not in names
 
     def test_build_lead_system_prompt(self, tmp_path, monkeypatch):
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         from butler.project.manager import ProjectManager
 
         ProjectManager._instance = None

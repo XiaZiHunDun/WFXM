@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
+from butler.gateway.inbound_media_ops import wechat_document_block_safe, wechat_image_block_safe
 from butler.gateway.platforms.types import MessageEvent, MessageType
+from butler.configuration.gateway import resolve_gateway_inbound_config
+from butler.tools.document_reader import can_convert
 
-_PLACEHOLDER = "（收到媒体消息；当前 Butler 网关会处理文字指令，请用文字说明需求。）"
+_placeholder = "（收到媒体消息；当前 Butler 网关会处理文字指令，请用文字说明需求。）"
 
 
 def inbound_media_enabled() -> bool:
-    from butler.gateway_settings import resolve_gateway_inbound_config
-
     return bool(resolve_gateway_inbound_config().enabled)
 
 
 def _max_chars() -> int:
-    from butler.gateway_settings import resolve_gateway_inbound_config
-
     return int(resolve_gateway_inbound_config().max_chars)
 
 
@@ -45,7 +44,6 @@ def _pair_media(event: MessageEvent) -> tuple[list[str], list[str], list[str]]:
 def _is_document_path(path: str, mime: str) -> bool:
     """Check if a file path/mime represents a convertible document."""
     try:
-        from butler.tools.document_reader import can_convert
         if can_convert(path):
             return True
     except ImportError:
@@ -63,15 +61,13 @@ def build_inbound_user_text(event: MessageEvent) -> str:
         if base:
             return base
         if event.media_urls:
-            return _PLACEHOLDER
+            return _placeholder
         return ""
 
     images, voices, documents = _pair_media(event)
     blocks: list[str] = []
 
     if documents:
-        from butler.gateway.inbound_media_ops import wechat_document_block_safe
-
         for doc_path in documents[:3]:
             blocks.append(wechat_document_block_safe(doc_path, max_chars=_max_chars()))
 
@@ -81,15 +77,11 @@ def build_inbound_user_text(event: MessageEvent) -> str:
         else:
             blocks.append("[微信图片]")
         for img_path in images[:3]:
-            from butler.gateway.inbound_media_ops import wechat_image_block_safe
-
             hint = base if len(images) == 1 else ""
             blocks.append(wechat_image_block_safe(img_path, hint=hint))
         base = ""
 
     if voices:
-        from butler.gateway_settings import resolve_gateway_inbound_config
-
         prefer_ilink = resolve_gateway_inbound_config().speech.prefer_ilink_text
         ilink_text = base.strip() if base else ""
 
@@ -111,6 +103,7 @@ def build_inbound_user_text(event: MessageEvent) -> str:
             blocks.append(base)
 
     if not blocks:
-        return _PLACEHOLDER if event.media_urls else ""
+        return _placeholder if event.media_urls else ""
 
-    return _truncate("\n\n".join(blocks))
+    result: str = _truncate("\n\n".join(blocks))
+    return result

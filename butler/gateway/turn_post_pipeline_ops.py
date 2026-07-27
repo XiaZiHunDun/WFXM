@@ -20,7 +20,7 @@ def record_post_feedback_retry_safe(text: str, *, session_key: str | None) -> No
 
 def complete_inbound_safe(session_key: str | None, inbound_id: str) -> None:
     try:
-        from butler.gateway.inbound_idempotency import complete_inbound
+        from butler.resilience.inbound_idempotency import complete_inbound
 
         complete_inbound(session_key, inbound_id)
     except Exception as exc:

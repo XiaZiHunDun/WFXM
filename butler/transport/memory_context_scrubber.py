@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import re
 
+from butler.defaults.env_defaults import STREAM_MEMORY_SCRUB_DEFAULT
+
 _BLOCK = re.compile(
     r"<memory-context\b[^>]*>.*?</memory-context\s*>",
     re.IGNORECASE | re.DOTALL,
@@ -14,7 +16,7 @@ _CLOSE = "</memory-context>"
 
 
 def memory_stream_scrub_enabled() -> bool:
-    raw = os.getenv("BUTLER_STREAM_MEMORY_SCRUB", "1").strip().lower()
+    raw = os.getenv("BUTLER_STREAM_MEMORY_SCRUB", STREAM_MEMORY_SCRUB_DEFAULT).strip().lower()
     return raw not in ("0", "false", "no", "off")
 
 

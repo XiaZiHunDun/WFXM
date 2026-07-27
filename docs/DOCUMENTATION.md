@@ -21,7 +21,7 @@ L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实�
 
 | 层级 | 典型路径 | 用途 |
 |------|----------|------|
-| **L1 架构** | `docs/architecture/` | 模块划分、Loop/Gateway、ADR；[v4.5 Eval/Context 理论](architecture/v4.5-modular-eval-context-theory.md)、[项目激活](architecture/project-activation.md)、[扩展路径](architecture/extension-registry-paths.md)、[门控栈](architecture/permission-gate-stack.md) |
+| **L1 架构** | `docs/architecture/` | 模块划分、Loop/Gateway、ADR；[v4.5 Eval/Context 理论](architecture/v4.5-modular-eval-context-theory.md)、[项目激活](architecture/project-activation.md)、[扩展路径](architecture/extension-registry-paths.md)、[门控栈](architecture/permission-gate-stack.md)；新增包结构：`butler/core/agent_loop/`（loop/phases）、`butler/core/`（context/compaction/tool/session/llm/loop）、`butler/dev_engine/coding_knowledge/`（elements/theorems/experience/verification/context/generation/seed_experiences） |
 | **L1 配置** | `docs/config/`、`/.env.example` | `BUTLER_*` 权威默认值 |
 | **L2 决策** | `docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md` | 否决、深化边界、可选 Backlog |
 | **L2 扩展选型** | `docs/plans/active/extension-rd-loop-2026-06.md` | 开源/MCP 接入闭环 |
@@ -206,6 +206,19 @@ L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实�
 5. **跨 Agent 一致性**：协议变更影响 Cursor / Codex / OpenCode 时，需在 `.blackboard/shifts/`
    留演练卡（各 agent 至少 1 张），并在设计 spec 末尾「落地验收」节记录结果。
 
+### 6.6 改 AI 保护机制（`scripts/ai_guard/`、`.cursorrules`、契约测试）
+
+1. **保护脚本**：`scripts/ai_guard/*.py` 变更 → 同步 `tests/test_ai_guard.py` 回归测试；
+   `AGENTS.md`「AI 工具保护机制」节 + `.cursorrules` 同步。
+2. **受保护文件清单**：`pre_tool_use_hook.py` 的 `PROTECTED_FILES` / `PROTECTED_DIR_PATTERNS`
+   变更 → `AGENTS.md`「受保护文件」表格同步。
+3. **契约测试**：`tests/contracts/` 新增 Port 或 shim → `test_port_stability.py` /
+   `test_shim_all_stability.py` 同步；`EXPECTED_EXPORTS` / `EXPECTED_PORT_FILES` 更新。
+4. **CI engineering-gates job**：新增门禁脚本 → `.github/workflows/ci.yml` 的
+   `engineering-gates` job 同步。
+5. **mypy strict**：新增子包 → `pyproject.toml` 的 mypy strict 模块列表同步
+   （用通配符 `butler.<package>.<sub>.*`）。
+
 ---
 
 ## 7. 快速链接
@@ -237,3 +250,5 @@ L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实�
 | 2026-06-23 | 二次整理：根目录 plan / superpowers 归档；`STRUCTURE.md` + `scripts/README.md` 索引增补 |
 | 2026-07-13 | 黑板体系上线：`docs/superpowers/`（spec + plan，§4.4/§6.5）；20 任务收口、44 测试 / 91% 覆盖；Stop hook 严格模式（项目级 `.claude/settings.json`）；`AGENTS.md` + `docs/README.md` 加黑板入口；Cursor/Codex 演练卡已落 `.blackboard/shifts/` |
 | 2026-07-13 | 归档两条已结案计划：`wechat-ilink-round3-2026-06.md`（done 2026-06-29）、`personal-butler-engineering-plan-2026-06.md`（✅ 2026-06-15）→ `plans/archive/`；同步 4 处引用 |
+| 2026-07-17 | 代码重构：`agent_loop.py` → `butler/core/agent_loop/` 包、`coding_knowledge.py` → `butler/dev_engine/coding_knowledge/` 包；新增 8 条种子经验数据 |
+| 2026-07-17 | 架构优化：`butler/core/` 创建 6 个子包（context/compaction/tool/session/llm/loop），实现逻辑分层组织；保持向后兼容（旧路径仍可用） |

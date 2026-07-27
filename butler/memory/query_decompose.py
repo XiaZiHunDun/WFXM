@@ -6,7 +6,7 @@ import os
 import re
 from typing import Any, Callable
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 _SPLIT_RE = re.compile(
     r"[?；;]\s*|以及|另外|同时|还有|\s+and\s+also\s+|\s+and\s+",
@@ -22,7 +22,7 @@ def subquery_enabled() -> bool:
 
 def max_subqueries() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_RAG_SUBQUERY_MAX", 3, min=1, max=5))
     except ValueError:
@@ -31,7 +31,7 @@ def max_subqueries() -> int:
 
 def min_chars_for_split() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_RAG_SUBQUERY_MIN_CHARS", 72, min=40))
     except ValueError:

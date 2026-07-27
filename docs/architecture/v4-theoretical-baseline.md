@@ -1345,7 +1345,7 @@ HashingEmbedder 是确定性哈希嵌入器，Recall@3 ≈ 50-67%。生产环境
 | MCP 安全 | `butler/mcp/security.py` |
 | Runtime Jobs | `butler/runtime/schema.py`, `service.py`, `runner.py` |
 | Tenant/Project 分层 | `~/.butler/tenants/{t}/` vs `{workspace}/.butler/` |
-| Agent Loop 状态机 | `butler/core/agent_loop.py` |
+| Agent Loop 状态机 | `butler/core/agent_loop/`（包） |
 | 上下文管线 | `butler/core/context_pipeline.py` |
 | 消息队列 | `butler/gateway/message_queue.py` |
 | 斜杠命令体系 | `butler/gateway/command_registry.py` + `commands/*.py` |

@@ -12,7 +12,7 @@ from butler.core.best_effort import safe_best_effort
 
 def butler_home_mcp_config_paths_safe() -> list[Path]:
     def _run() -> list[Path]:
-        from butler.config import get_butler_home
+        from butler.configuration.settings import get_butler_home
 
         paths: list[Path] = []
         for name in ("mcp.yaml", "mcp.yml"):

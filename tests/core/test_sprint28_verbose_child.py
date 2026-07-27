@@ -88,7 +88,7 @@ class TestFormatChildSessionDetail:
     def test_nonexistent_child_sk_graceful_degrade(self, tmp_path, monkeypatch):
         """child_sk 不存在 (无 transcript.jsonl) → 优雅降级."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         out = format_child_session_detail("nonexistent-child-sk-xyz")
@@ -99,7 +99,7 @@ class TestFormatChildSessionDetail:
     def test_existing_child_sk_renders_transcript(self, tmp_path, monkeypatch):
         """child_sk 存在且有 transcript → 渲染 markdown 摘要."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         from butler.core.session_transcript import record_generic_event
@@ -135,7 +135,7 @@ class TestFormatChildSessionDetail:
         """BUTLER_SESSION_TRANSCRIPT=0 时, 仍能返回友好提示而不抛."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
         monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "0")
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         out = format_child_session_detail("any-child-sk")

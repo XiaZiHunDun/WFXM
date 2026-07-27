@@ -12,7 +12,7 @@ def apply_experience_lifecycle_action_safe(report: Any) -> tuple[dict[str, Any] 
     """Return ``(action, error)``; ``error`` set when lifecycle apply fails."""
     try:
         from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
-        from butler.config import get_butler_home
+        from butler.configuration.settings import get_butler_home
 
         path = get_butler_home() / "coding_experiences.json"
         tlib = TheoremLibrary()

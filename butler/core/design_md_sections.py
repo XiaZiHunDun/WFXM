@@ -10,7 +10,8 @@ from typing import Any, cast
 
 import yaml  # type: ignore[import-untyped]
 
-from butler.env_parse import int_env
+from butler.defaults.env_defaults import DESIGN_PRESET_DIR_DEFAULT, POST_COMPACT_DESIGN_SECTIONS_DEFAULT
+from butler.utilities.env_parse import int_env
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ _DEFAULT_SECTIONS = (
 
 
 def default_section_names() -> tuple[str, ...]:
-    raw = os.getenv("BUTLER_POST_COMPACT_DESIGN_SECTIONS", "").strip()
+    raw = os.getenv("BUTLER_POST_COMPACT_DESIGN_SECTIONS", POST_COMPACT_DESIGN_SECTIONS_DEFAULT).strip()
     if not raw:
         return _DEFAULT_SECTIONS
     parts = tuple(s.strip() for s in raw.split(",") if s.strip())
@@ -39,7 +40,7 @@ def max_section_chars() -> int:
 
 
 def design_preset_dir() -> Path | None:
-    raw = os.getenv("BUTLER_DESIGN_PRESET_DIR", "").strip()
+    raw = os.getenv("BUTLER_DESIGN_PRESET_DIR", DESIGN_PRESET_DIR_DEFAULT).strip()
     if not raw:
         return None
     return Path(raw).expanduser()
@@ -191,7 +192,7 @@ def extract_design_md_sections(
 
 
 def design_context_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     return bool(env_truthy("BUTLER_DESIGN_CONTEXT_INJECT", default=True))
 

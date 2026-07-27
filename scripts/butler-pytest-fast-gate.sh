@@ -27,6 +27,15 @@ echo ""
 echo "== P3-J env hygiene (fast gate) =="
 bash scripts/p3j-env-hygiene-gate.sh
 echo ""
+echo "== G1: Lazy import budget (≤1910) =="
+bash scripts/p3i-lazy-import-report.sh
+echo ""
+echo "== G2: Contract tests (Port + Shim __all__) =="
+PYTHONPATH=. python3 -m pytest tests/contracts/ -q --tb=line
+echo ""
+echo "== G6: File size guard (>800 warn / >1200 block) =="
+python3 scripts/ai_guard/file_size_check.py --ci
+echo ""
 bash scripts/butler-mypy-strict-gate.sh
 echo ""
 bash scripts/butler-trajectory-compliance-gate.sh --strict

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 
 _SCHEMA_VERSION = 2
 

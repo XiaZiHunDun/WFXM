@@ -98,6 +98,7 @@ class TestVectorStore:
         from butler.memory.vector_store import InMemoryVectorStore
 
         store = InMemoryVectorStore()
+        store._docs.clear()
         store.add("d1", "Python web framework", {"type": "note"})
         store.add("d2", "Machine learning with PyTorch", {"type": "note"})
         store.add("d3", "Grocery shopping list", {"type": "life"})
@@ -130,9 +131,14 @@ class TestVectorStore:
         assert store.count() == 0
 
     def test_get_vector_store_fallback(self, tmp_path, monkeypatch):
-        from butler.memory.vector_store import _STORE_CACHE, get_vector_store
+        from butler.memory.vector_store import _STORE_CACHE, InMemoryVectorStore, get_vector_store
 
         _STORE_CACHE.clear()
+        # Force InMemoryVectorStore by patching init_vector_store to use fallback
+        monkeypatch.setattr(
+            "butler.memory.vector_store.init_vector_store",
+            lambda **kw: InMemoryVectorStore(),
+        )
         store = get_vector_store("test_isolated")
         store_count_before = store.count()
         store.add("test_fb", "test", {})
@@ -217,7 +223,7 @@ class TestMcpSelfService:
         mock_svc.list_installed_ids.return_value = ["github", "slack"]
         mock_svc.load_lock_summary.return_value = {"servers": {}}
 
-        with patch("butler.registry.mcp_catalog.McpCatalogService", return_value=mock_svc):
+        with patch("butler.tools.mcp_self_service.McpCatalogService", return_value=mock_svc):
             from butler.tools.mcp_self_service import _tool_mcp_list_installed
 
             result = json.loads(_tool_mcp_list_installed())
@@ -235,7 +241,7 @@ class TestMcpSelfService:
         from butler.tools.mcp_self_service import _tool_mcp_install
 
         monkeypatch.setenv("BUTLER_MCP_ENABLED", "1")
-        with patch("butler.registry.mcp_install.install_catalog_server", return_value=(True, "installed")):
+        with patch("butler.tools.mcp_self_service.install_catalog_server", return_value=(True, "installed")):
             with patch("butler.mcp.extension_manifest.get_manifest_by_server_id") as mock_manifest:
                 mock_manifest.return_value = type(
                     "M",

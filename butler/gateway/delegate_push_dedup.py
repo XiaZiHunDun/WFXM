@@ -11,7 +11,18 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, cast
 
+from datetime import datetime, timezone
+
 from butler.core.best_effort import safe_best_effort
+from butler.defaults.env_defaults import (
+    GATEWAY_DELEGATE_PUSH_DEDUP_DEFAULT,
+    GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND_DEFAULT,
+    GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS,
+)
+from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+from butler.runtime.notify import push_runtime_message
+from butler.runtime.task_store import get_task
+from butler.utilities.env_parse import env_truthy, float_env
 
 logger = logging.getLogger(__name__)
 
@@ -24,23 +35,14 @@ _DEFERRED: dict[str, list[tuple[str, str]]] = {}
 
 
 def delegate_push_dedup_enabled() -> bool:
-    from butler.utilities.env_parse import env_truthy
-    from butler.defaults.env_defaults import GATEWAY_DELEGATE_PUSH_DEDUP_DEFAULT
-
     return bool(env_truthy("BUTLER_GATEWAY_DELEGATE_PUSH_DEDUP", default=GATEWAY_DELEGATE_PUSH_DEDUP_DEFAULT))
 
 
 def defer_delegate_push_during_inbound_enabled() -> bool:
-    from butler.utilities.env_parse import env_truthy
-    from butler.defaults.env_defaults import GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND_DEFAULT
-
     return bool(env_truthy("BUTLER_GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND", default=GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND_DEFAULT))
 
 
 def delegate_push_max_age_seconds() -> float:
-    from butler.utilities.env_parse import float_env
-    from butler.defaults.env_defaults import GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS
-
     return float(max(60.0, float_env("BUTLER_GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS", GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS)))
 
 
@@ -55,10 +57,6 @@ def _dedup_key(chat_id: str, task_id: str) -> str:
 
 def _task_completed_epoch(task_id: str) -> float | None:
     def _run() -> float:
-        from datetime import datetime, timezone
-
-        from butler.runtime.task_store import get_task
-
         tid = str(task_id or "").strip()
         if not tid:
             raise ValueError("task id missing")
@@ -184,7 +182,6 @@ class gateway_inbound_guard:
         items = flush_deferred_delegate_pushes(self.chat_id)
         if not items:
             return
-        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
 
         def _run() -> None:
             bridge = get_gateway_bridge_optional()
@@ -211,8 +208,6 @@ def _schedule_deferred_push_standalone(chat_id: str, body: str, *, kind: str) ->
     """Best-effort when no live bridge (reuse runtime push path)."""
 
     def _run() -> None:
-        from butler.runtime.notify import push_runtime_message
-
         ok, reason = should_deliver_delegate_push(chat_id, "", body=body)
         if not ok:
             logger.info(

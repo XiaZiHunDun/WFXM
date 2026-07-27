@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.core.harness_flags import mcp_deferred_same_turn_enabled, mcp_deferred_tools_enabled
 from butler.mcp.config import mcp_enabled
 from butler.mcp.deferred import get_promoted_tools
@@ -16,9 +16,8 @@ from butler.ops.runtime_metrics import snapshot_global, snapshot_session
 from butler.registry.paths import default_mcp_config_path as registry_default_mcp_config_path
 from butler.skills.injection_policy import skill_injection_mode as registry_skill_injection_mode
 from butler.skills.similarity import recent_dedup_status
-from butler.tenant import DEFAULT_TENANT, tenant_skills_dir
+from butler.utilities.tenant import DEFAULT_TENANT, tenant_skills_dir
 from butler.tools.orthogonality_lint import lint_tool_orthogonality_for_diagnostics
-from butler.tools.registry import get_tool_definitions
 
 _EXECUTION_TRUST_COUNTERS: tuple[str, ...] = (
     "execution_fallback_skip",
@@ -159,6 +158,7 @@ def digestion_runtime_counters() -> dict[str, int]:
 
 def builtin_tool_count() -> int | None:
     def _run() -> int:
+        from butler.tools.registry import get_tool_definitions
         return len(get_tool_definitions())
 
     result = safe_best_effort(

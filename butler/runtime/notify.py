@@ -9,8 +9,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from butler.config import get_butler_home
-from butler.env_parse import float_env
+from butler.configuration.settings import get_butler_home
+from butler.defaults.env_defaults import (
+    RUNTIME_PUSH_COOLDOWN_SECONDS_DEFAULT,
+    RUNTIME_PUSH_DEFAULT,
+    RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS_DEFAULT,
+    RUNTIME_PUSH_QUEUE_DEFAULT,
+)
+from butler.utilities.env_parse import float_env
 from butler.io.safe_load import safe_load_json
 
 logger = logging.getLogger(__name__)
@@ -26,12 +32,12 @@ def resolve_owner_wechat_chat_id() -> str:
 
 
 def runtime_push_enabled() -> bool:
-    v = os.getenv("BUTLER_RUNTIME_PUSH", "1").strip().lower()
+    v = os.getenv("BUTLER_RUNTIME_PUSH", RUNTIME_PUSH_DEFAULT).strip().lower()
     return v in ("1", "true", "yes", "on")
 
 
 def _push_cooldown_seconds() -> float:
-    raw = os.getenv("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", "25").strip()
+    raw = os.getenv("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", RUNTIME_PUSH_COOLDOWN_SECONDS_DEFAULT).strip()
     if raw == "0":
         logger.warning(
             "BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS=0 disables push cooldown (storm risk); using minimum 1.0s",
@@ -40,7 +46,7 @@ def _push_cooldown_seconds() -> float:
 
 
 def _rate_limit_drain_cooldown_seconds() -> float:
-    raw = os.getenv("BUTLER_RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS", "300").strip()
+    raw = os.getenv("BUTLER_RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS", RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS_DEFAULT).strip()
     try:
         return max(0.0, float(raw))
     except ValueError:
@@ -262,7 +268,7 @@ def should_enqueue_wechat_push_failure(err: str | None) -> bool:
 
 
 def _should_enqueue_on_failure(err: str | None) -> bool:
-    if os.getenv("BUTLER_RUNTIME_PUSH_QUEUE", "1").strip().lower() in (
+    if os.getenv("BUTLER_RUNTIME_PUSH_QUEUE", RUNTIME_PUSH_QUEUE_DEFAULT).strip().lower() in (
         "0",
         "false",
         "no",

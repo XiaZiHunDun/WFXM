@@ -75,7 +75,7 @@ class TestInboundMediaDocuments:
 
 class TestQueuePersistence:
     def test_persist_enqueue_and_restore(self, tmp_path):
-        from butler.gateway.message_queue import (
+        from butler.resilience.message_queue import (
             QueuedInbound,
             _persist_enqueue,
             restore_persisted_queue,
@@ -83,8 +83,8 @@ class TestQueuePersistence:
             _LOCK,
         )
 
-        with patch("butler.gateway.message_queue._queue_persist_enabled", return_value=True), \
-             patch("butler.gateway.message_queue._queue_persist_dir", return_value=tmp_path):
+        with patch("butler.resilience.message_queue._queue_persist_enabled", return_value=True), \
+             patch("butler.resilience.message_queue._queue_persist_dir", return_value=tmp_path):
             item = QueuedInbound(
                 text="测试消息",
                 priority="next",
@@ -118,14 +118,14 @@ class TestQueuePersistence:
                 _QUEUES.pop(safe_key, None)
 
     def test_persist_remove(self, tmp_path):
-        from butler.gateway.message_queue import (
+        from butler.resilience.message_queue import (
             QueuedInbound,
             _persist_enqueue,
             _persist_remove,
         )
 
-        with patch("butler.gateway.message_queue._queue_persist_enabled", return_value=True), \
-             patch("butler.gateway.message_queue._queue_persist_dir", return_value=tmp_path):
+        with patch("butler.resilience.message_queue._queue_persist_enabled", return_value=True), \
+             patch("butler.resilience.message_queue._queue_persist_dir", return_value=tmp_path):
             item = QueuedInbound(text="msg1", priority="next", persist_id="aaa111")
             _persist_enqueue("sk1", item)
             _persist_remove("sk1", "aaa111")
@@ -134,14 +134,14 @@ class TestQueuePersistence:
             assert len(jsonl_files) == 0 or jsonl_files[0].read_text().strip() == ""
 
     def test_persist_clear(self, tmp_path):
-        from butler.gateway.message_queue import (
+        from butler.resilience.message_queue import (
             QueuedInbound,
             _persist_enqueue,
             _persist_clear,
         )
 
-        with patch("butler.gateway.message_queue._queue_persist_enabled", return_value=True), \
-             patch("butler.gateway.message_queue._queue_persist_dir", return_value=tmp_path):
+        with patch("butler.resilience.message_queue._queue_persist_enabled", return_value=True), \
+             patch("butler.resilience.message_queue._queue_persist_dir", return_value=tmp_path):
             item = QueuedInbound(text="msg", priority="next", persist_id="bbb222")
             _persist_enqueue("sk2", item)
             _persist_clear("sk2")
@@ -347,11 +347,11 @@ class TestOutboxReplay:
         mock_adapter = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_adapter.send = AsyncMock()
 
-        with patch("butler.gateway.durable_outbox.durable_outbox_enabled", return_value=True), \
-             patch("butler.gateway.durable_outbox.list_pending_outbox", return_value=[
+        with patch("butler.resilience.durable_outbox.durable_outbox_enabled", return_value=True), \
+             patch("butler.resilience.durable_outbox.list_pending_outbox", return_value=[
                  {"entry_id": "e1", "chat_id": "user1", "body": "hello"},
              ]), \
-             patch("butler.gateway.durable_outbox.mark_outbox_sent") as mock_mark:
+             patch("butler.resilience.durable_outbox.mark_outbox_sent") as mock_mark:
             _replay_pending_outbox([mock_adapter])
             mock_adapter.send.assert_called_once_with("user1", "hello")
             mock_mark.assert_called_once_with("e1")

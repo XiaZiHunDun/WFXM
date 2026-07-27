@@ -7,13 +7,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.memory.memory_caps import memory_index_caps
 from butler.memory.semantic_config import (
     hybrid_vector_weight,
     semantic_memory_enabled,
 )
-from butler.memory_settings import format_memory_config_source_line, resolve_memory_config
+from butler.configuration.memory import format_memory_config_source_line, resolve_memory_config
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ def test_save_butler_config_preserves_memory(butler_home):
         encoding="utf-8",
     )
     reload_butler_settings()
-    from butler.config import save_butler_config
+    from butler.configuration.settings import save_butler_config
 
     save_butler_config()
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))

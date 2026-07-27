@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from butler.defaults.env_defaults import RUNTIME_ENABLED_DEFAULT
 from butler.project.manager import ProjectManager
 from butler.runtime import approval, audit, loader, notify, runner, schedule
 from butler.runtime.schema import JobDef
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def runtime_enabled() -> bool:
-    v = os.getenv("BUTLER_RUNTIME_ENABLED", "1").strip().lower()
+    v = os.getenv("BUTLER_RUNTIME_ENABLED", RUNTIME_ENABLED_DEFAULT).strip().lower()
     return v in ("1", "true", "yes", "on")
 
 

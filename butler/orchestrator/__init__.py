@@ -7,10 +7,10 @@ import threading
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from butler.core.agent_loop import AgentLoop
+    from butler.core.agent_loop.loop import AgentLoop
     from butler.transport.llm_client import LLMClient
 
-from butler.config import get_butler_settings
+from butler.configuration.settings import get_butler_settings
 from butler.memory import ButlerMemory, ProjectMemory
 from butler.memory.facade import ButlerMemoryService  # test patch target
 from butler.orchestrator import loop_factory, memory_bridge, prompt_assembler, skill_bridge
@@ -203,4 +203,21 @@ class ButlerOrchestrator:
         )
 
 
-__all__ = ["ButlerOrchestrator", "ButlerMemoryService"]
+__all__ = [
+    "ButlerOrchestrator",
+    "ButlerMemoryService",
+    "build_dynamic_system_reminder",
+    "build_lead_system_prompt",
+    "build_memory_context",
+    "build_static_system_prompt",
+    "build_system_prompt",
+    "butler_memory",
+    "create_agent_loop",
+    "create_llm_client",
+    "create_project_agent_loop",
+    "get_agent_kwargs",
+    "get_project_agent_kwargs",
+    "inject_skill_context",
+    "on_project_switch",
+    "resolve_system_prompt",
+]

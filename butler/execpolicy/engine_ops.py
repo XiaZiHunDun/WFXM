@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def append_home_execpolicy_path_safe(paths: list[Path]) -> None:
     def _run() -> Path | None:
-        from butler.config import get_butler_home
+        from butler.configuration.settings import get_butler_home
 
         home = get_butler_home() / "execpolicy.yaml"
         return home if home.is_file() else None

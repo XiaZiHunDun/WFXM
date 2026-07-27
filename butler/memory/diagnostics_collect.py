@@ -10,10 +10,8 @@ from butler.memory.semantic_health import experience_vector_drift
 from butler.memory.semantic_index import SOURCE_EXPERIENCE
 from butler.memory.knowledge_db import ProjectKnowledgeDb
 from butler.memory.retrieval_telemetry import get_last_retrieval, get_last_retrieval_by_scope
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.memory.scope_diagnostics import collect_memory_scope_stats
-from butler.ops.transcript_diagnostics import transcript_fts_drift
-from butler.ops.embedding_diagnostics import collect_embedding_snapshot
 
 
 def collect_semantic_vector_stats(sem: Any) -> dict[str, Any]:
@@ -131,6 +129,7 @@ def collect_scope_stats(project_name: str) -> dict[str, Any]:
 
 def collect_transcript_fts_stats(session_key: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
+        from butler.ops.transcript_diagnostics import transcript_fts_drift
 
         return cast(dict[str, Any], transcript_fts_drift(session_key=session_key))
 
@@ -139,6 +138,7 @@ def collect_transcript_fts_stats(session_key: str) -> dict[str, Any]:
 
 def collect_embedding_snapshot_stats(vector_rows: int) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
+        from butler.ops.embedding_diagnostics import collect_embedding_snapshot
 
         return {
             "embedding_snapshot": collect_embedding_snapshot(

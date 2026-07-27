@@ -30,7 +30,7 @@ def _isolate_reminders(tmp_path, monkeypatch):
     home = tmp_path / ".butler"
     home.mkdir(exist_ok=True)
     monkeypatch.setenv("BUTLER_HOME", str(home))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     reload_butler_settings()
     yield
 

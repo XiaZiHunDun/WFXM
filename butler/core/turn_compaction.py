@@ -11,6 +11,7 @@ from butler.defaults.env_defaults import (
     COMPACTION_MAX_PRESERVE_RECENT,
     COMPACTION_MIN_PRESERVE_RECENT,
     COMPACTION_PRESERVE_RECENT_RATIO,
+    COMPACTION_PRESERVE_RECENT_TOKENS_DEFAULT,
     COMPACTION_SPLIT_TURN_DEFAULT,
     COMPACTION_TAIL_TURNS,
     COMPACTION_USE_TURNS_DEFAULT,
@@ -100,8 +101,9 @@ def preserve_recent_token_budget(
         )
     except ValueError:
         ratio = COMPACTION_PRESERVE_RECENT_RATIO
-    scaled = int(usable * ratio)
-    return min(COMPACTION_MAX_PRESERVE_RECENT, max(COMPACTION_MIN_PRESERVE_RECENT, scaled))
+    scaled: int = int(usable * ratio)
+    result: int = min(COMPACTION_MAX_PRESERVE_RECENT, max(COMPACTION_MIN_PRESERVE_RECENT, scaled))
+    return result
 
 
 def is_compaction_summary_message(msg: dict[str, Any]) -> bool:

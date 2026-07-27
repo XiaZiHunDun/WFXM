@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
-from butler.permissions.rules import _load_permissions_yaml
 from butler.tools.pim_schema import ALL_PIM_TOOLS
 
 _DEFAULT_SUBAGENT_DENY = frozenset({
@@ -38,6 +37,8 @@ def filter_tools_for_subagent(
     role: str = "",
 ) -> list[dict[str, Any]]:
     """Narrow tool list for delegate_task child loops."""
+    from butler.permissions.rules import _load_permissions_yaml
+
     cfg = _load_permissions_yaml(workspace)
     sub_cfg = cfg.get("delegate_subagent")
     if not isinstance(sub_cfg, dict):

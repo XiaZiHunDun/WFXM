@@ -64,7 +64,7 @@
 ```
 butler/
 ├── core/                      # Agent Loop 栈
-│   ├── agent_loop.py          # 主循环编排（~300 行）
+│   ├── agent_loop/           # 主循环编排（~300 行，包：loop/phases）
 │   ├── tool_batch.py          # 工具批次、envelope、guardrails
 │   ├── llm_retry.py           # LLM 重试、schema 恢复、failover
 │   ├── context_pipeline.py    # 压缩、hygiene、API 消息准备
@@ -103,7 +103,7 @@ butler/
 
 ### 2.2 自建 Agent Loop 替代 Claude Code / Hermes AIAgent
 
-核心决策：**进程内自建 `AgentLoop`**（`butler/core/agent_loop.py`），不 `import` Hermes `AIAgent`，不依赖 Claude Code 子进程。
+核心决策：**进程内自建 `AgentLoop`**（`butler/core/agent_loop/`），不 `import` Hermes `AIAgent`，不依赖 Claude Code 子进程。
 
 DevAgent / ContentAgent / ReviewAgent 通过 `orchestrator.create_agent_loop(role=...)` 以不同 `(model, tools, system_prompt)` 配置运行同一 Loop 栈。
 

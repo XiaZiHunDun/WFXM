@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from typing import Any, Mapping, cast
 import logging
 
+from butler.defaults.env_defaults import DOOM_LOOP_MODE_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 IDEMPOTENT_TOOLS = frozenset({
@@ -102,19 +104,19 @@ def _sha256(value: str) -> str:
 
 def doom_loop_threshold() -> int:
     """Consecutive identical tool calls before block (OpenCode processor; 0=off)."""
-    from butler.env_parse import int_env
+    from butler.utilities.env_parse import int_env
 
     return int(int_env("BUTLER_DOOM_LOOP_THRESHOLD", 3, min=0))
 
 
 def doom_loop_mode() -> str:
     """``block`` (default, D3) or ``ask`` (Owner /批准一次 via permission cache)."""
-    mode = os.getenv("BUTLER_DOOM_LOOP_MODE", "block").strip().lower()
+    mode = os.getenv("BUTLER_DOOM_LOOP_MODE", DOOM_LOOP_MODE_DEFAULT).strip().lower()
     return mode if mode in ("block", "ask") else "block"
 
 
 def doom_loop_soft_nudge_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     return bool(env_truthy("BUTLER_DOOM_LOOP_SOFT_NUDGE", default=True))
 

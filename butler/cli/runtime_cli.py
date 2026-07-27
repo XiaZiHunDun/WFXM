@@ -13,6 +13,8 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
+from butler.runtime.service import format_jobs_list_text, run_due_jobs, run_due_jobs_all, run_job
+
 
 def register_runtime_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``runtime`` parent with all sub-commands."""
@@ -88,15 +90,11 @@ def _add_runtime_approve(rt_sub: argparse._SubParsersAction[argparse.ArgumentPar
 
 
 def _cmd_runtime_list(ns: argparse.Namespace) -> int:
-    from butler.runtime.service import format_jobs_list_text
-
     print(format_jobs_list_text(ns.project.strip()))
     return 0
 
 
 def _cmd_runtime_run(ns: argparse.Namespace) -> int:
-    from butler.runtime.service import run_job
-
     out = run_job(
         ns.project.strip(),
         ns.job_id.strip(),
@@ -116,8 +114,6 @@ def _cmd_runtime_run(ns: argparse.Namespace) -> int:
 
 
 def _cmd_runtime_due(ns: argparse.Namespace) -> int:
-    from butler.runtime.service import run_due_jobs, run_due_jobs_all
-
     if getattr(ns, "all_projects", False):
         results = run_due_jobs_all(skip_notify=bool(ns.no_notify))
     else:

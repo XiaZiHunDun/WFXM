@@ -28,8 +28,8 @@ def test_bundled_search_and_install(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_SKILL_REGISTRY", "1")
     monkeypatch.setenv("BUTLER_SKILL_REGISTRY_SOURCES", "bundled")
 
-    from butler.config import get_butler_home
-    from butler.tenant import tenant_skills_dir
+    from butler.configuration.settings import get_butler_home
+    from butler.utilities.tenant import tenant_skills_dir
 
     home = tmp_path / "butler_home"
     monkeypatch.setattr("butler.config.get_butler_home", lambda: home)

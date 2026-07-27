@@ -40,7 +40,7 @@ def test_post_commit_queue_runs_in_order():
 
 def test_session_todos_replace_all(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     replace_session_todos(
@@ -59,7 +59,7 @@ def test_session_todos_replace_all(tmp_path, monkeypatch):
 
 def test_transcript_compact_events(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sk = "wx:p2"
@@ -86,7 +86,7 @@ def test_trigger_hooks_mutating_merges_output():
 
 def test_transcript_diagnostic_lines(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sk = "diag"

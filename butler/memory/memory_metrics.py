@@ -242,23 +242,11 @@ class AggregateMemoryMetrics:
 
 
 class MemoryMetricsCollector:
-    """Singleton collector for memory effectiveness events."""
-
-    _instance: MemoryMetricsCollector | None = None
+    """Collector for memory effectiveness events."""
 
     def __init__(self) -> None:
         self._sessions: dict[str, SessionMemoryMetrics] = {}
         self._current_session: str = ""
-
-    @classmethod
-    def get_instance(cls) -> MemoryMetricsCollector:
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
-
-    @classmethod
-    def reset(cls) -> None:
-        cls._instance = None
 
     def start_session(self, session_id: str) -> None:
         if session_id not in self._sessions:
@@ -484,4 +472,9 @@ class MemoryMetricsCollector:
 
 
 def get_collector() -> MemoryMetricsCollector:
-    return MemoryMetricsCollector.get_instance()
+    """Shared ``MemoryMetricsCollector`` via ServiceContainer."""
+    from butler.core.container import container
+    from typing import cast
+
+    result: MemoryMetricsCollector = cast(MemoryMetricsCollector, container.memory_metrics())
+    return result

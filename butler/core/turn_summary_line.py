@@ -34,9 +34,11 @@ def turn_summary_enabled() -> bool:
 
 def turn_summary_min_out_chars() -> int:
     try:
-        return max(0, int(os.getenv("BUTLER_TURN_SUMMARY_MIN_CHARS", str(TURN_SUMMARY_MIN_CHARS))))
+        value = int(os.getenv("BUTLER_TURN_SUMMARY_MIN_CHARS", str(TURN_SUMMARY_MIN_CHARS)))
+        result: int = max(0, value)
+        return result
     except ValueError:
-        return TURN_SUMMARY_MIN_CHARS
+        return int(TURN_SUMMARY_MIN_CHARS)
 
 
 def _parse_args(raw: str) -> dict[str, Any]:

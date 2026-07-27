@@ -147,7 +147,7 @@ class TestSummarizeApprovalsExternalDirectory:
     def test_returns_external_directory_counts(self, tmp_path, monkeypatch):
         """summarize_approvals 应返回 external_directory_always/once_count 字段."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         import time as _time
@@ -174,7 +174,7 @@ class TestSummarizeApprovalsExternalDirectory:
     def test_no_external_directory_activity_returns_zero(self, tmp_path, monkeypatch):
         """无 external_directory 活动时, 过滤计数应为 0, 但其他字段仍工作."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint27:approvals:empty"
@@ -195,7 +195,7 @@ class TestDiagnosticShowsExternalDirectory:
     ):
         """有 external_directory 活动时, /诊断 应输出 External-Dir 行."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint27:diag:show"
@@ -215,7 +215,7 @@ class TestDiagnosticShowsExternalDirectory:
         这保护旧测试套件不会因字段新增而崩溃 — 透传必须是容错的.
         """
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint27:diag:legacy"

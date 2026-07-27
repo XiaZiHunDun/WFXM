@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.registry.mcp_catalog import McpCatalogEntry
 from butler.registry.skill_types import SkillBundle
 from butler.skills.guard import scan_skill_text

@@ -21,9 +21,14 @@ def load_permissions_yaml(workspace: Path | None) -> dict[str, Any]:
         return data if isinstance(data, dict) else {}
 
     for rel in (".butler/permissions.yaml", ".butler/permissions.yml"):
+        rel_path = workspace / rel
+
+        def _load_yaml() -> dict[str, Any] | None:
+            return _from_file(rel_path)
+
         loaded = safe_best_effort(
-            lambda rel=rel: _from_file(workspace / rel),
-            label="permissions.rules_yaml",
+            _load_yaml,
+            label=f"permissions.rules_yaml.{rel}",
             default=None,
         )
         if isinstance(loaded, dict) and loaded:
@@ -41,10 +46,11 @@ def load_permissions_yaml(workspace: Path | None) -> dict[str, Any]:
         perms = data.get("permissions")
         return perms if isinstance(perms, dict) else {}
 
+    _default: dict[str, Any] = {}
     result = safe_best_effort(
         _from_project_yaml,
         label="permissions.project_yaml",
-        default={},
+        default=_default,
     )
     return result if isinstance(result, dict) else {}
 

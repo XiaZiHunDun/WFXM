@@ -45,7 +45,7 @@ def isolated_butler_home(tmp_path: Path, monkeypatch):
     """隔离 BUTLER_HOME: monkeypatch env + reload 配置缓存。"""
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.chdir(tmp_path)
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     return tmp_path
@@ -104,7 +104,7 @@ class TestDataDirsSection:
     def test_marks_existing_dirs_with_check(self, isolated_butler_home, fake_security_audit, capsys):
         """已存在的 runtime 子目录 → ✓。"""
         # 创建所有 BUTLER_RUNTIME_DIRS 子目录
-        from butler.config import BUTLER_RUNTIME_DIRS
+        from butler.configuration.settings import BUTLER_RUNTIME_DIRS
 
         for d in BUTLER_RUNTIME_DIRS:
             (isolated_butler_home / d).mkdir(parents=True, exist_ok=True)

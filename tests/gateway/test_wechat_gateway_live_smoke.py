@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from butler.config import ModelConfig, get_butler_settings, reload_butler_settings
+from butler.configuration.settings import ModelConfig, get_butler_settings, reload_butler_settings
 from butler.gateway.message_handler import ButlerMessageHandler
 from butler.tenant import tenant_memory_dir
 from butler.transport.providers import get_provider

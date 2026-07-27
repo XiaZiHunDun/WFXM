@@ -178,7 +178,7 @@ def compress_messages(messages, ...):
 
 **目标**: 在回合开始前，从经验树检索相关经验并注入到ephemeral_system
 
-**集成点**: `butler/core/agent_loop.py` → `_build_turn_ephemeral_system()`
+**集成点**: `butler/core/agent_loop/` → `_build_turn_ephemeral_system()`
 
 **方案**:
 ```python
@@ -228,13 +228,13 @@ def _build_turn_ephemeral_system(self, ephemeral_system):
 ```
 
 **文件变更**:
-- `butler/core/agent_loop.py` - 修改 `_build_turn_ephemeral_system()`
+- `butler/core/agent_loop/` - 修改 `_build_turn_ephemeral_system()`
 
 ### 3.5 Phase 4: 对话状态与经验树桥接
 
 **目标**: 在回合结束后，将对话结果写入经验树
 
-**集成点**: `butler/core/agent_loop.py` → `_update_conversation_state()`
+**集成点**: `butler/core/agent_loop/` → `_update_conversation_state()`
 
 **方案**:
 ```python
@@ -288,7 +288,7 @@ def _update_conversation_state(self, user_message, result):
 ```
 
 **文件变更**:
-- `butler/core/agent_loop.py` - 修改 `_update_conversation_state()`
+- `butler/core/agent_loop/` - 修改 `_update_conversation_state()`
 
 ### 3.6 Phase 5: 工具执行优化（重新设计）
 
@@ -323,7 +323,7 @@ def execute_tool(self, tool_name, args, handler=None):
     return result, {"cached": False}
 ```
 
-**集成方式**: 在 agent_loop.py 的 `_dispatch_tool` 中使用 ToolService
+**集成方式**: 在 agent_loop/ 的 `_dispatch_tool` 中使用 ToolService
 
 ```python
 def _dispatch_tool(self, name, args):
@@ -344,7 +344,7 @@ def _dispatch_tool(self, name, args):
 
 **文件变更**:
 - `butler/tools/tool_service.py` - 修改 `execute_tool()`
-- `butler/core/agent_loop.py` - 修改 `_dispatch_tool()`
+- `butler/core/agent_loop/` - 修改 `_dispatch_tool()`
 
 ## 4. 优先级排序
 
@@ -414,7 +414,7 @@ def _dispatch_tool(self, name, args):
 
 ```
 butler/core/
-├── agent_loop.py              # 修改: _build_turn_ephemeral_system, _update_conversation_state, _dispatch_tool
+├── agent_loop/              # 修改: _build_turn_ephemeral_system, _update_conversation_state, _dispatch_tool
 ├── agent_loop_phases.py       # 修改: _phase_enrich_user_text
 ├── context_compressor.py      # 修改: compress_messages
 └── tool_selector.py           # 保持不变（新增逻辑在ToolService）

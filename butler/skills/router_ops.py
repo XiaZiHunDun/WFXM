@@ -10,8 +10,9 @@ from butler.core.best_effort import safe_best_effort
 
 def get_skill_embedder_safe() -> Any | None:
     import os
+    from butler.defaults.env_defaults import SKILL_SEMANTIC_ROUTING_DEFAULT
 
-    if os.getenv("BUTLER_SKILL_SEMANTIC_ROUTING", "1").strip() != "1":
+    if os.getenv("BUTLER_SKILL_SEMANTIC_ROUTING", SKILL_SEMANTIC_ROUTING_DEFAULT).strip() != "1":
         return None
 
     def _run() -> Any | None:

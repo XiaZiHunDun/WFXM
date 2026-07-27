@@ -40,7 +40,7 @@ def test_observation_store_search_by_keyword(tmp_path):
 @pytest.mark.unit
 def test_observation_recall_requires_opt_in(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_MEMORY_OBSERVATION_RECALL", "0")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     out = search_observation_recall("jwt", project_workspace=tmp_path)
@@ -50,7 +50,7 @@ def test_observation_recall_requires_opt_in(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_observation_recall_hits(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_MEMORY_OBSERVATION_RECALL", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     db = ObservationStore(observations_db_path(tmp_path))
@@ -64,7 +64,7 @@ def test_observation_recall_hits(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_unified_recall_requires_opt_in(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_MEMORY_UNIFIED_RECALL", "0")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     out = unified_hybrid_search(
@@ -84,7 +84,7 @@ def test_unified_recall_merges_sources(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_MEMORY_UNIFIED_RECALL", "1")
     monkeypatch.setenv("BUTLER_MEMORY_OBSERVATION_RECALL", "1")
     monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "0")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary, TheoremLibrary
     from butler.memory.butler_memory import ButlerMemory
     from butler.memory.memory_scope import infer_default_scope, tenant_coding_experiences_path
@@ -149,7 +149,7 @@ def test_butler_recall_hybrid_scope(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_MEMORY_UNIFIED_RECALL", "1")
     monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "0")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.memory.facade import ButlerMemoryService
 
     reload_butler_settings()

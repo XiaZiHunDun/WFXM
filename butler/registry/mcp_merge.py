@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 from butler.mcp.config import _resolve_config_paths
 from butler.registry.paths import default_mcp_config_path
-import logging
-
+from butler.defaults.env_defaults import MCP_CONFIG_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ def _path_label(path: Path, workspace: Path | None) -> str:
             pass
     import os
 
-    env_path = os.getenv("BUTLER_MCP_CONFIG", "").strip()
+    env_path = os.getenv("BUTLER_MCP_CONFIG", MCP_CONFIG_DEFAULT).strip()
     if env_path and path.resolve() == Path(env_path).expanduser().resolve():
         return "config"
     return "global"

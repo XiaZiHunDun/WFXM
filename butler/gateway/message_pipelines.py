@@ -42,14 +42,14 @@ from butler.gateway.handler_helpers import (
     apply_auto_continue_rewrite,
 )
 from butler.gateway.hooks import apply_pre_gateway_dispatch
-from butler.gateway.inbound_idempotency import check_and_reserve_inbound, record_duplicate_skip
+from butler.resilience.inbound_idempotency import check_and_reserve_inbound, record_duplicate_skip
 from butler.gateway.message_pipelines_fail_closed import (
     apply_human_gate_fail_closed,
     apply_injection_guard_fail_closed,
     apply_injection_llm_fail_closed,
     apply_io_guardrail_fail_closed,
 )
-from butler.gateway.message_queue import (
+from butler.resilience.message_queue import (
     enqueue_inbound,
     format_queued_ack,
     pending_count,

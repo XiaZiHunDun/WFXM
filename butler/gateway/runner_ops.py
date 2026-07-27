@@ -111,10 +111,11 @@ def sync_send_via_adapter_loud(
 def push_reminder_safe(adapters: list[Any], reminder: dict[str, Any]) -> None:
     def _run() -> None:
         import os
+        from butler.defaults.env_defaults import OWNER_WECHAT_ID_DEFAULT
 
 
         text = f"⏰ 提醒：{reminder.get('message', '')}\n（设定时间：{reminder.get('due_human', '')}）"
-        chat_id = os.getenv("BUTLER_OWNER_WECHAT_ID", "")
+        chat_id = os.getenv("BUTLER_OWNER_WECHAT_ID", OWNER_WECHAT_ID_DEFAULT)
         if not chat_id:
             logger.warning(
                 "BUTLER_OWNER_WECHAT_ID not set, reminder not pushed: %s",

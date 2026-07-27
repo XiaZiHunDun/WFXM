@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.project.manager import ProjectManager
 from butler.project.preflight import CheckLevel, format_report, run_preflight
 

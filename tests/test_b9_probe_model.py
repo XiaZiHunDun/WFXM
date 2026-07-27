@@ -11,7 +11,7 @@ from butler.model_resolve import (
 
 
 def test_temporary_model_override_dev_agent():
-    from butler.config import get_butler_settings
+    from butler.configuration.settings import get_butler_settings
 
     settings = get_butler_settings()
     role = normalize_role("dev")

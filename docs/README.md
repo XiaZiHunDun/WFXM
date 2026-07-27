@@ -39,6 +39,7 @@
 | 外部 Agent 路线图（PR-X 已落地） | [`plans/external-agent-reports-improvement-roadmap-2026-05.md`](plans/roadmaps/external-agent-reports-improvement-roadmap-2026-05.md) |
 | Codex 对标 Sprint C0–C2 | [`guides/sprint-codex-c0-2026-05.md`](guides/sprint-codex-c0-2026-05.md) · [C1](guides/sprint-codex-c1-2026-05.md) · [C2](guides/sprint-codex-c2-2026-05.md) |
 | 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
+| 脚本索引 | [`../scripts/README.md`](../scripts/README.md) |
 
 ## 架构与设计
 

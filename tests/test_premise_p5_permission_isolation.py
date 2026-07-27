@@ -232,16 +232,16 @@ class TestP5HumanGateIsolation:
     """工作流人工门控不可被绕过。"""
 
     def test_gate_confirm_cancel_vocabulary_disjoint(self):
-        from butler.human_gate import _CONFIRM, _CANCEL
+        from butler.permissions.human_gate import _CONFIRM, _CANCEL
         assert _CONFIRM.isdisjoint(_CANCEL), "确认/取消词汇表重叠"
 
     def test_gate_confirm_vocabulary(self):
-        from butler.human_gate import _CONFIRM
+        from butler.permissions.human_gate import _CONFIRM
         assert "确认" in _CONFIRM
         assert "yes" in _CONFIRM
 
     def test_gate_cancel_vocabulary(self):
-        from butler.human_gate import _CANCEL
+        from butler.permissions.human_gate import _CANCEL
         assert "取消" in _CANCEL
         assert "no" in _CANCEL
 

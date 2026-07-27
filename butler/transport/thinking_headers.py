@@ -7,6 +7,10 @@ import logging
 import os
 from typing import Any
 
+from butler.defaults.env_defaults import (
+    THINKING_BETA_HEADER_DEFAULT,
+    THINKING_BETA_MATRIX_DEFAULT,
+)
 from butler.transport.model_capabilities import model_supports_thinking
 from butler.transport.thinking_protocol import thinking_protocol_enabled
 
@@ -21,7 +25,7 @@ _DEFAULT_MATRIX: list[tuple[str, str, str]] = [
 
 
 def _load_env_matrix() -> list[tuple[str, str, str]]:
-    raw = os.getenv("BUTLER_THINKING_BETA_MATRIX", "").strip()
+    raw = os.getenv("BUTLER_THINKING_BETA_MATRIX", THINKING_BETA_MATRIX_DEFAULT).strip()
     if not raw:
         return []
     try:
@@ -48,7 +52,7 @@ def resolve_thinking_beta_value(*, provider: str, model: str = "") -> str:
         return ""
     if not model_supports_thinking(provider, model):
         return ""
-    override = os.getenv("BUTLER_THINKING_BETA_HEADER", "").strip()
+    override = os.getenv("BUTLER_THINKING_BETA_HEADER", THINKING_BETA_HEADER_DEFAULT).strip()
     if override:
         return override
     prov = str(provider or "").strip().lower()

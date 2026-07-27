@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from butler.contracts.message_ports import LoopApiMessageView
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 
 def api_message_acl_enabled() -> bool:

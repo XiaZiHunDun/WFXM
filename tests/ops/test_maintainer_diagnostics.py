@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 
 
 def test_transcript_fts_drift_detects_gap(tmp_butler_home, monkeypatch):

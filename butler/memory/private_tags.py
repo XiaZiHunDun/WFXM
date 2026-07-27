@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 
 _PRIVATE_BLOCK_RE = re.compile(
     r"<private\b[^>]*>(.*?)</private>",

@@ -335,7 +335,7 @@ ExperienceTree (新)              → 替代 unified_recall.py 的 experience �
 ### 6.2 数据流
 
 ```
-agent_loop.py
+agent_loop/
   │
   ├── 用户消息到达
   │     │

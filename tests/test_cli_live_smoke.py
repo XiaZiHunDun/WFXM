@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from butler.config import get_butler_settings, reload_butler_settings
+from butler.configuration.settings import get_butler_settings, reload_butler_settings
 from butler.main import _cmd_exec
 from butler.transport.providers import get_provider
 from tests.cli_harness import (
@@ -48,7 +48,7 @@ def _require_minimax_for_cli() -> None:
         )
     model_override = os.getenv("BUTLER_SMOKE_MINIMAX_MODEL", "").strip()
     if model_override:
-        from butler.config import ModelConfig
+        from butler.configuration.settings import ModelConfig
 
         settings.set_runtime_model_override(
             "butler", ModelConfig(provider="minimax", model=model_override)

@@ -25,7 +25,7 @@ def load_stack_safe(path: Path) -> dict[str, Any] | None:
 
 def tenant_id_default_safe() -> str:
     def _run() -> str:
-        from butler.config import load_settings
+        from butler.configuration.settings import load_settings
 
         return str(load_settings().default_tenant)
 

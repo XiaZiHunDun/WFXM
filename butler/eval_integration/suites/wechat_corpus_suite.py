@@ -21,7 +21,7 @@ class WechatCorpusSuite:
         from butler.ops.wechat_corpus_eval import run_and_push_wechat_corpus_eval
 
         if push_langfuse is None:
-            push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in (
+            push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in (
                 "1",
                 "true",
                 "yes",

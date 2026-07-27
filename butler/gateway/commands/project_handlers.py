@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from butler.gateway.commands.project_handlers_ops import git_clone_repo_safe
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-from butler.config import get_butler_settings
+from butler.configuration.settings import get_butler_settings
 from butler.project.archetypes import validate_slug
 from butler.project.preflight import format_report, run_preflight
 from butler.project.preflight import resolve_tool_safe_root

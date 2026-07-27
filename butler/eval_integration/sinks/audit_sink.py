@@ -14,7 +14,7 @@ class AuditSink:
     backend_id = "audit"
 
     def _path(self) -> Path:
-        from butler.config import get_butler_home
+        from butler.configuration.settings import get_butler_home
 
         return Path(get_butler_home()) / "audit" / "eval_unified.jsonl"
 

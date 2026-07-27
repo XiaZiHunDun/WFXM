@@ -15,13 +15,13 @@ _PENDING_FEEDBACK_FILE = "owner_pmf_pending_feedback.json"
 
 
 def owner_pmf_metrics_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     return bool(env_truthy("BUTLER_OWNER_PMF_METRICS", default=False))
 
 
 def _metrics_dir() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     d = get_butler_home() / "metrics"
     d.mkdir(parents=True, exist_ok=True)

@@ -10,11 +10,11 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _reset_metrics():
-    from butler.memory.memory_metrics import MemoryMetricsCollector
+    from butler.core.container import container
 
-    MemoryMetricsCollector.reset()
+    container.reset_all()
     yield
-    MemoryMetricsCollector.reset()
+    container.reset_all()
 
 
 def test_prefetch_skips_on_session_read_recall_intent(tmp_path, monkeypatch):

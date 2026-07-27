@@ -7,11 +7,12 @@ Formal model from v4-dev-engine-theory.md §2.3:
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
 import logging
 import os
 from pathlib import Path
 from typing import Any
+
+from butler.utilities.env_parse import int_env
 
 from butler.dev_engine.dev_state import (
     DevPhase,

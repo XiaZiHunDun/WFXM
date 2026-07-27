@@ -5,7 +5,6 @@ Observation only (P-COST): does not gate scheduling or limits.
 
 from __future__ import annotations
 
-from butler.env_parse import int_env, float_env
 import json
 import logging
 import os
@@ -13,13 +12,16 @@ import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+from butler.utilities.env_parse import int_env, float_env
+from butler.defaults.env_defaults import COST_CALIBRATION_PERSIST_DEFAULT
 from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
 
 def calibration_persist_enabled() -> bool:
-    return os.getenv("BUTLER_COST_CALIBRATION_PERSIST", "1").strip().lower() not in (
+    return os.getenv("BUTLER_COST_CALIBRATION_PERSIST", COST_CALIBRATION_PERSIST_DEFAULT).strip().lower() not in (
         "0",
         "false",
         "no",
@@ -41,7 +43,7 @@ def usd_cny_rate() -> float:
 
 
 def _metrics_dir() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     d = get_butler_home() / "metrics"
     d.mkdir(parents=True, exist_ok=True)

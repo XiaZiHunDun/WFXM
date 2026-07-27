@@ -7,8 +7,9 @@ import os
 from butler.defaults.env_defaults import (
     WORKFLOW_MAX_DAG_NODES,
     WORKFLOW_MAX_DAG_PARALLEL,
+    WORKFLOW_MAX_PARALLEL_DEFAULT,
 )
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 MAX_DAG_NODES = WORKFLOW_MAX_DAG_NODES
 MAX_DAG_PARALLEL = WORKFLOW_MAX_DAG_PARALLEL
@@ -31,7 +32,7 @@ def output_schema_validate_enabled() -> bool:
 
 
 def workflow_max_parallel_default() -> int | None:
-    raw = os.getenv("BUTLER_WORKFLOW_MAX_PARALLEL", "").strip()
+    raw = os.getenv("BUTLER_WORKFLOW_MAX_PARALLEL", WORKFLOW_MAX_PARALLEL_DEFAULT).strip()
     if not raw:
         return int(MAX_DAG_PARALLEL)
     try:

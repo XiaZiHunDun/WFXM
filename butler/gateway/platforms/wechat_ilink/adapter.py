@@ -6,7 +6,7 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.gateway.platforms.base import ButlerPlatformAdapter
 from butler.gateway.platforms.types import MessageEvent, PlatformConfig, SendResult
 from butler.gateway.platforms.wechat_ilink._compat import (

@@ -255,7 +255,7 @@ async def send_wechat_direct(
     media_files: Optional[List[Tuple[str, bool]]] = None,
 ) -> Dict[str, Any]:
     """One-shot send helper for ``send_message`` and cron delivery."""
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.gateway.platforms.wechat_ilink._compat import (
         ContextTokenStore,
         _ADAPTER_REGISTRY,

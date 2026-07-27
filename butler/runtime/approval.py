@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, cast
 
-from butler.config import get_butler_settings
+from butler.configuration.settings import get_butler_settings
 from butler.runtime.schema import JobDef
 
 

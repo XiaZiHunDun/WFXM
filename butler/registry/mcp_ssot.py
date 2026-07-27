@@ -14,7 +14,7 @@ from butler.registry.mcp_merge import effective_mcp_servers, list_mcp_config_lay
 def mcp_ssot_path(*, workspace: Path | None = None) -> Path:
     if workspace is not None and workspace.is_dir():
         return workspace.expanduser().resolve() / ".butler" / "mcp-ssot.yaml"
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return Path(get_butler_home()) / "mcp-ssot.yaml"
 

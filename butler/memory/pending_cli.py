@@ -13,7 +13,7 @@ from butler.memory.pending_handlers import (
 
 def build_memory_orchestrator_stub(*, project: str = "", tenant: str = "default") -> Any:
     """Minimal orchestrator for pending handlers without a live gateway session."""
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.memory.butler_memory import ButlerMemory
     from butler.memory.project_memory import ProjectMemory
     from butler.project.manager import get_project_manager

@@ -12,7 +12,7 @@ from butler.memory.facade import ButlerMemoryService
 @pytest.mark.unit
 def test_reload_butler_global_closes_previous(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     svc = ButlerMemoryService()

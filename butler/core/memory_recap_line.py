@@ -6,7 +6,8 @@ import logging
 import re
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.defaults.env_defaults import MEMORY_RECAP_MIN_CHARS_DEFAULT
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ def memory_recap_min_out_chars() -> int:
     import os
 
     try:
-        return max(0, int(os.getenv("BUTLER_MEMORY_RECAP_MIN_CHARS", "300")))
+        return max(0, int(os.getenv("BUTLER_MEMORY_RECAP_MIN_CHARS", MEMORY_RECAP_MIN_CHARS_DEFAULT)))
     except ValueError:
         return 300
 

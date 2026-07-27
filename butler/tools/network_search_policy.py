@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Iterator
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
 
 _CTX: ContextVar[dict[str, Any] | None] = ContextVar("network_search_turn", default=None)
 
@@ -425,6 +425,30 @@ def note_web_search_outcome(result_text: str) -> None:
         _inc_web_search_empty_count()
 
 
+def should_run_network_search(query: str) -> bool:
+    """Check if network search should be performed for the given query."""
+    return network_search_gate_enabled() and is_web_search_intent(query)
+
+
+def run_network_search(query: str) -> list[dict[str, Any]]:
+    """Run web search for the given query."""
+    from butler.tools.web_search import web_search
+
+    try:
+        result = web_search(query=query)
+        if not result:
+            return []
+        try:
+            payload = json.loads(result)
+            if isinstance(payload, dict) and isinstance(payload.get("results"), list):
+                return payload["results"]
+        except json.JSONDecodeError:
+            pass
+    except Exception:
+        pass
+    return []
+
+
 __all__ = [
     "check_network_search_tool_block",
     "is_firecrawl_agent_tool",
@@ -440,5 +464,7 @@ __all__ = [
     "network_search_gate_enabled",
     "note_web_search_outcome",
     "record_network_search_tool",
+    "run_network_search",
+    "should_run_network_search",
     "turn_network_search_scope",
 ]

@@ -257,7 +257,7 @@ class TestG3ExperienceCandidateExtraction:
             "implement local cache", [code], activated,
         )
         assert candidate is not None
-        assert candidate.id.startswith("EX_")
+        assert candidate.id.startswith("EXP_")
         assert "T05" in candidate.theorem_basis
         assert candidate.validity_end > time.time()
 

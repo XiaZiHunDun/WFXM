@@ -129,6 +129,7 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 check_untyped_defs = true
+plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = "butler.contracts.*"
@@ -341,7 +342,6 @@ module = [
     "butler.gateway.completion_telemetry",
     "butler.gateway.delegate_push_dedup",
     "butler.gateway.delegate_task_kind",
-    "butler.gateway.durable_outbox",
     "butler.gateway.error_cards",
     "butler.gateway.events_sink",
     "butler.gateway.events_sink_impl",

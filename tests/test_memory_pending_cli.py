@@ -18,7 +18,7 @@ from butler.memory.pending_cli import (
 @pytest.mark.unit
 def test_list_pending_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     text = list_pending_text()
@@ -28,7 +28,7 @@ def test_list_pending_empty(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_list_pending_owner_item(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     queue_owner_write(scope="owner_profile", content="prefers bullet summaries")
@@ -40,7 +40,7 @@ def test_list_pending_owner_item(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_approve_owner_pending_cli(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     queue_owner_write(scope="owner_profile", content="cli approve me")
@@ -77,7 +77,7 @@ def test_approve_owner_pending_cli(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_reject_owner_pending_cli(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     queue_owner_write(scope="owner_experience", content="reject via cli")
@@ -96,7 +96,7 @@ def test_reject_owner_pending_cli(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_cli_memory_pending_command(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     queue_owner_write(scope="owner_profile", content="from cli command")

@@ -8,7 +8,7 @@ from typing import Any, cast
 
 import yaml  # type: ignore[import-untyped]
 
-from butler.env_parse import float_env
+from butler.utilities.env_parse import float_env
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures" / "ragas_memory_cases.yaml"
 

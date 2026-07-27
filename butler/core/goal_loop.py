@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
 import json
 import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+
+from butler.defaults.env_defaults import GOAL_LOOP_DEFAULT
+from butler.utilities.env_parse import int_env
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 def goal_loop_globally_enabled() -> bool:
-    return os.getenv("BUTLER_GOAL_LOOP", "0").strip().lower() in (
+    return os.getenv("BUTLER_GOAL_LOOP", GOAL_LOOP_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",

@@ -6,6 +6,19 @@ import os
 from pathlib import Path
 from typing import Literal
 
+from butler.defaults.env_defaults import (
+    CC_BRIDGE_DEFAULT,
+    DATA_HOME_DEFAULT,
+    DEPLOY_PROFILE_DEFAULT,
+    ENV_PROFILE_DEFAULT,
+    EVAL_PROD_EVIDENCE_DEFAULT,
+    EXPORT_SEND_WECHAT_FILE_DEFAULT,
+    MCP_ENABLED_DEFAULT,
+    OWNER_WECHAT_ID_DEFAULT,
+    TERMINAL_PROFILE_DEFAULT,
+    TERMINAL_SANDBOX_DEFAULT,
+)
+
 OperatingProfile = Literal["gateway", "dev-local", "dev-remote", "unknown"]
 
 _DEPLOY_PROFILES = frozenset({"gateway", "dev", "all"})
@@ -21,11 +34,11 @@ _LLM_KEY_VARS = (
 
 
 def deploy_profile() -> str:
-    return os.getenv("BUTLER_DEPLOY_PROFILE", "").strip().lower()
+    return os.getenv("BUTLER_DEPLOY_PROFILE", DEPLOY_PROFILE_DEFAULT).strip().lower()
 
 
 def env_profile() -> str:
-    return os.getenv("BUTLER_ENV_PROFILE", "").strip().lower()
+    return os.getenv("BUTLER_ENV_PROFILE", ENV_PROFILE_DEFAULT).strip().lower()
 
 
 def _llm_key_set() -> bool:
@@ -34,7 +47,7 @@ def _llm_key_set() -> bool:
 
 def gateway_singleton_lock_held() -> bool:
     """True when another process holds the gateway flock (best-effort)."""
-    data_home = os.getenv("BUTLER_DATA_HOME", "").strip()
+    data_home = os.getenv("BUTLER_DATA_HOME", DATA_HOME_DEFAULT).strip()
     base = Path(data_home).expanduser() if data_home else Path.home() / ".butler"
     path = base / "gateway.singleton.lock"
     if not path.is_file():
@@ -85,9 +98,9 @@ def profile_deviation_warnings() -> list[str]:
         warnings.append("Gateway 进程在跑，但 BUTLER_DEPLOY_PROFILE=dev（建议 gateway 或 dev-local）")
     if op == "gateway" and not _llm_key_set():
         warnings.append("生产剖面未检测到 LLM API Key")
-    if op == "gateway" and not os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip():
+    if op == "gateway" and not os.getenv("BUTLER_OWNER_WECHAT_ID", OWNER_WECHAT_ID_DEFAULT).strip():
         warnings.append("未配置 BUTLER_OWNER_WECHAT_ID（Owner 门控可能不可用）")
-    if ep == "dev-remote" and os.getenv("BUTLER_CC_BRIDGE", "0").strip() not in ("1", "true", "yes"):
+    if ep == "dev-remote" and os.getenv("BUTLER_CC_BRIDGE", CC_BRIDGE_DEFAULT).strip() not in ("1", "true", "yes"):
         warnings.append("dev-remote 剖面建议 BUTLER_CC_BRIDGE=1")
     return warnings
 
@@ -106,9 +119,9 @@ def format_owner_profile_lines(*, max_lines: int = 8) -> list[str]:
     if op == "gateway":
         lines.append(f"  LLM Key：{_yes_no(_llm_key_set())}")
         lines.append(
-            f"  Owner 微信：{_yes_no(bool(os.getenv('BUTLER_OWNER_WECHAT_ID', '').strip()))}"
+            f"  Owner 微信：{_yes_no(bool(os.getenv('BUTLER_OWNER_WECHAT_ID', OWNER_WECHAT_ID_DEFAULT).strip()))}"
         )
-        export_on = os.getenv("BUTLER_EXPORT_SEND_WECHAT_FILE", "1").strip().lower() in (
+        export_on = os.getenv("BUTLER_EXPORT_SEND_WECHAT_FILE", str(int(EXPORT_SEND_WECHAT_FILE_DEFAULT))).strip().lower() in (
             "1",
             "true",
             "yes",
@@ -116,19 +129,19 @@ def format_owner_profile_lines(*, max_lines: int = 8) -> list[str]:
         )
         lines.append(f"  微信文件出站：{_yes_no(export_on)}")
         lines.append(f"  Gateway 锁：{'运行中' if gateway_singleton_lock_held() else '未检测到'}")
-        prod_ev = os.getenv("BUTLER_EVAL_PROD_EVIDENCE", "1").strip().lower() in (
+        prod_ev = os.getenv("BUTLER_EVAL_PROD_EVIDENCE", EVAL_PROD_EVIDENCE_DEFAULT).strip().lower() in (
             "1",
             "true",
             "yes",
             "on",
         )
         lines.append(f"  G1-04 生产记账：{_yes_no(prod_ev)}")
-        mcp = os.getenv("BUTLER_MCP_ENABLED", "0").strip().lower() in ("1", "true", "yes")
+        mcp = os.getenv("BUTLER_MCP_ENABLED", MCP_ENABLED_DEFAULT).strip().lower() in ("1", "true", "yes")
         lines.append(f"  MCP：{'开' if mcp else '关'}")
     elif op == "dev-local":
         lines.append(f"  LLM Key：{_yes_no(_llm_key_set())}")
         lines.append(f"  pip 推荐：BUTLER_DEPLOY_PROFILE=dev")
-        sandbox = os.getenv("BUTLER_TERMINAL_SANDBOX", "0").strip().lower() in (
+        sandbox = os.getenv("BUTLER_TERMINAL_SANDBOX", str(int(TERMINAL_SANDBOX_DEFAULT))).strip().lower() in (
             "1",
             "true",
             "yes",
@@ -137,9 +150,9 @@ def format_owner_profile_lines(*, max_lines: int = 8) -> list[str]:
         lines.append("  守门：bash scripts/butler-pytest-fast-gate.sh")
     elif op == "dev-remote":
         lines.append(f"  LLM Key：{_yes_no(_llm_key_set())}")
-        bridge = os.getenv("BUTLER_CC_BRIDGE", "0").strip().lower() in ("1", "true", "yes")
+        bridge = os.getenv("BUTLER_CC_BRIDGE", CC_BRIDGE_DEFAULT).strip().lower() in ("1", "true", "yes")
         lines.append(f"  CC 桥接：{'开' if bridge else '关'}")
-        lines.append(f"  终端 profile：{os.getenv('BUTLER_TERMINAL_PROFILE', '(默认)')}")
+        lines.append(f"  终端 profile：{os.getenv('BUTLER_TERMINAL_PROFILE', TERMINAL_PROFILE_DEFAULT)}")
         lines.append("  相关：/沙箱 · /分工")
     else:
         lines.append(f"  LLM Key：{_yes_no(_llm_key_set())}")

@@ -5,13 +5,18 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from butler.config import get_butler_settings
+from butler.configuration.settings import get_butler_settings
+from butler.defaults.env_defaults import (
+    TOOL_PROJECT_ANCHOR_DEFAULT,
+    TOOL_SCOPE_DEFAULT,
+    WORKSPACE_ANCHOR_STRICT_DEFAULT,
+)
 from butler.project.policy_env import bind_default_project_enabled
 
 
 def environment_tool_scope_enabled() -> bool:
     """When true, tools use BUTLER_TOOL_SAFE_ROOT (or repo root), not project workspace jail."""
-    raw = (os.getenv("BUTLER_TOOL_SCOPE", "environment") or "environment").strip().lower()
+    raw = (os.getenv("BUTLER_TOOL_SCOPE", TOOL_SCOPE_DEFAULT) or TOOL_SCOPE_DEFAULT).strip().lower()
     if raw in ("project", "workspace", "0", "false", "off"):
         return False
     return True
@@ -31,7 +36,7 @@ def workspace_anchor_strict_for_paths() -> bool:
     """Relative paths anchor to project workspace only in legacy project scope + strict flag."""
     if environment_tool_scope_enabled():
         return False
-    return os.getenv("BUTLER_WORKSPACE_ANCHOR_STRICT", "1").strip().lower() in (
+    return os.getenv("BUTLER_WORKSPACE_ANCHOR_STRICT", WORKSPACE_ANCHOR_STRICT_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",
@@ -43,7 +48,7 @@ def project_relative_path_anchors_to_workspace() -> bool:
     """When a project is active, relative paths resolve under its workspace (even in environment scope)."""
     if not environment_tool_scope_enabled():
         return workspace_anchor_strict_for_paths()
-    raw = (os.getenv("BUTLER_TOOL_PROJECT_ANCHOR", "1") or "1").strip().lower()
+    raw = (os.getenv("BUTLER_TOOL_PROJECT_ANCHOR", TOOL_PROJECT_ANCHOR_DEFAULT) or TOOL_PROJECT_ANCHOR_DEFAULT).strip().lower()
     return raw in ("1", "true", "yes", "on")
 
 

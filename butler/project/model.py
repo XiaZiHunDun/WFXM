@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml  # type: ignore[import-untyped]
 
-from butler.config import ModelConfig, get_butler_settings
+from butler.configuration.settings import ModelConfig, get_butler_settings
 
 
 def _parse_tool_modes(raw: Any) -> dict[str, list[str]]:
@@ -59,7 +59,7 @@ class Project:
         models_raw = data.get("models", {}) or {}
         models = {str(k): ModelConfig.from_dict(v) for k, v in models_raw.items()} if models_raw else {}
 
-        from butler.tenant import normalize_tenant_id
+        from butler.utilities.tenant import normalize_tenant_id
 
         tenant_raw = data.get("tenant")
         tenant = "" if tenant_raw is None else normalize_tenant_id(str(tenant_raw))

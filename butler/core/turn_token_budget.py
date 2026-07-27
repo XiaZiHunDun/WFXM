@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, replace
 
-from butler.context_settings import TurnBudgetSettings
+from butler.configuration.context import TurnBudgetSettings
 from butler.core.loop_types import LoopConfig
 
 _BUDGET_CMD_RE = re.compile(
@@ -25,7 +25,7 @@ _TURN_BUDGET_PHRASES = ("本轮尽量做完", "尽量做完", "多用点token", 
 
 
 def _turn_budget_settings() -> TurnBudgetSettings:
-    from butler.context_settings import resolve_context_config
+    from butler.configuration.context import resolve_context_config
 
     return resolve_context_config().turn_budget
 

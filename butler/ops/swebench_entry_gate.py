@@ -15,7 +15,7 @@ _DEFAULT_MIN_PASS_RATE = 1.0
 def swe_gate_min_weeks() -> int:
     """Min consecutive ISO weeks at 100% subset pass (default 2; stretch: 1)."""
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return cast(int, int_env("BUTLER_EVAL_SWE_GATE_MIN_WEEKS", _DEFAULT_MIN_WEEKS, min=1, max=4))
     except ValueError:
@@ -23,7 +23,7 @@ def swe_gate_min_weeks() -> int:
 
 
 def snapshots_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / _SNAPSHOTS_NAME
 

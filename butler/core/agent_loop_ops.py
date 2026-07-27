@@ -12,7 +12,6 @@ from butler.permissions.doom_loop import check_doom_loop_ask
 from butler.tool_guardrails import synthetic_result
 from butler.transport.provider_health import filter_fallback_chain
 from butler.ops.runtime_metrics import inc
-from butler.core.agent_loop_phases import _phase_maybe_compact_turn
 from butler.core.loop_types import LoopStatus
 from butler.hooks.runner import run_stop_hooks
 from butler.transport.provider_health import record_provider_failure
@@ -62,6 +61,7 @@ def emit_skipped_plugin_metric(label: str) -> None:
 
 
 def maybe_compact_turn_safe(loop: Any, state: Any) -> bool:
+    from butler.core.agent_loop.phases import _phase_maybe_compact_turn
 
     return bool(
         run_plugin_step(

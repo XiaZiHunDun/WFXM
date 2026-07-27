@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.memory.chunking import (
     chunk_markdown_hierarchical,
     discover_markdown_files,

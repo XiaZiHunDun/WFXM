@@ -9,7 +9,7 @@ from typing import Any
 from butler.dev_engine.b9_experience_retrieval import B9_EXPERIENCE_THEOREM_BASIS
 from butler.dev_engine.coding_knowledge import CodingExperience
 from butler.memory.memory_scope import MemoryScope
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
 from butler.memory.memory_scope import tenant_coding_experiences_path
 

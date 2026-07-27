@@ -389,8 +389,8 @@ def collect_boundary_observations() -> list[BoundaryObservation]:
         "边界已接受；崩溃窗口为诚实边界",
     ))
 
-    provider = os.getenv("BUTLER_EMBEDDING_PROVIDER", "local")
-    semantic = os.getenv("BUTLER_SEMANTIC_MEMORY", "0").strip() in ("1", "true", "yes")
+    provider = os.getenv("BUTLER_EMBEDDING_PROVIDER", EMBEDDING_PROVIDER_DEFAULT)
+    semantic = os.getenv("BUTLER_SEMANTIC_MEMORY", SEMANTIC_MEMORY_DEFAULT).strip() in ("1", "true", "yes")
     out.append(BoundaryObservation(
         "G2-06",
         "ok" if semantic else "warn",
@@ -398,8 +398,8 @@ def collect_boundary_observations() -> list[BoundaryObservation]:
         "边界已接受；Recall@3: butler doctor",
     ))
 
-    lf = os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in ("1", "true", "yes")
-    hf = os.getenv("BUTLER_EVAL_HARD_FEEDBACK", "1").strip() in ("1", "true", "yes")
+    lf = os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in ("1", "true", "yes")
+    hf = os.getenv("BUTLER_EVAL_HARD_FEEDBACK", EVAL_HARD_FEEDBACK_DEFAULT).strip() in ("1", "true", "yes")
     out.append(BoundaryObservation(
         "G2-07",
         "ok",
@@ -407,7 +407,13 @@ def collect_boundary_observations() -> list[BoundaryObservation]:
         "边界已接受；无 LangFuse 时读本地 audit",
     ))
 
-    from butler.defaults.env_defaults import CODING_STRICT_DEFAULT
+    from butler.defaults.env_defaults import (
+        CODING_STRICT_DEFAULT,
+        EMBEDDING_PROVIDER_DEFAULT,
+        EVAL_HARD_FEEDBACK_DEFAULT,
+        LANGFUSE_ENABLED_DEFAULT,
+        SEMANTIC_MEMORY_DEFAULT,
+    )
 
     strict = os.getenv("BUTLER_CODING_STRICT", str(int(CODING_STRICT_DEFAULT))).strip() in ("1", "true", "yes")
     if strict:

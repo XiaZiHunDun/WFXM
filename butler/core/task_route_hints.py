@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 _CC_HEAVY_PATTERNS: tuple[tuple[str, int], ...] = (
     (r"(全量|大规模|整个代码库|整库|全项目).{0,12}(重构|迁移|改写|重写)", 4),

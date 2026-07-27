@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 from butler.memory.observation_store import ObservationStore, observations_db_path
 
 logger = logging.getLogger(__name__)

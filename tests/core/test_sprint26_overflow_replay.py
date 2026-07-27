@@ -30,7 +30,7 @@ from butler.core.session_transcript import (
 class TestRecordOverflowReplay:
     def test_writes_event_to_transcript(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint26:overflow:basic"
@@ -50,7 +50,7 @@ class TestRecordOverflowReplay:
     def test_default_source_and_empty_preview(self, tmp_path, monkeypatch):
         """不传参时: source='context_compressor', content_preview='', replayed_chars=0."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint26:overflow:default"
@@ -63,7 +63,7 @@ class TestRecordOverflowReplay:
     def test_content_preview_truncated_to_80_chars(self, tmp_path, monkeypatch):
         """content_preview 应被截到 80 字符, 避免 transcript 文件膨胀."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint26:overflow:trunc"
@@ -75,7 +75,7 @@ class TestRecordOverflowReplay:
     def test_replayed_chars_negative_clamped_to_zero(self, tmp_path, monkeypatch):
         """replayed_chars 负值应被 max(0, int()) 钳到 0."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint26:overflow:neg"
@@ -86,7 +86,7 @@ class TestRecordOverflowReplay:
     def test_source_truncated_to_32_chars(self, tmp_path, monkeypatch):
         """source 应截到 32 字符 (沿用 record_compact_started 约定)."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint26:overflow:src"
@@ -130,7 +130,7 @@ class TestFormatDiagnosticLinesShowsOverflowReplay:
     def test_shows_warning_line_when_count_positive(self, tmp_path, monkeypatch):
         """overflow_replay 计数 > 0 时, 应输出 '⚠️ 续跑提示' 行."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint26:diag:show"
@@ -154,7 +154,7 @@ class TestFormatDiagnosticLinesShowsOverflowReplay:
     def test_no_warning_line_when_count_zero(self, tmp_path, monkeypatch):
         """overflow_replay 计数 = 0 时, 不应输出 '⚠️ 续跑提示' 行 (避免无谓告警)."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint26:diag:no-show"

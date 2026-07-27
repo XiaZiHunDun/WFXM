@@ -103,7 +103,7 @@ class TestFormatGraphSummary:
 class TestCacheWorkflowReport:
     def test_step_outcomes_recorded(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         from butler.report import clear_report_cache
@@ -130,7 +130,7 @@ class TestCacheWorkflowReport:
 
     def test_failed_step_recorded(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         from butler.report import clear_report_cache
@@ -157,7 +157,7 @@ class TestCacheWorkflowReport:
 
     def test_approval_pending_step(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         from butler.report import clear_report_cache

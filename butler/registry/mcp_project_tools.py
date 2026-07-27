@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def mcp_auto_project_tools_enabled() -> bool:
-    return os.getenv("BUTLER_MCP_AUTO_PROJECT_TOOLS", "1").strip().lower() not in (
+    return os.getenv("BUTLER_MCP_AUTO_PROJECT_TOOLS", MCP_AUTO_PROJECT_TOOLS_DEFAULT).strip().lower() not in (
         "0",
         "false",
         "no",

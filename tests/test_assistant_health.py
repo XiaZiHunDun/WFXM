@@ -37,7 +37,7 @@ def test_format_assistant_health_lines():
 
 def test_collect_from_regression_audit(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     audit = tmp_path / "audit"

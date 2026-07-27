@@ -231,7 +231,7 @@ class TestWorkflowNotBypassed:
         approvals.is_approved 走 approvals.json — 两套独立.
         """
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.human_gate import is_step_approved, mark_step_approved
+        from butler.permissions.human_gate import is_step_approved, mark_step_approved
         from butler.permissions.approvals import (
             ApprovalRequest, grant_always, is_approved,
         )

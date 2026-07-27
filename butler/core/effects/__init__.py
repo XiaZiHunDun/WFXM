@@ -5,6 +5,7 @@ Inspired by Effect-TS/ZIO:
 - Maybe[T] monad for optional values
 - pipe/compose for function composition
 - retry/timeout/race for control flow
+- ToolFailure/ToolSuccess for standardized tool error handling
 """
 
 from __future__ import annotations
@@ -67,8 +68,17 @@ from .result import (
     with_default,
 )
 from .timeout import async_with_timeout, timeout_with_default, with_timeout
+from .tool_failure import (
+    ToolFailure,
+    ToolSuccess,
+    tool_failure,
+    tool_result_from_fn,
+    tool_success,
+)
 
 __all__ = [
+    "ToolFailure",
+    "ToolSuccess",
     "async_race",
     "async_retry_with_backoff",
     "async_with_retry",
@@ -119,6 +129,9 @@ __all__ = [
     "some",
     "tap",
     "timeout_with_default",
+    "tool_failure",
+    "tool_result_from_fn",
+    "tool_success",
     "traverse_maybe",
     "traverse_result",
     "unless",

@@ -11,12 +11,13 @@ import httpx
 from butler.registry.hub_index_cache import read_cache, write_cache
 from butler.registry.mcp_catalog import McpCatalogEntry
 from butler.registry.url_safety import is_safe_url
+from butler.defaults.env_defaults import MCP_CATALOG_URLS_DEFAULT
 
 logger = logging.getLogger(__name__)
 
 
 def remote_catalog_enabled() -> bool:
-    return bool(os.getenv("BUTLER_MCP_CATALOG_URLS", "").strip())
+    return bool(os.getenv("BUTLER_MCP_CATALOG_URLS", MCP_CATALOG_URLS_DEFAULT).strip())
 
 
 def _parse_catalog_payload(data: Any) -> list[McpCatalogEntry]:
@@ -102,7 +103,7 @@ def load_remote_catalog_entries() -> list[McpCatalogEntry]:
         return []
     merged: list[McpCatalogEntry] = []
     seen: set[str] = set()
-    for raw in os.getenv("BUTLER_MCP_CATALOG_URLS", "").split(","):
+    for raw in os.getenv("BUTLER_MCP_CATALOG_URLS", MCP_CATALOG_URLS_DEFAULT).split(","):
         url = raw.strip()
         if not url:
             continue

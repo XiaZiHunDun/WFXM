@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 def workflow_gate_pending_hint(*, workflow: str, step_id: str) -> str:
-    from butler.human_gate import _workflow_auto_resume_enabled
+    from butler.permissions.human_gate import _workflow_auto_resume_enabled
 
     wf = str(workflow or "").strip() or "工作流"
     step = str(step_id or "").strip() or "当前步骤"

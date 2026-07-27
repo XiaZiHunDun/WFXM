@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Protocol
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.execution_context import get_current_session_key
 from butler.memory.coding_recall import search_coding_experiences
 from butler.memory.facade_ops import (

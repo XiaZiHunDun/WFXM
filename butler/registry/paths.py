@@ -5,19 +5,20 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from butler.config import get_butler_home
-from butler.tenant import normalize_tenant_id, tenant_skills_dir
+from butler.configuration.settings import get_butler_home
+from butler.utilities.tenant import normalize_tenant_id, tenant_skills_dir
+from butler.defaults.env_defaults import MCP_CONFIG_DEFAULT, SKILL_REGISTRY_DEFAULT, SKILL_REGISTRY_SOURCES_DEFAULT
 
 
 def registry_enabled() -> bool:
-    raw = os.getenv("BUTLER_SKILL_REGISTRY", "1").strip().lower()
+    raw = os.getenv("BUTLER_SKILL_REGISTRY", SKILL_REGISTRY_DEFAULT).strip().lower()
     return raw not in ("0", "false", "no", "off")
 
 
 def enabled_sources() -> list[str]:
     raw = os.getenv(
         "BUTLER_SKILL_REGISTRY_SOURCES",
-        "bundled,project,github,url,clawhub,marketplace,lobehub",
+        SKILL_REGISTRY_SOURCES_DEFAULT,
     ).strip()
     return [s.strip().lower() for s in raw.split(",") if s.strip()]
 
@@ -59,7 +60,7 @@ def catalog_dir() -> Path:
 
 
 def default_mcp_config_path() -> Path:
-    env = os.getenv("BUTLER_MCP_CONFIG", "").strip()
+    env = os.getenv("BUTLER_MCP_CONFIG", MCP_CONFIG_DEFAULT).strip()
     if env:
         return Path(env).expanduser()
     return Path(get_butler_home()) / "mcp.yaml"

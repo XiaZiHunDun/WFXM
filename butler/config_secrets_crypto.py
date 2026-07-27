@@ -1,143 +1,19 @@
-"""Optional Fernet at-rest encryption for ``secrets.yaml`` provider keys."""
+"""Butler Config Secrets Crypto (Deprecated).
 
+This module is deprecated. Use butler.configuration.secrets_crypto instead.
+"""
 from __future__ import annotations
 
-import base64
-import logging
-import os
-from typing import Any
+import warnings
 
-from butler.env_parse import env_truthy
+warnings.warn(
+    "butler.config_secrets_crypto is deprecated, use butler.configuration.secrets_crypto instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-logger = logging.getLogger(__name__)
-
-_FERNET_PREFIX = "FERNET:"
-
-
-def secrets_encrypt_enabled() -> bool:
-    return bool(env_truthy("BUTLER_SECRETS_ENCRYPT", default=False))
-
-
-def _get_fernet() -> Any | None:
-    if not secrets_encrypt_enabled():
-        return None
-    key = os.getenv("BUTLER_SECRETS_ENCRYPT_KEY", "").strip()
-    if not key:
-        logger.warning(
-            "BUTLER_SECRETS_ENCRYPT=1 but BUTLER_SECRETS_ENCRYPT_KEY is empty; "
-            "encryption disabled"
-        )
-        return None
-    from butler.config_secrets_crypto_ops import init_fernet_safe
-
-    return init_fernet_safe(key)
-
-
-def is_encrypted_value(value: str) -> bool:
-    return str(value or "").startswith(_FERNET_PREFIX)
-
-
-def decrypt_secret_value(value: str) -> str:
-    text = str(value or "")
-    if not text.startswith(_FERNET_PREFIX):
-        return text
-    f = _get_fernet()
-    if f is None:
-        logger.warning("encrypted secret present but Fernet unavailable")
-        return ""
-    from butler.config_secrets_crypto_ops import decrypt_fernet_value_safe
-
-    return str(decrypt_fernet_value_safe(f, text[len(_FERNET_PREFIX) :]))
-
-
-def encrypt_secret_value(value: str) -> str:
-    plain = str(value or "")
-    if not plain or is_encrypted_value(plain):
-        return plain
-    f = _get_fernet()
-    if f is None:
-        return plain
-    encrypted = f.encrypt(plain.encode("utf-8"))
-    return _FERNET_PREFIX + base64.urlsafe_b64encode(encrypted).decode("ascii")
-
-
-def _encrypt_mapping_values(raw: dict[str, Any]) -> int:
-    changed = 0
-    for key, entry in list(raw.items()):
-        if isinstance(entry, str) and entry.strip():
-            enc = encrypt_secret_value(entry.strip())
-            if enc != entry:
-                raw[key] = enc
-                changed += 1
-            continue
-        if not isinstance(entry, dict):
-            continue
-        for field in ("api_key", "key", "token", "secret"):
-            val = str(entry.get(field) or "").strip()
-            if not val:
-                continue
-            enc = encrypt_secret_value(val)
-            if enc != val:
-                entry[field] = enc
-                changed += 1
-    return changed
-
-
-def encrypt_secrets_dict(data: dict[str, Any]) -> int:
-    """Encrypt provider keys in-place; returns number of values encrypted."""
-    if not isinstance(data, dict):
-        return 0
-    changed = 0
-    providers = data.get("providers")
-    if isinstance(providers, dict):
-        changed += _encrypt_mapping_values(providers)
-    for key, val in list(data.items()):
-        if key == "providers":
-            continue
-        if isinstance(val, str) and val.strip():
-            enc = encrypt_secret_value(val.strip())
-            if enc != val:
-                data[key] = enc
-                changed += 1
-    return changed
-
-
-def count_encrypted_entries(data: dict[str, Any]) -> tuple[int, int]:
-    """Return (encrypted_count, total_secret_values)."""
-    encrypted = 0
-    total = 0
-
-    def _walk_value(val: str) -> None:
-        nonlocal encrypted, total
-        text = str(val or "").strip()
-        if not text:
-            return
-        total += 1
-        if is_encrypted_value(text):
-            encrypted += 1
-
-    if not isinstance(data, dict):
-        return 0, 0
-    providers = data.get("providers")
-    if isinstance(providers, dict):
-        for entry in providers.values():
-            if isinstance(entry, str):
-                _walk_value(entry)
-            elif isinstance(entry, dict):
-                for field in ("api_key", "key", "token", "secret"):
-                    _walk_value(str(entry.get(field) or ""))
-    for key, val in data.items():
-        if key == "providers" or not isinstance(val, str):
-            continue
-        _walk_value(val)
-    return encrypted, total
-
-
-__all__ = [
-    "count_encrypted_entries",
-    "decrypt_secret_value",
-    "encrypt_secret_value",
-    "encrypt_secrets_dict",
-    "is_encrypted_value",
-    "secrets_encrypt_enabled",
-]
+from butler.configuration.secrets_crypto import *
+try:
+    from butler.configuration.secrets_crypto import __all__
+except ImportError:
+    pass

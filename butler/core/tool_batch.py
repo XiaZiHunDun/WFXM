@@ -25,6 +25,7 @@ from butler.core.tool_batch_post_edit import (
     fetch_pre_edit_snapshot as _fetch_pre_edit_snapshot,
     plan_mode_post_edit as _plan_mode_post_edit,
     tool_result_outcome as _tool_result_outcome,
+    _run_auto_verify,
 )
 from butler.core.tool_batch_runner import (
     append_tool_role_messages,

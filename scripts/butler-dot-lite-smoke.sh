@@ -20,7 +20,7 @@ from butler.plan.mode import clear_plan_mode, set_plan_mode
 sk = "$SK"
 set_plan_mode(sk, True)
 md = """## 已知事实
-- Loop 入口在 butler/core/agent_loop.py 证据: read_file
+- Loop 入口在 butler/core/agent_loop/（包）证据: read_file
 
 ## 待验证
 - [hypothesis] gateway 已加载最新 commit 假设: upgrade 后 verify 绿

@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def _tts_enabled() -> bool:
 
 
 def _output_dir() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     d = Path(get_butler_home() / "media_output")
     d.mkdir(parents=True, exist_ok=True)
     return d

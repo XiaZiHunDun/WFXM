@@ -38,7 +38,7 @@ def append_marketplace_index_line(lines: list[str]) -> None:
 
 def append_installed_skills_lines(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.config import load_settings
+        from butler.configuration.settings import load_settings
         from butler.registry.skill_service import SkillRegistryService
 
         tenant = load_settings().default_tenant

@@ -23,7 +23,7 @@ def _repo_root() -> Path:
 
 
 def _audit_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / "wechat_corpus_eval.jsonl"
 

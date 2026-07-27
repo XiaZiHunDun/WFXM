@@ -37,7 +37,7 @@ def test_drain_supplementary_via_bridge(monkeypatch, primary, combined):
     )
 
     follow = combined
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     if env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True) and primary.strip():
         from butler.gateway.outbound_bridge import get_current_bridge

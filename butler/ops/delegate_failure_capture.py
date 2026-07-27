@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Any, cast
 from butler.ops.delegate_failure_capture_ops import langfuse_capture_enabled_safe
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.ops.delegate_failure_capture_ops import read_failure_audit_summary_safe
 from butler.ops.eval_bridge import DatasetItem
 from butler.ops.delegate_failure_capture_ops import append_failure_audit_safe
@@ -26,6 +26,8 @@ from butler.ops.delegate_failure_capture_ops import follow_up_production_capture
 from butler.ops.delegate_failure_capture_ops import record_g1_04_evidence_safe
 from butler.ops.delegate_failure_capture_ops import push_failure_to_langfuse_loud
 from butler.ops.delegate_failure_capture_ops import resolve_delegate_trace_id_safe
+
+from butler.defaults.env_defaults import EVAL_CAPTURE_DELEGATE_FAILURES_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ def _norm_role(role: str) -> str:
 
 
 def capture_enabled() -> bool:
-    raw = os.getenv("BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES", "").strip().lower()
+    raw = os.getenv("BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES", EVAL_CAPTURE_DELEGATE_FAILURES_DEFAULT).strip().lower()
     if raw in ("0", "false", "no"):
         return False
     if raw in ("1", "true", "yes", "all"):
@@ -54,7 +56,7 @@ def capture_enabled() -> bool:
 
 
 def _capture_all_roles() -> bool:
-    return os.getenv("BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES", "").strip().lower() == "all"
+    return os.getenv("BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES", EVAL_CAPTURE_DELEGATE_FAILURES_DEFAULT).strip().lower() == "all"
 
 
 def sanitize_text(text: str, *, limit: int = 2000) -> str:

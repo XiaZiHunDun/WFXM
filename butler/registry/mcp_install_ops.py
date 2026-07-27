@@ -7,6 +7,7 @@ import os
 from typing import Any
 
 from butler.registry.mcp_catalog import McpCatalogEntry
+from butler.defaults.env_defaults import MCP_ENABLED_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def run_pre_install_scan_gate_safe(
 
 def probe_server_safe(server_id: str, block: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "tool_count": 0, "error": ""}
-    if os.getenv("BUTLER_MCP_ENABLED", "0").strip().lower() not in ("1", "true", "yes", "on"):
+    if os.getenv("BUTLER_MCP_ENABLED", MCP_ENABLED_DEFAULT).strip().lower() not in ("1", "true", "yes", "on"):
         result["error"] = "BUTLER_MCP_ENABLED=0 — skipped live probe"
         result["ok"] = True
         return result

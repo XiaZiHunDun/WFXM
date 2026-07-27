@@ -5,7 +5,7 @@ from butler.runtime.task_store import complete_task, create_task, get_task, list
 
 def test_task_store_lifecycle(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     rec = create_task(session_key="s1", role="dev", task_preview="fix bug")

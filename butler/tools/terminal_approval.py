@@ -9,7 +9,16 @@ import os
 import time
 from pathlib import Path
 
-
+from butler.configuration.settings import get_butler_home
+from butler.contracts.approval_registry import get_approval_store
+from butler.core.approval_cards import format_terminal_exec_card
+from butler.defaults.env_defaults import TERMINAL_REQUIRE_APPROVAL_DEFAULT
+from butler.permissions.approvals import _load, _purge_once
+from butler.tools.terminal_approval_ops import (
+    canonicalize_command_safe,
+    read_approval_record_safe,
+    try_auto_review_terminal_safe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +32,10 @@ def _resolve_session_key(session_key: str) -> str:
 
 
 def _legacy_approval_path(fp: str) -> Path:
-    from butler.configuration.settings import get_butler_home
-
     return Path(get_butler_home()) / "exec_approvals" / f"{fp}.json"
 
 
 def approval_required() -> bool:
-    from butler.defaults.env_defaults import TERMINAL_REQUIRE_APPROVAL_DEFAULT
-
     return os.getenv("BUTLER_TERMINAL_REQUIRE_APPROVAL", str(int(TERMINAL_REQUIRE_APPROVAL_DEFAULT))).strip().lower() in (
         "1",
         "true",
@@ -40,8 +45,6 @@ def approval_required() -> bool:
 
 
 def argv_fingerprint(command: str, *, cwd: str = "") -> str:
-    from butler.tools.terminal_approval_ops import canonicalize_command_safe
-
     canonical = canonicalize_command_safe(command)
     payload = json.dumps(
         {"command": canonical, "cwd": (cwd or "").strip()},
@@ -60,7 +63,6 @@ def _migrate_legacy_exec_approval(
 ) -> bool:
     """Import one-shot legacy ``exec_approvals/{fp}.json`` into approvals.json."""
     from butler.contracts.approval_store_impl import grant_terminal_exec_once
-    from butler.tools.terminal_approval_ops import read_approval_record_safe
 
     path = _legacy_approval_path(fp)
     if not path.is_file():
@@ -120,10 +122,6 @@ def check_approval(
     session_key: str = "",
 ) -> str | None:
     """Return error message if not approved; None if ok or approval not required."""
-    from butler.contracts.approval_registry import get_approval_store
-    from butler.core.approval_cards import format_terminal_exec_card
-    from butler.tools.terminal_approval_ops import try_auto_review_terminal_safe
-
     if not approval_required():
         return None
 
@@ -160,8 +158,6 @@ def approval_allows_unsandboxed(
     session_key: str = "",
 ) -> bool:
     """True when a valid approval record explicitly allows running outside sandbox."""
-    from butler.permissions.approvals import _load, _purge_once
-
     fp = argv_fingerprint(command, cwd=cwd)
     sk = _resolve_session_key(session_key)
     _migrate_legacy_exec_approval(command, cwd=cwd, session_key=sk, fp=fp)

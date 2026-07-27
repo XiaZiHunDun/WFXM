@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
+from butler.defaults.env_defaults import EVAL_PROD_EVIDENCE_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 _STATE_NAME = "g1_04_prod_evidence_state.json"
@@ -17,7 +19,7 @@ _DEDUPE_SECONDS = 6 * 3600
 
 
 def prod_evidence_enabled() -> bool:
-    return os.getenv("BUTLER_EVAL_PROD_EVIDENCE", "1").strip().lower() in (
+    return os.getenv("BUTLER_EVAL_PROD_EVIDENCE", EVAL_PROD_EVIDENCE_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",
@@ -26,7 +28,7 @@ def prod_evidence_enabled() -> bool:
 
 
 def _state_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "config" / _STATE_NAME
 

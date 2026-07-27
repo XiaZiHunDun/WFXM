@@ -21,7 +21,7 @@ def project_workspace(orch: ButlerOrchestrator) -> Path | None:
 
 def rebuild_skill_router(orch: ButlerOrchestrator) -> None:
     from butler.orchestrator.templates import combined_skill_manager
-    from butler.tenant import resolve_tenant_for_project
+    from butler.utilities.tenant import resolve_tenant_for_project
 
     tid = resolve_tenant_for_project(
         orch.project_manager.get_current(),

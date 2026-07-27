@@ -15,7 +15,7 @@ from typing import Any, Dict, List, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.memory import ButlerMemory, ProjectMemory
-from butler.config import get_butler_home, get_butler_settings
+from butler.configuration.settings import get_butler_home, get_butler_settings
 from butler.execution_context import get_current_session_key
 from butler.memory.coding_recall import search_coding_experiences
 from butler.memory.observation_recall import search_observation_recall
@@ -41,7 +41,7 @@ from butler.session.lifecycle import (
     record_post_session_turn,
     run_post_session_extraction,
 )
-from butler.tenant import resolve_tenant_for_project
+from butler.utilities.tenant import resolve_tenant_for_project
 from butler.memory.facade_ops import (
     butler_home_configured,
     close_butler_memory,
@@ -57,6 +57,7 @@ from butler.memory.facade_ops import (
     record_recall_telemetry,
     refresh_project_facts,
     resolve_active_project_name,
+    resolve_project_memory_for_diag,
     run_tool_call_safe,
     strip_private_tags_safe,
 )

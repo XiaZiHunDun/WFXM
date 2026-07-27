@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from butler.env_parse import env_truthy, float_env
-from butler.memory_settings import resolve_memory_config
+from butler.utilities.env_parse import env_truthy, float_env
+from butler.configuration.memory import resolve_memory_config
 
 
 def observation_recall_enabled() -> bool:

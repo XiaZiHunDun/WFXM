@@ -8,7 +8,7 @@ from butler.runtime import push_queue
 @pytest.fixture
 def butler_home_q(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     return tmp_path

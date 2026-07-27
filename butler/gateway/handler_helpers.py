@@ -15,11 +15,11 @@ from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING, cast
 
 from butler.tools._file_cache import read_json_cached
-from butler.core.agent_loop import LoopCallbacks
+from butler.core.loop_types import LoopCallbacks
 from butler.core.auto_continue import resolve_auto_continue_user_message
 from butler.core.best_effort import safe_best_effort
-from butler.defaults.env_defaults import ONBOARDING_WELCOME_DEFAULT
-from butler.env_parse import env_truthy, float_env, int_env
+from butler.defaults.env_defaults import BUTLER_HOME_DEFAULT, ONBOARDING_WELCOME_DEFAULT
+from butler.utilities.env_parse import env_truthy, float_env, int_env
 from butler.gateway.command_registry import lookup
 from butler.gateway.outbound_bridge import get_current_bridge
 from butler.mcp.registry_hook import disconnect_mcp_session
@@ -28,7 +28,7 @@ from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
 from butler.tools.reminder import _load_all
 
 if TYPE_CHECKING:
-    from butler.core.agent_loop import AgentLoop
+    from butler.core.agent_loop.loop import AgentLoop
 
 logger = logging.getLogger(__name__)
 
@@ -377,7 +377,7 @@ def _mark_session_welcomed(session_key: str) -> None:
         _WELCOMED_SESSIONS.add(session_key)
 
     def _persist() -> None:
-        marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
+        marker = Path(os.getenv("BUTLER_HOME", BUTLER_HOME_DEFAULT)).expanduser() / "welcomed_sessions.txt"
         if marker.is_file():
             known = set(marker.read_text(encoding="utf-8").strip().splitlines())
             if session_key in known:
@@ -401,7 +401,7 @@ def _maybe_welcome_prefix(session_key: str, user_text: str = "") -> str:
             return ""
         _WELCOMED_SESSIONS.add(session_key)
 
-    marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
+    marker = Path(os.getenv("BUTLER_HOME", BUTLER_HOME_DEFAULT)).expanduser() / "welcomed_sessions.txt"
     def _known_sessions() -> set[str]:
         if not marker.is_file():
             return set()

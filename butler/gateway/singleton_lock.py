@@ -7,13 +7,15 @@ import logging
 import os
 from pathlib import Path
 
+from butler.defaults.env_defaults import DATA_HOME_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 _LOCK_FD: int | None = None
 
 
 def _lock_path() -> Path:
-    data_home = os.getenv("BUTLER_DATA_HOME", "").strip()
+    data_home = os.getenv("BUTLER_DATA_HOME", DATA_HOME_DEFAULT).strip()
     base = Path(data_home).expanduser() if data_home else Path.home() / ".butler"
     base.mkdir(parents=True, exist_ok=True)
     return base / "gateway.singleton.lock"

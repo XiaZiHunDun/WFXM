@@ -17,6 +17,7 @@ from butler.defaults.env_defaults import (
     INSTRUCTION_WALKUP_MAX_CHARS,
     INSTRUCTION_WALKUP_MAX_FILES,
     TOOL_PRUNE_CLEARABLE_CHARS,
+    TOOL_PRUNE_CLEAR_AT_LEAST_DEFAULT,
     TOOL_PRUNE_DEFAULT_CHARS,
     TOOL_PRUNE_KEEP_RECENT,
     TOOL_PRUNE_PII_CHARS,
@@ -235,7 +236,7 @@ def resolve_context_config() -> ContextConfig:
     backward_yaml = _bool_from_raw(tool_raw, "backward_enabled", True)
     backward_enabled = env_truthy("BUTLER_TOOL_PRUNE_BACKWARD", default=backward_yaml)
 
-    clear_at_least_env = os.getenv("BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST", "").strip()
+    clear_at_least_env = os.getenv("BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST", TOOL_PRUNE_CLEAR_AT_LEAST_DEFAULT).strip()
     backward_minimum = _merged_int(
         raw,
         tool_raw,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from butler.memory.semantic_index import (
     SemanticMemoryIndex,
     index_experience_row,
 )
+from butler.defaults.env_defaults import PROJECTS_DIR_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +88,7 @@ def reindex_semantic_memory(
             stats["indexed_experience"] += 1
 
     if index_project_memory:
-        import os
-
-        raw = os.getenv("BUTLER_PROJECTS_DIR", "").strip()
+        raw = os.getenv("BUTLER_PROJECTS_DIR", PROJECTS_DIR_DEFAULT).strip()
         if projects_dir is not None:
             pdir = Path(projects_dir).expanduser().resolve()
         elif raw:

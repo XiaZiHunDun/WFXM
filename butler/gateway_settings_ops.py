@@ -1,23 +1,19 @@
-"""Gateway settings YAML load best-effort helpers (P0-A)."""
+"""Butler Gateway Settings Ops (Deprecated).
 
+This module is deprecated. Use butler.configuration.gateway_ops instead.
+"""
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+import warnings
 
-import yaml  # type: ignore[import-untyped]
+warnings.warn(
+    "butler.gateway_settings_ops is deprecated, use butler.configuration.gateway_ops instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-from butler.core.best_effort import safe_best_effort
-
-
-def load_yaml_gateway_section_safe(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        return {}
-
-    def _run() -> dict[str, Any]:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        gw = data.get("gateway")
-        return gw if isinstance(gw, dict) else {}
-
-    result = safe_best_effort(_run, label="gateway_settings.yaml_load", default={})
-    return result if isinstance(result, dict) else {}
+from butler.configuration.gateway_ops import *
+try:
+    from butler.configuration.gateway_ops import __all__
+except ImportError:
+    pass

@@ -20,6 +20,9 @@ print(f"function_scoped_from_butler={lazy}")
 print(f"module_level_from_butler={mod}")
 print(f"LAZY_IMPORT_BUDGET={LAZY_IMPORT_BUDGET}")
 print(f"headroom={LAZY_IMPORT_BUDGET - lazy}")
+headroom = LAZY_IMPORT_BUDGET - lazy
+if headroom < 5:
+    print(f"WARNING: headroom={headroom} < 5 — consider increasing LAZY_IMPORT_BUDGET")
 print("")
 print("Top files (function-scoped):")
 for path, n in sorted(lazy_import_counts_by_file().items(), key=lambda x: -x[1])[:20]:

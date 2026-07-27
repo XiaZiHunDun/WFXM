@@ -53,7 +53,7 @@ def search_coding_experiences(
     if not keywords:
         return {"ok": False, "error": "query is required (≥2 char tokens)"}
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.memory.recall_ops import stack_tags_for_project_safe
 
     home = Path(butler_home or get_butler_home()).expanduser().resolve()

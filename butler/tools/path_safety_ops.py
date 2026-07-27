@@ -17,12 +17,15 @@ from butler.execution_context import (
     get_current_orchestrator,
 )
 from butler.core.tool_result_storage import is_readable_session_tool_result_path
-from butler.permissions import check_external_path_override
 from butler.tools.butlerignore import (
     is_butlerignored,
     is_protected_write_path,
 )
-from butler.config import get_butler_settings
+from butler.configuration.settings import get_butler_settings
+from butler.defaults.env_defaults import (
+    DEFAULT_PROJECT_ENV_DEFAULT,
+    TOOL_SAFE_ROOT_DEFAULT,
+)
 
 def workspace_from_project_safe(project: object | None) -> Path | None:
     workspace = getattr(project, "workspace", None) if project is not None else None
@@ -61,7 +64,7 @@ def workspace_for_session_key_safe(session_key: str) -> Path | None:
 
 
 def default_project_workspace_safe() -> Path | None:
-    name = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+    name = os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_ENV_DEFAULT).strip()
     if not name:
         return None
 
@@ -125,6 +128,7 @@ def external_path_override_allowed_safe(resolved: Path, *, for_write: bool) -> b
     """Return True if override allows; False if denied; None if check unavailable."""
 
     def _run() -> bool:
+        from butler.permissions import check_external_path_override
 
         override = check_external_path_override(str(resolved), for_write=for_write)
         return bool(override is not None and override.allowed)
@@ -166,7 +170,7 @@ def current_orchestrator_safe() -> Any | None:
 
 
 def configured_safe_root_safe() -> Path | None:
-    raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
+    raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", TOOL_SAFE_ROOT_DEFAULT).strip()
     if not raw:
         return None
 

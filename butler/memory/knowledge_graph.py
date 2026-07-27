@@ -368,14 +368,14 @@ class GraphRetriever:
         return results[:max_results]
 
 
-_singleton: Optional[KnowledgeGraph] = None
-
-
 def get_knowledge_graph(graph_id: str = "default") -> KnowledgeGraph:
-    global _singleton
-    if _singleton is None:
-        _singleton = KnowledgeGraph(graph_id)
-    return _singleton
+    """Shared ``KnowledgeGraph`` via ServiceContainer.
+    
+    Note: graph_id parameter is ignored in container mode (single instance).
+    """
+    from butler.core.container import container
+
+    return container.knowledge_graph()
 
 
 KG_AVAILABLE = True

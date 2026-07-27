@@ -20,7 +20,7 @@ def test_search_coding_requires_query():
 @pytest.mark.unit
 def test_search_coding_tenant_l4(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     l4 = tenant_coding_experiences_path(tmp_path)
@@ -51,7 +51,7 @@ def test_search_coding_tenant_l4(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_butler_recall_coding_scope(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.memory.facade import ButlerMemoryService
 
     reload_butler_settings()

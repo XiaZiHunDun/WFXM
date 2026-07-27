@@ -133,7 +133,7 @@ def ensure_runtime_jobs_skeleton(
 
 def reindex_project_memory(project_name: str) -> tuple[bool, str]:
     """Rebuild semantic index for one project. Returns (ok, message)."""
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.memory.reindex import ensure_semantic_enabled_msg, reindex_semantic_memory
 
     hint = ensure_semantic_enabled_msg()

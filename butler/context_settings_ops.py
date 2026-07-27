@@ -1,23 +1,19 @@
-"""Context settings YAML load best-effort helpers (P0-A)."""
+"""Butler Context Settings Ops (Deprecated).
 
+This module is deprecated. Use butler.configuration.context instead.
+"""
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+import warnings
 
-import yaml  # type: ignore[import-untyped]
+warnings.warn(
+    "butler.context_settings_ops is deprecated, use butler.configuration.context instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-from butler.core.best_effort import safe_best_effort
-
-
-def load_yaml_context_section_safe(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        return {}
-
-    def _run() -> dict[str, Any]:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        ctx = data.get("context")
-        return ctx if isinstance(ctx, dict) else {}
-
-    result = safe_best_effort(_run, label="context_settings.yaml_load", default={})
-    return result if isinstance(result, dict) else {}
+from butler.configuration.context import *
+try:
+    from butler.configuration.context import __all__
+except ImportError:
+    pass

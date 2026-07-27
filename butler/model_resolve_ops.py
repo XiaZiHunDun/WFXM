@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 from butler.core.best_effort import safe_best_effort
 
 if TYPE_CHECKING:
-    from butler.config import ButlerSettings
+    from butler.configuration.settings import ButlerSettings
     from butler.project import Project
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def try_handle_preset_model_command_safe(
     project_label: str | None,
 ) -> tuple[str, bool] | None:
     def _run() -> tuple[str, bool] | None:
-        from butler.provider_presets import try_handle_preset_model_command
+        from butler.configuration.provider_presets import try_handle_preset_model_command
 
         result = try_handle_preset_model_command(
             text,

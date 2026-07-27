@@ -68,9 +68,10 @@ def task_milestone_max_per_turn() -> int:
         from butler.defaults.env_defaults import GATEWAY_TASK_MILESTONE_MAX
 
         default = GATEWAY_TASK_MILESTONE_MAX if delegate_progress_notify_enabled() else 1
-        return int(int_env("BUTLER_GATEWAY_TASK_MILESTONE_MAX", default, min=1, max=8))
+        result: int = int_env("BUTLER_GATEWAY_TASK_MILESTONE_MAX", default, min=1, max=8)
+        return result
     except ValueError:
-        return GATEWAY_TASK_MILESTONE_MAX
+        return int(GATEWAY_TASK_MILESTONE_MAX)
 
 
 def maybe_schedule_task_milestone(bridge: Any) -> None:

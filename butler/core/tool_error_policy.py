@@ -1,27 +1,162 @@
-"""Tool error classification: retry / replan / stop (LobeHub errorClassification subset)."""
+"""Tool error classification: retry / replan / stop (LobeHub errorClassification subset).
+
+This module uses Algebraic Data Types (ADT) pattern for error classification,
+replacing enum + branch logic with explicit sum types and pattern matching.
+"""
 
 from __future__ import annotations
 
-import enum
 import json
-import re
-
-from butler.env_parse import env_truthy
 import logging
+import re
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Callable, ClassVar, Pattern, cast
+
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 
 _POLICY_ENV = "BUTLER_TOOL_ERROR_POLICY"
 
 
-class ToolErrorKind(str, enum.Enum):
-    ok = "ok"
-    retry = "retry"
-    replan = "replan"
-    stop = "stop"
+# --- Algebraic Data Types for Tool Error Classification ---
+
+class ToolErrorKind(ABC):
+    """Base class for tool error classification ADT."""
+
+    # Backwards compatibility class attributes
+    ok: ClassVar["ToolErrorKind"]
+    retry: ClassVar["ToolErrorKind"]
+    replan: ClassVar["ToolErrorKind"]
+    stop: ClassVar["ToolErrorKind"]
+
+    @abstractmethod
+    def label(self) -> str:
+        """Return the human-readable label for this error kind."""
+        ...
+
+    @abstractmethod
+    def next_step_hint(self, tool_name: str) -> str:
+        """Return the suggested next step for this error kind."""
+        ...
+
+    @abstractmethod
+    def should_retry(self) -> bool:
+        """Return True if this error kind suggests retrying."""
+        ...
+
+    @abstractmethod
+    def should_halt(self) -> bool:
+        """Return True if this error kind suggests halting the loop."""
+        ...
+
+    @abstractmethod
+    def should_replan(self) -> bool:
+        """Return True if this error kind suggests replanning."""
+        ...
+
+    @abstractmethod
+    def value(self) -> str:
+        """Return the string value for serialization."""
+        ...
 
 
-_STOP_MARKERS = (
+@dataclass(frozen=True)
+class Ok(ToolErrorKind):
+    """Tool execution succeeded without error."""
+
+    def label(self) -> str:
+        return "成功"
+
+    def next_step_hint(self, tool_name: str) -> str:
+        return ""
+
+    def should_retry(self) -> bool:
+        return False
+
+    def should_halt(self) -> bool:
+        return False
+
+    def should_replan(self) -> bool:
+        return False
+
+    def value(self) -> str:
+        return "ok"
+
+
+@dataclass(frozen=True)
+class Retry(ToolErrorKind):
+    """Tool execution failed but can be retried."""
+
+    def label(self) -> str:
+        return "可重试"
+
+    def next_step_hint(self, tool_name: str) -> str:
+        return "稍后重试同一工具，或换网络/参数后再试"
+
+    def should_retry(self) -> bool:
+        return True
+
+    def should_halt(self) -> bool:
+        return False
+
+    def should_replan(self) -> bool:
+        return False
+
+    def value(self) -> str:
+        return "retry"
+
+
+@dataclass(frozen=True)
+class Replan(ToolErrorKind):
+    """Tool execution failed and requires replanning."""
+
+    def label(self) -> str:
+        return "需调整"
+
+    def next_step_hint(self, tool_name: str) -> str:
+        return f"请换参数、换工具或先 read_file 核对路径，勿重复相同 {tool_name or '调用'}"
+
+    def should_retry(self) -> bool:
+        return False
+
+    def should_halt(self) -> bool:
+        return False
+
+    def should_replan(self) -> bool:
+        return True
+
+    def value(self) -> str:
+        return "replan"
+
+
+@dataclass(frozen=True)
+class Stop(ToolErrorKind):
+    """Tool execution failed and should halt the loop."""
+
+    def label(self) -> str:
+        return "应停止"
+
+    def next_step_hint(self, tool_name: str) -> str:
+        return "勿重复调用；向用户说明原因或请求 /批准执行 / 调整权限"
+
+    def should_retry(self) -> bool:
+        return False
+
+    def should_halt(self) -> bool:
+        return True
+
+    def should_replan(self) -> bool:
+        return False
+
+    def value(self) -> str:
+        return "stop"
+
+
+# --- Classification markers ---
+
+_STOP_MARKERS: tuple[str, ...] = (
     "permission",
     "access denied",
     "not allowed",
@@ -37,7 +172,7 @@ _STOP_MARKERS = (
     "experiment_mode",
 )
 
-_REPLAN_MARKERS = (
+_REPLAN_MARKERS: tuple[str, ...] = (
     "no such file",
     "file not found",
     "not found",
@@ -53,7 +188,7 @@ _REPLAN_MARKERS = (
     "validation",
 )
 
-_RETRY_MARKERS = (
+_RETRY_MARKERS: tuple[str, ...] = (
     "timeout",
     "timed out",
     "connection",
@@ -69,6 +204,20 @@ _RETRY_MARKERS = (
     "resource exhausted",
 )
 
+_STOP_CODES: tuple[str, ...] = (
+    "permission_rule_denied",
+    "plan_mode_blocked",
+    "hook_blocked",
+    "permission_request_hook",
+    "security_blacklist",
+    "tool_error_stop",
+    "doom_loop",
+)
+
+_CODE_PATTERN: Pattern[str] = re.compile(r'"code"\s*:\s*"([^"]+)"', re.I)
+
+
+# --- Helper functions ---
 
 def tool_error_policy_enabled() -> bool:
     return bool(env_truthy(_POLICY_ENV, default=True))
@@ -118,55 +267,64 @@ def _looks_like_error(result: str) -> bool:
     return False
 
 
+# --- Classification function ---
+
 def classify_tool_error(
     result: str,
     *,
     tool_name: str = "",
     exc: BaseException | None = None,
 ) -> ToolErrorKind:
+    """Classify tool error using ADT pattern matching."""
     if exc is not None:
         etext = _error_text("", exc=exc)
         if any(m in etext for m in _STOP_MARKERS):
-            return ToolErrorKind.stop
+            return Stop()
         if any(m in etext for m in _RETRY_MARKERS):
-            return ToolErrorKind.retry
-        return ToolErrorKind.replan
+            return Retry()
+        return Replan()
 
     if not _looks_like_error(result):
-        return ToolErrorKind.ok
+        return Ok()
 
     blob = _error_text(result)
-    code_m = re.search(r'"code"\s*:\s*"([^"]+)"', result or "", re.I)
+    code_m = _CODE_PATTERN.search(result or "")
     if code_m:
         code = code_m.group(1).lower()
-        if code in (
-            "permission_rule_denied",
-            "plan_mode_blocked",
-            "hook_blocked",
-            "permission_request_hook",
-            "security_blacklist",
-            "tool_error_stop",
-            "doom_loop",
-        ):
-            return ToolErrorKind.stop
+        if code in _STOP_CODES:
+            return Stop()
 
     if any(m in blob for m in _STOP_MARKERS):
-        return ToolErrorKind.stop
+        return Stop()
     if any(m in blob for m in _RETRY_MARKERS):
-        return ToolErrorKind.retry
+        return Retry()
     if any(m in blob for m in _REPLAN_MARKERS):
-        return ToolErrorKind.replan
+        return Replan()
     if "read_state" in blob or "patch_old_string" in blob:
-        return ToolErrorKind.replan
-    return ToolErrorKind.replan
+        return Replan()
+    return Replan()
 
 
-def _kind_label(kind: ToolErrorKind) -> str:
-    return {
-        ToolErrorKind.retry: "可重试",
-        ToolErrorKind.replan: "需调整",
-        ToolErrorKind.stop: "应停止",
-    }.get(kind, "错误")
+# --- Formatting functions ---
+
+def format_tool_error_observation(
+    message: str,
+    *,
+    kind: ToolErrorKind,
+    tool_name: str = "",
+    code: str = "",
+    hint_override: str = "",
+) -> str:
+    """PEG-style: 错误类型 | 原因 | 建议下一步"""
+    label = kind.label()
+    reason = (message or "工具执行失败").strip()
+    hint = (hint_override or "").strip() or kind.next_step_hint(tool_name)
+    parts = [f"错误类型: {label}", f"原因: {reason}"]
+    if hint:
+        parts.append(f"建议下一步: {hint}")
+    if code:
+        parts.append(f"code: {code}")
+    return " | ".join(parts)
 
 
 def _hint_from_payload(result: str) -> str:
@@ -179,35 +337,7 @@ def _hint_from_payload(result: str) -> str:
     return ""
 
 
-def _next_step_hint(kind: ToolErrorKind, tool_name: str) -> str:
-    if kind == ToolErrorKind.retry:
-        return "稍后重试同一工具，或换网络/参数后再试"
-    if kind == ToolErrorKind.replan:
-        return f"请换参数、换工具或先 read_file 核对路径，勿重复相同 {tool_name or '调用'}"
-    if kind == ToolErrorKind.stop:
-        return "勿重复调用；向用户说明原因或请求 /批准执行 / 调整权限"
-    return ""
-
-
-def format_tool_error_observation(
-    message: str,
-    *,
-    kind: ToolErrorKind,
-    tool_name: str = "",
-    code: str = "",
-    hint_override: str = "",
-) -> str:
-    """PEG-style: 错误类型 | 原因 | 建议下一步"""
-    label = _kind_label(kind)
-    reason = (message or "工具执行失败").strip()
-    hint = (hint_override or "").strip() or _next_step_hint(kind, tool_name)
-    parts = [f"错误类型: {label}", f"原因: {reason}"]
-    if hint:
-        parts.append(f"建议下一步: {hint}")
-    if code:
-        parts.append(f"code: {code}")
-    return " | ".join(parts)
-
+# --- Policy application ---
 
 def apply_tool_error_policy(
     result: str,
@@ -220,14 +350,14 @@ def apply_tool_error_policy(
         return result
 
     kind = classify_tool_error(result, tool_name=tool_name, exc=exc)
-    if kind == ToolErrorKind.ok:
+    if isinstance(kind, Ok):
         return result
 
     from butler.core.tool_error_policy_ops import inc_tool_error_policy_metric_safe
 
-    inc_tool_error_policy_metric_safe(kind=kind.value, tool_name=tool_name or "?")
+    inc_tool_error_policy_metric_safe(kind=kind.value(), tool_name=tool_name or "?")
     msg = ""
-    code = f"TOOL_ERROR_{kind.value.upper()}"
+    code = f"TOOL_ERROR_{kind.value().upper()}"
     if exc is not None:
         msg = str(exc)
     elif result.strip().startswith("{"):
@@ -254,7 +384,7 @@ def apply_tool_error_policy(
             payload = json.loads(result)
             if isinstance(payload, dict):
                 payload = dict(payload)
-                payload["error_policy"] = kind.value
+                payload["error_policy"] = kind.value()
                 payload["error"] = observation
                 payload.setdefault("code", code)
                 return json.dumps(payload, ensure_ascii=False, default=str)
@@ -266,7 +396,7 @@ def apply_tool_error_policy(
             "ok": False,
             "tool": tool_name,
             "code": code,
-            "error_policy": kind.value,
+            "error_policy": kind.value(),
             "error": observation,
         },
         ensure_ascii=False,
@@ -276,4 +406,13 @@ def apply_tool_error_policy(
 def should_halt_loop_on_tool_error(result: str, *, tool_name: str = "") -> bool:
     if not tool_error_policy_enabled():
         return False
-    return classify_tool_error(result, tool_name=tool_name) == ToolErrorKind.stop
+    return isinstance(classify_tool_error(result, tool_name=tool_name), Stop)
+
+
+# --- Backwards compatibility ---
+
+# Keep old enum-style attributes for backwards compatibility
+ToolErrorKind.ok = Ok()
+ToolErrorKind.retry = Retry()
+ToolErrorKind.replan = Replan()
+ToolErrorKind.stop = Stop()

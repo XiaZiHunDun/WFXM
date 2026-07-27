@@ -11,7 +11,7 @@ from butler.dev_engine.dev_tools import dev_engine_enabled
 from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
 from butler.ops.eval_config_overrides import effective_coding_knowledge_strict
 from butler.ops.experience_selection_telemetry import record_experience_selection
-from butler.config import get_butler_home as _get_butler_home
+from butler.configuration.settings import get_butler_home as _get_butler_home
 from butler.dev_engine.coding_knowledge import TheoremLibrary, process_task
 from butler.dev_engine.dev_state import CodingKnowledgeSummary
 from butler.dev_engine.prod_delegate_bridge import production_delegate_keywords

@@ -235,3 +235,21 @@ def sync_degradation_metrics_safe(registry: dict[str, Any]) -> None:
             set_component_gauge_safe(comp, active=True)
 
     safe_best_effort(_run, label="degradation_registry.metrics_sync", default=None)
+
+
+def register_degradation_safe(component: str, reason: str) -> None:
+    def _run() -> None:
+        from butler.ops.degradation_registry import register_degradation
+
+        register_degradation(component, reason)
+
+    safe_best_effort(_run, label=f"degradation_registry.register.{component}", default=None)
+
+
+def clear_degradation_safe(component: str) -> None:
+    def _run() -> None:
+        from butler.ops.degradation_registry import clear_degradation
+
+        clear_degradation(component)
+
+    safe_best_effort(_run, label=f"degradation_registry.clear.{component}", default=None)

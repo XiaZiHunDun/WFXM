@@ -2,7 +2,7 @@
 
 > **状态**：已采纳（2026-06-13）| **阶段**：P0–P5 已落地  
 > **理论 SSOT**：[`v4-memory-theory.md`](../../architecture/v4-memory-theory.md)（M8 扩展）  
-> **实现 SSOT**：`butler/memory/memory_scope.py`、`butler/dev_engine/coding_knowledge.py`  
+> **实现 SSOT**：`butler/memory/memory_scope.py`、`butler/dev_engine/coding_knowledge/`（包）  
 > **边界**：不合并 Owner 叙事经验（`experience.db`）与编码 pattern；不引入 SQL 会话库 / Redis
 
 ---

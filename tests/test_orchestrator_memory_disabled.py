@@ -26,7 +26,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.project.manager import ProjectManager
 
 

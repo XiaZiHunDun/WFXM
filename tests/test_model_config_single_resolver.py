@@ -8,7 +8,7 @@ import yaml
 
 import pytest
 
-from butler.config import ModelConfig, reload_butler_settings
+from butler.configuration.settings import ModelConfig, reload_butler_settings
 from butler.core.model_context import resolve_max_output_tokens
 from butler.model_resolve import resolve_effective_model
 from butler.project import Project

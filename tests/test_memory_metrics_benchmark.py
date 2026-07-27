@@ -25,12 +25,12 @@ import pytest
 
 
 class TestMemoryMetricsCollector:
-    """MemoryMetricsCollector singleton and event lifecycle."""
+    """MemoryMetricsCollector via ServiceContainer and event lifecycle."""
 
     def setup_method(self):
-        from butler.memory.memory_metrics import MemoryMetricsCollector
+        from butler.core.container import container
 
-        MemoryMetricsCollector.reset()
+        container.reset_all()
 
     def test_singleton(self):
         from butler.memory.memory_metrics import get_collector
@@ -114,7 +114,9 @@ class TestMemoryMetricsCollector:
         c.save_to_file(path)
         assert path.is_file()
 
-        MemoryMetricsCollector.reset()
+        from butler.core.container import container
+
+        container.reset_all()
         c2 = get_collector()
         c2.load_from_file(path)
 
@@ -239,9 +241,9 @@ class TestMemoryMetricsTool:
     """memory_metrics tool handler tests."""
 
     def setup_method(self):
-        from butler.memory.memory_metrics import MemoryMetricsCollector
+        from butler.core.container import container
 
-        MemoryMetricsCollector.reset()
+        container.reset_all()
 
     def test_tool_summary(self):
         from butler.tools.memory_tools import tool_memory_metrics

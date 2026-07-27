@@ -11,7 +11,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from butler.configuration.settings import get_butler_home
 from butler.io.safe_load import safe_load_json
@@ -35,7 +35,7 @@ def _workflow_auto_resume_enabled() -> bool:
 def _auto_resume_workflow(session_key: str, workflow_name: str) -> str | None:
     """Re-run the workflow after approval, returning the result text."""
 
-    return cast(str | None, auto_resume_workflow_safe(session_key, workflow_name))
+    return auto_resume_workflow_safe(session_key, workflow_name)
 
 
 def _gate_ttl_seconds() -> float:

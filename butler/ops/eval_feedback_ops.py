@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.defaults.env_defaults import LANGFUSE_ENABLED_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ def read_langfuse_scores_safe(
     limit: int,
     snapshot_factory: Any,
 ) -> list[Any]:
-    if not os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in ("1", "true", "yes"):
+    if not os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in ("1", "true", "yes"):
         return []
 
     try:

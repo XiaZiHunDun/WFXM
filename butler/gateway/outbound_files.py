@@ -8,7 +8,10 @@ from pathlib import Path
 
 from butler.configuration.settings import get_butler_home
 from butler.utilities.env_parse import env_truthy
-from butler.defaults.env_defaults import EXPORT_SEND_WECHAT_FILE_DEFAULT
+from butler.defaults.env_defaults import (
+    EXPORT_SEND_WECHAT_FILE_DEFAULT,
+    EXPORT_SEND_WECHAT_MAX_BYTES_DEFAULT,
+)
 
 _PATH_LINE = re.compile(r"^(/[^\s]+)$")
 
@@ -21,7 +24,7 @@ def export_wechat_file_enabled() -> bool:
 
 
 def export_wechat_max_bytes() -> int:
-    raw = os.getenv("BUTLER_EXPORT_SEND_WECHAT_MAX_BYTES", "").strip()
+    raw = os.getenv("BUTLER_EXPORT_SEND_WECHAT_MAX_BYTES", EXPORT_SEND_WECHAT_MAX_BYTES_DEFAULT).strip()
     if not raw:
         return _EXPORT_MAX_BYTES
     try:

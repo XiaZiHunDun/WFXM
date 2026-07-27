@@ -5,7 +5,7 @@ Pipeline: mine → review (CT3) → pending queue → owner approve → Experien
 
 from __future__ import annotations
 
-from butler.env_parse import int_env, float_env
+from butler.utilities.env_parse import int_env, float_env
 import hashlib
 import json
 import logging
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.memory.experience_mining_ops import (
     read_text_snippet_safe,
     collect_recent_edit_paths_safe,
@@ -27,6 +27,10 @@ from butler.dev_engine.coding_knowledge import (
     TheoremLibrary,
     verify_theorems,
     ExperienceLibrary,
+)
+from butler.defaults.env_defaults import (
+    EXPERIENCE_MINING_AUTO_INGEST_DEFAULT,
+    EXPERIENCE_MINING_DEFAULT,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,7 +107,7 @@ _PATTERN_TEMPLATES: dict[str, str] = {
 
 
 def mining_enabled() -> bool:
-    return os.getenv("BUTLER_EXPERIENCE_MINING", "1").strip().lower() not in (
+    return os.getenv("BUTLER_EXPERIENCE_MINING", EXPERIENCE_MINING_DEFAULT).strip().lower() not in (
         "0",
         "false",
         "no",
@@ -111,7 +115,7 @@ def mining_enabled() -> bool:
 
 
 def auto_ingest_enabled() -> bool:
-    return os.getenv("BUTLER_EXPERIENCE_MINING_AUTO_INGEST", "").strip().lower() in (
+    return os.getenv("BUTLER_EXPERIENCE_MINING_AUTO_INGEST", EXPERIENCE_MINING_AUTO_INGEST_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",

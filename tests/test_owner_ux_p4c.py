@@ -31,7 +31,7 @@ def test_memory_auto_approve_all_mode(tmp_path, monkeypatch):
 def test_owner_pmf_metrics_opt_in(monkeypatch):
     monkeypatch.setenv("BUTLER_OWNER_PMF_METRICS", "1")
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.ops.owner_pmf_metrics import (
         format_owner_pmf_report,
         record_brief_view,

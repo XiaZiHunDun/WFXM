@@ -25,7 +25,7 @@ _ALLOWED_SUFFIXES = (".md", ".txt", ".json", ".yaml", ".yml")
 
 
 def marketplace_enabled() -> bool:
-    return os.getenv("BUTLER_CLAUDE_MARKETPLACE_ENABLED", "1").strip().lower() not in (
+    return os.getenv("BUTLER_CLAUDE_MARKETPLACE_ENABLED", CLAUDE_MARKETPLACE_ENABLED_DEFAULT).strip().lower() not in (
         "0",
         "false",
         "no",
@@ -148,7 +148,7 @@ def _catalog_entries() -> list[_MarketplaceCatalog]:
                         json_file=json_file,
                     )
                 )
-    for url in os.getenv("BUTLER_CLAUDE_MARKETPLACE_URLS", "").split(","):
+    for url in os.getenv("BUTLER_CLAUDE_MARKETPLACE_URLS", CLAUDE_MARKETPLACE_URLS_DEFAULT).split(","):
         u = url.strip()
         if not u:
             continue
@@ -357,7 +357,7 @@ class ClaudeMarketplaceSource(SkillSource):  # type: ignore[misc]
             data = _marketplace_json_for(catalog)
             if not data:
                 if catalog.base_raw_url and os.getenv("BUTLER_CLAUDE_MARKETPLACE_URLS"):
-                    for url in os.getenv("BUTLER_CLAUDE_MARKETPLACE_URLS", "").split(","):
+                    for url in os.getenv("BUTLER_CLAUDE_MARKETPLACE_URLS", CLAUDE_MARKETPLACE_URLS_DEFAULT).split(","):
                         if _slug(Path(urlparse(url.strip()).path).stem or "") == catalog.id:
                             data = _fetch_marketplace_url(url.strip())
                             break

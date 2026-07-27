@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml  # type: ignore[import-untyped]
 
+from butler.defaults.env_defaults import SKILL_AUTO_SYNC_PROJECT_DEFAULT
 from butler.registry.paths import skills_root
 from butler.registry.skill_lock import SkillLockFile
 from butler.registry.skill_types import InstalledSkillRecord
@@ -166,7 +167,7 @@ def sync_tenant_skills_to_project(
 
 
 def skill_auto_sync_project_enabled() -> bool:
-    return os.getenv("BUTLER_SKILL_AUTO_SYNC_PROJECT", "1").strip().lower() in (
+    return os.getenv("BUTLER_SKILL_AUTO_SYNC_PROJECT", SKILL_AUTO_SYNC_PROJECT_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",
@@ -181,7 +182,7 @@ def resolve_default_project_workspace() -> Path | None:
         default_project_stack_workspace_safe,
     )
 
-    name = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+    name = os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_DEFAULT).strip()
     if not name:
         name = default_project_name_safe()
     if not name:

@@ -1,7 +1,7 @@
 # Agent Loop 状态机（Butler v4）
 
 > **状态**：2026-06 · AP-7  
-> **代码 SSOT**：[`butler/core/loop_types.py`](../../butler/core/loop_types.py) · [`butler/core/agent_loop.py`](../../butler/core/agent_loop.py)  
+> **代码 SSOT**：[`butler/core/loop_types.py`](../../butler/core/loop_types.py) · [`butler/core/agent_loop/`](../../butler/core/agent_loop/)  
 > **关联**：Gateway 锁定阶段 [`locked_phases.py`](../../butler/gateway/locked_phases.py) · 门控 [`permission-gate-stack.md`](permission-gate-stack.md)
 
 ## 1. 定位

@@ -45,7 +45,7 @@ Butler v4 采用**自建 Agent Loop + 模块化复用**方案 — Butler 完全�
    Butler Orchestrator          ← 分层配置、记忆注入、Skill 路由
          │
          ▼
-   Butler Agent Loop (自建)     ← 编排入口 agent_loop.py（~560 行，2026-06-09）
+   Butler Agent Loop (自建)     ← 编排入口 `agent_loop/`（包，~560 行，2026-06-09）
          │
          ├─→ context_pipeline   ← 压缩 / hygiene / 分级剪枝 / post-compact 锚点
          ├─→ llm_retry          ← LLM 重试、schema 恢复、failover、流式 on_tool_call_ready
@@ -76,12 +76,13 @@ Butler v4 采用**自建 Agent Loop + 模块化复用**方案 — Butler 完全�
 
 | 模块 | 层级 | 路径 | 说明 |
 |------|------|------|------|
-| Agent Loop（编排） | L3 | `butler/core/agent_loop.py` (~561 行) | 主循环、`LoopResult`、fallback 切换、对外 API |
-| 上下文管线 | L3 | `butler/core/context_pipeline.py` | `ContextPipeline`：压缩摘要、hygiene preflight、API 前 repair/sanitize |
-| LLM 重试 | L3 | `butler/core/llm_retry.py` | `call_llm_with_retry`：空内容重试、schema 降级、压缩回退、中断 |
-| 工具批次 | L3 | `butler/core/tool_batch.py` | `process_tool_calls`、tool envelope、guardrails 接线、顺序中断补全 |
-| 并行工具批 | L3 | `butler/core/parallel_tools.py` | 安全并行执行、`precheck_tool`（interrupt/halt 跳过） |
-| Loop 类型 | L3 | `butler/core/loop_types.py` | `LoopConfig` / `LoopCallbacks` / `LoopResult` / `LoopStatus` |
+| Agent Loop（编排） | L3 | `butler/core/agent_loop/`（包：loop/phases，~561 行） | 主循环、`LoopResult`、fallback 切换、对外 API |
+| Core 子包 | L3 | `butler/core/`（包：context/compaction/tool/session/llm/loop） | 逻辑分层组织，向后兼容 |
+| 上下文管线 | L3 | `butler/core/context/context_pipeline.py` | `ContextPipeline`：压缩摘要、hygiene preflight、API 前 repair/sanitize |
+| LLM 重试 | L3 | `butler/core/llm/llm_retry.py` | `call_llm_with_retry`：空内容重试、schema 降级、压缩回退、中断 |
+| 工具批次 | L3 | `butler/core/tool/tool_batch.py` | `process_tool_calls`、tool envelope、guardrails 接线、顺序中断补全 |
+| 并行工具批 | L3 | `butler/core/loop/parallel_tools.py` | 安全并行执行、`precheck_tool`（interrupt/halt 跳过） |
+| Loop 类型 | L3 | `butler/core/loop/loop_types.py` | `LoopConfig` / `LoopCallbacks` / `LoopResult` / `LoopStatus` |
 | Orchestrator | L2 | `butler/orchestrator/` | 系统提示注入、模型配置、Skill 路由、AgentLoop 工厂（`templates` / `loop_factory` / `memory_bridge` / `skill_bridge` / `prompt_assembler`） |
 | Task Orchestrator | L2 | `butler/task_orchestrator.py` | DAG 拓扑排序、真并行（asyncio.to_thread）、委派深度、session 审计归属 |
 | Gateway Session | L1 | `butler/gateway/session_registry.py` | 按 `session_key` 管理 Loop 生命周期与 health；驱逐时清理工具审计 |
@@ -425,7 +426,7 @@ Butler v4 对“外部依赖引入”采用 **少量、分层、可选** 策略�
 ## Agent Loop 设计
 
 Butler v4 的 Agent Loop 是系统的核心——完全自建，不依赖任何外部 agent 框架。  
-**`agent_loop.py` 仅保留编排**；压缩、重试、工具批次等逻辑在独立模块中，便于单测与演进。
+**`agent_loop/` 仅保留编排**；压缩、重试、工具批次等逻辑在独立模块中，便于单测与演进。
 
 ```python
 while not done and iterations < budget:
@@ -439,7 +440,7 @@ while not done and iterations < budget:
 ```
 
 模块化约束（见 [`hermes-extraction-map.md`](hermes-extraction-map.md)）：
-- `agent_loop.py` 当前 ~561 行（2026-06-09 `wc -l`；编排 + Loop 内各阶段调度）
+- `agent_loop/` 当前 ~561 行（2026-06-09 `wc -l`；编排 + Loop 内各阶段调度）
 - 新增能力优先落入 `tool_batch` / `llm_retry` / `context_pipeline` 等子模块，避免回灌单体文件
 
 核心价值：**Butler 完全控制每一步**：
@@ -708,7 +709,7 @@ while not done and iterations < budget:
 | Cost Tracker | `butler/ops/cost_tracker.py` | 会话成本追踪（仅观测） |
 | OpenCode Bridge | `butler/extensions/opencode.py` | OpenCode 扩展点接口 |
 | LangFuse Tracer | `butler/ops/langfuse_tracer.py` | 可选 LangFuse 追踪（opt-in `BUTLER_LANGFUSE_ENABLED=1`）|
-| CD8 Synth + CD6 GenTC | `butler/dev_engine/coding_knowledge.py` | 编码合成器 + 等价类测试生成（DE-GAP CD8/CD6） |
+| CD8 Synth + CD6 GenTC | `butler/dev_engine/coding_knowledge/`（包） | 编码合成器 + 等价类测试生成（DE-GAP CD8/CD6） |
 | P-CT4a mutation gate | `butler/dev_engine/gentc_mutation.py` | GenTC 等价类审查 + 变异测试得分（H10） |
 | Eval quality dashboard | `butler/ops/eval_diagnostics.py` | O7/O9 Dev/Mem/B9 快照 → `/诊断` + doctor |
 | Boundary observability | `butler/ops/boundary_observability.py` | G1/G2 登记册信号 → `/诊断` + doctor |

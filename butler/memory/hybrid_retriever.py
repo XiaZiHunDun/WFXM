@@ -159,14 +159,11 @@ class HybridRetriever:
         return "\n\n".join(context_parts)
 
 
-_singleton: Optional[HybridRetriever] = None
-
-
 def get_hybrid_retriever() -> HybridRetriever:
-    global _singleton
-    if _singleton is None:
-        _singleton = HybridRetriever()
-    return _singleton
+    """Shared ``HybridRetriever`` via ServiceContainer."""
+    from butler.core.container import container
+
+    return container.hybrid_retriever()
 
 
 __all__ = [

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.project import Project
 from butler.project.archetypes import load_template, validate_slug
 from butler.project.lead import is_lead_project

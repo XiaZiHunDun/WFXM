@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
 
+from butler.defaults.env_defaults import DEPLOY_PROFILE_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 _EXTRA_IMPORTS: dict[str, str] = {
@@ -135,7 +137,7 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
 
     deploy_profile = str(stack.get("deploy_profile") or py.get("install") or "").strip()
     if deploy_profile:
-        env_profile = os.getenv("BUTLER_DEPLOY_PROFILE", "").strip()
+        env_profile = os.getenv("BUTLER_DEPLOY_PROFILE", DEPLOY_PROFILE_DEFAULT).strip()
         extras_ok = all(
             _module_installed(_EXTRA_IMPORTS[str(e)])
             for e in (py.get("includes") or [])

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from butler.defaults.env_defaults import TOKEN_COST_ESTIMATE_DEFAULT
+
 # (input_usd_per_1M, output_usd_per_1M)  — 按模型关键字从具体到通用排列
 _PRICE_TABLE: list[tuple[tuple[str, ...], float, float]] = [
     # --- DeepSeek ---
@@ -107,7 +109,7 @@ def format_token_cost_diagnostic_lines(
 def token_cost_estimate_enabled() -> bool:
     import os
 
-    return os.getenv("BUTLER_TOKEN_COST_ESTIMATE", "").strip().lower() in (
+    return os.getenv("BUTLER_TOKEN_COST_ESTIMATE", TOKEN_COST_ESTIMATE_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",

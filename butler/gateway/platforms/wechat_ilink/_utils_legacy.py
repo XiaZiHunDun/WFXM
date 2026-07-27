@@ -44,7 +44,7 @@ from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import (
     parse_wechat_cdn_url_loud,
     load_sync_buf_field_safe,
 )
-from butler.env_parse import float_env
+from butler.utilities.env_parse import float_env
 from butler.gateway.platforms.wechat_ilink.constants import (
     ITEM_FILE,
     ITEM_IMAGE,

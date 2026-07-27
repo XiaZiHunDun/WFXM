@@ -14,14 +14,14 @@ _RULE_EXTENSIONS = (".md", ".txt")
 
 
 def rules_engine_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     return bool(env_truthy("BUTLER_RULES_ENGINE", default=True))
 
 
 def max_chars() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_RULES_MAX_CHARS", 6000, min=500))
     except ValueError:

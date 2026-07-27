@@ -16,7 +16,7 @@ class TestC1ExternalRepo:
         assert not _is_git_url("projects/MyApp")
 
     def test_wechat_register_git_clone(self, tmp_path, monkeypatch):
-        from butler.config import ButlerSettings
+        from butler.configuration.settings import ButlerSettings
         from butler.gateway.commands.project_handlers import _project_register_wechat
 
         monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(tmp_path / "projects"))
@@ -97,7 +97,7 @@ class TestC3SecondLead:
 
 class TestC4ProjectCreateTemplate:
     def test_create_with_knowledge_light_template(self, tmp_path, monkeypatch):
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         from butler.project.manager import ProjectManager, get_project_manager
 
         projects_dir = tmp_path / "projects"

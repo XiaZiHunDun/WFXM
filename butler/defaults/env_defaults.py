@@ -243,6 +243,13 @@ FINISH_TOOL_TRUNCATE_MAX_DEFAULT: Final[int] = 5000
 # --- Runtime ---
 RUNTIME_TASK_STALE_AUTO_FAIL_DEFAULT: Final[bool] = False
 RUNTIME_CC_BRIDGE_DEFAULT: Final[bool] = False
+RUNTIME_ENABLED_DEFAULT: Final[str] = "1"
+RUNTIME_PUSH_DEFAULT: Final[str] = "1"
+RUNTIME_PUSH_COOLDOWN_SECONDS_DEFAULT: Final[str] = "25"
+RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS_DEFAULT: Final[str] = "300"
+RUNTIME_PUSH_QUEUE_DEFAULT: Final[str] = "1"
+CC_CLI_DEFAULT: Final[str] = ""
+EXPERIENCE_PRUNE_DAYS_DEFAULT: Final[str] = "30"
 
 # --- Hooks ---
 HOOKS_FAIL_CLOSED_DEFAULT: Final[bool] = False
@@ -253,6 +260,10 @@ TRANSPORT_STREAM_PROBE_DEFAULT: Final[bool] = False
 TRANSPORT_TOOL_WIRE_DEFAULT: Final[bool] = True
 TRANSPORT_THINKING_PROTOCOL_DEFAULT: Final[bool] = False
 TRANSPORT_STREAMING_TOOLS_DEFAULT: Final[bool] = True
+THINKING_BETA_MATRIX_DEFAULT: Final[str] = ""
+THINKING_BETA_HEADER_DEFAULT: Final[str] = ""
+STREAM_MEMORY_SCRUB_DEFAULT: Final[str] = "1"
+PROVIDER_FAILOVER_DEFAULT: Final[str] = ""
 
 # --- Permissions ---
 PERMISSIONS_PARAM_BLACKLIST_DEFAULT: Final[bool] = True
@@ -286,3 +297,255 @@ DEFAULT_PROJECT_DEFAULT: Final[str] = ""
 LEAD_PROJECTS_DEFAULT: Final[str] = ""
 PROJECT_DELETE_MATURITY_GATE_DEFAULT: Final[str] = "1"
 TOOL_SAFE_ROOT_DEFAULT: Final[str] = ""
+
+# --- Ops: snapshot flags (string defaults for raw display) ---
+SEMANTIC_MEMORY_DEFAULT: Final[str] = "0"
+QUEUE_PREFETCH_DEFAULT: Final[str] = "0"
+WECHAT_DEV_SMOKE_DEFAULT: Final[str] = "0"
+ENABLE_TERMINAL_DEFAULT: Final[str] = "0"
+ENABLE_GIT_DEFAULT: Final[str] = "0"
+ENABLE_GIT_WRITE_DEFAULT: Final[str] = "0"
+
+# --- Configuration: secrets ---
+SECRETS_FILE_DEFAULT: Final[str] = "1"
+SECRETS_PATH_DEFAULT: Final[str] = ""
+SECRETS_ENCRYPT_KEY_DEFAULT: Final[str] = ""
+
+# --- Configuration: settings ---
+PROJECTS_DIR_DEFAULT: Final[str] = ""
+LOG_LEVEL_DEFAULT: Final[str] = ""
+ENV_DEFAULT: Final[str] = ""
+
+# --- Configuration: gateway inbound ---
+MINIMAX_API_HOST_DEFAULT: Final[str] = ""
+PREFER_ILINK_TEXT_DEFAULT: Final[str] = ""
+STT_PROVIDER_DEFAULT: Final[str] = ""
+WHISPER_MODEL_DEFAULT: Final[str] = ""
+
+# --- Configuration: context ---
+TOOL_PRUNE_CLEAR_AT_LEAST_DEFAULT: Final[str] = ""
+DOOM_LOOP_MODE_DEFAULT: Final[str] = "block"
+
+# --- Configuration: memory ---
+FTS_HYBRID_WEIGHT_DEFAULT: Final[str] = ""
+OBSERVATION_TTL_DAYS_DEFAULT: Final[str] = ""
+MEMORY_OBSERVATION_MAX_ROWS_DEFAULT: Final[str] = ""
+SYNC_CONVERSATION_MEMORY_DEFAULT: Final[str] = "0"
+
+# --- Gateway: misc ---
+BOT_LOOP_WHITELIST_DEFAULT: Final[str] = ""
+EXPORT_SEND_WECHAT_MAX_BYTES_DEFAULT: Final[str] = ""
+ENV_PROFILE_DEFAULT: Final[str] = ""
+DATA_HOME_DEFAULT: Final[str] = ""
+MCP_ENABLED_DEFAULT: Final[str] = "0"
+VISION_FALLBACK_DEFAULT: Final[str] = "openai,ocr"
+
+# --- MCP: misc ---
+MCP_STDIO_ALLOW_COMMANDS_DEFAULT: Final[str] = "python,python3,uvx"
+MCP_HTTP_HOSTS_ALLOW_DEFAULT: Final[str] = ""
+MCP_CONFIG_DEFAULT: Final[str] = ""
+MCP_TOOL_PREFIX_DEFAULT: Final[str] = "mcp"
+
+# --- Eval / Observability ---
+LANGFUSE_ENABLED_DEFAULT: Final[str] = "0"
+GITHUB_DEFAULT_OWNER_DEFAULT: Final[str] = "XiaZiHunDun"
+LOBEHUB_LOCALE_DEFAULT: Final[str] = "zh-CN"
+MCP_CATALOG_URLS_DEFAULT: Final[str] = ""
+SKILL_AUTO_SYNC_PROJECT_DEFAULT: Final[str] = "1"
+
+# --- Ops: deploy profile ---
+DEPLOY_PROFILE_DEFAULT: Final[str] = ""
+
+# --- Ops: gateway / misc ---
+CC_BRIDGE_DEFAULT: Final[str] = "0"
+GATEWAY_ALLOWLIST_DEFAULT: Final[str] = ""
+MCP_HTTP_ALLOW_PRIVATE_DEFAULT: Final[str] = "0"
+DISABLE_AUTO_COMPACT_DEFAULT: Final[str] = ""
+
+# --- Ops: terminal ---
+TERMINAL_PROFILE_DEFAULT: Final[str] = "(默认)"
+
+# --- Ops: eval ---
+EVAL_PROD_EVIDENCE_DEFAULT: Final[str] = "1"
+EVAL_HARD_FEEDBACK_DEFAULT: Final[str] = "1"
+EVAL_B9_IN_REGRESSION_DEFAULT: Final[str] = "1"
+EVAL_LLM_BENCHMARK_DEFAULT: Final[str] = "0"
+EVAL_CAPTURE_DELEGATE_FAILURES_DEFAULT: Final[str] = ""
+EVAL_DELEGATE_JUDGE_DEFAULT: Final[str] = "heuristic"
+
+# --- Ops: langfuse tracer ---
+PROJECT_NAME_DEFAULT: Final[str] = "butler-v4"
+TENANT_DEFAULT: Final[str] = ""
+
+# --- Ops: boundary observability ---
+EMBEDDING_PROVIDER_DEFAULT: Final[str] = "local"
+
+# --- Ops: morning brief ---
+MORNING_BRIEF_DEFAULT: Final[str] = "0"
+
+# --- Ops: secrets contract ---
+SECRETS_GATEWAY_EXPECTED_DEFAULT: Final[str] = ""
+
+# --- Ops: cost calibration ---
+COST_CALIBRATION_PERSIST_DEFAULT: Final[str] = "1"
+
+# --- Ops: token cost ---
+TOKEN_COST_ESTIMATE_DEFAULT: Final[str] = ""
+
+# --- Core: goal loop (goal_loop.py) ---
+GOAL_LOOP_DEFAULT: Final[str] = "0"
+
+# --- Core: context budget (context_budget.py) ---
+DISABLE_COMPACT_DEFAULT: Final[str] = ""
+
+# --- Core: context compressor (context_compressor.py) ---
+TOKEN_COUNTER_DEFAULT: Final[str] = "heuristic"
+COMPRESS_TOOL_RESPONSE_BUDGET_DEFAULT: Final[str] = ""
+
+# --- Core: agents / design md sections (agents_md_sections.py, design_md_sections.py) ---
+POST_COMPACT_AGENTS_SECTIONS_DEFAULT: Final[str] = ""
+POST_COMPACT_DESIGN_SECTIONS_DEFAULT: Final[str] = ""
+DESIGN_PRESET_DIR_DEFAULT: Final[str] = ""
+
+# --- Core: meta flags (meta_flags.py) ---
+WORKFLOW_MAX_PARALLEL_DEFAULT: Final[str] = ""
+
+# --- Core: remote compact (remote_compact.py) ---
+REMOTE_COMPACT_URL_DEFAULT: Final[str] = ""
+
+# --- Core: transcript index (transcript_index.py) ---
+TRANSCRIPT_INDEX_MIN_BYTES_DEFAULT: Final[str] = ""
+
+# --- Core: tool result storage (tool_result_storage.py) ---
+TOOL_RESULT_SPILL_MIN_CHARS_DEFAULT: Final[str] = ""
+TOOL_RESULT_THRESHOLDS_DEFAULT: Final[str] = ""
+TOOL_RESULT_MESSAGE_MAX_CHARS_DEFAULT: Final[str] = ""
+
+# --- Core: tool pair repair (tool_pair_repair.py) ---
+TOOL_PAIR_REPAIR_DEFAULT: Final[str] = "1"
+
+# --- Core: fact extraction (fact_extraction.py) ---
+FACT_EXTRACTION_DEFAULT: Final[str] = "1"
+
+# --- Core: memory recap line (memory_recap_line.py) ---
+MEMORY_RECAP_MIN_CHARS_DEFAULT: Final[str] = "300"
+
+# --- Core: intent keywords (intent_keywords.py) ---
+INTENT_KEYWORDS_DEFAULT: Final[str] = ""
+INTENT_KEYWORDS_OFF_DEFAULT: Final[str] = ""
+
+# --- Core: tool executor (tool_executor.py) ---
+CONCURRENT_TOOL_TIMEOUT_S_STR_DEFAULT: Final[str] = ""
+
+# --- Core: agent loop conversation (loop_conversation.py) ---
+CONVERSATION_STATE_PERSIST_DEFAULT: Final[str] = "1"
+
+# --- Tools: terminal sandbox ---
+SANDBOX_CREDENTIAL_ENV_DEFAULT: Final[str] = ""
+
+# --- Tools: download ---
+ENABLE_DOWNLOAD_DEFAULT: Final[str] = ""
+DOWNLOAD_MAX_BYTES_DEFAULT: Final[str] = ""
+DOWNLOAD_ALLOW_HOSTS_DEFAULT: Final[str] = ""
+
+# --- Tools: audit ---
+TOOL_AUDIT_PERSIST_DEFAULT: Final[str] = "1"
+TOOL_AUDIT_JSONL_DEFAULT: Final[str] = ""
+TOOL_AUDIT_PATH_DEFAULT: Final[str] = ""
+
+# --- Tools: scope ---
+TOOL_SCOPE_DEFAULT: Final[str] = "environment"
+WORKSPACE_ANCHOR_STRICT_DEFAULT: Final[str] = "1"
+TOOL_PROJECT_ANCHOR_DEFAULT: Final[str] = "1"
+
+# --- Tools: terminal allowlist extra ---
+TERMINAL_ALLOWLIST_EXTRA_DEFAULT: Final[str] = ""
+
+# --- Tools: PIM encryption ---
+PIM_ENCRYPT_DEFAULT: Final[str] = "0"
+PIM_ENCRYPT_KEY_DEFAULT: Final[str] = ""
+
+# --- Tools: default project env ---
+DEFAULT_PROJECT_ENV_DEFAULT: Final[str] = ""
+
+# --- Tools: git push ---
+ENABLE_GIT_PUSH_DEFAULT: Final[str] = ""
+
+# --- Tools: MCP self-service ---
+MCP_SELF_SERVICE_DEFAULT: Final[str] = "1"
+
+# --- Memory: experience mining ---
+EXPERIENCE_MINING_DEFAULT: Final[str] = "1"
+EXPERIENCE_MINING_AUTO_INGEST_DEFAULT: Final[str] = ""
+
+# --- Memory: markdown chunking ---
+MARKDOWN_INDEX_PATHS_DEFAULT: Final[str] = ""
+
+# --- Memory: owner write approval ---
+MEMORY_WRITE_APPROVAL_DEFAULT: Final[str] = "owner_scopes"
+
+# --- Memory: project memory classifiers ---
+MEMORY_AUTO_APPROVE_DEFAULT: Final[str] = ""
+
+# --- Memory: semantic config (env-only defaults, distinct from YAML defaults) ---
+EMBEDDING_PROVIDER_ENV_DEFAULT: Final[str] = ""
+EMBEDDING_MODEL_ENV_DEFAULT: Final[str] = ""
+
+# --- Home ---
+BUTLER_HOME_DEFAULT: Final[str] = "~/.butler"
+
+# --- Dev engine (dev_tools.py, loop_plugin.py, verify.py, b9_delegate_gate.py, gentc_mutation.py) ---
+DEV_ENGINE_DEFAULT: Final[str] = "1"
+DEV_AUTO_VERIFY_DEFAULT: Final[str] = "1"
+DEV_ROLLBACK_ENABLED_DEFAULT: Final[str] = "1"
+DEV_DIAGNOSTICS_INJECT_DEFAULT: Final[str] = "1"
+DEV_AUTO_REVIEW_DEFAULT: Final[str] = "0"
+DEV_REVIEW_STRICT_DEFAULT: Final[str] = "0"
+DEV_VERIFY_FIX_PIN_DEFAULT: Final[str] = "1"
+DEV_AUTO_VERIFY_LEVELS_DEFAULT: Final[str] = "lint,test"
+DEV_VERIFY_SUCCESS_GATE_DEFAULT: Final[str] = "1"
+DEV_VERIFY_TIMEOUT_DEFAULT: Final[int] = 300
+GENTC_MUTATION_MIN_SCORE_DEFAULT: Final[str] = "0.6"
+
+# --- Skills (injection_policy.py, router_ops.py, paths.py, skills_project_sync.py, github.py) ---
+SKILL_REGISTRY_DEFAULT: Final[str] = "1"
+SKILL_REGISTRY_SOURCES_DEFAULT: Final[str] = "bundled,project,github,url,clawhub,marketplace,lobehub"
+REGISTRY_AUTO_INSTALL_DEFAULT: Final[str] = ""
+SKILL_TRUSTED_REPOS_DEFAULT: Final[str] = ""
+SKILL_AUTO_SYNC_PROJECT_DEFAULT: Final[str] = "1"
+SKILL_INJECTION_MODE_DEFAULT: Final[str] = "fallback"
+SKILL_SEMANTIC_ROUTING_DEFAULT: Final[str] = "1"
+
+# --- LobeHub (lobehub.py) ---
+LOBEHUB_ENABLED_DEFAULT: Final[str] = "1"
+LOBEHUB_URL_DEFAULT: Final[str] = "https://market.lobehub.com"
+LOBEHUB_TOKEN_DEFAULT: Final[str] = ""
+LOBEHUB_USE_CLI_DEFAULT: Final[str] = ""
+LOBEHUB_LOCALE_DEFAULT: Final[str] = "zh-CN"
+
+# --- ClawHub (clawhub.py) ---
+CLAWHUB_URL_DEFAULT: Final[str] = "https://clawhub.ai/api/v1"
+CLAWHUB_ENABLED_DEFAULT: Final[str] = "1"
+
+# --- Claude Marketplace (marketplace.py) ---
+CLAUDE_MARKETPLACE_ENABLED_DEFAULT: Final[str] = "1"
+CLAUDE_MARKETPLACE_URLS_DEFAULT: Final[str] = ""
+
+# --- MCP misc (mcp_catalog.py, mcp_catalog_remote.py, mcp_project_tools.py) ---
+MCP_CATALOG_URLS_DEFAULT: Final[str] = ""
+MCP_CATALOG_DEFAULT: Final[str] = "1"
+MCP_AUTO_PROJECT_TOOLS_DEFAULT: Final[str] = "1"
+
+# --- Registry misc (url_safety.py) ---
+REGISTRY_ALLOWED_HOSTS_DEFAULT: Final[str] = ""
+
+# --- Gateway misc (inbound_idempotency.py, durable_outbox.py) ---
+GATEWAY_INFLIGHT_TTL_SEC_DEFAULT: Final[str] = ""
+GATEWAY_DURABLE_OUTBOX_MAX_DEFAULT: Final[str] = ""
+
+# --- Eval (llm_delegate_benchmark.py) ---
+EVAL_LLM_BENCHMARK_DEFAULT: Final[str] = "0"
+
+# --- Eval (memory_mb_suite.py, b9_oracle_suite.py) ---
+EVAL_MEM_PASS_RATE_MIN_DEFAULT: Final[float] = 0.7
+EVAL_B9_PASS_RATE_MIN_DEFAULT: Final[float] = 1.0

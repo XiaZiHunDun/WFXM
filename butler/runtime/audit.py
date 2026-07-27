@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
-from butler.config import get_butler_settings
+from butler.configuration.settings import get_butler_settings
 from butler.io.safe_load import safe_load_json
 
 logger = logging.getLogger(__name__)

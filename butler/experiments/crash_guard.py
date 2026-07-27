@@ -10,7 +10,7 @@ from butler.experiments.ledger import _read_rows, experiments_ledger_path
 
 def crash_block_threshold() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_EXPERIMENT_CRASH_BLOCK", 3, min=1))
     except ValueError:

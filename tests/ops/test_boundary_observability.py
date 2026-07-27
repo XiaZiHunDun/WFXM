@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 def test_collect_observations(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     audit = tmp_path / "audit"
@@ -40,7 +40,7 @@ def test_collect_observations(tmp_path, monkeypatch):
 
 def test_format_lines_in_health_report(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     orch = MagicMock()
@@ -59,7 +59,7 @@ def test_format_lines_in_health_report(tmp_path, monkeypatch):
 
 def test_g1_04_window_status_counts_in_window(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.ops.boundary_observability import (
         G1_04_WINDOW_START,
         g1_04_observation_window_status,
@@ -94,7 +94,7 @@ def test_g1_04_production_evidence_enables_ot2_closure(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     from datetime import timedelta
 
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.ops.boundary_observability import (
         G1_04_WINDOW_END,
         g1_04_observation_window_status,

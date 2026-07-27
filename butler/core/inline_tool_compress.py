@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from butler.env_parse import env_truthy, int_env
+from butler.utilities.env_parse import env_truthy, int_env
 
 
 def inline_tool_compress_enabled() -> bool:

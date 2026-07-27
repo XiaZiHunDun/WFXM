@@ -7,7 +7,7 @@ from typing import Any
 
 from butler.memory.observation_migrate import observations_tsv_path
 from butler.memory.observation_store import observations_db_path
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 from butler.ops.observation_diagnostics_ops import (
     observation_store_stats_safe,
     relative_db_path_safe,

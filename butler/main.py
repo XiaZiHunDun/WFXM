@@ -22,9 +22,12 @@ from butler.cli.blackboard_cli import register_blackboard_parser
 from butler.cli.chat_cli import register_chat_parser
 from butler.cli.cost_cli import register_cost_parser
 from butler.cli.doctor import cmd_doctor
+from butler.cli.events_cli import register_events_parser
 from butler.cli.eval_cli import register_eval_parser
+from butler.cli.architecture_cli import register_architecture_parser
 from butler.cli.experiment_cli import register_experiment_parser
 from butler.cli.gateway_cli import register_gateway_parser
+from butler.cli.gate_cli import register_gate_parser
 from butler.cli.mcp_cli import register_mcp_parser
 from butler.cli.memory_cli import register_memory_parser
 from butler.cli.onboard_cli import register_onboard_parser
@@ -38,9 +41,9 @@ from butler.cli.sessions_cli import register_sessions_subparser
 from butler.cli.skills_registry import register_skills_parser
 from butler.cli.transcript_cli import register_transcript_parser
 from butler.cli.workflow_cli import register_workflow_subparser
-from butler.env_parse import init_dotenv
-from butler.logging_config import configure_logging
-from butler.repo_paths import REPO_ROOT as _REPO_ROOT
+from butler.utilities.env_parse import init_dotenv
+from butler.utilities.logging_config import configure_logging
+from butler.utilities.repo_paths import REPO_ROOT as _REPO_ROOT
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -77,11 +80,14 @@ def _register_per_area_parsers(sub: argparse._SubParsersAction[argparse.Argument
     """Per-area registrations (R1-7 extraction targets)."""
     register_chat_parser(sub)
     register_cost_parser(sub)
+    register_events_parser(sub)
+    register_architecture_parser(sub)
     register_onboard_parser(sub)
     register_projects_parser(sub)
     register_memory_parser(sub)
     register_runtime_parser(sub)
     register_gateway_parser(sub)
+    register_gate_parser(sub)
     register_mcp_parser(sub)
     register_blackboard_parser(sub)
 
@@ -108,6 +114,12 @@ def _cmd_doctor(ns: argparse.Namespace) -> int:
 def main(argv: Sequence[str] | None = None) -> None:
     init_dotenv()
     configure_logging()
+
+    # Initialize event consumers for real-time monitoring and analytics
+    from butler.core.events.event_consumer import initialize_event_consumers
+
+    initialize_event_consumers()
+
     args = _build_parser().parse_args(argv)
     code = args.func(args)
     raise SystemExit(code)

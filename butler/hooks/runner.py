@@ -375,9 +375,10 @@ def run_subagent_stop_hooks(
 
 
 def _pre_tool_hook_fail_closed() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
+    from butler.defaults.env_defaults import HOOKS_FAIL_CLOSED_DEFAULT
 
-    return bool(env_truthy("BUTLER_HOOK_FAIL_CLOSED", default=False))
+    return bool(env_truthy("BUTLER_HOOK_FAIL_CLOSED", default=HOOKS_FAIL_CLOSED_DEFAULT))
 
 
 def run_pre_compact_hooks(

@@ -279,25 +279,26 @@ class TestOnboardingWelcome:
 class TestWorkflowAutoResume:
     """#4 Workflow auto-resume after approval."""
 
-    def test_auto_resume_disabled_by_default(self):
-        from butler.human_gate import _workflow_auto_resume_enabled
+    def test_auto_resume_disabled_by_default(self, monkeypatch):
+        monkeypatch.delenv("BUTLER_WORKFLOW_AUTO_RESUME", raising=False)
+        from butler.permissions.human_gate import _workflow_auto_resume_enabled
 
         assert _workflow_auto_resume_enabled() is False
 
     def test_auto_resume_enabled(self, monkeypatch):
         monkeypatch.setenv("BUTLER_WORKFLOW_AUTO_RESUME", "1")
-        from butler.human_gate import _workflow_auto_resume_enabled
+        from butler.permissions.human_gate import _workflow_auto_resume_enabled
 
         assert _workflow_auto_resume_enabled() is True
 
     def test_resolve_gate_without_resume(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.human_gate import (
+        from butler.permissions.human_gate import (
             _save_pending,
             resolve_human_gate_message,
         )
 
-        from butler.human_gate import PendingGate
+        from butler.permissions.human_gate import PendingGate
 
         _save_pending("sk1", PendingGate(
             workflow="test-wf", step_id="step1", kind="workflow_step",
@@ -310,7 +311,7 @@ class TestWorkflowAutoResume:
     def test_resolve_gate_with_auto_resume(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
         monkeypatch.setenv("BUTLER_WORKFLOW_AUTO_RESUME", "1")
-        from butler.human_gate import (
+        from butler.permissions.human_gate import (
             PendingGate,
             _save_pending,
             resolve_human_gate_message,
@@ -320,7 +321,7 @@ class TestWorkflowAutoResume:
             workflow="test-wf", step_id="step1", kind="workflow_step",
         ))
         with patch(
-            "butler.human_gate._auto_resume_workflow",
+            "butler.permissions.human_gate._auto_resume_workflow",
             return_value="工作流完成 (2/2 步成功)",
         ):
             result = resolve_human_gate_message("sk2", "确认", owner_verified=True)

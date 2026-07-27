@@ -70,9 +70,11 @@ __all__ = [
 def _handler_worker_count() -> int:
     raw = os.getenv("BUTLER_GATEWAY_HANDLER_WORKERS", str(GATEWAY_HANDLER_WORKERS))
     try:
-        return max(1, min(8, int(raw)))
+        value = int(raw)
+        result: int = max(1, min(8, value))
+        return result
     except ValueError:
-        return GATEWAY_HANDLER_WORKERS
+        return int(GATEWAY_HANDLER_WORKERS)
 
 
 # Per-chat session locks serialize same user; >1 worker allows /详细 during long turns.

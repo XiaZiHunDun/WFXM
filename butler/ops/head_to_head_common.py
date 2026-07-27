@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from butler.execution_context import use_execution_context
+from butler.ops.head_to_head_common_ops import (
+    load_delegate_report_metrics_safe,
+    seed_b9_workspace_read_state_safe,
+)
+from butler.project.manager import get_project_manager
+from butler.runtime.task_store import get_task
+from butler.tools.delegate_impl import _orchestrator_for_tool
+from butler.tools.registry import dispatch_tool
 import json
 import os
 import shutil
@@ -51,14 +60,10 @@ def reset_workspace(scenario: HeadToHeadScenario) -> Path:
 
 
 def seed_read_state(ws: Path, session_key: str) -> None:
-    from butler.ops.head_to_head_common_ops import seed_b9_workspace_read_state_safe
-
     seed_b9_workspace_read_state_safe(ws, session_key=session_key, max_depth=2)
 
 
 def wait_task(task_id: str, *, timeout_s: float = 600) -> dict[str, Any]:
-    from butler.runtime.task_store import get_task
-
     deadline = time.time() + timeout_s
     rec: dict[str, Any] = {}
     while time.time() < deadline:
@@ -96,7 +101,6 @@ def _load_delegate_metrics(task_id: str, session_key: str, payload: dict[str, An
     de = payload.get("dev_engine")
     if isinstance(de, dict):
         out.update(de)
-    from butler.ops.head_to_head_common_ops import load_delegate_report_metrics_safe
 
     out.update(load_delegate_report_metrics_safe(task_id, session_key))
     return out
@@ -111,11 +115,6 @@ def run_butler(scenario: HeadToHeadScenario, *, live: bool = True) -> dict[str, 
 
     if live:
         _configure_dev_env()
-
-    from butler.execution_context import use_execution_context
-    from butler.project.manager import get_project_manager
-    from butler.tools.delegate_impl import _orchestrator_for_tool
-    from butler.tools.registry import dispatch_tool
 
     pm = get_project_manager()
     proj = pm.get_project(PROJECT_NAME)

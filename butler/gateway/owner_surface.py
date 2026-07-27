@@ -16,6 +16,7 @@ from butler.gateway.owner_surface_ops import (
 from butler.ops.butler_inbox import _action_count, collect_inbox_snapshot
 from butler.project.lead import is_lead_project
 from butler.project.meta import lifecycle_label
+from butler.defaults.env_defaults import ENV_PROFILE_DEFAULT
 
 _OWNER_HELP_DEFAULT = """Butler — 五个说法就够
 
@@ -84,7 +85,7 @@ def format_owner_status_header(
     if pending_delegate:
         lines.append(f"  {_health_icon(False, warn=True)} {pending_delegate}")
 
-    prof = os.getenv("BUTLER_ENV_PROFILE", "").strip()
+    prof = os.getenv("BUTLER_ENV_PROFILE", ENV_PROFILE_DEFAULT).strip()
     if prof:
         lines.append(f"  环境：{prof}（lead=生产关 terminal · dev-gateway=Linux 沙箱）")
 

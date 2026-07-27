@@ -30,6 +30,11 @@ from butler.tools.tool_scope import (
     resolve_environment_tool_root,
     workspace_anchor_strict_for_paths,
 )
+from butler.defaults.env_defaults import (
+    CC_BRIDGE_DEFAULT,
+    TERMINAL_ALLOWLIST_EXTRA_DEFAULT,
+    TERMINAL_PROFILE_DEFAULT,
+)
 
 _BASE_TERMINAL_COMMANDS = {
     "cat",
@@ -67,7 +72,7 @@ _TERMINAL_PROFILES: dict[str, frozenset[str]] = {
 
 def _allowed_terminal_commands() -> set[str]:
     allowed = set(_BASE_TERMINAL_COMMANDS)
-    profile = os.getenv(_PROFILE_ENV, "").strip().lower()
+    profile = os.getenv(_PROFILE_ENV, TERMINAL_PROFILE_DEFAULT).strip().lower()
     if profile in _TERMINAL_PROFILES:
         allowed.update(_TERMINAL_PROFILES[profile])
     from butler.execution_context import get_current_loop_role
@@ -75,13 +80,13 @@ def _allowed_terminal_commands() -> set[str]:
     loop_role = get_current_loop_role()
     if loop_role == "butler":
         allowed.update(_TERMINAL_PROFILES.get("dev", frozenset()))
-    raw = os.getenv(_EXTRA_TERMINAL_ENV, "").strip()
+    raw = os.getenv(_EXTRA_TERMINAL_ENV, TERMINAL_ALLOWLIST_EXTRA_DEFAULT).strip()
     if raw:
         for part in raw.replace(";", ",").split(","):
             name = part.strip()
             if name:
                 allowed.add(name)
-    if os.getenv("BUTLER_CC_BRIDGE", "").strip().lower() in ("1", "true", "yes", "on"):
+    if os.getenv("BUTLER_CC_BRIDGE", CC_BRIDGE_DEFAULT).strip().lower() in ("1", "true", "yes", "on"):
         allowed.add("claude")
     return allowed
 

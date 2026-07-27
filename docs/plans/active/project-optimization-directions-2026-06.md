@@ -63,7 +63,7 @@
 
 | 文件 | 行数 |
 |------|------|
-| `dev_engine/coding_knowledge.py` | 1614 |
+| `dev_engine/coding_knowledge/`（包） | 1614 |
 | `gateway/locked_phases.py` | 826 |
 | `core/agent_loop_phases.py` | 906 |
 | `gateway/platforms/wechat_ilink/phases.py` | ~1206 |

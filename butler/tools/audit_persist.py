@@ -10,17 +10,22 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
+from butler.defaults.env_defaults import (
+    TOOL_AUDIT_JSONL_DEFAULT,
+    TOOL_AUDIT_PATH_DEFAULT,
+)
+
 logger = logging.getLogger(__name__)
 
 _PERSIST_LOCK = threading.Lock()
 
 
 def audit_jsonl_enabled() -> bool:
-    return os.getenv("BUTLER_TOOL_AUDIT_JSONL", "").strip() == "1"
+    return os.getenv("BUTLER_TOOL_AUDIT_JSONL", TOOL_AUDIT_JSONL_DEFAULT).strip() == "1"
 
 
 def audit_jsonl_path() -> Path:
-    raw = os.getenv("BUTLER_TOOL_AUDIT_PATH", "").strip()
+    raw = os.getenv("BUTLER_TOOL_AUDIT_PATH", TOOL_AUDIT_PATH_DEFAULT).strip()
     if raw:
         return Path(raw).expanduser()
     from butler.tools.audit_persist_ops import resolve_butler_home_safe

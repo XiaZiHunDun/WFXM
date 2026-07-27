@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.transport.auxiliary_client import resolve_auxiliary_config
 
 

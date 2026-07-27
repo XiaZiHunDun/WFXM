@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.ops.b9_harness_audit import _is_b9_row
-from butler.config import get_butler_home
+from butler.configuration.settings import get_butler_home
 from butler.ops.b9_prod_weekly_ops import summarize_prod_experience_effectiveness_safe
 from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASK_IDS
 from butler.ops.b9_prod_promoted_registry import binding_for_task, resolve_production_failure_to_task

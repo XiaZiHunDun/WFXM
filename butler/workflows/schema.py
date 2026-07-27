@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from butler.config import ModelConfig
+from butler.configuration.settings import ModelConfig
 
 
 @dataclass

@@ -9,7 +9,7 @@ from butler.core.best_effort import safe_best_effort
 
 def default_project_name_safe() -> str:
     def _run() -> str:
-        from butler.config import load_settings
+        from butler.configuration.settings import load_settings
 
         return str(load_settings().default_project or "").strip()
 

@@ -21,9 +21,10 @@ from butler.core.transcript_fork import fork_transcript_at_user_message
 from butler.memory.transcript_memory_pipeline import extract_memory_from_transcript, transcript_memory_enabled
 from butler.gateway.commands.registry_handlers import handle_confirm_install_command
 from butler.gateway.commands.registry_handlers import handle_registry_command
-from butler.config_service import config_set, format_config_get, format_config_list
+from butler.configuration.service import config_set, format_config_get, format_config_list
 from butler.runtime.task_store import count_running_tasks, list_recent_tasks, mark_stale_tasks, task_stale_minutes
 from butler.workflows.commands import handle_workflow_command
+from butler.defaults.env_defaults import DEFAULT_PROJECT_DEFAULT
 
 
 def _as_str(value: Any) -> str | None:
@@ -108,7 +109,7 @@ def _cmd_transcript_memory(ctx: CommandContext) -> Optional[str]:
         return str(gate)
     if not transcript_memory_enabled():
         return "Transcript 记忆提炼未启用。设置 BUTLER_TRANSCRIPT_MEMORY=1 后重试。"
-    project = ctx.arg.strip() or os.getenv("BUTLER_DEFAULT_PROJECT", "") or ""
+    project = ctx.arg.strip() or os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_DEFAULT) or ""
     result = extract_memory_from_transcript(ctx.session_key, project_name=project)
     if not result.get("ok"):
         return f"记忆提炼失败: {result.get('error', '?')}"

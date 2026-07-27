@@ -9,8 +9,8 @@ import logging
 import os
 from typing import Any, Callable
 
-from butler.core.agent_loop import AgentLoop, LoopResult, LoopStatus
-from butler.core.loop_types import LoopTransitionReason
+from butler.core.agent_loop.loop import AgentLoop
+from butler.core.loop_types import LoopResult, LoopStatus, LoopTransitionReason
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +22,14 @@ CONTINUATION_USER_MESSAGE = (
 
 
 def todo_continuation_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.utilities.env_parse import env_truthy
 
     return bool(env_truthy("BUTLER_TODO_CONTINUATION", default=True))
 
 
 def max_continuations() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_TODO_CONTINUATION_MAX", 2, min=0))
     except ValueError:
@@ -38,7 +38,7 @@ def max_continuations() -> int:
 
 def stagnation_limit() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_TODO_STAGNATION_MAX", 2, min=2))
     except ValueError:

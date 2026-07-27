@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from butler.configuration.settings import get_butler_home
+from butler.execution_context import use_execution_context
+from butler.ops.delegate_failure_capture import capture_enabled, failure_audit_summary
+from butler.project.manager import get_project_manager
+from butler.tools.delegate_impl import _orchestrator_for_tool
+from butler.tools.registry import dispatch_tool
+import json
 import os
 import shutil
 from pathlib import Path
@@ -34,8 +41,6 @@ def build_lingwen_drill_context(*, workspace: Path) -> str:
 
 
 def drill_workspace_path() -> Path:
-    from butler.config import get_butler_home
-
     return cast(Path, get_butler_home()) / "drill" / "lingwen1-demo-add"
 
 
@@ -63,8 +68,6 @@ def setup_drill_workspace(*, force: bool = False) -> Path:
 
 
 def _audit_has_pipeline_capture(*, task_id: str = "") -> bool:
-    from butler.ops.delegate_failure_capture import failure_audit_summary
-
     for rec in failure_audit_summary(limit=500).get("recent") or []:
         if str(rec.get("capture_source") or "") != "delegate_pipeline":
             continue
@@ -82,10 +85,6 @@ def run_lingwen1_delegate_drill(
     force_workspace: bool = False,
 ) -> dict[str, Any]:
     """Execute delegate_task on LingWen1 drill workspace (full pipeline)."""
-    import json
-
-    from butler.ops.delegate_failure_capture import capture_enabled
-
     if not capture_enabled():
         return {
             "ok": False,
@@ -108,11 +107,6 @@ def run_lingwen1_delegate_drill(
         os.environ["BUTLER_DEV_AUTO_VERIFY"] = "1"
         if not os.environ.get("BUTLER_DEV_AUTO_VERIFY_LEVELS", "").strip():
             os.environ["BUTLER_DEV_AUTO_VERIFY_LEVELS"] = "test"
-
-    from butler.execution_context import use_execution_context
-    from butler.project.manager import get_project_manager
-    from butler.tools.delegate_impl import _orchestrator_for_tool
-    from butler.tools.registry import dispatch_tool
 
     pm = get_project_manager()
     proj = pm.get_project(LINGWEN_PROJECT_NAME)

@@ -7,6 +7,8 @@ import logging
 import os
 import re
 
+from butler.defaults.env_defaults import INTENT_KEYWORDS_DEFAULT, INTENT_KEYWORDS_OFF_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_RULES: list[dict[str, str]] = [
@@ -37,7 +39,7 @@ _DEFAULT_RULES: list[dict[str, str]] = [
 
 
 def _parse_rules_env() -> list[dict[str, str]]:
-    raw = os.getenv("BUTLER_INTENT_KEYWORDS", "").strip()
+    raw = os.getenv("BUTLER_INTENT_KEYWORDS", INTENT_KEYWORDS_DEFAULT).strip()
     if not raw:
         return list(_DEFAULT_RULES)
     try:
@@ -58,7 +60,7 @@ def _parse_rules_env() -> list[dict[str, str]]:
 
 
 def intent_keywords_enabled() -> bool:
-    raw = os.getenv("BUTLER_INTENT_KEYWORDS_OFF", "").strip().lower()
+    raw = os.getenv("BUTLER_INTENT_KEYWORDS_OFF", INTENT_KEYWORDS_OFF_DEFAULT).strip().lower()
     return raw not in ("1", "true", "yes", "on")
 
 

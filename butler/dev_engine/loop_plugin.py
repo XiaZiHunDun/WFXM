@@ -11,9 +11,11 @@ from __future__ import annotations
 import os
 from typing import Any, cast
 
+from butler.defaults.env_defaults import DEV_VERIFY_FIX_PIN_DEFAULT
+
 
 def verify_fix_pin_enabled() -> bool:
-    raw = os.getenv("BUTLER_DEV_VERIFY_FIX_PIN", "1")
+    raw = os.getenv("BUTLER_DEV_VERIFY_FIX_PIN", DEV_VERIFY_FIX_PIN_DEFAULT)
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 

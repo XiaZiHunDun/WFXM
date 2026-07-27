@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 
 def schema_optimize_enabled() -> bool:

@@ -18,6 +18,61 @@
 
 **发版**：[`docs/guides/release-runbook-2026-05.md`](docs/guides/release-runbook-2026-05.md)
 
+## AI 工具保护机制（必读）
+
+本项目已部署多层保护，防止 AI 工具错改代码或造成功能异常。**所有 AI 编码工具（Cursor / Claude Code / Trae / Copilot 等）必须遵守 [`/.cursorrules`](/.cursorrules) 中的规则。**
+
+### 受保护文件（绝不允许 AI 直接修改）
+
+| 类型 | 文件 | 修改方式 |
+|------|------|----------|
+| 核心循环 | `butler/core/agent_loop/loop.py` | 人工 + 完整门禁 |
+| 契约入口 | `butler/contracts/__init__.py` | 人工 + 契约测试 |
+| 项目配置 | `pyproject.toml` | 人工 + mypy strict |
+| AI 配置 | `.claude/settings.json` | 人工（防自我解除） |
+| AI 守卫 | `scripts/ai_guard/*.py` | 人工（防自我解除） |
+| 交接规约 | `.blackboard/README.md` | 人工 |
+
+### 保护层
+
+| 层 | 触发时机 | 行为 |
+|----|----------|------|
+| `.cursorrules` | AI 工具启动 | 全局行为规则（BLOCK / MUST / SHOULD） |
+| `PreToolUse` hook | Edit/Write/DeleteFile 前 | 阻止修改受保护文件；阻止 `import *` 等危险模式（G4） |
+| `PostToolUse` hook | Edit/Write 后 | 自动运行相关测试子集（覆盖 core/gateway/memory/skills/contracts/orchestrator/delegate/workflows/mcp/resilience/hooks/blackboard） |
+| `pre-commit` hook | `git commit` 前 | 层依赖 + 受保护文件 + lazy import 预算（G1）+ secret 扫描（G3）+ 文件大小守卫（G6） |
+| 契约测试 | `pytest tests/contracts/` | Port 接口签名稳定（G2）+ Shim `__all__` 一致性（G2） |
+| `engineering-gates` CI | push / PR | G1 lazy import + G2 契约 + G6 文件大小 + G7 env hygiene + ENG-15 层依赖 |
+| `Stop` hook | 会话结束 | 黑板交接卡校验（hard gate） |
+
+### 危险模式（G4，PreToolUse 自动检测）
+
+| 模式 | 严重程度 | 原因 |
+|------|----------|------|
+| `from X import *` | BLOCK | 污染命名空间，隐藏依赖 |
+| 注释或删除 `__all__` | WARN | 破坏模块公共接口契约 |
+
+### 工程约束（G6，pre-commit + CI 自动检查）
+
+| 约束 | 阈值 | 行为 |
+|------|------|------|
+| 单文件行数 | >800 | 警告（建议拆分） |
+| 单文件行数 | >1200 | 阻止（必须拆分才能提交） |
+| Lazy import 预算 | ≤1910 | 超限阻止提交 |
+| Secret 扫描 | API key/JWT/RSA | 检测到即阻止提交 |
+
+### 人工覆盖
+
+受保护文件确需修改时：
+1. 在 GitHub 创建 issue 说明原因
+2. 由人工执行修改
+3. 运行完整门禁：`./scripts/butler-pytest-fast-gate.sh`
+4. Git commit 时在 message 中包含 `[MANUAL-OVERRIDE]` 标记
+
+### Shim 文件（约 37 个）
+
+带 `DeprecationWarning` 的 shim 文件是向后兼容层，**不要删除或修改导出列表**。修改功能时只动包目录下的实际实现文件。
+
 ## 黑板（班次交接）
 
 **会话开始**：
@@ -53,23 +108,27 @@ butler blackboard validate --shift-id <shift_id>   # 校验
 
 | 场景 | 路径 |
 |------|------|
-| Agent 主循环 | `butler/core/agent_loop.py` |
-| 微信入站 | `butler/gateway/message_handler.py` |
-| 入站队列（实现） | `butler/gateway/message_queue.py` |
-| 入站队列（配置） | `butler/gateway/queue_settings.py` |
-| 运行指标 | `butler/ops/runtime_metrics.py` |
-| Workflow 门控 | `butler/human_gate.py` |
-| 向量检索层 | `butler/memory/vector_store.py` |
-| Fact 提取 | `butler/core/fact_extraction.py` |
-| MCP 自助工具 | `butler/tools/mcp_self_service.py` |
-| Skill 工具桥接 | `butler/core/skill_tool_bridge.py` |
-| 工具/委派 | `butler/tools/registry.py` |
-| 项目级持久待办 | `butler/tools/project_todos.py` |
-| 编码知识层 | `butler/dev_engine/coding_knowledge.py` |
-| CLI | `butler/main.py` |
-| 上手向导 | `butler onboard` · [`deploy-profiles-2026-06.md`](docs/guides/deploy-profiles-2026-06.md) |
-| 运营节奏 | `bash scripts/butler-ops-cadence.sh --weekly` · 每季 `--quarterly` |
-| Eval 统一管理 | `butler eval list` · `butler eval run --preset release` · `butler eval sync` |
+| **目录结构总览** | [`v4-architecture.md`](docs/architecture/v4-architecture.md) §2 九层模型 |
+| **L1 接入与交互** | `butler/gateway/`、`butler/cli/`、`butler/main.py` |
+| **L2 编排与控制** | `butler/orchestrator/`、`butler/workflows/`、`butler/delegate/` |
+| **L3 认知推理环** | `butler/core/`（包：agent_loop/context/compaction/tool/session/llm/loop） |
+| **L4 工具与能力** | `butler/tools/`、`butler/mcp/`、`butler/skills/`、`butler/dev_engine/` |
+| **L5 记忆与知识** | `butler/memory/` |
+| **L6 模型与协议** | `butler/transport/` |
+| **L7 策略与门控** | `butler/permissions/`、`butler/human_gate.py` |
+| **L8 可靠性与韧性** | `butler/resilience/`（message_queue/durable_outbox/idempotency） |
+| **L9 观测与运营** | `butler/ops/`、`butler/eval_integration/` |
+| **横切** | `butler/contracts/`、`butler/configuration/`、`butler/utilities/` |
+| Agent 主循环 | `butler/core/agent_loop/`（包：loop/phases） |
+| 上下文管线 | `butler/core/context/`（context_pipeline/context_compressor/context_budget） |
+| 压缩模块 | `butler/core/compaction/`（turn_compaction/turn_summarizer/preemptive_compact） |
+| 工具模块 | `butler/core/tool/`（tool_batch/tool_dispatch/tool_selector/tool_result_storage） |
+| 会话模块 | `butler/core/session/`（session_transcript/conversation_state/session_todos） |
+| LLM 重试 | `butler/core/llm/`（llm_retry/llm_retry_errors/llm_retry_ops） |
+| Loop 类型 | `butler/core/loop/`（loop_types/loop_middleware/goal_loop） |
+| 配置模块 | `butler/configuration/`（settings/gateway/memory/context/secrets/service/provider_presets） |
+| 工具模块 | `butler/utilities/`（env_parse/logging_config/tenant/repo_paths） |
+| 编码知识层 | `butler/dev_engine/coding_knowledge/`（包：elements/theorems/experience/verification/context/generation） |
 
 ## 改代码前守门
 
@@ -81,6 +140,10 @@ bash scripts/butler-mypy-strict-gate.sh  # mypy strict 826 主模块（--follow-
 bash scripts/p3j-env-hygiene-gate.sh     # reference ↔ .env.example ↔ butler/ readers
 bash scripts/p3j-env-audit.sh            # code/reference/example 差集（P3-J）
 bash scripts/p3i-lazy-import-report.sh   # 函数内 from butler.* 预算 1901/1910（P3-I）
+# 契约测试（Port 接口 + Shim __all__ 一致性，G2）
+PYTHONPATH=. pytest tests/contracts/ -q    # 43 测试，<1s
+# 文件大小守卫（G6，>800 警告 / >1200 阻止）
+python3 scripts/ai_guard/file_size_check.py --ci
 # 九层依赖矩阵（改跨层 import / contracts Port / 模块分层迁移时）
 bash scripts/butler-layer-import-gate.sh   # ENG-15：1218 文件、0 违规基线
 # CC 线束（改 core/context/gateway 队列与压缩时）

@@ -12,7 +12,7 @@ from butler.core.session_todos import load_session_todos, merge_session_todos, r
 @pytest.mark.unit
 def test_concurrent_merge_retains_all_ids(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sk = "cli:conc-merge"

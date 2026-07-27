@@ -22,7 +22,7 @@ def test_session_todos_tools_registered():
 
 def test_session_todos_write_and_list_via_handlers(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.execution_context import use_execution_context
 
     reload_butler_settings()
@@ -50,7 +50,7 @@ def test_session_todos_write_and_list_via_handlers(tmp_path, monkeypatch):
 
 def test_session_todos_merge_by_id(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     replace_session_todos(
@@ -69,7 +69,7 @@ def test_session_todos_merge_by_id(tmp_path, monkeypatch):
 
 def test_session_todos_write_merge_flag(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.execution_context import use_execution_context
 
     reload_butler_settings()
@@ -95,7 +95,7 @@ def test_session_todos_write_merge_flag(tmp_path, monkeypatch):
 def test_session_todos_max_items_cap(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("BUTLER_SESSION_TODOS_MAX_ITEMS", "2")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     replace_session_todos(
@@ -107,7 +107,7 @@ def test_session_todos_max_items_cap(tmp_path, monkeypatch):
 
 def test_format_open_todos_anchor(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.core.session_todos import format_open_todos_anchor
 
     reload_butler_settings()

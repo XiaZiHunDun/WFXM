@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from butler.contracts.workflow_gate_registry import set_workflow_gate
-from butler.human_gate import (
+from butler.permissions.human_gate import (
     check_workflow_step_approval,
     format_pending_hint,
     has_pending_gate,

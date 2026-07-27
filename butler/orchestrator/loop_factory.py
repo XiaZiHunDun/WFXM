@@ -5,13 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from butler.core.agent_loop import AgentLoop
+    from butler.core.agent_loop.loop import AgentLoop
     from butler.orchestrator import ButlerOrchestrator
     from butler.transport.llm_client import LLMClient
 
 from butler.agent_profiles import get_model_aware_prompt_extra, get_profile
-from butler.config import ModelConfig
-from butler.core.agent_loop import AgentLoop, LoopConfig
+from butler.configuration.settings import ModelConfig
+from butler.core.agent_loop.loop import AgentLoop
+from butler.core.loop_types import LoopConfig
 from butler.memory import ProjectMemory
 from butler.model_resolve import model_config_to_credentials, resolve_effective_model
 from butler.orchestrator.loop_factory_ops import (

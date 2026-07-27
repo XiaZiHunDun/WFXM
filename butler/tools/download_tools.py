@@ -15,6 +15,11 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from butler.tools.path_safety import check_tool_path
+from butler.defaults.env_defaults import (
+    DOWNLOAD_ALLOW_HOSTS_DEFAULT,
+    DOWNLOAD_MAX_BYTES_DEFAULT,
+    ENABLE_DOWNLOAD_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +39,11 @@ _BLOCKED_HOST_RE = re.compile(
 
 
 def download_enabled() -> bool:
-    return os.getenv("BUTLER_ENABLE_DOWNLOAD", "").strip() == "1"
+    return os.getenv("BUTLER_ENABLE_DOWNLOAD", ENABLE_DOWNLOAD_DEFAULT).strip() == "1"
 
 
 def _max_download_bytes() -> int:
-    raw = os.getenv("BUTLER_DOWNLOAD_MAX_BYTES", "").strip()
+    raw = os.getenv("BUTLER_DOWNLOAD_MAX_BYTES", DOWNLOAD_MAX_BYTES_DEFAULT).strip()
     if not raw:
         return _DEFAULT_MAX_BYTES
     try:
@@ -48,7 +53,7 @@ def _max_download_bytes() -> int:
 
 
 def _allowed_hosts() -> set[str]:
-    raw = os.getenv("BUTLER_DOWNLOAD_ALLOW_HOSTS", "").strip()
+    raw = os.getenv("BUTLER_DOWNLOAD_ALLOW_HOSTS", DOWNLOAD_ALLOW_HOSTS_DEFAULT).strip()
     if raw:
         parts = [p.strip().lower() for p in raw.replace(";", ",").split(",") if p.strip()]
         return set(parts)

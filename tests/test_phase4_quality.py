@@ -172,7 +172,9 @@ class TestExperienceMining:
 
 class TestRetrievalMetrics:
     def setup_method(self):
-        MemoryMetricsCollector.reset()
+        from butler.core.container import container
+
+        container.reset_all()
 
     def test_on_retrieval_tracking(self):
         c = get_collector()

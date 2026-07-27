@@ -16,6 +16,7 @@ Key features:
 - Development context (branch, build status, pending todos)
 - Semantic embedding integration for cold memory
 - Token budget-aware system reminder generation
+- TurnContext for per-turn setup with api_content sidecar support
 """
 
 from __future__ import annotations
@@ -23,6 +24,16 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from typing import Any, Optional, cast
+
+# Integrate turn context features for per-turn setup
+from butler.core.turn_context import (
+    TurnContext,
+    build_turn_context,
+    compose_user_api_content,
+    substitute_api_content,
+    drop_stale_api_content,
+    extract_api_content_sidecar,
+)
 
 try:
     from butler.memory.semantic_memory import get_semantic_memory, CHROMADB_AVAILABLE
@@ -650,6 +661,44 @@ class ConversationState:
         
         return state
 
+    def serialize(self) -> dict[str, Any]:
+        """Serialize the conversation state to a dict with version and timestamp."""
+        from datetime import datetime
+
+        return {
+            "version": "1.0",
+            "timestamp": datetime.now().isoformat(),
+            "conversation_id": self._conversation_id,
+            **self.to_full_state(),
+        }
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any]) -> "ConversationState":
+        """Deserialize a conversation state from a dict.
+
+        Handles version compatibility and missing fields gracefully.
+        """
+        state = cls()
+        
+        version = data.get("version", "1.0")
+        
+        if version == "1.0":
+            inner_data = data.copy()
+            inner_data.pop("version", None)
+            inner_data.pop("timestamp", None)
+            inner_data.pop("conversation_id", None)
+            
+            try:
+                state = cls.from_dict(inner_data)
+            except Exception as exc:
+                logger.warning("Failed to deserialize conversation state: %s", exc)
+                state = cls()
+            
+            conv_id = data.get("conversation_id", "default")
+            state._conversation_id = conv_id
+        
+        return state
+
 
 def build_conversation_reminder(state: ConversationState, token_budget: int = 2000) -> str:
     content = state.to_system_reminder(token_budget=token_budget)
@@ -665,5 +714,11 @@ __all__ = [
     "ChapterSummary",
     "FileChange",
     "TaskNode",
+    "TurnContext",
     "build_conversation_reminder",
+    "build_turn_context",
+    "compose_user_api_content",
+    "substitute_api_content",
+    "drop_stale_api_content",
+    "extract_api_content_sidecar",
 ]

@@ -30,7 +30,7 @@ class TestRegressionGate:
         monkeypatch.setenv("BUTLER_EVAL_DEV_PASS_RATE_MIN", "0.85")
         monkeypatch.setenv("BUTLER_EVAL_MEM_PASS_RATE_MIN", "0.7")
         monkeypatch.setenv("BUTLER_LANGFUSE_ENABLED", "0")
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
 
@@ -66,7 +66,7 @@ class TestRegressionGate:
     def test_regression_gate_runs_b9_oracle(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
         monkeypatch.setenv("BUTLER_EVAL_B9_IN_REGRESSION", "1")
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         b9_report = MagicMock()

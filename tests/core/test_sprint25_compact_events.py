@@ -30,7 +30,7 @@ from butler.core.session_transcript import (
 class TestRecordCompactStarted:
     def test_writes_event_to_transcript(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:started"
@@ -44,7 +44,7 @@ class TestRecordCompactStarted:
 
     def test_default_source_and_trigger(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:started:default"
@@ -55,7 +55,7 @@ class TestRecordCompactStarted:
 
     def test_source_truncated_to_32_chars(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:started:trunc"
@@ -68,7 +68,7 @@ class TestRecordCompactStarted:
 
     def test_trigger_truncated_to_32_chars(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:started:trunc"
@@ -80,7 +80,7 @@ class TestRecordCompactStarted:
     def test_event_does_not_interfere_with_scheduled_done(self, tmp_path, monkeypatch):
         """started 事件与 scheduled/done 共存于同一 transcript, 顺序保持."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:started:coexist"
@@ -98,7 +98,7 @@ class TestRecordCompactStarted:
 class TestRecordCompactFailed:
     def test_writes_event_to_transcript(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:failed"
@@ -117,7 +117,7 @@ class TestRecordCompactFailed:
 
     def test_default_values(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:failed:default"
@@ -129,7 +129,7 @@ class TestRecordCompactFailed:
 
     def test_reason_truncated_to_64_chars(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:failed:trunc"
@@ -141,7 +141,7 @@ class TestRecordCompactFailed:
     def test_iteration_negative_clamped_to_zero(self, tmp_path, monkeypatch):
         """负值 iteration 应被 max(0, int()) 钳到 0 (沿用 record_compact_scheduled 风格)."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:failed:neg"
@@ -151,7 +151,7 @@ class TestRecordCompactFailed:
 
     def test_source_truncated_to_32_chars(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:failed:src"
@@ -203,7 +203,7 @@ class TestFormatDiagnosticLinesShowsStartedFailed:
         self, tmp_path, monkeypatch
     ):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:diag"
@@ -235,7 +235,7 @@ class TestFormatDiagnosticLinesShowsStartedFailed:
     ):
         """无失败时输出行仍展示 'failed=0' (统一契约, 始终显示 4 个计数)."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "home"))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
 
         reload_butler_settings()
         sk = "sprint25:diag:clean"

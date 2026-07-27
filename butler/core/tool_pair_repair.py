@@ -6,13 +6,15 @@ import logging
 import os
 from typing import Any
 
+from butler.defaults.env_defaults import TOOL_PAIR_REPAIR_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 PLACEHOLDER_CONTENT = "Tool output unavailable (context compacted)"
 
 
 def tool_pair_repair_enabled() -> bool:
-    raw = os.getenv("BUTLER_TOOL_PAIR_REPAIR", "1").strip().lower()
+    raw = os.getenv("BUTLER_TOOL_PAIR_REPAIR", TOOL_PAIR_REPAIR_DEFAULT).strip().lower()
     return raw not in ("0", "false", "no", "off")
 
 

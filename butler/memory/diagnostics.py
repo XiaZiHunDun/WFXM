@@ -17,13 +17,15 @@ from butler.memory.diagnostics_collect import (
     collect_transcript_fts_stats,
 )
 from butler.session.lifecycle import CONVERSATION_CATEGORY
+from butler.memory.facade_ops import resolve_project_memory_for_diag
 import logging
 
 
 from butler.memory.project_memory import ProjectMemory
 from butler.memory.semantic_project import resolve_project_display_name
-from butler.memory_settings import format_memory_config_source_line
-from butler.ops.embedding_diagnostics import format_embedding_status_line
+
+_resolve_project_memory = resolve_project_memory_for_diag
+from butler.configuration.memory import format_memory_config_source_line
 from butler.memory.vector_sync_telemetry import format_vector_sync_lines
 from butler.memory.prefetch_cache import queue_prefetch_enabled
 from butler.memory.scope_diagnostics import format_memory_scope_diagnostic_lines
@@ -70,33 +72,6 @@ def _experience_category_counts(db_path: Any) -> dict[str, int]:
         return {str(cat or ""): int(n) for cat, n in rows}
     except sqlite3.Error:
         return {}
-
-
-def _resolve_project_memory(
-    orchestrator: Any, session_key: str = "",
-) -> tuple[Any, str] | tuple[None, str]:
-    """Project MEMORY for diagnostics; prefers session_key over global _project_memory."""
-    pm = getattr(orchestrator, "_project_memory", None)
-    proj = None
-    pman = getattr(orchestrator, "project_manager", None)
-    if pman is not None:
-        proj = safe_best_effort(
-            lambda: pman.get_current(session_key=session_key or ""),
-            label="memory_diag.current_project",
-            default=None,
-        )
-    if proj is not None:
-
-        ws = getattr(proj, "workspace", None)
-        if ws is not None:
-            root = Path(ws).expanduser()
-            if root.is_dir():
-                name = str(getattr(proj, "name", "") or root.name)
-                return ProjectMemory(root), name
-    if pm is not None:
-
-        return pm, resolve_project_display_name(pm)
-    return None, ""
 
 
 def collect_memory_layer_stats(
@@ -211,6 +186,7 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
     if config_line:
         lines.append(config_line)
     def _embedding_status_line() -> str:
+        from butler.ops.embedding_diagnostics import format_embedding_status_line
 
         snap = stats.get("embedding_snapshot")
         if isinstance(snap, dict):

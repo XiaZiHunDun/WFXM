@@ -67,7 +67,7 @@ def resolve_project_manager_workspace_safe(session_key: str) -> Path | None:
         return None
 
     def _run() -> Path:
-        from butler.config import load_settings
+        from butler.configuration.settings import load_settings
         from butler.project.manager import ProjectManager
 
         pm = ProjectManager(load_settings())

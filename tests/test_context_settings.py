@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
-from butler.context_settings import (
+from butler.configuration.settings import reload_butler_settings
+from butler.configuration.context import (
     format_context_config_source_line,
     resolve_context_config,
 )
@@ -118,7 +118,7 @@ def test_save_butler_config_preserves_context(butler_home):
         encoding="utf-8",
     )
     reload_butler_settings()
-    from butler.config import save_butler_config
+    from butler.configuration.settings import save_butler_config
 
     save_butler_config()
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))

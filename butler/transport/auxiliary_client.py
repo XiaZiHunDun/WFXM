@@ -7,7 +7,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from butler.config import ModelConfig, get_butler_settings
+from butler.configuration.settings import ModelConfig, get_butler_settings
 from butler.transport.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)

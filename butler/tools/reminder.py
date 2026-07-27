@@ -130,7 +130,7 @@ def _reminders_dir() -> Path:
 
 def migrate_legacy_reminders(butler_home: Path) -> None:
     """Move pre-tenant ``{butler_home}/reminders`` into ``tenants/default/reminders``."""
-    from butler.tenant import DEFAULT_TENANT, tenant_root
+    from butler.utilities.tenant import DEFAULT_TENANT, tenant_root
 
     legacy = Path(butler_home).expanduser().resolve() / "reminders"
     target = tenant_root(butler_home, DEFAULT_TENANT) / "reminders"

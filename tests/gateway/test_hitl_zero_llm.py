@@ -8,7 +8,7 @@ import pytest
 
 pytest_plugins = ["tests.gateway.test_gateway_handler"]
 
-from butler.human_gate import check_workflow_step_approval, clear_session_gates
+from butler.permissions.human_gate import check_workflow_step_approval, clear_session_gates
 
 
 @pytest.mark.unit

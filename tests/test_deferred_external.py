@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from butler.config_secrets import provider_secrets, write_provider_secret
+from butler.configuration.secrets import provider_secrets, write_provider_secret
 from butler.core.tool_output_prune import clear_at_least_chars, prune_minimum_chars
 from butler.tools.terminal_danger import check_dangerous_command
 from butler.tools.terminal_pattern_approval import (

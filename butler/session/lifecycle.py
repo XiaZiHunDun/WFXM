@@ -37,7 +37,9 @@ def conversation_sync_enabled() -> bool:
     """Whether to append every turn to experience as ephemeral conversation rows."""
     import os
 
-    return os.getenv("BUTLER_SYNC_CONVERSATION_MEMORY", "0").strip().lower() in {
+    from butler.defaults.env_defaults import SYNC_CONVERSATION_MEMORY_DEFAULT
+
+    return os.getenv("BUTLER_SYNC_CONVERSATION_MEMORY", SYNC_CONVERSATION_MEMORY_DEFAULT).strip().lower() in {
         "1",
         "true",
         "yes",

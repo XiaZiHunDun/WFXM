@@ -138,7 +138,7 @@ class TestSpawnAgent:
         current_orch.create_project_agent_loop.assert_called_once()
 
     def test_create_agent_loop_restores_runtime_model_override(self):
-        from butler.config import ModelConfig
+        from butler.configuration.settings import ModelConfig
         from butler.execution_context import use_execution_context
 
         orch = TaskOrchestrator()

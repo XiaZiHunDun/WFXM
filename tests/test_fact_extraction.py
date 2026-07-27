@@ -144,7 +144,7 @@ class TestExtractToolFacts:
 class TestFactPersistence:
     def test_save_and_load(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import load_facts, save_facts
@@ -161,7 +161,7 @@ class TestFactPersistence:
 
     def test_load_nonexistent_returns_empty(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import load_facts
@@ -169,7 +169,7 @@ class TestFactPersistence:
 
     def test_cap_enforcement(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import _MAX_FACTS_PER_SESSION, load_facts, save_facts
@@ -183,7 +183,7 @@ class TestFactPersistence:
 
     def test_corrupt_json_returns_empty(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import _facts_path, load_facts
@@ -200,7 +200,7 @@ class TestExtractPreCompactFacts:
     def test_extracts_and_persists(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
         monkeypatch.setenv("BUTLER_FACT_EXTRACTION", "1")
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import extract_pre_compact_facts, load_facts
@@ -217,7 +217,7 @@ class TestExtractPreCompactFacts:
     def test_dedup_same_value(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
         monkeypatch.setenv("BUTLER_FACT_EXTRACTION", "1")
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import extract_pre_compact_facts, load_facts
@@ -243,7 +243,7 @@ class TestExtractPreCompactFacts:
 class TestFormatFactsForAnchor:
     def test_empty_returns_empty_string(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import format_facts_for_anchor
@@ -251,7 +251,7 @@ class TestFormatFactsForAnchor:
 
     def test_formats_with_sections(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import format_facts_for_anchor, save_facts
@@ -271,7 +271,7 @@ class TestFormatFactsForAnchor:
 
     def test_max_chars_truncation(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-        from butler.config import reload_butler_settings
+        from butler.configuration.settings import reload_butler_settings
         reload_butler_settings()
 
         from butler.core.fact_extraction import format_facts_for_anchor, save_facts

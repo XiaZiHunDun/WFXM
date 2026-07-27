@@ -11,28 +11,22 @@ from butler.core.tool_result_storage import (
     is_persisted_tool_result,
     spill_preview_chars,
 )
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy, int_env
+from butler.defaults.env_defaults import TOOL_MASK_PROTECT_TOKENS, TOOL_MASK_MIN_PRUNABLE
 
 
 def tool_masking_enabled() -> bool:
     return bool(env_truthy("BUTLER_TOOL_MASK_ENABLED", default=True))
 
 
-def _int_env(name: str, default: int) -> int:
-    try:
-        from butler.env_parse import int_env
-
-        return int(int_env(name, default, min=0))
-    except ValueError:
-        return default
-
-
 def protect_token_budget() -> int:
-    return _int_env("BUTLER_TOOL_MASK_PROTECT_TOKENS", 50_000)
+    result: int = int_env("BUTLER_TOOL_MASK_PROTECT_TOKENS", 50_000, min=0)
+    return result
 
 
 def min_prunable_token_budget() -> int:
-    return _int_env("BUTLER_TOOL_MASK_MIN_PRUNABLE", 30_000)
+    result: int = int_env("BUTLER_TOOL_MASK_MIN_PRUNABLE", 30_000, min=0)
+    return result
 
 
 def _estimate_tokens(text: str) -> int:

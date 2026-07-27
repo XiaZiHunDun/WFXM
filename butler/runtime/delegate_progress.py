@@ -29,9 +29,10 @@ def _progress_max_pushes() -> int:
         from butler.utilities.env_parse import int_env
         from butler.defaults.env_defaults import GATEWAY_DELEGATE_PROGRESS_MAX
 
-        return int(int_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX", GATEWAY_DELEGATE_PROGRESS_MAX, min=1, max=12))
+        result: int = int_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX", GATEWAY_DELEGATE_PROGRESS_MAX, min=1, max=12)
+        return result
     except ValueError:
-        return GATEWAY_DELEGATE_PROGRESS_MAX
+        return int(GATEWAY_DELEGATE_PROGRESS_MAX)
 
 
 def _format_progress_line(job: "DelegateJob", *, elapsed: int, n: int) -> str:

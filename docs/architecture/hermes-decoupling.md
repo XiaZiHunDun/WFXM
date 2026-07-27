@@ -8,7 +8,7 @@
 
 | 路径 | `butler chat` / `exec` | `butler gateway` | 说明 |
 |------|------------------------|------------------|------|
-| `butler/core/agent_loop.py` | ✅ 唯一 Loop | ✅ 经 `message_handler` | **不** import `AIAgent` |
+| `butler/core/agent_loop/`（包） | ✅ 唯一 Loop | ✅ 经 `message_handler` | **不** import `AIAgent` |
 | `butler/transport/` | ✅ | ✅ | 自建 LLM 客户端 |
 | `butler/tools/` | ✅ | ✅ | 自建工具与审计 |
 | `butler/gateway/platforms/wechat_ilink.py` | ❌ | ✅ 唯一平台 | Butler 原生 iLink |

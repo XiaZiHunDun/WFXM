@@ -10,15 +10,16 @@ import uuid
 from pathlib import Path
 from typing import Any, cast
 
-from butler.config import get_butler_home
-from butler.env_parse import env_truthy
+from butler.configuration.settings import get_butler_home
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import MEMORY_WRITE_APPROVAL_DEFAULT
 
 _LOCK = threading.RLock()
 
 
 def memory_write_approval_mode() -> str:
     """``owner_scopes`` (default) | ``all`` | ``0`` (disabled)."""
-    raw = os.getenv("BUTLER_MEMORY_WRITE_APPROVAL", "owner_scopes").strip().lower()
+    raw = os.getenv("BUTLER_MEMORY_WRITE_APPROVAL", MEMORY_WRITE_APPROVAL_DEFAULT).strip().lower()
     if raw in ("0", "off", "false", "none", "disabled"):
         return "0"
     if raw == "all":

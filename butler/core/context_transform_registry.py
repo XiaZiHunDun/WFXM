@@ -43,7 +43,7 @@ def register_builtin_transform(
 
 
 def _default_config_path() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return Path(get_butler_home()) / "model-transforms.yaml"
 

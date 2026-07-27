@@ -10,8 +10,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from butler.config import get_butler_home
-from butler.env_parse import env_truthy
+from butler.configuration.settings import get_butler_home
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 

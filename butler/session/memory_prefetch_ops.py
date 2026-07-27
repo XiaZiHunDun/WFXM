@@ -332,7 +332,7 @@ def hybrid_experience_hits(
 
         from butler.memory.unified_recall_config import unified_recall_enabled
         from butler.memory.unified_recall import unified_hybrid_search
-        from butler.config import get_butler_home
+        from butler.configuration.settings import get_butler_home
 
         if unified_recall_enabled() and q:
             payload = unified_hybrid_search(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
+from butler.utilities.env_parse import int_env
 from typing import Any
 
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message

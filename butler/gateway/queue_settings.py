@@ -8,8 +8,8 @@ import threading
 from pathlib import Path
 from typing import Any, cast
 
-from butler.config import get_butler_home
-from butler.gateway_settings import resolve_gateway_queue_config
+from butler.configuration.settings import get_butler_home
+from butler.configuration.gateway import resolve_gateway_queue_config
 
 _VALID_MODES = frozenset({"followup", "collect", "interrupt", "steer"})
 _VALID_DROP = frozenset({"summarize", "old", "new"})

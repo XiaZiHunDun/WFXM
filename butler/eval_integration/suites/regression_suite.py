@@ -21,7 +21,7 @@ class RegressionSuite:
         from butler.ops.eval_regression import run_regression_gate
 
         if push_langfuse is None:
-            push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in (
+            push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in (
                 "1",
                 "true",
                 "yes",

@@ -1,0 +1,143 @@
+# AI 行为规则 — WFXM / Butler v4
+# 此文件为所有 AI 编码工具（Cursor、Claude Code、Trae、Copilot 等）提供强制约束。
+# 违反这些规则可能导致代码损坏、功能回归或安全漏洞。
+
+## 绝对禁止（BLOCK）
+
+以下操作**绝不允许**，无论何种理由：
+
+### 1. 禁止修改受保护文件
+受保护文件清单见 `scripts/ai_guard/pre_tool_use_hook.py` 中的 `PROTECTED_FILES`：
+- `butler/core/agent_loop/loop.py` — 核心循环
+- `butler/contracts/__init__.py` — 契约层入口
+- `pyproject.toml` — 项目配置
+- `.claude/settings.json` — AI 工具配置
+- `scripts/ai_guard/*.py` — AI 保护脚本
+- `.blackboard/README.md` — 交接规约
+
+如需修改，必须：
+1. 在 GitHub 创建 issue 说明原因
+2. 由人工修改
+3. 运行完整门禁 `./scripts/butler-pytest-fast-gate.sh`
+
+### 2. 禁止删除 Shim 文件
+带 `DeprecationWarning` 的 shim 文件（约 37 个）是向后兼容层。
+- **不要**删除它们 — 其他模块可能还在导入
+- **不要**修改它们的导出列表 — 会破坏 `__all__` 契约
+- 修改功能时，**只修改包目录下的实际实现文件**
+
+识别 shim 文件：文件开头包含 `Deprecated: Use ... package instead.`
+
+### 3. 禁止绕过门禁
+- 不要修改 `scripts/*_gate.sh` 门禁脚本
+- 不要修改 `tests/layer_import_rules` 层依赖规则
+- 不要在测试中使用 `@pytest.mark.skip` 跳过失败测试
+- 不要注释掉或删除失败的测试断言
+
+### 4. 禁止修改契约接口
+`butler/contracts/` 下的 Port/Protocol 接口定义：
+- 不要修改方法签名（参数名、类型、返回值）
+- 不要删除已有方法
+- 不要修改 `__all__` 导出列表
+- 添加新方法可以，但必须同时添加测试
+
+### 5. 禁止通配符 import（G4）
+- 不要使用 `from X import *` — 会污染命名空间、隐藏依赖
+- 显式列出所有导入名：`from X import name1, name2`
+- PreToolUse hook 会自动检测并阻止
+
+### 6. 禁止删除或注释 `__all__`（G4）
+- 不要用 `# __all__ = [...]` 注释掉模块的公共接口
+- 不要用 `del __all__` 删除导出列表
+- 修改 `__all__` 时只能**追加**新导出，不能删除已有导出
+- PreToolUse hook 会对注释/删除 `__all__` 发出警告
+
+### 7. 禁止提交密钥/凭证（G3）
+- 不要在代码中硬编码 API key、JWT、RSA 私钥、AWS 凭证
+- 不要将 `.env`、`secrets.yaml` 加入版本控制
+- pre-commit hook 会扫描 OpenAI (`sk-`)、AWS (`AKIA`)、GitHub (`ghp_`)、JWT、RSA 私钥模式
+- 如需提交测试 fixture，在 commit message 中包含 `[MANUAL-OVERRIDE]`
+
+## 强制要求（MUST）
+
+### 1. 修改前必读
+- 新会话前 30 秒：读 `.blackboard/state.md` + 最近班次卡 + `MEMORY.md`
+- 按 `AGENTS.md` 必读表选读架构文档
+- **不要**用 `docs/history/` 或训练记忆推断实现
+
+### 2. 修改后必跑
+修改任何 `butler/` 下的 `.py` 文件后，运行对应测试：
+```bash
+# 快速验证（3-5 分钟）
+./scripts/butler-pytest-fast-gate.sh
+
+# 层依赖检查
+bash scripts/butler-layer-import-gate.sh
+
+# 按域运行
+bash scripts/butler-domain-pytest.sh gateway  # 或 core / memory / ops / dev_engine
+```
+
+### 3. 大文件拆分规则（G6）
+拆分超过 800 行的文件时（>1200 行 pre-commit 会阻止提交）：
+- 原文件改为 shim（保留 `__all__` + `DeprecationWarning`）
+- 子模块放在同名包目录下
+- **必须**同步更新 `pyproject.toml` 的 mypy strict 模块列表
+- **必须**运行测试验证拆分后功能不变
+- **必须**在 `_phase_*` 或 `_dispatch_*` 等函数中保持 `loop._turn_tools`、`loop._tool_calls_count` 等状态同步
+- **必须**保持 shim 的 `__all__` 与包的 `__all__` 一致（G2 契约测试会验证）
+- 检查命令：`python3 scripts/ai_guard/file_size_check.py --ci`
+
+### 4. 文档同步义务
+改 CC 线束、外部对标模块、四/五报告能力、ENG-15 层矩阵或新增 `BUTLER_*` 时，同步更新：
+- `v4-architecture`、`v4-layer-model`
+- `config/reference`、`.env.example`
+- 对应 `*-capabilities` 文档
+- `CONTRIBUTING.md`
+
+## 推荐做法（SHOULD）
+
+### 1. 使用子代理处理复杂任务
+- 搜索代码库用 `search` 子代理
+- 实现独立功能用 `general_purpose_task` 子代理
+- 浏览器测试用 `browser_use` 子代理
+
+### 2. 先读后改
+- **不要**在不读文件的情况下提出修改建议
+- **不要**创建不必要的文件 — 优先编辑现有文件
+- **不要**添加未被请求的功能、重构或"改进"
+
+### 3. 保持简洁
+- 只做被要求的改动
+- 不要添加过多的错误处理、回退或验证
+- 不要为假设的未来需求设计
+- 三行相似代码好过过早抽象
+
+### 4. 测试驱动
+- 修复 Bug 时，先写一个能复现 Bug 的测试
+- 添加功能时，先写测试定义预期行为
+- 拆分文件时，运行测试验证功能不变
+
+## 常见陷阱
+
+### 1. 循环依赖
+WFXM 项目有 9 层架构（L1-L9），层间导入必须遵守 `v4-layer-model.md`。
+- L3（core）不能导入 L1（gateway）
+- L5（memory）不能导入 L3（core）的实现
+- 使用 `butler/contracts/` 中的 Port 接口解耦
+
+### 2. 状态同步
+`AgentLoop` 的 `_run_turn_body` 有多个状态需要在拆分时同步：
+- `state.iteration` — 每次循环开始时递增
+- `loop._turn_tools` — 工具选择后更新
+- `loop._tool_calls_count` — 工具调用后递增
+
+### 3. Lazy Import
+项目中大量使用函数内 `import`（lazy import）避免循环依赖。
+- 不要将函数内 import 提到模块级别
+- 预算限制：`scripts/p3i-lazy-import-report.sh`（≤1910 个）
+
+### 4. 环境变量
+- 查 `BUTLER_*` 环境变量用 `docs/config/reference.md`（勿猜默认值）
+- 新增 `BUTLER_*` 时同步 `.env.example` 和 `reference.md`
+- 使用 `butler.utilities.env_parse` 的 `env_truthy` / `int_env` / `float_env`

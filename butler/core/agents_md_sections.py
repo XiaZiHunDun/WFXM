@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
+from butler.defaults.env_defaults import POST_COMPACT_AGENTS_SECTIONS_DEFAULT
+from butler.utilities.env_parse import int_env
 import logging
 import os
 import re
@@ -17,7 +18,7 @@ _DEFAULT_SECTIONS = ("Session Startup", "Red Lines", "Every Session", "Safety")
 
 
 def default_section_names() -> tuple[str, ...]:
-    raw = os.getenv("BUTLER_POST_COMPACT_AGENTS_SECTIONS", "").strip()
+    raw = os.getenv("BUTLER_POST_COMPACT_AGENTS_SECTIONS", POST_COMPACT_AGENTS_SECTIONS_DEFAULT).strip()
     if not raw:
         return _DEFAULT_SECTIONS
     parts = tuple(s.strip() for s in raw.split(",") if s.strip())

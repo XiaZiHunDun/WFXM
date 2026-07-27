@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from butler.env_parse import float_env
 import json
 import logging
 import os
@@ -12,11 +11,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
+from butler.defaults.env_defaults import (
+    EVAL_B9_IN_REGRESSION_DEFAULT,
+    EVAL_LLM_BENCHMARK_DEFAULT,
+)
+from butler.utilities.env_parse import float_env
+
 logger = logging.getLogger(__name__)
 
 
 def _butler_audit_dir() -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit"
 
@@ -86,7 +91,7 @@ def _min_b9_pass_rate() -> float:
 
 
 def b9_in_regression_enabled() -> bool:
-    return os.getenv("BUTLER_EVAL_B9_IN_REGRESSION", "1").strip().lower() not in (
+    return os.getenv("BUTLER_EVAL_B9_IN_REGRESSION", EVAL_B9_IN_REGRESSION_DEFAULT).strip().lower() not in (
         "0",
         "false",
         "no",
@@ -169,7 +174,7 @@ def format_eval_quality_lines() -> list[str]:
         lines.append("  B9 delegate: (未记录)")
         lines.append("  提示: bash scripts/butler-eval-llm-benchmark.sh")
 
-    live = os.getenv("BUTLER_EVAL_LLM_BENCHMARK", "0").strip() in ("1", "true", "yes")
+    live = os.getenv("BUTLER_EVAL_LLM_BENCHMARK", EVAL_LLM_BENCHMARK_DEFAULT).strip() in ("1", "true", "yes")
     lines.append(
         f"  B9 模式: {'live LLM' if live else 'oracle (CI/默认)'}"
     )

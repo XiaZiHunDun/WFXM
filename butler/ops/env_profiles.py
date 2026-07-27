@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from butler.utilities.env_parse import env_truthy
 from butler.defaults.env_defaults import (
+    ENV_PROFILE_DEFAULT,
     TOOL_ENABLE_TERMINAL_DEFAULT,
     TERMINAL_SANDBOX_DEFAULT,
     TERMINAL_SANDBOX_FAIL_UNAVAILABLE_DEFAULT,
@@ -57,7 +58,7 @@ PROFILE_EXPECTATIONS: dict[str, EnvProfileExpectation] = {
 
 
 def current_env_profile() -> str:
-    raw = os.getenv("BUTLER_ENV_PROFILE", "").strip().lower()
+    raw = os.getenv("BUTLER_ENV_PROFILE", ENV_PROFILE_DEFAULT).strip().lower()
     return raw if raw in VALID_PROFILES else ""
 
 

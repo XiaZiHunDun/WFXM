@@ -1,6 +1,6 @@
 """Model resolution uses single path for orchestrator credentials."""
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.model_resolve import resolve_effective_model
 from butler.orchestrator import ButlerOrchestrator
 from butler.project.manager import ProjectManager

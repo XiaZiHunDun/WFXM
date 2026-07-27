@@ -14,7 +14,7 @@ def load_butler_global_hooks_safe(
     load_file: Callable[[Path], list[Any]],
 ) -> list[Any]:
     try:
-        from butler.config import get_butler_settings
+        from butler.configuration.settings import get_butler_settings
 
         settings = get_butler_settings()
         rules: list[Any] = []

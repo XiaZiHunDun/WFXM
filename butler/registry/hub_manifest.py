@@ -6,7 +6,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def verify_hub_manifest() -> HubManifestReport:
     if not ok:
         report.ok = False
 
-    if not os.getenv("BUTLER_MCP_CATALOG_URLS", "").strip():
+    if not os.getenv("BUTLER_MCP_CATALOG_URLS", MCP_CATALOG_URLS_DEFAULT).strip():
         return report
 
     entry_count, block_count, issues = scan_remote_catalog_entries_safe()
@@ -68,7 +68,7 @@ def format_hub_manifest_report(report: HubManifestReport) -> str:
             lines.append(f"  remote blocked: {report.remote_scan_blocks}")
     for issue in report.remote_issues[:8]:
         lines.append(f"    • {issue}")
-    if not os.getenv("BUTLER_MCP_CATALOG_URLS", "").strip():
+    if not os.getenv("BUTLER_MCP_CATALOG_URLS", MCP_CATALOG_URLS_DEFAULT).strip():
         lines.append("  remote: (BUTLER_MCP_CATALOG_URLS unset)")
     return "\n".join(lines)
 

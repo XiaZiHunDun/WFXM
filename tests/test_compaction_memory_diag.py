@@ -9,14 +9,15 @@ import pytest
 from butler.core.compaction_status import format_fact_survival_line, promote_compaction_diagnostics_to_health
 from butler.core.fact_extraction import record_fact_anchor_metrics, save_facts
 from butler.core.post_compact_cleanup import build_post_compact_anchor_text
-from butler.memory.memory_metrics import MemoryMetricsCollector, get_collector
+from butler.core.container import container
+from butler.memory.memory_metrics import get_collector
 
 
 @pytest.fixture(autouse=True)
 def _reset_metrics():
-    MemoryMetricsCollector.reset()
+    container.reset_all()
     yield
-    MemoryMetricsCollector.reset()
+    container.reset_all()
 
 
 def test_record_fact_anchor_metrics_updates_collector(tmp_path, monkeypatch):

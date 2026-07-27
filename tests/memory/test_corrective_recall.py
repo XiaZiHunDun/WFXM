@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.memory.corrective_recall import (
     build_corrective_recall_block,
     corrective_recall_enabled,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.core.tool_result_storage import (
     INJECT_ONCE_REF_TAG,
     PERSISTED_OUTPUT_TAG,

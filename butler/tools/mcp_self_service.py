@@ -17,14 +17,18 @@ from butler.tools.mcp_self_service_ops import attach_post_install_verify_safe, r
 from butler.registry.mcp_install import install_catalog_server
 from butler.tools.mcp_self_service_ops import resolve_project_workspace_safe, tool_json_loud
 from butler.registry.mcp_install import remove_mcp_server
+from butler.defaults.env_defaults import (
+    MCP_ENABLED_DEFAULT,
+    MCP_SELF_SERVICE_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _mcp_self_service_enabled() -> bool:
-    if os.getenv("BUTLER_MCP_ENABLED", "0").strip().lower() in ("0", "false", "no", "off"):
+    if os.getenv("BUTLER_MCP_ENABLED", MCP_ENABLED_DEFAULT).strip().lower() in ("0", "false", "no", "off"):
         return False
-    return os.getenv("BUTLER_MCP_SELF_SERVICE", "1").strip() in ("1", "true")
+    return os.getenv("BUTLER_MCP_SELF_SERVICE", MCP_SELF_SERVICE_DEFAULT).strip() in ("1", "true")
 
 
 def _tool_mcp_catalog_search(query: str = "", **_: Any) -> str:

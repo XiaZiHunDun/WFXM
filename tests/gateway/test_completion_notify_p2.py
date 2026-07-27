@@ -66,7 +66,7 @@ def test_timeout_push_when_ack_sent(monkeypatch):
 
 def test_subagent_stop_hook_runs(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     marker = tmp_path / "subagent_stop.marker"

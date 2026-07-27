@@ -6,6 +6,15 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from butler.defaults.env_defaults import (
+    DISABLE_AUTO_COMPACT_DEFAULT,
+    ENABLE_TERMINAL_DEFAULT,
+    GATEWAY_ALLOWLIST_DEFAULT,
+    MCP_ENABLED_DEFAULT,
+    MCP_HTTP_ALLOW_PRIVATE_DEFAULT,
+    OWNER_WECHAT_ID_DEFAULT,
+)
+
 
 @dataclass(frozen=True)
 class AuditFinding:
@@ -17,7 +26,7 @@ class AuditFinding:
 def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
     findings: list[AuditFinding] = []
 
-    if os.getenv("BUTLER_ENABLE_TERMINAL", "0").strip() in ("1", "true", "yes"):
+    if os.getenv("BUTLER_ENABLE_TERMINAL", ENABLE_TERMINAL_DEFAULT).strip() in ("1", "true", "yes"):
         findings.append(
             AuditFinding(
                 "warn",
@@ -26,8 +35,8 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
             )
         )
 
-    owner = os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip()
-    allow = os.getenv("BUTLER_GATEWAY_ALLOWLIST", "").strip()
+    owner = os.getenv("BUTLER_OWNER_WECHAT_ID", OWNER_WECHAT_ID_DEFAULT).strip()
+    allow = os.getenv("BUTLER_GATEWAY_ALLOWLIST", GATEWAY_ALLOWLIST_DEFAULT).strip()
     wechat_allow = os.getenv("WECHAT_ALLOWED_USERS", "").strip()
     if not owner and not allow and not wechat_allow:
         findings.append(
@@ -84,12 +93,12 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
                 )
             )
 
-    if os.getenv("BUTLER_MCP_ENABLED", "0").strip() in ("1", "true", "yes"):
+    if os.getenv("BUTLER_MCP_ENABLED", MCP_ENABLED_DEFAULT).strip() in ("1", "true", "yes"):
         from butler.ops.security_audit_ops import mcp_http_audit_findings_safe
 
         findings.extend(mcp_http_audit_findings_safe(workspace=workspace))
 
-    if os.getenv("BUTLER_MCP_HTTP_ALLOW_PRIVATE", "0").strip() in ("1", "true", "yes"):
+    if os.getenv("BUTLER_MCP_HTTP_ALLOW_PRIVATE", MCP_HTTP_ALLOW_PRIVATE_DEFAULT).strip() in ("1", "true", "yes"):
         findings.append(
             AuditFinding(
                 "warn",
@@ -105,7 +114,7 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
 
             findings.extend(permissions_workflow_findings_safe(perms))
 
-    disable_compact = os.getenv("BUTLER_DISABLE_AUTO_COMPACT", "").strip().lower()
+    disable_compact = os.getenv("BUTLER_DISABLE_AUTO_COMPACT", DISABLE_AUTO_COMPACT_DEFAULT).strip().lower()
     if disable_compact in ("1", "true", "yes"):
         findings.append(
             AuditFinding(

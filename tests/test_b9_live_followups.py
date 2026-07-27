@@ -179,7 +179,7 @@ class TestB9FailureClassOverrides:
 
 class TestB9LiveRescueOverride:
     def test_maybe_apply_b9_live_rescue_writes_overrides(self, tmp_path, monkeypatch):
-        from butler.config import get_butler_home
+        from butler.configuration.settings import get_butler_home
         from butler.ops.eval_actions import maybe_apply_b9_live_rescue
         from butler.ops.eval_config_overrides import load_overrides
 

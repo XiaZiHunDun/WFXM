@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 from butler.session.post_session import _format_messages, _parse_json_from_response
 
 _LAYERED_PROMPT = """从以下对话提取用户画像分层摘要。只输出 JSON，不要 markdown。

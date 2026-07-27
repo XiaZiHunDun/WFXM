@@ -120,7 +120,7 @@ class TestGatewayLiveCorpusSmoke:
             raise
         finally:
             if archive_enabled():
-                from butler.config import get_butler_settings
+                from butler.configuration.settings import get_butler_settings
 
                 mc = get_butler_settings().get_model_config("butler")
                 model = f"{mc.provider}/{mc.model}"

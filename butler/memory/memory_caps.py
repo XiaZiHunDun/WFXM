@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Tuple
 
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 
 
 def memory_index_caps() -> dict[str, int]:

@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from butler.defaults.env_defaults import TRANSCRIPT_INDEX_MIN_BYTES_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 _INDEX_VERSION = 1
@@ -20,7 +22,7 @@ def index_path(transcript_jsonl: Path) -> Path:
 
 
 def index_min_bytes() -> int:
-    raw = os.getenv("BUTLER_TRANSCRIPT_INDEX_MIN_BYTES", "").strip()
+    raw = os.getenv("BUTLER_TRANSCRIPT_INDEX_MIN_BYTES", TRANSCRIPT_INDEX_MIN_BYTES_DEFAULT).strip()
     if not raw:
         return _INDEX_MIN_BYTES
     try:

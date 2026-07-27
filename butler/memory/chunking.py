@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy, float_env
+from butler.utilities.env_parse import env_truthy, float_env
+from butler.defaults.env_defaults import MARKDOWN_INDEX_PATHS_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def markdown_chunking_enabled() -> bool:
 
 def chunk_min_chars() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_MARKDOWN_CHUNK_MIN_CHARS", 256, min=64))
     except ValueError:
@@ -54,7 +55,7 @@ def chunk_min_chars() -> int:
 
 def chunk_max_chars() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_MARKDOWN_CHUNK_MAX_CHARS", 4000, min=512))
     except ValueError:
@@ -69,7 +70,7 @@ def heading_boost_per_token() -> float:
 
 
 def index_glob_paths() -> tuple[str, ...]:
-    raw = os.getenv("BUTLER_MARKDOWN_INDEX_PATHS", "").strip()
+    raw = os.getenv("BUTLER_MARKDOWN_INDEX_PATHS", MARKDOWN_INDEX_PATHS_DEFAULT).strip()
     if not raw:
         return DEFAULT_INDEX_REL_PATHS
     if raw.startswith("["):

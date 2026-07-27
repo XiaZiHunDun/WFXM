@@ -88,8 +88,8 @@ class PIMState:
 def _state_path() -> Path:
     import os
 
-    from butler.config import get_butler_home
-    from butler.tenant import DEFAULT_TENANT, tenant_root
+    from butler.configuration.settings import get_butler_home
+    from butler.utilities.tenant import DEFAULT_TENANT, tenant_root
 
     tenant_id = os.getenv("BUTLER_TENANT", DEFAULT_TENANT)
     root = tenant_root(get_butler_home(), tenant_id)

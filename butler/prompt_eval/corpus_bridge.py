@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
+from butler.utilities.env_parse import int_env
 from pathlib import Path
 
 import yaml  # type: ignore[import-untyped]
@@ -48,7 +48,8 @@ def run_corpus_prompt_subset(
     def _run_subset() -> None:
         from unittest.mock import MagicMock
 
-        from butler.core.agent_loop import AgentLoop, LoopConfig
+        from butler.core.agent_loop.loop import AgentLoop
+        from butler.core.loop_types import LoopConfig
         from butler.prompt_eval.corpus_bridge_ops import load_corpus_case_safe
         from butler.tools.registry import dispatch_tool, get_tool_definitions
         from tests.corpus.harness import (

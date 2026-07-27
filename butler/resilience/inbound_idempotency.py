@@ -31,7 +31,7 @@ def _resolve_inflight_ttl() -> float:
     """Read TTL from env (allow per-process override); fall back to default."""
     import os
 
-    raw = os.getenv("BUTLER_GATEWAY_INFLIGHT_TTL_SEC", "").strip()
+    raw = os.getenv("BUTLER_GATEWAY_INFLIGHT_TTL_SEC", GATEWAY_INFLIGHT_TTL_SEC_DEFAULT).strip()
     if not raw:
         return float(GATEWAY_INFLIGHT_TTL_SECONDS)
     try:

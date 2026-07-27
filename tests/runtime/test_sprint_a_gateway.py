@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
-from butler.gateway.inbound_idempotency import (
+from butler.resilience.inbound_idempotency import (
     check_and_reserve_inbound,
     complete_inbound,
     reset_session,

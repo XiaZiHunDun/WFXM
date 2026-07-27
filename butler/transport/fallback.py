@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from butler.config import ModelConfig, get_butler_settings
+from butler.configuration.settings import ModelConfig, get_butler_settings
 from butler.transport.llm_client import LLMClient
 
 

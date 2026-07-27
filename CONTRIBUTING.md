@@ -51,8 +51,27 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 | 默认 CI pytest | `pytest -m 'not live_llm'` |
 | 发版 smoke | `bash scripts/butler-pre-release-smoke.sh` |
 | 维护者全量（非阻塞） | `PYTHONPATH=. pytest tests/ -q` |
+| 契约测试（Port + Shim） | `PYTHONPATH=. pytest tests/contracts/ -q`（G2，43 测试，<1s） |
+| 文件大小守卫 | `python3 scripts/ai_guard/file_size_check.py --ci`（G6，>800 警告/>1200 阻止） |
+| Lazy import 预算 | `bash scripts/p3i-lazy-import-report.sh`（G1，≤1910） |
+| AI 保护检查 | `bash scripts/ai_guard/pre_commit_hook.sh`（G1+G3+G6，git commit 自动触发） |
 
 完整矩阵：[`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) §3。
+
+## AI 工具保护机制
+
+本项目已部署多层保护防止 AI 工具错改代码。**所有 AI 编码工具必须遵守 [`/.cursorrules`](/.cursorrules)**。详见 [`AGENTS.md`](AGENTS.md) §"AI 工具保护机制"。
+
+| 保护层 | 文件 | 触发时机 |
+|--------|------|----------|
+| 行为规则 | `.cursorrules` | AI 工具启动 |
+| PreToolUse | `scripts/ai_guard/pre_tool_use_hook.py` | Edit/Write/DeleteFile 前 |
+| PostToolUse | `scripts/ai_guard/post_tool_use_hook.py` | Edit/Write 后 |
+| pre-commit | `scripts/ai_guard/pre_commit_hook.sh` | `git commit` 前 |
+| 契约测试 | `tests/contracts/` | `pytest` 运行时 |
+| Stop hook | `.claude/settings.json` | 会话结束（hard gate） |
+
+人工覆盖：commit message 包含 `[MANUAL-OVERRIDE]` 标记可绕过受保护文件检查（仍会跑层依赖测试）。
 
 ## 代码复杂度约定（ENG-1）
 

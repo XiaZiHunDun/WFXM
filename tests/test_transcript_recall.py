@@ -23,7 +23,7 @@ def test_transcript_recall_requires_query():
 @pytest.mark.unit
 def test_transcript_recall_disabled(monkeypatch):
     monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "0")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     out = search_transcript_recall("hello world")
@@ -36,7 +36,7 @@ def test_transcript_recall_hits(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
     monkeypatch.setenv("BUTLER_TRANSCRIPT_FTS", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     sessions = tmp_path / "sessions" / "recall-sess"
@@ -68,7 +68,7 @@ def test_butler_recall_transcript_scope(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
     monkeypatch.setenv("BUTLER_TRANSCRIPT_FTS", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.memory.facade import ButlerMemoryService
 
     reload_butler_settings()
@@ -114,7 +114,7 @@ def test_multi_scope_search_cli(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
     monkeypatch.setenv("BUTLER_TRANSCRIPT_FTS", "1")
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
     from butler.memory.search_cli import run_memory_search
 
     reload_butler_settings()

@@ -6,7 +6,7 @@ import threading
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from butler.core.agent_loop import LoopCallbacks
+    from butler.core.loop_types import LoopCallbacks
 
 _local = threading.local()
 
@@ -39,7 +39,7 @@ def child_callbacks(parent: Optional["LoopCallbacks"]) -> Optional["LoopCallback
     """Subset of callbacks safe for nested agent loops."""
     if parent is None:
         return None
-    from butler.core.agent_loop import LoopCallbacks
+    from butler.core.loop_types import LoopCallbacks
     return LoopCallbacks(
         on_tool_start=parent.on_tool_start,
         on_tool_complete=parent.on_tool_complete,

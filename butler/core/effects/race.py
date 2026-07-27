@@ -6,17 +6,20 @@ import asyncio
 import threading
 from typing import Any, Callable, TypeVar
 
+from butler.core.effects.result import Result, Ok, Err
+
 T = TypeVar("T")
 
 
 def race(
     *fns: Callable[..., T],
     timeout: float | None = None,
-) -> tuple[T, int]:
+) -> Result[tuple[T, int], RuntimeError]:
     """Run multiple functions concurrently and return the first result.
 
     Returns:
-        (result, index) — the first result and its position in the input list.
+        Ok((result, index)) — the first result and its position in the input list.
+        Err(RuntimeError) — if all functions failed or timed out.
     """
     results: list[tuple[T, int] | None] = [None] * len(fns)
     done = threading.Event()
@@ -39,15 +42,20 @@ def race(
 
     for result in results:
         if result is not None:
-            return result
-    raise RuntimeError("All functions failed or timed out")
+            return Ok(result)
+    return Err(RuntimeError("All functions failed or timed out"))
 
 
 async def async_race(
     *awaitables,
     timeout: float | None = None,
-):
-    """Run multiple awaitables concurrently and return the first result."""
+) -> Result[Any, RuntimeError]:
+    """Run multiple awaitables concurrently and return the first result.
+
+    Returns:
+        Ok(result) — the first completed result.
+        Err(RuntimeError) — if all awaitables timed out.
+    """
     tasks = [asyncio.create_task(a) for a in awaitables]
     done, pending = await asyncio.wait(
         tasks,
@@ -57,5 +65,5 @@ async def async_race(
     for task in pending:
         task.cancel()
     if done:
-        return await done.pop()
-    raise RuntimeError("All awaitables timed out")
+        return Ok(await done.pop())
+    return Err(RuntimeError("All awaitables timed out"))

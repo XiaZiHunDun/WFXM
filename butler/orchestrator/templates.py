@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from butler.config import ButlerSettings
+from butler.configuration.settings import ButlerSettings
 from butler.project.manager import get_project_manager
 from butler.skills.manager import SkillManager
 
@@ -98,7 +98,7 @@ def combined_skill_manager(
     tenant_id: str,
 ) -> SkillManager:
     """Project-local skills override tenant-global skills with the same name."""
-    from butler.tenant import tenant_skills_dir
+    from butler.utilities.tenant import tenant_skills_dir
 
     global_dir = tenant_skills_dir(settings.butler_home, tenant_id)
     global_dir.mkdir(parents=True, exist_ok=True)

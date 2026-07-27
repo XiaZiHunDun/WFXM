@@ -198,14 +198,11 @@ class ConversationStore:
         }
 
 
-_singleton: Optional[ConversationStore] = None
-
-
 def get_conversation_store() -> ConversationStore:
-    global _singleton
-    if _singleton is None:
-        _singleton = ConversationStore()
-    return _singleton
+    """Shared ``ConversationStore`` via ServiceContainer."""
+    from butler.core.container import container
+
+    return container.conversation_store()
 
 
 __all__ = [

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from butler.env_parse import env_truthy
+from butler.utilities.env_parse import env_truthy
 
 _LOCK = threading.RLock()
 _MAX_ENTRIES = 100
@@ -41,7 +41,7 @@ def read_before_edit_enabled() -> bool:
 
 def read_state_max_entries() -> int:
     try:
-        from butler.env_parse import int_env
+        from butler.utilities.env_parse import int_env
 
         return int(int_env("BUTLER_READ_STATE_MAX_ENTRIES", _MAX_ENTRIES, min=10))
     except ValueError:

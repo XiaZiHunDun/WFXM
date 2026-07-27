@@ -27,6 +27,7 @@ from butler.gateway.command_registry import (
     register,
     require_owner,
 )
+from butler.defaults.env_defaults import DEFAULT_PROJECT_DEFAULT
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -90,7 +91,7 @@ def format_butler_status(
     pm = orchestrator.project_manager
     current = pm.resolve_active_project_name(session_key=session_key) or "(无)"
     proj = pm.get_current(session_key=session_key)
-    default_proj = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip() or "(未设置)"
+    default_proj = os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_DEFAULT).strip() or "(未设置)"
     lines = [
         "Butler 状态",
     ]

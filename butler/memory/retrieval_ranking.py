@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 import time
 
-from butler.memory_settings import resolve_memory_config
+from butler.configuration.memory import resolve_memory_config
 from typing import Any, cast
 
 

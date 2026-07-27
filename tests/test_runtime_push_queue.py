@@ -15,7 +15,7 @@ def butler_home_q(tmp_path, monkeypatch):
     bh = tmp_path / "bh"
     bh.mkdir()
     monkeypatch.setenv("BUTLER_HOME", str(bh))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     return bh

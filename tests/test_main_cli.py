@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from butler.config import reload_butler_settings
+from butler.configuration.settings import reload_butler_settings
 from butler.core.agent_loop import LoopResult, LoopStatus
 from butler.main import (
     _build_parser,

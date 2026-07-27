@@ -12,7 +12,7 @@ from butler.registry.skill_lock import SkillLockFile
 
 
 def skills_ssot_path(*, tenant_id: str = "default") -> Path:
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
 
     tid = str(tenant_id or "default").strip() or "default"
     return Path(get_butler_home()) / "tenants" / tid / "skills-ssot.yaml"

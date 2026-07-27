@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
-from butler.env_parse import float_env
+from butler.configuration.settings import get_butler_home
+from butler.dev_engine.dev_benchmark import run_benchmarks as run_dev
+from butler.memory.memory_benchmark import run_benchmarks as run_mem
+from butler.ops.eval_diagnostics import append_b9_audit, b9_in_regression_enabled
+from butler.ops.eval_regression_ops import (
+    push_regression_scores_safe,
+    run_b9_regression_benchmark_safe,
+    sync_eval_datasets_safe,
+)
+from butler.utilities.env_parse import float_env
+from butler.defaults.env_defaults import LANGFUSE_ENABLED_DEFAULT
 import json
 import logging
 import os
@@ -73,8 +83,6 @@ def _min_b9_pass_rate() -> float:
 
 
 def _audit_path() -> Path:
-    from butler.config import get_butler_home
-
     return cast(Path, get_butler_home()) / "audit" / "eval_regression.jsonl"
 
 
@@ -94,9 +102,6 @@ def run_regression_gate(
     """Run DevEngine + Memory benchmarks and optionally push to LangFuse."""
     report = RegressionReport()
 
-    from butler.dev_engine.dev_benchmark import run_benchmarks as run_dev
-    from butler.memory.memory_benchmark import run_benchmarks as run_mem
-
     dev = run_dev()
     report.dev_passed = dev.passed
     report.dev_total = dev.total
@@ -114,12 +119,8 @@ def run_regression_gate(
             err = r.error or "failed"
             report.failures.append(f"mem:{r.benchmark_id}: {err}")
 
-    from butler.ops.eval_diagnostics import append_b9_audit, b9_in_regression_enabled
-
     b9 = None
     if b9_in_regression_enabled():
-        from butler.ops.eval_regression_ops import run_b9_regression_benchmark_safe
-
         b9, b9_err = run_b9_regression_benchmark_safe()
         if b9 is not None:
             report.b9_passed = b9.passed
@@ -156,19 +157,15 @@ def run_regression_gate(
         )
 
     if push_langfuse is None:
-        push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in ("1", "true", "yes")
+        push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in ("1", "true", "yes")
 
     if push_langfuse:
-        from butler.ops.eval_regression_ops import push_regression_scores_safe
-
         pushed, push_err = push_regression_scores_safe(dev=dev, mem=mem, b9=b9)
         report.scores_pushed = pushed
         if push_err:
             report.failures.append(f"langfuse_push: {push_err}")
 
     if sync_dataset:
-        from butler.ops.eval_regression_ops import sync_eval_datasets_safe
-
         synced, sync_errors = sync_eval_datasets_safe(dev=dev, mem=mem)
         report.dataset_synced = synced
         for err in sync_errors:

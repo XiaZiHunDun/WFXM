@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from butler.core.agent_loop import AgentLoop
+    from butler.core.agent_loop.loop import AgentLoop
     from butler.gateway.message_handler import ButlerMessageHandler
 
 

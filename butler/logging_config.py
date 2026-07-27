@@ -1,36 +1,19 @@
-"""Unified logging configuration for CLI and Gateway entry points.
+"""Butler Logging Config (Deprecated).
 
-Reads ``BUTLER_LOG_LEVEL`` (default ``INFO``) and applies a consistent
-format across all Butler entry points.
+This module is deprecated. Use butler.utilities.logging_config instead.
 """
-
 from __future__ import annotations
 
-import logging
-import os
+import warnings
 
-_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+warnings.warn(
+    "butler.logging_config is deprecated, use butler.utilities.logging_config instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-_CONFIGURED = False
-
-
-def configure_logging(*, level: str | None = None) -> None:
-    """Configure root logger once for Butler.
-
-    Args:
-        level: Explicit level override. Falls back to ``BUTLER_LOG_LEVEL``
-               env var, then ``INFO``.
-    """
-    global _CONFIGURED
-    if _CONFIGURED:
-        return
-    _CONFIGURED = True
-
-    resolved = (level or os.getenv("BUTLER_LOG_LEVEL", "") or "INFO").upper()
-    numeric = getattr(logging, resolved, logging.INFO)
-    logging.basicConfig(level=numeric, format=_LOG_FORMAT)
-    logging.getLogger("butler").setLevel(numeric)
-
-    noisy_loggers = ("httpx", "httpcore", "openai", "anthropic", "urllib3")
-    for name in noisy_loggers:
-        logging.getLogger(name).setLevel(max(numeric, logging.WARNING))
+from butler.utilities.logging_config import *
+try:
+    from butler.utilities.logging_config import __all__
+except ImportError:
+    pass

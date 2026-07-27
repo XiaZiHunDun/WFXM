@@ -39,6 +39,7 @@ from butler.tools.terminal_sandbox import (
     should_run_sandboxed,
     wrap_argv_with_bubblewrap,
 )
+from butler.defaults.env_defaults import ENABLE_TERMINAL_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ def _communicate_limited(
 
 
 def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, **_: Any) -> str:
-    if os.getenv("BUTLER_ENABLE_TERMINAL", "").strip() != "1":
+    if os.getenv("BUTLER_ENABLE_TERMINAL", ENABLE_TERMINAL_DEFAULT).strip() != "1":
         return json.dumps({
             "error": "Terminal tool is disabled by default. Set BUTLER_ENABLE_TERMINAL=1 to enable restricted commands."
         })

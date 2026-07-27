@@ -30,14 +30,14 @@ def register_provider_presets_parser(sub: argparse._SubParsersAction[argparse.Ar
 
 
 def _cmd_presets(_ns: argparse.Namespace) -> int:
-    from butler.provider_presets import format_presets_list
+    from butler.configuration.provider_presets import format_presets_list
 
     print(format_presets_list())
     return 0
 
 
 def _cmd_apply(ns: argparse.Namespace) -> int:
-    from butler.provider_presets import apply_provider_preset
+    from butler.configuration.provider_presets import apply_provider_preset
     from butler.project import Project
 
     workspace = None

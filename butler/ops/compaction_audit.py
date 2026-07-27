@@ -121,7 +121,7 @@ def discover_sessions_with_compaction(*, limit: int = 8) -> list[str]:
     if not discover_sessions_imports_ok():
         return []
 
-    from butler.config import get_butler_home
+    from butler.configuration.settings import get_butler_home
     from butler.core.session_transcript import transcript_path
 
     root = get_butler_home() / "sessions"

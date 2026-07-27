@@ -32,7 +32,7 @@ def test_scope_disabled(monkeypatch):
 @pytest.mark.unit
 def test_queue_and_approve(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
 
@@ -84,7 +84,7 @@ def test_queue_and_approve(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_reject_pending(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    from butler.config import reload_butler_settings
+    from butler.configuration.settings import reload_butler_settings
 
     reload_butler_settings()
     queue_owner_write(scope="owner_experience", content="note")

@@ -17,6 +17,7 @@ from butler.io.atomic_write import atomic_write_text
 from butler.defaults.env_defaults import (
     GATEWAY_DURABLE_OUTBOX_DEFAULT,
     GATEWAY_DURABLE_OUTBOX_MAX,
+    GATEWAY_DURABLE_OUTBOX_MAX_DEFAULT,
 )
 
 
@@ -25,7 +26,7 @@ def durable_outbox_enabled() -> bool:
 
 
 def durable_outbox_max_entries() -> int:
-    raw = os.getenv("BUTLER_GATEWAY_DURABLE_OUTBOX_MAX", "").strip()
+    raw = os.getenv("BUTLER_GATEWAY_DURABLE_OUTBOX_MAX", GATEWAY_DURABLE_OUTBOX_MAX_DEFAULT).strip()
     if not raw:
         return GATEWAY_DURABLE_OUTBOX_MAX
     try:

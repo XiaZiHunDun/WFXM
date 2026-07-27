@@ -27,7 +27,7 @@ from butler.session.memory_prefetch_ops import (
     session_key_for_prefetch,
     session_read_recall_blocks_prefetch,
 )
-from butler.env_parse import int_env
+from butler.utilities.env_parse import int_env
 from butler.memory.prefetch_cache import get_cached_prefetch
 from butler.session.lifecycle import _current_project
 from butler.memory.semantic_index import SemanticMemoryIndex
@@ -61,10 +61,10 @@ def prefetch_limits() -> dict[str, int]:
 
 
 def _resolve_project_memory_for_turn(orchestrator: Any) -> Any:
-    from butler.memory.diagnostics import _resolve_project_memory
+    from butler.memory.facade_ops import resolve_project_memory_for_diag
 
     sk = session_key_for_prefetch()
-    pmem, _ = _resolve_project_memory(orchestrator, sk)
+    pmem, _ = resolve_project_memory_for_diag(orchestrator, sk)
     return pmem
 
 

@@ -20,19 +20,18 @@ def progressive_stream_enabled() -> bool:
 
 def progressive_stream_min_chars() -> int:
     try:
-        return cast(int, int_env("BUTLER_GATEWAY_PROGRESSIVE_MIN_CHARS", GATEWAY_PROGRESSIVE_MIN_CHARS, min=80))
+        result: int = int_env("BUTLER_GATEWAY_PROGRESSIVE_MIN_CHARS", GATEWAY_PROGRESSIVE_MIN_CHARS, min=80)
+        return result
     except ValueError:
-        return GATEWAY_PROGRESSIVE_MIN_CHARS
+        return int(GATEWAY_PROGRESSIVE_MIN_CHARS)
 
 
 def progressive_stream_interval_seconds() -> float:
     try:
-        return cast(
-            float,
-            float_env("BUTLER_GATEWAY_PROGRESSIVE_INTERVAL", GATEWAY_PROGRESSIVE_INTERVAL_SECONDS, min=15.0),
-        )
+        result: float = float_env("BUTLER_GATEWAY_PROGRESSIVE_INTERVAL", GATEWAY_PROGRESSIVE_INTERVAL_SECONDS, min=15.0)
+        return result
     except ValueError:
-        return GATEWAY_PROGRESSIVE_INTERVAL_SECONDS
+        return float(GATEWAY_PROGRESSIVE_INTERVAL_SECONDS)
 
 
 def format_progressive_chunk(preview: str) -> str:
