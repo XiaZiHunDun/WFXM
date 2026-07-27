@@ -6,6 +6,7 @@ This module enhances WFXM's tool execution with:
   - Enhanced concurrent execution with timeout support
   - Tool search unwrap mechanism
   - File checkpoint preflight for destructive operations
+  - Session event emission for event sourcing
 """
 
 from __future__ import annotations
@@ -22,6 +23,62 @@ from typing import Any, Callable, Optional
 logger = logging.getLogger(__name__)
 
 _MAX_TOOL_WORKERS = 8
+
+
+def _emit_tool_events(
+    function_name: str,
+    function_args: dict[str, Any],
+    result: str,
+    tool_call_id: str,
+    session_id: str,
+    duration: float,
+    is_error: bool,
+) -> None:
+    """Emit session events for tool execution lifecycle."""
+    try:
+        from butler.core.tool_event_emitter import (
+            emit_tool_called_event,
+            emit_tool_completed_event,
+            emit_tool_failed_event,
+        )
+
+        duration_ms = int(duration * 1000)
+
+        # Emit ToolCalled (if not already emitted by progress callback)
+        emit_tool_called_event(
+            session_id=session_id,
+            tool_name=function_name,
+            call_id=tool_call_id,
+            args=function_args,
+        )
+
+        # Emit completion/failure event
+        if is_error:
+            error_message = result
+            try:
+                parsed = json.loads(result) if isinstance(result, str) else result
+                if isinstance(parsed, dict) and parsed.get("error"):
+                    error_message = parsed.get("error", str(result))
+            except Exception:
+                pass
+
+            emit_tool_failed_event(
+                session_id=session_id,
+                tool_name=function_name,
+                call_id=tool_call_id,
+                error_message=error_message[:500],
+                duration_ms=duration_ms,
+            )
+        else:
+            emit_tool_completed_event(
+                session_id=session_id,
+                tool_name=function_name,
+                call_id=tool_call_id,
+                result=result,
+                duration_ms=duration_ms,
+            )
+    except Exception as exc:
+        logger.debug("Failed to emit tool events: %s", exc)
 
 
 def _parse_tool_arguments(raw_arguments: Any) -> tuple[dict, Optional[str]]:
@@ -308,6 +365,18 @@ def execute_tool_calls_concurrent(
 
             results[index] = (tool_call, result)
 
+            # Emit session events for event sourcing
+            if session_id:
+                _emit_tool_events(
+                    function_name=function_name,
+                    function_args=function_args,
+                    result=result,
+                    tool_call_id=tool_call_id,
+                    session_id=session_id,
+                    duration=duration,
+                    is_error=is_error,
+                )
+
             # Fire completion callback
             if progress_callbacks and progress_callbacks.on_complete:
                 try:
@@ -320,6 +389,18 @@ def execute_tool_calls_concurrent(
             result = f"Error executing tool '{function_name}': {tool_error}"
             logger.error("_invoke_tool raised for %s: %s", function_name, tool_error, exc_info=True)
             results[index] = (tool_call, result)
+
+            # Emit failure event
+            if session_id:
+                _emit_tool_events(
+                    function_name=function_name,
+                    function_args=function_args,
+                    result=result,
+                    tool_call_id=tool_call_id,
+                    session_id=session_id,
+                    duration=duration,
+                    is_error=True,
+                )
 
             if progress_callbacks and progress_callbacks.on_complete:
                 try:
@@ -498,6 +579,18 @@ def execute_tool_calls_sequential(
         except Exception:
             pass
 
+        # Emit session events for event sourcing
+        if session_id:
+            _emit_tool_events(
+                function_name=function_name,
+                function_args=function_args,
+                result=result,
+                tool_call_id=tool_call_id,
+                session_id=session_id,
+                duration=duration,
+                is_error=is_error,
+            )
+
         # Fire on_complete
         if progress_callbacks and progress_callbacks.on_complete:
             try:
@@ -516,4 +609,5 @@ __all__ = [
     "execute_tool_calls_sequential",
     "apply_tool_request_middleware",
     "run_tool_execution_middleware",
+    "_emit_tool_events",
 ]

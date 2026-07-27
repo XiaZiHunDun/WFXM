@@ -1,0 +1,49 @@
+Butler Dependency Analysis Report
+============================================================
+
+Modules by Architectural Layer:
+----------------------------------------
+  Cross-Cutting: 121 modules
+  L1-Gateway: 199 modules
+  L2-Orchestration: 30 modules
+  L3-Core: 248 modules
+  L4-Tools: 217 modules
+  L5-Memory: 100 modules
+  L6-Transport: 28 modules
+  L7-Permissions: 12 modules
+  L8-Resilience: 5 modules
+  L9-Ops: 152 modules
+  Other: 100 modules
+
+Dependency Statistics:
+----------------------------------------
+  Total modules: 1212
+  Total dependencies: 4379
+  Average deps per module: 3.6
+
+Most Connected Modules (Top 20):
+----------------------------------------
+  ops.health_report: 33 dependencies
+  gateway.commands.info_commands: 33 dependencies
+  tools.builtin_register: 32 dependencies
+  main: 29 dependencies
+  session.memory_prefetch_ops: 25 dependencies
+  cli.doctor_sections: 23 dependencies
+  core.tool_dispatch: 21 dependencies
+  core.agent_loop.loop: 19 dependencies
+  gateway.message_handler: 19 dependencies
+  gateway.message_pipelines: 19 dependencies
+  memory.facade: 18 dependencies
+  contracts: 16 dependencies
+  cli.slash_dispatch: 16 dependencies
+  cli.chat_cli: 15 dependencies
+  registry.skill_service: 15 dependencies
+  ops.health_report_turn: 15 dependencies
+  core.tool_batch: 15 dependencies
+  core.tool_batch_post_edit: 15 dependencies
+  gateway.runner: 15 dependencies
+  gateway.completion_notify: 15 dependencies
+
+Circular Dependencies:
+----------------------------------------
+  No circular dependencies detected.
