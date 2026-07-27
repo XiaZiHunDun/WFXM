@@ -50,6 +50,9 @@ TOOL_PRUNE_DEFAULT_CHARS: Final[int] = 800
 TOOL_MASK_PROTECT_TOKENS: Final[int] = 50_000
 TOOL_MASK_MIN_PRUNABLE: Final[int] = 30_000
 
+# --- Concurrent tool timeout ---
+CONCURRENT_TOOL_TIMEOUT_S_DEFAULT: Final[float] = 420.0
+
 # --- Instruction walkup (read_file → AGENTS.md) ---
 INSTRUCTION_WALKUP_MAX_CHARS: Final[int] = 4000
 INSTRUCTION_WALKUP_MAX_FILES: Final[int] = 3
@@ -217,22 +220,6 @@ CACHE_SAFE_DELEGATE_DEFAULT: Final[bool] = False
 DOOM_LOOP_SOFT_NUDGE_DEFAULT: Final[bool] = False
 BIND_DEFAULT_PROJECT_DEFAULT: Final[bool] = False
 
-# --- Grounding & reasoning ---
-GROUNDING_CALC_DEFAULT: Final[bool] = False
-GROUNDING_API_MESSAGE_ACL_DEFAULT: Final[bool] = False
-REASONING_ASK_CLARIFICATION_DEFAULT: Final[bool] = False
-
-# --- CC features ---
-CC_BRIDGE_DEFAULT: Final[bool] = True
-CC_ROUTE_HINTS_DEFAULT: Final[bool] = False
-CC_COMPACT_SKILL_PRESERVE_DEFAULT: Final[bool] = False
-
-# --- Workflow & routing ---
-WORKFLOW_AUTO_CONTINUE_DEFAULT: Final[bool] = True
-WORKFLOW_AUTO_REVIEW_DEFAULT: Final[bool] = False
-ROUTING_CORPUS_DEFAULT: Final[bool] = False
-ROUTING_DESIGN_CONTEXT_INJECT_DEFAULT: Final[bool] = False
-
 # --- Exec policy ---
 EXECPOLICY_DEFAULT: Final[bool] = True
 EXECUTE_CODE_DEFAULT: Final[bool] = False
@@ -286,3 +273,16 @@ MCP_PROFILES_DEFAULT: Final[bool] = True
 MCP_GITHUB_ISSUE_LIST_DIRECT_DEFAULT: Final[bool] = True
 MCP_GITHUB_REPO_LIST_DIRECT_DEFAULT: Final[bool] = True
 MCP_TODOIST_PROJECT_LIST_DIRECT_DEFAULT: Final[bool] = True
+
+# --- Gateway owner gates ---
+OWNER_WECHAT_ID_DEFAULT: Final[str] = ""
+PROJECT_CREATE_OPEN_DEFAULT: Final[str] = ""
+
+# --- Permissions ---
+WORKFLOW_AUTO_RESUME_DEFAULT: Final[str] = "0"
+
+# --- Project ---
+DEFAULT_PROJECT_DEFAULT: Final[str] = ""
+LEAD_PROJECTS_DEFAULT: Final[str] = ""
+PROJECT_DELETE_MATURITY_GATE_DEFAULT: Final[str] = "1"
+TOOL_SAFE_ROOT_DEFAULT: Final[str] = ""

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import int_env
+from butler.utilities.env_parse import int_env
 from butler.project.manager import get_project_manager
 
 _LOCK = threading.Lock()
@@ -36,9 +36,9 @@ def min_dev_delegates_for_delete() -> int:
 
 
 def project_delete_gate_enabled() -> bool:
-    import os
+    from butler.defaults.env_defaults import PROJECT_DELETE_MATURITY_GATE_DEFAULT
 
-    return os.getenv("BUTLER_PROJECT_DELETE_MATURITY_GATE", "1").strip().lower() not in (
+    return os.getenv("BUTLER_PROJECT_DELETE_MATURITY_GATE", PROJECT_DELETE_MATURITY_GATE_DEFAULT).strip().lower() not in (
         "0",
         "false",
         "off",

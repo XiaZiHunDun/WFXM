@@ -13,8 +13,8 @@ class TestTenantStoreEngine:
         """TenantStore.search works with substring matching."""
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
         monkeypatch.setenv("BUTLER_TENANT", "default")
-        import butler.config
-        butler.config.reload_butler_settings()
+        import butler.configuration.settings
+        butler.configuration.settings.reload_butler_settings()
 
         from butler.tools.tenant_store import TenantStore
         store = TenantStore("test_items")
@@ -28,8 +28,8 @@ class TestTenantStoreEngine:
     def test_search_with_fields(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
         monkeypatch.setenv("BUTLER_TENANT", "default")
-        import butler.config
-        butler.config.reload_butler_settings()
+        import butler.configuration.settings
+        butler.configuration.settings.reload_butler_settings()
 
         from butler.tools.tenant_store import TenantStore
         store = TenantStore("test_items")
@@ -42,8 +42,8 @@ class TestTenantStoreEngine:
     def test_find_by_prefix(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
         monkeypatch.setenv("BUTLER_TENANT", "default")
-        import butler.config
-        butler.config.reload_butler_settings()
+        import butler.configuration.settings
+        butler.configuration.settings.reload_butler_settings()
 
         from butler.tools.tenant_store import TenantStore
         store = TenantStore("test_items")
@@ -85,8 +85,8 @@ class TestReminderTenantDomain:
     def test_reminders_dir_is_tenant_scoped(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
         monkeypatch.setenv("BUTLER_TENANT", "default")
-        import butler.config
-        butler.config.reload_butler_settings()
+        import butler.configuration.settings
+        butler.configuration.settings.reload_butler_settings()
 
         from butler.tools.reminder import _reminders_dir
         rdir = _reminders_dir()
@@ -122,8 +122,8 @@ class TestNaturalLanguageTime:
 class TestOutboxFieldConsistency:
     def test_replay_uses_correct_fields(self):
         import inspect
-        from butler.gateway.runner import _replay_pending_outbox
-        src = inspect.getsource(_replay_pending_outbox)
+        from butler.gateway.runner_ops import replay_outbox_entry_safe
+        src = inspect.getsource(replay_outbox_entry_safe)
         assert 'get("body"' in src, "Replay should read 'body' field"
         assert 'get("entry_id"' in src, "Replay should read 'entry_id' field"
 

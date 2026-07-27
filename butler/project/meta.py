@@ -58,10 +58,11 @@ def format_default_project_policy_lines(
     """C2: default project resolution policy for /诊断."""
     import os
 
+    from butler.defaults.env_defaults import DEFAULT_PROJECT_DEFAULT
     from butler.project.policy_env import bind_default_project_enabled
 
     pm = orchestrator.project_manager
-    default_env = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip() or "(未设置)"
+    default_env = os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_DEFAULT).strip() or "(未设置)"
     session_proj = pm.resolve_active_project_name(session_key=session_key) or "(无)"
     lines = [
         "默认项目策略:",

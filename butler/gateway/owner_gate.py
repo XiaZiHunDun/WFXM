@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import os
 
+from butler.defaults.env_defaults import (
+    OWNER_WECHAT_ID_DEFAULT,
+    PROJECT_CREATE_OPEN_DEFAULT,
+)
 from butler.session.keys import chat_id_from_session_key
 
 
@@ -14,7 +18,7 @@ def _csv_env_ids(name: str) -> list[str]:
 
 def resolve_owner_wechat_chat_id() -> str:
     """Primary Owner chat id for runtime push (owner, then active allowlists)."""
-    owner = os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip()
+    owner = os.getenv("BUTLER_OWNER_WECHAT_ID", OWNER_WECHAT_ID_DEFAULT).strip()
     if owner:
         return owner
     for name in ("WECHAT_ALLOWED_USERS", "BUTLER_GATEWAY_ALLOWLIST"):
@@ -27,7 +31,7 @@ def resolve_owner_wechat_chat_id() -> str:
 def owner_wechat_ids() -> frozenset[str]:
     """Configured owner / allowlist WeChat user ids."""
     ids: set[str] = set()
-    owner = os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip()
+    owner = os.getenv("BUTLER_OWNER_WECHAT_ID", OWNER_WECHAT_ID_DEFAULT).strip()
     if owner:
         ids.add(owner)
     allow = _csv_env_ids("WECHAT_ALLOWED_USERS")
@@ -53,13 +57,11 @@ def is_gateway_owner(
     owner 行为仅依赖显式 BUTLER_OWNER_WECHAT_ID / WECHAT_ALLOWED_USERS allowlist.
     dev / test / 未设 env 时 BYPASS 仍生效 (开发体验 + 向后兼容).
     """
-    # Sprint 18-2: prod 环境硬拒绝 BYPASS, 防止越权开关被滥用.
-    from butler.env_parse import is_butler_prod
+    from butler.utilities.env_parse import is_butler_prod
 
     if is_butler_prod():
-        # 跳过 BYPASS, 走正常 allowlist 校验
         pass
-    elif os.getenv("BUTLER_PROJECT_CREATE_OPEN", "").strip().lower() in (
+    elif os.getenv("BUTLER_PROJECT_CREATE_OPEN", PROJECT_CREATE_OPEN_DEFAULT).strip().lower() in (
         "1",
         "true",
         "yes",

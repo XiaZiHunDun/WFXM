@@ -28,7 +28,8 @@ _gate_lock = threading.Lock()
 
 
 def _workflow_auto_resume_enabled() -> bool:
-    return os.getenv("BUTLER_WORKFLOW_AUTO_RESUME", "").strip() == "1"
+    from butler.defaults.env_defaults import WORKFLOW_AUTO_RESUME_DEFAULT
+    return os.getenv("BUTLER_WORKFLOW_AUTO_RESUME", WORKFLOW_AUTO_RESUME_DEFAULT).strip() == "1"
 
 
 def _auto_resume_workflow(session_key: str, workflow_name: str) -> str | None:

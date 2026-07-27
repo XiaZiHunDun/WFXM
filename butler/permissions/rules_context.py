@@ -104,7 +104,9 @@ def current_workspace() -> Path | None:
     def _from_env() -> Path | None:
         import os
 
-        raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
+        from butler.defaults.env_defaults import TOOL_SAFE_ROOT_DEFAULT
+
+        raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", TOOL_SAFE_ROOT_DEFAULT).strip()
         if not raw:
             return None
         p = Path(raw).expanduser()

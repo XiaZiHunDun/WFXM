@@ -110,7 +110,7 @@ def test_record_tool_action_transcript(monkeypatch):
     )
 
     home = Path(tempfile.mkdtemp())
-    import butler.config as cfg
+    import butler.configuration.settings as cfg
 
     monkeypatch.setattr(cfg, "get_butler_home", lambda: home)
     record_tool_action("sk1", tool_name="read_file", args_preview='{"path":"a"}')

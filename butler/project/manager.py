@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from butler.configuration.settings import get_butler_settings
+from butler.defaults.env_defaults import DEFAULT_PROJECT_DEFAULT
 from butler.project.archetypes import (
     ensure_experiment_skeleton,
     ensure_memory_skeleton,
@@ -36,20 +37,7 @@ SwitchCallback = Callable[[str, str], None]
 class ProjectManager:
     """Scans ``project.yaml`` files and tracks the active Butler project."""
 
-    _instance: ProjectManager | None = None
-
-    def __new__(cls, *_args: Any, **_kwargs: Any) -> ProjectManager:
-        if cls._instance is None:
-            inst = super().__new__(cls)
-            inst._initialized = False
-            cls._instance = inst
-        assert cls._instance is not None
-        return cls._instance
-
     def __init__(self, projects_dir: Any = None) -> None:
-        if getattr(self, "_initialized", False):
-            return
-        self._initialized = True
         settings = get_butler_settings()
         self.projects_dir = (
             projects_dir if projects_dir is not None else settings.projects_dir
@@ -58,7 +46,7 @@ class ProjectManager:
         self._lock = threading.RLock()
         self._projects: dict[str, Project] = {}
         self.current_project: str = ""
-        self._default_project: str = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+        self._default_project: str = os.getenv("BUTLER_DEFAULT_PROJECT", DEFAULT_PROJECT_DEFAULT).strip()
         self._chat_project: dict[str, str] = {}
         self._on_switch_callbacks: list[SwitchCallback] = []
         self._scan_projects()
@@ -363,8 +351,10 @@ class ProjectManager:
 
 
 def get_project_manager() -> ProjectManager:
-    """Shared ``ProjectManager`` singleton."""
-    return ProjectManager()
+    """Shared ``ProjectManager`` via ServiceContainer."""
+    from butler.core.container import container
+
+    return container.project_manager()
 
 
 __all__ = ["ProjectManager", "get_project_manager"]

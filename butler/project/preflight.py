@@ -516,7 +516,9 @@ def format_report(report: PreflightReport) -> str:
 
 def resolve_tool_safe_root() -> Path | None:
     """``BUTLER_TOOL_SAFE_ROOT`` when set, else ``None``."""
-    raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
+    from butler.defaults.env_defaults import TOOL_SAFE_ROOT_DEFAULT
+
+    raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", TOOL_SAFE_ROOT_DEFAULT).strip()
     if not raw:
         return None
     return Path(raw).expanduser().resolve()

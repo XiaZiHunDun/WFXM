@@ -9,7 +9,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Iterator, cast
+from typing import Any, Iterator
 
 from butler.configuration.settings import get_butler_home
 from butler.utilities.env_parse import env_truthy
@@ -35,7 +35,7 @@ def durable_outbox_max_entries() -> int:
 
 
 def _outbox_root() -> Path:
-    return cast(Path, get_butler_home() / "gateway_outbox")
+    return get_butler_home() / "gateway_outbox"
 
 
 def _state_dir(state: str) -> Path:

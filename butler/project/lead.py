@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+from butler.defaults.env_defaults import LEAD_PROJECTS_DEFAULT
+
 if TYPE_CHECKING:
     from butler.project.model import Project
 
@@ -13,7 +15,7 @@ _DEFAULT_LEAD_PROJECTS = frozenset({"灵文1号", "灵文1"})
 
 
 def lead_project_names() -> frozenset[str]:
-    raw = os.getenv("BUTLER_LEAD_PROJECTS", "").strip()
+    raw = os.getenv("BUTLER_LEAD_PROJECTS", LEAD_PROJECTS_DEFAULT).strip()
     if not raw:
         return _DEFAULT_LEAD_PROJECTS
     return frozenset(n.strip() for n in raw.split(",") if n.strip())
