@@ -74,3 +74,8 @@ Agent Loop 主要流程优化（P0-P2）完成。P0：智能工具选择集成 +
 P1：预回合经验注入 + 对话结束经验写入；P2：语义感知上下文压缩（关键词提取 + 语义保护）。
 验证：工具缓存 call_count=1、经验读写正常、语义保护 middle从8→0。
 下次会话：按计划接后续优化或 G3 真 subagent pilot。
+
+## 2026-08-04-claude-code-001 · claude-code
+
+窄域 schema 修复：`.claude/settings.json` 三个 hook entry（PreToolUse / PostToolUse / Stop）补 `matcher: ""` 与 `hooks: [{type:"command", command:...}]`，三条 `Expected array, but received undefined` 警告消失；guard 脚本自身不动；未 commit（工作区另有非本班改动）。
+下次会话：建议用 sentinel 法实测一次 hook 触发，并就本班 commit 边界（仅黑板变更 vs 一并收拢旧改动）做决断。
