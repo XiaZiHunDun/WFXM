@@ -1,0 +1,40 @@
+{
+  "name": "butler-v5",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Butler v5 — 函数式架构微信编码管家（TypeScript + Effect-TS）",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run -- --reporter=verbose",
+    "lint": "eslint packages/ apps/ tests/ --ext .ts --max-warnings 0",
+    "lint:fix": "eslint packages/ apps/ tests/ --ext .ts --fix",
+    "typecheck": "pnpm -r typecheck",
+    "format": "pnpm exec prettier --write .",
+    "format:check": "pnpm exec prettier --check .",
+    "deadcode": "ts-prune packages/ apps/ --error 2>&1 || true",
+    "clean": "rm -rf node_modules packages/*/node_modules apps/*/node_modules dist coverage",
+    "gate": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm test -- --coverage && bash scripts/typecheck-gate.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "turbo": "^2.0.0",
+    "tsx": "^4.7.0",
+    "prettier": "^3.3.0",
+    "ts-prune": "^0.10.3"
+  },
+  "dependencies": {
+    "effect": "^3.4.0",
+    "@effect/schema": "^0.66.0",
+    "drizzle-orm": "^0.33.0",
+    "postgres": "^3.4.0"
+  }
+}
