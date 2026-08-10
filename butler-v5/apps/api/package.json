@@ -1,0 +1,23 @@
+{
+  "name": "@butler/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@butler/application": "workspace:*",
+    "@butler/infrastructure": "workspace:*",
+    "@butler/ports": "workspace:*",
+    "@butler/config": "workspace:*",
+    "hono": "^4.0.0",
+    "effect": "^3.4.0"
+  }
+}
