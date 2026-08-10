@@ -5,7 +5,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["packages/**/*.test.ts", "apps/**/*.test.ts", "tests/**/*.test.ts"],
+    include: [
+      "packages/**/*.test.ts",
+      "apps/**/*.test.ts",
+      "tests/**/*.test.ts",
+      "scripts/**/*.test.{ts,mjs}",
+    ],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.turbo/**", "**/*.tsbuildinfo"],
     coverage: {
       provider: "v8",
@@ -34,6 +39,7 @@ export default defineConfig({
       "@butler/config": resolve(__dirname, "packages/config/src"),
       "@butler/shared": resolve(__dirname, "packages/shared/src"),
       "@butler/adapters": resolve(__dirname, "packages/adapters/src"),
+      "@butler/migration": resolve(__dirname, "packages/migration/src"),
     },
   },
 })
