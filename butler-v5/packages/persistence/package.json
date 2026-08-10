@@ -5,7 +5,13 @@
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./event-store.js": "./src/event-store.ts",
+    "./outbox.js": "./src/outbox.ts",
+    "./projections.js": "./src/projections.ts",
+    "./snapshot.js": "./src/snapshot.ts",
+    "./worker.js": "./src/worker.ts",
+    "./testing.js": "./src/testing.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

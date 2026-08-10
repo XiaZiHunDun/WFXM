@@ -10,7 +10,8 @@
       "./tests/**/tsconfig.json",
       "./tests/tsconfig.json",
       "./packages/contracts/tsconfig.json",
-      "./packages/persistence/tsconfig.json"
+      "./packages/persistence/tsconfig.json",
+      "./packages/runtime/tsconfig.json"
     ],
     "tsconfigRootDir": "."
   },
