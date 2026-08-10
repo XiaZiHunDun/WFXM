@@ -1,4 +1,4 @@
-import type { ToolName } from "../../domain/src/tools/types.js"
+import type { ToolName } from "@butler/domain/tools/types.js"
 
 export type ApiVersion = "v1"
 

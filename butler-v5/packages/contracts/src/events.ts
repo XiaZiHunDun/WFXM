@@ -1,4 +1,4 @@
-import type { EventEnvelope, StreamType } from "../../domain/src/event-sourcing.js"
+import type { EventEnvelope, StreamType } from "@butler/domain"
 
 export type ContractEvent = EventEnvelope & { readonly streamType: StreamType }
 
