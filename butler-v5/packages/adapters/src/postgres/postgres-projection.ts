@@ -6,19 +6,36 @@ import {
   registerProjection as persistenceRegisterProjection,
   type Handler as ProjectionHandler,
 } from "@butler/persistence/projections.js"
-import { ProjectionService } from "./tags.js"
+import { ProjectionService } from "@butler/ports"
+import { tryPromise } from "../port-helpers.js"
 
 interface ProjectionAdapterConfig {
   readonly db: PgliteDatabase<Record<string, never>>
 }
 
 export function makePostgresProjectionAdapter(config: ProjectionAdapterConfig) {
-  return Layer.succeed(ProjectionService, {
+  return Layer.succeed(ProjectionService as never, {
     apply: (streamId: string, name: string) =>
-      persistenceApplyProjection(config.db, streamId, name),
+      tryPromise(
+        () => persistenceApplyProjection(config.db, streamId, name),
+        (err) =>
+          new Error(`projection apply failed: ${err instanceof Error ? err.message : String(err)}`),
+      ),
     rebuild: (streamId: string, name: string) =>
-      persistenceRebuildProjection(config.db, streamId, name),
+      tryPromise(
+        () => persistenceRebuildProjection(config.db, streamId, name),
+        (err) =>
+          new Error(
+            `projection rebuild failed: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+      ),
     register: (name: string, handler: ProjectionHandler) =>
-      persistenceRegisterProjection(name, handler),
+      tryPromise(
+        async () => persistenceRegisterProjection(name, handler),
+        (err) =>
+          new Error(
+            `projection register failed: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+      ),
   })
 }
