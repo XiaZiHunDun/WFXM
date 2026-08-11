@@ -8,7 +8,9 @@ export default defineConfig({
     include: [
       "packages/**/*.test.ts",
       "apps/**/*.test.ts",
+      "cli/**/*.test.ts",
       "tests/**/*.test.ts",
+      "tests/e2e/**/*.test.ts",
       "scripts/**/*.test.{ts,mjs}",
     ],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.turbo/**", "**/*.tsbuildinfo"],
@@ -40,6 +42,8 @@ export default defineConfig({
       "@butler/shared": resolve(__dirname, "packages/shared/src"),
       "@butler/adapters": resolve(__dirname, "packages/adapters/src"),
       "@butler/migration": resolve(__dirname, "packages/migration/src"),
+      "@butler/api": resolve(__dirname, "apps/api/src"),
+      "@butler/cli": resolve(__dirname, "cli/src"),
     },
   },
 })

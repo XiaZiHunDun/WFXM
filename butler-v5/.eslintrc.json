@@ -7,12 +7,15 @@
     "project": [
       "./packages/*/tsconfig.json",
       "./apps/*/tsconfig.json",
+      "./apps/api/tsconfig.json",
       "./tests/**/tsconfig.json",
       "./tests/tsconfig.json",
       "./packages/contracts/tsconfig.json",
       "./packages/persistence/tsconfig.json",
       "./packages/runtime/tsconfig.json",
-      "./packages/adapters/tsconfig.json"
+      "./packages/adapters/tsconfig.json",
+      "./packages/migration/tsconfig.json",
+      "./cli/tsconfig.json"
     ],
     "tsconfigRootDir": "."
   },

@@ -7,17 +7,24 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "bin": {
+    "butler": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
   "scripts": {
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@butler/application": "workspace:*",
-    "@butler/infrastructure": "workspace:*",
+    "@butler/persistence": "workspace:*",
     "@butler/ports": "workspace:*",
-    "@butler/config": "workspace:*",
-    "hono": "^4.0.0",
-    "effect": "^3.4.0"
+    "@butler/domain": "workspace:*",
+    "@butler/runtime": "workspace:*",
+    "@butler/adapters": "workspace:*",
+    "effect": "^3.10.0",
+    "drizzle-orm": "^0.33.0",
+    "@electric-sql/pglite": "^0.2.0",
+    "hono": "^4.0.0"
   }
 }
