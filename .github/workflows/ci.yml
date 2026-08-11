@@ -439,8 +439,10 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Enable pnpm via corepack
-        run: corepack enable pnpm
+      - name: Setup pnpm (pinned to 9.15.0 to match local dev + lockfile v9)
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
