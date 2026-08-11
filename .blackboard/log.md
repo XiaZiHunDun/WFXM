@@ -84,3 +84,6 @@ P1：预回合经验注入 + 对话结束经验写入；P2：语义感知上下�
 
 生成 WFXM 最新项目状态报告：确认 Butler v4 为 Python 主线、butler-v5 为未跟踪 TypeScript 原型，并记录当前 WIP、测试结果、文档漂移和收口风险。
 验证：v4 WIP 相关测试 703 passed、v5 typecheck 通过；v5 lint、docs broken-links 与完整 fast gate 分别存在已记录问题，未提交代码。
+
+## 2026-08-12-claude-code-013 · claude-code
+R9 marker commit — 触发 GitHub Actions 跑 butler-v5-gate 新 job（commit 0db36aad）。Owner 推 main 后观察 Actions tab 验证 5-gate 全绿。
