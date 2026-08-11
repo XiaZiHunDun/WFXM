@@ -428,3 +428,53 @@ jobs:
         run: |
           pip install -e ".[dev,mcp,observability]"
           python -m pytest -m live_llm -q --tb=line
+
+  butler-v5-gate:
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable pnpm via corepack
+        run: corepack enable pnpm
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: butler-v5/node_modules
+          key: ${{ runner.os }}-pnpm-butler-v5-${{ hashFiles('butler-v5/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-butler-v5-
+
+      - name: Install butler-v5 dependencies
+        working-directory: butler-v5
+        run: pnpm install --frozen-lockfile
+
+      - name: Butler-v5 format check
+        working-directory: butler-v5
+        run: pnpm format:check
+
+      - name: Butler-v5 lint
+        working-directory: butler-v5
+        run: pnpm lint
+
+      - name: Butler-v5 typecheck (full gate)
+        working-directory: butler-v5
+        run: bash scripts/typecheck-gate.sh
+
+      - name: Butler-v5 test (379 tests baseline)
+        working-directory: butler-v5
+        run: pnpm test
+
+      - name: Upload butler-v5 test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: butler-v5-test-log-${{ github.run_id }}
+          path: butler-v5/test-output.txt
+          if-no-files-found: warn
