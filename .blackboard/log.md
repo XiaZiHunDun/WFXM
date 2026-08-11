@@ -79,3 +79,8 @@ P1：预回合经验注入 + 对话结束经验写入；P2：语义感知上下�
 
 窄域 schema 修复：`.claude/settings.json` 三个 hook entry（PreToolUse / PostToolUse / Stop）补 `matcher: ""` 与 `hooks: [{type:"command", command:...}]`，三条 `Expected array, but received undefined` 警告消失；guard 脚本自身不动；未 commit（工作区另有非本班改动）。
 下次会话：建议用 sentinel 法实测一次 hook 触发，并就本班 commit 边界（仅黑板变更 vs 一并收拢旧改动）做决断。
+
+## 2026-08-08-claude-code-001 · claude-code
+
+生成 WFXM 最新项目状态报告：确认 Butler v4 为 Python 主线、butler-v5 为未跟踪 TypeScript 原型，并记录当前 WIP、测试结果、文档漂移和收口风险。
+验证：v4 WIP 相关测试 703 passed、v5 typecheck 通过；v5 lint、docs broken-links 与完整 fast gate 分别存在已记录问题，未提交代码。

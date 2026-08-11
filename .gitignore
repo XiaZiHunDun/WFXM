@@ -118,3 +118,8 @@ MagicMock/
 <MagicMock*
 .claude/worktrees/
 projects/LingWen1/docs/interview-明天演示.md
+
+# runtime data
+.wfxm_data/
+# per-project spec/framework directory (memory: ".butler/ 整目录 gitignore")
+butler-v5/.butler/

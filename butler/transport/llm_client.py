@@ -502,3 +502,7 @@ class LLMClient:
             finish_reason=finish_reason,
             usage=usage,
         )
+
+__all__ = [
+    "LLMClient", "api_mode", "complete", "stream",
+]

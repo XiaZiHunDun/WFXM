@@ -314,3 +314,7 @@ def _inject_ephemeral_system(messages: list[dict[str, Any]], banner: str) -> lis
             return out
     out.insert(0, {"role": "system", "content": block})
     return out
+
+__all__ = [
+    "ContextPipeline", "LoopContext", "apply_tool_prune_pipeline", "attach_loop", "client", "compress_context", "config", "detach_loop", "estimate_tokens", "hygiene_compress_if_needed", "prepare_messages_for_api",
+]

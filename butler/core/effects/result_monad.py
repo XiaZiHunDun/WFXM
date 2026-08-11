@@ -98,6 +98,18 @@ class Ok(Generic[T, E]):
             return self.value == other.value
         return False
 
+    def fold(self, on_ok: Callable[[T], U], on_err: Callable[[E], U]) -> U:
+        """Collapse the Result into a single value by applying the appropriate function."""
+        return on_ok(self.value)
+
+    def match(self, ok_fn: Callable[[T], U], err_fn: Callable[[E], U]) -> U:
+        """Pattern match on the Result variant."""
+        return ok_fn(self.value)
+
+    def to_value(self) -> T:
+        """Extract the value directly."""
+        return self.value
+
 
 class Err(Generic[T, E]):
     """Error variant of Result."""
@@ -179,6 +191,18 @@ class Err(Generic[T, E]):
         if isinstance(other, Err):
             return self.error == other.error
         return False
+
+    def fold(self, on_ok: Callable[[T], U], on_err: Callable[[E], U]) -> U:
+        """Collapse the Result into a single value by applying the appropriate function."""
+        return on_err(self.error)
+
+    def match(self, ok_fn: Callable[[T], U], err_fn: Callable[[E], U]) -> U:
+        """Pattern match on the Result variant."""
+        return err_fn(self.error)
+
+    def to_value(self) -> T:
+        """Extract the value. Raises ValueError for Err."""
+        raise ValueError(f"Cannot extract value from Err: {self.error}")
 
 
 Result = Ok[T, E] | Err[T, E]

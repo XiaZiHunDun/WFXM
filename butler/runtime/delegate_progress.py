@@ -8,6 +8,12 @@ import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Iterator
 
+from butler.utilities.env_parse import float_env, int_env
+from butler.defaults.env_defaults import (
+    GATEWAY_DELEGATE_PROGRESS_SECONDS,
+    GATEWAY_DELEGATE_PROGRESS_MAX,
+)
+
 if TYPE_CHECKING:
     from butler.runtime.delegate_job import DelegateJob
 
@@ -16,9 +22,6 @@ logger = logging.getLogger(__name__)
 
 def _progress_interval_seconds() -> float:
     try:
-        from butler.utilities.env_parse import float_env
-        from butler.defaults.env_defaults import GATEWAY_DELEGATE_PROGRESS_SECONDS
-
         return float(max(45.0, float_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_SECONDS", GATEWAY_DELEGATE_PROGRESS_SECONDS)))
     except ValueError:
         return float(GATEWAY_DELEGATE_PROGRESS_SECONDS)
@@ -26,9 +29,6 @@ def _progress_interval_seconds() -> float:
 
 def _progress_max_pushes() -> int:
     try:
-        from butler.utilities.env_parse import int_env
-        from butler.defaults.env_defaults import GATEWAY_DELEGATE_PROGRESS_MAX
-
         result: int = int_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX", GATEWAY_DELEGATE_PROGRESS_MAX, min=1, max=12)
         return result
     except ValueError:

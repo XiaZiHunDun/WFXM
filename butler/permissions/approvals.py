@@ -15,6 +15,19 @@ from butler.configuration.settings import get_butler_home
 from butler.utilities.env_parse import float_env
 from butler.io.safe_load import safe_load_json
 
+try:
+    from butler.core.events.approval_event_emitter import (
+        emit_approval_denied_event,
+        emit_approval_granted_event,
+        emit_approval_requested_event,
+        emit_approval_revoked_event,
+    )
+except ImportError:
+    emit_approval_denied_event = None
+    emit_approval_granted_event = None
+    emit_approval_requested_event = None
+    emit_approval_revoked_event = None
+
 logger = logging.getLogger(__name__)
 
 _ONCE_TTL_SEC = 300.0
@@ -110,6 +123,17 @@ def save_pending(session_key: str, request: ApprovalRequest) -> str:
         "requested_at": time.time(),
     }
     _save(session_key, data)
+    if emit_approval_requested_event:
+        try:
+            emit_approval_requested_event(
+                session_id=session_key,
+                tool_name=request.tool,
+                reason=request.reason,
+                permission_type=request.permission,
+                fingerprint=fp,
+            )
+        except Exception:
+            pass
     return fp
 
 
@@ -148,6 +172,18 @@ def grant_once(session_key: str, *, fingerprint: str = "") -> str | None:
     data["pending"] = None
     _save(sk, data)
     perm = str(row.get("permission") or "?")
+    if emit_approval_granted_event:
+        try:
+            emit_approval_granted_event(
+                session_id=sk,
+                tool_name=str(row.get("tool") or ""),
+                granted_by="owner",
+                duration_type="once",
+                permission=str(row.get("permission") or ""),
+                pattern=str(row.get("pattern") or ""),
+            )
+        except Exception:
+            pass
     return f"已批准一次：{perm}（{int(once_ttl_seconds())} 秒内有效）"
 
 
@@ -181,6 +217,18 @@ def grant_always(
     data["always"] = always
     data["pending"] = None
     _save(sk, data)
+    if emit_approval_granted_event:
+        try:
+            emit_approval_granted_event(
+                session_id=sk,
+                tool_name=entry["tool"],
+                granted_by="owner",
+                duration_type="always",
+                permission=entry["permission"],
+                pattern=entry["pattern"],
+            )
+        except Exception:
+            pass
     return f"已始终允许：{perm} · 工具 {entry['tool']} · 模式 {entry['pattern']}"
 
 
@@ -274,6 +322,7 @@ def revoke_always(
     data = _load(sk)
     before = [r for r in (data.get("always") or []) if isinstance(r, dict)]
     after: list[dict[str, Any]] = []
+    revoked_entries: list[dict[str, Any]] = []
     for r in before:
         if perm_f and str(r.get("permission") or "") != perm_f:
             after.append(r)
@@ -284,6 +333,7 @@ def revoke_always(
         if pat_f and str(r.get("pattern") or "") != pat_f:
             after.append(r)
             continue
+        revoked_entries.append(r)
     if len(after) == len(before):
         return (
             f"未找到匹配项 (permission={perm_f or '*'}, tool={tool_f or '*'}, "
@@ -291,6 +341,17 @@ def revoke_always(
         )
     data["always"] = after
     _save(sk, data)
+    if emit_approval_revoked_event:
+        try:
+            for rev_entry in revoked_entries:
+                emit_approval_revoked_event(
+                    session_id=sk,
+                    tool_name=str(rev_entry.get("tool") or ""),
+                    permission=str(rev_entry.get("permission") or ""),
+                    revoked_by="owner",
+                )
+        except Exception:
+            pass
     return f"已撤销 {len(before) - len(after)} 项始终允许"
 
 

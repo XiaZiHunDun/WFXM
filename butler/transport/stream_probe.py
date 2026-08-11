@@ -6,7 +6,6 @@ import threading
 import time
 from typing import Any
 
-from butler.core.metrics_sink import observe_ms
 from butler.utilities.env_parse import env_truthy
 from butler.defaults.env_defaults import TRANSPORT_STREAM_PROBE_DEFAULT
 
@@ -35,7 +34,11 @@ def run_stream_probe(orchestrator: Any) -> dict[str, Any]:
         _LAST_PROBE.clear()
         _LAST_PROBE.update(row)
     if row.get("ok"):
-        observe_ms("stream_probe_latency_ms", float(row.get("latency_ms") or 0))
+        try:
+            from butler.core.metrics_sink import observe_ms
+            observe_ms("stream_probe_latency_ms", float(row.get("latency_ms") or 0))
+        except ImportError:
+            pass
     return dict(row)
 
 

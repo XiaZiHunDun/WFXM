@@ -7,6 +7,7 @@ The actual implementation is split into:
 - result_monad.py: Result type (Ok/Err) and basic operations
 - maybe_monad.py: Maybe type (Some/NoneVal) and basic operations
 - combinators.py: Function combinators and utilities
+- advanced.py: Advanced combinators (Lazy, match, partition)
 """
 
 from __future__ import annotations
@@ -65,6 +66,16 @@ from butler.core.effects.combinators import (
     when,
     with_default,
 )
+from butler.core.effects.advanced import (
+    Lazy,
+    deep_map,
+    deep_sequence,
+    match_maybe,
+    match_result,
+    partition_either,
+    result_from_optional,
+    while_some,
+)
 
 
 __all__ = [
@@ -76,6 +87,7 @@ __all__ = [
     "err",
     "result_from_fn",
     "async_result_from_fn",
+    "result_from_optional",
     # Maybe types
     "Some",
     "NoneVal",
@@ -83,6 +95,8 @@ __all__ = [
     "some",
     "none",
     "maybe_from_value",
+    # Lazy
+    "Lazy",
     # Pipe and Compose
     "pipe",
     "compose",
@@ -110,6 +124,7 @@ __all__ = [
     "find_map",
     "partition_results",
     "partition_maybes",
+    "partition_either",
     # Traverse and sequence
     "traverse_result",
     "traverse_maybe",
@@ -117,13 +132,20 @@ __all__ = [
     "async_traverse_maybe",
     "sequence_results",
     "sequence_maybes",
+    "deep_sequence",
     # Result utilities
     "map_error",
     "recover",
     "ensure",
+    "deep_map",
     # Maybe utilities
     "with_default",
     "get_or_else",
     "flatten",
     "flatten_result",
+    # Pattern matching
+    "match_result",
+    "match_maybe",
+    # Iteration
+    "while_some",
 ]

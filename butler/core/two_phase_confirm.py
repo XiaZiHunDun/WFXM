@@ -5,12 +5,16 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 from butler.core.confirm_flags import two_phase_confirm_enabled
+from butler.utilities.env_parse import env_truthy
+from butler.defaults.env_defaults import SAFETY_CONFIRM_WRITE_OPS_DEFAULT
+from butler.configuration.settings import get_butler_home
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +44,6 @@ class PendingToolCall:
 
 
 def _write_confirm_enabled() -> bool:
-    from butler.utilities.env_parse import env_truthy
-    from butler.defaults.env_defaults import SAFETY_CONFIRM_WRITE_OPS_DEFAULT
-
     return bool(env_truthy("BUTLER_CONFIRM_WRITE_OPS", default=SAFETY_CONFIRM_WRITE_OPS_DEFAULT))
 
 
@@ -70,10 +71,6 @@ def _session_key(session_key: str = "") -> str:
 
 
 def _pending_path(session_key: str) -> Path:
-    import re
-
-    from butler.configuration.settings import get_butler_home
-
     sk = re.sub(r"[^a-zA-Z0-9._+-]+", "_", _session_key(session_key))[:120] or "default"
     path = get_butler_home() / "sessions" / sk / "pending_tool.json"
     path.parent.mkdir(parents=True, exist_ok=True)

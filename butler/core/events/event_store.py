@@ -6,6 +6,8 @@ Provides:
 - Event replay for state reconstruction
 - Event bus for pub/sub pattern
 - Event definition registry with versioning support
+- Saga pattern for distributed transactions
+- Replay optimization with snapshots and time-travel
 
 This is a shim file for backward compatibility.
 The actual implementation is split into:
@@ -13,6 +15,8 @@ The actual implementation is split into:
 - event_store_protocol.py: EventStore protocol and InMemoryEventStore
 - event_bus.py: EventBus and EnhancedEventBus
 - event_handlers.py: EventSourcingHandler, Projector, EventBatch, Scope
+- saga.py: SagaStep, SagaOrchestrator for distributed transactions
+- replay.py: ReplayOptimizer, EventTimeTravel, Snapshot
 """
 
 from __future__ import annotations
@@ -46,6 +50,20 @@ from butler.core.events.event_handlers import (
     EventBatch,
     Scope,
 )
+from butler.core.events.saga import (
+    SagaContext,
+    SagaOrchestrator,
+    SagaStep,
+    build_saga,
+    create_step,
+)
+from butler.core.events.replay import (
+    EventQueryOptimizer,
+    EventTimeTravel,
+    ReplayOptimizer,
+    ReplayStrategy,
+    Snapshot,
+)
 
 
 __all__ = [
@@ -72,4 +90,16 @@ __all__ = [
     "Result",
     "Ok",
     "Err",
+    # Saga
+    "SagaContext",
+    "SagaOrchestrator",
+    "SagaStep",
+    "build_saga",
+    "create_step",
+    # Replay Optimization
+    "Snapshot",
+    "ReplayStrategy",
+    "ReplayOptimizer",
+    "EventTimeTravel",
+    "EventQueryOptimizer",
 ]

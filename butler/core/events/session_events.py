@@ -237,6 +237,7 @@ class SessionState:
     state reconstruction and audit trails.
     """
     session_id: str = ""
+    project_path: str = ""
     status: str = "active"  # active, ended
     turn_count: int = 0
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
@@ -287,6 +288,7 @@ class SessionStateProjector:
 
         if isinstance(event, SessionStarted):
             self._state.session_id = event.session_id
+            self._state.project_path = event.project_path
             self._state.metadata["project_path"] = event.project_path
             self._state.metadata["tenant"] = event.tenant
 

@@ -86,6 +86,14 @@ class Some(Generic[T]):
             return self.value == other.value
         return False
 
+    def fold(self, on_some: Callable[[T], U], on_none: Callable[[], U]) -> U:
+        """Collapse the Maybe into a single value."""
+        return on_some(self.value)
+
+    def match(self, some_fn: Callable[[T], U], none_fn: Callable[[], U]) -> U:
+        """Pattern match on the Maybe variant."""
+        return some_fn(self.value)
+
 
 class NoneVal(Generic[T]):
     """None variant of Maybe."""
@@ -149,6 +157,14 @@ class NoneVal(Generic[T]):
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, NoneVal)
+
+    def fold(self, on_some: Callable[[T], U], on_none: Callable[[], U]) -> U:
+        """Collapse the Maybe into a single value."""
+        return on_none()
+
+    def match(self, some_fn: Callable[[T], U], none_fn: Callable[[], U]) -> U:
+        """Pattern match on the Maybe variant."""
+        return none_fn()
 
 
 Maybe = Some[T] | NoneVal[T]

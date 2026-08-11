@@ -1,0 +1,141 @@
+# Butler v5 — Agent 工作说明（TypeScript + Effect-TS）
+
+> 本文档是 AI 编码工具（Cursor / Claude Code / Trae / Copilot 等）在 Butler v5 项目中的**行为契约**。
+> 所有 Agent 必须在每次会话开始时加载本文档，并严格遵守所有规则。
+> 设计参考：[`DESIGN.md`](DESIGN.md)
+
+---
+
+## 一、项目概述
+
+Butler v5 是微信编码管家的**函数式重写**，采用 TypeScript + Effect-TS，核心范式为**函数式核心 + 命令式外壳（FC/IS）**。
+
+| 包               | 职责                   | 核心约束                       |
+| ---------------- | ---------------------- | ------------------------------ |
+| `domain`         | ADT + 纯函数（零依赖） | 不 import 任何项目包           |
+| `ports`          | Effect Tag 接口定义    | 只依赖 domain 类型             |
+| `application`    | 用例编排（Effect.gen） | 只依赖 ports + domain          |
+| `infrastructure` | 副作用实现（Layer）    | 只依赖 ports + domain + config |
+| `config`         | 单 Schema 配置         | 只依赖 domain 类型             |
+| `shared`         | 跨包通用工具           | 零项目依赖                     |
+
+## 二、核心行为准则（七级决策阶梯）
+
+在生成任何代码之前，依次检查以下阶梯，在第一个满足的阶梯停下：
+
+```
+1. YAGNI        — 这个需求真的需要实现吗？
+2. 代码库复用    — 是否已有类似实现？（先 grep 搜索）
+3. 标准库       — TypeScript/Node.js 标准库是否已提供？
+4. 原生平台     — Effect-TS 是否已内置此能力？
+5. 已安装依赖   — 已安装的依赖是否能解决？
+6. 一行代码     — 能否用一行代码解决？
+7. 最小实现     — 最后才写最小可用代码
+```
+
+**防过度工程**：不做调用链深度限制、不做类型/函数预算硬性限制。用 `ts-prune`（CI 死代码检测）+ 文件大小门禁（>800 警告，>1200 阻止）替代。
+
+## 三、安全边界（永不能偷懒的事项）
+
+- 理解问题（必须完整阅读并追踪真实流程）
+- 信任边界处的输入验证
+- 防止数据丢失的错误处理
+- 安全性措施
+- 7 条 GUARD 机制（§十）
+- 用户的明确要求
+
+## 四、受保护文件（BLOCK：绝不允许 AI 直接修改）
+
+| 文件                              | 原因                                   |
+| --------------------------------- | -------------------------------------- |
+| `packages/domain/src/errors.ts`   | 全局错误 ADT，修改需人工 + 契约测试    |
+| `packages/ports/src/index.ts`     | Effect Tag 接口，修改需人工 + 契约测试 |
+| `.cursorrules`                    | AI 守卫自身，防止自我解除              |
+| `AGENTS.md`                       | 本文件，防止行为契约被篡改             |
+| `.butler/scope-boundaries.json`   | 安全边界配置                           |
+| `.butler/load-bearing-marks.json` | 承重代码标记                           |
+
+## 五、工程约束
+
+| 约束        | 阈值                  | 行为                       |
+| ----------- | --------------------- | -------------------------- |
+| 单文件行数  | >800                  | 警告（建议拆分）           |
+| 单文件行数  | >1200                 | 阻止（必须拆分）           |
+| 跨层 import | domain→infrastructure | 阻止（违反 FC/IS）         |
+| 危险模式    | `import *`            | 阻止                       |
+| 全局副作用  | 模块级 `new Map()`    | 警告（应放 Layer 内）      |
+| 死代码      | 未使用的导出          | 警告（`ts-prune` CI 检查） |
+
+## 六、Scope 边界（四栏表）
+
+遵循 `.butler/scope-boundaries.json` 定义的四栏边界：
+
+- **reads**：可读范围
+- **writes**：可写范围（reads 的子集）
+- **executes**：可执行命令（白名单）
+- **off_limits**：绝对禁区（优先级最高）
+
+## 七、代码规范
+
+### 类型定义
+
+- 所有 union 类型用 `_tag` 区分
+- 所有字段 `readonly`
+- 禁止 `optional + null`，用 `Option<T>` 或可辨识 union
+
+### 错误处理
+
+- 禁止 `throw`，用 `Effect.fail` 或 `Either`
+- 所有可恢复错误走 `LoopError` ADT
+
+### 测试
+
+- 领域层：纯函数单元测试，零 mock
+- 应用层：Mock Layer 注入，测试 Effect 编排
+- 基础设施层：真实 Layer 集成测试
+- 守卫测试：架构约束验证
+- 契约测试：Port 接口稳定性
+
+### 注释
+
+- 纯函数：用 `// ─── 标题 ──` 分隔段落
+- 副作用函数：用 `// [G-N]` 标注对应 GUARD
+
+## 八、提交规范
+
+- 提交前运行 `pnpm typecheck && pnpm test`
+- 受保护文件修改必须包含 `[MANUAL-OVERRIDE]` 标记
+- 不要在提交中包含 `.env` 或 credentials
+
+## 九、反模式清单（已记录，勿重蹈覆辙）
+
+见 `.butler/anti-patterns/registry.json`。每次迭代前自动加载。
+
+## 十、7 条 GUARD 机制速查
+
+| #       | 机制           | 触发条件                                 |
+| ------- | -------------- | ---------------------------------------- |
+| **G-1** | 证据门控       | 每次写操作必须留存 IntentReceipt         |
+| **G-2** | 承重防护       | 修改 load-bearing 标记文件需 Owner 签名  |
+| **G-3** | Owner 离线策略 | 离线时 write/execute 拒绝，delegate 入队 |
+| **G-4** | 签名验证       | 承重代码修改需 Owner HMAC 签名           |
+| **G-5** | 多文件链路     | 修改主文件时检查关联文件是否同步         |
+| **G-6** | 角色分离       | Author ≠ Reviewer                        |
+| **G-7** | 3 层自愈       | Retry → Fallback → OwnerNotify           |
+
+> 原 G-9（反模式归档）、G-10（混沌演练）降级为预留功能，不在核心 GUARD 中。
+
+## 十一、结构化信息维护原则
+
+**人类不直接维护结构化文件**。以下文件由 AI 工具根据人类自然语言意图自动生成，人类仅通过可视化反馈确认：
+
+| 文件                                  | 用途         | 维护方式               |
+| ------------------------------------- | ------------ | ---------------------- |
+| `DESIGN.md`                           | 架构设计规范 | AI 生成 + 人类确认     |
+| `AGENTS.md`                           | AI 行为契约  | AI 生成 + 人类确认     |
+| `.cursorrules`                        | 代码规则     | AI 生成 + 人类确认     |
+| `.butler/scope-boundaries.json`       | 安全边界     | AI 生成 + 人类确认     |
+| `.butler/load-bearing-marks.json`     | 承重代码     | AI 生成 + 人类确认     |
+| `.butler/anti-patterns/registry.json` | 反模式注册   | 自动记录（Owner 触发） |
+
+**工作流**：人类意图 → AI 生成结构化信息 → AI 生成可视化 → 人类确认 → 写入文件

@@ -85,3 +85,7 @@ class LLMClientProtocol(Protocol):
         stale_timeout: Optional[float] = None,
         **kwargs: Any,
     ) -> NormalizedResponse: ...
+
+__all__ = [
+    "LLMClientProtocol", "ProviderTransport", "api_mode", "build_kwargs", "complete", "convert_messages", "convert_tools", "extract_cache_stats", "map_finish_reason", "normalize_response", "stream", "validate_response",
+]

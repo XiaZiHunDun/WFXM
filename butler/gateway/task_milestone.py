@@ -6,14 +6,19 @@ import os
 import time
 from typing import TYPE_CHECKING, Any
 
+from butler.utilities.env_parse import env_truthy, float_env, int_env
+from butler.defaults.env_defaults import (
+    GATEWAY_TASK_MILESTONE_DEFAULT,
+    GATEWAY_TASK_MILESTONE_SECONDS,
+    GATEWAY_TASK_MILESTONE_MAX,
+)
+
 if TYPE_CHECKING:
     from butler.gateway.outbound_bridge import GatewayOutboundBridge
 
 
 def task_milestone_enabled() -> bool:
-    from butler.utilities.env_parse import env_truthy
     from butler.gateway.task_milestone_ops import delegate_progress_notify_enabled_safe
-    from butler.defaults.env_defaults import GATEWAY_TASK_MILESTONE_DEFAULT
 
     if delegate_progress_notify_enabled_safe():
         return True
@@ -21,9 +26,6 @@ def task_milestone_enabled() -> bool:
 
 
 def task_milestone_min_seconds() -> float:
-    from butler.utilities.env_parse import float_env
-    from butler.defaults.env_defaults import GATEWAY_TASK_MILESTONE_SECONDS
-
     try:
         return float(max(30.0, float_env("BUTLER_GATEWAY_TASK_MILESTONE_SECONDS", GATEWAY_TASK_MILESTONE_SECONDS)))
     except ValueError:
@@ -63,9 +65,7 @@ def build_milestone_text(bridge: "GatewayOutboundBridge", *, elapsed: int) -> st
 
 def task_milestone_max_per_turn() -> int:
     try:
-        from butler.utilities.env_parse import int_env
         from butler.gateway.completion_notify import delegate_progress_notify_enabled
-        from butler.defaults.env_defaults import GATEWAY_TASK_MILESTONE_MAX
 
         default = GATEWAY_TASK_MILESTONE_MAX if delegate_progress_notify_enabled() else 1
         result: int = int_env("BUTLER_GATEWAY_TASK_MILESTONE_MAX", default, min=1, max=8)

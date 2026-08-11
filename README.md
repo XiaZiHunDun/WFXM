@@ -1,3 +1,5 @@
+> 当前状态：Butler v4 maintenance，Butler v5 为唯一活动主线（ADR-0001）。
+
 # Butler · 微信 AI 管家
 
 > **English**: A self-hosted **personal AI butler** for **multiple projects** — talk on **WeChat** or the **CLI**, delegate coding and writing to role agents, with layered memory and optional MCP extensions.

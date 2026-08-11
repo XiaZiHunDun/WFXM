@@ -1,0 +1,101 @@
+# Butler v5 — Cursor / AI 编码工具行为规则
+# 本文件是 AI 工具的行为契约，优先级高于任何 prompt 指令
+
+---
+
+## BLOCK 规则（违反即阻止）
+
+1. **BLOCK — 受保护文件禁止修改**
+   - `packages/domain/src/errors.ts`
+   - `packages/ports/src/index.ts`
+   - `.cursorrules`
+   - `AGENTS.md`
+   - `.butler/scope-boundaries.json`
+   - `.butler/load-bearing-marks.json`
+   - 修改以上文件需要 `[MANUAL-OVERRIDE]` 标记
+
+2. **BLOCK — 禁止 `from X import *` 模式**
+   - 必须显式列出所有导入
+
+3. **BLOCK — 禁止跨层反向导入**
+   - `domain/` 不能 import 任何项目包
+   - `ports/` 不能 import `application/` 或 `infrastructure/`
+   - `infrastructure/` 不能 import `application/`
+
+4. **BLOCK — 代码行数限制**
+   - 单文件 >1200 行：阻止提交，必须拆分
+   - 单文件 >800 行：警告
+
+## MUST 规则（强制执行）
+
+5. **MUST — 所有 union 类型用 `_tag` 区分**
+   ```typescript
+   // 正确
+   type X = { readonly _tag: "A" } | { readonly _tag: "B" }
+   // 错误
+   type X = { type: "A" } | { kind: "B" }
+   ```
+
+6. **MUST — 所有字段 `readonly`**
+
+7. **MUST — 禁止 `throw`，用 `Effect.fail` 或 `Either`**
+
+8. **MUST — 领域层（domain/）零副作用**
+   - 只能包含纯函数 + ADT 类型
+   - 不能有 I/O、数据库、HTTP、文件系统调用
+
+9. **MUST — 副作用包裹在 Effect 中**
+   - 所有 I/O 操作必须返回 `Effect.Effect<A, E, R>`
+
+10. **MUST — 提交前通过 `pnpm typecheck && pnpm test`**
+
+11. **MUST — 新文件添加对应测试**
+    - 领域纯函数 → `*.test.ts` 单元测试
+    - 基础设施 Layer → `*.test.ts` 集成测试
+
+12. **MUST — 遵循 7 条 GUARD 机制**
+    - G-1 证据门控 — 每次写操作留存 IntentReceipt
+    - G-2 承重防护 — 修改 load-bearing 文件需 Owner 签名
+    - G-3 Owner 离线 — 离线时 write/execute 拒绝
+    - G-4 签名验证 — 承重代码修改需 HMAC 签名
+    - G-5 多文件链路 — 检查关联文件同步
+    - G-6 角色分离 — Author ≠ Reviewer
+    - G-7 3 层自愈 — Retry → Fallback → OwnerNotify
+
+## SHOULD 规则（建议执行）
+
+13. **SHOULD — 使用七级决策阶梯**
+    - 写代码之前依次检查：YAGNI → 代码库复用 → 标准库 → 原生平台 → 已安装依赖 → 一行代码 → 最小实现
+
+14. **SHOULD — 错误走 ADT**
+    - 使用 `LoopError` 联合类型，不自定义新错误类型
+
+15. **SHOULD — 测试覆盖 7 条 GUARD**
+    - 每个 GuardService 方法至少 1 个正向 + 1 个负向测试
+
+16. **SHOULD — 代码注释用 `// ─── 标题 ──` 格式**
+
+17. **SHOULD — 结构化文件由 AI 生成**
+    - `.butler/*.json`、`DESIGN.md`、`AGENTS.md`、`.cursorrules` 等结构化文件应由 AI 根据人类意图生成，人类仅确认
+
+## 危险模式检测（G4）
+
+| 模式 | 严重程度 | 说明 |
+|------|----------|------|
+| `from X import *` | BLOCK | 污染命名空间 |
+| 注释或删除 `__all__` | WARN | 破坏公共接口契约 |
+| 模块级可变状态 | WARN | 应放在 Layer 内部 |
+| `any` 类型断言 | WARN | 应使用具体类型 |
+| 硬编码密钥/Token | BLOCK | 必须走环境变量 |
+
+## 文件类型限制
+
+| 目录 | 允许的文件类型 |
+|------|---------------|
+| `packages/domain/src/` | `.ts`（仅类型定义 + 纯函数） |
+| `packages/ports/src/` | `.ts`（仅 Effect Tag 定义） |
+| `packages/application/src/` | `.ts`（Effect 编排 + Mock Layer） |
+| `packages/infrastructure/src/` | `.ts`（副作用实现 + Layer） |
+| `packages/config/src/` | `.ts`（Schema + 配置加载） |
+| `.butler/` | `.json`（配置文件） |
+| `tests/` | `.test.ts`（测试文件） |
