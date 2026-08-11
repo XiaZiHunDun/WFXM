@@ -1,22 +1,11 @@
-import { describe, expect, it, vi, afterAll, beforeAll } from "vitest"
+import { describe, expect, it, afterAll, beforeAll } from "vitest"
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 
-// The apps/api Hono app instantiates an in-process pglite via
-// `new PGlite()` at module top level without running the schema migration,
-// so its event_store / outbox relations do not exist. A live
-// appendConversationEvent therefore throws on the first write and the
-// POST handler surfaces as 500. Stubbing the bridge here lets the e2e
-// test exercise the Hono + @hono/node-server wiring through a real socket
-// while keeping the persistence layer out of scope for this gate.
-// vi.mock is hoisted above the imports, so the path must be a literal.
-vi.mock("../../packages/runtime/src/bridge.ts", () => ({
-  EventBridge: class {
-    async appendConversationEvent(): Promise<void> {
-      // no-op stub: contract satisfied, persistence intentionally not exercised
-    }
-  },
-}))
+// R8.1 bootstraps the pglite schema at apps/api boot, so EventBridge
+// hits a real event_store table; no mock required. We import the live
+// wiring alongside the Hono app to assert real-path persistence below.
+import { default as app, __wiring__ } from "@butler/api"
 
 // @hono/node-server is a workspace-internal dep of @butler/cli, so the
 // node_modules chain is rooted under cli/. Anchor createRequire there to
@@ -47,7 +36,6 @@ let server: NodeServer | undefined
 let baseUrl = ""
 
 beforeAll(async () => {
-  const { default: app } = await import("@butler/api")
   await new Promise<void>((resolve) => {
     server = serve({ fetch: app.fetch, port: 0 }, (info) => {
       baseUrl = `http://127.0.0.1:${info.port}`
@@ -72,7 +60,7 @@ describe("R7 wiring end-to-end", () => {
     expect(body.wiring).toBe("v5")
   })
 
-  it("POST /v1/conversations with valid body returns 201", async () => {
+  it("POST /v1/conversations with valid body returns 201 and writes to event_store", async () => {
     const res = await fetch(`${baseUrl}/v1/conversations`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -86,6 +74,13 @@ describe("R7 wiring end-to-end", () => {
     const body = (await res.json()) as { conversationId?: string; turnId?: string }
     expect(typeof body.conversationId).toBe("string")
     expect(typeof body.turnId).toBe("string")
+
+    // Real-path assertion: loadStream returns the ConversationStarted
+    // row that appendConversationEvent wrote via the live EventBridge.
+    const streamId = body.conversationId as string
+    const events = await __wiring__.eventBridge.loadStream(streamId)
+    expect(events).toHaveLength(1)
+    expect(events[0]?.eventType).toBe("ConversationStarted")
   })
 
   it("POST /v1/conversations with invalid body returns 400", async () => {
