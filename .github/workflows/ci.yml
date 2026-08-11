@@ -431,7 +431,6 @@ jobs:
 
   butler-v5-gate:
     runs-on: ubuntu-latest
-    needs: lint
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
