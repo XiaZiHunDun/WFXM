@@ -318,23 +318,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,mcp,observability]"
 
-      - name: G1: Lazy import budget gate (≤1910)
+      - name: "G1: Lazy import budget gate (≤1910)"
         run: |
           bash scripts/p3i-lazy-import-report.sh
 
-      - name: G7: Env hygiene gate (reference ↔ .env.example ↔ butler/ readers)
+      - name: "G7: Env hygiene gate (reference ↔ .env.example ↔ butler/ readers)"
         run: |
           bash scripts/p3j-env-hygiene-gate.sh
 
-      - name: G2: Contract stability tests (Port + Shim __all__)
+      - name: "G2: Contract stability tests (Port + Shim __all__)"
         run: |
           PYTHONPATH=. python -m pytest tests/contracts/ -q --tb=short
 
-      - name: G6: File size guard (>800 warn, >1200 block)
+      - name: "G6: File size guard (>800 warn, >1200 block)"
         run: |
           python3 scripts/ai_guard/file_size_check.py --ci
 
-      - name: ENG-15: Layer dependency matrix
+      - name: "ENG-15: Layer dependency matrix"
         run: |
           bash scripts/butler-layer-import-gate.sh
 
