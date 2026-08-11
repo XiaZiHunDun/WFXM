@@ -110,7 +110,7 @@ if git diff --cached --name-only | grep -qE "^butler/contracts/"; then
 fi
 
 # 4. 检查 shim 文件是否被修改（警告）
-SHIM_FILES=$(git diff --cached --name-only | grep -E "\.py$" | while read f; do
+SHIM_FILES=$(git diff --cached --name-only | grep -E "\.py$" || true | while read f; do
     if [ -f "$f" ] && head -5 "$f" 2>/dev/null | grep -q "Deprecated:"; then
         echo "$f"
     fi
