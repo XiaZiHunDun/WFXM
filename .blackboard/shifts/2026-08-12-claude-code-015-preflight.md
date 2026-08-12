@@ -20,20 +20,97 @@
 
 ### Owner-operator verification (NOT AI scope)
 
-- [ ] **v4 ruff errors**: decision pending (9 errors, 6 auto-fixable via `ruff check --fix butler/`)
-  - Option A: owner runs `ruff check --fix butler/`, commits, lint job green → R10 proceeds
-  - Option B: owner accepts R10 with lint failure scope → R10 proceeds, v4 ruff fixed in R10+ follow-up
+- [x] **v4 ruff errors**: **DECIDED Option B** (accept lint failure scope for R10; v4 ruff fixed in R10+ follow-up)
+  - Reason: butler-v5-gate already decoupled from v4 lint (R9 follow-up #2 `6c9cdd6f`); R10 doesn't need lint green
+  - Note: 9 errors (6 auto-fixable) documented in shift card 011/012; R10+ fix path documented at [[project-progress-2026-08-12-r8]]
 - [ ] **v4 Postgres snapshot taken**: snapshot of v4 production db before cutover (required for rollback)
 - [ ] **Production traffic routing**: owner has access to change routing (load balancer / DNS / gateway config)
 - [ ] **Rollback runbook**: documented + tested in staging (R10.3 below)
 - [ ] **Monitoring dashboards**: alerts configured for v5 error rate / latency / event-store lag
 
-### Owner approval
+### R10.1 — prepare-cutover --live (owner template)
 
-Owner signs here when all 5 items above are ready:
+Owner runs:
+
+```bash
+node butler-v5/scripts/cutover/prepare-cutover.mjs \
+  --live --v4-root <real-v4-root> --out-dir <real-v4-root> \
+  --adapter-postgres 2>&1 | tee /tmp/r10-1-prepare.log
+```
+
+Then fills in:
 
 ```
-R10 ready:   ____________  (initials)  date: ____________
+R10.1 timestamp: <ISO>
+R10.1 prepare-manifest.json content: <paste JSON>
+R10.1 eventsWritten: <count>
+R10.1 elapsed: <seconds>
+R10.1 issues: <description or "none">
+```
+
+### R10.2 — final-cutover --live (owner template)
+
+Pre-condition: R10.1 prepare-manifest.json exists with eventsWritten > 0.
+
+Owner runs:
+
+```bash
+node butler-v5/scripts/cutover/run-final-cutover.mjs \
+  --live --v4-root <real-v4-root> --out-dir <v5-manifests-dir> 2>&1 | tee /tmp/r10-2-final.log
+```
+
+Then fills in:
+
+```
+R10.2 timestamp: <ISO>
+R10.2 final-cutover-manifest.json content: <paste JSON>
+R10.2 5 steps status: <list>
+R10.2 v4 read-only window: <ISO start to end>
+R10.2 issues: <description or "none">
+```
+
+### R10.3 — traffic shift + monitoring + rollback drill (owner template)
+
+Owner executes in 4 phases + rollback + 24h monitoring:
+
+```
+Phase 1: 1% traffic to v5
+- start/end: <ISO>
+- v5 error rate: <%>; p99 latency: <ms>
+- v4 baseline: <%>
+- anomalies: <description>
+- decision: proceed / hold / rollback
+
+Phase 2: 10% traffic to v5
+(same fields)
+
+Phase 3: 50% traffic to v5
+(same fields)
+
+Phase 4: 100% traffic to v5
+(same fields)
+
+Rollback drill
+- trigger time: <ISO>
+- v4 traffic restored to 100%: yes/no
+- rollback time (trigger to 100% v4): <seconds>
+- issues: <description>
+- verification (production served from v4 after rollback): yes/no
+
+24h post-cutover monitoring
+- time range: <ISO to ISO>
+- v5 uptime: <%>
+- v5 events processed: <count>
+- v5 error budget consumed: <%>
+- open incidents: <description>
+```
+
+### Owner approval (owner signs after each step)
+
+```
+R10.1 ready: ____________ (initials)  date: ____________
+R10.2 ready: ____________ (initials)  date: ____________
+R10.3 ready: ____________ (initials)  date: ____________
 ```
 
 ### AI confirmation
