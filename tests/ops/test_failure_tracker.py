@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+from butler.configuration.settings import reload_butler_settings
 from butler.runtime.failure_tracker import (
     list_active_streaks,
     record_job_outcome,
@@ -11,6 +12,7 @@ from butler.runtime.failure_tracker import (
 def test_failure_streak_resets_on_success(tmp_butler_home, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
     monkeypatch.setenv("BUTLER_RUNTIME_FAIL_ALERT_STREAK", "3")
+    reload_butler_settings()  # refresh cached singleton after BUTLER_HOME change
 
     r1 = record_job_outcome("灵文1号", "factory-status-daily", success=False)
     assert r1["streak"] == 1
@@ -28,6 +30,7 @@ def test_failure_streak_resets_on_success(tmp_butler_home, monkeypatch):
 def test_failure_alert_at_threshold(tmp_butler_home, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
     monkeypatch.setenv("BUTLER_RUNTIME_FAIL_ALERT_STREAK", "2")
+    reload_butler_settings()  # refresh cached singleton after BUTLER_HOME change
 
     with patch(
         "butler.runtime.failure_tracker._push_streak_alert", return_value=True

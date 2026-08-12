@@ -46,6 +46,10 @@ class TestMemoryToolsDispatch:
         from butler.memory.butler_memory import ButlerMemory
         from unittest.mock import MagicMock
 
+        # owner_profile writes require approval by default; bypass so the
+        # butler_remember call lands directly in butler_memory.profile.
+        monkeypatch.setenv("BUTLER_MEMORY_WRITE_APPROVAL", "0")
+
         proj_dir = tmp_path / "LingWen1"
         proj_dir.mkdir()
         (proj_dir / "project.yaml").write_text(
@@ -115,7 +119,9 @@ class TestNewCommandMemoryFeedback:
         handler._sessions["wechat:u1:_"] = loop
 
         with patch(
-            "butler.session.post_session_ops.trigger_session_end",
+            # Patch the imported binding in new_session, not the source module:
+            # `from X import Y` creates a local name that ``patch(X.Y)`` cannot reach.
+            "butler.session.new_session.trigger_session_end",
             return_value={"memory_updates": 2, "skills_extracted": 0},
         ):
             text = handler._handle_command("/新对话", session_key="wechat:u1:_")
