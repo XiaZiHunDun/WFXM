@@ -26,6 +26,7 @@ from butler.execution_context import get_current_session_key
 from butler.tool_guardrails import ToolCallGuardrailController
 from butler.transport.reasoning_replay import store_reasoning_on_message
 from butler.transport.types import NormalizedResponse
+from butler.core.tool_batch_finalize import dispatch_tool_with_envelope  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
