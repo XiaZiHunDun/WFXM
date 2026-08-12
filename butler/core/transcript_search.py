@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from butler.utilities.env_parse import int_env
 import json
-import os
 import re
 from pathlib import Path
 from typing import Any, Callable, cast

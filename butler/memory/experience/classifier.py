@@ -6,10 +6,9 @@ Used by ExperienceWriter when writing new experiences.
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
-from butler.memory.experience.taxonomy import DOMAINS, CATEGORIES, get_all_domain_keywords
+from butler.memory.experience.taxonomy import DOMAINS, get_all_domain_keywords
 
 logger = logging.getLogger(__name__)
 

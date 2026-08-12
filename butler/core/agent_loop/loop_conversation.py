@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any, Optional, cast
+from typing import Any
 
-from butler.core.best_effort import record_best_effort_skip, safe_best_effort
+from butler.core.best_effort import safe_best_effort
 from butler.core.conversation_state import ConversationState, build_conversation_reminder
 from butler.core.delegate_context import set_parent_callbacks, set_parent_messages, set_parent_system_prompt
 from butler.core.steer import clear_steer
@@ -195,7 +195,7 @@ def _update_conversation_state(loop: Any, user_message: str, result: Any) -> Non
 
             for tc in tool_calls_detail[:5]:
                 tc_name = str(tc.get("name", ""))
-                tc_args = tc.get("args", {}) or {}
+                tc.get("args", {}) or {}
                 tc_result = str(tc.get("result", ""))[:500]
 
                 if tc.get("success", True):

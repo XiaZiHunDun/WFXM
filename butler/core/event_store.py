@@ -9,9 +9,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Sequence
 
-from butler.contracts.events import EventType
 
 
 @dataclass(frozen=True)
@@ -50,19 +49,19 @@ class EventStore:
         )
         cursor.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_events_session_key 
+            CREATE INDEX IF NOT EXISTS idx_events_session_key
             ON events(session_key)
             """
         )
         cursor.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_events_event_type 
+            CREATE INDEX IF NOT EXISTS idx_events_event_type
             ON events(event_type)
             """
         )
         cursor.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_events_timestamp 
+            CREATE INDEX IF NOT EXISTS idx_events_timestamp
             ON events(timestamp)
             """
         )
@@ -80,7 +79,7 @@ class EventStore:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT OR REPLACE INTO events 
+            INSERT OR REPLACE INTO events
             (event_id, event_type, payload, session_key, timestamp, stored_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
@@ -113,7 +112,7 @@ class EventStore:
             )
         cursor.executemany(
             """
-            INSERT OR REPLACE INTO events 
+            INSERT OR REPLACE INTO events
             (event_id, event_type, payload, session_key, timestamp, stored_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
@@ -261,11 +260,11 @@ def create_default_event_store() -> EventStore:
 
 def append_event(event: Any) -> None:
     """Append a domain event to the event store.
-    
+
     Uses ServiceContainer to get the event store instance.
     Accepts any event object with:
     - event_id
-    - event_type  
+    - event_type
     - session_key
     - timestamp
     - to_dict() method

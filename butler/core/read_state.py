@@ -8,7 +8,7 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from butler.utilities.env_parse import env_truthy
 

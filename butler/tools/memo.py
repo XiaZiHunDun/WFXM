@@ -15,7 +15,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, Callable
 
 from butler.tools.pim_schema import (
     MAX_ACTIVE_MEMOS as _MAX_ACTIVE,

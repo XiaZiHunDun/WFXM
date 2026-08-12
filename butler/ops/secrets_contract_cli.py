@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 
 from butler.ops.secrets_contract import (
     check_all_secrets_contracts,

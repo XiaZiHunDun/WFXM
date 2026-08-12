@@ -5,7 +5,6 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 _LOCK = threading.Lock()
 _SESSIONS: dict[str, "SessionCost"] = {}
@@ -91,7 +90,7 @@ class SessionCost:
 
         lines = [
             f"📊 会话成本概览（{mins}m{secs}s）",
-            f"",
+            "",
             f"LLM 调用: {self.llm_calls} 次",
             f"  输入 Token: ~{self.input_tokens:,}",
             f"  输出 Token: ~{self.output_tokens:,}",
@@ -115,13 +114,13 @@ class SessionCost:
                     lines.append(f"  预估费用: ~${est:.4f}")
 
         lines += [
-            f"",
+            "",
             f"工具调用: {total_tc} 次",
             f"  PIM 工具: {self.tool_calls_pim}{pim_pct}",
             f"  开发工具: {self.tool_calls_dev}{dev_pct}",
             f"  项目管理: {self.tool_calls_pm}{pm_pct}",
             f"  其他工具: {self.tool_calls_other}{oth_pct}",
-            f"",
+            "",
             f"委派: {self.delegate_spawns} 次",
         ]
         return "\n".join(lines)

@@ -12,8 +12,6 @@ import logging
 import threading
 import time
 from typing import Any, Callable, Optional, cast
-from contextlib import AbstractContextManager
-from collections.abc import Iterator
 
 from butler.core.context_pipeline import ContextPipeline
 from butler.core.loop_types import (
@@ -21,11 +19,10 @@ from butler.core.loop_types import (
     LoopConfig,
     LoopResult,
     LoopStatus,
-    LoopTransitionReason,
 )
 from butler.tool_guardrails import ToolCallGuardrailController
-from butler.core.interrupt import clear_interrupt, is_interrupted, set_interrupt
-from butler.core.steer import clear_steer, mark_run_active, mark_run_inactive
+from butler.core.interrupt import clear_interrupt, set_interrupt
+from butler.core.steer import mark_run_active, mark_run_inactive
 from butler.transport.base import LLMClientProtocol
 from butler.transport.fallback import FallbackEntry
 from butler.transport.llm_client import LLMClient
@@ -46,7 +43,6 @@ from butler.core.agent_loop_ops import (
     emit_skipped_plugin_metric,
     filter_fallback_chain_safe,
     maybe_compact_turn_safe,
-    run_after_tools_plugins_safe,
     run_stop_hooks_safe,
 )
 from butler.core.best_effort import record_best_effort_skip
@@ -54,9 +50,7 @@ from butler.core.loop_callbacks_merge import merge_loop_callbacks
 from butler.core.loop_plugins import default_plugin_registry
 from butler.core.session_transcript import transcript_batch
 from butler.execution_context import (
-    get_current_orchestrator,
     get_current_session_key,
-    use_execution_context,
 )
 from butler.mcp.turn_scrape_dedup import turn_scrape_dedup_scope
 from butler.tools.network_search_policy import turn_network_search_scope
@@ -68,16 +62,7 @@ from butler.core.agent_loop.loop_conversation import (
     _update_conversation_state,
 )
 from butler.core.agent_loop.loop_helpers import (
-    _call_llm_with_retry,
-    _dispatch_tool,
-    _estimate_tokens,
     _interrupt_check,
-    _prepare_messages_for_api,
-    _prepare_user_message,
-    _process_tool_calls,
-    _restore_primary_client,
-    _tool_execution_context,
-    _try_activate_fallback,
 )
 
 logger = logging.getLogger(__name__)

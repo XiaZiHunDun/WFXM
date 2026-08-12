@@ -24,7 +24,6 @@ source lines (R1-5.2 size contract — see
 from __future__ import annotations
 
 import logging
-import os
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:

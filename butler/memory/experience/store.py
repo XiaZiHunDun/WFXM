@@ -153,7 +153,7 @@ class ExperienceStore:
 
                     conn.execute("""
                         CREATE VIRTUAL TABLE experience_nodes_fts USING fts5(
-                            node_id, name, content, 
+                            node_id, name, content,
                         )
                     """)
 
@@ -366,7 +366,7 @@ class ExperienceStore:
                 conn.execute("DROP TABLE IF EXISTS experience_nodes_fts")
                 conn.execute("""
                     CREATE VIRTUAL TABLE experience_nodes_fts USING fts5(
-                        node_id, name, content, 
+                        node_id, name, content,
                     )
                 """)
                 cursor = conn.execute("SELECT node_id, name, content FROM experience_nodes")

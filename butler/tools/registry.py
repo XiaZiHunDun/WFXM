@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
 from butler.core.best_effort import safe_best_effort
-from butler.core.effects import with_retry
 from butler.tools.registry_gates import (
     apply_post_tool_hooks,
     dispatch_mcp_if_applicable,

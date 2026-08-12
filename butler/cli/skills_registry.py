@@ -14,12 +14,7 @@ from butler.skills.learn import run_skill_learn
 from butler.skills.lint import format_lint_report, lint_skill_summaries
 from butler.skills.manager import SkillManager
 from butler.skills.write_approval import (
-    approve_all_skill_pending,
-    approve_skill_pending,
     format_skill_pending_lines,
-    list_skill_pending,
-    reject_all_skill_pending,
-    reject_skill_pending,
 )
 from butler.utilities.tenant import tenant_skills_dir
 
@@ -303,7 +298,6 @@ def _cmd_approve(ns: argparse.Namespace) -> int:
 
 def _cmd_reject(ns: argparse.Namespace) -> int:
     from butler.skills.write_approval import (
-        list_skill_pending,
         reject_all_skill_pending,
         reject_skill_pending,
     )

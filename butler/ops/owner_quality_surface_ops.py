@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
-from butler.mcp.config import mcp_enabled, mcp_sdk_available
 from butler.registry.mcp_merge import effective_mcp_servers
 from butler.mcp.manager import get_manager
 from butler.mcp.diagnostics import format_mcp_diagnostic_lines

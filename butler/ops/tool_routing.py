@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from butler.ops.eval_scoring import ScoreResult
 

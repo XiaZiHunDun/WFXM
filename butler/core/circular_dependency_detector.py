@@ -25,12 +25,10 @@ Usage:
 from __future__ import annotations
 
 import ast
-import os
-import sys
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set
 
 from butler.utilities.repo_paths import REPO_ROOT
 
@@ -119,7 +117,7 @@ def _extract_imports(file_path: Path) -> List[Dependency]:
                     )
         elif isinstance(node, ast.ImportFrom):
             if node.module and node.module.startswith("butler."):
-                target_base = node.module.split(".")[0]
+                node.module.split(".")[0]
                 for alias in node.names:
                     full_target = f"{node.module}.{alias.name}"
                     dependencies.append(

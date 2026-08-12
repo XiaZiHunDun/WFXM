@@ -10,8 +10,6 @@ from __future__ import annotations
 import logging
 import os
 import shlex
-import subprocess
-import time
 
 from butler.utilities.env_parse import int_env
 from pathlib import Path
@@ -19,7 +17,6 @@ from typing import Any, cast
 
 from butler.defaults.env_defaults import DEV_AUTO_VERIFY_LEVELS_DEFAULT, DEV_VERIFY_TIMEOUT_DEFAULT
 from butler.dev_engine.dev_state import VerifyResult, VerifyStatus
-from butler.dev_engine.diagnostics import parse_diagnostics
 
 logger = logging.getLogger(__name__)
 

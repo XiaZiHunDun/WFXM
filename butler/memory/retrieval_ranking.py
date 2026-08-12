@@ -12,7 +12,7 @@ import math
 import time
 
 from butler.configuration.memory import resolve_memory_config
-from typing import Any, cast
+from typing import Any
 
 
 MEMORY_TYPE_HALF_LIFE_MULTIPLIER: dict[str, float] = {

@@ -18,8 +18,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
-    from butler.orchestrator import ButlerOrchestrator
-    from butler.gateway.session_registry import GatewaySessionRegistry
+    pass
 
 logger = logging.getLogger(__name__)
 

@@ -206,12 +206,12 @@ def get_recommended_tools(query: str, top_k: int = 5) -> list[str]:
     """Get recommended tools for a query based on domain taxonomy."""
     domain_id = get_domain_for_query(query)
     domain_tools = get_tools_by_domain(domain_id)
-    
+
     # Also check query for direct tool mentions
     q_lower = query.lower()
     all_tools = get_all_tools()
     direct_mentions = [t for t in all_tools if t.replace("_", " ") in q_lower or t in q_lower]
-    
+
     # Combine and deduplicate
     seen = set()
     result = []
@@ -219,7 +219,7 @@ def get_recommended_tools(query: str, top_k: int = 5) -> list[str]:
         if tool not in seen:
             seen.add(tool)
             result.append(tool)
-    
+
     return result[:top_k]
 
 
@@ -237,7 +237,7 @@ def get_tool_info(tool_name: str) -> dict[str, Any]:
     """Get comprehensive info about a tool."""
     domains = get_domains_for_tool(tool_name)
     description = get_tool_description(tool_name)
-    
+
     return {
         "name": tool_name,
         "domains": domains,

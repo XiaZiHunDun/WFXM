@@ -9,8 +9,6 @@ Combines:
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any, Optional
 
 from butler.memory.experience.store import ExperienceNode, ExperienceHit, ExperienceStore
 
@@ -20,13 +18,15 @@ try:
     from butler.memory.semantic_memory import get_semantic_memory, CHROMADB_AVAILABLE
 except ImportError:
     CHROMADB_AVAILABLE = False
-    get_semantic_memory = lambda: None
+    def get_semantic_memory():
+        return None
 
 try:
     from butler.memory.knowledge_graph import get_knowledge_graph, KG_AVAILABLE
 except ImportError:
     KG_AVAILABLE = False
-    get_knowledge_graph = lambda: None
+    def get_knowledge_graph():
+        return None
 
 
 class ExperienceRetriever:
@@ -119,7 +119,7 @@ class ExperienceRetriever:
             return []
 
         try:
-            from butler.memory.knowledge_graph import EntityLinker, GraphRetriever
+            from butler.memory.knowledge_graph import GraphRetriever
             retriever = GraphRetriever(self._kg)
             results = retriever.retrieve(query, max_hops=2, max_results=limit)
             hits = []

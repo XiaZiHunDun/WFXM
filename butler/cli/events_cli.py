@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any, cast
 
 
 def register_events_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

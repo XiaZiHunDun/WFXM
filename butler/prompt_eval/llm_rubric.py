@@ -15,7 +15,6 @@ def prompt_eval_llm_enabled() -> bool:
 
 
 def prompt_eval_llm_min_score() -> int:
-    import os
 
     try:
         return cast(int, int_env("BUTLER_PROMPT_EVAL_LLM_MIN", 70, min=0, max=100))

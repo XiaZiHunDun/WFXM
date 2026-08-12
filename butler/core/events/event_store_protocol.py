@@ -9,7 +9,7 @@ Provides:
 from __future__ import annotations
 
 import threading
-from typing import Iterable, Optional, Protocol
+from typing import Iterable, Protocol
 
 from butler.core.effects import Result, Ok, Err
 from butler.core.events.event_types import DomainEvent

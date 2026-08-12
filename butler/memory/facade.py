@@ -15,28 +15,18 @@ from typing import Any, Dict, List, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.memory import ButlerMemory, ProjectMemory
-from butler.configuration.settings import get_butler_home, get_butler_settings
-from butler.execution_context import get_current_session_key
-from butler.memory.coding_recall import search_coding_experiences
-from butler.memory.observation_recall import search_observation_recall
-from butler.memory.query_decompose import decompose_query, subquery_enabled
+from butler.configuration.settings import get_butler_settings
 from butler.memory.recall_layers import dispatch_recall_mode
-from butler.memory.semantic_config import semantic_memory_enabled
-from butler.memory.semantic_index import SemanticMemoryIndex, hybrid_experience_search
 from butler.memory.semantic_project import (
     index_project_memory_bullet,
     invalidate_pending_vector,
     invalidate_project_memory_bullet,
-    prefetch_project_memory_hits,
     resolve_project_display_name,
     sync_project_append_vectors,
 )
-from butler.memory.transcript_recall import search_transcript_recall
-from butler.memory.unified_recall import unified_hybrid_search
 from butler.project.manager import get_project_manager
 from butler.session.lifecycle import (
     _filter_ephemeral_experience,
-    filter_non_conversation_experience,
     prefetch_turn_memory,
     record_post_session_turn,
     run_post_session_extraction,
@@ -47,17 +37,13 @@ from butler.memory.facade_ops import (
     close_butler_memory,
     discover_project_root,
     dispatch_memory_tool,
-    emit_recall_metric,
     emit_write_metric,
     load_project_memory,
     manager_current_project,
     owner_write_approval_result,
     prefetch_global_context,
     prefetch_project_context,
-    record_recall_telemetry,
-    refresh_project_facts,
     resolve_active_project_name,
-    resolve_project_memory_for_diag,
     run_tool_call_safe,
     strip_private_tags_safe,
 )
@@ -349,7 +335,7 @@ class ButlerMemoryService:
         if self._butler_global is None:
             return json.dumps({"ok": False, "error": "ButlerMemory not initialized"})
 
-        scope = str(args.get("scope") or "")
+        str(args.get("scope") or "")
         content = str(args.get("content") or "").strip()
         stripped = strip_private_tags_safe(content)
         if stripped is not None:
@@ -361,7 +347,7 @@ class ButlerMemoryService:
         if not content and str(args.get("action", "append") or "append").strip().lower() != "remove":
             return json.dumps({"ok": False, "error": "content is empty"})
 
-        action = str(args.get("action", "append") or "append").strip().lower()
+        str(args.get("action", "append") or "append").strip().lower()
         pending = owner_write_approval_result(args)
         if pending is not None:
             return json.dumps(pending, ensure_ascii=False)

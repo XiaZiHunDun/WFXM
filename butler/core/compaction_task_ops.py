@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.context_compressor import _estimate_tokens

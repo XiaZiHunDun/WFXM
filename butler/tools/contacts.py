@@ -18,7 +18,6 @@ from typing import Any, Callable, cast
 
 from butler.tools.pim_schema import (
     CONTACT_CATEGORIES as _VALID_CATEGORIES,
-    CONTACT_CATEGORY_LABELS as _CATEGORY_LABELS,
     MAX_CONTACTS as _MAX_CONTACTS,
     MAX_CONTACT_NOTES as _MAX_CONTACT_NOTES,
     MAX_CONTACT_TAGS as _MAX_CONTACT_TAGS,

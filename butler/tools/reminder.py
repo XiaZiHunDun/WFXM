@@ -12,11 +12,10 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, Callable
 
 from croniter import croniter  # type: ignore[import-untyped]
 
-from butler.tools.pim_schema import REMINDER_STATUSES
 from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)

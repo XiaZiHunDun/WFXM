@@ -17,7 +17,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Generic, Optional, Set, TypeVar, cast
+from typing import Any, Callable, Generic, Set, TypeVar
 
 from butler.configuration.settings import ButlerSettings
 from butler.contracts.events import NullEventsSink
@@ -75,7 +75,7 @@ class DependencyCycleResult(Err[None, DependencyCycleError]):
 
 class ServiceContainer:
     """Explicit dependency container for Butler services.
-    
+
     Replaces scattered singletons with managed lifecycle.
     Supports override/reset for testing.
     """

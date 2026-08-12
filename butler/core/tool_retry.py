@@ -6,11 +6,10 @@ This module supports both traditional string-based return and Result monad retur
 from __future__ import annotations
 
 import logging
-import os
 import time
 from typing import Any, Callable
 
-from butler.core.effects import Ok, Err, Result, result_from_fn
+from butler.core.effects import Ok, Result, result_from_fn
 from butler.utilities.env_parse import env_truthy, int_env, float_env
 
 logger = logging.getLogger(__name__)

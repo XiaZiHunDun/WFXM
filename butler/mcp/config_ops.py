@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
 from urllib.parse import ParseResult, urlparse
 
 from butler.core.best_effort import safe_best_effort

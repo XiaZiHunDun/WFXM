@@ -87,14 +87,6 @@ class FileEventStore:
 
             # Map event types to classes
             from butler.core.events.session_events import (
-                SESSION_STARTED,
-                SESSION_ENDED,
-                TOOL_CALLED,
-                TOOL_COMPLETED,
-                TOOL_FAILED,
-                APPROVAL_REQUESTED,
-                APPROVAL_GRANTED,
-                APPROVAL_DENIED,
                 SessionStarted,
                 SessionEnded,
                 ToolCalled,

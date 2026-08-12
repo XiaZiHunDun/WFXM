@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Any, Awaitable, Callable, cast
+from typing import Any, Awaitable, Callable
 
 from butler.core.best_effort import async_safe_best_effort
 

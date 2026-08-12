@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import cast
 
-from butler.ops.runtime_metrics import inc, snapshot_global
 
 def record_recovery_event(reason: str, *, session_key: str = "") -> None:
     """Increment a labeled recovery counter (process-wide + optional session)."""

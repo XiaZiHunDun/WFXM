@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.configuration.settings import get_butler_home
-from butler.utilities.env_parse import env_truthy
 from butler.defaults.env_defaults import MEMORY_WRITE_APPROVAL_DEFAULT
 
 _LOCK = threading.RLock()

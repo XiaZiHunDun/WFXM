@@ -104,7 +104,6 @@ def record_g1_04_production_evidence(
     ):
         return {"recorded": False, "reason": "not_production_delegate"}
 
-    verify_failed = verify_passed is False
     if success and verify_passed is not False:
         event = "verify_pass"
         trigger = "prod_delegate_verify_pass"

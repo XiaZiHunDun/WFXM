@@ -58,7 +58,7 @@ import hashlib
 import logging
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from butler.gateway.platforms.types import MessageEvent
 
@@ -85,9 +85,6 @@ from butler.gateway.platforms.wechat_ilink.send_phases import (  # noqa: E402
     _phase_file_request_upload,
     _phase_send_attachments,
     _phase_send_text_chunks,
-    _resolve_upload_url,
-    _send_caption_first,
-    _send_media_envelope,
 )
 
 
@@ -201,12 +198,8 @@ def _phase_init_dedup(adapter: "WeChatAdapter") -> None:
 # ===========================================================================
 
 from butler.gateway.platforms.wechat_ilink.connect_phases import (  # noqa: E402
-    _acquire_token_lock,
-    _open_aiohttp_sessions,
     _phase_connect_open_sessions,
     _phase_connect_validate,
-    _start_poll_and_register,
-    _warn_group_policy_limitation,
 )
 
 
@@ -327,7 +320,6 @@ from butler.gateway.platforms.wechat_ilink.qr_phases import (  # noqa: E402
     _phase_qr_refresh,
     _phase_qr_render,
     _phase_qr_request_code,
-    _qr_handle_expired,
 )
 
 

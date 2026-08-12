@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from butler.task_orchestrator import AgentResult, AgentSpawnConfig, TaskNode
+    from butler.task_orchestrator import AgentResult, TaskNode
 
 from butler.core.workflow_flags import workflow_rescue_enabled
 from butler.task_orchestrator_ops import on_progress_safe

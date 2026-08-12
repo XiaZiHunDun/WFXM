@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable
 
 from butler.dev_engine.coding_knowledge import (
     CodingKnowledgeContext,
     GenTCResult,
-    TestCase,
     THEOREM_TEST_PATTERNS,
     generate_test_cases,
 )

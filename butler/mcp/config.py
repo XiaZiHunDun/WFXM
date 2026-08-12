@@ -8,9 +8,7 @@ import re
 import ipaddress
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlparse
 
-import yaml  # type: ignore[import-untyped]
 
 from butler.utilities.env_parse import env_truthy, int_env
 from butler.io.safe_load import safe_load_yaml

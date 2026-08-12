@@ -21,9 +21,8 @@ Key features:
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from typing import Any, Optional, cast
+from typing import Any
 
 # Integrate turn context features for per-turn setup
 from butler.core.turn_context import (
@@ -39,12 +38,14 @@ try:
     from butler.memory.semantic_memory import get_semantic_memory, CHROMADB_AVAILABLE
 except ImportError:
     CHROMADB_AVAILABLE = False
-    get_semantic_memory = lambda: None
+    def get_semantic_memory():
+        return None
 
 try:
     from butler.memory.hybrid_retriever import get_hybrid_retriever
 except ImportError:
-    get_hybrid_retriever = lambda: None
+    def get_hybrid_retriever():
+        return None
 
 try:
     from butler.memory.knowledge_graph import get_knowledge_graph
@@ -52,8 +53,10 @@ try:
     KG_AVAILABLE = True
 except ImportError:
     KG_AVAILABLE = False
-    get_knowledge_graph = lambda: None
-    extract_triplets_from_text = lambda x, **kwargs: []
+    def get_knowledge_graph():
+        return None
+    def extract_triplets_from_text(x, **kwargs):
+        return []
 
 
 @dataclass
@@ -148,12 +151,12 @@ class ConversationState:
     last_build_status: str = ""
     file_change_log: list[FileChange] = field(default_factory=list)
     task_tree: TaskNode | None = None
-    
+
     key_technologies: list[str] = field(default_factory=list)
 
     _conversation_id: str = "default"
     _max_turn_summaries: int = 20
-    
+
     _reminder_cache: str = ""
     _reminder_cache_turn: int = 0
     _max_decisions: int = 30
@@ -199,7 +202,7 @@ class ConversationState:
         for f in files_touched or []:
             if f not in self.files_modified:
                 self.files_modified.append(f)
-        
+
         if persist_to_external and CHROMADB_AVAILABLE:
             semantic_memory = get_semantic_memory()
             semantic_memory.add_turn_summary(
@@ -251,10 +254,10 @@ class ConversationState:
         self.chapter_summaries.append(chapter)
         if len(self.chapter_summaries) > self._max_chapters:
             self.chapter_summaries = self.chapter_summaries[-self._max_chapters :]
-        
+
         for tech in key_technologies or []:
             self.add_technology(tech)
-        
+
         if persist_to_external and CHROMADB_AVAILABLE:
             semantic_memory = get_semantic_memory()
             semantic_memory.add_chapter_summary(
@@ -267,16 +270,16 @@ class ConversationState:
                 key_files=key_files,
                 key_technologies=key_technologies,
             )
-        
+
         if persist_to_external and KG_AVAILABLE:
             kg = get_knowledge_graph()
             triplets = extract_triplets_from_text(summary, max_triplets=6)
             for triplet in triplets:
                 kg.add_triple(triplet["subject"], triplet["relation"], triplet["object"])
-            
+
             for tech in key_technologies or []:
                 kg.add_entity(tech, tech, "technology")
-            
+
             for file_name in key_files or []:
                 kg.add_entity(file_name, file_name, "file")
 
@@ -616,7 +619,7 @@ class ConversationState:
         state.pending_todos = data.get("pending_todos", [])
         state.files_modified = data.get("files_modified", [])
         state.key_technologies = data.get("key_technologies", [])
-        
+
         for dec_data in data.get("decisions_made", []):
             state.add_decision(
                 turn_number=dec_data.get("turn_number", 0),
@@ -624,7 +627,7 @@ class ConversationState:
                 rationale=dec_data.get("rationale", ""),
                 outcome=dec_data.get("outcome", ""),
             )
-        
+
         for ts_data in data.get("turn_summaries", []):
             state.add_turn_summary(
                 turn_number=ts_data.get("turn_number", 0),
@@ -634,7 +637,7 @@ class ConversationState:
                 files_touched=ts_data.get("files_touched", []),
                 persist_to_external=False,
             )
-        
+
         for ch_data in data.get("chapter_summaries", []):
             state.add_chapter_summary(
                 chapter_number=ch_data.get("chapter_number", 0),
@@ -646,7 +649,7 @@ class ConversationState:
                 key_technologies=ch_data.get("key_technologies", []),
                 persist_to_external=False,
             )
-        
+
         for fc_data in data.get("file_change_log", []):
             state.add_file_change(
                 path=fc_data.get("path", ""),
@@ -654,11 +657,11 @@ class ConversationState:
                 description=fc_data.get("description", ""),
                 turn_number=fc_data.get("turn_number", 0),
             )
-        
+
         task_tree_data = data.get("task_tree")
         if task_tree_data:
             state.task_tree = TaskNode.from_dict(task_tree_data)
-        
+
         return state
 
     def serialize(self) -> dict[str, Any]:
@@ -679,24 +682,24 @@ class ConversationState:
         Handles version compatibility and missing fields gracefully.
         """
         state = cls()
-        
+
         version = data.get("version", "1.0")
-        
+
         if version == "1.0":
             inner_data = data.copy()
             inner_data.pop("version", None)
             inner_data.pop("timestamp", None)
             inner_data.pop("conversation_id", None)
-            
+
             try:
                 state = cls.from_dict(inner_data)
             except Exception as exc:
                 logger.warning("Failed to deserialize conversation state: %s", exc)
                 state = cls()
-            
+
             conv_id = data.get("conversation_id", "default")
             state._conversation_id = conv_id
-        
+
         return state
 
 

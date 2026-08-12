@@ -9,9 +9,6 @@ Three-stage routing:
 from __future__ import annotations
 
 import logging
-import re
-import time
-from typing import Optional
 
 from butler.memory.experience.taxonomy import DOMAINS, get_all_domain_keywords
 
@@ -22,7 +19,8 @@ try:
     _EMBEDDER_AVAILABLE = True
 except ImportError:
     _EMBEDDER_AVAILABLE = False
-    get_embedder = lambda: None
+    def get_embedder():
+        return None
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:

@@ -14,4 +14,3 @@ warnings.warn(
     stacklevel=2,
 )
 
-from .seed_data import EXTENDED_MATERIALS

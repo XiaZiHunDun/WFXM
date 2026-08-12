@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from butler.core.best_effort import safe_best_effort
 from butler.ops.rag_diagnostics_ops import append_probe_line

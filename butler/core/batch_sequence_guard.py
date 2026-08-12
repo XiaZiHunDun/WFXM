@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import threading
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, cast
 
 from butler.utilities.env_parse import env_truthy

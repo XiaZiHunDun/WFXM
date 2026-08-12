@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import threading
 from pathlib import PurePosixPath
-from typing import Any, cast
+from typing import Any
 
 from butler.tool_guardrails import MUTATING_TOOLS
 

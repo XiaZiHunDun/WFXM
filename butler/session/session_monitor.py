@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from datetime import datetime
 from typing import Any, Callable, Optional
 
 from butler.session.session_store import get_session_store
@@ -70,7 +69,7 @@ class SessionMonitor:
             time.sleep(self._check_interval)
 
     def _check_sessions(self) -> None:
-        stats = self._store.get_stats()
+        self._store.get_stats()
         running_sessions = self._store.list_sessions(state="running")
 
         if len(running_sessions) > self._max_running_sessions:

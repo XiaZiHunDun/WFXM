@@ -24,7 +24,6 @@ from butler.dev_engine.dev_loop import (
     transition,
 )
 from butler.dev_engine.dev_metrics import get_collector
-from butler.dev_engine.dev_state import SearchHit
 from butler.dev_engine.edit_ops import rollback_edits
 from butler.dev_engine.optimize_advisory import enrich_review_with_suggestions
 from butler.dev_engine.review_closure import summarize_review_for_delegate

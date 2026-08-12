@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from butler.core.llm_retry_safe import safe_call
 from butler.transport.llm_client import LLMClient

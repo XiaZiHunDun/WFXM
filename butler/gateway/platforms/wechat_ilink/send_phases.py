@@ -6,7 +6,6 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 from butler.gateway.platforms.wechat_ilink import _send_message
 from butler.gateway.platforms.wechat_ilink import RATE_LIMIT_ERRCODE, SESSION_EXPIRED_ERRCODE, _is_stale_session_ret, _safe_id

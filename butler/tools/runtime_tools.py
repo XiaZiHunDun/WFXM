@@ -15,7 +15,6 @@ def _resolve_project_name(project: str | None = None) -> tuple[str | None, str |
         return name, None
     from butler.tools.runtime_tools_ops import (
         resolve_current_project_name_safe,
-        resolve_project_workspace_safe,
     )
 
     name = resolve_current_project_name_safe()

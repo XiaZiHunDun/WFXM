@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, Dict, List, Set
+from typing import Any, Optional
 
 import logging
 
@@ -288,7 +288,6 @@ def extract_memory_cards(
             pass
 
     # Fall back to reading memory files from project root
-    import os
     project_root = Path(__file__).resolve().parent.parent.parent
     base = project_root / "memories"
 

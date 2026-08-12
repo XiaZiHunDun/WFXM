@@ -8,7 +8,6 @@ import logging
 import os
 import signal
 import threading
-import time
 from typing import Any, cast
 
 from butler import format_build_identity_line, mark_start_time

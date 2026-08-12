@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any
 
 from butler.core.best_effort import safe_best_effort
 

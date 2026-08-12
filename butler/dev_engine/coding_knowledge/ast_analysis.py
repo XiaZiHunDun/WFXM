@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import ast
-import re
-from typing import Optional, Set
+from typing import Optional
 
 
 def _try_parse_ast(code: str) -> Optional[ast.Module]:

@@ -96,7 +96,7 @@ def _handle_approve_skill(orchestrator: "ButlerOrchestrator", arg: str) -> str:
 
 
 def _handle_reject_skill(arg: str) -> str:
-    from butler.skills.write_approval import list_skill_pending, reject_all_skill_pending, reject_skill_pending
+    from butler.skills.write_approval import reject_all_skill_pending, reject_skill_pending
 
     key = (arg or "").strip().lower()
     if key in ("全部", "all", "*"):

@@ -21,19 +21,22 @@ logger = logging.getLogger(__name__)
 try:
     from butler.memory.triplets import extract_triplets_from_text
 except ImportError:
-    extract_triplets_from_text = lambda x, **kw: []
+    def extract_triplets_from_text(x, **kw):
+        return []
 
 try:
     from butler.memory.semantic_memory import get_semantic_memory, CHROMADB_AVAILABLE
 except ImportError:
     CHROMADB_AVAILABLE = False
-    get_semantic_memory = lambda: None
+    def get_semantic_memory():
+        return None
 
 try:
     from butler.memory.knowledge_graph import get_knowledge_graph, KG_AVAILABLE
 except ImportError:
     KG_AVAILABLE = False
-    get_knowledge_graph = lambda: None
+    def get_knowledge_graph():
+        return None
 
 
 class ExperienceWriter:

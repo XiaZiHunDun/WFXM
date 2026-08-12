@@ -8,7 +8,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from butler.configuration.settings import get_butler_home
 from butler.utilities.env_parse import env_truthy, int_env

@@ -20,7 +20,6 @@ Sub-domains:
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 from collections import OrderedDict
 import logging
@@ -28,12 +27,11 @@ import mimetypes
 import os
 import secrets
 import struct
-import tempfile
 import threading
 import time
 from pathlib import Path
 from typing import Any, Awaitable, Dict, List, Optional, Tuple, TypeVar, cast
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 
 from butler.gateway.platforms.helpers import atomic_json_write  # noqa: E402
 

@@ -36,7 +36,7 @@ from butler.ops.execution_surface_diagnostics import (
 )
 from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
 from butler.ops.harness_diagnostics import format_harness_diagnostic_lines
-from butler.ops.health_report_input import HealthReportInput, format_build_uptime
+from butler.ops.health_report_input import HealthReportInput
 from butler.ops.observation_diagnostics import format_observation_diagnostic_lines
 from butler.ops.rag_diagnostics import format_rag_diagnostic_lines
 from butler.ops.runtime_metrics import format_metrics_diagnostic_lines

@@ -15,7 +15,6 @@ def transcript_memory_enabled() -> bool:
 
 
 def transcript_memory_max_lines() -> int:
-    import os
 
     try:
         return int(max(20, int_env("BUTLER_TRANSCRIPT_MEMORY_MAX_LINES", 400)))

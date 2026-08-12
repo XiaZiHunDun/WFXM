@@ -15,7 +15,6 @@ def dispatch_tool_with_envelope_loud(
 ) -> str:
     from butler.core.tool_batch_finalize import (
         finalize_fallback_tool_result,
-        finalize_unenveloped_failure_result,
     )
 
     try:

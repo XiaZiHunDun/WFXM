@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 
 def prefetch_limits() -> dict[str, int]:
     """Env-tunable caps for per-turn memory injection (personal butler)."""
-    import os
 
     def _int(name: str, default: int) -> int:
         try:

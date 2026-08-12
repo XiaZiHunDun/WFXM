@@ -8,8 +8,7 @@ import os
 import subprocess
 import threading
 import time
-from pathlib import Path
-from typing import IO, Any, cast
+from typing import IO, Any
 
 from butler.execution_context import get_current_session_key
 from butler.tools.interrupt import is_interrupted

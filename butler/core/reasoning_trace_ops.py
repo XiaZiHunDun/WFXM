@@ -11,7 +11,6 @@ from butler.dev_engine.fix_strategy import enrich_fix_hint, suggest_fix_action
 from butler.core.plan_reason_graph import append_node, maybe_auto_link_plan_node
 from butler.core.session_transcript import record_reason_graph_event
 from butler.plan.mode import is_plan_mode
-from butler.core.session_transcript import find_last_transcript_types, transcript_enabled
 from butler.core.plan_reason_graph import summarize_graph
 
 

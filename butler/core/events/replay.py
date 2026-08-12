@@ -14,13 +14,11 @@ These utilities improve event sourcing performance by:
 
 from __future__ import annotations
 
-import bisect
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Iterable, Generic, TypeVar
 
-from butler.core.effects import Result, Ok, Err
 from butler.core.events.event_types import DomainEvent
 
 logger = logging.getLogger(__name__)

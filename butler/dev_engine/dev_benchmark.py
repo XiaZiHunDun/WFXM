@@ -35,14 +35,10 @@ from butler.dev_engine.dev_metrics import (
     DevTaskMetrics,
     MetricsCollector,
     TaskOutcome,
-    get_collector,
-    reset_collector,
 )
 from butler.dev_engine.dev_state import (
-    DevPhase,
     Diagnostic,
     DiagSeverity,
-    EditRecord,
     VerifyResult,
     VerifyStatus,
 )

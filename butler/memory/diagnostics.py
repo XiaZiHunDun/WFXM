@@ -21,8 +21,6 @@ from butler.memory.facade_ops import resolve_project_memory_for_diag
 import logging
 
 
-from butler.memory.project_memory import ProjectMemory
-from butler.memory.semantic_project import resolve_project_display_name
 
 _resolve_project_memory = resolve_project_memory_for_diag
 from butler.configuration.memory import format_memory_config_source_line

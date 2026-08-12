@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.events_sink import emit_context_compaction
-from butler.core.session_transcript import record_compact_boundary, record_compact_done, record_compact_failed, record_compact_scheduled, record_compact_started, record_overflow_replay as _record_overflow_replay
+from butler.core.session_transcript import record_compact_boundary, record_compact_done, record_compact_scheduled, record_compact_started, record_overflow_replay as _record_overflow_replay
 
 MessageDict = dict[str, Any]
 CompactionSplit = tuple[list[MessageDict], list[MessageDict], list[MessageDict]]

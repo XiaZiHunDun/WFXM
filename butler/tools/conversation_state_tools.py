@@ -11,7 +11,6 @@ Also provides cross-session persistence via JSON file storage.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -297,7 +296,7 @@ def tool_conversation_state_search(query: str, limit: int = 5, semantic_mode: bo
             index.close()
             if results:
                 return json.dumps({"ok": True, "results": results, "retrieval": "semantic"}, ensure_ascii=False, indent=2)
-        except Exception as exc:
+        except Exception:
             pass
 
     orch = get_current_orchestrator()

@@ -72,7 +72,7 @@ def format_owner_status_header(
     model_ok = bool(getattr(orchestrator, "_settings", None) and orchestrator._settings.default_provider)
 
     pending_delegate = _pending_delegate_line(sk)
-    delegate_warn = bool(pending_delegate)
+    bool(pending_delegate)
 
     lines = [
         "健康概览",

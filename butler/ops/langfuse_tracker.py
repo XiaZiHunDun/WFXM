@@ -16,7 +16,6 @@ Key features:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ class LangfuseTracker:
         self._client: Any = None
         self._enabled = False
         self._session_id: str = ""
-        
+
         if LANGFUSE_AVAILABLE:
             try:
                 self._client = Langfuse()
@@ -43,21 +42,21 @@ class LangfuseTracker:
                 logger.info("Langfuse tracker initialized")
             except Exception as e:
                 logger.debug("Langfuse initialization failed: %s", e)
-    
+
     @property
     def enabled(self) -> bool:
         return self._enabled
-    
+
     def start_session(self, session_id: str, metadata: Dict[str, Any] | None = None) -> None:
         if not self._enabled:
             return
         self._session_id = session_id
-    
+
     def end_session(self, metadata: Dict[str, Any] | None = None) -> None:
         if not self._enabled:
             return
         self._session_id = ""
-    
+
     def trace_turn(
         self,
         turn_number: int,
@@ -67,14 +66,14 @@ class LangfuseTracker:
     ) -> None:
         if not self._enabled:
             return
-        
+
         try:
             trace = self._client.trace(
                 name=f"turn_{turn_number}",
                 session_id=self._session_id,
                 metadata=metadata or {},
             )
-            
+
             trace.generation(
                 name="user_message",
                 input=user_message,
@@ -83,7 +82,7 @@ class LangfuseTracker:
             )
         except Exception as e:
             logger.debug("Langfuse trace failed: %s", e)
-    
+
     def trace_memory_retrieval(
         self,
         query: str,
@@ -93,13 +92,13 @@ class LangfuseTracker:
     ) -> None:
         if not self._enabled:
             return
-        
+
         try:
             trace = self._client.trace(
                 name=f"memory_retrieval_{retrieval_type}",
                 session_id=self._session_id,
             )
-            
+
             trace.generation(
                 name=f"{retrieval_type}_retrieval",
                 input=query,
@@ -112,7 +111,7 @@ class LangfuseTracker:
             )
         except Exception as e:
             logger.debug("Langfuse memory trace failed: %s", e)
-    
+
     def trace_knowledge_graph(
         self,
         query: str,
@@ -122,13 +121,13 @@ class LangfuseTracker:
     ) -> None:
         if not self._enabled:
             return
-        
+
         try:
             trace = self._client.trace(
                 name="knowledge_graph_query",
                 session_id=self._session_id,
             )
-            
+
             trace.generation(
                 name="graph_query",
                 input=query,
@@ -141,7 +140,7 @@ class LangfuseTracker:
             )
         except Exception as e:
             logger.debug("Langfuse KG trace failed: %s", e)
-    
+
     def track_metric(
         self,
         name: str,
@@ -151,7 +150,7 @@ class LangfuseTracker:
     ) -> None:
         if not self._enabled:
             return
-        
+
         try:
             self._client.score(
                 trace_id=self._session_id,
@@ -164,7 +163,7 @@ class LangfuseTracker:
             )
         except Exception as e:
             logger.debug("Langfuse metric tracking failed: %s", e)
-    
+
     def track_conversation_metrics(
         self,
         turn_number: int,
@@ -175,14 +174,14 @@ class LangfuseTracker:
     ) -> None:
         if not self._enabled:
             return
-        
+
         metrics = [
             ("memory_recall_rate", memory_recall_rate),
             ("task_progress", task_progress),
             ("context_tokens", float(context_tokens)),
             ("reasoning_depth", float(reasoning_depth)),
         ]
-        
+
         for name, value in metrics:
             self.track_metric(name, value, turn_number=turn_number)
 

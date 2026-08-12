@@ -91,7 +91,7 @@ def collect_todos_pending_drift(workspace: Path) -> dict[str, Any]:
 
     open_todos = [t for t in todos if t.get("status") in ("pending", "in_progress")]
     completed_todos = [t for t in todos if t.get("status") == "completed"]
-    cancelled_todos = [t for t in todos if t.get("status") == "cancelled"]
+    [t for t in todos if t.get("status") == "cancelled"]
     # dropped: cancelled/whatever; only track completed separately
 
     todo_index: dict[str, dict[str, str]] = {}

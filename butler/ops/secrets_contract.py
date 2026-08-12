@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-import yaml  # type: ignore[import-untyped]
 
 from butler.defaults.env_defaults import (
     GATEWAY_SYSTEMD_UNIT,

@@ -37,23 +37,23 @@ class KnowledgeGraph:
             default_data_dir, "knowledge_graph"
         )
         os.makedirs(self._persist_dir, exist_ok=True)
-        
+
         self._graph = nx.DiGraph()
         self._lock = threading.RLock()
         self._entity_types: Dict[str, str] = {}
         self._entity_attributes: Dict[str, Dict[str, Any]] = {}
-        
+
         self._db_path = os.path.join(self._persist_dir, f"{graph_id}.db")
         self._ensure_db_schema()
         self._load_from_db()
-    
+
     def _ensure_db_schema(self) -> None:
         with self._lock:
             with sqlite3.connect(self._db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA user_version")
                 version = cursor.fetchone()[0]
-                
+
                 if version == 0:
                     cursor.execute("""
                         CREATE TABLE entities (
@@ -80,10 +80,10 @@ class KnowledgeGraph:
                     cursor.execute("CREATE INDEX idx_relations_target ON relations(target)")
                     cursor.execute("CREATE INDEX idx_relations_relation ON relations(relation)")
                     version = 1
-                
+
                 cursor.execute(f"PRAGMA user_version = {version}")
                 conn.commit()
-    
+
     def _load_from_db(self) -> None:
         with self._lock:
             with sqlite3.connect(self._db_path) as conn:
@@ -97,7 +97,7 @@ class KnowledgeGraph:
                         self._entity_attributes[entity_id] = json.loads(attrs_json) if attrs_json else {}
                     except json.JSONDecodeError:
                         self._entity_attributes[entity_id] = {}
-                
+
                 cursor.execute("SELECT source, relation, target, attributes_json FROM relations")
                 for row in cursor.fetchall():
                     source, relation, target, attrs_json = row
@@ -106,7 +106,7 @@ class KnowledgeGraph:
                     except json.JSONDecodeError:
                         attrs = {}
                     self._graph.add_edge(source, target, relation=relation, **attrs)
-    
+
     def add_entity(
         self,
         entity_id: str,
@@ -119,7 +119,7 @@ class KnowledgeGraph:
             self._graph.add_node(entity_id, label=label, type=entity_type)
             self._entity_types[entity_id] = entity_type
             self._entity_attributes[entity_id] = attributes or {}
-            
+
             with sqlite3.connect(self._db_path) as conn:
                 conn.execute("""
                     INSERT OR REPLACE INTO entities
@@ -127,7 +127,7 @@ class KnowledgeGraph:
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (entity_id, label, entity_type, json.dumps(attributes or {}, ensure_ascii=False), now, now))
                 conn.commit()
-    
+
     def add_relation(
         self,
         source: str,
@@ -139,7 +139,7 @@ class KnowledgeGraph:
             now = time.time()
             attrs = attributes or {}
             self._graph.add_edge(source, target, relation=relation, **attrs)
-            
+
             with sqlite3.connect(self._db_path) as conn:
                 try:
                     conn.execute("""
@@ -154,7 +154,7 @@ class KnowledgeGraph:
                         WHERE source = ? AND relation = ? AND target = ?
                     """, (json.dumps(attrs, ensure_ascii=False), now, source, relation, target))
                 conn.commit()
-    
+
     def get_entity(self, entity_id: str) -> Optional[Dict[str, Any]]:
         with self._lock:
             if entity_id not in self._graph:
@@ -165,7 +165,7 @@ class KnowledgeGraph:
                 "type": self._entity_types.get(entity_id, ""),
                 "attributes": self._entity_attributes.get(entity_id, {}),
             }
-    
+
     def get_relations(self, entity_id: str, direction: str = "both") -> List[Dict[str, Any]]:
         with self._lock:
             relations = []
@@ -188,7 +188,7 @@ class KnowledgeGraph:
                         "attributes": {k: v for k, v in edge_data.items() if k != "relation"},
                     })
             return relations
-    
+
     def search_entities(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         with self._lock:
             query_lower = query.lower()
@@ -204,7 +204,7 @@ class KnowledgeGraph:
                     })
             matches.sort(key=lambda x: x["score"], reverse=True)
             return matches[:max_results]
-    
+
     def find_paths(
         self,
         source: str,
@@ -232,20 +232,20 @@ class KnowledgeGraph:
             except nx.NodeNotFound:
                 pass
             return all_paths
-    
+
     def get_neighborhood(self, entity_id: str, hops: int = 1) -> Dict[str, Any]:
         with self._lock:
             nodes = {entity_id}
             edges = []
             visited = set()
             queue = [(entity_id, 0)]
-            
+
             while queue:
                 node, depth = queue.pop(0)
                 if node in visited or depth > hops:
                     continue
                 visited.add(node)
-                
+
                 for neighbor in self._graph.successors(node):
                     if neighbor not in visited:
                         nodes.add(neighbor)
@@ -257,7 +257,7 @@ class KnowledgeGraph:
                         })
                         if depth + 1 <= hops:
                             queue.append((neighbor, depth + 1))
-                
+
                 for neighbor in self._graph.predecessors(node):
                     if neighbor not in visited:
                         nodes.add(neighbor)
@@ -269,23 +269,23 @@ class KnowledgeGraph:
                         })
                         if depth + 1 <= hops:
                             queue.append((neighbor, depth + 1))
-            
+
             entities_info = {}
             for node in nodes:
                 entities_info[node] = {
                     "label": self._graph.nodes[node].get("label", node),
                     "type": self._entity_types.get(node, ""),
                 }
-            
+
             return {"entities": entities_info, "edges": edges}
-    
+
     def add_triple(self, subject: str, relation: str, obj: str) -> None:
         if subject not in self._graph:
             self.add_entity(subject, subject)
         if obj not in self._graph:
             self.add_entity(obj, obj)
         self.add_relation(subject, relation, obj)
-    
+
     def get_stats(self) -> Dict[str, Any]:
         with self._lock:
             return {
@@ -294,7 +294,7 @@ class KnowledgeGraph:
                 "graph_id": self._graph_id,
                 "db_path": self._db_path,
             }
-    
+
     def clear(self) -> None:
         with self._lock:
             self._graph.clear()
@@ -309,15 +309,15 @@ class KnowledgeGraph:
 class EntityLinker:
     def __init__(self, knowledge_graph: KnowledgeGraph):
         self._kg = knowledge_graph
-    
+
     def link(self, text: str, top_n: int = 3) -> List[Tuple[str, float]]:
         text_lower = text.lower()
         candidates = []
-        
+
         for entity_id in self._kg._graph.nodes:
             label = self._kg._graph.nodes[entity_id].get("label", entity_id).lower()
             entity_id_lower = entity_id.lower()
-            
+
             if label in text_lower:
                 score = len(label) / len(text_lower) + 0.5
                 candidates.append((entity_id, score))
@@ -330,7 +330,7 @@ class EntityLinker:
                         score = len(word) / len(text_lower) + 0.1
                         candidates.append((entity_id, score))
                         break
-        
+
         candidates.sort(key=lambda x: x[1], reverse=True)
         unique = []
         seen = set()
@@ -346,7 +346,7 @@ class EntityLinker:
 class GraphRetriever:
     def __init__(self, knowledge_graph: KnowledgeGraph):
         self._kg = knowledge_graph
-    
+
     def retrieve(
         self,
         query: str,
@@ -355,7 +355,7 @@ class GraphRetriever:
     ) -> List[Dict[str, Any]]:
         linker = EntityLinker(self._kg)
         entities = linker.link(query, top_n=5)
-        
+
         results = []
         for entity_id, _ in entities:
             neighborhood = self._kg.get_neighborhood(entity_id, hops=max_hops)
@@ -364,13 +364,13 @@ class GraphRetriever:
                 "label": self._kg._graph.nodes[entity_id].get("label", entity_id),
                 "neighborhood": neighborhood,
             })
-        
+
         return results[:max_results]
 
 
 def get_knowledge_graph(graph_id: str = "default") -> KnowledgeGraph:
     """Shared ``KnowledgeGraph`` via ServiceContainer.
-    
+
     Note: graph_id parameter is ignored in container mode (single instance).
     """
     from butler.core.container import container

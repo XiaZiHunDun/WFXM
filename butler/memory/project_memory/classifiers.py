@@ -4,7 +4,7 @@ import os
 
 from butler.defaults.env_defaults import MEMORY_AUTO_APPROVE_DEFAULT
 
-from .constants import _DECISION_KEYWORDS, _PENDING_UNCERTAIN, _SENSITIVE_PENDING_KEYWORDS, _SENSITIVE_PII_RE
+from .constants import _SENSITIVE_PENDING_KEYWORDS, _SENSITIVE_PII_RE
 
 
 def memory_auto_fact_enabled() -> bool:

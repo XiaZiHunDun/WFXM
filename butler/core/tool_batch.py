@@ -17,16 +17,6 @@ from butler.core.finish_tool_truncate import truncate_tool_calls_at_finish
 from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.core.parallel_tools import execute_tools_parallel
 from butler.core.tool_batch_hooks import build_tool_batch_hooks
-from butler.core.tool_batch_post_edit import (
-    _EDIT_TOOL_NAMES,
-    _OP_NAME_MAP,
-    capture_pre_edit_snapshot as _capture_pre_edit_snapshot,
-    dev_engine_post_edit as _dev_engine_post_edit,
-    fetch_pre_edit_snapshot as _fetch_pre_edit_snapshot,
-    plan_mode_post_edit as _plan_mode_post_edit,
-    tool_result_outcome as _tool_result_outcome,
-    _run_auto_verify,
-)
 from butler.core.tool_batch_runner import (
     append_tool_role_messages,
     extract_batch_followups,
@@ -104,7 +94,6 @@ def process_tool_calls(
     if guardrails and guardrails.halt_decision:
         return ToolBatchStats()
 
-    tools_started = 0
     batch_guard = None
 
     def _init_batch_guard() -> None:
@@ -185,10 +174,3 @@ def process_tool_calls(
     )
 
 
-from butler.core.tool_batch_finalize import (  # noqa: E402 — P1-C re-exports
-    dispatch_tool_with_envelope,
-    finalize_fallback_tool_result,
-    finalize_guardrail_halt_result,
-    finalize_unenveloped_failure_result,
-    parse_tool_result_object,
-)

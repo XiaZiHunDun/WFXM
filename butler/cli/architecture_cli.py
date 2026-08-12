@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any, cast
 
 
 def register_architecture_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -160,7 +159,7 @@ def _cmd_architecture_graph(ns: argparse.Namespace) -> int:
     rankdir=LR;
     node [shape=box, style=filled, color="#e8f4fd", fontname="Arial"];
     edge [color="#999999", arrowhead="vee"];
-    
+
     // Layer clusters
     subgraph cluster_utilities {
         label = "Layer 1: utilities";

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.context_budget import record_usage_in_diagnostics, usage_billable_tokens

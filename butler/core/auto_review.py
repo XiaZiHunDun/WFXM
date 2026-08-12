@@ -23,7 +23,6 @@ def auto_review_enabled() -> bool:
 
 
 def max_denials_per_turn() -> int:
-    import os
 
     try:
         return max(1, int(int_env("BUTLER_AUTO_REVIEW_MAX_DENIALS", 3)))
@@ -77,7 +76,6 @@ def try_auto_review_terminal(
         return AutoReviewResult(allowed=False, reason="write_or_network_hint")
 
     from butler.core.auto_review_ops import (
-        parse_auto_review_llm_response_safe,
         sandbox_read_only_auto_review_safe,
     )
 

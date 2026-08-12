@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from typing import Any
 
 from butler.core.plan_snapshot import (
@@ -23,8 +22,6 @@ from butler.report import (
     cache_report,
     enrich_output_schema,
     enrich_report_decisions,
-    format_for_wechat,
-    get_last_report,
     maybe_repair_structured_output,
     render_structured_output_markdown,
 )

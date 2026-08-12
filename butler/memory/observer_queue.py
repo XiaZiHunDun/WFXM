@@ -10,7 +10,7 @@ import uuid
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from butler.configuration.memory import resolve_memory_config
 from butler.memory.observation_store import ObservationStore, observations_db_path

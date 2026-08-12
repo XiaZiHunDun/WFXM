@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.batch_sequence_guard import (
@@ -31,7 +31,7 @@ from butler.core.tool_error_policy import (
 )
 from butler.core.tool_result_cache import get_cached_result, set_cached_result
 from butler.core.tool_retry import run_tool_with_retry_result
-from butler.core.effects import Ok, Err
+from butler.core.effects import Ok
 from butler.core.two_phase_confirm import two_phase_block_message
 from butler.execution_context import get_current_session_key
 from butler.ops.retry_buckets import record_recovery_event

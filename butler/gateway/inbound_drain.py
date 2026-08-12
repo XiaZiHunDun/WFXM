@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time as _time
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 

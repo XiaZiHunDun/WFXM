@@ -504,10 +504,3 @@ def _coerce_agent_result(result: AgentResult | BaseException) -> AgentResult:
 
 
 # Backward-compat aliases — canonical: ``butler.dag_scheduler`` (ENG-4)
-from butler.dag_scheduler import (  # noqa: E402
-    first_failed_dependency as _first_failed_dependency,
-    format_dependency_context as _format_dependency_context,
-    graph_all_required_ok as _graph_all_required_ok,
-    group_into_layers as _group_into_layers,
-    topological_sort as _topological_sort,
-)

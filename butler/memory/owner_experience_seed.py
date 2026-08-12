@@ -205,7 +205,6 @@ def run_owner_experience_seed(
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
-    import sys
 
     from butler.configuration.settings import get_butler_home
 

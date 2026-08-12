@@ -8,9 +8,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from butler.core.llm_retry_errors import handle_classified_llm_error
-from butler.core.llm_retry_helpers import prepare_tools_for_llm, try_exp_cache_response
 from butler.core.llm_retry_invoke import execute_llm_call
-from butler.core.llm_retry_outcomes import record_llm_failure, record_llm_interrupt
+from butler.core.llm_retry_outcomes import record_llm_interrupt
 from butler.core.llm_retry_success import process_llm_response
 from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.transport.error_classifier import classify_api_error

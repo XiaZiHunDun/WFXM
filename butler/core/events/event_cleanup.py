@@ -9,15 +9,12 @@ Provides:
 from __future__ import annotations
 
 import gzip
-import json
 import logging
 import os
-import shutil
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterable
 
 logger = logging.getLogger(__name__)
 

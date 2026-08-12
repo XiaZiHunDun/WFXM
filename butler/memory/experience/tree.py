@@ -18,7 +18,7 @@ from butler.memory.experience.domain_router import DomainRouter
 from butler.memory.experience.retriever import ExperienceRetriever
 from butler.memory.experience.store import ExperienceHit, ExperienceNode, ExperienceStore
 from butler.memory.experience.writer import ExperienceWriter
-from butler.memory.experience.taxonomy import DOMAINS, CATEGORIES, get_domain_name, get_category_name
+from butler.memory.experience.taxonomy import DOMAINS, CATEGORIES, get_domain_name
 
 logger = logging.getLogger(__name__)
 

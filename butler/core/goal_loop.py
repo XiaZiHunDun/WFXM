@@ -61,7 +61,6 @@ def is_goal_loop_active(session_key: str) -> bool:
 
 
 def goal_token_budget_default() -> int:
-    import os
 
     try:
         return int(max(0, int_env("BUTLER_GOAL_TOKEN_BUDGET", 0)))

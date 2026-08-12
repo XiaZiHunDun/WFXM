@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from butler.contracts.review_ports import DevReviewView
 from butler.core.best_effort import safe_best_effort
 
 logger = logging.getLogger(__name__)

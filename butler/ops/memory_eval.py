@@ -12,7 +12,6 @@ Usage::
 from __future__ import annotations
 
 import logging
-import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -71,7 +70,7 @@ def benchmark_report_to_dataset_items(report: Any) -> list[Any]:
 
 def benchmark_report_to_scores(report: Any, trace_id: str = "") -> list[Any]:
     """Convert a BenchmarkReport to LangFuse EvalScores."""
-    from butler.ops.eval_bridge import EvalScore, memory_benchmark_to_scores
+    from butler.ops.eval_bridge import memory_benchmark_to_scores
 
     scores = memory_benchmark_to_scores(report)
     if trace_id:

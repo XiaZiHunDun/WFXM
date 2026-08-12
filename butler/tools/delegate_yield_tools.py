@@ -16,7 +16,7 @@ def _tool_delegate_yield(
     report_headline: str = "",
     **_: Any,
 ) -> str:
-    from butler.runtime.task_store import complete_task, get_task, list_recent_tasks
+    from butler.runtime.task_store import complete_task, get_task
 
     from butler.tools.delegate_yield_tools_ops import resolve_recent_delegate_task_id_safe
 

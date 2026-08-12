@@ -47,36 +47,36 @@ class SemanticMemory:
         self._collection: Any = None
         self._lock = threading.Lock()
         self._initialized = False
-    
+
     @property
     def available(self) -> bool:
         return CHROMADB_AVAILABLE
-    
+
     def _initialize(self) -> None:
         if not CHROMADB_AVAILABLE:
             raise RuntimeError("ChromaDB not installed")
-        
+
         with self._lock:
             if self._initialized:
                 return
-            
+
             os.makedirs(self._persist_directory, exist_ok=True)
-            
+
             self._client = chromadb.PersistentClient(
                 path=self._persist_directory,
                 settings=Settings(
                     anonymized_telemetry=False,
                 ),
             )
-            
+
             self._collection = self._client.get_or_create_collection(
                 name=self._collection_name,
                 metadata={"description": "WFXM conversation semantic memory"},
             )
-            
+
             self._initialized = True
             logger.debug("Semantic memory initialized at %s", self._persist_directory)
-    
+
     def add_turn_summary(
         self,
         turn_number: int,
@@ -88,9 +88,9 @@ class SemanticMemory:
     ) -> None:
         if not CHROMADB_AVAILABLE:
             return
-        
+
         self._initialize()
-        
+
         document = f"Turn {turn_number}: {user_intent} | {assistant_action} | {result_summary}"
         metadata = {
             "type": "turn",
@@ -101,14 +101,14 @@ class SemanticMemory:
             "result_summary": result_summary[:200],
             "files_touched": json.dumps(files_touched or []),
         }
-        
+
         with self._lock:
             self._collection.upsert(
                 documents=[document],
                 metadatas=[metadata],
                 ids=[f"turn_{conversation_id}_{turn_number}"],
             )
-    
+
     def add_chapter_summary(
         self,
         chapter_number: int,
@@ -122,9 +122,9 @@ class SemanticMemory:
     ) -> None:
         if not CHROMADB_AVAILABLE:
             return
-        
+
         self._initialize()
-        
+
         document = f"Chapter {chapter_number} (Turn {start_turn}-{end_turn}): {summary}"
         metadata = {
             "type": "chapter",
@@ -136,14 +136,14 @@ class SemanticMemory:
             "key_files": json.dumps(key_files or []),
             "key_technologies": json.dumps(key_technologies or []),
         }
-        
+
         with self._lock:
             self._collection.upsert(
                 documents=[document],
                 metadatas=[metadata],
                 ids=[f"chapter_{conversation_id}_{chapter_number}"],
             )
-    
+
     def search(
         self,
         query: str,
@@ -154,14 +154,14 @@ class SemanticMemory:
     ) -> list[dict[str, Any]]:
         if not CHROMADB_AVAILABLE:
             return []
-        
+
         self._initialize()
-        
+
         where: dict[str, Any] = {}
         conditions: list[dict[str, Any]] = []
-        
+
         conditions.append({"conversation_id": conversation_id})
-        
+
         types_filter: list[str] = []
         if include_turns:
             types_filter.append("turn")
@@ -169,12 +169,12 @@ class SemanticMemory:
             types_filter.append("chapter")
         if types_filter:
             conditions.append({"type": {"$in": types_filter}})
-        
+
         if len(conditions) == 1:
             where = conditions[0]
         elif len(conditions) > 1:
             where = {"$and": conditions}
-        
+
         with self._lock:
             results = self._collection.query(
                 query_texts=[query],
@@ -182,7 +182,7 @@ class SemanticMemory:
                 where=where if where else None,
                 include=["documents", "metadatas", "distances"],
             )
-        
+
         matches = []
         for i, (doc, meta, dist) in enumerate(
             zip(
@@ -205,10 +205,10 @@ class SemanticMemory:
                 match["start_turn"] = meta.get("start_turn")
                 match["end_turn"] = meta.get("end_turn")
             matches.append(match)
-        
+
         matches.sort(key=lambda x: x["distance"])
         return matches
-    
+
     def get_relevant_context(
         self,
         query: str,
@@ -216,21 +216,21 @@ class SemanticMemory:
         max_context_chars: int = 2000,
     ) -> str:
         matches = self.search(query, conversation_id=conversation_id, top_k=5)
-        
+
         context_parts: list[str] = []
         total_chars = 0
-        
+
         for match in matches:
             if total_chars >= max_context_chars:
                 break
-            
+
             doc = match["document"]
             if total_chars + len(doc) <= max_context_chars:
                 context_parts.append(doc)
                 total_chars += len(doc)
-        
+
         return "\n\n".join(context_parts)
-    
+
     def get_chapter_context(
         self,
         conversation_id: str = "default",
@@ -244,38 +244,38 @@ class SemanticMemory:
             include_chapters=True,
         )
         return matches
-    
+
     def reset(self, conversation_id: str = "default") -> None:
         if not CHROMADB_AVAILABLE:
             return
-        
+
         self._initialize()
-        
+
         with self._lock:
             self._collection.delete(
                 where={"conversation_id": conversation_id}
             )
-    
+
     def get_stats(self) -> dict[str, Any]:
         if not CHROMADB_AVAILABLE:
             return {"available": False}
-        
+
         self._initialize()
-        
+
         with self._lock:
             count = self._collection.count()
-        
+
         return {
             "available": True,
             "total_documents": count,
             "persist_directory": self._persist_directory,
         }
-    
+
     def close(self) -> None:
         """Close ChromaDB client and release resources."""
         if not CHROMADB_AVAILABLE:
             return
-        
+
         with self._lock:
             if self._client is not None:
                 try:

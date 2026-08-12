@@ -36,7 +36,7 @@ def tool_generate_image(prompt: str = "", aspect_ratio: str = "1:1", **_: Any) -
     if not prompt:
         return json.dumps({"error": "prompt is required"})
 
-    from butler.tools.multimodal_tools_ops import run_multimodal_tool_safe, write_tts_output_safe
+    from butler.tools.multimodal_tools_ops import run_multimodal_tool_safe
 
     def _run() -> dict[str, Any]:
         from butler.transport.multimodal.minimax_image_gen import generate_image

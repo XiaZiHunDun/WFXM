@@ -140,7 +140,7 @@ def format_owner_profile_lines(*, max_lines: int = 8) -> list[str]:
         lines.append(f"  MCP：{'开' if mcp else '关'}")
     elif op == "dev-local":
         lines.append(f"  LLM Key：{_yes_no(_llm_key_set())}")
-        lines.append(f"  pip 推荐：BUTLER_DEPLOY_PROFILE=dev")
+        lines.append("  pip 推荐：BUTLER_DEPLOY_PROFILE=dev")
         sandbox = os.getenv("BUTLER_TERMINAL_SANDBOX", str(int(TERMINAL_SANDBOX_DEFAULT))).strip().lower() in (
             "1",
             "true",

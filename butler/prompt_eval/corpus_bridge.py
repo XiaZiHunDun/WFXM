@@ -169,7 +169,6 @@ def run_corpus_prompt_live_subset(
 
 
 def _prompt_eval_live_max_cases() -> int:
-    import os
 
     try:
         return int(int_env("BUTLER_PROMPT_EVAL_LIVE_MAX", 12, min=0))

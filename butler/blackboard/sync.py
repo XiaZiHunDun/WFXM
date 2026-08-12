@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from butler.blackboard.schema import BacklogFile, BacklogTask, Priority, TaskStatus
+from butler.blackboard.schema import BacklogTask, Priority, TaskStatus
 from butler.blackboard.task_io import load_backlog, save_backlog
 
 

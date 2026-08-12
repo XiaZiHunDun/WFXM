@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from butler.utilities.env_parse import env_truthy, float_env
+from butler.utilities.env_parse import env_truthy
 from butler.configuration.memory import resolve_memory_config
 
 

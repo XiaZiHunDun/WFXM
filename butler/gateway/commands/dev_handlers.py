@@ -18,7 +18,6 @@ from butler.tools.git_tools import _run_git
 from butler.dev_engine.project_dev_env import project_dev_subprocess_env
 from butler.gateway.commands.dev_handlers_ops import get_orchestrator_safe
 from butler.gateway.owner_surface import format_project_overview_owner
-from butler.tools.git_tools import git_read_enabled, _run_git
 from butler.gateway.commands.dev_handlers_ops import format_runtime_jobs_line_safe
 
 logger = logging.getLogger(__name__)

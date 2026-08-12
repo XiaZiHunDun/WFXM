@@ -11,7 +11,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Pattern, cast
+from typing import ClassVar, Pattern
 
 from butler.utilities.env_parse import env_truthy
 

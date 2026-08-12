@@ -10,10 +10,8 @@ Usage:
 from __future__ import annotations
 
 import json
-import sys
 import time
 import tracemalloc
-from collections import defaultdict
 from typing import Any
 
 
@@ -48,7 +46,7 @@ def run_memory_profile() -> dict[str, Any]:
         execute_tool_calls_sequential,
         execute_tool_calls_concurrent,
     )
-    from butler.core.events import get_global_event_bus, reset_global_event_bus
+    from butler.core.events import reset_global_event_bus
 
     reset_global_event_bus()
 
@@ -155,7 +153,7 @@ def print_report(report: dict[str, Any]) -> None:
     print("=" * 70)
 
     b = report["baseline"]
-    print(f"\nBaseline Memory (after imports):")
+    print("\nBaseline Memory (after imports):")
     print(f"  Current: {b['current_kb']:.1f} KB")
     print(f"  Peak:    {b['peak_kb']:.1f} KB")
 
@@ -199,7 +197,7 @@ def main() -> None:
     # Save report
     with open("memory_profile_report.json", "w") as f:
         json.dump(report, f, indent=2)
-    print(f"\nDetailed report saved to: memory_profile_report.json")
+    print("\nDetailed report saved to: memory_profile_report.json")
 
 
 if __name__ == "__main__":

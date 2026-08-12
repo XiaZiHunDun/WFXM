@@ -8,7 +8,6 @@ from typing import Any
 from butler.contracts.approval_registry import set_approval_store
 from butler.permissions.approvals import (
     ApprovalRequest,
-    clear_pending,
     grant_always,
     grant_once,
     is_approved,

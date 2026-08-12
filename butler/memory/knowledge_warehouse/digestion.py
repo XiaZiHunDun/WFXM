@@ -10,8 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import time
-from typing import Any, Optional
+from typing import Any
 
 from butler.memory.experience.tree import ExperienceTree
 from butler.memory.knowledge_warehouse.warehouse import KnowledgeWarehouse

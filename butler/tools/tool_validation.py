@@ -170,7 +170,7 @@ def dispatch_tool_safe(
             ))
 
         return Ok(raw_result)
-    except TimeoutError as e:
+    except TimeoutError:
         return Err(ToolFailure.timeout(tool_name))
     except PermissionError as e:
         return Err(ToolFailure.permission_denied(tool_name, str(e)))

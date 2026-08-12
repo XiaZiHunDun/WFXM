@@ -12,7 +12,6 @@ Based on v4-memory-theory.md §6.2:
 
 from __future__ import annotations
 
-import logging
 import tempfile
 import time
 from dataclasses import dataclass, field

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import logging
-import re
 from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml  # type: ignore[import-untyped]
 
-from .constants import _FRONTMATTER_RE, MAX_DESC_LEN, MAX_NAME_LEN, VALID_NAME_RE
+from .constants import _FRONTMATTER_RE, MAX_NAME_LEN, VALID_NAME_RE
 from .errors import _record_skill_load_error, SKILL_LOAD_ERR_ENCODING, SKILL_LOAD_ERR_IO, SKILL_LOAD_ERR_NO_FRONTMATTER, SKILL_LOAD_ERR_UNTERMINATED
 
 logger = logging.getLogger(__name__)

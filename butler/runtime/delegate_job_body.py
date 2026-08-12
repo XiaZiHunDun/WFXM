@@ -147,7 +147,7 @@ def _build_delegate_summary(result) -> str:
 
 def _create_delegate_report(job, success, result, changes, issues, dev_engine, project):
     """Create and populate delegate report."""
-    role_label = _delegate_role_label(job.role)
+    _delegate_role_label(job.role)
 
     summary_text = _build_delegate_summary(result)
     if not summary_text:

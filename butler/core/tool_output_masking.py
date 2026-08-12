@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from butler.core.tool_prune_policy import CLEARED_TOOL_RESULT_MESSAGE, classify_tool
@@ -12,7 +11,6 @@ from butler.core.tool_result_storage import (
     spill_preview_chars,
 )
 from butler.utilities.env_parse import env_truthy, int_env
-from butler.defaults.env_defaults import TOOL_MASK_PROTECT_TOKENS, TOOL_MASK_MIN_PRUNABLE
 
 
 def tool_masking_enabled() -> bool:

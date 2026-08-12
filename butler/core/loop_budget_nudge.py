@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from butler.utilities.env_parse import env_truthy, float_env

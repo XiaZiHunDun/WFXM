@@ -10,7 +10,7 @@ Supports:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from butler.core.conversation_state import ConversationState
 from butler.session.session_store import get_session_store

@@ -1,6 +1,5 @@
 """Head-to-head T1 — re-export from butler.ops.head_to_head."""
 
-from typing import Any
 
 from butler.ops.head_to_head import T1, run_head_to_head_t1
 from butler.ops.head_to_head_common import reset_workspace as _reset
@@ -14,10 +13,12 @@ def reset_workspace() -> None:
     _reset(T1)
 
 
-run_butler_delegate = lambda **kw: __import__(
+def run_butler_delegate(**kw):
+    return __import__(
     "butler.ops.head_to_head_common", fromlist=["run_butler"]
 ).run_butler(T1, **kw)
-run_cc_cli = lambda **kw: __import__(
+def run_cc_cli(**kw):
+    return __import__(
     "butler.ops.head_to_head_common", fromlist=["run_cc"]
 ).run_cc(T1, **kw)
 

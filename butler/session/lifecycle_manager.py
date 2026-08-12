@@ -12,7 +12,7 @@ The manager calls into existing lifecycle.py functions to avoid breaking changes
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, cast
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 

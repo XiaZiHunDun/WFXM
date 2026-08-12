@@ -14,7 +14,6 @@ from butler.contracts.completion_ports import OutboundCompletionHooks
 from butler.contracts.completion_registry import get_completion_hooks
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
 from butler.defaults.env_defaults import (
-    GATEWAY_MAX_SUPPLEMENTARY_PER_TURN,
     GATEWAY_PROGRESS_MAX_ACK_MESSAGES,
     GATEWAY_STREAM_PREVIEW_DEFAULT,
 )

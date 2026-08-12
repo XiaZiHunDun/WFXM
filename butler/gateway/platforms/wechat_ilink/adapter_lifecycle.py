@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter

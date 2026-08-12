@@ -12,7 +12,6 @@ from butler.memory.butler_memory import ButlerMemory
 from butler.memory.project_memory import normalize_section_name
 from butler.memory.semantic_config import semantic_memory_enabled
 from butler.memory.semantic_index import (
-    SOURCE_PROJECT,
     SemanticMemoryIndex,
     index_experience_row,
 )

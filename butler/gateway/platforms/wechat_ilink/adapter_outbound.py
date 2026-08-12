@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import hashlib
 import logging
@@ -17,7 +16,6 @@ from butler.gateway.outbound_prefs import pop_single_bubble_from_metadata
 from butler.gateway.platforms.types import SendResult
 from butler.gateway.platforms.wechat_ilink import (
     _aes_padded_size,
-    _safe_id,
     _split_text_for_wechat_delivery,
 )
 from butler.gateway.platforms.wechat_ilink.adapter_media import download_remote_media

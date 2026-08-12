@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.mcp.naming import tool_prefix
-from butler.project import Project
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ def ensure_project_mcp_tools(
 
     project = load_project_yaml_safe(proj_yaml)
     if project is None:
-        return False, f"无法读取 project.yaml"
+        return False, "无法读取 project.yaml"
 
     tools = [str(t) for t in (project.tools or []) if str(t).strip()]
 

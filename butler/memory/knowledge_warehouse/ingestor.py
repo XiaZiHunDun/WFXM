@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any, Optional
+from typing import Any
 
 from butler.memory.knowledge_warehouse.warehouse import KnowledgeWarehouse
 
@@ -35,7 +35,7 @@ class MaterialIngestor:
         source_file: str = "",
     ) -> tuple[str, bool]:
         """Ingest plain text content.
-        
+
         Args:
             source: 'user_collected' or 'ai_collected' to distinguish knowledge source
             source_file: Original file path for file-based materials

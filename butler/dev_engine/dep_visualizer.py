@@ -222,10 +222,10 @@ def generate_dot_file(
             color = LAYER_COLORS.get(layer, "#cccccc")
             f.write(f'  subgraph cluster_{layer.replace("-", "_")} {{\n')
             f.write(f'    label="{layer}";\n')
-            f.write(f'    style=filled;\n')
+            f.write('    style=filled;\n')
             f.write(f'    fillcolor="{color}";\n')
-            f.write(f'    nodesep=0.3;\n')
-            f.write(f'    ranksep=0.5;\n')
+            f.write('    nodesep=0.3;\n')
+            f.write('    ranksep=0.5;\n')
 
             for module in sorted(modules):
                 # Shorten label for readability
@@ -246,7 +246,7 @@ def generate_dot_file(
         f.write('}\n')
 
     print(f"DOT file written to: {output_file}")
-    print(f"\nTo generate SVG, run:")
+    print("\nTo generate SVG, run:")
     print(f"  dot -Tsvg {output_file} -o {output_file.replace('.dot', '.svg')}")
 
 

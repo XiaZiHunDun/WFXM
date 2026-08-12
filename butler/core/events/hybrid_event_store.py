@@ -12,7 +12,6 @@ import threading
 from typing import Iterable
 
 from butler.core.effects import Result, Ok, Err
-from butler.core.events.event_store_protocol import EventStore
 from butler.core.events.event_types import DomainEvent
 from butler.core.events.file_event_store import FileEventStore
 

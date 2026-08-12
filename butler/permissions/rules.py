@@ -24,9 +24,7 @@ logger = logging.getLogger(__name__)
 from butler.permissions.rules_fail_closed import (
     experiment_block_or_fail_closed,
     path_outside_workspace,
-    recent_permission_failures,
     record_permission_failure,
-    reset_permission_failures,
     workflow_step_block_or_fail_closed,
 )
 

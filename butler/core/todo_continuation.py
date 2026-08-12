@@ -6,7 +6,6 @@ Implements an OMO todo-continuation-enforcer subset.
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Callable
 
 from butler.core.agent_loop.loop import AgentLoop

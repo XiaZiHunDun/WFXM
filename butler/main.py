@@ -43,10 +43,9 @@ from butler.cli.transcript_cli import register_transcript_parser
 from butler.cli.workflow_cli import register_workflow_subparser
 from butler.utilities.env_parse import init_dotenv
 from butler.utilities.logging_config import configure_logging
-from butler.utilities.repo_paths import REPO_ROOT as _REPO_ROOT
 
 if TYPE_CHECKING:
-    from butler.orchestrator import ButlerOrchestrator
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -135,55 +134,18 @@ def main(argv: Sequence[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 # chat + exec + interactive loop
-from butler.cli.chat_cli import (  # noqa: E402
-    _cmd_chat,
-    _cmd_exec,
-    _run_interactive_chat,
-)
 
 # project subcommands
-from butler.cli.projects_cli import (  # noqa: E402
-    _cmd_create,
-    _cmd_project_preflight,
-    _cmd_project_register,
-    _cmd_projects,
-    _cmd_projects_refresh,
-    _create_slug_from_ns,
-)
 
 # memory subcommands
-from butler.cli.memory_cli import (  # noqa: E402
-    _cmd_memory_reindex,
-    _cmd_memory_search,
-    _cmd_memory_seed,
-)
 
 # runtime subcommands
-from butler.cli.runtime_cli import (  # noqa: E402
-    _cmd_runtime_approve,
-    _cmd_runtime_drain_push,
-    _cmd_runtime_due,
-    _cmd_runtime_list,
-    _cmd_runtime_run,
-)
 
 # gateway + wechat-setup
-from butler.cli.gateway_cli import (  # noqa: E402
-    _cmd_gateway,
-    _cmd_wechat_setup,
-    _merge_wechat_env_file,
-    _print_wechat_setup_success,
-)
 
 # mcp serve (the catalog subcommands live in mcp_catalog_cli)
-from butler.cli.mcp_cli import _cmd_mcp_serve  # noqa: E402
 
 # slash dispatcher + session helpers
-from butler.cli.slash_dispatch import (  # noqa: E402
-    _handle_slash_command,
-    _sync_memory,
-    _trigger_session_end,
-)
 
 
 if __name__ == "__main__":

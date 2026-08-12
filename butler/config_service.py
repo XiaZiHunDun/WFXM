@@ -12,8 +12,8 @@ warnings.warn(
     stacklevel=2,
 )
 
-from butler.configuration.service import *
+from butler.configuration.service import *  # noqa: F403
 try:
-    from butler.configuration.service import __all__
+    from butler.configuration.service import __all__  # noqa: F401
 except ImportError:
     pass

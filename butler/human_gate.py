@@ -13,7 +13,6 @@ warnings.warn(
 )
 
 from butler.permissions.human_gate import *
-from butler.permissions.human_gate import _workflow_auto_resume_enabled, _save_pending, _auto_resume_workflow, _is_gate_expired
 try:
     from butler.permissions.human_gate import __all__
 except ImportError:

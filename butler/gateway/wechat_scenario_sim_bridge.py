@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator
 
 from butler.gateway.outbound_bridge import GatewayOutboundBridge, set_current_bridge
-from butler.gateway.outbound_bridge_ops import schedule_coro_threadsafe
 
 _MISSING = object()
 

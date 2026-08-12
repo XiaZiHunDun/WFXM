@@ -19,7 +19,7 @@ def read_langfuse_scores_safe(
     limit: int,
     snapshot_factory: Any,
 ) -> list[Any]:
-    if not os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() in ("1", "true", "yes"):
+    if os.getenv("BUTLER_LANGFUSE_ENABLED", LANGFUSE_ENABLED_DEFAULT).strip() not in ("1", "true", "yes"):
         return []
 
     try:

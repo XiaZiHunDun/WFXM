@@ -39,7 +39,6 @@ def _auto_resume_workflow(session_key: str, workflow_name: str) -> str | None:
 
 
 def _gate_ttl_seconds() -> float:
-    import os
     from butler.defaults.env_defaults import GATEWAY_HUMAN_GATE_TTL_SECONDS
 
     try:

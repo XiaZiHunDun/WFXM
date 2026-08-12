@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-import os
 from pathlib import Path
 
 from butler.dev_engine.dev_state import EditRecord

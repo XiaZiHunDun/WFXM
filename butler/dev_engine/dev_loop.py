@@ -8,8 +8,6 @@ Formal model from v4-dev-engine-theory.md §2.3:
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
 from typing import Any
 
 from butler.utilities.env_parse import int_env

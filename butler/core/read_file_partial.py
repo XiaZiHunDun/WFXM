@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from butler.utilities.env_parse import int_env
-import os
 import re
 from typing import Any
 

@@ -296,7 +296,7 @@ def classify_api_error(
     error_code = _extract_error_code(body)
     error_msg = _error_text(error)
     provider_lower = provider.strip().lower()
-    model_lower = model.strip().lower()
+    model.strip().lower()
 
     def _result(reason: FailoverReason, **overrides: Any) -> ClassifiedError:
         defaults = {

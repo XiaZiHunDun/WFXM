@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 _COMPACT_TYPES = frozenset({
@@ -122,7 +121,6 @@ def discover_sessions_with_compaction(*, limit: int = 8) -> list[str]:
         return []
 
     from butler.configuration.settings import get_butler_home
-    from butler.core.session_transcript import transcript_path
 
     root = get_butler_home() / "sessions"
     if not root.is_dir():

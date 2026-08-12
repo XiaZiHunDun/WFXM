@@ -19,7 +19,6 @@ and a thin orchestrator that wires the phases together.
 from __future__ import annotations
 
 import logging
-import os
 import time as _time
 from typing import Any, Optional, cast
 
@@ -30,10 +29,6 @@ from butler.gateway.message_handler_ops import (
     run_prequeue_interrupt_safe,
 )
 from butler.gateway.message_pipelines import (
-    _phase_apply_admission,
-    _phase_apply_idempotency,
-    _phase_apply_queue_inbound,
-    _phase_apply_session_initializing,
     _phase_resolve_session_key,
     _phase_transform_inbound_text,
 )
@@ -52,7 +47,7 @@ from butler.gateway.session_loop_factory import create_gateway_loop
 from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
 from butler.utilities.env_parse import env_truthy
 from butler.session.keys import chat_id_from_session_key, normalize_session_key
-from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory, trigger_session_end
+from butler.session.lifecycle import trigger_session_end
 from butler.gateway.session_registry import GatewaySessionRegistry
 
 logger = logging.getLogger(__name__)

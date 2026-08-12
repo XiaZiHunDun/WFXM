@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import json
-import logging
-from pathlib import Path
 from typing import Any, cast
 from butler.core.best_effort import safe_best_effort
 from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
 from butler.execution_context import get_current_turn_bridge
 from butler.report import AgentReport, Change, cache_report
 from butler.runtime.task_store import complete_task
-from butler.tools.delegate_orchestrator import _orchestrator_for_tool
 from butler.dev_engine.b9_delegate_gate import (
     apply_b9_pytest_success_gate,
     apply_coding_strict_pilot_gate,

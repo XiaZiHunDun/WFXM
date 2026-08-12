@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import cast
 
 from butler.core.best_effort import safe_best_effort
 

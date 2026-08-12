@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from html import unescape
 from typing import Any, Callable

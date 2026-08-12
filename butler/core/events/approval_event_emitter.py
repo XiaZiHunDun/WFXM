@@ -12,7 +12,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from butler.core.events.event_types import DomainEvent, generate_event_id
+from butler.core.events.event_types import generate_event_id
 from butler.core.events.event_store import get_global_event_bus
 from butler.core.events.session_events import (
     ApprovalDenied,
@@ -32,9 +32,8 @@ def emit_approval_requested_event(
 ) -> None:
     """Emit an ApprovalRequested event to the event bus."""
     try:
-        args_preview = ""
         if fingerprint:
-            args_preview = json.dumps(
+            json.dumps(
                 {"fingerprint": fingerprint, "tool": tool_name},
                 ensure_ascii=False,
             )[:200]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-from typing import Any, cast
+from typing import cast
 
 from butler.registry.paths import enabled_sources, registry_enabled
 from butler.defaults.env_defaults import REGISTRY_AUTO_INSTALL_DEFAULT

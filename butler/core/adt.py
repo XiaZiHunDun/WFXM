@@ -16,8 +16,8 @@ These types enable:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, Generic, Literal, TypeVar
+from dataclasses import dataclass
+from typing import Any, Callable, Generic, TypeVar
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -83,7 +83,6 @@ class TaggedUnion:
         Handlers are matched in order of variant definitions.
         Less safe than match() but more concise for simple cases.
         """
-        from typing import get_args
 
         variant_index = self._variant_index()
         if variant_index < len(handlers):

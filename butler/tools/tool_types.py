@@ -6,7 +6,7 @@ Inspired by Effect-TS/ZIO Schema layer.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union
+from typing import Any, Optional
 
 import pydantic
 

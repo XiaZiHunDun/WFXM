@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Any
 
 from butler.core.best_effort import safe_best_effort
 from butler.registry.skill_sources.base import SkillSource

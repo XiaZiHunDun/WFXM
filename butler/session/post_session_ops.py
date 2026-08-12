@@ -21,7 +21,6 @@ from butler.session.lifecycle import (
 
 def post_session_buffer_threshold() -> int:
     """Max buffered user+assistant messages before incremental post_session."""
-    import os
 
     try:
         return cast(int, int_env("BUTLER_POST_SESSION_BUFFER_MESSAGES", 8, min=4))

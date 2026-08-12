@@ -14,7 +14,7 @@ Key components:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from butler.memory.knowledge_graph import KnowledgeGraph, GraphRetriever, get_knowledge_graph
 from butler.memory.semantic_memory import SemanticMemory, CHROMADB_AVAILABLE, get_semantic_memory
@@ -32,7 +32,7 @@ class HybridRetriever:
         self._graph_retriever = GraphRetriever(self._kg)
         self._semantic_memory = semantic_memory or get_semantic_memory()
         self._semantic_available = CHROMADB_AVAILABLE
-    
+
     def retrieve(
         self,
         query: str,
@@ -48,14 +48,14 @@ class HybridRetriever:
             "semantic_results": [],
             "fused_results": [],
         }
-        
+
         graph_results = self._graph_retriever.retrieve(
             query,
             max_hops=graph_hops,
             max_results=max_results,
         )
         results["graph_results"] = graph_results
-        
+
         if self._semantic_available:
             semantic_results = self._semantic_memory.search(
                 query,
@@ -63,7 +63,7 @@ class HybridRetriever:
                 top_k=semantic_top_k,
             )
             results["semantic_results"] = semantic_results
-        
+
         fused = self._fuse_results(
             graph_results,
             semantic_results if self._semantic_available else [],
@@ -71,9 +71,9 @@ class HybridRetriever:
             top_n=max_results,
         )
         results["fused_results"] = fused
-        
+
         return results
-    
+
     def _fuse_results(
         self,
         graph_results: List[Dict[str, Any]],
@@ -82,7 +82,7 @@ class HybridRetriever:
         top_n: int = 10,
     ) -> List[Dict[str, Any]]:
         all_results = []
-        
+
         for i, result in enumerate(graph_results):
             all_results.append({
                 "type": "graph",
@@ -92,7 +92,7 @@ class HybridRetriever:
                 "score": 1.0 / (i + 1),
                 "raw": result,
             })
-        
+
         for i, result in enumerate(semantic_results):
             all_results.append({
                 "type": "semantic",
@@ -102,7 +102,7 @@ class HybridRetriever:
                 "score": result.get("distance", 1.0),
                 "raw": result,
             })
-        
+
         if strategy == "reciprocal_rerank":
             reciprocal_scores = {}
             for result in all_results:
@@ -110,7 +110,7 @@ class HybridRetriever:
                 if key not in reciprocal_scores:
                     reciprocal_scores[key] = 0
                 reciprocal_scores[key] += 1.0 / result["rank"]
-            
+
             scored_results = []
             for key, score in reciprocal_scores.items():
                 for result in all_results:
@@ -118,28 +118,28 @@ class HybridRetriever:
                         result["fused_score"] = score
                         scored_results.append(result)
                         break
-            
+
             scored_results.sort(key=lambda x: x["fused_score"], reverse=True)
             return scored_results[:top_n]
-        
+
         elif strategy == "weighted":
             for result in all_results:
                 if result["type"] == "graph":
                     result["fused_score"] = result["score"] * 0.6
                 else:
                     result["fused_score"] = (1.0 - result["score"]) * 0.4
-            
+
             all_results.sort(key=lambda x: x["fused_score"], reverse=True)
             return all_results[:top_n]
-        
+
         else:
             return all_results[:top_n]
-    
+
     def get_context(self, query: str, conversation_id: str = "default") -> str:
         results = self.retrieve(query, conversation_id=conversation_id)
-        
+
         context_parts = []
-        
+
         for result in results["fused_results"]:
             if result["type"] == "graph":
                 entity_info = result["raw"]
@@ -150,12 +150,12 @@ class HybridRetriever:
                     for edge in edges[:5]:
                         relations.append(f"{edge['source']} —{edge['relation']}→ {edge['target']}")
                     context_parts.append("\n".join(relations))
-            
+
             elif result["type"] == "semantic":
                 doc = result.get("content", "")
                 if doc:
                     context_parts.append(doc[:300])
-        
+
         return "\n\n".join(context_parts)
 
 

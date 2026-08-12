@@ -16,13 +16,12 @@ import threading
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from butler.core.events.event_store import (
     DomainEvent,
     EnhancedEventBus,
     get_global_event_bus,
-    get_global_event_store,
 )
 
 logger = logging.getLogger(__name__)

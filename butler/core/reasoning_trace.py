@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, cast
+from typing import Any
 
 from butler.utilities.env_parse import env_truthy
 from butler.core.reasoning_trace_ops import resolve_session_key_safe

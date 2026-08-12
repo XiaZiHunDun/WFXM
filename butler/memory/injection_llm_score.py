@@ -17,7 +17,6 @@ def injection_llm_gate_enabled() -> bool:
 
 
 def injection_llm_block_threshold() -> int:
-    import os
 
     try:
         return int(int_env("BUTLER_INJECTION_LLM_BLOCK", 85, min=0, max=100))

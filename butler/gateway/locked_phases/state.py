@@ -18,8 +18,7 @@ from butler.gateway.handler_helpers import (
 )
 
 if TYPE_CHECKING:
-    from butler.core.agent_loop.loop import AgentLoop
-    from butler.core.loop_types import LoopResult
+    pass
 
 logger = logging.getLogger(__name__)
 

@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import signal
 import threading
-import time
 from typing import Any, Callable, TypeVar
 
 T = TypeVar("T")

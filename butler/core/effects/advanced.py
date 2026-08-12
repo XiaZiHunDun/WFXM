@@ -12,10 +12,10 @@ Provides:
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Generic, Iterable, Iterator, TypeVar
+from typing import Any, Callable, Generic, Iterable, TypeVar
 
 from butler.core.effects.result_monad import Err, Ok, Result
-from butler.core.effects.maybe_monad import Maybe, NoneVal, Some
+from butler.core.effects.maybe_monad import Maybe, Some
 
 T = TypeVar("T")
 E = TypeVar("E")
@@ -63,7 +63,7 @@ class Lazy(Generic[T]):
     def __repr__(self) -> str:
         if self._evaluated:
             return f"Lazy({self._value!r})"
-        return f"Lazy(<unevaluated>)"
+        return "Lazy(<unevaluated>)"
 
     def __bool__(self) -> bool:
         return bool(self.evaluate())

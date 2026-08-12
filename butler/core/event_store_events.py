@@ -9,9 +9,9 @@ Inspired by DDD and Effect-TS/ZIO event-driven architecture.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import pydantic
 

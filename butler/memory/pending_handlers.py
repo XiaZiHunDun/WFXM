@@ -8,11 +8,8 @@ from butler.memory.pending_command_ops import (
     approve_all_owner_pending,
     approve_owner_pending_index,
     current_project_name,
-    experience_entry_count,
     list_owner_pending,
     owner_pending_lines,
-    profile_entry_count,
-    project_memory_bullet_total,
     reject_all_owner_pending,
     reject_owner_pending_index,
 )

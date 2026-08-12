@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
 import pydantic
-from pydantic import ConfigDict, Field, ValidationError
 
 
 # ── Legacy Dataclasses (backward compatible) ──

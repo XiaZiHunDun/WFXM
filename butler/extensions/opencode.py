@@ -205,7 +205,6 @@ class OpenCodeHTTPServer:
         workspace: str,
         timeout_seconds: int = 0,
     ) -> dict[str, Any]:
-        timeout = timeout_seconds or self._default_timeout
         t0 = time.time()
         from butler.extensions.opencode_ops import run_http_opencode_task
 

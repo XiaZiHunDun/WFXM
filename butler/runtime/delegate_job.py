@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
-from butler.execution_context import use_execution_context
 from butler.gateway.completion_notify import (
     build_report_push_text,
     delegate_completion_enabled,
     deliver_completion_push,
 )
-from butler.report import AgentReport, attach_delegate_task_times, cache_report
-from butler.report.acceptance_card import attach_delegate_acceptance_meta
-from butler.runtime.delegate_async_result import build_async_delegate_tool_result
 from butler.runtime.delegate_job_body import run_delegate_job_body
 from butler.runtime.delegate_job_finalize import (
     run_delegate_job_inner_guarded,

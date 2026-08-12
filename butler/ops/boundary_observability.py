@@ -409,10 +409,6 @@ def collect_boundary_observations() -> list[BoundaryObservation]:
 
     from butler.defaults.env_defaults import (
         CODING_STRICT_DEFAULT,
-        EMBEDDING_PROVIDER_DEFAULT,
-        EVAL_HARD_FEEDBACK_DEFAULT,
-        LANGFUSE_ENABLED_DEFAULT,
-        SEMANTIC_MEMORY_DEFAULT,
     )
 
     strict = os.getenv("BUTLER_CODING_STRICT", str(int(CODING_STRICT_DEFAULT))).strip() in ("1", "true", "yes")

@@ -658,7 +658,7 @@ def ingest_to_experience_library(
     auto_approve: bool = False,
 ) -> dict[str, int]:
     """Legacy API — delegates to review + ingest pipeline."""
-    added = skipped = 0
+    skipped = 0
     experiences: list[Any] = []
     for cand in report.candidates:
         if cand.confidence < min_confidence and not auto_approve:

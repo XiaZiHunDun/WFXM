@@ -197,7 +197,7 @@ def dismiss_spurious_promotion_queue_items() -> dict[str, Any]:
         rec = json.loads(line)
         cand = rec.get("candidate") or {}
         preview = str(cand.get("delegate_prompt") or "").lower()
-        tid = str(cand.get("suggested_task_id") or "")
+        str(cand.get("suggested_task_id") or "")
         if (
             rec.get("status") == "pending_implementation"
             and ("swe-benchmark" in preview or "[category:swe" in preview)
