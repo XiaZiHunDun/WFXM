@@ -435,16 +435,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            butler_v5:
+              - 'butler-v5/**'
+              - '.github/workflows/ci.yml'
+              - 'butler-v5/scripts/typecheck-gate.sh'
+
       - uses: actions/setup-node@v4
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         with:
           node-version: "22"
 
       - name: Setup pnpm (pinned to 9.15.0 to match local dev + lockfile v9)
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
 
       - name: Setup pnpm cache
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: actions/cache@v4
         with:
           path: butler-v5/node_modules
@@ -453,22 +465,27 @@ jobs:
             ${{ runner.os }}-pnpm-butler-v5-
 
       - name: Install butler-v5 dependencies
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: butler-v5
         run: pnpm install --frozen-lockfile
 
       - name: Butler-v5 format check
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: butler-v5
         run: pnpm format:check
 
       - name: Butler-v5 lint
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: butler-v5
         run: pnpm lint
 
       - name: Butler-v5 typecheck (full gate)
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: butler-v5
         run: bash scripts/typecheck-gate.sh
 
       - name: Butler-v5 test (379 tests baseline)
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: butler-v5
         run: pnpm test
 
