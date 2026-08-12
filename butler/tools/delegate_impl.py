@@ -19,6 +19,7 @@ from butler.hooks.runner import run_subagent_stop_hooks
 from butler.memory.corrective_recall import build_corrective_recall_block, should_trigger_corrective
 from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
 from butler.tools.delegate_delete_gate import apply_delegate_delete_verify_gate
+from butler.tools.delegate_orchestrator import _orchestrator_for_tool  # noqa: F401
 
 
 def _project_agent_raw_message(*, task: str, context: str = "") -> str:
