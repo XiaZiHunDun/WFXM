@@ -21,15 +21,13 @@ def register_mcp_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]
     delegated to ``butler.cli.mcp_catalog_cli.register_mcp_catalog_parsers``
     to keep the split non-overlapping.
     """
-    from butler import main as _butler_main
-
     mcp = sub.add_parser("mcp", help="MCP 协议工具（需 butler-system[mcp]）")
     mcp_sub = mcp.add_subparsers(dest="mcp_cmd", required=True)
     mcp_serve = mcp_sub.add_parser(
         "serve",
         help="stdio MCP Server，暴露只读 Butler 工具供 Cursor 等客户端调用",
     )
-    mcp_serve.set_defaults(func=_butler_main._cmd_mcp_serve)
+    mcp_serve.set_defaults(func=_cmd_mcp_serve)
 
     from butler.cli.mcp_catalog_cli import register_mcp_catalog_parsers
 

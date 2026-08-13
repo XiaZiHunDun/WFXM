@@ -11,7 +11,6 @@ inline in the old ``_build_parser``.
 from __future__ import annotations
 
 import argparse
-import types
 from pathlib import Path
 from typing import Any, cast
 
@@ -48,46 +47,42 @@ from rich.console import Console
 
 def register_memory_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``memory`` (with subcommands) and ``memory-reindex``."""
-    from butler import main as _butler_main
-
     mem = sub.add_parser("memory", help="本地记忆检索与语义索引")
     mem_sub = mem.add_subparsers(dest="memory_cmd", required=True)
-    _register_memory_subcommands(mem_sub, _butler_main)
+    _register_memory_subcommands(mem_sub)
 
     ri = sub.add_parser(
         "memory-reindex",
         help="重建本地语义向量索引（需 BUTLER_SEMANTIC_MEMORY=1，无云存储）",
     )
     _add_reindex_args(ri)
-    ri.set_defaults(func=_butler_main._cmd_memory_reindex)
+    ri.set_defaults(func=_cmd_memory_reindex)
 
 
 def _register_memory_subcommands(
     mem_sub: argparse._SubParsersAction[argparse.ArgumentParser],
-    _butler_main: types.ModuleType,
 ) -> None:
-    _register_memory_search_reindex(mem_sub, _butler_main)
+    _register_memory_search_reindex(mem_sub)
     _register_memory_ops_parsers(mem_sub)
     _register_memory_migrate_parsers(mem_sub)
 
 
 def _register_memory_search_reindex(
     mem_sub: argparse._SubParsersAction[argparse.ArgumentParser],
-    _butler_main: types.ModuleType,
 ) -> None:
     msearch = mem_sub.add_parser(
         "search",
         help="检索 experience / 项目 MEMORY（--verbose 输出 fallback 与分数分解）",
     )
     _add_search_args(msearch)
-    msearch.set_defaults(func=_butler_main._cmd_memory_search)
+    msearch.set_defaults(func=_cmd_memory_search)
 
     mreindex = mem_sub.add_parser(
         "reindex",
         help="重建本地语义向量索引（需 BUTLER_SEMANTIC_MEMORY=1）",
     )
     _add_reindex_args(mreindex)
-    mreindex.set_defaults(func=_butler_main._cmd_memory_reindex)
+    mreindex.set_defaults(func=_cmd_memory_reindex)
 
     mingest = mem_sub.add_parser(
         "ingest",

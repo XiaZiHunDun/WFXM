@@ -33,24 +33,16 @@ def register_projects_parser(sub: argparse._SubParsersAction[argparse.ArgumentPa
 
 
 def _add_projects_top_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    # Late-bound func reference: tests patch ``butler.main._cmd_projects``
-    # and expect the parser to pick up the mock. We read the function
-    # from butler.main's namespace at registration time (which happens
-    # inside main(), after the test has entered its ``patch`` context).
-    from butler import main as _butler_main
-
     prj = sub.add_parser("projects", help="列出项目")
     prj.add_argument(
         "--reload",
         action="store_true",
         help="重新扫描 BUTLER_PROJECTS_DIR",
     )
-    prj.set_defaults(func=_butler_main._cmd_projects)
+    prj.set_defaults(func=_cmd_projects)
 
 
 def _add_create_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    from butler import main as _butler_main
-
     cr = sub.add_parser("create", help="创建新项目（slug 目录名 + 可选中文显示名）")
     cr.add_argument("slug", help="ASCII 目录名，如 MyApp")
     cr.add_argument("--name", dest="display_name", default="", help="显示名（微信 /切换）")
@@ -72,7 +64,7 @@ def _add_create_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser])
         action="store_true",
         help="创建后重建该项目 MEMORY 语义向量索引",
     )
-    cr.set_defaults(func=_butler_main._cmd_create)
+    cr.set_defaults(func=_cmd_create)
 
 
 def _add_project_parent_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -83,8 +75,6 @@ def _add_project_parent_parser(sub: argparse._SubParsersAction[argparse.Argument
 
 
 def _add_project_preflight_parser(pr_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    from butler import main as _butler_main
-
     pf = pr_sub.add_parser("preflight", help="检查目录是否满足 Butler 项目接入条件")
     pf.add_argument(
         "--path",
@@ -97,12 +87,10 @@ def _add_project_preflight_parser(pr_sub: argparse._SubParsersAction[argparse.Ar
         help="已登记项目显示名（从 ProjectManager 解析 workspace）",
     )
     pf.add_argument("--json", action="store_true", help="输出 JSON（供脚本解析）")
-    pf.set_defaults(func=_butler_main._cmd_project_preflight)
+    pf.set_defaults(func=_cmd_project_preflight)
 
 
 def _add_project_register_parser(pr_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    from butler import main as _butler_main
-
     reg = pr_sub.add_parser("register", help="为已有目录登记 project.yaml")
     reg.add_argument("path", help="项目 workspace 目录")
     reg.add_argument("--name", dest="display_name", default="", help="覆盖显示名")
@@ -119,7 +107,7 @@ def _add_project_register_parser(pr_sub: argparse._SubParsersAction[argparse.Arg
     )
     reg.add_argument("--no-runtime", action="store_true", help="不生成 runtime/jobs.yaml")
     reg.add_argument("--reindex", action="store_true", help="登记后重建该项目 MEMORY 向量索引")
-    reg.set_defaults(func=_butler_main._cmd_project_register)
+    reg.set_defaults(func=_cmd_project_register)
 
 
 def _cmd_projects(ns: argparse.Namespace) -> int:

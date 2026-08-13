@@ -18,16 +18,14 @@ from butler.runtime.service import format_jobs_list_text, run_due_jobs, run_due_
 
 def register_runtime_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``runtime`` parent with all sub-commands."""
-    from butler import main as _butler_main
-
     rt = sub.add_parser("runtime", help="项目定时任务（cron/批准/微信推送）")
     rt_sub = rt.add_subparsers(dest="runtime_cmd", required=True)
 
-    _add_runtime_list(rt_sub, _butler_main._cmd_runtime_list)
-    _add_runtime_run(rt_sub, _butler_main._cmd_runtime_run)
-    _add_runtime_due(rt_sub, _butler_main._cmd_runtime_due)
-    _add_runtime_drain(rt_sub, _butler_main._cmd_runtime_drain_push)
-    _add_runtime_approve(rt_sub, _butler_main._cmd_runtime_approve)
+    _add_runtime_list(rt_sub, _cmd_runtime_list)
+    _add_runtime_run(rt_sub, _cmd_runtime_run)
+    _add_runtime_due(rt_sub, _cmd_runtime_due)
+    _add_runtime_drain(rt_sub, _cmd_runtime_drain_push)
+    _add_runtime_approve(rt_sub, _cmd_runtime_approve)
 
 
 def _add_runtime_list(rt_sub: argparse._SubParsersAction[argparse.ArgumentParser], func: Any) -> None:
