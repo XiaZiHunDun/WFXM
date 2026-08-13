@@ -1,0 +1,42 @@
+# butler-v5-gateway.service: systemd user unit template for v5 butler wiring.
+#
+# R10.3 simplified cutover. Replaces v4's butler-gateway.service when
+# v5 is acceptable.
+#
+# To enable (operator step):
+#   1. Save this file at: ~/.config/systemd/user/butler-v5-gateway.service
+#   2. systemctl --user daemon-reload
+#   3. systemctl --user enable --now butler-v5-gateway.service
+#   4. systemctl --user status butler-v5-gateway.service
+#
+# Scope caveat: v5 apps/api has /healthz + main routes; v5 apps/wechat-gateway
+# is Phase 3 STUB. The v4 butler-gateway.service (wechat iLink) is what
+# actually receives wechat messages today. After switching to v5, you
+# need either (a) finish v5 wechat-gateway Phase 3+ before stopping v4,
+# or (b) accept that wechat iLink is down during v5 evaluation.
+
+[Unit]
+Description=Butler v5 Wiring (Hono API on port 3000, replaces v4 butler-gateway)
+Documentation=https://github.com/XiaZiHunDun/WFXM
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ailearn/projects/WFXM/butler-v5
+ExecStartPre=-/usr/bin/docker compose -f /home/ailearn/projects/WFXM/butler-v5/docker-compose.yml up -d postgres wechat-mock
+ExecStart=/usr/bin/pnpm dev
+ExecStop=/usr/bin/pkill -TERM -f "pnpm dev|tsx src/index.ts|butler start"
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=PORT=3000
+Environment=NODE_ENV=production
+EnvironmentFile=-%h/.config/butler-v5/env
+
+[Install]
+WantedBy=default.target
