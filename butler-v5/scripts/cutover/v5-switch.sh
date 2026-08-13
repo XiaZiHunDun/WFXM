@@ -63,9 +63,17 @@ else
 fi
 
 # Step 4: start v5 wiring in background (port 3000)
-log "Starting v5 wiring on port ${V5_API_PORT} (logs: ${V5_LOG})..."
+# Use `npx tsx cli/src/index.ts start` (NOT `pnpm exec butler start`):
+#   - `pnpm exec butler start` resolves to the SYSTEM v4 butler (Python
+#     in miniconda at /home/ailearn/miniconda3/bin/butler) because
+#     PATH finds that first; v4 butler doesn't have a 'start' subcommand
+#   - `npx tsx cli/src/index.ts start` invokes the v5 cli bin directly
+#     from butler-v5/ (per cli/package.json "bin": {"butler": "./src/index.ts"})
+#   - per cli/src/index.ts line 41-50: imports @butler/api, runs
+#     serve({ fetch: app.fetch, port }) which is the Hono server
+log "Starting v5 wiring on port ${V5_API_PORT} via 'tsx cli/src/index.ts start' (logs: ${V5_LOG})..."
 cd "$V5_DIR"
-nohup pnpm dev > "$V5_LOG" 2>&1 &
+nohup npx tsx cli/src/index.ts start > "$V5_LOG" 2>&1 &
 V5_PID=$!
 log "v5 started (pid=${V5_PID})"
 
