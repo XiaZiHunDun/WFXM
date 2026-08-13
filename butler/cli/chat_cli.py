@@ -147,12 +147,10 @@ def _sync_turn_after_run(
 
 def register_chat_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``chat`` (interactive) and ``exec`` (single-shot) parsers."""
-    from butler import main as _butler_main
-
-    sub.add_parser("chat", help="交互式对话").set_defaults(func=_butler_main._cmd_chat)
+    sub.add_parser("chat", help="交互式对话").set_defaults(func=_cmd_chat)
     ex = sub.add_parser("exec", help="单次消息执行")
     ex.add_argument("message")
-    ex.set_defaults(func=_butler_main._cmd_exec)
+    ex.set_defaults(func=_cmd_exec)
 
 
 def _cmd_chat(_ns: argparse.Namespace) -> int:
