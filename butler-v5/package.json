@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "description": "Butler v5 — 函数式架构微信编码管家（TypeScript + Effect-TS）",
+  "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
