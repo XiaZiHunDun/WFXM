@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 scripts/ai_guard/pre_tool_use_hook.py"
+            "command": "python3 /home/ailearn/projects/WFXM/scripts/ai_guard/pre_tool_use_hook.py"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 scripts/ai_guard/post_tool_use_hook.py"
+            "command": "python3 /home/ailearn/projects/WFXM/scripts/ai_guard/post_tool_use_hook.py"
           }
         ]
       }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BLACKBOARD_STRICT=1 BLACKBOARD_AGENT=claude-code python3 -m butler.blackboard.integrations.claude_session_end"
+            "command": "BLACKBOARD_STRICT=1 BLACKBOARD_AGENT=claude-code BLACKBOARD_ROOT=/home/ailearn/projects/WFXM/.blackboard python3 -m butler.blackboard.integrations.claude_session_end"
           }
         ]
       }
