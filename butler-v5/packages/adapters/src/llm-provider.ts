@@ -39,7 +39,7 @@ export function pickLLMProvider(env: NodeJS.ProcessEnv = process.env): LLMAdapte
   if (deepseekKey) {
     return makeOpenAICompatibleAdapter({
       apiKey: deepseekKey,
-      baseUrl: "https://api.deepseek.com/v1",
+      baseUrl: "https://api.deepseek.com",
       model: env["DEEPSEEK_MODEL"] ?? "deepseek-chat",
     })
   }
