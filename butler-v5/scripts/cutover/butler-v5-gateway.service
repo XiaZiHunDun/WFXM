@@ -25,7 +25,7 @@ Wants=docker.service
 Type=simple
 WorkingDirectory=/home/ailearn/projects/WFXM/butler-v5
 ExecStartPre=-/usr/bin/docker compose -f /home/ailearn/projects/WFXM/butler-v5/docker-compose.yml up -d postgres wechat-mock
-ExecStart=/usr/bin/pnpm dev
+ExecStart=/home/ailearn/.nvm/versions/node/v20.20.1/bin/npx tsx cli/src/index.ts start
 ExecStop=/usr/bin/pkill -TERM -f "pnpm dev|tsx src/index.ts|butler start"
 Restart=on-failure
 RestartSec=10
@@ -36,6 +36,7 @@ StandardError=journal
 # Environment
 Environment=PORT=3000
 Environment=NODE_ENV=production
+Environment=PATH=/home/ailearn/.nvm/versions/node/v20.20.1/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=-%h/.config/butler-v5/env
 
 [Install]
