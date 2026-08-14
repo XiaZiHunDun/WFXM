@@ -1,5 +1,6 @@
 import type { Hono } from "hono"
 import type { Wiring } from "./wiring.js"
+import { generateLLMReply } from "./wechat-inbound-llm.js"
 
 export function createRoutes(app: Hono, wiring: Wiring) {
   app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
@@ -46,9 +47,12 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     }
     // Map wechat forward to ConversationStarted event.
     // Use body.projectId when provided, else fall back to "wechat".
-    // The wiring's agent loop will eventually process the event and
-    // produce a reply. For MVP, echo back a deterministic placeholder
-    // (real v5 butler reply comes via async event consumer later).
+    // R8.x.2: after writing the event, call the configured LLM provider
+    // and return its text reply in the response. If no LLM key is set
+    // or the LLM call fails, generateLLMReply falls back to the same
+    // MVP stub reply that R8.1 returned, so the v4 → v5 → v4 contract
+    // is preserved. The async butler loop (R8.x.3) will consume the
+    // event for full agent processing.
     const projectId = body.projectId ?? "wechat"
     const conversationId = `c-${projectId}-${body.fromUserId}-${Date.now()}`
     const turnId = `turn-${Date.now()}`
@@ -65,11 +69,12 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         fromUserId: body.fromUserId,
       },
     })
-    return c.json({
-      conversationId,
-      turnId,
-      reply: `v5 received message from ${body.fromUserId} (project=${projectId}); v5 butler processing is async - this is the MVP stub reply`,
+    const reply = await generateLLMReply({
+      content: body.content,
+      fromUserId: body.fromUserId,
+      projectId,
     })
+    return c.json({ conversationId, turnId, reply }, 201)
   })
   return app
 }
