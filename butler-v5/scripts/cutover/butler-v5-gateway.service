@@ -36,6 +36,11 @@ StandardError=journal
 # Environment
 Environment=PORT=3000
 Environment=NODE_ENV=production
+# LLM provider env（owner 设置在本地 live service file，本模板不带 key）
+# DEEPSEEK_API_KEY=sk-...
+# ANTHROPIC_API_KEY=sk-...
+# DASHSCOPE_API_KEY=sk-...
+# NO_PROXY=api.deepseek.com,api.openai.com,dashscope.aliyuncs.com,api.minimaxi.com
 Environment=PATH=/home/ailearn/.nvm/versions/node/v20.20.1/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=-%h/.config/butler-v5/env
 
