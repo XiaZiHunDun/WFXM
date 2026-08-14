@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -14,6 +15,7 @@ from butler.gateway.platforms.wechat_ilink import (
     WeChatAdapter,
     _extract_text,
 )
+from butler.gateway.platforms.wechat_ilink import adapter_inbound
 
 
 @pytest.mark.unit
@@ -172,6 +174,61 @@ class TestInboundMessage:
             await coro
         assert fetch_calls
         assert all(user == "peer-typ" and token == "ctx-typing" for user, token in fetch_calls)
+
+
+@pytest.mark.unit
+class TestV5ForwardHelper:
+    """R8.2: ``forward_to_v5`` is the v4→v5 forward helper used by
+    ``process_message`` so the iLink gateway can route inbound messages to
+    v5's ``/v1/wechat/inbound`` endpoint and use v5's reply for the iLink send.
+    """
+
+    def test_returns_reply_on_2xx_with_reply_field(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):  # noqa: ARG001 — signature parity with urlopen
+            response = MagicMock()
+            response.read.return_value = json.dumps({
+                "reply": "hello from v5",
+                "conversationId": "c-1",
+                "turnId": "t-1",
+            }).encode("utf-8")
+            response.__enter__ = lambda self: self
+            response.__exit__ = lambda self, *args: None
+            return response
+
+        monkeypatch.setattr(adapter_inbound.urllib.request, "urlopen", fake_urlopen)
+        assert adapter_inbound.forward_to_v5("peer-1", "hi", "msg-1") == "hello from v5"
+
+    def test_returns_none_when_v5_unreachable(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):  # noqa: ARG001 — signature parity with urlopen
+            raise ConnectionRefusedError("no v5 server")
+
+        monkeypatch.setattr(adapter_inbound.urllib.request, "urlopen", fake_urlopen)
+        assert adapter_inbound.forward_to_v5("peer-1", "hi", "msg-1") is None
+
+    def test_returns_none_on_malformed_json(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):  # noqa: ARG001 — signature parity with urlopen
+            response = MagicMock()
+            response.read.return_value = b"<html>500 error</html>"
+            response.__enter__ = lambda self: self
+            response.__exit__ = lambda self, *args: None
+            return response
+
+        monkeypatch.setattr(adapter_inbound.urllib.request, "urlopen", fake_urlopen)
+        assert adapter_inbound.forward_to_v5("peer-1", "hi", "msg-1") is None
+
+    def test_returns_none_when_reply_field_missing(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):  # noqa: ARG001 — signature parity with urlopen
+            response = MagicMock()
+            response.read.return_value = json.dumps({
+                "conversationId": "c-1",
+                "turnId": "t-1",
+            }).encode("utf-8")
+            response.__enter__ = lambda self: self
+            response.__exit__ = lambda self, *args: None
+            return response
+
+        monkeypatch.setattr(adapter_inbound.urllib.request, "urlopen", fake_urlopen)
+        assert adapter_inbound.forward_to_v5("peer-1", "hi", "msg-1") is None
 
 
 @pytest.mark.unit

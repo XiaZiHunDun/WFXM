@@ -3,13 +3,105 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List
+import os
+import urllib.error
+import urllib.request
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter
 
 logger = logging.getLogger(__name__)
+
+
+# R8.2: v5 forward — v4 wechat-gateway now forwards incoming iLink messages to
+# v5's ``/v1/wechat/inbound`` endpoint and uses v5's reply for the iLink send.
+# v4's existing processing is preserved as the fallback when v5 is unreachable.
+V5_INBOUND_URL = os.environ.get(
+    "V5_INBOUND_URL", "http://127.0.0.1:3000/v1/wechat/inbound",
+)
+V5_FORWARD_TIMEOUT_SECONDS = float(
+    os.environ.get("V5_FORWARD_TIMEOUT", "5.0"),
+)
+V5_FORWARD_ENABLED = os.environ.get(
+    "BUTLER_V5_FORWARD_ENABLED", "1",
+) not in ("0", "false", "False", "no", "No", "")
+
+
+def forward_to_v5(sender_id: str, content: str, message_id: str) -> Optional[str]:
+    """Forward a wechat message to v5's ``/v1/wechat/inbound`` endpoint.
+
+    Returns v5's ``reply`` text on success, or ``None`` if v5 is unreachable
+    or returned an unusable response. Callers should fall back to v4 processing
+    when ``None`` is returned.
+
+    Synchronous (uses :mod:`urllib`); intended to be called via
+    :func:`asyncio.loop.run_in_executor` from async contexts.
+    """
+    payload = json.dumps({
+        "apiVersion": "v1",
+        "fromUserId": sender_id,
+        "content": content,
+        "messageId": message_id,
+        "projectId": "wechat",
+    }, ensure_ascii=False).encode("utf-8")
+    try:
+        req = urllib.request.Request(
+            V5_INBOUND_URL,
+            data=payload,
+            headers={"content-type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=V5_FORWARD_TIMEOUT_SECONDS) as resp:
+            raw = resp.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError, TimeoutError) as exc:
+        logger.warning(
+            "[v5-forward] v5 unreachable from=%s msgid=%s err=%r",
+            sender_id, message_id, exc,
+        )
+        return None
+    except Exception as exc:  # noqa: BLE001 — defensive: never let v5 forward crash the adapter
+        logger.warning(
+            "[v5-forward] unexpected error from=%s msgid=%s err=%r",
+            sender_id, message_id, exc,
+        )
+        return None
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        logger.warning(
+            "[v5-forward] v5 returned non-JSON from=%s msgid=%s body=%r err=%r",
+            sender_id, message_id, raw[:200], exc,
+        )
+        return None
+    if not isinstance(data, dict):
+        logger.warning(
+            "[v5-forward] v5 returned non-object from=%s msgid=%s body=%r",
+            sender_id, message_id, raw[:200],
+        )
+        return None
+    reply = data.get("reply")
+    if not isinstance(reply, str) or not reply:
+        logger.warning(
+            "[v5-forward] v5 returned no reply field from=%s msgid=%s body=%r",
+            sender_id, message_id, raw[:200],
+        )
+        return None
+    return reply
+
+
+async def _forward_to_v5(sender_id: str, content: str, message_id: str) -> Optional[str]:
+    """Async wrapper around :func:`forward_to_v5` — runs urllib in a thread
+    so the event loop is not blocked during the (up to ~5s) HTTP call.
+    """
+    loop = asyncio.get_running_loop()
+    return cast(
+        Optional[str],
+        await loop.run_in_executor(
+            None, forward_to_v5, sender_id, content, message_id,
+        ),
+    )
 
 
 def poll_backoff_seconds(consecutive_failures: int) -> float:
@@ -134,11 +226,43 @@ async def process_message(adapter: "WeChatAdapter", message: Dict[str, Any]) -> 
         adapter, message, sender_id, text, media_paths, media_types,
         effective_chat_id, chat_type, message_id,
     )
+
+    # R8.2: v5-forward primary path. When v5 is reachable we send v5's reply
+    # via the existing iLink send path and skip v4's full AI processing.
+    # When v5 is unreachable (``_forward_to_v5`` returns ``None``) or disabled
+    # by ``BUTLER_V5_FORWARD_ENABLED``, we fall back to v4's ``handle_message``
+    # so existing behavior is preserved when v5 is down.
+    if V5_FORWARD_ENABLED and text:
+        v5_reply = await _forward_to_v5(sender_id, text, message_id)
+        if v5_reply is not None:
+            logger.info(
+                "[v5-forward] replying to=%s msgid=%s via v5 reply_len=%d",
+                sender_id, message_id, len(v5_reply),
+            )
+            try:
+                send_result = await adapter.send(sender_id, v5_reply)
+            except Exception as exc:  # noqa: BLE001 — defensive: iLink send failures must not break the adapter
+                logger.warning(
+                    "[v5-forward] iLink send raised from=%s msgid=%s err=%r; falling back to v4",
+                    sender_id, message_id, exc,
+                )
+            else:
+                if send_result.success:
+                    return
+                logger.warning(
+                    "[v5-forward] iLink send failed from=%s msgid=%s err=%s; falling back to v4",
+                    sender_id, message_id, send_result.error,
+                )
+
     await adapter.handle_message(event)
 
 
 __all__ = [
+    "V5_FORWARD_ENABLED",
+    "V5_FORWARD_TIMEOUT_SECONDS",
+    "V5_INBOUND_URL",
     "dispatch_poll_response",
+    "forward_to_v5",
     "handle_poll_exception",
     "poll_backoff_seconds",
     "process_message",
