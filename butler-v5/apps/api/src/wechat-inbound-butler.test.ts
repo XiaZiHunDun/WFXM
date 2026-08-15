@@ -210,6 +210,7 @@ describe("runButlerLoop", () => {
     expect(opts?.tools).toBeDefined()
     const names = (opts?.tools ?? []).map((t) => t.name).sort()
     expect(names).toEqual([
+      "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
       "recall_history",
@@ -447,5 +448,82 @@ describe("runButlerLoop", () => {
     const types = events.map((e) => e.eventType)
     expect(types).toContain("TurnOpened")
     expect(types).toContain("AssistantMessageProduced")
+  })
+
+  it("handles a Delegate JSON-decision: writes ChildRunCreated, loops back to Respond", async () => {
+    const adapter = makeMockAdapter([
+      textResponse(
+        JSON.stringify({ _tag: "Delegate", role: "researcher", task: "find docs about Foo" }),
+      ),
+      textResponse(JSON.stringify({ _tag: "Respond", content: "已委派给 researcher 子代理" })),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-delegate-1",
+      content: "帮我找 Foo 的文档",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("已委派给 researcher 子代理")
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.toolCalls).toBe(1)
+    expect(result.iterations).toBe(2)
+    expect(result.traces.some((t) => t.startsWith("delegate_to_subagent@"))).toBe(true)
+    const events = await bridge.loadStream("c-test-delegate-1")
+    const childEvents = events.filter((e) => e.eventType === "ChildRunCreated")
+    expect(childEvents.length).toBe(1)
+  })
+
+  it("handles a Delegate JSON-decision and falls back to stub when follow-up fails", async () => {
+    // Delegate then empty text response — loop continues, then stub.
+    const adapter = makeMockAdapter([
+      textResponse(JSON.stringify({ _tag: "Delegate", role: "general", task: "do thing" })),
+      textResponse(""),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-delegate-2",
+      content: "复杂任务要委派给子代理",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.toolCalls).toBe(1)
+    expect(result.traces.some((t) => t.startsWith("delegate_to_subagent@"))).toBe(true)
+  })
+
+  it("dispatches delegate_to_subagent via native tool_calls and feeds result back", async () => {
+    const adapter = makeMockAdapter([
+      toolCallResponse([
+        {
+          id: "tc_delegate",
+          name: "delegate_to_subagent",
+          args: { task: "long-running analysis", role: "developer" },
+        },
+      ]),
+      textResponse(JSON.stringify({ _tag: "Respond", content: "已委派开发子代理" })),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-delegate-native",
+      content: "请帮我跑个长任务",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("已委派开发子代理")
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.toolCalls).toBe(1)
+    expect(result.iterations).toBe(2)
+    expect(result.traces.some((t) => t.startsWith("delegate_to_subagent@"))).toBe(true)
+    const events = await bridge.loadStream("c-test-delegate-native")
+    expect(events.some((e) => e.eventType === "ChildRunCreated")).toBe(true)
   })
 })

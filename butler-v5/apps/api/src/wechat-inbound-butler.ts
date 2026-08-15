@@ -139,6 +139,7 @@ export async function runButlerLoop(args: {
   const tools: readonly ToolDefinition[] = makeWeibutlerTools({
     bridge,
     conversationId: args.conversationId,
+    actor: { kind: "agent", id: "wechat-butler-v5" },
   })
 
   const adapter = args.adapter ?? pickLLMProvider(env)
@@ -313,24 +314,68 @@ export async function runButlerLoop(args: {
         }
       }
       case "Delegate": {
-        // No child agent dispatch wired yet (R8.x.4 will land
-        // delegate-runtime). Treat as Finish for now so the loop
-        // terminates.
-        logger.warn(
-          `[v5-butler-loop] Delegate decision not yet supported; treating as Finish (iteration ${iteration})`,
-        )
-        await safeApplyDecision(
-          kernel,
-          { _tag: "Finish", reason: "delegate not supported" },
-          logger,
-        )
-        return {
-          reply: stubReply(args.content, args.fromUserId, args.projectId),
-          iterations: iteration + 1,
-          toolCalls,
-          finalDecision: "Delegate",
-          traces: [...traces, `delegate unsupported (role=${decision.role})`],
+        // R8.x.6: dispatch via the delegate_to_subagent tool (which
+        // wraps delegate-runtime), then loop back so the model can
+        // emit a follow-up Respond using the child conversation id.
+        // We synthesize a fake assistant(toolCalls) + tool-result
+        // pair so the LLM has the outcome in context — same shape
+        // the legacy CallTool path uses.
+        await safeApplyDecision(kernel, decision, logger)
+        const def = findTool(tools, "delegate_to_subagent")
+        if (!def) {
+          logger.warn(
+            `[v5-butler-loop] delegate_to_subagent tool not registered; treating as Finish`,
+          )
+          traces.push("delegate_to_subagent missing")
+          await safeApplyDecision(
+            kernel,
+            { _tag: "Finish", reason: "delegate_to_subagent missing" },
+            logger,
+          )
+          return {
+            reply: stubReply(args.content, args.fromUserId, args.projectId),
+            iterations: iteration + 1,
+            toolCalls,
+            finalDecision: "Delegate",
+            traces,
+          }
         }
+        toolCalls += 1
+        const toolResult = await runTool(
+          def,
+          { task: decision.task, role: decision.role },
+          { timeoutMs: TOOL_TIMEOUT_MS },
+        )
+        const trace: ToolTrace = {
+          iteration,
+          toolName: "delegate_to_subagent",
+          ok: toolResult.ok,
+          summary: toolResult.ok
+            ? summarizeForLog(String(toolResult.output))
+            : `error: ${toolResult.reason}`,
+        }
+        traces.push(`${trace.toolName}@${trace.iteration}: ${trace.summary}`)
+        // Echo the decision as a fake assistant tool_call so the
+        // model has structured context for the next iteration.
+        const toolCallId = `json-${iteration}-delegate_to_subagent`
+        messages.push({
+          role: "assistant",
+          content: JSON.stringify(decision),
+          toolCalls: [
+            {
+              id: toolCallId,
+              name: "delegate_to_subagent",
+              args: { task: decision.task, role: decision.role },
+            },
+          ],
+        })
+        messages.push({
+          role: "tool",
+          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
+          toolCallId,
+          toolName: "delegate_to_subagent",
+        })
+        continue
       }
       case "CallTool": {
         // R8.x.4: a JSON-decision CallTool is the legacy path. Run

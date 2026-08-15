@@ -5,6 +5,7 @@ import { makeTestDb } from "@butler/persistence/testing.js"
 import {
   WEIBUTLER_LLM_TOOLS,
   findTool,
+  makeDelegateToSubagentTool,
   makeGetCurrentTimeTool,
   makeGreetWithTimeTool,
   makeRecallHistoryTool,
@@ -26,10 +27,11 @@ describe("weibutler tools", () => {
     await db.close()
   })
 
-  it("WEIBUTLER_LLM_TOOLS exposes 4 provider-agnostic tool descriptors", () => {
-    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(4)
+  it("WEIBUTLER_LLM_TOOLS exposes 5 provider-agnostic tool descriptors", () => {
+    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(5)
     const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
+      "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
       "recall_history",
@@ -41,17 +43,19 @@ describe("weibutler tools", () => {
     }
   })
 
-  it("makeWeibutlerTools returns 4 runtime ToolDefinitions", () => {
+  it("makeWeibutlerTools returns 5 runtime ToolDefinitions", () => {
     const tools = makeWeibutlerTools({ bridge, conversationId })
-    expect(tools).toHaveLength(4)
+    expect(tools).toHaveLength(5)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
+      "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
       "recall_history",
       "summarize_today",
     ])
+    const delegate = tools.find((t) => (t.name as string) === "delegate_to_subagent")
+    expect(delegate?.risk).toBe("medium")
     for (const t of tools) {
-      expect(t.risk).toBe("low")
       expect(typeof t.run).toBe("function")
     }
   })
@@ -250,6 +254,67 @@ describe("weibutler tools", () => {
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.reason).toContain("db-down")
+    }
+  })
+
+  it("delegate_to_subagent writes ChildRunCreated + outbox and returns child id", async () => {
+    const tool = makeDelegateToSubagentTool({
+      bridge,
+      conversationId,
+      actor: { kind: "agent", id: "wechat-butler-v5" },
+    })
+    const result = await runTool(
+      tool,
+      { task: "find docs", role: "researcher" },
+      { timeoutMs: 2000 },
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const output = String(result.output)
+      expect(output).toContain("researcher")
+      expect(output).toContain("已委派")
+      expect(output).toMatch(/child conversation: child-c-tools-1-/)
+    }
+    const events = await bridge.loadStream(conversationId)
+    const childEvents = events.filter((e) => e.eventType === "ChildRunCreated")
+    expect(childEvents.length).toBe(1)
+  })
+
+  it("delegate_to_subagent returns error envelope when task is missing", async () => {
+    const tool = makeDelegateToSubagentTool({ bridge, conversationId })
+    const result = await runTool(tool, {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toBe("task is required")
+    }
+  })
+
+  it("delegate_to_subagent defaults role to 'general' when missing or blank", async () => {
+    const tool = makeDelegateToSubagentTool({ bridge, conversationId })
+    const result = await runTool(tool, { task: "do something", role: "  " }, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(String(result.output)).toContain("general")
+    }
+  })
+
+  it("delegate_to_subagent is exposed in WEIBUTLER_LLM_TOOLS", () => {
+    const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name)
+    expect(names).toContain("delegate_to_subagent")
+  })
+
+  it("delegate_to_subagent silently returns error envelope on bridge failure", async () => {
+    const brokenBridge = {
+      appendConversationEvent: vi.fn(async () => {}),
+      enqueueOutbox: vi.fn(async () => {
+        throw new Error("outbox-down")
+      }),
+    } as unknown as EventBridge
+    const tool = makeDelegateToSubagentTool({ bridge: brokenBridge, conversationId })
+    const result = await runTool(tool, { task: "x" }, { timeoutMs: 1000 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toContain("outbox-down")
     }
   })
 })

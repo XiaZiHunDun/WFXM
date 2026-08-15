@@ -1,15 +1,21 @@
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { LLMTool } from "@butler/adapters"
+import { delegate, type Capability } from "@butler/runtime/delegate-runtime.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 
 /**
  * Minimal context passed to tool handlers. The butler loop wires the
  * current EventBridge + conversation id so tools like `recall_history`
  * can read from event_store without taking a global dependency.
+ *
+ * `actor` (R8.x.6) is the typed actor that will be recorded on any
+ * domain events the tool emits (e.g. ChildRunCreated). Tools that do
+ * not emit events can leave it undefined.
  */
 export interface ButlerToolContext {
   readonly bridge: EventBridge
   readonly conversationId: string
+  readonly actor?: { readonly kind: "owner" | "agent" | "system"; readonly id: string }
 }
 
 /**
@@ -198,6 +204,60 @@ export function makeSummarizeTodayTool(ctx: ButlerToolContext): ToolDefinition {
 }
 
 /**
+ * `delegate_to_subagent` — R8.x.6: hand off a task to a child agent via
+ * the v5 delegate-runtime. The child runs asynchronously (outbox +
+ * worker) and reports back through its own conversation stream; this
+ * tool returns immediately with the new childConversationId so the
+ * parent butler loop can keep iterating or finish. Marked medium-risk:
+ * it spawns a child run (writes ChildRunCreated + outbox message).
+ */
+export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefinition {
+  const defaultActor: { readonly kind: "agent" | "system" | "owner"; readonly id: string } = {
+    kind: "agent",
+    id: "wechat-butler-v5",
+  }
+  return {
+    name: "delegate_to_subagent" as ToolDefinition["name"],
+    risk: "medium",
+    async run(args: Record<string, unknown>): Promise<
+      | {
+          readonly ok: true
+          readonly output: unknown
+        }
+      | { readonly ok: false; readonly reason: string }
+    > {
+      const taskRaw = args["task"]
+      const roleRaw = args["role"]
+      const task = typeof taskRaw === "string" ? taskRaw.trim() : ""
+      if (!task) return { ok: false, reason: "task is required" }
+      const role = typeof roleRaw === "string" && roleRaw.trim() ? roleRaw.trim() : "general"
+      try {
+        // Generic capability placeholder — the child worker is expected
+        // to validate / narrow the capability set against its own
+        // policy. Branding via ToolDefinition["name"] keeps us type-
+        // compatible with Capability["tool"] without re-deriving the
+        // branded string elsewhere.
+        const capability: Capability = { tool: "general" as ToolDefinition["name"] }
+        const outcome = await delegate({
+          role,
+          task,
+          capabilities: [capability],
+          parentConversationId: ctx.conversationId,
+          actor: ctx.actor ?? defaultActor,
+          bridge: ctx.bridge,
+        })
+        return {
+          ok: true,
+          output: `任务已委派给 ${outcome.role} 子代理（child conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`,
+        }
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  }
+}
+
+/**
  * Provider-agnostic tool descriptors (LLMTool shape) for the wechat
  * butler. The R8.x.3.3 loop passes these to the LLM adapter via the
  * `tools` option so the model can decide whether to call a tool.
@@ -247,6 +307,27 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
       properties: {},
     },
   },
+  {
+    name: "delegate_to_subagent",
+    description:
+      "Delegate a task to a subagent. The subagent runs in the background and returns the result later via its own child conversation stream. Use this when the user's request requires capabilities you don't have directly (e.g., code execution, file operations, web search) or when you want a long-running task to happen asynchronously while you keep replying to the user.",
+    parameters: {
+      type: "object",
+      properties: {
+        task: {
+          type: "string",
+          description:
+            "Description of the task to delegate. Be specific about what the subagent should do.",
+        },
+        role: {
+          type: "string",
+          description:
+            "Optional role hint for the subagent (e.g. 'developer', 'researcher', 'reviewer'). Defaults to 'general'.",
+        },
+      },
+      required: ["task"],
+    },
+  },
 ]
 
 /**
@@ -260,6 +341,7 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     makeGetCurrentTimeTool(),
     makeGreetWithTimeTool(),
     makeSummarizeTodayTool(ctx),
+    makeDelegateToSubagentTool(ctx),
   ]
 }
 

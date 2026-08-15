@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./agent-kernel.js": "./src/agent-kernel.ts",
     "./decision.js": "./src/decision.ts",
+    "./delegate-runtime.js": "./src/delegate-runtime.ts",
     "./tool-runtime.js": "./src/tool-runtime.ts",
     "./bridge.js": "./src/bridge.ts"
   },

@@ -1,4 +1,5 @@
 export * from "./agent-kernel.js"
 export * from "./bridge.js"
 export * from "./decision.js"
+export * from "./delegate-runtime.js"
 export * from "./tool-runtime.js"
