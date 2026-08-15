@@ -12,12 +12,35 @@ export interface LLMMessage {
 }
 
 /**
- * Minimal LLM adapter interface — only `complete` is required for R8.x.2
- * (synchronous request/reply from /v1/wechat/inbound). `stream` is left
- * out of scope until the async butler loop lands in R8.x.3.
+ * Provider-agnostic tool descriptor passed to the adapter. Each
+ * adapter serializes this into the format its API expects:
+ *   - Anthropic: top-level `tools: [{ name, description, input_schema }]`
+ *   - OpenAI-compatible: top-level `tools: [{ type: "function", function: {...} }]`
+ *
+ * The shape is intentionally narrow — the butler loop needs name +
+ * description + parameter JSON schema, nothing more.
+ */
+export interface LLMTool {
+  readonly name: string
+  readonly description: string
+  readonly parameters: {
+    readonly type: "object"
+    readonly properties?: Record<string, unknown>
+    readonly required?: readonly string[]
+  }
+}
+
+/**
+ * Minimal LLM adapter interface. `complete` now accepts an optional
+ * `tools` array; the butler loop (R8.x.3) passes the wechat tool set
+ * so the model can decide whether to call a tool or reply directly.
+ * `stream` is left out of scope until the async butler loop lands.
  */
 export interface LLMAdapter {
-  readonly complete: (messages: readonly LLMMessage[]) => Effect.Effect<LLMMessage, Error>
+  readonly complete: (
+    messages: readonly LLMMessage[],
+    opts?: { readonly tools?: readonly LLMTool[] },
+  ) => Effect.Effect<LLMMessage, Error>
 }
 
 /**
