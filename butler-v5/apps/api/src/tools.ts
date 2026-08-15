@@ -1,6 +1,6 @@
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { LLMTool } from "@butler/adapters"
-import { runTool, type ToolDefinition } from "./wechat-tool-runtime.js"
+import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 
 /**
  * Minimal context passed to tool handlers. The butler loop wires the
@@ -128,5 +128,3 @@ export function findTool(
 ): ToolDefinition | undefined {
   return tools.find((t) => (t.name as string) === name)
 }
-
-export { runTool, type ToolDefinition }

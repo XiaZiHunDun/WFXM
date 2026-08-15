@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { EventBridge } from "@butler/runtime/bridge.js"
+import { runTool } from "@butler/runtime/tool-runtime.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import {
   WEIBUTLER_LLM_TOOLS,
@@ -7,7 +8,6 @@ import {
   makeGetCurrentTimeTool,
   makeRecallHistoryTool,
   makeWeibutlerTools,
-  runTool,
 } from "./tools.js"
 
 describe("weibutler tools", () => {

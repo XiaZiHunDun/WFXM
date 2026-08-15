@@ -1,10 +1,12 @@
 import { Effect } from "effect"
 import type { EventBridge } from "@butler/runtime/bridge.js"
+import { AgentKernel } from "@butler/runtime/agent-kernel.js"
+import { decodeDecision, type ModelDecision } from "@butler/runtime/decision.js"
+import { runTool, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import type { Wiring } from "./wiring.js"
-import { findTool, makeWeibutlerTools, runTool, type ToolDefinition } from "./tools.js"
+import { findTool, makeWeibutlerTools } from "./tools.js"
 import { pickLLMProvider, type LLMAdapter, type LLMMessage } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
-import { AgentKernel, decodeDecision, type ModelDecision } from "./wechat-kernel.js"
 
 /**
  * Maximum tool-call iterations per inbound turn. Bounds the loop so a
