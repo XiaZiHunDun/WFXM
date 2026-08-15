@@ -4,8 +4,13 @@ import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import { decodeDecision, type ModelDecision } from "@butler/runtime/decision.js"
 import { runTool, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import type { Wiring } from "./wiring.js"
-import { findTool, makeWeibutlerTools } from "./tools.js"
-import { pickLLMProvider, type LLMAdapter, type LLMMessage } from "@butler/adapters"
+import { findTool, makeWeibutlerTools, WEIBUTLER_LLM_TOOLS } from "./tools.js"
+import {
+  pickLLMProvider,
+  type LLMAdapter,
+  type LLMAssistantResponse,
+  type LLMMessage,
+} from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
 
 /**
@@ -70,14 +75,19 @@ interface ToolTrace {
  * state machine + tool execution, while preserving the v4 → v5 → v4
  * contract (always returns a non-empty `reply`).
  *
- * The loop:
+ * The loop (R8.x.4: native tool_calls):
  *  1. Open a turn on a fresh AgentKernel (records TurnOpened).
  *  2. Build messages (system + recent history + current user msg).
  *  3. Call the LLM with the wechat tool set.
- *  4. Decode the model decision (Respond / CallTool / Finish / ...).
- *  5. Apply the decision via the kernel; for CallTool, execute the
- *     tool and feed the result back into the messages array, then
- *     loop to step 3.
+ *  4. If the response carries native tool_calls (R8.x.4):
+ *     - push the assistant message back (with toolCalls preserved)
+ *     - run each tool, push a tool-result message
+ *     - loop back to step 3
+ *  5. If the response is text-only:
+ *     - try `decodeDecision(content)` for the JSON-decision protocol
+ *       (legacy / models without native tool support)
+ *     - if it parses, apply the ModelDecision
+ *     - else treat the raw text as a Respond (best-effort)
  *  6. Bound by MAX_LOOP_ITERATIONS; on overrun, fall back to the stub
  *     reply (the v4 contract is preserved).
  */
@@ -152,23 +162,20 @@ export async function runButlerLoop(args: {
 
   // 3. Main loop.
   for (let iteration = 0; iteration < MAX_LOOP_ITERATIONS; iteration++) {
-    // R8.x.3 dispatches tool execution entirely through decodeDecision
-    // (the model returns a JSON CallTool decision). We deliberately do
-    // NOT pass tools to the adapter — passing them triggers OpenAI-style
-    // tool_calls in the response, which we don't parse here. Future
-    // R8.x.4 work can wire real tool_calls by extending LLMMessage and
-    // the loop. Tool set is advertised via the system prompt instead.
     const outcome = await Effect.runPromise(
-      adapter.complete(messages).pipe(
+      adapter.complete(messages, { tools: WEIBUTLER_LLM_TOOLS }).pipe(
         Effect.match({
           onFailure: (err) => {
             logger.error(
               `[v5-butler-loop] LLM call failed (fromUserId=${args.fromUserId}); falling back to stub:`,
               err,
             )
-            return { ok: false as const, reason: err instanceof Error ? err.message : String(err) }
+            return {
+              ok: false as const,
+              reason: err instanceof Error ? err.message : String(err),
+            }
           },
-          onSuccess: (msg) => ({ ok: true as const, message: msg }),
+          onSuccess: (resp) => ({ ok: true as const, response: resp }),
         }),
       ),
     )
@@ -189,7 +196,64 @@ export async function runButlerLoop(args: {
       }
     }
 
-    const raw = outcome.message.content.trim()
+    const response: LLMAssistantResponse = outcome.response
+
+    // 4. Native tool_calls path (R8.x.4). Echo the assistant message
+    //    back (with toolCalls preserved) and queue tool result messages.
+    if (response.toolCalls.length > 0) {
+      // Persist the assistant turn (tool_use only — text accompanying
+      // the tool calls is included in content so the model sees it
+      // next iteration).
+      messages.push({
+        role: "assistant",
+        content: response.content,
+        toolCalls: response.toolCalls,
+      })
+
+      const toolResultMessages: LLMMessage[] = []
+      for (const tc of response.toolCalls) {
+        const def = findTool(tools, tc.name)
+        if (!def) {
+          logger.warn(
+            `[v5-butler-loop] Unknown tool '${tc.name}' at iteration ${iteration}; pushing error result`,
+          )
+          traces.push(`unknown tool: ${tc.name}`)
+          toolResultMessages.push({
+            role: "tool",
+            content: `[error] unknown tool: ${tc.name}`,
+            toolCallId: tc.id,
+            toolName: tc.name,
+          })
+          continue
+        }
+        toolCalls += 1
+        const toolResult = await runTool(def, tc.args, { timeoutMs: TOOL_TIMEOUT_MS })
+        const trace: ToolTrace = {
+          iteration,
+          toolName: tc.name,
+          ok: toolResult.ok,
+          summary: toolResult.ok
+            ? summarizeForLog(String(toolResult.output))
+            : `error: ${toolResult.reason}`,
+        }
+        traces.push(`${trace.toolName}@${trace.iteration}: ${trace.summary}`)
+        toolResultMessages.push({
+          role: "tool",
+          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
+          toolCallId: tc.id,
+          toolName: tc.name,
+        })
+      }
+      // Append the tool result messages in order.
+      messages.push(...toolResultMessages)
+      // Continue the loop — the model will see the tool results and
+      // decide whether to call another tool or respond with text.
+      continue
+    }
+
+    // 5. Text-only path: JSON-decision fallback (legacy R8.x.3
+    //    protocol) then plain-text Respond as last resort.
+    const raw = response.content.trim()
     const decoded = decodeDecision(raw)
     if (!decoded.ok) {
       logger.warn(
@@ -269,6 +333,10 @@ export async function runButlerLoop(args: {
         }
       }
       case "CallTool": {
+        // R8.x.4: a JSON-decision CallTool is the legacy path. Run
+        // the tool, then loop. The model should switch to native
+        // tool_calls once available, but we keep this for the
+        // JSON-decision protocol.
         await safeApplyDecision(kernel, decision, logger)
         const def = findTool(tools, decision.toolName)
         if (!def) {
@@ -295,17 +363,25 @@ export async function runButlerLoop(args: {
             : `error: ${toolResult.reason}`,
         }
         traces.push(`${trace.toolName}@${trace.iteration}: ${trace.summary}`)
-        // Feed the tool result back as a "tool" role message so the
-        // model can use it on the next iteration.
-        const toolMessage: LLMMessage = {
-          role: "user",
-          content: toolResult.ok
-            ? `[tool:${trace.toolName}] ${String(toolResult.output)}`
-            : `[tool:${trace.toolName}] ERROR: ${toolResult.reason}`,
-        }
-        messages.push(toolMessage)
-        // Continue the loop — model will see the tool result and decide
-        // whether to call another tool or respond.
+        // Echo the legacy decision as a fake assistant message + tool
+        // result so the model has context for the next iteration.
+        messages.push({
+          role: "assistant",
+          content: JSON.stringify(decision),
+          toolCalls: [
+            {
+              id: `json-${iteration}-${decision.toolName}`,
+              name: decision.toolName,
+              args: decision.args,
+            },
+          ],
+        })
+        messages.push({
+          role: "tool",
+          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
+          toolCallId: `json-${iteration}-${decision.toolName}`,
+          toolName: decision.toolName,
+        })
         continue
       }
       default: {

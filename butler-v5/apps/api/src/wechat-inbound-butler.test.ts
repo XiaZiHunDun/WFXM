@@ -1,18 +1,40 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Effect } from "effect"
-import type { LLMAdapter, LLMMessage } from "@butler/adapters"
+import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
 import { EventBridge } from "@butler/runtime/bridge.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { runButlerLoop, type ButlerLoopLogger } from "./wechat-inbound-butler.js"
 
-function makeMockAdapter(replies: readonly LLMMessage[]): LLMAdapter {
+/**
+ * Build a mock adapter that returns a sequence of pre-canned
+ * `LLMAssistantResponse` values. Each call to `complete` pops the
+ * next response; if exhausted, returns an empty text-only response.
+ */
+function makeMockAdapter(replies: readonly LLMAssistantResponse[]): LLMAdapter {
   let i = 0
   return {
     complete: vi.fn((_messages, _opts) =>
-      Effect.succeed(replies[i++] ?? { role: "assistant", content: "" }),
+      Effect.succeed(replies[i++] ?? { content: "", toolCalls: [], stopReason: "stop" }),
     ),
   }
+}
+
+/** Convenience: build a text-only assistant response. */
+function textResponse(content: string): LLMAssistantResponse {
+  return { content, toolCalls: [], stopReason: "end_turn" }
+}
+
+/** Convenience: build a native tool_call response. */
+function toolCallResponse(
+  toolCalls: readonly {
+    readonly id: string
+    readonly name: string
+    readonly args: Record<string, unknown>
+  }[],
+  content = "",
+): LLMAssistantResponse {
+  return { content, toolCalls, stopReason: "tool_use" }
 }
 
 describe("runButlerLoop", () => {
@@ -50,9 +72,9 @@ describe("runButlerLoop", () => {
     expect(result.toolCalls).toBe(0)
   })
 
-  it("returns Respond content when the model emits a Respond decision", async () => {
+  it("returns Respond content when the model emits a Respond decision (JSON-decision fallback)", async () => {
     const adapter = makeMockAdapter([
-      { role: "assistant", content: JSON.stringify({ _tag: "Respond", content: "hi back" }) },
+      textResponse(JSON.stringify({ _tag: "Respond", content: "hi back" })),
     ])
     const result = await runButlerLoop({
       wiring,
@@ -71,7 +93,7 @@ describe("runButlerLoop", () => {
   })
 
   it("treats plain text as Respond when decodeDecision fails", async () => {
-    const adapter = makeMockAdapter([{ role: "assistant", content: "plain text reply" }])
+    const adapter = makeMockAdapter([textResponse("plain text reply")])
     const result = await runButlerLoop({
       wiring,
       conversationId: "c-test-3",
@@ -86,20 +108,10 @@ describe("runButlerLoop", () => {
     expect(result.finalDecision).toBe("Respond")
   })
 
-  it("executes a tool and returns the model's follow-up Respond", async () => {
+  it("executes a native OpenAI-style tool_call and returns the model's follow-up Respond", async () => {
     const adapter = makeMockAdapter([
-      {
-        role: "assistant",
-        content: JSON.stringify({
-          _tag: "CallTool",
-          toolName: "get_current_time",
-          args: {},
-        }),
-      },
-      {
-        role: "assistant",
-        content: JSON.stringify({ _tag: "Respond", content: "now is the time" }),
-      },
+      toolCallResponse([{ id: "tc_1", name: "get_current_time", args: {} }]),
+      textResponse("now is the time"),
     ])
     const result = await runButlerLoop({
       wiring,
@@ -118,7 +130,88 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
   })
 
-  it("executes recall_history with limit and feeds result back", async () => {
+  it("executes a native Anthropic-style tool_use and feeds the result back", async () => {
+    const adapter = makeMockAdapter([
+      toolCallResponse([{ id: "tu_1", name: "get_current_time", args: {} }]),
+      textResponse("the current time is 2026-08-15"),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-anthropic-1",
+      content: "what time is it?",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("the current time is 2026-08-15")
+    expect(result.toolCalls).toBe(1)
+    expect(result.iterations).toBe(2)
+    expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
+  })
+
+  it("passes WEIBUTLER_LLM_TOOLS to the adapter on every call", async () => {
+    const completeSpy = vi.fn(() => Effect.succeed(textResponse("ok") as LLMAssistantResponse))
+    const adapter: LLMAdapter = { complete: completeSpy }
+    await runButlerLoop({
+      wiring,
+      conversationId: "c-test-tools-pass",
+      content: "hi",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(completeSpy).toHaveBeenCalledTimes(1)
+    const opts = completeSpy.mock.calls[0]?.[1] as
+      { readonly tools?: readonly { readonly name: string }[] } | undefined
+    expect(opts?.tools).toBeDefined()
+    const names = (opts?.tools ?? []).map((t) => t.name).sort()
+    expect(names).toEqual(["get_current_time", "recall_history"])
+  })
+
+  it("echoes assistant.toolCalls back as a message and pushes tool result messages", async () => {
+    let lastMessages: readonly Record<string, unknown>[] = []
+    let calls = 0
+    const adapter: LLMAdapter = {
+      complete: vi.fn((msgs, _opts) => {
+        lastMessages = msgs as readonly Record<string, unknown>[]
+        calls += 1
+        if (calls === 1) {
+          return Effect.succeed(
+            toolCallResponse([{ id: "tc_1", name: "get_current_time", args: {} }]),
+          )
+        }
+        return Effect.succeed(textResponse("done"))
+      }),
+    }
+    await runButlerLoop({
+      wiring,
+      conversationId: "c-test-echo",
+      content: "what time?",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(calls).toBe(2)
+    // Second call: messages should now contain assistant(toolCalls)
+    // and tool messages.
+    const roles = lastMessages.map((m) => m["role"])
+    expect(roles).toContain("assistant")
+    expect(roles).toContain("tool")
+    const assistant = lastMessages.find((m) => m["role"] === "assistant")
+    expect(assistant?.["toolCalls"]).toBeDefined()
+    expect(assistant?.["content"]).toBe("")
+    const tool = lastMessages.find((m) => m["role"] === "tool")
+    expect(tool?.["toolCallId"]).toBe("tc_1")
+    expect(tool?.["toolName"]).toBe("get_current_time")
+  })
+
+  it("executes recall_history (native tool_call) with limit and feeds result back", async () => {
     // Pre-seed the event_store so recall_history has something to return.
     await bridge.appendConversationEvent({
       streamId: "c-test-5",
@@ -129,18 +222,8 @@ describe("runButlerLoop", () => {
       event: { _tag: "ConversationStarted", projectId: "p-1", content: "earlier msg" },
     })
     const adapter = makeMockAdapter([
-      {
-        role: "assistant",
-        content: JSON.stringify({
-          _tag: "CallTool",
-          toolName: "recall_history",
-          args: { limit: 3 },
-        }),
-      },
-      {
-        role: "assistant",
-        content: JSON.stringify({ _tag: "Respond", content: "I recall earlier msg" }),
-      },
+      toolCallResponse([{ id: "tc_recall", name: "recall_history", args: { limit: 3 } }]),
+      textResponse("I recall earlier msg"),
     ])
     const result = await runButlerLoop({
       wiring,
@@ -157,9 +240,54 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.includes("earlier msg"))).toBe(true)
   })
 
+  it("runs multiple native tool_calls in one assistant turn", async () => {
+    const adapter = makeMockAdapter([
+      toolCallResponse([
+        { id: "tc_a", name: "get_current_time", args: {} },
+        { id: "tc_b", name: "recall_history", args: { limit: 2 } },
+      ]),
+      textResponse("both done"),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-multi",
+      content: "time and history?",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("both done")
+    expect(result.toolCalls).toBe(2)
+    expect(result.iterations).toBe(2)
+  })
+
+  it("runs legacy JSON-decision CallTool as a fallback when no native tool_calls", async () => {
+    const adapter = makeMockAdapter([
+      textResponse(JSON.stringify({ _tag: "CallTool", toolName: "get_current_time", args: {} })),
+      textResponse(JSON.stringify({ _tag: "Respond", content: "now is the time" })),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-legacy",
+      content: "what time is it?",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("now is the time")
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.toolCalls).toBe(1)
+    expect(result.iterations).toBe(2)
+    expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
+  })
+
   it("falls back to stub on Finish decision", async () => {
     const adapter = makeMockAdapter([
-      { role: "assistant", content: JSON.stringify({ _tag: "Finish", reason: "all done" }) },
+      textResponse(JSON.stringify({ _tag: "Finish", reason: "all done" })),
     ])
     const result = await runButlerLoop({
       wiring,
@@ -177,10 +305,7 @@ describe("runButlerLoop", () => {
 
   it("echoes AskApproval question back as reply", async () => {
     const adapter = makeMockAdapter([
-      {
-        role: "assistant",
-        content: JSON.stringify({ _tag: "AskApproval", question: "delete?" }),
-      },
+      textResponse(JSON.stringify({ _tag: "AskApproval", question: "delete?" })),
     ])
     const result = await runButlerLoop({
       wiring,
@@ -219,10 +344,9 @@ describe("runButlerLoop", () => {
   it("bounds the loop at MAX_LOOP_ITERATIONS and falls back to stub", async () => {
     // Adapter always asks for a tool call — should hit the iteration cap.
     const adapter = makeMockAdapter(
-      Array.from({ length: 10 }, () => ({
-        role: "assistant" as const,
-        content: JSON.stringify({ _tag: "CallTool", toolName: "get_current_time", args: {} }),
-      })),
+      Array.from({ length: 10 }, () =>
+        toolCallResponse([{ id: "tc_loop", name: "get_current_time", args: {} }]),
+      ),
     )
     const result = await runButlerLoop({
       wiring,
@@ -239,12 +363,9 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.includes("loop exhausted"))).toBe(true)
   })
 
-  it("returns stub when the model references an unknown tool", async () => {
+  it("returns stub when the model requests an unknown tool via native tool_calls", async () => {
     const adapter = makeMockAdapter([
-      {
-        role: "assistant",
-        content: JSON.stringify({ _tag: "CallTool", toolName: "does_not_exist", args: {} }),
-      },
+      toolCallResponse([{ id: "tc_bad", name: "does_not_exist", args: {} }]),
     ])
     const result = await runButlerLoop({
       wiring,
@@ -256,13 +377,15 @@ describe("runButlerLoop", () => {
       logger: silentLogger,
       adapter,
     })
+    // Unknown native tool_call pushes error result then loops again;
+    // empty follow-up response → fall back to stub via loop iteration.
     expect(result.reply).toContain("MVP stub reply")
     expect(result.traces.some((t) => t.includes("unknown tool"))).toBe(true)
   })
 
   it("writes TurnOpened and AssistantMessageProduced events to event_store", async () => {
     const adapter = makeMockAdapter([
-      { role: "assistant", content: JSON.stringify({ _tag: "Respond", content: "ok" }) },
+      textResponse(JSON.stringify({ _tag: "Respond", content: "ok" })),
     ])
     const result = await runButlerLoop({
       wiring,
