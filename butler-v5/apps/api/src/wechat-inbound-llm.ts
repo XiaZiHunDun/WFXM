@@ -100,7 +100,11 @@ export async function generateLLMReply(args: {
             `[v5-wechat-inbound] LLM call failed (fromUserId=${args.fromUserId}); falling back to stub:`,
             err,
           )
-          return { role: "assistant" as const, content: "" }
+          // R8.x.4: adapter.complete now returns LLMAssistantResponse
+          // (content + toolCalls + stopReason). Return an empty response
+          // shape on failure so the route can fall back to the stub
+          // reply without breaking the typecheck.
+          return { content: "", toolCalls: [], stopReason: "stop" as const }
         },
         onSuccess: (msg) => msg,
       }),
