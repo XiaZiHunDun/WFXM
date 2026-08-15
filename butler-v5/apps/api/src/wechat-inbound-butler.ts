@@ -1,13 +1,7 @@
 import { Effect } from "effect"
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { Wiring } from "./wiring.js"
-import {
-  WEIBUTLER_LLM_TOOLS,
-  findTool,
-  makeWeibutlerTools,
-  runTool,
-  type ToolDefinition,
-} from "./tools.js"
+import { findTool, makeWeibutlerTools, runTool, type ToolDefinition } from "./tools.js"
 import { pickLLMProvider, type LLMAdapter, type LLMMessage } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
 import { AgentKernel, decodeDecision, type ModelDecision } from "./wechat-kernel.js"
@@ -156,8 +150,14 @@ export async function runButlerLoop(args: {
 
   // 3. Main loop.
   for (let iteration = 0; iteration < MAX_LOOP_ITERATIONS; iteration++) {
+    // R8.x.3 dispatches tool execution entirely through decodeDecision
+    // (the model returns a JSON CallTool decision). We deliberately do
+    // NOT pass tools to the adapter — passing them triggers OpenAI-style
+    // tool_calls in the response, which we don't parse here. Future
+    // R8.x.4 work can wire real tool_calls by extending LLMMessage and
+    // the loop. Tool set is advertised via the system prompt instead.
     const outcome = await Effect.runPromise(
-      adapter.complete(messages, { tools: WEIBUTLER_LLM_TOOLS }).pipe(
+      adapter.complete(messages).pipe(
         Effect.match({
           onFailure: (err) => {
             logger.error(

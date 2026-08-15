@@ -26,14 +26,33 @@ const defaultLogger: LLMReplyLogger = {
 
 /**
  * Build the minimal messages array for a wechat inbound turn.
- * R8.x.2 keeps this stateless: system prompt + the user's raw content.
- * Conversation history and tool calls land in R8.x.3.
+ * R8.x.3: the butler loop runs an AgentKernel + decodeDecision over
+ * the model output, so the system prompt now instructs the model to
+ * emit one of the `ModelDecision` JSON shapes (Respond / CallTool /
+ * Finish / AskApproval / Delegate) instead of free-form text. Tools
+ * are passed for the LLM's awareness but the loop drives tool
+ * execution itself; this keeps the contract simple and lets the
+ * loop log every decision for the operator trace.
  */
 export function buildWechatInboundMessages(content: string): readonly LLMMessage[] {
   return [
     {
       role: "system",
-      content: "You are a helpful butler. Reply concisely in the user's language.",
+      content: [
+        "You are a helpful butler. Reply concisely in the user's language.",
+        "",
+        "Return exactly one JSON object (no prose, no markdown fence) using one of these shapes:",
+        '- {"_tag":"Respond","content":"<your reply text>"}  — final answer to the user',
+        '- {"_tag":"CallTool","toolName":"<tool>","args":{...}}  — request a tool call (loop will run it and feed the result back)',
+        '- {"_tag":"Finish","reason":"<short reason>"}  — task done, no reply needed',
+        '- {"_tag":"AskApproval","question":"<the question>"}  — need user confirmation',
+        "",
+        "Available tools (use the CallTool shape when you need them):",
+        "- recall_history(limit?: number): recent conversation events",
+        "- get_current_time(): current server time as ISO 8601",
+        "",
+        "If the user just wants a reply, use Respond. If you need data the tools provide, use CallTool and wait for the tool result.",
+      ].join("\n"),
     },
     { role: "user", content },
   ]
