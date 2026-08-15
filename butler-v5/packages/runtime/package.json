@@ -6,6 +6,9 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./agent-kernel.js": "./src/agent-kernel.ts",
+    "./decision.js": "./src/decision.ts",
+    "./tool-runtime.js": "./src/tool-runtime.ts",
     "./bridge.js": "./src/bridge.ts"
   },
   "types": "./src/index.ts",
