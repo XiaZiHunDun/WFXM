@@ -6,7 +6,9 @@ import {
   WEIBUTLER_LLM_TOOLS,
   findTool,
   makeGetCurrentTimeTool,
+  makeGreetWithTimeTool,
   makeRecallHistoryTool,
+  makeSummarizeTodayTool,
   makeWeibutlerTools,
 } from "./tools.js"
 
@@ -24,22 +26,29 @@ describe("weibutler tools", () => {
     await db.close()
   })
 
-  it("WEIBUTLER_LLM_TOOLS exposes 2 provider-agnostic tool descriptors", () => {
-    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(2)
+  it("WEIBUTLER_LLM_TOOLS exposes 4 provider-agnostic tool descriptors", () => {
+    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(4)
     const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name).sort()
-    expect(names).toEqual(["get_current_time", "recall_history"])
+    expect(names).toEqual([
+      "get_current_time",
+      "greet_with_time",
+      "recall_history",
+      "summarize_today",
+    ])
     for (const t of WEIBUTLER_LLM_TOOLS) {
       expect(t.description.length).toBeGreaterThan(0)
       expect(t.parameters.type).toBe("object")
     }
   })
 
-  it("makeWeibutlerTools returns runtime ToolDefinitions", () => {
+  it("makeWeibutlerTools returns 4 runtime ToolDefinitions", () => {
     const tools = makeWeibutlerTools({ bridge, conversationId })
-    expect(tools).toHaveLength(2)
+    expect(tools).toHaveLength(4)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
       "get_current_time",
+      "greet_with_time",
       "recall_history",
+      "summarize_today",
     ])
     for (const t of tools) {
       expect(t.risk).toBe("low")
@@ -59,13 +68,105 @@ describe("weibutler tools", () => {
     expect(findTool(tools, "does_not_exist")).toBeUndefined()
   })
 
-  it("get_current_time returns an ISO string", async () => {
+  it("get_current_time returns Asia/Shanghai formatted time in Chinese", async () => {
     const tool = makeGetCurrentTimeTool()
     const result = await runTool(tool, {}, { timeoutMs: 1000 })
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(typeof result.output).toBe("string")
-      expect(result.output).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+      const output = String(result.output)
+      expect(output).toContain("Asia/Shanghai")
+      expect(output).toContain("UTC+8")
+      // Chinese date format: 2026年8月15日
+      expect(output).toMatch(/\d{4}年\d{1,2}月\d{1,2}日/)
+      // 24-hour time: HH:MM:SS
+      expect(output).toMatch(/\d{2}:\d{2}:\d{2}/)
+      // Chinese weekday: 星期一 / 星期二 / 星期三 / 星期四 / 星期五 / 星期六 / 星期日
+      expect(output).toMatch(/星期[一二三四五六日]/)
+    }
+  })
+
+  it("get_current_time does NOT return a UTC ISO timestamp", async () => {
+    const tool = makeGetCurrentTimeTool()
+    const result = await runTool(tool, {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const output = String(result.output)
+      // Should not have the bare ISO 8601 UTC format with Z suffix
+      expect(output).not.toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*Z$/)
+    }
+  })
+
+  it("greet_with_time returns one of the valid Chinese greetings", async () => {
+    const tool = makeGreetWithTimeTool()
+    const result = await runTool(tool, {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const output = String(result.output)
+      expect(["早晨好", "上午好", "中午好", "下午好", "晚上好", "夜深了"]).toContain(output)
+    }
+  })
+
+  it("summarize_today returns a string (empty when no recent events)", async () => {
+    const tool = makeSummarizeTodayTool({ bridge, conversationId })
+    const result = await runTool(tool, {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const output = String(result.output)
+      expect(output.length).toBeGreaterThan(0)
+      expect(output).toContain("没有事件")
+    }
+  })
+
+  it("summarize_today counts events in the last 24h, broken down by type", async () => {
+    await bridge.appendConversationEvent({
+      streamId: conversationId,
+      eventId: "evt-s1",
+      eventType: "ConversationStarted",
+      correlationId: "corr-s1",
+      actor: { kind: "system", id: "test" },
+      event: { _tag: "ConversationStarted", projectId: "p-1", content: "hello" },
+    })
+    await bridge.appendConversationEvent({
+      streamId: conversationId,
+      eventId: "evt-s2",
+      eventType: "ConversationStarted",
+      correlationId: "corr-s2",
+      actor: { kind: "system", id: "test" },
+      event: { _tag: "ConversationStarted", projectId: "p-1", content: "hi again" },
+    })
+    await bridge.appendConversationEvent({
+      streamId: conversationId,
+      eventId: "evt-s3",
+      eventType: "AssistantMessageProduced",
+      correlationId: "corr-s3",
+      actor: { kind: "system", id: "test" },
+      event: { _tag: "AssistantMessageProduced", content: "reply" },
+    })
+    const tool = makeSummarizeTodayTool({ bridge, conversationId })
+    const result = await runTool(tool, {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const output = String(result.output)
+      expect(output).toContain("ConversationStarted: 2")
+      expect(output).toContain("AssistantMessageProduced: 1")
+      expect(output).toContain("3")
+    }
+  })
+
+  it("summarize_today silently returns error envelope on bridge failure", async () => {
+    const brokenBridge = {
+      loadStream: vi.fn(async () => {
+        throw new Error("db-down")
+      }),
+    } as unknown as EventBridge
+    const tool = makeSummarizeTodayTool({
+      bridge: brokenBridge,
+      conversationId,
+    })
+    const result = await runTool(tool, {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toContain("db-down")
     }
   })
 

@@ -130,6 +130,46 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
   })
 
+  it("executes greet_with_time (native tool_call) and feeds the greeting back", async () => {
+    const adapter = makeMockAdapter([
+      toolCallResponse([{ id: "tc_greet", name: "greet_with_time", args: {} }]),
+      textResponse("你好呀"),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-greet",
+      content: "hi",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("你好呀")
+    expect(result.toolCalls).toBe(1)
+    expect(result.traces.some((t) => t.startsWith("greet_with_time@"))).toBe(true)
+  })
+
+  it("executes summarize_today (native tool_call) and feeds the summary back", async () => {
+    const adapter = makeMockAdapter([
+      toolCallResponse([{ id: "tc_sum", name: "summarize_today", args: {} }]),
+      textResponse("今天没做什么"),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-sum",
+      content: "今天做了什么",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("今天没做什么")
+    expect(result.toolCalls).toBe(1)
+    expect(result.traces.some((t) => t.startsWith("summarize_today@"))).toBe(true)
+  })
+
   it("executes a native Anthropic-style tool_use and feeds the result back", async () => {
     const adapter = makeMockAdapter([
       toolCallResponse([{ id: "tu_1", name: "get_current_time", args: {} }]),
@@ -169,7 +209,12 @@ describe("runButlerLoop", () => {
       { readonly tools?: readonly { readonly name: string }[] } | undefined
     expect(opts?.tools).toBeDefined()
     const names = (opts?.tools ?? []).map((t) => t.name).sort()
-    expect(names).toEqual(["get_current_time", "recall_history"])
+    expect(names).toEqual([
+      "get_current_time",
+      "greet_with_time",
+      "recall_history",
+      "summarize_today",
+    ])
   })
 
   it("echoes assistant.toolCalls back as a message and pushes tool result messages", async () => {

@@ -39,7 +39,9 @@ export function buildWechatInboundMessages(content: string): readonly LLMMessage
     {
       role: "system",
       content: [
-        "You are a helpful butler. Reply concisely in the user's language.",
+        "You are a helpful butler for a Chinese-language user.",
+        "Current time is always interpreted in Asia/Shanghai (UTC+8 / 北京时间 / 中国标准时间).",
+        "Reply naturally in Chinese; do not switch back to UTC.",
         "",
         "Return exactly one JSON object (no prose, no markdown fence) using one of these shapes:",
         '- {"_tag":"Respond","content":"<your reply text>"}  — final answer to the user',
@@ -49,7 +51,9 @@ export function buildWechatInboundMessages(content: string): readonly LLMMessage
         "",
         "Available tools (use the CallTool shape when you need them):",
         "- recall_history(limit?: number): recent conversation events",
-        "- get_current_time(): current server time as ISO 8601",
+        "- get_current_time(): current time in Asia/Shanghai (UTC+8), formatted in Chinese",
+        "- greet_with_time(): a Chinese greeting based on the current time of day",
+        "- summarize_today(): 24-hour activity summary for this conversation, broken down by event type",
         "",
         "If the user just wants a reply, use Respond. If you need data the tools provide, use CallTool and wait for the tool result.",
       ].join("\n"),
