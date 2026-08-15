@@ -95,7 +95,7 @@ describe("LLM adapters", () => {
     expect(call).toBeDefined()
     const body = JSON.parse((call?.[1] as { body: string }).body) as Record<string, unknown>
     expect(body["tools"]).toBeDefined()
-    const tools = body["tools"] as Array<Record<string, unknown>>
+    const tools = body["tools"] as Record<string, unknown>[]
     expect(tools).toHaveLength(1)
     expect(tools[0]).toMatchObject({
       name: "recall_history",
@@ -146,7 +146,7 @@ describe("LLM adapters", () => {
     expect(call).toBeDefined()
     const body = JSON.parse((call?.[1] as { body: string }).body) as Record<string, unknown>
     expect(body["tools"]).toBeDefined()
-    const tools = body["tools"] as Array<Record<string, unknown>>
+    const tools = body["tools"] as Record<string, unknown>[]
     expect(tools).toHaveLength(1)
     expect(tools[0]).toMatchObject({
       type: "function",

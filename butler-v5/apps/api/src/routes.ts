@@ -1,6 +1,6 @@
 import type { Hono } from "hono"
 import type { Wiring } from "./wiring.js"
-import { generateLLMReply } from "./wechat-inbound-llm.js"
+import { runButlerLoop } from "./wechat-inbound-butler.js"
 
 export function createRoutes(app: Hono, wiring: Wiring) {
   app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
@@ -47,12 +47,12 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     }
     // Map wechat forward to ConversationStarted event.
     // Use body.projectId when provided, else fall back to "wechat".
-    // R8.x.2: after writing the event, call the configured LLM provider
-    // and return its text reply in the response. If no LLM key is set
-    // or the LLM call fails, generateLLMReply falls back to the same
-    // MVP stub reply that R8.1 returned, so the v4 → v5 → v4 contract
-    // is preserved. The async butler loop (R8.x.3) will consume the
-    // event for full agent processing.
+    // R8.x.3: after writing the event, run the full AgentKernel-backed
+    // butler loop (state machine + tool execution). The loop always
+    // returns a non-empty `reply` — either the model's Respond
+    // content or the stub fallback — so the v4 → v5 → v4 contract is
+    // preserved regardless of LLM availability, tool failure, or
+    // decode error.
     const projectId = body.projectId ?? "wechat"
     const conversationId = `c-${projectId}-${body.fromUserId}-${Date.now()}`
     const turnId = `turn-${Date.now()}`
@@ -69,12 +69,27 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         fromUserId: body.fromUserId,
       },
     })
-    const reply = await generateLLMReply({
+    const loopResult = await runButlerLoop({
+      wiring,
+      conversationId,
       content: body.content,
       fromUserId: body.fromUserId,
       projectId,
     })
-    return c.json({ conversationId, turnId, reply }, 201)
+    return c.json(
+      {
+        conversationId,
+        turnId,
+        reply: loopResult.reply,
+        meta: {
+          iterations: loopResult.iterations,
+          toolCalls: loopResult.toolCalls,
+          finalDecision: loopResult.finalDecision,
+          traces: loopResult.traces,
+        },
+      },
+      201,
+    )
   })
   return app
 }

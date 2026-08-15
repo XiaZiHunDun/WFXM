@@ -129,4 +129,4 @@ export function findTool(
   return tools.find((t) => (t.name as string) === name)
 }
 
-export { runTool }
+export { runTool, type ToolDefinition }
