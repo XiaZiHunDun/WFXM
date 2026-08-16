@@ -1,9 +1,53 @@
 # ADR-0001: Butler v4 → v5 全面替代
 
-- Status: Accepted
-- Date: 2026-08-08
+- Status: Accepted + v4 DECOMMISSIONED
+- Date: 2026-08-08 (Accepted) / 2026-08-16 (v4 Decommissioned)
 - Deciders: 项目 Owner
 - Supersedes: 此前未成文的"持续深化 v4"默认口径（参见 Context 与已批准规格 §1）
+
+## Status Update — v4 Decommissioned (2026-08-16)
+
+2026-08-16 标记 v4 runtime 全面退役（v4 cutover 已于 2026-08-14 完成 standby），所有 v4 systemd 服务 / timer 已停用，v4 数据保留为历史参考。
+
+### v4 systemd services — stopped + disabled (2026-08-16)
+
+| Unit | Action |
+| --- | --- |
+| `butler-gateway.service` | stopped + disabled (also detached symlink in `default.target.wants`) |
+| `butler-runtime-lingwen.service` | stopped + disabled |
+| `butler-morning-brief.service` | stopped + disabled |
+| `butler-push-drain.service` | stopped + disabled |
+| `butler-b9-weekly-gate.service` | stopped + disabled |
+| `butler-eval-sync.service` | stopped + disabled |
+| `butler-ops-cadence-weekly.service` | stopped + disabled |
+| `butler-ops-cadence-quarterly.service` | stopped + disabled |
+
+### v4 systemd timers — stopped + disabled (2026-08-16)
+
+为防止已禁用 service 被 timer 重新触发，关联的 `.timer` 单元同步停用：
+
+- `butler-runtime-lingwen.timer`
+- `butler-morning-brief.timer`
+- `butler-push-drain.timer`
+- `butler-b9-weekly-gate.timer`
+- `butler-eval-sync.timer`
+- `butler-ops-cadence-weekly.timer`
+- `butler-ops-cadence-quarterly.timer`
+
+（`butler-gateway.service` 无对应 timer，原 v4 主进程通过 `pkill` 同步清理；其余 stray Python 进程均已 kill。）
+
+### v4 资产保留口径
+
+- **v4 代码（`butler/` 目录）**：保留为历史参考，不删除。ADR-0001 仍视 v4 为已批准规格下的 legacy runtime，仅归档读取，不作为产品主线。
+- **v4 用户数据（`~/.butler/`）**：保留。包含 `state.md`、`memory/`、`coding_experiences.json`、`butler.db`、`blackboard/`、`gateway/`、`exports/` 等历史产物；用户可按需离线查询或后续手动归档。
+- **v5 单元（`butler-v5-gateway.service`）**：继续 active running，为唯一对外入口。
+- **回滚路径**：v4 仅在 v5 出现 P0 不可恢复故障时作为应急恢复路径启用，需新 ADR 重新激活。
+
+### R10.x Decommission 实施记录
+
+- Shift card：`.blackboard/shifts/2026-08-16-claude-code-027.md`
+- 实施日期：2026-08-16
+- Owner 后续可选动作：决定是否在观察期后删除 `~/.butler/` 历史数据；建议保留至少 30 天作为可恢复期。
 
 ## Context
 
