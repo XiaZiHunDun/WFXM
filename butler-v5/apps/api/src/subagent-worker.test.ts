@@ -18,6 +18,24 @@ import { makeTestDb } from "@butler/persistence/testing.js"
 import { enqueueOutbox } from "@butler/persistence/outbox.js"
 import { runSubagentWorker, type SubagentWorkerLogger } from "./subagent-worker.js"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
+import { clearAllSubscribers, subscribers } from "./ws-routes.js"
+import type { WebSocket as WsWebSocket } from "ws"
+
+/**
+ * Minimal fake WS socket used to assert that the subagent worker
+ * pushes frames into the subscribers registry without spinning up a
+ * real WS server (which would add 100ms+ of upgrade latency per
+ * test). `readyState === 1` matches `WsWebSocket.OPEN` so
+ * `pushEventToSubscribers` treats it as a live socket.
+ */
+function makeFakeWs(sink: string[]): WsWebSocket {
+  return {
+    readyState: 1,
+    send: (data: string) => {
+      sink.push(data)
+    },
+  } as unknown as WsWebSocket
+}
 
 function makeStubAdapter(content: string): LLMAdapter {
   return {
@@ -336,6 +354,144 @@ describe("subagent worker", () => {
     // No reply yet because the LLM is still in-flight.
     expect(events.filter((e) => e.eventType === "AssistantMessageProduced")).toHaveLength(0)
 
+    handle.stop()
+  })
+
+  it("R8.x.8: pushes AssistantMessageProduced to WS subscribers of the parent conversation", async () => {
+    // R8.x.8: register a fake WS subscriber on the parent
+    // conversation BEFORE running the worker. The worker's
+    // success path must call pushEventToSubscribers after writing
+    // the reply — we verify by recording the calls on the fake
+    // socket's `send`. Using a real WS server (startWsServer)
+    // would be heavier; a minimal fake is sufficient to assert
+    // the contract "push happens with the right conversationId
+    // and a payload carrying the reply".
+    const parent = "p-subagent-push"
+    const sent: string[] = []
+    const fakeWs = makeFakeWs(sent)
+    clearAllSubscribers()
+    const set = new Set<WsWebSocket>()
+    set.add(fakeWs)
+    subscribers.set(parent, set)
+
+    const cap: Capability = { tool: "general" as Capability["tool"] }
+    await delegate({
+      role: "pusher",
+      task: "do a thing",
+      capabilities: [cap],
+      parentConversationId: parent,
+      actor: { kind: "agent", id: "kernel" },
+      bridge,
+    })
+
+    const handle = runSubagentWorker(
+      bridge,
+      () => makeStubAdapter("pushed"),
+      {},
+      { logger: silentLogger, intervalMs: 10 },
+    )
+
+    const pushed = await waitFor(async () => sent.length > 0)
+    expect(pushed).toBe(true)
+
+    // The single push carries the reply event as JSON.
+    expect(sent.length).toBeGreaterThanOrEqual(1)
+    const firstRaw = sent[0]
+    if (!firstRaw) {
+      // Avoid `throw` per the project rule.
+      await Promise.reject(new Error("expected at least one sent frame"))
+      return
+    }
+    const firstFrame = JSON.parse(firstRaw) as {
+      kind: string
+      conversationId: string
+      event: { eventType: string; event: { content?: string }; eventId: string }
+    }
+    expect(firstFrame.kind).toBe("event")
+    expect(firstFrame.conversationId).toBe(parent)
+    expect(firstFrame.event.eventType).toBe("AssistantMessageProduced")
+    expect(firstFrame.event.event.content).toContain("pushed")
+
+    handle.stop()
+    clearAllSubscribers()
+  })
+
+  it("R8.x.8: pushes the stub reply when no LLM adapter is configured", async () => {
+    const parent = "p-subagent-push-stub"
+    const sent: string[] = []
+    const fakeWs = makeFakeWs(sent)
+    clearAllSubscribers()
+    const set = new Set<WsWebSocket>()
+    set.add(fakeWs)
+    subscribers.set(parent, set)
+
+    const cap: Capability = { tool: "general" as Capability["tool"] }
+    await delegate({
+      role: "stubber",
+      task: "anything",
+      capabilities: [cap],
+      parentConversationId: parent,
+      actor: { kind: "agent", id: "kernel" },
+      bridge,
+    })
+
+    const handle = runSubagentWorker(
+      bridge,
+      () => undefined,
+      {},
+      { logger: silentLogger, intervalMs: 10 },
+    )
+
+    const pushed = await waitFor(async () => sent.length > 0)
+    expect(pushed).toBe(true)
+    const firstRaw = sent[0]
+    if (!firstRaw) {
+      await Promise.reject(new Error("expected at least one sent frame"))
+      return
+    }
+    const firstFrame = JSON.parse(firstRaw) as {
+      kind: string
+      event: { eventType: string; event: { content?: string } }
+    }
+    expect(firstFrame.event.eventType).toBe("AssistantMessageProduced")
+    expect(firstFrame.event.event.content).toContain("未配置 LLM")
+
+    handle.stop()
+    clearAllSubscribers()
+  })
+
+  it("R8.x.8: skips push when no subscribers are registered for the conversationId", async () => {
+    // No subscribers registered — pushEventToSubscribers returns 0
+    // and the worker must still write the reply (no error path).
+    const parent = "p-subagent-no-subs"
+    clearAllSubscribers()
+
+    const cap: Capability = { tool: "general" as Capability["tool"] }
+    await delegate({
+      role: "lonely",
+      task: "anything",
+      capabilities: [cap],
+      parentConversationId: parent,
+      actor: { kind: "agent", id: "kernel" },
+      bridge,
+    })
+
+    const handle = runSubagentWorker(
+      bridge,
+      () => makeStubAdapter("lonely reply"),
+      {},
+      { logger: silentLogger, intervalMs: 10 },
+    )
+
+    const drained = await waitFor(async () => {
+      const events = await bridge.loadStream(parent)
+      return events.some((e) => e.eventType === "AssistantMessageProduced")
+    })
+    expect(drained).toBe(true)
+
+    // No subscribers -> no recorded sends. This guards against the
+    // worker throwing when the registry is empty.
+    expect(subscribers.size).toBe(0)
     handle.stop()
   })
 })

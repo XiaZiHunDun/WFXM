@@ -33,6 +33,7 @@ import { Effect } from "effect"
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
 import { type LLMAdapter, type LLMMessage } from "@butler/adapters"
+import { pushEventToSubscribers } from "./ws-routes.js"
 
 /**
  * Aggregate-type string used by `delegate-runtime` when enqueueing
@@ -153,16 +154,25 @@ async function handleOutboxMessage(
     logger.warn(
       `[subagent-worker] no LLM adapter configured; writing stub reply for child ${childConversationId}`,
     )
-    await bridge.appendConversationEvent({
+    const stubEvent = {
       streamId: msg.streamId,
       eventId: `evt-${Date.now()}-subagent-stub`,
-      eventType: "AssistantMessageProduced",
+      eventType: "AssistantMessageProduced" as const,
       correlationId: `corr-${Date.now()}-subagent`,
-      actor: { kind: "agent", id: `subagent-${role}` },
+      actor: { kind: "agent" as const, id: `subagent-${role}` },
       event: {
-        _tag: "AssistantMessageProduced",
+        _tag: "AssistantMessageProduced" as const,
         content: prefixReply(role, "（子代理未配置 LLM，无法执行）"),
       },
+    }
+    await bridge.appendConversationEvent(stubEvent)
+    // R8.x.8: push the reply to any WS clients subscribed to the
+    // parent conversation. pushEventToSubscribers is a no-op when
+    // nobody is listening, so this is safe to call unconditionally.
+    pushEventToSubscribers(msg.streamId, {
+      eventType: stubEvent.eventType,
+      event: stubEvent.event,
+      eventId: stubEvent.eventId,
     })
     return
   }
@@ -178,13 +188,25 @@ async function handleOutboxMessage(
     }
   }
   try {
-    await bridge.appendConversationEvent({
+    const replyEvent = {
       streamId: msg.streamId,
       eventId: `evt-${Date.now()}-subagent-reply`,
-      eventType: "AssistantMessageProduced",
+      eventType: "AssistantMessageProduced" as const,
       correlationId: `corr-${Date.now()}-subagent`,
-      actor: { kind: "agent", id: `subagent-${role}` },
-      event: { _tag: "AssistantMessageProduced", content: prefixReply(role, result.content) },
+      actor: { kind: "agent" as const, id: `subagent-${role}` },
+      event: {
+        _tag: "AssistantMessageProduced" as const,
+        content: prefixReply(role, result.content),
+      },
+    }
+    await bridge.appendConversationEvent(replyEvent)
+    // R8.x.8: push the reply to any WS clients subscribed to the
+    // parent conversation. pushEventToSubscribers is a no-op when
+    // nobody is listening, so this is safe to call unconditionally.
+    pushEventToSubscribers(msg.streamId, {
+      eventType: replyEvent.eventType,
+      event: replyEvent.event,
+      eventId: replyEvent.eventId,
     })
   } catch (err) {
     logger.error(`[subagent-worker] failed to append reply to parent ${msg.streamId}:`, err)
