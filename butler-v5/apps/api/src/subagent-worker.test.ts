@@ -495,6 +495,119 @@ describe("subagent worker", () => {
     handle.stop()
   })
 
+  it("R8.x.10: advertises only granted tools and refuses ungranted tool_calls", async () => {
+    const parent = "p-subagent-r8x10-deny"
+    const cap: Capability = { tool: "get_current_time" as Capability["tool"] }
+    await delegate({
+      role: "general",
+      task: "what time is it",
+      capabilities: [cap],
+      parentConversationId: parent,
+      actor: { kind: "agent", id: "kernel" },
+      bridge,
+    })
+
+    const advertised: string[][] = []
+    const toolResults: string[] = []
+    let call = 0
+    const adapter: LLMAdapter = {
+      complete: (messages, opts) => {
+        advertised.push((opts?.tools ?? []).map((t) => t.name))
+        if (call === 0) {
+          call += 1
+          return Effect.succeed<LLMAssistantResponse>({
+            content: "",
+            toolCalls: [{ id: "tc-1", name: "recall_history", args: { limit: 5 } }],
+            stopReason: "tool_use",
+          })
+        }
+        const last = messages[messages.length - 1]
+        if (last?.role === "tool") toolResults.push(last.content)
+        return Effect.succeed<LLMAssistantResponse>({
+          content: "denied-path-ok",
+          toolCalls: [],
+          stopReason: "end_turn",
+        })
+      },
+    }
+
+    const handle = runSubagentWorker(
+      bridge,
+      () => adapter,
+      {},
+      { logger: silentLogger, intervalMs: 10 },
+    )
+
+    const drained = await waitFor(async () => {
+      const events = await bridge.loadStream(parent)
+      return events.some(
+        (e) =>
+          e.eventType === "AssistantMessageProduced" &&
+          (e.payload as { content?: string }).content?.includes("denied-path-ok"),
+      )
+    })
+    expect(drained).toBe(true)
+    expect(advertised[0]).toEqual(["get_current_time"])
+    expect(toolResults[0] ?? "").toMatch(/capability denied/i)
+
+    handle.stop()
+  })
+
+  it("R8.x.10: executes a granted tool and feeds the result back to the child", async () => {
+    const parent = "p-subagent-r8x10-allow"
+    const cap: Capability = { tool: "get_current_time" as Capability["tool"] }
+    await delegate({
+      role: "general",
+      task: "tell me the time",
+      capabilities: [cap],
+      parentConversationId: parent,
+      actor: { kind: "agent", id: "kernel" },
+      bridge,
+    })
+
+    const toolResults: string[] = []
+    let call = 0
+    const adapter: LLMAdapter = {
+      complete: (messages) => {
+        if (call === 0) {
+          call += 1
+          return Effect.succeed<LLMAssistantResponse>({
+            content: "",
+            toolCalls: [{ id: "tc-time", name: "get_current_time", args: {} }],
+            stopReason: "tool_use",
+          })
+        }
+        const last = messages[messages.length - 1]
+        if (last?.role === "tool") toolResults.push(last.content)
+        return Effect.succeed<LLMAssistantResponse>({
+          content: "time-ok",
+          toolCalls: [],
+          stopReason: "end_turn",
+        })
+      },
+    }
+
+    const handle = runSubagentWorker(
+      bridge,
+      () => adapter,
+      {},
+      { logger: silentLogger, intervalMs: 10 },
+    )
+
+    const drained = await waitFor(async () => {
+      const events = await bridge.loadStream(parent)
+      return events.some(
+        (e) =>
+          e.eventType === "AssistantMessageProduced" &&
+          (e.payload as { content?: string }).content?.includes("time-ok"),
+      )
+    })
+    expect(drained).toBe(true)
+    expect(toolResults[0] ?? "").toMatch(/Asia\/Shanghai/)
+
+    handle.stop()
+  })
+
   it("R8.x.9: rejects outbox message with invalid capability (does not call LLM)", async () => {
     const parent = "p-subagent-r8x9-reject"
     // Bypass the route layer and enqueue directly so we exercise the

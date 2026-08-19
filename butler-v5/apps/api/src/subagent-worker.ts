@@ -32,10 +32,17 @@
 import { Effect } from "effect"
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
-import { type LLMAdapter, type LLMMessage } from "@butler/adapters"
+import { type LLMAdapter, type LLMAssistantResponse, type LLMMessage } from "@butler/adapters"
 import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
+import { runTool } from "@butler/runtime/tool-runtime.js"
 import { pushEventToSubscribers } from "./ws-routes.js"
 import { appendAudit } from "./audit-log.js"
+import {
+  isToolCallAllowed,
+  llmToolsForCapabilities,
+  normalizeCapabilityNames,
+} from "./capability-guard.js"
+import { findTool, makeWeibutlerTools } from "./tools.js"
 
 /**
  * Aggregate-type string used by `delegate-runtime` when enqueueing
@@ -59,6 +66,16 @@ const LLM_TIMEOUT_MS = 30_000
 const POLL_INTERVAL_MS = 5_000
 
 /**
+ * R8.x.10: bound child tool-call iterations so a chatty model cannot
+ * stall the worker. On overrun we return whatever text we last saw
+ * (or a short fallback).
+ */
+const MAX_CHILD_ITERATIONS = 3
+
+/** Per-tool wall-clock budget inside the child turn. */
+const CHILD_TOOL_TIMEOUT_MS = 5_000
+
+/**
  * Stop signal returned by `runSubagentWorker`. Calling it cancels the
  * next tick (the in-flight tick, if any, runs to completion — there
  * is no preemption since each tick is bounded by `LLM_TIMEOUT_MS`).
@@ -78,36 +95,125 @@ function prefixReply(role: string, content: string): string {
 }
 
 /**
- * Run a single child LLM call. Throws only via the rejected promise
- * path; the caller catches and synthesizes a fallback reply so the
- * outbox message is always marked `delivered`.
+ * Run the child LLM turn. R8.x.10: advertises only granted tools and
+ * refuses to execute any tool_call outside that set. Existing
+ * general-only delegations keep the previous single-shot text path
+ * (no tools advertised).
  */
 async function runChildLlm(
   adapter: LLMAdapter,
   role: string,
   task: string,
+  capabilities: readonly string[],
+  bridge: EventBridge,
+  parentConversationId: string,
+  childConversationId: string,
 ): Promise<{ readonly content: string }> {
+  const advertised = llmToolsForCapabilities(capabilities)
+  const toolHint =
+    advertised.length === 0
+      ? "你没有可用工具，请只用语言作答。"
+      : `你只能使用这些工具: ${advertised.map((t) => t.name).join(", ")}。禁止调用未列出的工具。`
   const messages: LLMMessage[] = [
     {
       role: "system",
-      content: `你是一名 ${role} 子代理，正在处理一个被委派的任务。请用简洁、可直接回复给用户的方式回答。`,
+      content: `你是一名 ${role} 子代理，正在处理一个被委派的任务。请用简洁、可直接回复给用户的方式回答。${toolHint}`,
     },
     { role: "user", content: task },
   ]
-  const outcome = await Effect.runPromise(
-    adapter.complete(messages).pipe(
-      Effect.map((r) => ({ content: r.content })),
-      Effect.timeout(LLM_TIMEOUT_MS),
-      Effect.match({
-        onFailure: (err) => ({ ok: false as const, reason: err.message }),
-        onSuccess: (v) => ({ ok: true as const, value: v }),
-      }),
-    ),
-  )
-  if (!outcome.ok) {
-    return { content: `（子代理 ${role} 调用失败: ${outcome.reason}）` }
+  const runtimeTools = makeWeibutlerTools({
+    bridge,
+    conversationId: parentConversationId,
+    actor: { kind: "agent", id: `subagent-${role}` },
+  })
+  const completeOpts = advertised.length > 0 ? { tools: advertised } : undefined
+  let lastText = ""
+
+  for (let iteration = 0; iteration < MAX_CHILD_ITERATIONS; iteration++) {
+    const outcome = await Effect.runPromise(
+      adapter.complete(messages, completeOpts).pipe(
+        Effect.timeout(LLM_TIMEOUT_MS),
+        Effect.match({
+          onFailure: (err) => ({
+            ok: false as const,
+            reason: err instanceof Error ? err.message : String(err),
+          }),
+          onSuccess: (v: LLMAssistantResponse) => ({ ok: true as const, value: v }),
+        }),
+      ),
+    )
+    if (!outcome.ok) {
+      return { content: `（子代理 ${role} 调用失败: ${outcome.reason}）` }
+    }
+    const response = outcome.value
+    lastText = response.content
+    if (response.toolCalls.length === 0) {
+      return { content: response.content }
+    }
+    messages.push({
+      role: "assistant",
+      content: response.content,
+      toolCalls: response.toolCalls,
+    })
+    const toolResultMessages: LLMMessage[] = []
+    for (const tc of response.toolCalls) {
+      if (!isToolCallAllowed(tc.name, capabilities)) {
+        const reason = `capability denied: ${tc.name}`
+        appendAudit({
+          ts: new Date().toISOString(),
+          kind: "rejection",
+          parentConversationId,
+          childConversationId,
+          role,
+          task,
+          capabilities,
+          reason,
+          toolName: tc.name,
+        })
+        toolResultMessages.push({
+          role: "tool",
+          content: `[error] ${reason}`,
+          toolCallId: tc.id,
+          toolName: tc.name,
+        })
+        continue
+      }
+      const def = findTool(runtimeTools, tc.name)
+      if (!def) {
+        toolResultMessages.push({
+          role: "tool",
+          content: `[error] unknown tool: ${tc.name}`,
+          toolCallId: tc.id,
+          toolName: tc.name,
+        })
+        continue
+      }
+      const toolResult = await runTool(def, tc.args, { timeoutMs: CHILD_TOOL_TIMEOUT_MS })
+      appendAudit({
+        ts: new Date().toISOString(),
+        kind: "tool_call",
+        parentConversationId,
+        childConversationId,
+        role,
+        task,
+        capabilities,
+        toolName: tc.name,
+        reason: toolResult.ok ? "ok" : toolResult.reason,
+      })
+      toolResultMessages.push({
+        role: "tool",
+        content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
+        toolCallId: tc.id,
+        toolName: tc.name,
+      })
+    }
+    messages.push(...toolResultMessages)
   }
-  return outcome.value
+  return {
+    content: lastText.trim()
+      ? lastText
+      : `（子代理 ${role} 工具循环已达上限 ${MAX_CHILD_ITERATIONS}）`,
+  }
 }
 
 /**
@@ -147,9 +253,7 @@ async function handleOutboxMessage(
     typeof payload.childConversationId === "string" ? payload.childConversationId : ""
   const role = typeof payload.role === "string" && payload.role.trim() ? payload.role : "general"
   const task = typeof payload.task === "string" ? payload.task : ""
-  const capabilities = Array.isArray(payload.capabilities)
-    ? payload.capabilities.filter((c): c is string => typeof c === "string")
-    : []
+  const capabilities = normalizeCapabilityNames(payload.capabilities)
   if (!childConversationId || !task) {
     logger.warn(
       `[subagent-worker] outbox msg ${msg.messageId} missing childConversationId or task; skipping`,
@@ -205,7 +309,15 @@ async function handleOutboxMessage(
   let result: { readonly content: string }
   try {
     logger.warn(`[subagent-worker] invoking LLM for role=${role} task=${task.slice(0, 60)}`)
-    result = await runChildLlm(adapter, role, task)
+    result = await runChildLlm(
+      adapter,
+      role,
+      task,
+      capabilities,
+      bridge,
+      msg.streamId,
+      childConversationId,
+    )
     logger.warn(`[subagent-worker] LLM replied: ${result.content.slice(0, 80)}`)
   } catch (err) {
     logger.error(`[subagent-worker] child LLM call failed for child ${childConversationId}:`, err)

@@ -36,7 +36,7 @@ function ensureLogPath(): void {
 /** One audit row written to the JSONL log. */
 export interface AuditEntry {
   readonly ts: string
-  readonly kind: "delegation" | "completion" | "rejection"
+  readonly kind: "delegation" | "completion" | "rejection" | "tool_call"
   readonly parentConversationId: string
   readonly childConversationId: string
   readonly role: string
@@ -44,6 +44,7 @@ export interface AuditEntry {
   readonly capabilities: readonly string[]
   readonly replyExcerpt?: string
   readonly reason?: string
+  readonly toolName?: string
 }
 
 /**

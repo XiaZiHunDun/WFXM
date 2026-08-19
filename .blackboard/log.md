@@ -87,3 +87,7 @@ P1：预回合经验注入 + 对话结束经验写入；P2：语义感知上下�
 
 ## 2026-08-12-claude-code-013 · claude-code
 R9 marker commit — 触发 GitHub Actions 跑 butler-v5-gate 新 job（commit 0db36aad）。Owner 推 main 后观察 Actions tab 验证 5-gate 全绿。
+
+## 2026-08-19-cursor-033 · cursor
+R8.x.10 capability execution guard：子代理只投放已授权工具，未授权 tool_call 拒绝并审计；顺带修了 `delegate()` 的 `{tool}` 载荷被 worker 滤成 `[]` 的问题。21 相关测试 + format/lint/typecheck 绿。未 commit。
+下次：conversationId discovery seam，或落地 `read_file`/`run_command`。
