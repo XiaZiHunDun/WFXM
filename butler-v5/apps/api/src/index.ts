@@ -61,4 +61,5 @@ process.on("SIGTERM", shutdown)
 // (R8.2 uses wiring.eventBridge.loadStream to verify event_store writes).
 export const __wiring__ = wiring
 export const __wsHandle__ = wsHandle
+export { startIlinkPollerIfEnabled } from "./ilink-poller.js"
 export default app

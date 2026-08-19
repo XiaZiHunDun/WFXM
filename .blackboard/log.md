@@ -107,3 +107,7 @@ R8.x.13 多轮记忆：稳定 `c-{project}-{user}` 流 + extractive 压缩注入
 ## 2026-08-19-cursor-037 · cursor
 R8.x.14 LLM 摘要记忆：超预算旧轮次先模型摘要，失败退回抽取。30 相关测试绿。
 下次：重启 gateway；WS subscribe token 或 v4 数据保留拍板。
+
+## 2026-08-19-cursor-038 · cursor
+R8.x.15 v5 自接 iLink：getupdates → inbound → sendmessage；12 测试绿。默认关闭。
+下次：在 live env 开 `BUTLER_V5_ILINK_ENABLED=1` 后重启 gateway。

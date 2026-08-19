@@ -66,6 +66,16 @@ function sendJson(res, status, body) {
   res.end(text)
 }
 
+function extractSendText(msg) {
+  const items = msg.item_list || []
+  for (const it of items) {
+    if (it && (it.type === "text" || it.type === 1)) {
+      return it.text_item?.text || it.text_item?.content || it.text || ""
+    }
+  }
+  return items[0]?.text || ""
+}
+
 function sendEmptyOk(res) {
   res.writeHead(200, { "content-length": "2" })
   res.end("ok")
@@ -99,10 +109,7 @@ const server = http.createServer(async (req, res) => {
       const entry = {
         ts: new Date().toISOString(),
         to_user_id: msg.to_user_id,
-        text:
-          msg.item_list?.find((it) => it.type === "text")?.text_item?.text ||
-          msg.item_list?.[0]?.text ||
-          "",
+        text: extractSendText(msg),
         context_token: msg.context_token,
         client_id: msg.client_id,
       }

@@ -1,15 +1,15 @@
-// @butler/wechat-gateway — 微信入站 + 出站网关
-// Phase 3 实现
+// @butler/wechat-gateway — leftover Phase 3 stub.
+// Native iLink long-poll lives in @butler/api (`ilink-poller.ts`) and
+// starts from `butler start` when BUTLER_V5_ILINK_ENABLED=1.
 
 import { Effect } from "effect"
 import { WeChatGatewayLive } from "@butler/infrastructure"
 
-// ─── 微信网关启动入口 ───────────────────────────────────
 const main = Effect.gen(function* () {
   yield* Effect.logInfo("[WeChat Gateway] Starting...")
-
-  // Phase 3: 启动 WeChatGateway（Phase 4: 接入真实微信回调）
-  yield* Effect.logInfo("[WeChat Gateway] Ready (stub mode)")
+  yield* Effect.logInfo(
+    "[WeChat Gateway] Stub process — enable BUTLER_V5_ILINK_ENABLED=1 on butler start instead",
+  )
   yield* Effect.never
 })
 

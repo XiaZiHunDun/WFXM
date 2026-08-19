@@ -9,11 +9,10 @@
 #   3. systemctl --user enable --now butler-v5-gateway.service
 #   4. systemctl --user status butler-v5-gateway.service
 #
-# Scope caveat: v5 apps/api has /healthz + main routes; v5 apps/wechat-gateway
-# is Phase 3 STUB. The v4 butler-gateway.service (wechat iLink) is what
-# actually receives wechat messages today. After switching to v5, you
-# need either (a) finish v5 wechat-gateway Phase 3+ before stopping v4,
-# or (b) accept that wechat iLink is down during v5 evaluation.
+# WeChat: set BUTLER_V5_ILINK_ENABLED=1 plus WECHAT_TOKEN (and usually
+# WECHAT_ACCOUNT_ID / WECHAT_BASE_URL) in EnvironmentFile. The poller
+# starts after Hono listens. QR login is still out of scope — reuse the
+# token from wechat-setup / existing env. Mock: openclaw-mock.mjs :9999.
 
 [Unit]
 Description=Butler v5 Wiring (Hono API on port 3000, replaces v4 butler-gateway)
