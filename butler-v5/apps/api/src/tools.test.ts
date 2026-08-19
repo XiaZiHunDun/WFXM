@@ -317,4 +317,35 @@ describe("weibutler tools", () => {
       expect(result.reason).toContain("outbox-down")
     }
   })
+
+  it("R8.x.9: delegate_to_subagent with invalid capability returns error envelope", async () => {
+    const tool = makeDelegateToSubagentTool({ bridge, conversationId })
+    const result = await runTool(
+      tool,
+      { task: "x", capabilities: ["general", "shell_bomb"] },
+      { timeoutMs: 1000 },
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toContain("invalid capability: shell_bomb")
+      expect(result.reason).toContain("general")
+    }
+    // No outbox message should have been written.
+    const events = await bridge.loadStream(conversationId)
+    expect(events.filter((e) => e.eventType === "ChildRunCreated")).toHaveLength(0)
+  })
+
+  it("R8.x.9: delegate_to_subagent without capabilities defaults to general", async () => {
+    const tool = makeDelegateToSubagentTool({ bridge, conversationId })
+    const result = await runTool(tool, { task: "default cap" }, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const events = await bridge.loadStream(conversationId)
+      const child = events.find((e) => e.eventType === "ChildRunCreated")
+      expect(child).toBeDefined()
+      const payload = child?.payload as { capabilities?: { tool: string }[] }
+      expect(payload?.capabilities?.length).toBe(1)
+      expect(payload?.capabilities?.[0]?.tool).toBe("general")
+    }
+  })
 })

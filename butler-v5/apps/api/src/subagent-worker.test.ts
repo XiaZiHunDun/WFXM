@@ -494,6 +494,42 @@ describe("subagent worker", () => {
     expect(subscribers.size).toBe(0)
     handle.stop()
   })
+
+  it("R8.x.9: rejects outbox message with invalid capability (does not call LLM)", async () => {
+    const parent = "p-subagent-r8x9-reject"
+    // Bypass the route layer and enqueue directly so we exercise the
+    // worker's defensive allowlist check.
+    await enqueueOutbox(db.db, {
+      streamId: parent,
+      aggregateType: "Delegate",
+      payload: {
+        childConversationId: "child-r8x9-bad",
+        task: "do something dangerous",
+        role: "evil",
+        capabilities: ["general", "shell_bomb"],
+      },
+    })
+
+    const llmAdapter = makeStubAdapter("should-not-be-called")
+    const completeSpy = vi.spyOn(llmAdapter, "complete")
+    const handle = runSubagentWorker(
+      bridge,
+      () => llmAdapter,
+      {},
+      { logger: silentLogger, intervalMs: 10 },
+    )
+
+    // Wait for at least one tick.
+    await new Promise((r) => setTimeout(r, 100))
+
+    // LLM was never invoked.
+    expect(completeSpy).not.toHaveBeenCalled()
+    // No AssistantMessageProduced written.
+    const events = await bridge.loadStream(parent)
+    expect(events.filter((e) => e.eventType === "AssistantMessageProduced")).toHaveLength(0)
+
+    handle.stop()
+  })
 })
 
 /**

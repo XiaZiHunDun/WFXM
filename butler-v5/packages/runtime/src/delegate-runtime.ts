@@ -1,5 +1,25 @@
 import type { EventBridge } from "./bridge.js"
 
+/**
+ * R8.x.9: closed allowlist of capability tool names that a subagent
+ * may be granted. The route layer (`tools.ts`) and the worker layer
+ * (`subagent-worker.ts`) both filter inbound capability sets against
+ * this list so a misconfigured LLM cannot mint arbitrary tool names.
+ *
+ * `general` is the implicit default when the caller does not specify
+ * any capabilities; the worker treats it as "the child can do general
+ * language work" without any extra tool access.
+ */
+export const ALLOWED_CAPABILITIES = [
+  "general",
+  "get_current_time",
+  "summarize_today",
+  "recall_history",
+  "read_file",
+  "run_command",
+] as const
+export type AllowedCapability = (typeof ALLOWED_CAPABILITIES)[number]
+
 export interface Capability {
   readonly tool: string & { readonly __brand: "ToolName" }
 }

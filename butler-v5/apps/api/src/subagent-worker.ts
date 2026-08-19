@@ -33,7 +33,9 @@ import { Effect } from "effect"
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
 import { type LLMAdapter, type LLMMessage } from "@butler/adapters"
+import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
 import { pushEventToSubscribers } from "./ws-routes.js"
+import { appendAudit } from "./audit-log.js"
 
 /**
  * Aggregate-type string used by `delegate-runtime` when enqueueing
@@ -139,15 +141,39 @@ async function handleOutboxMessage(
     childConversationId?: unknown
     role?: unknown
     task?: unknown
+    capabilities?: unknown
   }
   const childConversationId =
     typeof payload.childConversationId === "string" ? payload.childConversationId : ""
   const role = typeof payload.role === "string" && payload.role.trim() ? payload.role : "general"
   const task = typeof payload.task === "string" ? payload.task : ""
+  const capabilities = Array.isArray(payload.capabilities)
+    ? payload.capabilities.filter((c): c is string => typeof c === "string")
+    : []
   if (!childConversationId || !task) {
     logger.warn(
       `[subagent-worker] outbox msg ${msg.messageId} missing childConversationId or task; skipping`,
     )
+    return
+  }
+  // R8.x.9: defensive allowlist check. The route layer already
+  // rejects invalid capabilities, but if an outbox message was
+  // enqueued by another path we still must not call the LLM.
+  const allowedSet = new Set<string>(ALLOWED_CAPABILITIES)
+  const invalidCap = capabilities.find((c) => !allowedSet.has(c))
+  if (invalidCap !== undefined) {
+    const reason = `invalid capability: ${invalidCap} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`
+    logger.warn(`[subagent-worker] rejecting outbox msg ${msg.messageId}: ${reason}`)
+    appendAudit({
+      ts: new Date().toISOString(),
+      kind: "rejection",
+      parentConversationId: msg.streamId,
+      childConversationId,
+      role,
+      task,
+      capabilities,
+      reason,
+    })
     return
   }
   if (!adapter) {
@@ -200,6 +226,19 @@ async function handleOutboxMessage(
       },
     }
     await bridge.appendConversationEvent(replyEvent)
+    // R8.x.9: record completion to the audit log. The excerpt is
+    // capped at 200 chars so the JSONL stays grep-friendly even for
+    // long LLM replies.
+    appendAudit({
+      ts: new Date().toISOString(),
+      kind: "completion",
+      parentConversationId: msg.streamId,
+      childConversationId,
+      role,
+      task,
+      capabilities,
+      replyExcerpt: result.content.slice(0, 200),
+    })
     // R8.x.8: push the reply to any WS clients subscribed to the
     // parent conversation. pushEventToSubscribers is a no-op when
     // nobody is listening, so this is safe to call unconditionally.

@@ -1,7 +1,12 @@
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { LLMTool } from "@butler/adapters"
-import { delegate, type Capability } from "@butler/runtime/delegate-runtime.js"
+import {
+  ALLOWED_CAPABILITIES,
+  delegate,
+  type Capability,
+} from "@butler/runtime/delegate-runtime.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { appendAudit } from "./audit-log.js"
 
 /**
  * Minimal context passed to tool handlers. The butler loop wires the
@@ -210,6 +215,9 @@ export function makeSummarizeTodayTool(ctx: ButlerToolContext): ToolDefinition {
  * tool returns immediately with the new childConversationId so the
  * parent butler loop can keep iterating or finish. Marked medium-risk:
  * it spawns a child run (writes ChildRunCreated + outbox message).
+ *
+ * R8.x.9: capabilities arg (optional) must come from
+ * `ALLOWED_CAPABILITIES`. Defaults to `["general"]` if unspecified.
  */
 export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefinition {
   const defaultActor: { readonly kind: "agent" | "system" | "owner"; readonly id: string } = {
@@ -228,23 +236,55 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
     > {
       const taskRaw = args["task"]
       const roleRaw = args["role"]
+      const capsRaw = args["capabilities"]
       const task = typeof taskRaw === "string" ? taskRaw.trim() : ""
       if (!task) return { ok: false, reason: "task is required" }
       const role = typeof roleRaw === "string" && roleRaw.trim() ? roleRaw.trim() : "general"
+      const requestedCaps: readonly string[] = Array.isArray(capsRaw)
+        ? capsRaw.filter((c): c is string => typeof c === "string")
+        : []
+      const effectiveCaps = requestedCaps.length > 0 ? requestedCaps : ["general"]
+      const allowedSet = new Set<string>(ALLOWED_CAPABILITIES)
+      const invalid = effectiveCaps.find((c) => !allowedSet.has(c))
+      if (invalid !== undefined) {
+        appendAudit({
+          ts: new Date().toISOString(),
+          kind: "rejection",
+          parentConversationId: ctx.conversationId,
+          childConversationId: "",
+          role,
+          task,
+          capabilities: effectiveCaps,
+          reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
+        })
+        return {
+          ok: false,
+          reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
+        }
+      }
       try {
-        // Generic capability placeholder — the child worker is expected
-        // to validate / narrow the capability set against its own
-        // policy. Branding via ToolDefinition["name"] keeps us type-
-        // compatible with Capability["tool"] without re-deriving the
-        // branded string elsewhere.
-        const capability: Capability = { tool: "general" as ToolDefinition["name"] }
+        // Branding via ToolDefinition["name"] keeps us type-compatible
+        // with Capability["tool"] without re-deriving the branded
+        // string elsewhere.
+        const capabilities: Capability[] = effectiveCaps.map(
+          (c) => ({ tool: c }) as unknown as Capability,
+        )
         const outcome = await delegate({
           role,
           task,
-          capabilities: [capability],
+          capabilities,
           parentConversationId: ctx.conversationId,
           actor: ctx.actor ?? defaultActor,
           bridge: ctx.bridge,
+        })
+        appendAudit({
+          ts: new Date().toISOString(),
+          kind: "delegation",
+          parentConversationId: ctx.conversationId,
+          childConversationId: outcome.childConversationId,
+          role,
+          task,
+          capabilities: effectiveCaps,
         })
         return {
           ok: true,
@@ -323,6 +363,12 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
           type: "string",
           description:
             "Optional role hint for the subagent (e.g. 'developer', 'researcher', 'reviewer'). Defaults to 'general'.",
+        },
+        capabilities: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Optional list of capability tool names the subagent may use. Must come from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, run_command). Defaults to ['general'] when unspecified.",
         },
       },
       required: ["task"],
