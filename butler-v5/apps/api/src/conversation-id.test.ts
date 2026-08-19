@@ -4,7 +4,11 @@
  * Spec: docs/superpowers/specs/2026-08-19-conversation-id-client-supplied-design.md
  */
 import { describe, expect, it } from "vitest"
-import { CONVERSATION_ID_MAX_LEN, parseClientConversationId } from "./conversation-id.js"
+import {
+  CONVERSATION_ID_MAX_LEN,
+  defaultWechatConversationId,
+  parseClientConversationId,
+} from "./conversation-id.js"
 
 describe("parseClientConversationId", () => {
   it("returns absent when the field is undefined", () => {
@@ -52,5 +56,20 @@ describe("parseClientConversationId", () => {
   it("rejects non-string types", () => {
     expect(parseClientConversationId(42).kind).toBe("invalid")
     expect(parseClientConversationId({ id: "x" }).kind).toBe("invalid")
+  })
+})
+
+describe("defaultWechatConversationId", () => {
+  it("is stable for the same project and user", () => {
+    expect(defaultWechatConversationId("wechat", "u-omit")).toBe("c-wechat-u-omit")
+    expect(defaultWechatConversationId("wechat", "u-omit")).toBe(
+      defaultWechatConversationId("wechat", "u-omit"),
+    )
+  })
+
+  it("sanitizes illegal characters so the id still parses as valid", () => {
+    const id = defaultWechatConversationId("wechat", "wxid/foo bar")
+    expect(parseClientConversationId(id).kind).toBe("valid")
+    expect(id).toBe("c-wechat-wxid-foo-bar")
   })
 })

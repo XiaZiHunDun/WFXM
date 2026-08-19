@@ -45,3 +45,20 @@ export function parseClientConversationId(raw: unknown): ParseConversationIdResu
   }
   return { kind: "valid", value }
 }
+
+/**
+ * R8.x.13: stable per-user stream id so WeChat turns share history.
+ * Sanitizes project/user so the result always matches CONVERSATION_ID_PATTERN.
+ */
+export function defaultWechatConversationId(projectId: string, fromUserId: string): string {
+  return `c-${sanitizeIdPart(projectId)}-${sanitizeIdPart(fromUserId)}`
+}
+
+function sanitizeIdPart(raw: string): string {
+  const cleaned = raw
+    .trim()
+    .replace(/[^A-Za-z0-9_.:-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  const sliced = cleaned.slice(0, 48)
+  return sliced.length > 0 ? sliced : "unknown"
+}

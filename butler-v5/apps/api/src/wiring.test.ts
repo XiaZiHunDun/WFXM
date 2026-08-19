@@ -87,8 +87,33 @@ describe("v5 wiring", () => {
     })
     expect(res.status).toBe(201)
     const body = (await res.json()) as { conversationId: string; reply: string }
-    expect(body.conversationId).toMatch(/^c-wechat-u-omit-/)
+    expect(body.conversationId).toBe("c-wechat-u-omit")
     expect(body.reply).toBe("stub-reply")
+  })
+
+  it("R8.x.13: two wechat inbounds for the same user reuse one conversationId", async () => {
+    const app = new Hono()
+    createRoutes(app, wiring)
+    const body = {
+      apiVersion: "v1",
+      fromUserId: "u-memory",
+      content: "hello",
+      projectId: "wechat",
+    }
+    const first = await app.request("/v1/wechat/inbound", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    })
+    const second = await app.request("/v1/wechat/inbound", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, content: "follow up" }),
+    })
+    const a = (await first.json()) as { conversationId: string }
+    const b = (await second.json()) as { conversationId: string }
+    expect(a.conversationId).toBe("c-wechat-u-memory")
+    expect(b.conversationId).toBe(a.conversationId)
   })
 
   it("R8.x.11: wechat inbound echoes a valid client conversationId", async () => {

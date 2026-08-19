@@ -12,6 +12,7 @@ import {
   type LLMMessage,
 } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
+import { compactConversationHistory, eventsToHistoryMessages } from "./conversation-memory.js"
 
 /**
  * Maximum tool-call iterations per inbound turn. Bounds the loop so a
@@ -128,13 +129,30 @@ export async function runButlerLoop(args: {
     }
   }
 
-  // 2. Build the initial messages array (system + user). Recent
-  //    history is fetched once at the start; tool-call additions
-  //    accumulate in `trajectoryMessages` for subsequent iterations.
-  const messages: LLMMessage[] = buildWechatInboundMessages(args.content).map((m) => ({
-    role: m.role,
-    content: m.content,
-  }))
+  // 2. Build messages: system + compacted history + current user.
+  //    History is loaded after openTurn so the current TurnOpened is
+  //    on the stream; eventsToHistoryMessages drops that duplicate.
+  const base = buildWechatInboundMessages(args.content)
+  const systemMsg = base[0]
+  const userMsg = base[1]
+  let historyMessages: LLMMessage[] = []
+  let historyCompacted = false
+  try {
+    const events = await bridge.loadStream(args.conversationId)
+    const turns = eventsToHistoryMessages(events, { currentUserContent: args.content })
+    const compact = compactConversationHistory(turns)
+    historyMessages = [...compact.messages]
+    historyCompacted = compact.compacted
+  } catch (err) {
+    logger.warn(
+      "[v5-butler-loop] loadStream for history failed; continuing without memory:",
+      err instanceof Error ? err.message : String(err),
+    )
+  }
+  const messages: LLMMessage[] = []
+  if (systemMsg) messages.push({ role: systemMsg.role, content: systemMsg.content })
+  messages.push(...historyMessages)
+  if (userMsg) messages.push({ role: userMsg.role, content: userMsg.content })
 
   const tools: readonly ToolDefinition[] = makeWeibutlerTools({
     bridge,
@@ -158,6 +176,9 @@ export async function runButlerLoop(args: {
   }
 
   const traces: string[] = []
+  if (historyMessages.length > 0) {
+    traces.push(`history: ${historyMessages.length} msgs compacted=${historyCompacted ? "1" : "0"}`)
+  }
   let toolCalls = 0
   let lastDecision: ModelDecision["_tag"] = "Finish"
 

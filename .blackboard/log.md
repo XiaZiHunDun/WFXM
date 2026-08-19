@@ -99,3 +99,7 @@ R8.x.11 client conversationId：入站可选 id + 校验；e2e 改为先开 WS �
 ## 2026-08-19-cursor-035 · cursor
 R8.x.12 沙箱 `read_file`/`run_command`：工作区根内读文件；argv 白名单且无 shell。71 相关测试 + lint/typecheck 绿。
 下次：重启 gateway；多轮记忆 / WS subscribe token / v4 数据保留拍板。
+
+## 2026-08-19-cursor-036 · cursor
+R8.x.13 多轮记忆：稳定 `c-{project}-{user}` 流 + extractive 压缩注入 butler loop。45 相关测试绿。
+下次：重启 gateway；WS subscribe token 或 v4 `~/.butler/` 保留拍板。

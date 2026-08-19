@@ -1,6 +1,6 @@
 import type { Hono } from "hono"
 import type { Wiring } from "./wiring.js"
-import { parseClientConversationId } from "./conversation-id.js"
+import { parseClientConversationId, defaultWechatConversationId } from "./conversation-id.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 
 export function createRoutes(app: Hono, wiring: Wiring) {
@@ -58,13 +58,16 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     //
     // R8.x.11: optional client-supplied conversationId lets WS
     // clients subscribe before this HTTP handler returns.
+    // R8.x.13: omitted id is stable per project+user so turns share memory.
     const projectId = body.projectId ?? "wechat"
     const parsedId = parseClientConversationId(body.conversationId)
     if (parsedId.kind === "invalid") {
       return c.text(`invalid conversationId: ${parsedId.reason}`, 400)
     }
     const conversationId =
-      parsedId.kind === "valid" ? parsedId.value : `c-${projectId}-${body.fromUserId}-${Date.now()}`
+      parsedId.kind === "valid"
+        ? parsedId.value
+        : defaultWechatConversationId(projectId, body.fromUserId)
     const turnId = `turn-${Date.now()}`
     await wiring.eventBridge.appendConversationEvent({
       streamId: conversationId,

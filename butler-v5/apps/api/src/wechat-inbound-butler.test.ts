@@ -528,4 +528,45 @@ describe("runButlerLoop", () => {
     const events = await bridge.loadStream("c-test-delegate-native")
     expect(events.some((e) => e.eventType === "ChildRunCreated")).toBe(true)
   })
+
+  it("R8.x.13: injects prior user/assistant turns into the first LLM call", async () => {
+    await bridge.appendConversationEvent({
+      streamId: "c-test-memory",
+      eventId: "evt-mem-user",
+      eventType: "TurnOpened",
+      correlationId: "corr-mem-1",
+      actor: { kind: "owner", id: "u-1" },
+      event: { _tag: "TurnOpened", role: "user", content: "我叫小明" },
+    })
+    await bridge.appendConversationEvent({
+      streamId: "c-test-memory",
+      eventId: "evt-mem-asst",
+      eventType: "AssistantMessageProduced",
+      correlationId: "corr-mem-2",
+      actor: { kind: "agent", id: "wechat-butler-v5" },
+      event: { _tag: "AssistantMessageProduced", content: "好的小明" },
+    })
+    const adapter = makeMockAdapter([
+      textResponse(JSON.stringify({ _tag: "Respond", content: "你叫小明" })),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-memory",
+      content: "我叫什么？",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("你叫小明")
+    expect(result.traces.some((t) => t.startsWith("history:"))).toBe(true)
+    const complete = adapter.complete as ReturnType<typeof vi.fn>
+    const firstMessages = complete.mock.calls[0]?.[0] as
+      { role: string; content: string }[] | undefined
+    const contents = (firstMessages ?? []).map((m) => m.content)
+    expect(contents).toContain("我叫小明")
+    expect(contents).toContain("好的小明")
+    expect(contents[contents.length - 1]).toBe("我叫什么？")
+  })
 })
