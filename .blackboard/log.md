@@ -95,3 +95,7 @@ R8.x.10 capability execution guard：子代理只投放已授权工具，未授�
 ## 2026-08-19-cursor-034 · cursor
 R8.x.11 client conversationId：入站可选 id + 校验；e2e 改为先开 WS 再 POST。live e2e OK（~6.5s）。format/lint/typecheck + 18 相关测试绿。
 下次：push，或 reserved tools / WS subscribe token。
+
+## 2026-08-19-cursor-035 · cursor
+R8.x.12 沙箱 `read_file`/`run_command`：工作区根内读文件；argv 白名单且无 shell。71 相关测试 + lint/typecheck 绿。
+下次：重启 gateway；多轮记忆 / WS subscribe token / v4 数据保留拍板。

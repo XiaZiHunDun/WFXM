@@ -55,6 +55,8 @@ export function buildWechatInboundMessages(content: string): readonly LLMMessage
         "- get_current_time(): current time in Asia/Shanghai (UTC+8), formatted in Chinese",
         "- greet_with_time(): a Chinese greeting based on the current time of day",
         "- summarize_today(): 24-hour activity summary for this conversation, broken down by event type",
+        "- read_file(path): read a UTF-8 text file inside the workspace (max 64KiB; path cannot escape the root)",
+        "- run_command(argv): run an allowlisted command with no shell (cat/date/echo/git/head/ls/pwd/wc); args cannot contain '..' or start with '/'",
         "- delegate_to_subagent(task, role?, capabilities?): delegate a task to a subagent (runs in background, returns later). Use when the user's request requires capabilities you don't have. Optional `capabilities` is an array of strings from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, run_command); defaults to ['general'] if unspecified.",
         "",
         "If the user just wants a reply, use Respond. If you need data the tools provide, use CallTool and wait for the tool result. Use Delegate when the work should happen asynchronously in a child agent and you want to keep replying to the user.",

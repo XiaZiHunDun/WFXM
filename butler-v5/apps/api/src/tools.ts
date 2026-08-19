@@ -7,6 +7,7 @@ import {
 } from "@butler/runtime/delegate-runtime.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { appendAudit } from "./audit-log.js"
+import { makeReadFileTool, makeRunCommandTool } from "./workspace-tools.js"
 
 /**
  * Minimal context passed to tool handlers. The butler loop wires the
@@ -21,6 +22,8 @@ export interface ButlerToolContext {
   readonly bridge: EventBridge
   readonly conversationId: string
   readonly actor?: { readonly kind: "owner" | "agent" | "system"; readonly id: string }
+  /** Sandbox root for read_file / run_command. Defaults to cwd / env. */
+  readonly workspaceRoot?: string
 }
 
 /**
@@ -348,6 +351,34 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
     },
   },
   {
+    name: "read_file",
+    description:
+      "Read a UTF-8 text file inside the butler workspace. Pass `path` relative to the workspace root (absolute paths outside the workspace are rejected). Max 64KiB. Use when you need the contents of a project file.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "File path relative to the workspace root." },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "run_command",
+    description:
+      'Run a short allowlisted command in the workspace (no shell). Pass `argv` as a string array, e.g. ["ls", "-la"] or ["git", "status"]. Allowed programs: cat, date, echo, git, head, ls, pwd, wc. Arguments cannot contain \'..\' or start with \'/\'.',
+    parameters: {
+      type: "object",
+      properties: {
+        argv: {
+          type: "array",
+          items: { type: "string" },
+          description: "Program name plus arguments. First element must be an allowlisted command.",
+        },
+      },
+      required: ["argv"],
+    },
+  },
+  {
     name: "delegate_to_subagent",
     description:
       "Delegate a task to a subagent. The subagent runs in the background and returns the result later via its own child conversation stream. Use this when the user's request requires capabilities you don't have directly (e.g., code execution, file operations, web search) or when you want a long-running task to happen asynchronously while you keep replying to the user.",
@@ -387,6 +418,8 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     makeGetCurrentTimeTool(),
     makeGreetWithTimeTool(),
     makeSummarizeTodayTool(ctx),
+    makeReadFileTool(ctx),
+    makeRunCommandTool(ctx),
     makeDelegateToSubagentTool(ctx),
   ]
 }

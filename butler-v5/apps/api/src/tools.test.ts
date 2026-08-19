@@ -27,14 +27,16 @@ describe("weibutler tools", () => {
     await db.close()
   })
 
-  it("WEIBUTLER_LLM_TOOLS exposes 5 provider-agnostic tool descriptors", () => {
-    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(5)
+  it("WEIBUTLER_LLM_TOOLS exposes 7 provider-agnostic tool descriptors", () => {
+    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(7)
     const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
       "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
+      "read_file",
       "recall_history",
+      "run_command",
       "summarize_today",
     ])
     for (const t of WEIBUTLER_LLM_TOOLS) {
@@ -43,14 +45,16 @@ describe("weibutler tools", () => {
     }
   })
 
-  it("makeWeibutlerTools returns 5 runtime ToolDefinitions", () => {
+  it("makeWeibutlerTools returns 7 runtime ToolDefinitions", () => {
     const tools = makeWeibutlerTools({ bridge, conversationId })
-    expect(tools).toHaveLength(5)
+    expect(tools).toHaveLength(7)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
       "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
+      "read_file",
       "recall_history",
+      "run_command",
       "summarize_today",
     ])
     const delegate = tools.find((t) => (t.name as string) === "delegate_to_subagent")

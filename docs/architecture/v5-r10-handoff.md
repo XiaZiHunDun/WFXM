@@ -18,7 +18,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 - **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
 - **Git status:** 20+ commits today on origin/main; everything pushed.
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work (deferred):** v4 data retention (30-day window then delete); `read_file`/`run_command` implementations; optional WS subscribe token API. **R8.x.10 execution guard + R8.x.11 client conversationId seam are done.**
+- **Next work (deferred):** v4 data retention (30-day window then delete); multi-turn conversation memory; optional WS subscribe token API. **R8.x.10–R8.x.12 (execution guard, client conversationId, sandboxed read_file/run_command) are done.**
 
 ---
 
@@ -257,7 +257,7 @@ Owner `ailearn` needs to decide on `~/.butler/` data retention:
 2. **~~Conversation discovery seam~~** — **done in R8.x.11** (optional client `conversationId` on `/v1/wechat/inbound`; WS can pre-subscribe)
 3. **WebSocket subscription API** (`POST /v1/ws/subscribe` returns subscription token)
 4. **Multi-turn conversation memory** (recall_history currently scans recent events; needs summarization for context window)
-5. **Tool registry expansion** (`read_file`, `run_command` reserved in allowlist; need actual implementations)
+5. **~~Tool registry expansion~~** — **done in R8.x.12** (`read_file` / `run_command` sandboxed in `workspace-tools.ts`; workspace root = `workspaceRoot` / `BUTLER_V5_WORKSPACE_ROOT` / cwd)
 6. **~~Capability-based delegation audit~~ (per-tool-call)** — **done in R8.x.10** (`kind: "tool_call"` + denial `rejection` with `toolName`)
 
 ### 8.3 v4 source migration (long-term)

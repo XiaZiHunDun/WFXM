@@ -38,9 +38,9 @@ describe("capability-guard", () => {
     expect(isToolCallAllowed("general", ["general"])).toBe(false)
   })
 
-  it("llmToolsForCapabilities omits general and names without a parent tool", () => {
+  it("llmToolsForCapabilities omits general and advertises granted workspace tools", () => {
     const tools = llmToolsForCapabilities(["general", "get_current_time", "read_file"])
-    expect(tools.map((t) => t.name)).toEqual(["get_current_time"])
+    expect(tools.map((t) => t.name)).toEqual(["get_current_time", "read_file"])
   })
 
   it("llmToolsForCapabilities with only general advertises no tools", () => {

@@ -213,7 +213,9 @@ describe("runButlerLoop", () => {
       "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
+      "read_file",
       "recall_history",
+      "run_command",
       "summarize_today",
     ])
   })
