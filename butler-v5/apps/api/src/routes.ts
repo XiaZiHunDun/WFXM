@@ -1,5 +1,6 @@
 import type { Hono } from "hono"
 import type { Wiring } from "./wiring.js"
+import { parseClientConversationId } from "./conversation-id.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 
 export function createRoutes(app: Hono, wiring: Wiring) {
@@ -36,6 +37,7 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       content?: string
       messageId?: string
       projectId?: string
+      conversationId?: unknown
     }
     if (
       !body ||
@@ -53,8 +55,16 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     // content or the stub fallback — so the v4 → v5 → v4 contract is
     // preserved regardless of LLM availability, tool failure, or
     // decode error.
+    //
+    // R8.x.11: optional client-supplied conversationId lets WS
+    // clients subscribe before this HTTP handler returns.
     const projectId = body.projectId ?? "wechat"
-    const conversationId = `c-${projectId}-${body.fromUserId}-${Date.now()}`
+    const parsedId = parseClientConversationId(body.conversationId)
+    if (parsedId.kind === "invalid") {
+      return c.text(`invalid conversationId: ${parsedId.reason}`, 400)
+    }
+    const conversationId =
+      parsedId.kind === "valid" ? parsedId.value : `c-${projectId}-${body.fromUserId}-${Date.now()}`
     const turnId = `turn-${Date.now()}`
     await wiring.eventBridge.appendConversationEvent({
       streamId: conversationId,

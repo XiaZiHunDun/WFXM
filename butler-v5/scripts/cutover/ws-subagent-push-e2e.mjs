@@ -3,14 +3,13 @@
  * R8.x.9 candidate 2 — live end-to-end test of the
  * subagent → WS push flow.
  *
- * Sequence under test:
- *   1. POST /v1/wechat/inbound with a "delegate" task → 201 +
- *      conversationId + a parent reply that mentions "委派".
- *   2. WS client opens ws://127.0.0.1:3002/v1/ws?conversationId=<id>
- *      AFTER the HTTP response is back. The /v1/wechat/inbound
- *      handler is synchronous-ish — the parent butler loop completes
- *      before HTTP returns, but the subagent reply is written by
- *      the polling worker (5s tick) after the request lands.
+ * Sequence under test (R8.x.11 pre-subscribe seam):
+ *   0. Pick a client conversationId up front.
+ *   1. WS client opens ws://127.0.0.1:3002/v1/ws?conversationId=<id>
+ *      BEFORE the HTTP call (proves the discovery seam).
+ *   2. POST /v1/wechat/inbound with the same conversationId + a
+ *      "delegate" task → 201 + echoed conversationId + a parent
+ *      reply that mentions "委派".
  *   3. Subagent worker fires AssistantMessageProduced → server
  *      calls `pushEventToSubscribers(parentConversationId, event)`
  *      which writes a `{kind:"event", ...}` frame to every
@@ -104,37 +103,13 @@ function frameMentionsAssistantProduced(text) {
 }
 
 async function main() {
-  log(`[+] ${t()} POST ${V5_URL} (delegate test)`)
-  const inbox = curlJson(V5_URL, {
-    apiVersion: "v1",
-    fromUserId: "r8x9-e2e-test",
-    content: "委派一个简单任务给 general 子代理，要求调用 get_current_time 工具获取当前时间",
-    projectId: "r8x9-e2e",
-  })
-  if (!inbox.ok) {
-    console.error(`[!] HTTP call failed: ${inbox.reason}`)
-    process.exit(1)
-  }
-  log(`[+] ${t()} inbox status=${inbox.status} conversationId=${inbox.body?.conversationId}`)
-  log(`[+] ${t()} inbox reply: ${JSON.stringify(inbox.body).slice(0, 240)}...`)
-
-  if (!inbox.body?.conversationId || typeof inbox.body.conversationId !== "string") {
-    console.error(`[!] no conversationId in inbox reply`)
-    process.exit(1)
-  }
-  if (!inbox.body?.reply || !inbox.body.reply.includes("委派")) {
-    console.error(
-      `[!] inbox reply doesn't mention 委派: ${(inbox.body?.reply ?? "").slice(0, 120)}`,
-    )
-    process.exit(1)
-  }
-
-  const conversationId = inbox.body.conversationId
-  const wsUrl = `${WS_URL}?conversationId=${conversationId}`
-  log(`[+] ${t()} WS connect to ${wsUrl}`)
+  const conversationId = `c-r8x11-e2e-presub-${Date.now()}`
+  const wsUrl = `${WS_URL}?conversationId=${encodeURIComponent(conversationId)}`
+  log(`[+] ${t()} WS pre-subscribe to ${wsUrl}`)
 
   const events = []
   let resolved = false
+  let wsReady = false
   const ws = new WebSocket(wsUrl)
 
   const hardKill = setTimeout(() => {
@@ -168,6 +143,9 @@ async function main() {
     }
     events.push({ at: Date.now() - start, kind, data: str })
     log(`[+] ${t()} WS recv kind=${kind}: ${str.slice(0, 220)}`)
+    if (kind === "connected") {
+      wsReady = true
+    }
     if (frameMentionsAssistantProduced(str)) {
       resolved = true
       clearTimeout(hardKill)
@@ -210,6 +188,79 @@ async function main() {
       process.exit(1)
     }
   })
+
+  // Wait until the connected greeting lands so the registry has this
+  // conversationId before inbound enqueues the Delegate outbox msg.
+  const readyDeadline = Date.now() + 5_000
+  while (!wsReady && Date.now() < readyDeadline) {
+    await new Promise((r) => setTimeout(r, 25))
+  }
+  if (!wsReady) {
+    console.error(`[!] WS did not become ready (no connected frame)`)
+    clearTimeout(hardKill)
+    try {
+      ws.close()
+    } catch {
+      // best-effort
+    }
+    process.exit(1)
+  }
+
+  log(`[+] ${t()} POST ${V5_URL} (delegate test, conversationId=${conversationId})`)
+  const inbox = curlJson(V5_URL, {
+    apiVersion: "v1",
+    fromUserId: "r8x11-e2e-test",
+    content: "委派一个简单任务给 general 子代理，要求调用 get_current_time 工具获取当前时间",
+    projectId: "r8x11-e2e",
+    conversationId,
+  })
+  if (!inbox.ok) {
+    console.error(`[!] HTTP call failed: ${inbox.reason}`)
+    clearTimeout(hardKill)
+    try {
+      ws.close()
+    } catch {
+      // best-effort
+    }
+    process.exit(1)
+  }
+  log(`[+] ${t()} inbox status=${inbox.status} conversationId=${inbox.body?.conversationId}`)
+  log(`[+] ${t()} inbox reply: ${JSON.stringify(inbox.body).slice(0, 240)}...`)
+
+  if (inbox.status !== 201) {
+    console.error(`[!] expected 201, got ${inbox.status}`)
+    clearTimeout(hardKill)
+    try {
+      ws.close()
+    } catch {
+      // best-effort
+    }
+    process.exit(1)
+  }
+  if (inbox.body?.conversationId !== conversationId) {
+    console.error(
+      `[!] conversationId mismatch: want ${conversationId} got ${inbox.body?.conversationId}`,
+    )
+    clearTimeout(hardKill)
+    try {
+      ws.close()
+    } catch {
+      // best-effort
+    }
+    process.exit(1)
+  }
+  if (!inbox.body?.reply || !inbox.body.reply.includes("委派")) {
+    console.error(
+      `[!] inbox reply doesn't mention 委派: ${(inbox.body?.reply ?? "").slice(0, 120)}`,
+    )
+    clearTimeout(hardKill)
+    try {
+      ws.close()
+    } catch {
+      // best-effort
+    }
+    process.exit(1)
+  }
 }
 
 main().catch((err) => {

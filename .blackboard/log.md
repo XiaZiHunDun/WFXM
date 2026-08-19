@@ -91,3 +91,7 @@ R9 marker commit — 触发 GitHub Actions 跑 butler-v5-gate 新 job（commit 0
 ## 2026-08-19-cursor-033 · cursor
 R8.x.10 capability execution guard：子代理只投放已授权工具，未授权 tool_call 拒绝并审计；顺带修了 `delegate()` 的 `{tool}` 载荷被 worker 滤成 `[]` 的问题。21 相关测试 + format/lint/typecheck 绿。未 commit。
 下次：conversationId discovery seam，或落地 `read_file`/`run_command`。
+
+## 2026-08-19-cursor-034 · cursor
+R8.x.11 client conversationId：入站可选 id + 校验；e2e 改为先开 WS 再 POST。live e2e OK（~6.5s）。format/lint/typecheck + 18 相关测试绿。
+下次：push，或 reserved tools / WS subscribe token。
