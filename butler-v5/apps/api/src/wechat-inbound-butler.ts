@@ -12,7 +12,10 @@ import {
   type LLMMessage,
 } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
-import { compactConversationHistory, eventsToHistoryMessages } from "./conversation-memory.js"
+import {
+  compactConversationHistoryWithLlm,
+  eventsToHistoryMessages,
+} from "./conversation-memory.js"
 
 /**
  * Maximum tool-call iterations per inbound turn. Bounds the loop so a
@@ -129,30 +132,22 @@ export async function runButlerLoop(args: {
     }
   }
 
-  // 2. Build messages: system + compacted history + current user.
-  //    History is loaded after openTurn so the current TurnOpened is
-  //    on the stream; eventsToHistoryMessages drops that duplicate.
+  // 2. Load prior turns, then compact (LLM summary when over budget)
+  //    after we know the adapter. Current TurnOpened is dropped by
+  //    eventsToHistoryMessages.
   const base = buildWechatInboundMessages(args.content)
   const systemMsg = base[0]
   const userMsg = base[1]
-  let historyMessages: LLMMessage[] = []
-  let historyCompacted = false
+  let historyTurns: LLMMessage[] = []
   try {
     const events = await bridge.loadStream(args.conversationId)
-    const turns = eventsToHistoryMessages(events, { currentUserContent: args.content })
-    const compact = compactConversationHistory(turns)
-    historyMessages = [...compact.messages]
-    historyCompacted = compact.compacted
+    historyTurns = [...eventsToHistoryMessages(events, { currentUserContent: args.content })]
   } catch (err) {
     logger.warn(
       "[v5-butler-loop] loadStream for history failed; continuing without memory:",
       err instanceof Error ? err.message : String(err),
     )
   }
-  const messages: LLMMessage[] = []
-  if (systemMsg) messages.push({ role: systemMsg.role, content: systemMsg.content })
-  messages.push(...historyMessages)
-  if (userMsg) messages.push({ role: userMsg.role, content: userMsg.content })
 
   const tools: readonly ToolDefinition[] = makeWeibutlerTools({
     bridge,
@@ -162,9 +157,6 @@ export async function runButlerLoop(args: {
 
   const adapter = args.adapter ?? pickLLMProvider(env)
   if (!adapter) {
-    // No LLM configured — apply a Finish decision so the kernel
-    // transitions to 'completed' and we return the stub reply. The
-    // v4 contract is preserved.
     await safeApplyDecision(kernel, { _tag: "Finish", reason: "no LLM configured" }, logger)
     return {
       reply: stubReply(args.content, args.fromUserId, args.projectId),
@@ -175,9 +167,16 @@ export async function runButlerLoop(args: {
     }
   }
 
+  const compact = await compactConversationHistoryWithLlm(historyTurns, { adapter })
+  const historyMessages = compact.messages
+  const messages: LLMMessage[] = []
+  if (systemMsg) messages.push({ role: systemMsg.role, content: systemMsg.content })
+  messages.push(...historyMessages)
+  if (userMsg) messages.push({ role: userMsg.role, content: userMsg.content })
+
   const traces: string[] = []
   if (historyMessages.length > 0) {
-    traces.push(`history: ${historyMessages.length} msgs compacted=${historyCompacted ? "1" : "0"}`)
+    traces.push(`history: ${historyMessages.length} msgs compacted=${compact.source}`)
   }
   let toolCalls = 0
   let lastDecision: ModelDecision["_tag"] = "Finish"

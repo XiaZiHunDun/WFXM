@@ -1,11 +1,13 @@
 /**
- * R8.x.13 — multi-turn conversation memory.
+ * R8.x.13 / R8.x.14 — multi-turn conversation memory.
  *
  * Turns the event stream into LLM messages (user / assistant) and
- * compact older turns into a short extractive summary so the context
- * window stays bounded. No extra LLM call.
+ * compact older turns. Default compact is extractive; when an LLM
+ * adapter is provided, dropped turns are summarized by the model
+ * with extractive fallback.
  */
-import type { LLMMessage } from "@butler/adapters"
+import { Effect } from "effect"
+import type { LLMAdapter, LLMMessage } from "@butler/adapters"
 
 export interface HistoryEvent {
   readonly eventType: string
@@ -17,14 +19,19 @@ export interface CompactOptions {
   readonly maxChars?: number
 }
 
+export type CompactSource = "none" | "extractive" | "llm"
+
 export interface CompactResult {
   readonly messages: readonly LLMMessage[]
   readonly compacted: boolean
+  readonly source: CompactSource
 }
 
 const DEFAULT_MAX_MESSAGES = 12
 const DEFAULT_MAX_CHARS = 4000
 const SUMMARY_LINE_MAX = 80
+const SUMMARIZER_TIMEOUT = "8 seconds" as const
+const SUMMARIZER_INPUT_MAX = 6000
 
 function payloadContent(payload: unknown): string {
   if (payload === null || typeof payload !== "object") return ""
@@ -70,20 +77,12 @@ export function eventsToHistoryMessages(
   return out
 }
 
-/**
- * Keep the newest turns that fit the budget. Dropped older turns become
- * one system summary message prepended to the kept list.
- */
-export function compactConversationHistory(
+function splitBudget(
   messages: readonly LLMMessage[],
-  opts: CompactOptions = {},
-): CompactResult {
+  opts: CompactOptions,
+): { readonly kept: readonly LLMMessage[]; readonly dropped: readonly LLMMessage[] } {
   const maxMessages = opts.maxMessages ?? DEFAULT_MAX_MESSAGES
   const maxChars = opts.maxChars ?? DEFAULT_MAX_CHARS
-  if (messages.length === 0) {
-    return { messages: [], compacted: false }
-  }
-
   const kept: LLMMessage[] = []
   let chars = 0
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -95,13 +94,14 @@ export function compactConversationHistory(
     kept.unshift(msg)
     chars = nextChars
   }
-
   const droppedCount = messages.length - kept.length
-  if (droppedCount <= 0) {
-    return { messages: kept, compacted: false }
+  return {
+    kept,
+    dropped: droppedCount > 0 ? messages.slice(0, droppedCount) : [],
   }
+}
 
-  const dropped = messages.slice(0, droppedCount)
+function extractiveSummaryMessage(dropped: readonly LLMMessage[]): LLMMessage {
   const lines = dropped.map((m) => {
     const body =
       m.content.length <= SUMMARY_LINE_MAX
@@ -109,9 +109,94 @@ export function compactConversationHistory(
         : `${m.content.slice(0, SUMMARY_LINE_MAX - 3)}...`
     return `- ${m.role}: ${body}`
   })
-  const summary: LLMMessage = {
+  return {
     role: "system",
     content: `Earlier conversation (summarized, oldest first):\n${lines.join("\n")}`,
   }
-  return { messages: [summary, ...kept], compacted: true }
+}
+
+/**
+ * Keep the newest turns that fit the budget. Dropped older turns become
+ * one extractive system summary message prepended to the kept list.
+ */
+export function compactConversationHistory(
+  messages: readonly LLMMessage[],
+  opts: CompactOptions = {},
+): CompactResult {
+  if (messages.length === 0) {
+    return { messages: [], compacted: false, source: "none" }
+  }
+  const { kept, dropped } = splitBudget(messages, opts)
+  if (dropped.length === 0) {
+    return { messages: kept, compacted: false, source: "none" }
+  }
+  return {
+    messages: [extractiveSummaryMessage(dropped), ...kept],
+    compacted: true,
+    source: "extractive",
+  }
+}
+
+function droppedTranscript(dropped: readonly LLMMessage[]): string {
+  const raw = dropped.map((m) => `${m.role}: ${m.content}`).join("\n")
+  if (raw.length <= SUMMARIZER_INPUT_MAX) return raw
+  return `${raw.slice(0, SUMMARIZER_INPUT_MAX - 3)}...`
+}
+
+async function llmSummarizeDropped(
+  adapter: LLMAdapter,
+  dropped: readonly LLMMessage[],
+): Promise<string | undefined> {
+  const transcript = droppedTranscript(dropped)
+  const messages: LLMMessage[] = [
+    {
+      role: "system",
+      content:
+        "你是对话摘要器。把较早的对话压成不超过 8 句的中文要点，保留人名、偏好、未完成约定。只输出摘要，不要对用户说话。",
+    },
+    { role: "user", content: transcript },
+  ]
+  const outcome = await Effect.runPromise(
+    adapter.complete(messages).pipe(
+      Effect.timeout(SUMMARIZER_TIMEOUT),
+      Effect.match({
+        onFailure: () => ({ ok: false as const }),
+        onSuccess: (resp) => ({ ok: true as const, text: resp.content.trim() }),
+      }),
+    ),
+  )
+  if (!outcome.ok || !outcome.text) return undefined
+  return outcome.text
+}
+
+/**
+ * Same split as extractive compact, but summarize dropped turns with
+ * the LLM when provided. On timeout/empty/error, fall back to extractive.
+ */
+export async function compactConversationHistoryWithLlm(
+  messages: readonly LLMMessage[],
+  opts: CompactOptions & { readonly adapter?: LLMAdapter } = {},
+): Promise<CompactResult> {
+  if (messages.length === 0) {
+    return { messages: [], compacted: false, source: "none" }
+  }
+  const { kept, dropped } = splitBudget(messages, opts)
+  if (dropped.length === 0) {
+    return { messages: kept, compacted: false, source: "none" }
+  }
+  if (opts.adapter) {
+    const text = await llmSummarizeDropped(opts.adapter, dropped)
+    if (text) {
+      return {
+        messages: [{ role: "system", content: `Earlier conversation summary:\n${text}` }, ...kept],
+        compacted: true,
+        source: "llm",
+      }
+    }
+  }
+  return {
+    messages: [extractiveSummaryMessage(dropped), ...kept],
+    compacted: true,
+    source: "extractive",
+  }
 }

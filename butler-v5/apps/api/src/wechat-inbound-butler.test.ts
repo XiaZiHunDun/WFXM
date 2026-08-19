@@ -569,4 +569,47 @@ describe("runButlerLoop", () => {
     expect(contents).toContain("好的小明")
     expect(contents[contents.length - 1]).toBe("我叫什么？")
   })
+
+  it("R8.x.14: over-budget history is LLM-summarized before the butler turn", async () => {
+    const streamId = "c-test-llm-mem"
+    for (let i = 0; i < 7; i++) {
+      await bridge.appendConversationEvent({
+        streamId,
+        eventId: `evt-llm-u-${i}`,
+        eventType: "TurnOpened",
+        correlationId: `corr-llm-u-${i}`,
+        actor: { kind: "owner", id: "u-1" },
+        event: { _tag: "TurnOpened", role: "user", content: `user-${i}` },
+      })
+      await bridge.appendConversationEvent({
+        streamId,
+        eventId: `evt-llm-a-${i}`,
+        eventType: "AssistantMessageProduced",
+        correlationId: `corr-llm-a-${i}`,
+        actor: { kind: "agent", id: "wechat-butler-v5" },
+        event: { _tag: "AssistantMessageProduced", content: `asst-${i}` },
+      })
+    }
+    const adapter = makeMockAdapter([
+      textResponse("用户聊过 0 到若干轮"),
+      textResponse(JSON.stringify({ _tag: "Respond", content: "ok-summary" })),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: streamId,
+      content: "现在呢",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("ok-summary")
+    expect(result.traces.some((t) => t.includes("compacted=llm"))).toBe(true)
+    const complete = adapter.complete as ReturnType<typeof vi.fn>
+    const firstOpts = complete.mock.calls[0]?.[1] as { tools?: unknown } | undefined
+    expect(firstOpts?.tools).toBeUndefined()
+    const secondMessages = complete.mock.calls[1]?.[0] as { content: string }[] | undefined
+    expect((secondMessages ?? []).some((m) => m.content.includes("用户聊过"))).toBe(true)
+  })
 })
