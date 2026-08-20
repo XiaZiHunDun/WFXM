@@ -19,7 +19,7 @@
 3. 在 `butler-v5/AGENTS.md` 区分：
    - 生产路径约束；
    - 未接线脚手架约束；
-   - 目标 Policy/Lease/Sandbox 约束。
+   - 目标 Policy/ScopedGrant/Sandbox 约束。
 4. 把以下 v5 文件加入承重保护候选：
    - `apps/api/src/wechat-inbound-butler.ts`
    - `packages/runtime/src/agent-kernel.ts`

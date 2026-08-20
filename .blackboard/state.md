@@ -1,89 +1,28 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-20 15:10_
-_last_shift: 2026-08-20-cursor-049_
+_last_synced: 2026-08-20 16:20_
+_handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md
 
 ## 当前主线
 
 - Butler v5 是唯一活动产品；v4 已退役。
-- 边界重构文档已完成但尚未提交：v5 产品边界、生产架构事实、P0–P4 路线图、AI Guard 人工迁移清单。
-- 旧 `roadmap-backlog-and-boundaries-2026-05.md` 已标记 SUPERSEDED；核心 README/AGENTS/docs 入口已切到 v5。
-- 当前无进行中的编码任务。
+- 目标架构未提交：三模块五实体；长对话不变量已写入 DESIGN（Conversation 无界、Run 有界、同对话主 Run 串行、工作集有预算）。
+- 工程交接已收成短 `state.md`。黑板不是产品运行时。
+- 无进行中的编码任务。
 
 ## 下一步
 
-- Owner 审阅并决定是否提交/推送本次文档变更。
-- 若继续开发，先做 P0：重复 persistence schema 与未接线脚手架的依赖/归档收口。
-- 再做 P1/P2：持久审批、统一 Policy/Capability Lease、执行与网络沙箱。
-- D1：`~/.butler/` 在 2026-09-18 前不删除。
+- Owner 审阅后提交/推送目标架构与交接文档。
+- 代码迁移另行立项：P0 schema 收口 → P1 Run / Policy / Grant → P2 沙箱。
+- `.blackboard/README.md` 与 Stop hard gate 仍受保护，需人工改到新规约。
+- D1：2026-09-18 前不删除 `~/.butler/`。
 
----
+## 不要做
 
-## Legacy v4 快照（2026-07，仅历史）
+- 不把黑板迁进 v5 Run / Task。
+- 不恢复 claims 或第二套 backlog。
+- 不为百轮对话预建 ContextGraph / 向量库 / Session 聚合。
 
-## 待仲裁 / 阻塞
-（无 — BUTLER_CODING_STRICT 默认升级仍 DEFER 至 G3 观察窗口；首批 multi-category 已落 evidence）
+## 上一班
 
-## 待认领
-- 详见 `tasks/backlog.yaml`
-- 已交付 P0/P1/P2/G2 全部收口（仅 P2 #10 deferred）
-- G3 观察窗口累计（真 subagent pilot ≥3 任务类型）
-
-## 已交付（本会话）
-- **G2-08 CA4 严格模式 pilot opt-in + Phase B 端到端 MATCH**（2026-07-14 14:00–16:00）
-  - 第 1 班 (15:00): infrastructure verified — 11/11 测试全过 + caveat 路径收口
-  - 第 2 班 (16:00): Phase B 真 pilot — rewrite runner 走真实 `apply_delegate_success_gates` 4-gate chain；dev_engine fixture 与 `_run_auto_verify` 真实产出形态一致；**verdict MATCH 捕获率 100% (2/2)** 远超 85% 阈值
-  - 4 文档口径从 deferred 升级为 MATCH（gap register / v4-dev-engine-theory / config reference / post-consolidation-roadmap）
-  - pilot-log §G2-08 段更新为 MATCH 实证
-  - opt-in off 已退出严格
-- **G2-08 BUTLER_CODING_STRICT 默认升级决策 defer**（2026-07-14 16:00–17:00）
-  - 第 3 班 (17:00): decision doc 创建 + 5 文档口径同步（config reference / v4-dev-engine-theory / gap register §0/§2/§6 / post-consolidation-roadmap D3-10/§9 / pilot-log）
-  - 决策依据：Phase B 2/2 sample 不足估计 production false positive 率；改 "0"→"1" 推迟至 G3 1-2 周观察窗口
-  - 升级触发条件：≥3 任务类型 + 0 false positive + ≥85% capture rate（三者同时满足即可再拍）
-  - 测试矩阵 3/3 无回归（直接 Python 验；pytest dotenv 缺包绕过）
-- **G3 首批 multi-category 累计**（2026-07-14 17:00–18:00）
-  - 第 4 班 (18:00): runner 修复 2 个 bug（`|||` 被字符类处理 + 缺 EXIT/INT/TERM trap）→ 改 JSON 透传 + 加 3 信号 trap
-  - 3 categories × 2 cases + smoke = 6 fixture pilots + 1 smoke；**3/3 MATCH 捕获率 100%**（quick 1/1、deep 2/2、lingwen-drill 2/2）+ **0 false positive**
-  - `butler exec` smoke rc=0 仅证 LLM provider 路径可达
-  - 报告 `docs/plans/pilot-reports/pilot-report-G3-2026-07-14-001.md`；决策文档追加 G3 progress 段；pilot-log §G2-08 补 G3 首批行
-  - opt-in off 复位（`state: off` / `BUTLER_CODING_STRICT=0` default）
-- **G3-002 循环导入修复 + 工程完善**（2026-07-15 09:00–10:00）
-  - 修复 `butler.memory.diagnostics` ↔ `butler.session.memory_prefetch` 循环导入：将 `memory_prefetch.py` 第 31 行顶层导入改为函数内延迟导入
-  - 验证：`_tool_delegate_task` 可在 fresh-python env 正常导入
-  - 工作区卫生：`.claude/worktrees/` 和 `interview-明天演示.md` 添加至 .gitignore；`.butler/todos.json` 为项目级文件，根目录不需要
-  - 快速门禁测试全部通过（smoke 139/139, attach 12/12, CC harness 109, P0-A 788, P0-B 19, P1-C 430）
-  - mypy 严格模式仅 1 个无关错误；层依赖矩阵 1237/1238 通过（1 个预先存在的 L3→L9 违规）
-- **Agent Loop 主要流程优化（P0-P2）**（2026-07-16 09:00–16:00）
-  - **P0**: 智能工具选择集成 + 工具执行优化（缓存/去重/监控）
-  - **P1**: 预回合经验注入 + 对话结束经验写入
-  - **P2**: 语义感知上下文压缩（关键词提取 + 语义保护）
-  - 验证：工具缓存 call_count=1、经验读写正常、语义保护 middle从8→0
-  - 新增诊断指标：`experience_injected`、`experience_written`、`semantic_protection_keywords`
-
-## 最近 5 个班次
-- 2026-07-16-claude-code-001: Agent Loop 主要流程优化（P0-P2）完成 — 智能工具选择、经验注入/写入、语义感知上下文压缩
-- 2026-07-15-claude-code-001: G3-002 循环导入修复 + 工程完善 — 修 diagnostics↔memory_prefetch 循环导入 + 工作区卫生 + 快速门禁全部通过
-- 2026-07-14-claude-code-004: G3 首批 multi-category 累计 — 修 runner 2 bug + 3/3 MATCH 100% + 0 false positive
-- 2026-07-14-claude-code-003: G2-08 BUTLER_CODING_STRICT 默认升级决策 — DEFER 至 G3 1-2 周观察窗口
-- 2026-07-14-claude-code-002: G2-08 Phase B 真 pilot — rewrite runner 走 4-gate chain → MATCH 100% 2/2
-
-## 后续任务建议（用户主导）
-
-### 已交付 — 1 个 deferred
-- P0 #1/#2/#3/#3a + P1 #4/#5/#6/#7 + P2 #8/#9 + G2-08 全部 ✅（G2-08 Phase B MATCH + 默认升级 defer 决策 + G3 首批 multi-category MATCH）
-- **P2 #10 publish-archive/publish-merge 审批流** — 已配齐（`enabled: false` + `approval.required: true`），不动除非演示需 smoke
-- **G2-08 BUTLER_CODING_STRICT 默认升级**（G2-08 派生）— 决策 **DEFER**，G3 1-2 周观察窗口累计；满足触发条件随时拍板
-
-### 候选（新 scope，需用户拍板）
-- **G3 真 subagent pilot（content 或非 dev role）** — 构造强制 invoke delegate_task 的 test harness 绕过 `butler.memory.diagnostics` circular import；目标补 ≥1 类非 dev 真 subagent 4-gate chain 实证（同时跑 fixture-baseline 对照）
-- **G1-02 成本标定**（gap register ⏸️）— 是否启动？
-- 14 份 `plans/active/` 持续规划文档 — 多数为对照/收口挂载点，等主线触发
-
-### 工作区卫生（提醒）
-- `.claude/worktrees/` 已添加至 .gitignore
-- `projects/LingWen1/docs/interview-明天演示.md` 已添加至 .gitignore
-- `.butler/todos.json` 为项目级文件，位于各项目目录下（如 `projects/LingWen1/.butler/todos.json`），根目录不需要
-
-### 下次会话
-按 README §会话开始：读 state.md + 最新 shift 卡 → 接活。
-优先：构造绕过 circular import 的 test harness 拿 content 类真 subagent 实证。
+- 把长对话三条不变量写入 DESIGN §5.3 / §6.1 与产品边界。

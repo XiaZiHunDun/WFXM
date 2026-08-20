@@ -1,7 +1,11 @@
-# Butler v5 — 完整设计方案（SSOT）
+# Butler v5 — 历史完整设计方案
 
+> **状态**：SUPERSEDED（2026-08-20）
+> **取代者**：[`../../butler-v5/DESIGN.md`](../../butler-v5/DESIGN.md)
+> **历史范围**：本文记录 v5 初始“完整 Effect 六层 + 全面 Event Sourcing/CQRS”方案，只作设计演进参考，不再约束目标架构或新功能。
+>
 > **日期**：2026-07-30
-> **定位**：Butler v5 函数式架构的**单一权威设计文档**（Single Source of Truth）
+> **原定位**：Butler v5 函数式架构的单一权威设计文档
 > **整合来源**：
 > - [`butler-v5-functional-architecture-2026-07-30.md`](butler-v5-functional-architecture-2026-07-30.md) — 主架构
 > - [`butler-v5-optimization-from-projects-2026-07-30.md`](butler-v5-optimization-from-projects-2026-07-30.md) — 18 条优化建议
@@ -9,7 +13,7 @@
 > - [`strangler-fig-migration-guide-2026-07-30.md`](strangler-fig-migration-guide-2026-07-30.md) — 绞杀者模式
 > - [`functional-migration-supplement-2026-07-30.md`](functional-migration-supplement-2026-07-30.md) — 数据迁移补充
 >
-> **本文档优先级最高**：与上述文档冲突时以本文为准。优化建议已直接融入对应章节，标注 `[OPT-N]` 引用来源。
+> 与当前 `DESIGN.md` 冲突时，以当前 `DESIGN.md` 为准。
 
 ---
 

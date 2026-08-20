@@ -25,21 +25,21 @@ Butler v5 当前提供：
 - PostgreSQL Event Store 生产持久化，PGlite 测试隔离；
 - 多 Provider LLM 与失败降级。
 
-生产调用链、已实现能力和已知缺口见 [v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md)。
+目标设计见 [Butler v5 DESIGN](butler-v5/DESIGN.md)；生产调用链、已实现能力和已知缺口见 [v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md)。
 
 ---
 
 ## 核心能力
 
-| 能力 | 生产实现 |
-|------|----------|
-| **微信** | `apps/api/ilink-poller` + `packages/adapters/wechat` |
-| **Agent Loop** | `apps/api/wechat-inbound-butler` + `packages/runtime/AgentKernel` |
-| **工具** | 历史、时间、摘要、文件读取、受限命令、微信文件发送、委派 |
-| **委派** | transactional outbox + subagent worker + WS push |
-| **记忆** | conversation event history + LLM/extractive compaction |
-| **数据** | PostgreSQL Event Store / Outbox / Snapshot / Projection；测试 PGlite |
-| **扩展边界** | Channel、MCP、浏览器、调度均按 Policy/Lease/Sandbox 条件准入 |
+| 能力           | 生产实现                                                             |
+| -------------- | -------------------------------------------------------------------- |
+| **微信**       | `apps/api/ilink-poller` + `packages/adapters/wechat`                 |
+| **Agent Loop** | `apps/api/wechat-inbound-butler` + `packages/runtime/AgentKernel`    |
+| **工具**       | 历史、时间、摘要、文件读取、受限命令、微信文件发送、委派             |
+| **委派**       | transactional outbox + subagent worker + WS push                     |
+| **记忆**       | conversation event history + LLM/extractive compaction               |
+| **数据**       | PostgreSQL Event Store / Outbox / Snapshot / Projection；测试 PGlite |
+| **扩展边界**   | Channel、MCP、浏览器、调度均按 Policy/ScopedGrant/Sandbox 条件准入   |
 
 ---
 
@@ -47,7 +47,7 @@ Butler v5 当前提供：
 
 Butler 不做多租户 SaaS、公开插件 Marketplace、Kubernetes 默认部署、无限制 shell、宿主机全桌面控制或浏览器端第二套 Loop。
 
-但 MCP、隔离浏览器、本地控制面、多 Channel、定时自治和可观测不再整类否决；它们按“默认关闭、具名范围、短期租约、风险动作即时审批、沙箱与审计”条件准入。唯一边界入口见 [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md)。
+但 MCP、隔离浏览器、本地控制面、多 Channel、定时自治和可观测不再整类否决；它们按“默认关闭、具名范围、短期 ScopedGrant、风险动作即时审批、沙箱与审计”条件准入。唯一边界入口见 [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md)。
 
 ---
 
@@ -69,7 +69,7 @@ Owner ──→ 微信 iLink / CLI / HTTP / WebSocket
                                 PostgreSQL Event Store
 ```
 
-实现细节：[v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md) · 历史迁移：[ADR-0001](docs/adr/2026-08-08-v4-to-v5-supersession.md)
+目标架构：[Butler v5 DESIGN](butler-v5/DESIGN.md) · 当前实现：[v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md) · 历史迁移：[ADR-0001](docs/adr/2026-08-08-v4-to-v5-supersession.md)
 
 ---
 
@@ -149,20 +149,20 @@ docs/                      架构、决策与路线图
 
 ## 文档导航
 
-| 读者 | 从这里开始 |
-|------|------------|
-| **新用户 / 运维** | [v5 handoff](docs/architecture/v5-r10-handoff.md) |
-| **开发者** | [AGENTS.md](AGENTS.md) → [v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md) |
-| **提需求 / 边界** | [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md) |
-| **后续路线** | [post-boundary roadmap](docs/plans/active/v5-post-boundary-roadmap-2026-08.md) |
-| **文档体系** | [DOCUMENTATION.md](docs/DOCUMENTATION.md) |
+| 读者              | 从这里开始                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **新用户 / 运维** | [v5 handoff](docs/architecture/v5-r10-handoff.md)                                                                              |
+| **开发者**        | [AGENTS.md](AGENTS.md) → [目标架构](butler-v5/DESIGN.md) → [当前实现](docs/architecture/v5-production-architecture-2026-08.md) |
+| **提需求 / 边界** | [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md)                                                 |
+| **后续路线**      | [post-boundary roadmap](docs/plans/active/v5-post-boundary-roadmap-2026-08.md)                                                 |
+| **文档体系**      | [DOCUMENTATION.md](docs/DOCUMENTATION.md)                                                                                      |
 
 ---
 
 ## 参与开发
 
 - 改 `butler-v5` 前请读 [AGENTS.md](AGENTS.md) 与 v5 本地规则
-- 贡献约定：[CONTRIBUTING.md](CONTRIBUTING.md)  
+- 贡献约定：[CONTRIBUTING.md](CONTRIBUTING.md)
 - Cursor 规则：`.cursor/rules/`
 
 ---

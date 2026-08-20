@@ -25,7 +25,7 @@
 
 ## 相关
 
-- 黑板入口：[`.blackboard/README.md`](../../.blackboard/README.md)
-- 项目级黑板硬门：[`.claude/settings.json`](../../.claude/settings.json)（Stop hook）
+- 黑板入口：[`../plans/decisions/v5-engineering-handoff-2026-08.md`](../plans/decisions/v5-engineering-handoff-2026-08.md)（短 `state.md`）
+- 旧五件套 spec / Stop hard gate：历史；规约已切换，settings.json 需人工关闭 hard gate
 - 文档分层：[`DOCUMENTATION.md`](../DOCUMENTATION.md) §4.4 superpowers/ 节
 - 异构 Agent 引导：`AGENTS.md`「黑板（班次交接）」节

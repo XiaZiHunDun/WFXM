@@ -27,6 +27,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 ### 2.1 What is Butler?
 
 Single-user, locally-deployed **personal AI butler** at `/home/ailearn/projects/WFXM/`:
+
 - Receives WeChat (via Tencent iLink Bot API long-poll)
 - Runs butler agent loop (LLM + tool calls + state machine)
 - Replies via WeChat
@@ -65,17 +66,17 @@ Single-user, locally-deployed **personal AI butler** at `/home/ailearn/projects/
 
 ## 3. Current Production State
 
-| Component | Status | Details |
-|---|---|---|
-| **v5 Hono HTTP API** | active | port 3000, GET /healthz = 200 |
-| **v5 WS server** | active | port 3002, GET /v1/ws = 426 (upgrade required) |
-| **DEEPSEEK_API_KEY** | set | systemd user service file |
-| **DASHSCOPE_API_KEY** | set | systemd user service file (fallback) |
-| **NO_PROXY** | set | bypasses mihomo proxy for LLM hosts |
-| **wechat-mock (port 3001)** | running | docker container |
-| **postgres (port 5432)** | running | docker container |
-| **v4 systemd services (8 + 7 timers)** | stopped + disabled | R10.x decommission |
-| **v4 Python processes** | none | killed during R10.x |
+| Component                              | Status             | Details                                        |
+| -------------------------------------- | ------------------ | ---------------------------------------------- |
+| **v5 Hono HTTP API**                   | active             | port 3000, GET /healthz = 200                  |
+| **v5 WS server**                       | active             | port 3002, GET /v1/ws = 426 (upgrade required) |
+| **DEEPSEEK_API_KEY**                   | set                | systemd user service file                      |
+| **DASHSCOPE_API_KEY**                  | set                | systemd user service file (fallback)           |
+| **NO_PROXY**                           | set                | bypasses mihomo proxy for LLM hosts            |
+| **wechat-mock (port 3001)**            | running            | docker container                               |
+| **postgres (port 5432)**               | running            | docker container                               |
+| **v4 systemd services (8 + 7 timers)** | stopped + disabled | R10.x decommission                             |
+| **v4 Python processes**                | none               | killed during R10.x                            |
 
 ### 3.1 Production Verifications
 
@@ -111,20 +112,20 @@ node scripts/cutover/ws-routes-e2e.mjs
 
 ## 4. R-stage Progress (origin/main commits today)
 
-| R | Description |
-|---|---|
-| R0-R10 | base scaffold + R10.3 traffic-shift |
-| R8.x.2 | LLM e2e via real wechat + DeepSeek + NO_PROXY bypass mihomo |
-| R8.x.3 | AgentKernel + tool execution + 5-gate pass + 459 tests |
-| R8.x.3.5 | Architectural cleanup — packages/runtime exports |
-| R8.x.4 | Native tool_calls parsing + butler loop |
-| R8.x.5 | Timezone fix (Asia/Shanghai) + 2 new tools |
-| R8.x.6 | Subagent delegation |
-| R8.x.7 | Subagent worker |
-| R8.x.8 | WebSocket push |
-| R8.x.9 | Capability scoping + audit log |
-| R8.x.9 candidate 2 | Live e2e test |
-| R10.x | v4 decommission + ADR-0001 status updated |
+| R                  | Description                                                 |
+| ------------------ | ----------------------------------------------------------- |
+| R0-R10             | base scaffold + R10.3 traffic-shift                         |
+| R8.x.2             | LLM e2e via real wechat + DeepSeek + NO_PROXY bypass mihomo |
+| R8.x.3             | AgentKernel + tool execution + 5-gate pass + 459 tests      |
+| R8.x.3.5           | Architectural cleanup — packages/runtime exports            |
+| R8.x.4             | Native tool_calls parsing + butler loop                     |
+| R8.x.5             | Timezone fix (Asia/Shanghai) + 2 new tools                  |
+| R8.x.6             | Subagent delegation                                         |
+| R8.x.7             | Subagent worker                                             |
+| R8.x.8             | WebSocket push                                              |
+| R8.x.9             | Capability scoping + audit log                              |
+| R8.x.9 candidate 2 | Live e2e test                                               |
+| R10.x              | v4 decommission + ADR-0001 status updated                   |
 
 ---
 
@@ -177,27 +178,27 @@ node scripts/cutover/ws-routes-e2e.mjs
 
 ### 5.3 Core files (where the action lives)
 
-| Concern | File |
-|---|---|
-| Hono routes | `butler-v5/apps/api/src/routes.ts` |
-| Production butler loop | `butler-v5/apps/api/src/wechat-inbound-butler.ts` |
-| Native iLink poller | `butler-v5/apps/api/src/ilink-poller.ts` |
-| AgentKernel state machine | `butler-v5/packages/runtime/src/agent-kernel.ts` |
-| Decision dispatch (Respond/CallTool/Delegate/...) | `butler-v5/packages/runtime/src/decision.ts` |
-| Delegate runtime + outbox enqueue | `butler-v5/packages/runtime/src/delegate-runtime.ts` |
-| LLM adapter (Anthropic + OpenAI-compatible) | `butler-v5/packages/adapters/src/llm-provider.ts` + `anthropic.ts` + `openai-compatible.ts` |
-| EventBridge (append conversation events) | `butler-v5/packages/runtime/src/bridge.ts` |
-| Tool execution + runTool | `butler-v5/packages/runtime/src/tool-runtime.ts` |
-| Tool registry (current 8 tools) | `butler-v5/apps/api/src/tools.ts` |
-| Subagent worker (polls outbox → LLM → reply) | `butler-v5/apps/api/src/subagent-worker.ts` |
-| WebSocket server + pushEventToSubscribers | `butler-v5/apps/api/src/ws-routes.ts` |
-| Audit log (R8.x.9 capability + delegation) | `butler-v5/apps/api/src/audit-log.ts` |
-| Capability allowlist | `butler-v5/packages/runtime/src/delegate-runtime.ts` (`ALLOWED_CAPABILITIES`) |
-| Subagent push e2e test | `butler-v5/scripts/cutover/ws-subagent-push-e2e.mjs` |
-| WS handshake test | `butler-v5/scripts/cutover/ws-routes-e2e.mjs` |
-| wechat-mock (test fixture for R8.x dev) | `butler-v5/scripts/cutover/openclaw-mock.mjs` (port 3001) |
-| Dockerfile / postgres schema | `butler-v5/docker-compose.yml` + `butler-v5/packages/persistence/src/migrations/0001_initial.sql` |
-| ADR-0001 v4→v5 supersession + R10.x status | `docs/adr/2026-08-08-v4-to-v5-supersession.md` |
+| Concern                                           | File                                                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Hono routes                                       | `butler-v5/apps/api/src/routes.ts`                                                                |
+| Production butler loop                            | `butler-v5/apps/api/src/wechat-inbound-butler.ts`                                                 |
+| Native iLink poller                               | `butler-v5/apps/api/src/ilink-poller.ts`                                                          |
+| AgentKernel state machine                         | `butler-v5/packages/runtime/src/agent-kernel.ts`                                                  |
+| Decision dispatch (Respond/CallTool/Delegate/...) | `butler-v5/packages/runtime/src/decision.ts`                                                      |
+| Delegate runtime + outbox enqueue                 | `butler-v5/packages/runtime/src/delegate-runtime.ts`                                              |
+| LLM adapter (Anthropic + OpenAI-compatible)       | `butler-v5/packages/adapters/src/llm-provider.ts` + `anthropic.ts` + `openai-compatible.ts`       |
+| EventBridge (append conversation events)          | `butler-v5/packages/runtime/src/bridge.ts`                                                        |
+| Tool execution + runTool                          | `butler-v5/packages/runtime/src/tool-runtime.ts`                                                  |
+| Tool registry (current 8 tools)                   | `butler-v5/apps/api/src/tools.ts`                                                                 |
+| Subagent worker (polls outbox → LLM → reply)      | `butler-v5/apps/api/src/subagent-worker.ts`                                                       |
+| WebSocket server + pushEventToSubscribers         | `butler-v5/apps/api/src/ws-routes.ts`                                                             |
+| Audit log (R8.x.9 capability + delegation)        | `butler-v5/apps/api/src/audit-log.ts`                                                             |
+| Capability allowlist                              | `butler-v5/packages/runtime/src/delegate-runtime.ts` (`ALLOWED_CAPABILITIES`)                     |
+| Subagent push e2e test                            | `butler-v5/scripts/cutover/ws-subagent-push-e2e.mjs`                                              |
+| WS handshake test                                 | `butler-v5/scripts/cutover/ws-routes-e2e.mjs`                                                     |
+| wechat-mock (test fixture for R8.x dev)           | `butler-v5/scripts/cutover/openclaw-mock.mjs` (port 3001)                                         |
+| Dockerfile / postgres schema                      | `butler-v5/docker-compose.yml` + `butler-v5/packages/persistence/src/migrations/0001_initial.sql` |
+| ADR-0001 v4→v5 supersession + R10.x status        | `docs/adr/2026-08-08-v4-to-v5-supersession.md`                                                    |
 
 `packages/application` and parts of `packages/infrastructure` are not imported by this production path. They are migration scaffolding, not delivered runtime capability. See the production architecture SSOT for their planned disposition.
 
@@ -233,15 +234,15 @@ bash scripts/typecheck-gate.sh   # PASS
 
 ## 7. Known Issues / Technical Debt (non-blocking)
 
-| Issue | Severity | Notes |
-|---|---|---|
-| Approval is not durable | high | `AskApproval` echoes a question; it does not persist/resume the pending action |
-| Production bypasses Effect Application/GuardService | high | Current production path is apps/api async/await; docs must not claim otherwise |
-| Two incompatible persistence schemas | high | `packages/persistence` is production; infrastructure `events` schema must not be wired |
-| Capability Lease is incomplete | high | Tool-name gating exists, but path/domain/call/budget/fingerprint lease fields do not |
-| QR / allowlist / inbound media | — | **R8.x.16 + R8.x.19.** CDN download+AES-ECB to `.butler/ilink-media/`; failure keeps placeholder |
-| Nested `r{2,3,4,5,6}-end-to-end` architecture tests | — | **Closed 2026-08-20:** excluded from default vitest (duplicate of `pnpm gate`) |
-| `openclaw-mock.mjs` only has `/admin/push` and iLink-mock endpoints | low | Working test fixture; expand as needed |
+| Issue                                                               | Severity | Notes                                                                                            |
+| ------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| Approval is not durable                                             | high     | `AskApproval` echoes a question; it does not persist/resume the pending action                   |
+| Production bypasses Effect Application/GuardService                 | high     | Current production path is apps/api async/await; docs must not claim otherwise                   |
+| Two incompatible persistence schemas                                | high     | `packages/persistence` is production; infrastructure `events` schema must not be wired           |
+| Capability Lease is incomplete                                      | high     | Tool-name gating exists, but path/domain/call/budget/fingerprint lease fields do not             |
+| QR / allowlist / inbound media                                      | —        | **R8.x.16 + R8.x.19.** CDN download+AES-ECB to `.butler/ilink-media/`; failure keeps placeholder |
+| Nested `r{2,3,4,5,6}-end-to-end` architecture tests                 | —        | **Closed 2026-08-20:** excluded from default vitest (duplicate of `pnpm gate`)                   |
+| `openclaw-mock.mjs` only has `/admin/push` and iLink-mock endpoints | low      | Working test fixture; expand as needed                                                           |
 
 ---
 
@@ -288,6 +289,7 @@ See [`v5-post-boundary-roadmap-2026-08.md`](../plans/active/v5-post-boundary-roa
 4. **P3:** governed MCP/Channel/local control-plane substrate.
 5. **P4:** separately approved browser, heartbeat, tracing and ingest candidates.
 6. **Calendar:** reconsider deletion of `~/.butler/` after 2026-09-18 (D1).
+
 ---
 
 ## 9. Cursor-Specific Tips
@@ -295,7 +297,7 @@ See [`v5-post-boundary-roadmap-2026-08.md`](../plans/active/v5-post-boundary-roa
 ### 9.1 Use existing tools, don't reinvent
 
 - LLM call → use `pickLLMProvider(env).complete(messages, opts)` from `apps/api/src/llm-provider.ts` (already Anthropic + OpenAI-compatible)
-- Tool definition → extend `WEIBUTLER_LLM_TOOLS` in `apps/api/src/tools.ts`; side effects also require Policy/Lease design
+- Tool definition → extend `WEIBUTLER_LLM_TOOLS` in `apps/api/src/tools.ts`; side effects also require Policy/ScopedGrant design
 - Capability gating → current `ALLOWED_CAPABILITIES` is tool-name-only and must converge to the P1 lease model before broad expansion
 - Event persistence → `bridge.appendConversationEvent(...)` from `packages/runtime/src/bridge.ts`
 - Test infra → `apps/api/src/<file>.test.ts` pattern + `butler-v5/scripts/cutover/<file>.mjs` for live e2e

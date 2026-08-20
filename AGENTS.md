@@ -3,25 +3,27 @@
 > **Butler v5 是唯一活动产品主线；`butler/` v4 已退役。**
 > 新会话不要用 v4 文档、`docs/history/` 或训练记忆推断 v5 实现。
 
-> **新会话开篇前 30 秒**：读 `.blackboard/state.md` + `.blackboard/shifts/` 最近一张卡 + `MEMORY.md` — 然后再按下面的必读表选读。
+> **新会话开篇前 30 秒**：读 `.blackboard/state.md` — 然后再按下面的必读表选读。快照过期时再看最近一张班次卡。交接规约：[`docs/plans/decisions/v5-engineering-handoff-2026-08.md`](docs/plans/decisions/v5-engineering-handoff-2026-08.md)。
 
 ## v5 必读（按顺序）
 
-| # | 文档 | 何时读 |
-|---|------|--------|
-| 1 | [`docs/architecture/v5-production-architecture-2026-08.md`](docs/architecture/v5-production-architecture-2026-08.md) | 改生产 Loop、Gateway、工具、数据或模块边界 |
-| 2 | [`docs/plans/decisions/v5-product-boundaries-2026-08.md`](docs/plans/decisions/v5-product-boundaries-2026-08.md) | 提需求、否决、条件准入与立项 |
-| 3 | [`docs/architecture/v5-r10-handoff.md`](docs/architecture/v5-r10-handoff.md) | 部署、现状、R-stage 与操作交接 |
-| 4 | [`docs/plans/active/v5-post-boundary-roadmap-2026-08.md`](docs/plans/active/v5-post-boundary-roadmap-2026-08.md) | 后续优先级与安全前置 |
-| 5 | [`butler-v5/AGENTS.md`](butler-v5/AGENTS.md) | v5 代码约束、包边界和测试 |
-| 6 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层与维护规则 |
+| #   | 文档                                                                                                                 | 何时读                                       |
+| --- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 1   | [`butler-v5/DESIGN.md`](butler-v5/DESIGN.md)                                                                         | 改目标架构、概念、数据、安全或扩展边界       |
+| 2   | [`docs/architecture/v5-production-architecture-2026-08.md`](docs/architecture/v5-production-architecture-2026-08.md) | 查当前生产 Loop、Gateway、工具、数据与调用链 |
+| 3   | [`docs/plans/decisions/v5-product-boundaries-2026-08.md`](docs/plans/decisions/v5-product-boundaries-2026-08.md)     | 提需求、否决、条件准入与立项                 |
+| 4   | [`docs/architecture/v5-r10-handoff.md`](docs/architecture/v5-r10-handoff.md)                                         | 部署、现状、R-stage 与操作交接               |
+| 5   | [`docs/plans/active/v5-post-boundary-roadmap-2026-08.md`](docs/plans/active/v5-post-boundary-roadmap-2026-08.md)     | 后续优先级与安全前置                         |
+| 6   | [`butler-v5/AGENTS.md`](butler-v5/AGENTS.md)                                                                         | v5 代码约束、包边界和测试                    |
+| 7   | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)                                                                     | 文档分层与维护规则                           |
 
 ## v5 事实规则
 
 - 生产路径是 `butler-v5/cli + apps/api → packages/runtime → adapters/persistence`。
+- 目标架构与当前实现必须分开描述：目标看 `DESIGN.md`，事实看 production architecture。
 - `packages/application` 与部分 `packages/infrastructure` 当前未接入生产；不得用其单测声称能力已交付。
 - 生产数据库 schema 只认 `packages/persistence/src/migrations/0001_initial.sql`。
-- 新入口和新副作用必须遵循 Policy → Approval → Lease → Sandbox → Audit。
+- 新入口归一化为 Run Trigger；新副作用必须经过 Policy →（Ask 时 waiting_approval）→（需要时 ScopedGrant）→ Provider Boundary → Audit。模型调用不走副作用咽喉。
 - MCP、浏览器、UI、多 Channel、调度是**条件准入**，不是默认能力，也不是整类否决。
 - 不要删除 `~/.butler/`，直到 2026-09-18 后 Owner 重新确认 D1。
 
@@ -44,46 +46,47 @@
 
 ### 受保护文件（绝不允许 AI 直接修改）
 
-| 类型 | 文件 | 修改方式 |
-|------|------|----------|
-| 核心循环 | `butler/core/agent_loop/loop.py` | 人工 + 完整门禁 |
-| 契约入口 | `butler/contracts/__init__.py` | 人工 + 契约测试 |
-| 项目配置 | `pyproject.toml` | 人工 + mypy strict |
-| AI 配置 | `.claude/settings.json` | 人工（防自我解除） |
-| AI 守卫 | `scripts/ai_guard/*.py` | 人工（防自我解除） |
-| 交接规约 | `.blackboard/README.md` | 人工 |
+| 类型     | 文件                             | 修改方式           |
+| -------- | -------------------------------- | ------------------ |
+| 核心循环 | `butler/core/agent_loop/loop.py` | 人工 + 完整门禁    |
+| 契约入口 | `butler/contracts/__init__.py`   | 人工 + 契约测试    |
+| 项目配置 | `pyproject.toml`                 | 人工 + mypy strict |
+| AI 配置  | `.claude/settings.json`          | 人工（防自我解除） |
+| AI 守卫  | `scripts/ai_guard/*.py`          | 人工（防自我解除） |
+| 交接规约 | `.blackboard/README.md`          | 人工               |
 
 ### 保护层
 
-| 层 | 触发时机 | 行为 |
-|----|----------|------|
-| `.cursorrules` | AI 工具启动 | 全局行为规则（BLOCK / MUST / SHOULD） |
-| `PreToolUse` hook | Edit/Write/DeleteFile 前 | 阻止修改受保护文件；阻止 `import *` 等危险模式（G4） |
-| `PostToolUse` hook | Edit/Write 后 | 自动运行相关测试子集（覆盖 core/gateway/memory/skills/contracts/orchestrator/delegate/workflows/mcp/resilience/hooks/blackboard） |
-| `pre-commit` hook | `git commit` 前 | 层依赖 + 受保护文件 + lazy import 预算（G1）+ secret 扫描（G3）+ 文件大小守卫（G6） |
-| 契约测试 | `pytest tests/contracts/` | Port 接口签名稳定（G2）+ Shim `__all__` 一致性（G2） |
-| `engineering-gates` CI | push / PR | G1 lazy import + G2 契约 + G6 文件大小 + G7 env hygiene + ENG-15 层依赖 |
-| `Stop` hook | 会话结束 | 黑板交接卡校验（hard gate） |
+| 层                     | 触发时机                  | 行为                                                                                                                              |
+| ---------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `.cursorrules`         | AI 工具启动               | 全局行为规则（BLOCK / MUST / SHOULD）                                                                                             |
+| `PreToolUse` hook      | Edit/Write/DeleteFile 前  | 阻止修改受保护文件；阻止 `import *` 等危险模式（G4）                                                                              |
+| `PostToolUse` hook     | Edit/Write 后             | 自动运行相关测试子集（覆盖 core/gateway/memory/skills/contracts/orchestrator/delegate/workflows/mcp/resilience/hooks/blackboard） |
+| `pre-commit` hook      | `git commit` 前           | 层依赖 + 受保护文件 + lazy import 预算（G1）+ secret 扫描（G3）+ 文件大小守卫（G6）                                               |
+| 契约测试               | `pytest tests/contracts/` | Port 接口签名稳定（G2）+ Shim `__all__` 一致性（G2）                                                                              |
+| `engineering-gates` CI | push / PR                 | G1 lazy import + G2 契约 + G6 文件大小 + G7 env hygiene + ENG-15 层依赖                                                           |
+| `Stop` hook            | 会话结束                  | 旧口径仍校验班次卡；目标改为缺卡软提醒，需人工改 settings.json |
 
 ### 危险模式（G4，PreToolUse 自动检测）
 
-| 模式 | 严重程度 | 原因 |
-|------|----------|------|
-| `from X import *` | BLOCK | 污染命名空间，隐藏依赖 |
-| 注释或删除 `__all__` | WARN | 破坏模块公共接口契约 |
+| 模式                 | 严重程度 | 原因                   |
+| -------------------- | -------- | ---------------------- |
+| `from X import *`    | BLOCK    | 污染命名空间，隐藏依赖 |
+| 注释或删除 `__all__` | WARN     | 破坏模块公共接口契约   |
 
 ### 工程约束（G6，pre-commit + CI 自动检查）
 
-| 约束 | 阈值 | 行为 |
-|------|------|------|
-| 单文件行数 | >800 | 警告（建议拆分） |
-| 单文件行数 | >1200 | 阻止（必须拆分才能提交） |
-| Lazy import 预算 | ≤1910 | 超限阻止提交 |
-| Secret 扫描 | API key/JWT/RSA | 检测到即阻止提交 |
+| 约束             | 阈值            | 行为                     |
+| ---------------- | --------------- | ------------------------ |
+| 单文件行数       | >800            | 警告（建议拆分）         |
+| 单文件行数       | >1200           | 阻止（必须拆分才能提交） |
+| Lazy import 预算 | ≤1910           | 超限阻止提交             |
+| Secret 扫描      | API key/JWT/RSA | 检测到即阻止提交         |
 
 ### 人工覆盖
 
 受保护文件确需修改时：
+
 1. 在 GitHub 创建 issue 说明原因
 2. 由人工执行修改
 3. 运行完整门禁：`./scripts/butler-pytest-fast-gate.sh`
@@ -95,60 +98,39 @@
 
 ## 黑板（班次交接）
 
-**会话开始**：
+工程交接不是产品运行时。默认只维护一份短 `state.md`。完整规约：[`docs/plans/decisions/v5-engineering-handoff-2026-08.md`](docs/plans/decisions/v5-engineering-handoff-2026-08.md)。
 
-```bash
-# 1. 看快照
-cat .blackboard/state.md
-# 2. 看上一班次（最近 1-2 张）
-ls -t .blackboard/shifts/ | head -2
-# 3. 看交接包（若想一屏看完）
-butler blackboard handoff --root .
-```
+**会话开始**：读 `.blackboard/state.md`。快照过期或缺失时再看 `shifts/` 最近一张卡。不要从 `tasks/backlog.yaml`、`log.md` 或缺失的 `MEMORY.md` 推断当前待办。
 
-**会话结束**（hard gate）：
+**会话结束**：把 `state.md` 更新为当前主线、下一步、不要做、上一班一句（约 40 行内）。短会话到此结束。长会话可另写一张短卡。不追加 `log.md`，不改 claims，不强制提交黑板。
 
-```bash
-# 写卡：手动按 .blackboard/README.md 规约；或跑
-butler blackboard validate --shift-id <shift_id>   # 校验
-# append log.md 一段
-# 更新 claim（如有）+ backlog.yaml（如有状态变化）
-# commit 这一组变更
-```
-
-**Hook 提醒**：项目根 `.claude/settings.json` 已配 Stop hook，跑
-`BLACKBOARD_STRICT=1 BLACKBOARD_AGENT=claude-code python3 -m butler.blackboard.integrations.claude_session_end`：
-- 缺卡 → stderr 提醒 + exit 2（**hard gate**，阻断退出）。
-- 有卡 → 自动找今日最新卡并跑 `butler blackboard validate`；通过 exit 0，
-  失败 exit 2。
-- 关掉 hard gate：删 `.claude/settings.json` 的 `hooks.Stop`，或去掉命令前的
-  `BLACKBOARD_STRICT=1`（退回软提醒模式）。
+`.blackboard/README.md` 与 Claude Code Stop hard gate 仍是受保护旧口径，需人工改到上文。在此之前以本段和交接决策文档为准，不要为过 hook 恢复五件套写卡。
 
 ## 代码入口
 
-| 场景 | 路径 |
-|------|------|
-| **目录结构总览** | [`v4-architecture.md`](docs/architecture/v4-architecture.md) §2 九层模型 |
-| **L1 接入与交互** | `butler/gateway/`、`butler/cli/`、`butler/main.py` |
-| **L2 编排与控制** | `butler/orchestrator/`、`butler/workflows/`、`butler/delegate/` |
-| **L3 认知推理环** | `butler/core/`（包：agent_loop/context/compaction/tool/session/llm/loop） |
-| **L4 工具与能力** | `butler/tools/`、`butler/mcp/`、`butler/skills/`、`butler/dev_engine/` |
-| **L5 记忆与知识** | `butler/memory/` |
-| **L6 模型与协议** | `butler/transport/` |
-| **L7 策略与门控** | `butler/permissions/`、`butler/human_gate.py` |
-| **L8 可靠性与韧性** | `butler/resilience/`（message_queue/durable_outbox/idempotency） |
-| **L9 观测与运营** | `butler/ops/`、`butler/eval_integration/` |
-| **横切** | `butler/contracts/`、`butler/configuration/`、`butler/utilities/` |
-| Agent 主循环 | `butler/core/agent_loop/`（包：loop/phases） |
-| 上下文管线 | `butler/core/context/`（context_pipeline/context_compressor/context_budget） |
-| 压缩模块 | `butler/core/compaction/`（turn_compaction/turn_summarizer/preemptive_compact） |
-| 工具模块 | `butler/core/tool/`（tool_batch/tool_dispatch/tool_selector/tool_result_storage） |
-| 会话模块 | `butler/core/session/`（session_transcript/conversation_state/session_todos） |
-| LLM 重试 | `butler/core/llm/`（llm_retry/llm_retry_errors/llm_retry_ops） |
-| Loop 类型 | `butler/core/loop/`（loop_types/loop_middleware/goal_loop） |
-| 配置模块 | `butler/configuration/`（settings/gateway/memory/context/secrets/service/provider_presets） |
-| 工具模块 | `butler/utilities/`（env_parse/logging_config/tenant/repo_paths） |
-| 编码知识层 | `butler/dev_engine/coding_knowledge/`（包：elements/theorems/experience/verification/context/generation） |
+| 场景                | 路径                                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| **目录结构总览**    | [`v4-architecture.md`](docs/architecture/v4-architecture.md) §2 九层模型                                  |
+| **L1 接入与交互**   | `butler/gateway/`、`butler/cli/`、`butler/main.py`                                                        |
+| **L2 编排与控制**   | `butler/orchestrator/`、`butler/workflows/`、`butler/delegate/`                                           |
+| **L3 认知推理环**   | `butler/core/`（包：agent_loop/context/compaction/tool/session/llm/loop）                                 |
+| **L4 工具与能力**   | `butler/tools/`、`butler/mcp/`、`butler/skills/`、`butler/dev_engine/`                                    |
+| **L5 记忆与知识**   | `butler/memory/`                                                                                          |
+| **L6 模型与协议**   | `butler/transport/`                                                                                       |
+| **L7 策略与门控**   | `butler/permissions/`、`butler/human_gate.py`                                                             |
+| **L8 可靠性与韧性** | `butler/resilience/`（message_queue/durable_outbox/idempotency）                                          |
+| **L9 观测与运营**   | `butler/ops/`、`butler/eval_integration/`                                                                 |
+| **横切**            | `butler/contracts/`、`butler/configuration/`、`butler/utilities/`                                         |
+| Agent 主循环        | `butler/core/agent_loop/`（包：loop/phases）                                                              |
+| 上下文管线          | `butler/core/context/`（context_pipeline/context_compressor/context_budget）                              |
+| 压缩模块            | `butler/core/compaction/`（turn_compaction/turn_summarizer/preemptive_compact）                           |
+| 工具模块            | `butler/core/tool/`（tool_batch/tool_dispatch/tool_selector/tool_result_storage）                         |
+| 会话模块            | `butler/core/session/`（session_transcript/conversation_state/session_todos）                             |
+| LLM 重试            | `butler/core/llm/`（llm_retry/llm_retry_errors/llm_retry_ops）                                            |
+| Loop 类型           | `butler/core/loop/`（loop_types/loop_middleware/goal_loop）                                               |
+| 配置模块            | `butler/configuration/`（settings/gateway/memory/context/secrets/service/provider_presets）               |
+| 工具模块            | `butler/utilities/`（env_parse/logging_config/tenant/repo_paths）                                         |
+| 编码知识层          | `butler/dev_engine/coding_knowledge/`（包：elements/theorems/experience/verification/context/generation） |
 
 ## 改代码前守门
 

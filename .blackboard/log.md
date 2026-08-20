@@ -1,7 +1,8 @@
 # WFXM 黑板班次摘要流
 
-> append-only：每个班次结束追加一段 1-3 行摘要。
-> 不要修改历史条目；纠错请追加新条目并说明"修正 N 的 XX 字段"。
+> **冻结**：2026-08-20 起不再追加。历史条目保留。活动交接只更新 `.blackboard/state.md`。见 `docs/plans/decisions/v5-engineering-handoff-2026-08.md`。
+
+> 历史规则：append-only；不要修改历史条目；纠错请追加新条目并说明"修正 N 的 XX 字段"。
 
 ---
 ## 2026-07-13-claude-code-001 · claude-code
@@ -152,3 +153,13 @@ R8.x.21 已推送；R8.x.20 `run_command` 具名扩容（rg/grep/python3/pnpm/no
 
 完成 v5 产品边界重构：新增边界 SSOT、真实生产架构、P0–P4 路线图与 AI Guard 人工迁移清单；旧 v4 边界标记 SUPERSEDED，README/AGENTS/handoff/文档索引统一切到 v5。验证：`git diff --check` 通过，4 个新文档 Prettier 通过。未提交。
 下次：Owner 审阅后提交/推送；继续开发则从 P0 schema/脚手架收口开始。
+
+## 2026-08-20-cursor-050 · cursor
+
+完成 v5 目标架构优化：`DESIGN.md` 从完整 Effect 六层 + 全面 Event Sourcing 收敛为务实模块化单体；统一 Conversation/Run/Step/Task/Procedure/Child Run、ScopedGrant、混合状态+审计、四层记忆和 Trigger/Capability 两条扩展接缝。旧完整设计标记 SUPERSEDED，产品边界、P0–P4 路线和文档入口同步。未提交。
+下次：Owner 审阅后提交/推送；代码迁移另行立项。
+
+## 2026-08-20-cursor-051 · cursor
+
+二次收敛目标架构：三模块五实体；审批=waiting Step；模型独立 Port；审计不双写低风险成功调用；Task/Procedure/记忆表延后。未提交。
+下次：Owner 审阅后提交/推送；代码迁移另行立项。

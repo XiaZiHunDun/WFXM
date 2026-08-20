@@ -1,8 +1,11 @@
 # WFXM 黑板体系设计 — 多 Agent 班次交接
 
+> **状态**：SUPERSEDED  
+> **取代者**：[`../../plans/decisions/v5-engineering-handoff-2026-08.md`](../../plans/decisions/v5-engineering-handoff-2026-08.md)  
+> 下文是 2026-07 五件套设计，不再约束新会话。
+
 - **日期**：2026-07-13
 - **作者**：Claude Code (brainstorming 会话)
-- **状态**：Draft，待用户复审
 - **作用域**：WFXM 仓库内（不跨仓、不进 `reference/`）
 
 ---

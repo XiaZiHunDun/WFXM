@@ -1,8 +1,8 @@
 # Butler 文档体系与维护说明
 
 > **更新**：2026-08-20 | **读者**：Owner、Claude Code Session、Cursor Agent、Codex 等异构 Agent、贡献者
-> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) → 本文（按需）
-> **黑板入口**：`.blackboard/README.md` · 设计 spec [`superpowers/specs/2026-07-13-wfxm-blackboard-design.md`](superpowers/specs/2026-07-13-wfxm-blackboard-design.md) · 实施计划 [`superpowers/plans/2026-07-13-wfxm-blackboard.md`](superpowers/plans/2026-07-13-wfxm-blackboard.md)
+> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) → 本文（按需）
+> **黑板入口**：短快照 [`.blackboard/state.md`](../.blackboard/state.md) · 规约 [`plans/decisions/v5-engineering-handoff-2026-08.md`](plans/decisions/v5-engineering-handoff-2026-08.md) · 旧五件套 spec 已 superseded
 >
 > **与 [`README.md`](README.md) 的关系**：本文是**手册**（分层 / 维护规则 / 索引结构 / 变更记录），适合「我在维护文档 / 改代码时想知道动哪」；[`README.md`](README.md) 是**卡片**（「我要…」问答快速链接表），适合「我想找具体某篇文档」。两者都列文档清单但视角不同——本文按层级 + 维护规则组织，README 按"我要…"问答组织。
 
@@ -12,38 +12,39 @@
 
 ```text
 L0  Agent 入口          AGENTS.md、.cursor/rules/
-L1  实现事实来源        v5-production-architecture、v5-r10-handoff、butler-v5 代码与 env example
-L2  决策与边界          v5-product-boundaries、ADR
-L3  活跃路线            v5-post-boundary-roadmap
+L1  目标架构            butler-v5/DESIGN.md
+L2  当前实现事实        v5-production-architecture、v5-r10-handoff、代码与 env example
+L3  产品决策与路线      v5-product-boundaries、ADR、v5-post-boundary-roadmap
 L4  v4/对照历史         v4 architecture、comparison、learning-plan
-L5  历史（勿作实现依据） docs/history/、已 superseded 文档
+L5  历史（勿作依据）    docs/history/、已 superseded 文档
 ```
 
-| 层级 | 典型路径 | 用途 |
-|------|----------|------|
-| **L1 架构** | `docs/architecture/v5-production-architecture-2026-08.md` | 当前生产调用链、包与数据边界 |
-| **L1 配置** | `butler-v5/.env.example` | v5 环境变量示例 |
-| **L2 决策** | `docs/plans/decisions/v5-product-boundaries-2026-08.md` | 硬边界、条件准入、按需立项 |
-| **L2 路线** | `docs/plans/active/v5-post-boundary-roadmap-2026-08.md` | P0–P4 安全与扩展顺序 |
-| **L2 理论差距** | `docs/plans/decisions/theory-implementation-gap-register-2026-06.md` | 理论声称 vs 代码/运营（G1–G4 登记册） |
-| **L2 Dev 上限** | `docs/plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md` | Dev 对标 CC CLI（非 Cursor IDE） |
-| **L2 规划索引** | `docs/plans/README.md` | 命名对照（CC / 整理 / 外部对标） |
-| **L3 运维指南** | `docs/guides/` | 微信发版、冒烟、Runtime、外部对标验收 |
-| **L3 运维阈值** | `docs/ops/` | `/诊断` 指标说明、诊断入口矩阵 |
-| **L4 对照报告** | `docs/plans/*-comparison*.md` | 竞品对照归档；**正文旧表非待办** |
-| **L4 路线图** | `docs/plans/*-improvement-roadmap*.md` | PR 核对表（§9/§10）；历史 PR 叙述 |
-| **L5 历史** | `docs/history/` | v0.5–v3，已删除实现 |
-| **产品** | `docs/design/design.md` | 产品摘要；§9 对照表可用 |
+| 层级            | 典型路径                                                             | 用途                                                                                  |
+| --------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **L1 目标架构** | `butler-v5/DESIGN.md`                                                | 务实模块化单体：Intake / Run Engine / Governance、混合数据、ScopedGrant、两条扩展接缝 |
+| **L2 当前架构** | `docs/architecture/v5-production-architecture-2026-08.md`            | 当前生产调用链、包与数据边界                                                          |
+| **L2 配置**     | `butler-v5/.env.example`                                             | v5 环境变量示例                                                                       |
+| **L3 决策**     | `docs/plans/decisions/v5-product-boundaries-2026-08.md`              | 硬边界、条件准入、按需立项                                                            |
+| **L3 路线**     | `docs/plans/active/v5-post-boundary-roadmap-2026-08.md`              | P0–P4 安全与扩展顺序                                                                  |
+| **L2 理论差距** | `docs/plans/decisions/theory-implementation-gap-register-2026-06.md` | 理论声称 vs 代码/运营（G1–G4 登记册）                                                 |
+| **L2 Dev 上限** | `docs/plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md`   | Dev 对标 CC CLI（非 Cursor IDE）                                                      |
+| **L2 规划索引** | `docs/plans/README.md`                                               | 命名对照（CC / 整理 / 外部对标）                                                      |
+| **L3 运维指南** | `docs/guides/`                                                       | 微信发版、冒烟、Runtime、外部对标验收                                                 |
+| **L3 运维阈值** | `docs/ops/`                                                          | `/诊断` 指标说明、诊断入口矩阵                                                        |
+| **L4 对照报告** | `docs/plans/*-comparison*.md`                                        | 竞品对照归档；**正文旧表非待办**                                                      |
+| **L4 路线图**   | `docs/plans/*-improvement-roadmap*.md`                               | PR 核对表（§9/§10）；历史 PR 叙述                                                     |
+| **L5 历史**     | `docs/history/`                                                      | v0.5–v3，已删除实现                                                                   |
+| **产品**        | `docs/design/design.md`                                              | 产品摘要；§9 对照表可用                                                               |
 
 ---
 
 ## 2. 三类「规划」文档（勿混淆）
 
-| 类型 | 特征 | 读完应做什么 |
-|------|------|----------------|
-| **路线图（improvement-roadmap）** | 有 PR-F / PR-X / PR1–PR6；§9/§10 为核对表 | 查 §9/§10 是否 ✅；**勿**从 §3–§5 旧 P 表立项 |
-| **对照报告（comparison-report）** | 长文 + P0/P2 提炼表 | 查文首 **落地状态**；否决见 roadmap-backlog §1 |
-| **学习计划（learning-plan）** | 单源对标、已收口多 | 仅作验收索引；defer 见 external-reference-deferred |
+| 类型                              | 特征                                      | 读完应做什么                                       |
+| --------------------------------- | ----------------------------------------- | -------------------------------------------------- |
+| **路线图（improvement-roadmap）** | 有 PR-F / PR-X / PR1–PR6；§9/§10 为核对表 | 查 §9/§10 是否 ✅；**勿**从 §3–§5 旧 P 表立项      |
+| **对照报告（comparison-report）** | 长文 + P0/P2 提炼表                       | 查文首 **落地状态**；否决见 roadmap-backlog §1     |
+| **学习计划（learning-plan）**     | 单源对标、已收口多                        | 仅作验收索引；defer 见 external-reference-deferred |
 
 **统一决策入口**：[`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md)
 
@@ -53,24 +54,24 @@ L5  历史（勿作实现依据） docs/history/、已 superseded 文档
 
 下列主线 **无后续必做 PR**；新能力须对照 §2 决策流，不得从对照报告正文复活待办。
 
-| 主线 | 路线图 / 速查 | 守门 |
-|------|----------------|------|
-| CC 线束 P0–P4 | `cc-butler-gap-analysis` | `test_cc_p3_p4_features` 等 |
-| 四报告 PR1–PR6 | `four-reports-improvement-roadmap` §9 | `four-reports-capabilities` |
-| 五报告 PR-F1–F6 | `five-reports-improvement-roadmap` §9 | `five-reports-capabilities` |
-| 五报告 P5–P10 | `five-reports-not-done` §3 | `butler-five-reports-gate.sh` |
-| 外部 Agent PR-X1–X6 | `external-agent-reports-improvement-roadmap` §10 | `test_external_agent_*` |
-| 外部对标 A/B/C + defer | `guides/external-reference-roadmap` | `phase-abc-external-reference` |
-| OpenCode / OpenClaw / OMO | 各 learning-plan | 各 `test_*` |
-| 仓库整理 P0–P3 | `consolidation-*` | — |
+| 主线                      | 路线图 / 速查                                    | 守门                           |
+| ------------------------- | ------------------------------------------------ | ------------------------------ |
+| CC 线束 P0–P4             | `cc-butler-gap-analysis`                         | `test_cc_p3_p4_features` 等    |
+| 四报告 PR1–PR6            | `four-reports-improvement-roadmap` §9            | `four-reports-capabilities`    |
+| 五报告 PR-F1–F6           | `five-reports-improvement-roadmap` §9            | `five-reports-capabilities`    |
+| 五报告 P5–P10             | `five-reports-not-done` §3                       | `butler-five-reports-gate.sh`  |
+| 外部 Agent PR-X1–X6       | `external-agent-reports-improvement-roadmap` §10 | `test_external_agent_*`        |
+| 外部对标 A/B/C + defer    | `guides/external-reference-roadmap`              | `phase-abc-external-reference` |
+| OpenCode / OpenClaw / OMO | 各 learning-plan                                 | 各 `test_*`                    |
+| 仓库整理 P0–P3            | `consolidation-*`                                | —                              |
 
 **仍活跃的产品规划**：[`plans/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md)（运营、语料、多项目 — 与对标正交）
 
-| 主线 | 路线图 / 速查 | 守门 |
-|------|----------------|------|
-| 闭环优化 Phase 0–8 | `post-consolidation-roadmap` §3 | eval / experience / cost 相关 tests |
-| **Phase 9 工程/文档收口** | `post-consolidation-roadmap` **§9** + `theory-implementation-gap-register` | `butler-gap-observability.sh` |
-| 末批真机（Phase 4 A/B） | `projects/LingWen1/docs/pilot-log.md` §真机验收策略 | 微信人工勾选 |
+| 主线                      | 路线图 / 速查                                                              | 守门                                |
+| ------------------------- | -------------------------------------------------------------------------- | ----------------------------------- |
+| 闭环优化 Phase 0–8        | `post-consolidation-roadmap` §3                                            | eval / experience / cost 相关 tests |
+| **Phase 9 工程/文档收口** | `post-consolidation-roadmap` **§9** + `theory-implementation-gap-register` | `butler-gap-observability.sh`       |
+| 末批真机（Phase 4 A/B）   | `projects/LingWen1/docs/pilot-log.md` §真机验收策略                        | 微信人工勾选                        |
 
 ---
 
@@ -78,48 +79,49 @@ L5  历史（勿作实现依据） docs/history/、已 superseded 文档
 
 ### 4.1 `docs/architecture/`
 
-| 文档 | 状态 |
-|------|------|
-| [`v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产架构（必读）** |
-| [`v4-architecture.md`](architecture/v4-architecture.md) | v4 历史架构，不作 v5 实现依据 |
-| [`v4-layer-model.md`](architecture/v4-layer-model.md) | **九层参考模型**（分模块选型 / 依赖守门 / §9 决策树） |
-| [`layer-theory-engineering-map.md`](architecture/layer-theory-engineering-map.md) | **理论七层 ↔ 工程九层**映射与定理索引 |
-| [`hermes-decoupling.md`](architecture/hermes-decoupling.md) | 已完成 |
-| [`hermes-butler-comparison-2026-05.md`](architecture/hermes-butler-comparison-2026-05.md) | 对照全文 |
-| [`memory-roadmap.md`](architecture/memory-roadmap.md) | 记忆能力路线图（P0–P2 已落地） |
-| [`execution-surface-design.md`](architecture/execution-surface-design.md) | **执行面详设**：Skill / Builtin Tool / MCP 管理与信任级联接线（不改 MA/MT） |
-| [`v4-memory-theory.md`](architecture/v4-memory-theory.md) | L6 记忆子理论 v1.2（契约层 + Experience 沉积） |
-| [`v4-context-memory-compaction.md`](architecture/v4-context-memory-compaction.md) | **上下文与记忆压缩专篇**（三层概念、配置决策树、S_f 观测） |
-| [`v4-skill-memory-theory.md`](architecture/v4-skill-memory-theory.md) | ~~L6 v2 合一草案~~ **已搁置**；当前策略见 `memory-roadmap` §检索信任级联 |
-| [`project-layer-wechat-plan.md`](architecture/project-layer-wechat-plan.md) | 项目层微信规划 |
-| [`analysis/README.md`](architecture/analysis/README.md) | **理论分析包**（建模 / 形式化 / 蓝图；审阅用，非实现 SSOT） |
-| 其余 ADR / 设计稿 | 按需 |
+| 文档                                                                                          | 状态                                                                        |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md)                                            | **v5 目标架构 SSOT（必读）**                                                |
+| [`v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产架构（必读）**                                                    |
+| [`v4-architecture.md`](architecture/v4-architecture.md)                                       | v4 历史架构，不作 v5 实现依据                                               |
+| [`v4-layer-model.md`](architecture/v4-layer-model.md)                                         | **九层参考模型**（分模块选型 / 依赖守门 / §9 决策树）                       |
+| [`layer-theory-engineering-map.md`](architecture/layer-theory-engineering-map.md)             | **理论七层 ↔ 工程九层**映射与定理索引                                       |
+| [`hermes-decoupling.md`](architecture/hermes-decoupling.md)                                   | 已完成                                                                      |
+| [`hermes-butler-comparison-2026-05.md`](architecture/hermes-butler-comparison-2026-05.md)     | 对照全文                                                                    |
+| [`memory-roadmap.md`](architecture/memory-roadmap.md)                                         | 记忆能力路线图（P0–P2 已落地）                                              |
+| [`execution-surface-design.md`](architecture/execution-surface-design.md)                     | **执行面详设**：Skill / Builtin Tool / MCP 管理与信任级联接线（不改 MA/MT） |
+| [`v4-memory-theory.md`](architecture/v4-memory-theory.md)                                     | L6 记忆子理论 v1.2（契约层 + Experience 沉积）                              |
+| [`v4-context-memory-compaction.md`](architecture/v4-context-memory-compaction.md)             | **上下文与记忆压缩专篇**（三层概念、配置决策树、S_f 观测）                  |
+| [`v4-skill-memory-theory.md`](architecture/v4-skill-memory-theory.md)                         | ~~L6 v2 合一草案~~ **已搁置**；当前策略见 `memory-roadmap` §检索信任级联    |
+| [`project-layer-wechat-plan.md`](architecture/project-layer-wechat-plan.md)                   | 项目层微信规划                                                              |
+| [`analysis/README.md`](architecture/analysis/README.md)                                       | **理论分析包**（建模 / 形式化 / 蓝图；审阅用，非实现 SSOT）                 |
+| 其余 ADR / 设计稿                                                                             | 按需                                                                        |
 
 ### 4.2 `docs/guides/`
 
 索引：[`guides/README.md`](guides/README.md)
 
-| 类别 | 代表文档 |
-|------|----------|
+| 类别                | 代表文档                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
 | **项目总览 / 依赖** | `capabilities-index-2026-05`、`dependency-policy-2026-05`、**`project-knowledge-graph-2026-06`** |
-| **生产运维** | `wechat-gateway-ops`、`wechat-daily-smoke-checklist`、`phase4-ops-runbook` |
-| **能力速查** | `four-reports-capabilities`、`five-reports-capabilities`、`external-agent-reports-capabilities` |
-| **外部对标验收** | `external-reference-roadmap`、`phase-abc-external-reference`、`external-reference-deferred` |
-| **Sprint / Codex** | `sprint-roadmap`、`sprint-codex-c0/c1/c2` |
-| **接入** | `project-onboarding`、`memory-ops`、`runtime-ops` |
+| **生产运维**        | `wechat-gateway-ops`、`wechat-daily-smoke-checklist`、`phase4-ops-runbook`                       |
+| **能力速查**        | `four-reports-capabilities`、`five-reports-capabilities`、`external-agent-reports-capabilities`  |
+| **外部对标验收**    | `external-reference-roadmap`、`phase-abc-external-reference`、`external-reference-deferred`      |
+| **Sprint / Codex**  | `sprint-roadmap`、`sprint-codex-c0/c1/c2`                                                        |
+| **接入**            | `project-onboarding`、`memory-ops`、`runtime-ops`                                                |
 
 ### 4.3 `docs/plans/`（分子目录）
 
 索引：[`plans/README.md`](plans/README.md)
 
-| 子目录 | 说明 |
-|--------|------|
-| `active/` | `post-consolidation`、`cc-butler-gap-analysis`、`software-engineering-refactor-2026-06`、`project-optimization-directions-2026-06` |
-| `decisions/` | **roadmap-backlog**、**theory-implementation-gap-register**、out-of-scope、five-reports-not-done |
-| `roadmaps/` | 四/五/外部 Agent 已收口路线图 §9/§10 |
-| `comparisons/` | 对照全文（**非待办**） |
-| `corpus/` | 语料与微信场景 |
-| `archive/` | 已完成实施、历史分析；含 [`superpowers/`](plans/archive/superpowers/README.md)（Cursor 实施稿）、[`butler-closed-loop-optimization-plan-2026-06-09.md`](plans/archive/butler-closed-loop-optimization-plan-2026-06-09.md)、[`wechat-ilink-round3-2026-06.md`](plans/archive/wechat-ilink-round3-2026-06.md)（done 2026-06-29）、[`personal-butler-engineering-plan-2026-06.md`](plans/archive/personal-butler-engineering-plan-2026-06.md)（✅ 已结案 2026-06-15） |
+| 子目录         | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `active/`      | `post-consolidation`、`cc-butler-gap-analysis`、`software-engineering-refactor-2026-06`、`project-optimization-directions-2026-06`                                                                                                                                                                                                                                                                                                                                 |
+| `decisions/`   | **roadmap-backlog**、**theory-implementation-gap-register**、out-of-scope、five-reports-not-done                                                                                                                                                                                                                                                                                                                                                                   |
+| `roadmaps/`    | 四/五/外部 Agent 已收口路线图 §9/§10                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `comparisons/` | 对照全文（**非待办**）                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `corpus/`      | 语料与微信场景                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `archive/`     | 已完成实施、历史分析；含 [`superpowers/`](plans/archive/superpowers/README.md)（Cursor 实施稿）、[`butler-closed-loop-optimization-plan-2026-06-09.md`](plans/archive/butler-closed-loop-optimization-plan-2026-06-09.md)、[`wechat-ilink-round3-2026-06.md`](plans/archive/wechat-ilink-round3-2026-06.md)（done 2026-06-29）、[`personal-butler-engineering-plan-2026-06.md`](plans/archive/personal-butler-engineering-plan-2026-06.md)（✅ 已结案 2026-06-15） |
 
 发版：[`guides/release-runbook-2026-05.md`](guides/release-runbook-2026-05.md) · 能力索引：[`guides/capabilities-index-2026-05.md`](guides/capabilities-index-2026-05.md)
 
@@ -141,13 +143,13 @@ L5  历史（勿作实现依据） docs/history/、已 superseded 文档
 
 与 Butler Loop 对标 **正交**；改 `tests/corpus/` 或 `message_handler` 时读。
 
-| 文档 | 用途 |
-|------|------|
-| [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus/corpus-testing-module-design-2026-05.md) | 语料模块设计 |
-| [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/corpus/wechat-real-coverage-matrix-2026-05.md) | 真机覆盖矩阵 |
-| [`plans/wechat-dev-conversation-scenarios-2026-05.md`](plans/corpus/wechat-dev-conversation-scenarios-2026-05.md) | 开发对话场景 |
-| [`plans/dev-assistant-corpus-history-2026-05.md`](plans/corpus/dev-assistant-corpus-history-2026-05.md) | 语料 v1–v4 版本史 |
-| [`guides/project-intro-for-utterance-corpus.md`](guides/project-intro-for-utterance-corpus.md) | 语料项目介绍 |
+| 文档                                                                                                              | 用途              |
+| ----------------------------------------------------------------------------------------------------------------- | ----------------- |
+| [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus/corpus-testing-module-design-2026-05.md)           | 语料模块设计      |
+| [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/corpus/wechat-real-coverage-matrix-2026-05.md)             | 真机覆盖矩阵      |
+| [`plans/wechat-dev-conversation-scenarios-2026-05.md`](plans/corpus/wechat-dev-conversation-scenarios-2026-05.md) | 开发对话场景      |
+| [`plans/dev-assistant-corpus-history-2026-05.md`](plans/corpus/dev-assistant-corpus-history-2026-05.md)           | 语料 v1–v4 版本史 |
+| [`guides/project-intro-for-utterance-corpus.md`](guides/project-intro-for-utterance-corpus.md)                    | 语料项目介绍      |
 
 命令：[`../CONTRIBUTING.md`](../CONTRIBUTING.md) 语料节、`./scripts/corpus-test.sh`
 
@@ -157,24 +159,24 @@ L5  历史（勿作实现依据） docs/history/、已 superseded 文档
 
 ### 6.1 改 `butler/core` 或 `butler/gateway`
 
-1. 更新 [`architecture/v4-architecture.md`](architecture/v4-architecture.md) 相关节  
-2. 新 `BUTLER_*` → [`config/reference.md`](config/reference.md) + `.env.example`  
-3. 改 `pyproject.toml` 依赖分层（`dependencies` / `optional-dependencies`）→ 同步 [`guides/dependency-policy-2026-05.md`](guides/dependency-policy-2026-05.md)  
-4. 若属 CC 线束 → [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) §3  
+1. 更新 [`architecture/v4-architecture.md`](architecture/v4-architecture.md) 相关节
+2. 新 `BUTLER_*` → [`config/reference.md`](config/reference.md) + `.env.example`
+3. 改 `pyproject.toml` 依赖分层（`dependencies` / `optional-dependencies`）→ 同步 [`guides/dependency-policy-2026-05.md`](guides/dependency-policy-2026-05.md)
+4. 若属 CC 线束 → [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) §3
 5. 阈值 → [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md)
 
 ### 6.1a 改分层、`butler/contracts/` 或跨层 Port
 
-1. 分层边界 → [`architecture/v4-layer-model.md`](architecture/v4-layer-model.md)（§3 映射、§4 依赖矩阵、§9 决策树）  
-2. 理论/定理锚点 → [`architecture/layer-theory-engineering-map.md`](architecture/layer-theory-engineering-map.md)  
-3. 新 Port → [`butler/contracts/README.md`](../butler/contracts/README.md)；跑 `bash scripts/butler-layer-import-gate.sh`（ENG-15）  
+1. 分层边界 → [`architecture/v4-layer-model.md`](architecture/v4-layer-model.md)（§3 映射、§4 依赖矩阵、§9 决策树）
+2. 理论/定理锚点 → [`architecture/layer-theory-engineering-map.md`](architecture/layer-theory-engineering-map.md)
+3. 新 Port → [`butler/contracts/README.md`](../butler/contracts/README.md)；跑 `bash scripts/butler-layer-import-gate.sh`（ENG-15）
 4. 前提/定理复验 → [`architecture/analysis/formal-theory-2026-07.md`](architecture/analysis/formal-theory-2026-07.md)；差距 → `theory-implementation-gap-register`
 
 ### 6.2 新能力需求（产品 / 对标）
 
 1. 先读 [`v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) 裁决流
-2. 命中否决 → 拒绝或改边界，**不写**对照报告 P 表  
-3. 已有子集 → 更新 §2 深化边界 + 对应 `*-capabilities` 速查  
+2. 命中否决 → 拒绝或改边界，**不写**对照报告 P 表
+3. 已有子集 → 更新 §2 深化边界 + 对应 `*-capabilities` 速查
 4. 可选立项 → 写入 roadmap-backlog §3，附验收与 env；**开源/MCP 接入**走 [`extension-rd-loop-2026-06.md`](plans/active/extension-rd-loop-2026-06.md) §2–§4
 
 ### 6.3 对照报告文首（统一模板）
@@ -189,23 +191,17 @@ L5  历史（勿作实现依据） docs/history/、已 superseded 文档
 
 ### 6.4 禁止事项
 
-- 从 `docs/history/` 或 `design.md` 附录推断当前模块路径（正文仅到第十章 + 附录）  
-- 从对照报告正文 P0/P2 表直接排期（未经 roadmap-backlog 决策流）  
-- 在多个文档重复维护同一否决列表（以 roadmap-backlog + out-of-scope 为 SSOT）  
+- 从 `docs/history/` 或 `design.md` 附录推断当前模块路径（正文仅到第十章 + 附录）
+- 从对照报告正文 P0/P2 表直接排期（未经 roadmap-backlog 决策流）
+- 在多个文档重复维护同一否决列表（以 roadmap-backlog + out-of-scope 为 SSOT）
 - 将 `reference/`（gitignore）当作 Butler 运行时依赖
 
-### 6.5 改黑板（`butler/blackboard/`、`.blackboard/`、Stop hook）
+### 6.5 改工程交接（`.blackboard/state.md`）
 
-1. **Schema 字段**：`butler/blackboard/schema.py` 变更 → 同步 `tests/blackboard/` 单测 + E2E
-   （`test_e2e_shift.py`）；`SCHEMA_VERSION` 升级需附迁移策略（已写盘卡片怎么办）。
-2. **CLI 子命令**：`butler/cli/blackboard_cli.py` 新增/变更 → `butler/main.py` 注册段 +
-   `AGENTS.md`「黑板（班次交接）」节必须同步写明调用方式。
-3. **交接协议**：字段语义 / handoff 格式 / claim 流程变更 → `.blackboard/README.md` +
-   对应 `docs/superpowers/specs/<date>-wfxm-blackboard-design.md` §设计。
-4. **Stop hook**：strict / soft / agent 名 / 路径变更 → `.claude/settings.json` +
-   `AGENTS.md`「Hook 提醒」段；脚本顶部 docstring（`claude_session_end.py`）同步。
-5. **跨 Agent 一致性**：协议变更影响 Cursor / Codex / OpenCode 时，需在 `.blackboard/shifts/`
-   留演练卡（各 agent 至少 1 张），并在设计 spec 末尾「落地验收」节记录结果。
+1. **活动规约**：[`plans/decisions/v5-engineering-handoff-2026-08.md`](plans/decisions/v5-engineering-handoff-2026-08.md)。默认只更新短 `state.md`。
+2. **不要**：把黑板迁进 v5 Run/Task；恢复 claims / 第二套 backlog；为 `butler/blackboard` 扩 schema 当新功能。
+3. **受保护面**：`.blackboard/README.md` 与 `.claude/settings.json` 仍须人工改到新口径；Agent 不得为过旧 Stop hook 写五件套卡。
+4. **历史**：`log.md`、`tasks/backlog.yaml`、旧班次卡只读保留。
 
 ### 6.6 改 AI 保护机制（`scripts/ai_guard/`、`.cursorrules`、契约测试）
 
@@ -224,32 +220,34 @@ L5  历史（勿作实现依据） docs/history/、已 superseded 文档
 
 ## 7. 快速链接
 
-| 我要… | 文档 |
-|--------|------|
-| 总索引 | [`README.md`](README.md) |
-| 规划命名 | [`plans/README.md`](plans/README.md) |
-| 指南列表 | [`guides/README.md`](guides/README.md) |
-| 产品边界 / 条件准入 | [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) |
-| 理论—实现差距 | [`plans/decisions/theory-implementation-gap-register-2026-06.md`](plans/decisions/theory-implementation-gap-register-2026-06.md) |
-| Dev 能力上限（对标 CC CLI） | [`plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md`](plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md) |
-| P3 本机 CC 桥接（暂缓） | [`plans/decisions/dev-cc-bridge-optional-2026-06.md`](plans/decisions/dev-cc-bridge-optional-2026-06.md) |
-| 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
-| Agent 规则 | [`../AGENTS.md`](../AGENTS.md) |
+| 我要…                       | 文档                                                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 总索引                      | [`README.md`](README.md)                                                                                                         |
+| 规划命名                    | [`plans/README.md`](plans/README.md)                                                                                             |
+| 指南列表                    | [`guides/README.md`](guides/README.md)                                                                                           |
+| 产品边界 / 条件准入         | [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md)                           |
+| 理论—实现差距               | [`plans/decisions/theory-implementation-gap-register-2026-06.md`](plans/decisions/theory-implementation-gap-register-2026-06.md) |
+| Dev 能力上限（对标 CC CLI） | [`plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md`](plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md)     |
+| P3 本机 CC 桥接（暂缓）     | [`plans/decisions/dev-cc-bridge-optional-2026-06.md`](plans/decisions/dev-cc-bridge-optional-2026-06.md)                         |
+| 目录与命令                  | [`../STRUCTURE.md`](../STRUCTURE.md)                                                                                             |
+| Agent 规则                  | [`../AGENTS.md`](../AGENTS.md)                                                                                                   |
 
 ---
 
 ## 8. 变更记录
 
-| 日期 | 说明 |
-|------|------|
-| 2026-05-25 | 初版：文档分层、三类规划、已收口主线、语料专项、维护规则 |
-| 2026-05-25 | 全库整理：索引对齐、对照报告文首状态、语料/归档分表 |
-| 2026-05-25 | 合并 phase-a/b/c → phase-abc；语料 v1–v4 → corpus-history；精简 plans/README、reference-learning-plan |
-| 2026-05-25 | plans/ 分子目录；瘦身 AGENTS；release-runbook、capabilities-index、docs-lint.sh |
-| 2026-05-26 | 新增项目状态总览与依赖策略索引；补充 pyproject 依赖分层同步规则 |
-| 2026-06-09 | Phase 9 + G1–G4 批次收口：差距登记册全表、`post-consolidation` **v2.5** §9、末批真机；开放仅 G1-04 |
-| 2026-06-23 | 二次整理：根目录 plan / superpowers 归档；`STRUCTURE.md` + `scripts/README.md` 索引增补 |
+| 日期       | 说明                                                                                                                                                                                                                                         |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-25 | 初版：文档分层、三类规划、已收口主线、语料专项、维护规则                                                                                                                                                                                     |
+| 2026-05-25 | 全库整理：索引对齐、对照报告文首状态、语料/归档分表                                                                                                                                                                                          |
+| 2026-05-25 | 合并 phase-a/b/c → phase-abc；语料 v1–v4 → corpus-history；精简 plans/README、reference-learning-plan                                                                                                                                        |
+| 2026-05-25 | plans/ 分子目录；瘦身 AGENTS；release-runbook、capabilities-index、docs-lint.sh                                                                                                                                                              |
+| 2026-05-26 | 新增项目状态总览与依赖策略索引；补充 pyproject 依赖分层同步规则                                                                                                                                                                              |
+| 2026-06-09 | Phase 9 + G1–G4 批次收口：差距登记册全表、`post-consolidation` **v2.5** §9、末批真机；开放仅 G1-04                                                                                                                                           |
+| 2026-06-23 | 二次整理：根目录 plan / superpowers 归档；`STRUCTURE.md` + `scripts/README.md` 索引增补                                                                                                                                                      |
 | 2026-07-13 | 黑板体系上线：`docs/superpowers/`（spec + plan，§4.4/§6.5）；20 任务收口、44 测试 / 91% 覆盖；Stop hook 严格模式（项目级 `.claude/settings.json`）；`AGENTS.md` + `docs/README.md` 加黑板入口；Cursor/Codex 演练卡已落 `.blackboard/shifts/` |
-| 2026-07-13 | 归档两条已结案计划：`wechat-ilink-round3-2026-06.md`（done 2026-06-29）、`personal-butler-engineering-plan-2026-06.md`（✅ 2026-06-15）→ `plans/archive/`；同步 4 处引用 |
-| 2026-07-17 | 代码重构：`agent_loop.py` → `butler/core/agent_loop/` 包、`coding_knowledge.py` → `butler/dev_engine/coding_knowledge/` 包；新增 8 条种子经验数据 |
-| 2026-07-17 | 架构优化：`butler/core/` 创建 6 个子包（context/compaction/tool/session/llm/loop），实现逻辑分层组织；保持向后兼容（旧路径仍可用） |
+| 2026-07-13 | 归档两条已结案计划：`wechat-ilink-round3-2026-06.md`（done 2026-06-29）、`personal-butler-engineering-plan-2026-06.md`（✅ 2026-06-15）→ `plans/archive/`；同步 4 处引用                                                                     |
+| 2026-07-17 | 代码重构：`agent_loop.py` → `butler/core/agent_loop/` 包、`coding_knowledge.py` → `butler/dev_engine/coding_knowledge/` 包；新增 8 条种子经验数据                                                                                            |
+| 2026-07-17 | 架构优化：`butler/core/` 创建 6 个子包（context/compaction/tool/session/llm/loop），实现逻辑分层组织；保持向后兼容（旧路径仍可用）                                                                                                           |
+| 2026-08-20 | v5 目标架构二次收敛：三模块五实体；Task/Procedure/独立记忆表延后；模型 Port 与副作用 Capability 分离                                                                                                                                         |
+| 2026-08-20 | 工程交接收成短 `state.md`；claims/backlog/log 冻结；旧黑板 spec superseded；Stop hard gate 待人工关闭 |

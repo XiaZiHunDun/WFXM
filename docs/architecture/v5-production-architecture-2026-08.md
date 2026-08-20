@@ -2,6 +2,7 @@
 
 > **状态**：Current  
 > **用途**：描述正在接收真实流量的实现，不描述未接线的目标架构  
+> **目标架构**：[`../../butler-v5/DESIGN.md`](../../butler-v5/DESIGN.md)
 > **产品边界**：[`v5-product-boundaries-2026-08.md`](../plans/decisions/v5-product-boundaries-2026-08.md)  
 > **部署与历史交接**：[`v5-r10-handoff.md`](v5-r10-handoff.md)
 
@@ -203,4 +204,4 @@ delegate_to_subagent
 - 不把业务判断继续堆进 route；可重放的 Policy 与状态迁移放在 domain/runtime。
 - 不为了“层数完整”创建空包或第二套实现。
 - 任何新持久化结构必须进入唯一 migration/schema。
-- 所有副作用入口必须逐步收敛到统一 Policy → Approval → Lease → Sandbox → Audit 流程。
+- 所有副作用入口必须逐步收敛到统一 Policy → waiting_approval（Ask 时）→ ScopedGrant（需要时）→ Provider Boundary → Audit（需要时）流程。模型调用走独立 Model Port。

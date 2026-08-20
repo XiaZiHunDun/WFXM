@@ -61,7 +61,7 @@
 ## 强制要求（MUST）
 
 ### 1. 修改前必读
-- 新会话前 30 秒：读 `.blackboard/state.md` + 最近班次卡 + `MEMORY.md`
+- 新会话前 30 秒：读 `.blackboard/state.md`；快照过期再读最近班次卡。交接见 `docs/plans/decisions/v5-engineering-handoff-2026-08.md`。
 - 按 `AGENTS.md` 必读表选读架构文档
 - **不要**用 `docs/history/` 或训练记忆推断实现
 

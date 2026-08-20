@@ -9,14 +9,19 @@
 
 ---
 
-## P0 — 事实与治理收口
+## P0 — 目标架构与事实收口
 
-**目标**：只有一个边界入口、一张生产调用图和一套生产数据库 schema。
+**目标**：明确“目标架构”和“当前事实”两种文档职责，并收敛到一个 Run Engine、一个 Policy Gate 和一套 schema。
 
 ### 交付
 
 - 新版产品边界成为需求/否决唯一 SSOT；
+- `butler-v5/DESIGN.md` 成为务实模块化单体的目标架构 SSOT；
+- Conversation / Message / Run / Step / ScopedGrant 是默认内核；Child Run 是普通 Run；Task / Procedure 延后；
+- Conversation 无界、Run 有界、同对话主 Run 串行、模型工作集有预算；
+- 数据目标改为当前状态 + append-only audit + transactional outbox；
 - 旧 v4 边界加 superseded 标记；
+- 旧完整函数式设计加 superseded 标记；
 - README、AGENTS、handoff 指向 v5；
 - 生产调用链与未接线包清单；
 - `packages/persistence` 成为唯一 schema；
@@ -26,66 +31,66 @@
 ### 验收
 
 - 新需求不再被引导到 v4 roadmap；
+- 新设计不再要求 Effect everywhere、全面 Event Sourcing 或通用 Workflow DAG；
+- Subagent、Schedule 都不能创建第二套运行状态机；Procedure 未立项前不得进入默认 schema；
 - 文档不再声称生产经过未接线 Effect Application；
 - architecture test 能阻止 apps 接入重复 persistence schema；
 - 无任何现有生产行为变化。
 
 ---
 
-## P1 — 统一 Policy、审批与 Capability Lease
+## P1 — 统一 Run、Policy、审批与 ScopedGrant
 
 **目标**：实现“低风险自动、高风险审批、受控长期授权”。
 
 ### 1. 统一策略入口
 
-所有父/子工具、Channel 发送、定时任务、MCP 和浏览器动作统一生成 `ActionRequest`：
+所有父/子 Run 和已注册 Capability 调用统一生成 `ActionRequest`：
 
 ```text
 subject + capability + resource + context
   → deterministic Policy
-  → Allow / Deny / RequireApproval
+  → Allow / Deny / Ask
 ```
 
 Policy 不由 LLM 分类；模型只能描述意图和请求动作。
 
 ### 2. 持久审批
 
-将当前 AskApproval 回显升级为：
+把审批建模为 Run 的 `waiting_approval` Step，不建独立审批聚合：
 
-- `ApprovalRequested` 事件；
-- pending action 与参数摘要；
+- pending action digest、原始 runId/stepId 与过期时间写在该 Step 上；
+- 待审批列表是查询，不是第二套生命周期；
 - Owner 通过微信/CLI/API 批准或拒绝；
-- 通过 correlation/causation 恢复原 action；
-- 超时、重复回复和重放保持幂等；
+- 后续可信 Trigger 恢复原 Run；
+- 超时、重复回复和恢复保持幂等；
 - 敏感参数只存哈希/摘要，不进普通消息。
 
-### 3. Capability Lease
+P1 同步交付最小 loopback 审批 API/CLI，不建设完整 UI。不可逆动作、凭证、付款、权限变更和首次访问新外部域名必须由该控制面确认；微信只承担低风险确认。
+
+### 3. ScopedGrant
 
 最小字段：
 
-- `leaseId`
 - `subject`
 - `capability`
 - `scope`
-- `issuedAt` / `expiresAt`
-- `maxCalls` / `callsUsed`
-- `budget`
-- `delegable`
-- `issuer`
-- `approvalFingerprint`
-- `policyVersion`
-- `revokedAt`
+- `expiresAt`
+- `usesRemaining`
+- `approvalId?`（交互审批生成时指向 waiting Step）
+- `delegable`（默认 false）
+- `sandboxProfile?`（仅授权提升默认隔离等级时填写）
 
-支持 once、turn、session、TTL、until-revoked；Owner 可立即撤销。
+Run 预算、action digest、policy version 和决策原因进入 Run/Step/Audit 元数据，不在 Grant 重复保存。Owner 可立即撤销 Grant。
 
 ### 验收
 
 - 高风险工具未经批准不能执行；
 - 批准后仅原 subject、原 capability、原 scope 生效；
-- TTL、次数、预算、策略版本或 fingerprint 不匹配时拒绝；
-- 子代理不能借父 lease 扩权；
-- 服务重启后 pending approval 可恢复，过期 lease 不恢复；
-- 每次决策和执行都有事件与审计记录。
+- TTL、剩余次数或 action digest 不匹配时拒绝；
+- Child Run 不能借父 Grant 扩权；
+- 服务重启后 pending approval 可恢复，过期 Grant 不恢复；
+- 高风险决策、授权变更、拒绝、越界和外发有不可变审计；低风险成功工具结果只写 Step。
 
 ---
 
@@ -95,56 +100,59 @@ Policy 不由 LLM 分类；模型只能描述意图和请求动作。
 
 ### 交付
 
-- 默认 A1：workspace-write + network-deny；
+- 默认低风险 profile：workspace-write + network-deny；
 - 文件 scope 与 symlink/realpath 校验统一；
 - 命令 runner 支持沙箱 profile，而不是扩大 shell；
 - 出网按域名、端口、方法和 TTL 授权；
-- 凭证由宿主注入，模型、事件和 snapshot 不可见；
-- sandbox manifest 与 lease 绑定，恢复时必须重新验证；
+- 凭证由宿主注入，模型、审计和 context artifact 不可见；
+- P2 先定义 Capability Provider 契约骨架；Provider 声明默认 sandbox profile；
+- 提升后的 sandbox profile 必须写入短期、不可委派的 ScopedGrant，恢复时重新验证；
 - kill switch、超时、进程树清理、输出/磁盘预算。
 
 ### 验收
 
 - 即使 Policy 误放行，sandbox 仍阻止 workspace 外写和未授权网络；
 - 即使 sandbox 允许，业务高风险动作仍需审批；
-- secret 扫描覆盖 prompt、tool result、audit、event 与 snapshot；
+- secret 扫描覆盖 prompt、tool result、audit 与 context artifact；
 - 崩溃后无遗留子进程和挂载凭证。
 
 ---
 
-## P3 — 可插拔能力底座
+## P3 — 两条扩展接缝
 
 P3 只建立安全扩展面，不默认安装具体能力。
 
-### 1. MCP Client
+### 1. Trigger Adapter
+
+- 定义统一 `RunTrigger` 契约，并迁移当前已有的微信、CLI 和 API 入口；
+- Webhook、Schedule 和完整本地控制面适配器仍按 P4 分别立项；
+- Channel Adapter 负责身份映射、消息标准化、附件接收和回复地址；
+- Schedule 只按时产生 Trigger，不拥有 Workflow、Policy 或运行引擎；
+- 新入口必须复用 Conversation、Run Engine、Policy 和 Audit。
+
+### 2. Capability Provider
+
+- 扩展 P2 已建立的副作用 Provider 契约骨架，不重新创建接口；
+- 文件、命令、MCP、浏览器、出站 Channel 和外部 API 使用同一注册契约；模型走独立 Model Port，不注册为副作用 Capability；
+- 每项能力声明 input/output schema、risk class、sandbox profile、timeout、idempotency 和 audit policy；
+- 所有副作用都经过 Policy Gate；`Allow` 直接执行，Grant-required / Always-confirm 必须出示 ScopedGrant；
+- 卸载 Provider 后相关 Grant 自动失效。
+
+### 3. MCP 首个适配
 
 - 具名 server/tool registry；
 - manifest/lockfile 与安装前扫描；
-- per-server consent 与 per-tool lease；
+- per-server consent 与 per-tool ScopedGrant；
 - 远程 OAuth audience 绑定，禁止 token passthrough；
 - 工具描述视为不可信；
-- child 默认无 MCP。
-
-### 2. Channel Adapter
-
-- 统一 inbound identity、pairing、conversation 与 Policy；
-- 微信保持首要入口；
-- 第二 Channel 必须单独 threat model；
-- 禁止匿名公网入口和群聊默认高权限。
-
-### 3. 本地控制面
-
-- loopback + token；
-- 展示 health、events、approvals、leases、audit 与配置；
-- 可批准、拒绝和撤销；
-- UI 不运行第二套 Loop，不直接接触凭证。
+- Child Run 默认无 MCP。
 
 ### 验收
 
-- 扩展无需改主 Loop；
+- 扩展无需改 Run Engine；
 - 新入口和新工具不能绕过 P1/P2；
-- 卸载扩展后 lease 自动失效；
-- 控制面被关闭时微信主路径不受影响。
+- Trigger 和 Capability 之外不存在第三条扩展接缝；
+- 扩展不能创建第二套 Policy、状态机或数据源。
 
 ---
 
@@ -159,17 +167,25 @@ P3 只建立安全扩展面，不默认安装具体能力。
 - 登录、外发、提交、上传、付款、删除和 ACL 修改即时确认；
 - 无宿主 cookie、无公网 CDP。
 
-### Heartbeat / Cron
+### 本地控制面
+
+- loopback + pairing/token；
+- 在 P1 最小审批 API/CLI 上增加完整 UI；
+- 展示 health、runs、approvals、grants、audit 与配置；
+- 承担 Always-confirm 动作的权威审批和 Grant 撤销；
+- UI 不运行第二套 Run Engine，不直接接触凭证。
+
+### Heartbeat / Schedule Trigger
 
 - 只读巡检、提醒、摘要优先；
-- 隔离 conversation；
+- 产生隔离 Run Trigger；
 - 预算、冷却、幂等键、截止时间、quiet success；
 - 主队列忙时 defer；
-- 无租约副作用立即停止。
+- 无 ScopedGrant 副作用立即停止。
 
 ### 本地 tracing / 可选 OTEL
 
-- run/turn/tool/handoff/policy/approval/lease span；
+- run/step/capability/policy/grant 记录；审批等待记为 Step；
 - 默认本地；
 - exporter opt-in，可脱敏，可一键停用；
 - 不把外部 APM 作为运行依赖。
@@ -180,14 +196,29 @@ P3 只建立安全扩展面，不默认安装具体能力。
 - provenance、大小、成本、数据驻留和删除策略；
 - 不演化为 RAG Studio 或默认全盘索引。
 
+### Durable Memory 基线
+
+- 只区分 Transcript、Durable Memory 和 Project Knowledge；
+- Run 内部压缩产物和滚动摘要不是知识层，也不自动升级为持久记忆；
+- Durable Memory 记录来源、置信度、有效期与确认状态；
+- 删除原始数据时同步处理派生内容；
+- 默认结构化/全文检索，embedding 由真实召回缺口触发。
+
+### Task / Procedure 基线
+
+- 仅在 Conversation/Run 无法表达跨对话待办，或至少两个场景无法由普通 Step 表达时立项；
+- Task 是 Owner 可见的持久待办；一个 Task 可通过内部 `task` Trigger 产生多个 Run；
+- Procedure 是不可变、带版本的线性/条件步骤模板，没有独立运行状态；
+- 通用 DAG、并行合并与 Channel reducer 继续延后。
+
 ---
 
 ## 顺序约束
 
 - P1 未完成，不立项可写 MCP、浏览器动作或长期自治。
 - P2 未完成，不开放网络型代码执行或宿主环境 Computer Use。
-- P3 未完成，不新增多个各自实现认证/审批的入口。
-- P4 的 UI、浏览器或调度不能反向引入第二套 Loop、Policy 或数据源。
+- P3 未完成，不新增绕过 Trigger/Capability 接缝的入口。
+- P4 的 UI、浏览器或 Schedule 不能反向引入第二套 Run Engine、Policy 或数据源。
 
 ---
 

@@ -1,5 +1,8 @@
 # WFXM 黑板体系实施计划
 
+> **状态**：SUPERSEDED  
+> 实施已完成于 2026-07。活动交接规约改为 [`docs/plans/decisions/v5-engineering-handoff-2026-08.md`](../../plans/decisions/v5-engineering-handoff-2026-08.md)。本文件不再作为待办。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在 `WFXM/.blackboard/` 下交付一个 Markdown+YAML append-only 黑板体系，让异构 Agent（Claude Code、Cursor、Codex 等）通过结构化"班次卡"完成跨会话交接与审计。
