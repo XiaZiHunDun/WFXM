@@ -1,7 +1,7 @@
 # v5 跟进立项（2026-08-20）
 
 > 裁决见 [`v5-followons-2026-08-20.md`](../decisions/v5-followons-2026-08-20.md)。  
-> 建议顺序：**~~R8.x.22~~（done） → R8.x.21 → R8.x.20**。
+> 建议顺序：**~~R8.x.22~~（done） → ~~R8.x.21~~（done） → R8.x.20**。
 
 ---
 
@@ -11,19 +11,13 @@
 
 ---
 
-## R8.x.21 — 出站发图 / 发文件
+## R8.x.21 — 出站发图 / 发文件（**done 2026-08-20**）
 
 **问题**：管家回复只有 `sendmessage` 文本。手机上看不到本机缓存路径，也无法把生成的图发回微信。
 
-**范围**
-
-1. 对照 v4 `send_phases`：申请 upload URL、AES-128-ECB 加密、CDN PUT、`item_list` type=2/4。
-2. 工具或 loop 约定：仅发送 `workspaceRoot` 内文件，大小上限与入站同级。
-3. mock CDN + mock iLink，禁止默认打真实上传。
+工具 `send_wechat_file`：仅工作区内路径；getuploadurl + AES-128-ECB + CDN POST（host 白名单）+ `item_list` type=2/4。mock fetch 测 jpeg/txt；越界拒绝。不进 `ALLOWED_CAPABILITIES`（子代理不能发）。上传超时 120s。
 
 **不做**：出站视频、朋友圈、群发。
-
-**验收**：给定工作区内 jpeg，mock 上传后 `sendmessage` 带 image item；路径越界拒绝。
 
 ---
 

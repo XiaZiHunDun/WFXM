@@ -143,3 +143,7 @@ R8.x.19 入站 CDN 媒体。
 ## 2026-08-20-cursor-046 · cursor
 立项 ASR/出站/窄白名单；R8.x.22 语音转写落地（voice_item.text + DashScope wav/mp3；silk 不解）。30 相关测试绿。
 下次：R8.x.21 出站发图。
+
+## 2026-08-20-cursor-047 · cursor
+R8.x.21 出站发图/发文件：`send_wechat_file` + mock CDN。
+下次：R8.x.20 `run_command` 具名扩容。

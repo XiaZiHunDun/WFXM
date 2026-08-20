@@ -12,8 +12,13 @@ export const ILINK_APP_CLIENT_VERSION = (2 << 16) | (2 << 8) | 0
 
 export const EP_GET_UPDATES = "ilink/bot/getupdates"
 export const EP_SEND_MESSAGE = "ilink/bot/sendmessage"
+export const EP_GET_UPLOAD_URL = "ilink/bot/getuploadurl"
 export const EP_GET_BOT_QR = "ilink/bot/get_bot_qrcode"
 export const EP_GET_QR_STATUS = "ilink/bot/get_qrcode_status"
+
+/** getuploadurl `media_type` (not the same as item_list type). */
+export const MEDIA_TYPE_IMAGE = 1
+export const MEDIA_TYPE_FILE = 3
 
 export const ITEM_TEXT = 1
 export const ITEM_IMAGE = 2
@@ -186,6 +191,67 @@ export function buildSendMessageBody(input: {
     message_type: MSG_TYPE_BOT,
     message_state: MSG_STATE_FINISH,
     item_list: [{ type: ITEM_TEXT, text_item: { text: input.text } }],
+  }
+  if (input.contextToken) {
+    message["context_token"] = input.contextToken
+  }
+  return JSON.stringify({
+    msg: message,
+    base_info: { channel_version: CHANNEL_VERSION },
+  })
+}
+
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"])
+
+export function classifyOutboundMedia(fileName: string): "image" | "file" {
+  const base = fileName.trim().toLowerCase()
+  const dot = base.lastIndexOf(".")
+  if (dot < 0) return "file"
+  const ext = base.slice(dot)
+  if (ext.includes("/") || ext.includes("..")) return "file"
+  return IMAGE_EXTENSIONS.has(ext) ? "image" : "file"
+}
+
+export function cdnUploadUrl(cdnBaseUrl: string, uploadParam: string, filekey: string): string {
+  const base = cdnBaseUrl.replace(/\/+$/, "")
+  return `${base}/upload?encrypted_query_param=${encodeURIComponent(uploadParam)}&filekey=${encodeURIComponent(filekey)}`
+}
+
+export function buildGetUploadUrlBody(input: {
+  readonly filekey: string
+  readonly mediaType: number
+  readonly toUserId: string
+  readonly rawsize: number
+  readonly rawfilemd5: string
+  readonly filesize: number
+  readonly aeskeyHex: string
+}): string {
+  return JSON.stringify({
+    filekey: input.filekey,
+    media_type: input.mediaType,
+    to_user_id: input.toUserId,
+    rawsize: input.rawsize,
+    rawfilemd5: input.rawfilemd5,
+    filesize: input.filesize,
+    no_need_thumb: true,
+    aeskey: input.aeskeyHex,
+    base_info: { channel_version: CHANNEL_VERSION },
+  })
+}
+
+export function buildSendMediaMessageBody(input: {
+  readonly to: string
+  readonly clientId: string
+  readonly item: Record<string, unknown>
+  readonly contextToken?: string
+}): string {
+  const message: Record<string, unknown> = {
+    from_user_id: "",
+    to_user_id: input.to,
+    client_id: input.clientId,
+    message_type: MSG_TYPE_BOT,
+    message_state: MSG_STATE_FINISH,
+    item_list: [input.item],
   }
   if (input.contextToken) {
     message["context_token"] = input.contextToken

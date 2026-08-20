@@ -1,5 +1,5 @@
 import type { ILinkResult } from "./ilink-protocol.js"
-import { createDecipheriv } from "node:crypto"
+import { createCipheriv, createDecipheriv } from "node:crypto"
 
 export function pkcs7Pad(data: Buffer, blockSize = 16): Buffer {
   const padLen = blockSize - (data.length % blockSize)
@@ -32,6 +32,27 @@ export function parseAesKey(aesKeyB64: string): ILinkResult<Buffer> {
     }
   }
   return { ok: false, reason: `unexpected aes_key format (${decoded.length} decoded bytes)` }
+}
+
+/** PKCS7 padded length used by iLink getuploadurl `filesize`. */
+export function aesPaddedSize(byteLength: number): number {
+  return Math.floor((byteLength + 16) / 16) * 16
+}
+
+/** iLink send item `aes_key`: base64(ascii hex of the 16-byte key). */
+export function aesKeyForApi(aesKey: Buffer): string {
+  return Buffer.from(aesKey.toString("hex"), "ascii").toString("base64")
+}
+
+export function aes128EcbEncrypt(plain: Buffer, key: Buffer): ILinkResult<Buffer> {
+  if (key.length !== 16) return { ok: false, reason: "aes key must be 16 bytes" }
+  try {
+    const cipher = createCipheriv("aes-128-ecb", key, null)
+    cipher.setAutoPadding(false)
+    return { ok: true, value: Buffer.concat([cipher.update(pkcs7Pad(plain)), cipher.final()]) }
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 export function aes128EcbDecrypt(ciphertext: Buffer, key: Buffer): Buffer {

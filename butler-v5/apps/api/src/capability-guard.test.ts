@@ -36,6 +36,7 @@ describe("capability-guard", () => {
     expect(isToolCallAllowed("get_current_time", ["general", "get_current_time"])).toBe(true)
     expect(isToolCallAllowed("get_current_time", ["general"])).toBe(false)
     expect(isToolCallAllowed("general", ["general"])).toBe(false)
+    expect(isToolCallAllowed("send_wechat_file", ["general", "read_file"])).toBe(false)
   })
 
   it("llmToolsForCapabilities omits general and advertises granted workspace tools", () => {

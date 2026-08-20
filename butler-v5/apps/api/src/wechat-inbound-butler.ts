@@ -29,6 +29,11 @@ const MAX_LOOP_ITERATIONS = 5
  * runTool with this timeout — slow tools do not stall the route.
  */
 const TOOL_TIMEOUT_MS = 5000
+const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
+
+export function toolTimeoutMs(toolName: string): number {
+  return toolName === "send_wechat_file" ? SEND_WECHAT_FILE_TIMEOUT_MS : TOOL_TIMEOUT_MS
+}
 
 /**
  * Logger surface for the butler loop. Mirrors the LLMReplyLogger
@@ -153,6 +158,7 @@ export async function runButlerLoop(args: {
     bridge,
     conversationId: args.conversationId,
     actor: { kind: "agent", id: "wechat-butler-v5" },
+    wechatUserId: args.fromUserId,
   })
 
   const adapter = args.adapter ?? pickLLMProvider(env)
@@ -248,7 +254,7 @@ export async function runButlerLoop(args: {
           continue
         }
         toolCalls += 1
-        const toolResult = await runTool(def, tc.args, { timeoutMs: TOOL_TIMEOUT_MS })
+        const toolResult = await runTool(def, tc.args, { timeoutMs: toolTimeoutMs(tc.name) })
         const trace: ToolTrace = {
           iteration,
           toolName: tc.name,
@@ -418,7 +424,9 @@ export async function runButlerLoop(args: {
           }
         }
         toolCalls += 1
-        const toolResult = await runTool(def, decision.args, { timeoutMs: TOOL_TIMEOUT_MS })
+        const toolResult = await runTool(def, decision.args, {
+          timeoutMs: toolTimeoutMs(decision.toolName),
+        })
         const trace: ToolTrace = {
           iteration,
           toolName: decision.toolName,

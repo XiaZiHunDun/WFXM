@@ -7,6 +7,7 @@ import {
 } from "@butler/runtime/delegate-runtime.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { appendAudit } from "./audit-log.js"
+import { makeSendWechatFileTool } from "./send-wechat-file.js"
 import { makeReadFileTool, makeRunCommandTool } from "./workspace-tools.js"
 
 /**
@@ -24,6 +25,9 @@ export interface ButlerToolContext {
   readonly actor?: { readonly kind: "owner" | "agent" | "system"; readonly id: string }
   /** Sandbox root for read_file / run_command. Defaults to cwd / env. */
   readonly workspaceRoot?: string
+  /** Current inbound WeChat user; required by send_wechat_file. */
+  readonly wechatUserId?: string
+  readonly wechatContextToken?: string
 }
 
 /**
@@ -379,6 +383,22 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
     },
   },
   {
+    name: "send_wechat_file",
+    description:
+      "Send an image or file from the butler workspace to the current WeChat user. Pass `path` relative to the workspace root (paths outside the workspace are rejected). Optional `caption` is sent as a text message first. Use when the user asks to receive a local file or generated image on WeChat. Max size matches inbound media (default 8MiB).",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "File path relative to the workspace root." },
+        caption: {
+          type: "string",
+          description: "Optional text sent before the attachment.",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
     name: "delegate_to_subagent",
     description:
       "Delegate a task to a subagent. The subagent runs in the background and returns the result later via its own child conversation stream. Use this when the user's request requires capabilities you don't have directly (e.g., code execution, file operations, web search) or when you want a long-running task to happen asynchronously while you keep replying to the user.",
@@ -420,6 +440,7 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     makeSummarizeTodayTool(ctx),
     makeReadFileTool(ctx),
     makeRunCommandTool(ctx),
+    makeSendWechatFileTool(ctx),
     makeDelegateToSubagentTool(ctx),
   ]
 }

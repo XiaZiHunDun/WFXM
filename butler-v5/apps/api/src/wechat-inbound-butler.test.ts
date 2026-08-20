@@ -216,6 +216,7 @@ describe("runButlerLoop", () => {
       "read_file",
       "recall_history",
       "run_command",
+      "send_wechat_file",
       "summarize_today",
     ])
   })
