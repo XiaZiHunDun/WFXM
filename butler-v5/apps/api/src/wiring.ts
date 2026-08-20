@@ -2,6 +2,7 @@ import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { RunEngine } from "@butler/runtime/run-engine.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ButlerDb } from "@butler/persistence"
+import type { McpToolBundle } from "./mcp-bootstrap.js"
 
 export interface WiringConfig {
   readonly bridge: EventBridge
@@ -10,6 +11,7 @@ export interface WiringConfig {
   readonly runEngine: RunEngine
   readonly db: ButlerDb
   readonly backfillConversation: (conversationId: string) => Promise<void>
+  readonly mcp?: McpToolBundle
 }
 
 export interface Wiring {
@@ -20,6 +22,7 @@ export interface Wiring {
   readonly runEngine: RunEngine
   readonly db: ButlerDb
   readonly backfillConversation: (conversationId: string) => Promise<void>
+  readonly mcp: McpToolBundle
 }
 
 /**
@@ -36,5 +39,11 @@ export function makeWiring(config: WiringConfig): Wiring {
     runEngine: config.runEngine,
     db: config.db,
     backfillConversation: config.backfillConversation,
+    mcp: config.mcp ?? {
+      runtimeTools: [],
+      llmTools: [],
+      mode: "off",
+      discovered: [],
+    },
   }
 }

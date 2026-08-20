@@ -1,6 +1,11 @@
 import type { Hono } from "hono"
 import type { Wiring } from "./wiring.js"
-import { parseClientConversationId, defaultWechatConversationId } from "./conversation-id.js"
+import {
+  defaultChannelConversationId,
+  defaultWechatConversationId,
+  parseClientConversationId,
+} from "./conversation-id.js"
+import { isChannelAllowed, isChannelApiEnabled, parseAllowedChannelIds } from "./channel-config.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import { issueSubscribeToken } from "./ws-subscribe.js"
 
@@ -95,6 +100,84 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       {
         conversationId,
         turnId,
+        reply: loopResult.reply,
+        meta: {
+          iterations: loopResult.iterations,
+          toolCalls: loopResult.toolCalls,
+          finalDecision: loopResult.finalDecision,
+          traces: loopResult.traces,
+        },
+      },
+      201,
+    )
+  })
+  app.post("/v1/channel/inbound", async (c) => {
+    if (!isChannelApiEnabled(process.env)) {
+      return c.text("channel api disabled", 404)
+    }
+    const body = (await c.req.json().catch(() => null)) as null | {
+      apiVersion?: string
+      channelId?: string
+      fromSubject?: string
+      content?: string
+      messageId?: string
+      conversationId?: unknown
+    }
+    if (
+      !body ||
+      body.apiVersion !== "v1" ||
+      typeof body.channelId !== "string" ||
+      typeof body.fromSubject !== "string" ||
+      typeof body.content !== "string"
+    ) {
+      return c.text("invalid body", 400)
+    }
+    const channelId = body.channelId.trim()
+    const fromSubject = body.fromSubject.trim()
+    if (!channelId || !fromSubject) {
+      return c.text("invalid body", 400)
+    }
+    const allowlist = parseAllowedChannelIds(process.env)
+    if (!isChannelAllowed(channelId, allowlist)) {
+      return c.text("channel not allowed", 403)
+    }
+    const parsedId = parseClientConversationId(body.conversationId)
+    if (parsedId.kind === "invalid") {
+      return c.text(`invalid conversationId: ${parsedId.reason}`, 400)
+    }
+    const conversationId =
+      parsedId.kind === "valid"
+        ? parsedId.value
+        : defaultChannelConversationId(channelId, fromSubject)
+    const turnId = `turn-${Date.now()}`
+    const projectId = `channel:${channelId}`
+    await wiring.eventBridge.appendConversationEvent({
+      streamId: conversationId,
+      eventId: `evt-${Date.now()}-channel-${body.messageId ?? "no-msgid"}`,
+      eventType: "ConversationStarted",
+      correlationId: `corr-${Date.now()}-${fromSubject}`,
+      actor: { kind: "system", id: "channel-intake" },
+      event: {
+        _tag: "ConversationStarted",
+        projectId,
+        content: body.content,
+        fromUserId: fromSubject,
+        channelId,
+      },
+    })
+    const loopResult = await runButlerLoop({
+      wiring,
+      conversationId,
+      content: body.content,
+      fromUserId: fromSubject,
+      projectId,
+      idempotencyKey: body.messageId ?? `channel-${conversationId}-${turnId}`,
+    })
+    return c.json(
+      {
+        conversationId,
+        turnId,
+        channelId,
         reply: loopResult.reply,
         meta: {
           iterations: loopResult.iterations,

@@ -12,6 +12,7 @@ import {
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer } from "./ws-routes.js"
+import { bootstrapMcpTools } from "./mcp-bootstrap.js"
 
 const app = new Hono()
 const workerId = process.env["WORKER_ID"] ?? "w-default"
@@ -32,12 +33,20 @@ const db = openedDb.value.db
 const bridge = new EventBridge({ db, workerId })
 const runtimeStore = createRuntimeStore(db)
 const runEngine = new RunEngine(runtimeStore)
+const mcp = await bootstrapMcpTools(process.env)
+if (mcp.mode !== "off") {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error(
+    `[butler-v5] MCP enabled mode=${mcp.mode} tools=${mcp.runtimeTools.length}`,
+  )
+}
 const wiring: Wiring = makeWiring({
   bridge,
   workerId,
   runtimeStore,
   runEngine,
   db,
+  mcp,
   backfillConversation: async (conversationId) => {
     await backfillRuntimeFromEventStore(db, [conversationId])
   },

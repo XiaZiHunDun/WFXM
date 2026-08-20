@@ -249,8 +249,9 @@ async function runButlerLoopBody(args: {
     wechatUserId: args.fromUserId,
     runtimeStore: args.wiring.runtimeStore,
     env,
+    mcpBundle: args.wiring.mcp,
   })
-  const llmTools = llmToolsForButler({ env })
+  const llmTools = llmToolsForButler({ env, mcpBundle: args.wiring.mcp })
 
   const toolExecutor = makeToolExecutor({
     tools,

@@ -47,4 +47,19 @@ describe("MCP client adapter", () => {
     const adapter = makeMcpClientAdapter({ transport: transport as never })
     await expect(adapter.discover()).rejects.toThrow(/mcp-down/)
   })
+
+  it("invoke returns structured errors from MCP isError", async () => {
+    const transport = {
+      request: vi.fn(async () => ({
+        result: {
+          isError: true,
+          content: [{ type: "text", text: "denied" }],
+        },
+      })),
+      close: vi.fn(async () => {}),
+    }
+    const adapter = makeMcpClientAdapter({ transport: transport as never })
+    const result = await adapter.invoke("bad", {})
+    expect(result).toEqual({ ok: false, reason: "denied" })
+  })
 })

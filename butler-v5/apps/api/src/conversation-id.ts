@@ -54,6 +54,11 @@ export function defaultWechatConversationId(projectId: string, fromUserId: strin
   return `c-${sanitizeIdPart(projectId)}-${sanitizeIdPart(fromUserId)}`
 }
 
+/** Stable stream id for generic channel intake (`channelId` + subject). */
+export function defaultChannelConversationId(channelId: string, fromSubject: string): string {
+  return `c-ch-${sanitizeIdPart(channelId)}-${sanitizeIdPart(fromSubject)}`
+}
+
 function sanitizeIdPart(raw: string): string {
   const cleaned = raw
     .trim()

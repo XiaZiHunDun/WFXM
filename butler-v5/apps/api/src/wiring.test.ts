@@ -196,4 +196,54 @@ describe("v5 wiring", () => {
     })
     expect(res.status).toBe(400)
   })
+
+  it("channel inbound returns 404 when API disabled", async () => {
+    const prev = process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
+    delete process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
+    try {
+      const app = new Hono()
+      createRoutes(app, wiring)
+      const res = await app.request("/v1/channel/inbound", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          apiVersion: "v1",
+          channelId: "api",
+          fromSubject: "owner-1",
+          content: "hello",
+        }),
+      })
+      expect(res.status).toBe(404)
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
+      else process.env["BUTLER_V5_CHANNEL_API_ENABLED"] = prev
+    }
+  })
+
+  it("channel inbound runs butler loop when enabled", async () => {
+    const prev = process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
+    process.env["BUTLER_V5_CHANNEL_API_ENABLED"] = "1"
+    try {
+      const app = new Hono()
+      createRoutes(app, wiring)
+      const res = await app.request("/v1/channel/inbound", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          apiVersion: "v1",
+          channelId: "api",
+          fromSubject: "owner-1",
+          content: "hello channel",
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { conversationId: string; reply: string; channelId: string }
+      expect(body.conversationId).toBe("c-ch-api-owner-1")
+      expect(body.channelId).toBe("api")
+      expect(body.reply).toBe("stub-reply")
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
+      else process.env["BUTLER_V5_CHANNEL_API_ENABLED"] = prev
+    }
+  })
 })

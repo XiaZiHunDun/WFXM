@@ -11,6 +11,7 @@ import { writeSubagentAudit } from "./audit-service.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
 import { makeReadFileTool, makeRunCommandTool } from "./workspace-tools.js"
 import { loadMcpToolDefinitions, loadMcpLlmTools, type McpToolsOptions } from "./mcp-tools.js"
+import type { McpToolBundle } from "./mcp-bootstrap.js"
 
 /**
  * Minimal context passed to tool handlers. The butler loop wires the
@@ -32,8 +33,9 @@ export interface ButlerToolContext {
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
   readonly env?: NodeJS.ProcessEnv
-  /** Inject MCP discovery/invoke for tests; production uses env stubs until MCP URL wiring lands. */
+  /** Inject MCP discovery/invoke for tests; production uses wiring.mcp from bootstrap. */
   readonly mcp?: McpToolsOptions
+  readonly mcpBundle?: McpToolBundle
 }
 
 /**
@@ -440,7 +442,10 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
  */
 export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinition[] {
   const env = ctx.env ?? process.env
-  const mcp = loadMcpToolDefinitions(env, ctx.mcp ?? {})
+  const mcp =
+    ctx.mcpBundle && ctx.mcpBundle.runtimeTools.length > 0
+      ? ctx.mcpBundle.runtimeTools
+      : loadMcpToolDefinitions(env, ctx.mcp ?? {})
   return [
     makeRecallHistoryTool(ctx),
     makeGetCurrentTimeTool(),
@@ -455,9 +460,15 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
 }
 
 /** LLM tool list including opt-in MCP descriptors when enabled. */
-export function llmToolsForButler(ctx: Pick<ButlerToolContext, "env" | "mcp"> = {}): readonly LLMTool[] {
+export function llmToolsForButler(
+  ctx: Pick<ButlerToolContext, "env" | "mcp" | "mcpBundle"> = {},
+): readonly LLMTool[] {
   const env = ctx.env ?? process.env
-  return [...WEIBUTLER_LLM_TOOLS, ...loadMcpLlmTools(env, ctx.mcp ?? {})]
+  const mcp =
+    ctx.mcpBundle && ctx.mcpBundle.llmTools.length > 0
+      ? ctx.mcpBundle.llmTools
+      : loadMcpLlmTools(env, ctx.mcp ?? {})
+  return [...WEIBUTLER_LLM_TOOLS, ...mcp]
 }
 
 /**

@@ -59,7 +59,8 @@ butler-v5/cli + apps/api
 
 | 能力 | Env | 生产入口 | 备注 |
 |------|-----|----------|------|
-| MCP 工具 | `BUTLER_V5_MCP_ENABLED=1` | `apps/api/src/mcp-tools.ts` | 默认 off；stub 名 `BUTLER_V5_MCP_TOOL_NAMES` |
+| MCP 工具 | `BUTLER_V5_MCP_ENABLED=1` + `BUTLER_V5_MCP_URL` 或 stub 名 | `apps/api/src/mcp-bootstrap.ts` | HTTP `tools/list` + `tools/call`；启动时注入 `wiring.mcp` |
+| 通用 Channel intake | `BUTLER_V5_CHANNEL_API_ENABLED=1` | `POST /v1/channel/inbound` | 复用 `runButlerLoop`；非 Slack/Telegram 专用适配 |
 | 原生 iLink | `BUTLER_V5_ILINK_ENABLED=1` | `apps/api/src/ilink-poller.ts` | 已交付，仍 opt-in |
 | bubblewrap | `BUTLER_V5_SANDBOX=bubblewrap` | `workspace-tools.ts` | P2 已交付 |
 

@@ -870,7 +870,12 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_V5_ILINK_INBOUND_TIMEOUT_MS` | — | iLink 入站处理超时 |
 | `BUTLER_V5_MCP_ENABLED` | `0` | `1` 注册 MCP 工具（走 PolicyGate + 审批；默认 off） |
 | `BUTLER_V5_MCP_TOOL_NAMES` | — | MCP 未接 URL 时的 stub 工具名（逗号分隔） |
-| `BUTLER_V5_MCP_URL` | — | MCP 服务器 URL（后续接线；当前可仅用 stub 名） |
+| `BUTLER_V5_MCP_URL` | — | MCP 服务器 JSON-RPC HTTP 端点 |
+| `BUTLER_V5_MCP_TOKEN` | — | MCP HTTP Bearer token（可选） |
+| `BUTLER_V5_MCP_TIMEOUT_MS` | `30000` | MCP HTTP 超时 |
+| `BUTLER_V5_MCP_REQUIRED` | `0` | `1` 时 bootstrap 发现失败则拒绝启动 gateway |
+| `BUTLER_V5_CHANNEL_API_ENABLED` | `0` | `1` 启用 `POST /v1/channel/inbound`（第二 Channel 接缝） |
+| `BUTLER_V5_CHANNEL_ALLOWLIST` | — | 允许的 `channelId` 列表（逗号分隔；空=不限制） |
 
 bubblewrap 启用前运行：`butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh` 或 `pnpm exec tsx cli/src/index.ts sandbox-preflight`（在 `butler-v5/` 目录）。
 

@@ -174,10 +174,27 @@ delegate_to_subagent
 
 仍待完善：
 
-- 浏览器/调度等多 Channel 条件准入；
-- MCP 真实 server URL 发现与 invoke 接线；
+- 浏览器/调度等多 Channel 专用适配（Slack/Telegram 等）；
 - Grant 出网域名/端口动态扩展（非 WeChat CDN 固定表）；
 - `packages/application` / 旧 infrastructure 脚手架归档（见 [`v5-unwired-packages-inventory-2026-08.md`](../plans/active/v5-unwired-packages-inventory-2026-08.md)）。
+
+### 6.2 MCP HTTP（opt-in）
+
+`butler start` 时 `bootstrapMcpTools` 读取 env：
+
+- `BUTLER_V5_MCP_ENABLED=1` + `BUTLER_V5_MCP_URL` → JSON-RPC `tools/list` / `tools/call`，结果注入 `wiring.mcp`；
+- 仅 stub 名（`BUTLER_V5_MCP_TOOL_NAMES`）→ 无 URL 时的测试/脚手架模式；
+- `BUTLER_V5_MCP_REQUIRED=1` → 发现失败则进程退出。
+
+### 6.3 第二 Channel 接缝（opt-in）
+
+`BUTLER_V5_CHANNEL_API_ENABLED=1` 时开放 `POST /v1/channel/inbound`：
+
+```json
+{ "apiVersion": "v1", "channelId": "api", "fromSubject": "owner-1", "content": "hello" }
+```
+
+与微信路径相同，复用 `runButlerLoop`；`conversationId` 默认 `c-ch-{channelId}-{subject}`。可选 `BUTLER_V5_CHANNEL_ALLOWLIST` 限制 `channelId`。
 
 ### 6.1 bubblewrap 沙箱（opt-in）
 
