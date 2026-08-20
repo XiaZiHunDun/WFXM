@@ -6,7 +6,8 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./postgres/index.js": "./src/postgres/index.ts"
+    "./postgres/index.js": "./src/postgres/index.ts",
+    "./sandbox/bubblewrap-runner.js": "./src/sandbox/bubblewrap-runner.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

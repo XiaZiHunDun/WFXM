@@ -115,3 +115,45 @@ export {
   type EventEnvelope,
   type EnvelopeValidation,
 } from "./event-sourcing.js"
+
+// ─── Target runtime domain ───────────────────────────────
+export {
+  type RunId,
+  type StepId,
+  type TriggerSource,
+  type TrustLevel,
+  type RunTrigger,
+  type Conversation as RuntimeConversation,
+  type Message as RuntimeMessage,
+  type RunStatus,
+  type RunBudget,
+  type Run,
+  type StepKind,
+  type StepStatus,
+  type Step,
+  canTransitionRun,
+  transitionRun as transitionRuntimeRun,
+  type RunTransitionResult,
+} from "./runtime/index.js"
+export {
+  type StoredMessage,
+  type StoredRun,
+  type StoredStep,
+  type RuntimeStore,
+  type ReadModelSource,
+  resolveReadModelSource,
+} from "./runtime/store-contract.js"
+
+// ─── Governance domain ───────────────────────────────────
+export {
+  type RiskLevel,
+  type ActionKind,
+  type ActionRequest,
+  type PolicyDecision,
+  type ScopedGrantScope,
+  type ScopedGrantRecord,
+  type PermissionPolicy,
+  decidePolicy,
+  consumeGrantUse,
+  grantMatchesAction,
+} from "./governance/types.js"

@@ -1,0 +1,96 @@
+import type { RunStatus, StepKind, StepStatus, TriggerSource } from "./types.js"
+
+export interface StoredMessage {
+  readonly id: string
+  readonly conversationId: string
+  readonly role: "user" | "assistant" | "system" | "tool"
+  readonly content: Readonly<Record<string, unknown>>
+  readonly triggerSource: TriggerSource | null
+  readonly idempotencyKey: string | null
+  readonly createdAt: Date
+}
+
+export interface StoredRun {
+  readonly id: string
+  readonly conversationId: string
+  readonly parentRunId: string | null
+  readonly triggerSource: TriggerSource
+  readonly idempotencyKey: string
+  readonly subject: string
+  readonly goal: string
+  readonly budget: Readonly<Record<string, unknown>>
+  readonly deadline: Date | null
+  readonly status: RunStatus
+  readonly version: number
+  readonly createdAt: Date
+  readonly updatedAt: Date
+}
+
+export interface StoredStep {
+  readonly id: string
+  readonly runId: string
+  readonly kind: StepKind
+  readonly status: StepStatus
+  readonly input: Readonly<Record<string, unknown>>
+  readonly output: Readonly<Record<string, unknown>> | null
+  readonly createdAt: Date
+  readonly updatedAt: Date
+}
+
+export interface RuntimeStore {
+  readonly createConversationWithUserMessage: (input: {
+    readonly conversationId: string
+    readonly messageId: string
+    readonly subject: string
+    readonly content: Readonly<Record<string, unknown>>
+    readonly triggerSource: TriggerSource
+    readonly idempotencyKey: string
+    readonly createdAt: Date
+  }) => Promise<{ readonly conversationId: string; readonly messageId: string }>
+  readonly createRun: (input: {
+    readonly id: string
+    readonly conversationId: string
+    readonly parentRunId: string | null
+    readonly triggerSource: TriggerSource
+    readonly idempotencyKey: string
+    readonly subject: string
+    readonly goal: string
+    readonly budget: Readonly<Record<string, unknown>>
+    readonly deadline: Date | null
+    readonly createdAt: Date
+  }) => Promise<StoredRun>
+  readonly transitionRunStatus: (
+    runId: string,
+    expectedVersion: number,
+    status: RunStatus,
+    updatedAt: Date,
+  ) => Promise<StoredRun>
+  readonly createStep: (input: {
+    readonly id: string
+    readonly runId: string
+    readonly kind: StepKind
+    readonly status: StepStatus
+    readonly input: Readonly<Record<string, unknown>>
+    readonly createdAt: Date
+  }) => Promise<StoredStep>
+  readonly listMessages: (conversationId: string) => Promise<readonly StoredMessage[]>
+  readonly appendMessage: (input: {
+    readonly messageId: string
+    readonly conversationId: string
+    readonly role: StoredMessage["role"]
+    readonly content: Readonly<Record<string, unknown>>
+    readonly triggerSource: TriggerSource | null
+    readonly idempotencyKey: string | null
+    readonly createdAt: Date
+  }) => Promise<StoredMessage>
+}
+
+export type ReadModelSource = "event_store" | "hybrid" | "relational"
+
+export function resolveReadModelSource(
+  env: Readonly<Record<string, string | undefined>>,
+): ReadModelSource {
+  const raw = (env["BUTLER_V5_READ_MODEL"] ?? "event_store").trim().toLowerCase()
+  if (raw === "hybrid" || raw === "relational") return raw
+  return "event_store"
+}

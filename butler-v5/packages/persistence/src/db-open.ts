@@ -1,18 +1,12 @@
-import { readFileSync } from "node:fs"
-import { fileURLToPath } from "node:url"
 import { PGlite } from "@electric-sql/pglite"
 import { drizzle as drizzlePglite } from "drizzle-orm/pglite"
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres"
 import pg from "pg"
 import type { ButlerDb } from "./db.js"
 import { resolveButlerDbKind } from "./db-kind.js"
+import { applyMigrations } from "./migrations/run-migrations.js"
 
 const { Pool } = pg
-
-const MIGRATION_SQL = readFileSync(
-  fileURLToPath(new URL("./migrations/0001_initial.sql", import.meta.url)),
-  "utf8",
-)
 
 export type OpenedButlerDb = {
   readonly kind: "pglite" | "postgres"
@@ -38,7 +32,7 @@ export async function openButlerDatabase(env: NodeJS.ProcessEnv): Promise<OpenBu
   if (kind === "pglite") {
     try {
       const client = new PGlite()
-      await client.exec(MIGRATION_SQL)
+      await applyMigrations((sql) => client.exec(sql))
       const db = drizzlePglite(client, {})
       return {
         ok: true,
@@ -62,7 +56,7 @@ export async function openButlerDatabase(env: NodeJS.ProcessEnv): Promise<OpenBu
   const max = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : 8
   const pool = new Pool({ connectionString: url, max })
   try {
-    await pool.query(MIGRATION_SQL)
+    await applyMigrations((sql) => pool.query(sql))
   } catch (err) {
     await pool.end().catch(() => undefined)
     return { ok: false, reason: `postgres open failed: ${errorReason(err)}` }

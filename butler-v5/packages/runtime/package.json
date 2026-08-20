@@ -10,7 +10,12 @@
     "./decision.js": "./src/decision.ts",
     "./delegate-runtime.js": "./src/delegate-runtime.ts",
     "./tool-runtime.js": "./src/tool-runtime.ts",
-    "./bridge.js": "./src/bridge.ts"
+    "./bridge.js": "./src/bridge.ts",
+    "./contracts.js": "./src/contracts.ts",
+    "./run-engine.js": "./src/run-engine.ts",
+    "./run-coordinator.js": "./src/run-coordinator.ts",
+    "./working-set.js": "./src/working-set.ts",
+    "./policy-gate.js": "./src/policy-gate.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
@@ -18,6 +23,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@butler/persistence": "workspace:*"
+    "@butler/persistence": "workspace:*",
+    "@butler/domain": "workspace:*"
   }
 }

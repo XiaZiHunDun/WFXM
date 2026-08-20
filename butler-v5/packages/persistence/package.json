@@ -11,7 +11,8 @@
     "./projections.js": "./src/projections.ts",
     "./snapshot.js": "./src/snapshot.ts",
     "./worker.js": "./src/worker.ts",
-    "./testing.js": "./src/testing.ts"
+    "./testing.js": "./src/testing.ts",
+    "./runtime-store.js": "./src/runtime-store.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
@@ -21,7 +22,8 @@
   "dependencies": {
     "drizzle-orm": "^0.33.0",
     "pg": "^8.11.0",
-    "@electric-sql/pglite": "^0.2.0"
+    "@electric-sql/pglite": "^0.2.0",
+    "@butler/domain": "workspace:*"
   },
   "devDependencies": {
     "@types/pg": "^8.11.0"

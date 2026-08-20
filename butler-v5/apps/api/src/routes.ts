@@ -89,6 +89,7 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       content: body.content,
       fromUserId: body.fromUserId,
       projectId,
+      idempotencyKey: body.messageId ?? `wechat-${conversationId}-${turnId}`,
     })
     return c.json(
       {

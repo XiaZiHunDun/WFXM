@@ -4,3 +4,12 @@ export { resolveButlerDbKind } from "./db-kind.js"
 export type { ButlerDbKind } from "./db-kind.js"
 export { openButlerDatabase } from "./db-open.js"
 export type { OpenedButlerDb, OpenButlerResult } from "./db-open.js"
+export { createRuntimeStore, RuntimeVersionConflictError } from "./runtime-store.js"
+export {
+  backfillRuntimeFromEventStore,
+  loadConversationMessages,
+  findActiveMainRun,
+  listDistinctStreamIds,
+  verifyBackfillParity,
+} from "./runtime-backfill.js"
+export type { BackfillStats } from "./runtime-backfill.js"

@@ -1,8 +1,10 @@
 import { Effect } from "effect"
 import type { EventBridge } from "@butler/runtime/bridge.js"
+import type { WorkingSetResult } from "@butler/runtime/working-set.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import { decodeDecision, type ModelDecision } from "@butler/runtime/decision.js"
 import { runTool, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { resolveReadModelSource } from "@butler/domain"
 import type { Wiring } from "./wiring.js"
 import { findTool, makeWeibutlerTools, WEIBUTLER_LLM_TOOLS } from "./tools.js"
 import {
@@ -106,6 +108,58 @@ export async function runButlerLoop(args: {
   readonly content: string
   readonly fromUserId: string
   readonly projectId: string
+  readonly idempotencyKey?: string
+  readonly env?: NodeJS.ProcessEnv
+  readonly logger?: ButlerLoopLogger
+  readonly adapter?: LLMAdapter
+}): Promise<ButlerLoopResult> {
+  const env = args.env ?? process.env
+  const readModel = resolveReadModelSource(env)
+  if (readModel !== "event_store") {
+    await args.wiring.backfillConversation(args.conversationId)
+  }
+  const idempotencyKey =
+    args.idempotencyKey ?? `wechat-${args.conversationId}-${args.content.length}-${Date.now()}`
+  return args.wiring.runEngine.executeInbound(
+    {
+      conversationId: args.conversationId,
+      messageId: crypto.randomUUID(),
+      subject: args.fromUserId,
+      content: args.content,
+      idempotencyKey,
+      triggerSource: "channel",
+    },
+    async (ctx) => runButlerLoopBody({ ...args, workingSet: ctx.workingSet }),
+  )
+}
+
+async function persistAssistantReply(args: {
+  readonly wiring: Wiring
+  readonly conversationId: string
+  readonly content: string
+  readonly idempotencyKey: string
+}): Promise<void> {
+  try {
+    await args.wiring.runtimeStore.appendMessage({
+      messageId: crypto.randomUUID(),
+      conversationId: args.conversationId,
+      role: "assistant",
+      content: { text: args.content },
+      triggerSource: "channel",
+      idempotencyKey: args.idempotencyKey,
+      createdAt: new Date(),
+    })
+  } catch {
+    // compat path must not break the wechat reply contract
+  }
+}
+async function runButlerLoopBody(args: {
+  readonly wiring: Wiring
+  readonly conversationId: string
+  readonly content: string
+  readonly fromUserId: string
+  readonly projectId: string
+  readonly workingSet: WorkingSetResult
   readonly env?: NodeJS.ProcessEnv
   readonly logger?: ButlerLoopLogger
   readonly adapter?: LLMAdapter
@@ -173,8 +227,25 @@ export async function runButlerLoop(args: {
     }
   }
 
-  const compact = await compactConversationHistoryWithLlm(historyTurns, { adapter })
-  const historyMessages = compact.messages
+  const relationalHistory = args.workingSet.messages.filter(
+    (m) => m.role === "user" || m.role === "assistant" || m.role === "system",
+  )
+  const useRelationalHistory =
+    relationalHistory.length > 1 ||
+    (relationalHistory.length === 1 && relationalHistory[0]?.role !== "user")
+
+  let historyMessages: LLMMessage[]
+  let eventStoreCompactSource: "none" | "extractive" | "llm" = "none"
+  if (useRelationalHistory) {
+    historyMessages = relationalHistory.filter(
+      (m) => !(m.role === "user" && m.content === args.content.trim()),
+    )
+  } else {
+    const compact = await compactConversationHistoryWithLlm(historyTurns, { adapter })
+    historyMessages = [...compact.messages]
+    eventStoreCompactSource = compact.source
+  }
+
   const messages: LLMMessage[] = []
   if (systemMsg) messages.push({ role: systemMsg.role, content: systemMsg.content })
   messages.push(...historyMessages)
@@ -182,7 +253,15 @@ export async function runButlerLoop(args: {
 
   const traces: string[] = []
   if (historyMessages.length > 0) {
-    traces.push(`history: ${historyMessages.length} msgs compacted=${compact.source}`)
+    if (useRelationalHistory) {
+      traces.push(
+        `history: ${historyMessages.length} msgs source=relational:${args.workingSet.source}`,
+      )
+    } else {
+      traces.push(
+        `history: ${historyMessages.length} msgs source=event_store compacted=${eventStoreCompactSource}`,
+      )
+    }
   }
   let toolCalls = 0
   let lastDecision: ModelDecision["_tag"] = "Finish"
@@ -307,6 +386,12 @@ export async function runButlerLoop(args: {
       case "Respond": {
         await safeApplyDecision(kernel, decision, logger)
         const text = decision.content.trim()
+        await persistAssistantReply({
+          wiring: args.wiring,
+          conversationId: args.conversationId,
+          content: text || stubReply(args.content, args.fromUserId, args.projectId),
+          idempotencyKey: `assistant:${args.conversationId}:${Date.now()}`,
+        })
         return {
           reply: text || stubReply(args.content, args.fromUserId, args.projectId),
           iterations: iteration + 1,

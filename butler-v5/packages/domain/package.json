@@ -7,7 +7,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./tools/types.js": "./src/tools/types.ts",
-    "./event-sourcing.js": "./src/event-sourcing.ts"
+    "./event-sourcing.js": "./src/event-sourcing.ts",
+    "./runtime.js": "./src/runtime/index.ts",
+    "./governance/types.js": "./src/governance/types.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

@@ -45,17 +45,33 @@ export default defineConfig({
     hookTimeout: 10_000,
   },
   resolve: {
-    alias: {
-      "@butler/domain": resolve(__dirname, "packages/domain/src"),
-      "@butler/ports": resolve(__dirname, "packages/ports/src"),
-      "@butler/application": resolve(__dirname, "packages/application/src"),
-      "@butler/infrastructure": resolve(__dirname, "packages/infrastructure/src"),
-      "@butler/config": resolve(__dirname, "packages/config/src"),
-      "@butler/shared": resolve(__dirname, "packages/shared/src"),
-      "@butler/adapters": resolve(__dirname, "packages/adapters/src"),
-      "@butler/migration": resolve(__dirname, "packages/migration/src"),
-      "@butler/api": resolve(__dirname, "apps/api/src"),
-      "@butler/cli": resolve(__dirname, "cli/src"),
-    },
+    alias: [
+      {
+        find: "@butler/domain/runtime.js",
+        replacement: resolve(__dirname, "packages/domain/src/runtime/index.ts"),
+      },
+      {
+        find: "@butler/domain/governance/types.js",
+        replacement: resolve(__dirname, "packages/domain/src/governance/types.ts"),
+      },
+      { find: "@butler/domain", replacement: resolve(__dirname, "packages/domain/src/index.ts") },
+      { find: "@butler/runtime", replacement: resolve(__dirname, "packages/runtime/src") },
+      { find: "@butler/persistence", replacement: resolve(__dirname, "packages/persistence/src") },
+      { find: "@butler/ports", replacement: resolve(__dirname, "packages/ports/src") },
+      {
+        find: "@butler/application",
+        replacement: resolve(__dirname, "packages/application/src"),
+      },
+      {
+        find: "@butler/infrastructure",
+        replacement: resolve(__dirname, "packages/infrastructure/src"),
+      },
+      { find: "@butler/config", replacement: resolve(__dirname, "packages/config/src") },
+      { find: "@butler/shared", replacement: resolve(__dirname, "packages/shared/src") },
+      { find: "@butler/adapters", replacement: resolve(__dirname, "packages/adapters/src") },
+      { find: "@butler/migration", replacement: resolve(__dirname, "packages/migration/src") },
+      { find: "@butler/api", replacement: resolve(__dirname, "apps/api/src") },
+      { find: "@butler/cli", replacement: resolve(__dirname, "cli/src") },
+    ],
   },
 })

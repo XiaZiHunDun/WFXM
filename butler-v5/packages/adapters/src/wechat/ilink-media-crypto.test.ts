@@ -1,11 +1,6 @@
 import { createCipheriv } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import {
-  aes128EcbDecrypt,
-  aes128EcbEncrypt,
-  parseAesKey,
-  pkcs7Pad,
-} from "./ilink-media-crypto.js"
+import { aes128EcbDecrypt, aes128EcbEncrypt, parseAesKey, pkcs7Pad } from "./ilink-media-crypto.js"
 
 function encryptEcb(plain: Buffer, key: Buffer): Buffer {
   const cipher = createCipheriv("aes-128-ecb", key, null)

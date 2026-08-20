@@ -137,7 +137,11 @@ describe("makeRunCommandTool", () => {
     const py = await runTool(tool, { argv: ["python3", "-c", "print(42)"] }, { timeoutMs: 5000 })
     expect(py.ok).toBe(true)
     if (py.ok) expect(String(py.output).trim()).toBe("42")
-    const node = await runTool(tool, { argv: ["node", "-e", "console.log(7)"] }, { timeoutMs: 5000 })
+    const node = await runTool(
+      tool,
+      { argv: ["node", "-e", "console.log(7)"] },
+      { timeoutMs: 5000 },
+    )
     expect(node.ok).toBe(true)
     if (node.ok) expect(String(node.output).trim()).toBe("7")
     const pnpm = await runTool(tool, { argv: ["pnpm", "--version"] }, { timeoutMs: 8000 })

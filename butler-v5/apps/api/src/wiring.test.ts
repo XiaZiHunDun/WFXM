@@ -4,6 +4,8 @@ import { makeWiring, type Wiring } from "./wiring.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { makePostgresAdapters } from "@butler/adapters/postgres/index.js"
 import { EventBridge } from "@butler/runtime/bridge.js"
+import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
+import { RunEngine } from "@butler/runtime/run-engine.js"
 import { createRoutes } from "./routes.js"
 
 vi.mock("./wechat-inbound-butler.js", () => ({
@@ -24,7 +26,17 @@ describe("v5 wiring", () => {
     db = await makeTestDb()
     const bridge = new EventBridge({ db: db.db, workerId: "test" })
     const adapters = makePostgresAdapters({ db: db.db, workerId: "test" })
-    wiring = makeWiring({ bridge, adapters, workerId: "test" })
+    const runtimeStore = createRuntimeStore(db.db)
+    const runEngine = new RunEngine(runtimeStore)
+    wiring = makeWiring({
+      bridge,
+      adapters,
+      workerId: "test",
+      runtimeStore,
+      runEngine,
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
   })
 
   afterEach(async () => {

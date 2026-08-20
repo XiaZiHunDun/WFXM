@@ -46,6 +46,66 @@ program
   })
 
 program
+  .command("approvals")
+  .description("List pending approval steps (Owner API loopback)")
+  .option("--api <url>", "API base URL", "http://127.0.0.1:3000")
+  .action(async (opts: { api: string }) => {
+    const token = (process.env["BUTLER_V5_OWNER_TOKEN"] ?? "").trim()
+    if (!token) {
+      console.error("BUTLER_V5_OWNER_TOKEN is required")
+      process.exit(1)
+    }
+    const res = await fetch(`${opts.api}/v1/owner/approvals`, {
+      headers: { authorization: `Bearer ${token}` },
+    })
+    console.log(await res.text())
+  })
+
+program
+  .command("approve")
+  .description("Approve a waiting_approval step by id")
+  .argument("<stepId>", "approval step id")
+  .option("--api <url>", "API base URL", "http://127.0.0.1:3000")
+  .option("--capability <name>", "granted capability", "run_command")
+  .action(async (stepId: string, opts: { api: string; capability: string }) => {
+    const token = (process.env["BUTLER_V5_OWNER_TOKEN"] ?? "").trim()
+    if (!token) {
+      console.error("BUTLER_V5_OWNER_TOKEN is required")
+      process.exit(1)
+    }
+    const res = await fetch(
+      `${opts.api}/v1/owner/approvals/${encodeURIComponent(stepId)}/approve`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ capabilities: [opts.capability] }),
+      },
+    )
+    console.log(await res.text())
+  })
+
+program
+  .command("deny")
+  .description("Deny a waiting_approval step by id")
+  .argument("<stepId>", "approval step id")
+  .option("--api <url>", "API base URL", "http://127.0.0.1:3000")
+  .action(async (stepId: string, opts: { api: string }) => {
+    const token = (process.env["BUTLER_V5_OWNER_TOKEN"] ?? "").trim()
+    if (!token) {
+      console.error("BUTLER_V5_OWNER_TOKEN is required")
+      process.exit(1)
+    }
+    const res = await fetch(`${opts.api}/v1/owner/approvals/${encodeURIComponent(stepId)}/deny`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    })
+    console.log(await res.text())
+  })
+
+program
   .command("verify")
   .description("Verify v5 wiring (placeholder)")
   .action(() => {

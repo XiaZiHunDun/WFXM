@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Effect } from "effect"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
 import { EventBridge } from "@butler/runtime/bridge.js"
+import { RunEngine } from "@butler/runtime/run-engine.js"
+import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { runButlerLoop, type ButlerLoopLogger } from "./wechat-inbound-butler.js"
@@ -49,7 +51,17 @@ describe("runButlerLoop", () => {
   beforeEach(async () => {
     db = await makeTestDb()
     bridge = new EventBridge({ db: db.db, workerId: "w-butler" })
-    wiring = makeWiring({ bridge, adapters: {} as never, workerId: "w-butler" })
+    const runtimeStore = createRuntimeStore(db.db)
+    const runEngine = new RunEngine(runtimeStore)
+    wiring = makeWiring({
+      bridge,
+      adapters: {} as never,
+      workerId: "w-butler",
+      runtimeStore,
+      runEngine,
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
   })
 
   afterEach(async () => {

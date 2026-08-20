@@ -19,14 +19,18 @@ CLI / iLink Poller / HTTP / WebSocket
           apps/api delivery shell
                   │
                   ▼
-        runtime AgentKernel / EventBridge
+   RunEngine / RunCoordinator / PolicyGate (opt-in)
              │                  │
              ▼                  ▼
        LLM / WeChat adapters   persistence
-                                  │
-                                  ▼
-                         PostgreSQL Event Store
+             │                  │
+             │                  ├─ event_store (compat)
+             │                  └─ conversations/messages/runs/steps (0002)
+             ▼
+                         PostgreSQL
 ```
+
+P0–P2 迁移已落地：`RunEngine` 收口微信入站 Run；`RuntimeStore` 双写关系表；`BUTLER_V5_READ_MODEL` 控制读模型（默认 `event_store`）；Owner loopback `/v1/owner/*` + `butler approvals|approve|deny`；`BUTLER_V5_SANDBOX=bubblewrap` 时 `run_command` fail-closed 走 bubblewrap。
 
 当前生产 Loop 是 `apps/api/src/wechat-inbound-butler.ts` 的 async/await 编排。`packages/application` 与部分 `packages/infrastructure` 是重构期脚手架，只有自身测试，不在生产调用链上。
 

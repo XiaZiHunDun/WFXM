@@ -1,10 +1,16 @@
 import { Hono } from "hono"
 import { createRoutes } from "./routes.js"
+import { createOwnerRoutes } from "./owner-routes.js"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { EventBridge } from "@butler/runtime/bridge.js"
 import { makePostgresAdapters } from "@butler/adapters/postgres/index.js"
 import { pickLLMProvider } from "@butler/adapters"
-import { openButlerDatabase } from "@butler/persistence"
+import {
+  openButlerDatabase,
+  createRuntimeStore,
+  backfillRuntimeFromEventStore,
+} from "@butler/persistence"
+import { RunEngine } from "@butler/runtime/run-engine.js"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer } from "./ws-routes.js"
 
@@ -25,9 +31,22 @@ if (!openedDb.ok) {
 console.error(`[butler-v5] event store: ${openedDb.value.kind}`)
 const db = openedDb.value.db
 const bridge = new EventBridge({ db, workerId })
+const runtimeStore = createRuntimeStore(db)
+const runEngine = new RunEngine(runtimeStore)
 const adapters = makePostgresAdapters({ db, workerId })
-const wiring: Wiring = makeWiring({ bridge, adapters, workerId })
+const wiring: Wiring = makeWiring({
+  bridge,
+  adapters,
+  workerId,
+  runtimeStore,
+  runEngine,
+  db,
+  backfillConversation: async (conversationId) => {
+    await backfillRuntimeFromEventStore(db, [conversationId])
+  },
+})
 createRoutes(app, wiring)
+createOwnerRoutes(app, wiring)
 
 // R8.x.8: start the WebSocket push server so subagent replies (and
 // any future event_store writes for a conversation) get delivered

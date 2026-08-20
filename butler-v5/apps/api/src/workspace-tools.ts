@@ -152,6 +152,51 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         }
       }
       const cwd = workspaceRootFrom(ctx)
+      if ((process.env["BUTLER_V5_SANDBOX"] ?? "").trim() === "bubblewrap") {
+        const { DEFAULT_SANDBOX_PROFILE, runInBubblewrap } =
+          await import("@butler/adapters/sandbox/bubblewrap-runner.js")
+        const profile = { ...DEFAULT_SANDBOX_PROFILE, workspaceRoot: cwd }
+        const sandboxed = await runInBubblewrap({
+          argv,
+          profile,
+          runner: {
+            spawn: async (command, bwrapArgs, opts) =>
+              new Promise((resolvePromise) => {
+                let child: ReturnType<typeof spawn>
+                try {
+                  child = spawn(command, bwrapArgs, {
+                    cwd: opts.cwd,
+                    env: { PATH: process.env["PATH"] ?? "/usr/bin:/bin" },
+                    stdio: ["ignore", "pipe", "pipe"],
+                  })
+                } catch (err) {
+                  resolvePromise({
+                    code: 1,
+                    stdout: "",
+                    stderr: err instanceof Error ? err.message : String(err),
+                  })
+                  return
+                }
+                const chunks: Buffer[] = []
+                let total = 0
+                const take = (buf: Buffer) => {
+                  total += buf.length
+                  if (total <= opts.maxOutputBytes) chunks.push(buf)
+                }
+                child.stdout?.on("data", (b: Buffer) => take(b))
+                child.stderr?.on("data", (b: Buffer) => take(b))
+                const timer = setTimeout(() => child.kill("SIGKILL"), opts.timeoutMs)
+                child.on("close", (code) => {
+                  clearTimeout(timer)
+                  const text = Buffer.concat(chunks).toString("utf8")
+                  resolvePromise({ code: code ?? 1, stdout: text, stderr: "" })
+                })
+              }),
+          },
+        })
+        if (!sandboxed.ok) return { ok: false, reason: sandboxed.reason ?? "sandbox failed" }
+        return { ok: true, output: sandboxed.stdout ?? "" }
+      }
       return await spawnCaptured(argv, cwd, signal)
     },
   }

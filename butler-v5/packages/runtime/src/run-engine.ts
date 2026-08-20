@@ -1,0 +1,88 @@
+import type { RuntimeStore } from "@butler/domain/runtime.js"
+import { RunCoordinator } from "./run-coordinator.js"
+import { buildWorkingSet, type WorkingSetResult } from "./working-set.js"
+
+export interface RunEngineContext {
+  readonly conversationId: string
+  readonly messageId: string
+  readonly runId: string
+  readonly workingSet: WorkingSetResult
+}
+
+export interface InboundRunInput {
+  readonly conversationId: string
+  readonly messageId: string
+  readonly subject: string
+  readonly content: string
+  readonly idempotencyKey: string
+  readonly triggerSource?: "channel" | "cli" | "api" | "webhook"
+  readonly goal?: string
+  readonly budget?: Readonly<Record<string, unknown>>
+}
+
+export class RunEngine {
+  private readonly coordinator: RunCoordinator
+
+  constructor(
+    private readonly store: RuntimeStore,
+    coordinator?: RunCoordinator,
+  ) {
+    this.coordinator = coordinator ?? new RunCoordinator()
+  }
+
+  /** Start or resume the single active main Run for a conversation. */
+  async executeInbound<T>(
+    input: InboundRunInput,
+    runBody: (ctx: RunEngineContext) => Promise<T>,
+  ): Promise<T> {
+    return this.coordinator.withConversationLock(input.conversationId, async () => {
+      const createdAt = new Date()
+      const inbound = await this.store.createConversationWithUserMessage({
+        conversationId: input.conversationId,
+        messageId: input.messageId,
+        subject: input.subject,
+        content: { text: input.content },
+        triggerSource: input.triggerSource ?? "channel",
+        idempotencyKey: input.idempotencyKey,
+        createdAt,
+      })
+      const run = await this.store.createRun({
+        id: crypto.randomUUID(),
+        conversationId: inbound.conversationId,
+        parentRunId: null,
+        triggerSource: input.triggerSource ?? "channel",
+        idempotencyKey: `${input.idempotencyKey}:run`,
+        subject: input.subject,
+        goal: input.goal ?? "reply",
+        budget: input.budget ?? { maxSteps: 5 },
+        deadline: null,
+        createdAt,
+      })
+      const running = await this.store.transitionRunStatus(
+        run.id,
+        run.version,
+        "running",
+        new Date(createdAt.getTime() + 1),
+      )
+      const messages = await this.store.listMessages(inbound.conversationId)
+      const workingSet = buildWorkingSet({
+        messages,
+        trailingUserContent: input.content,
+      })
+
+      try {
+        const result = await runBody({
+          conversationId: inbound.conversationId,
+          messageId: inbound.messageId,
+          runId: running.id,
+          workingSet,
+        })
+        await this.store.transitionRunStatus(running.id, running.version, "succeeded", new Date())
+        return result
+      } catch (err) {
+        await this.store.transitionRunStatus(running.id, running.version, "failed", new Date())
+        throw err
+      }
+    })
+  }
+}
