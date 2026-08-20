@@ -2,6 +2,8 @@ import {
   parsePendingCapabilityInput,
   type ApprovalDecision,
 } from "@butler/runtime/approval-runtime.js"
+import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import type { ToolExecutionOutcome } from "@butler/runtime/capability-boundary.js"
 import type { RunResult } from "@butler/runtime/tool-runtime.js"
@@ -10,6 +12,14 @@ import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-bou
 import type { Wiring } from "./wiring.js"
 
 export { approveWaitingStep, denyWaitingStep } from "@butler/runtime/approval-runtime.js"
+
+export async function markGrantConsumed(
+  store: RuntimeStore,
+  grant: ScopedGrantRecord,
+): Promise<void> {
+  if (grant.remainingUses === null) return
+  await store.updateScopedGrantRemainingUses(grant.id, Math.max(0, grant.remainingUses - 1))
+}
 
 export function isPendingApprovalOutcome(
   outcome: ToolExecutionOutcome,
@@ -68,6 +78,7 @@ export async function resumeApprovedCapability(
     await wiring.runtimeStore.transitionRunStatus(run.id, run.version, finalStatus, new Date())
   }
   if (result.ok) {
+    await markGrantConsumed(wiring.runtimeStore, decision.grant)
     await wiring.runtimeStore.appendAuditEvent({
       auditId: crypto.randomUUID(),
       runId: decision.runId,

@@ -86,7 +86,7 @@ export function defaultPermissionPolicy(ownerSubject: string): PermissionPolicy 
   }
 }
 
-/** Wechat/subagent loop until P1.4 wires waiting_approval for outbound sends. */
+/** Production loop policy; alwaysConfirm outbound sends use waiting_approval + Grant. */
 export function productionPermissionPolicy(ownerSubject: string): PermissionPolicy {
   return {
     ownerSubject,

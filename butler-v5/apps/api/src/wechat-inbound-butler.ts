@@ -22,6 +22,7 @@ import {
   compactConversationHistoryWithLlm,
   eventsToHistoryMessages,
 } from "./conversation-memory.js"
+import { tryWechatInlineApproval } from "./wechat-inline-approval.js"
 
 /**
  * Maximum tool-call iterations per inbound turn. Bounds the loop so a
@@ -85,7 +86,7 @@ async function executeInboundTool(args: {
   const outcome = await args.toolExecutor.execute(args.def, args.toolArgs)
   if (isPendingApprovalOutcome(outcome)) {
     throw new RunPauseForApproval({
-      reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}`,
+      reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}\n回复「确认」批准，或「拒绝」取消。`,
       iterations: args.iteration + 1,
       toolCalls: args.toolCalls,
       finalDecision: "AskApproval",
@@ -132,6 +133,15 @@ export async function runButlerLoop(args: {
   readonly adapter?: LLMAdapter
 }): Promise<ButlerLoopResult> {
   const env = args.env ?? process.env
+  const inline = await tryWechatInlineApproval({
+    wiring: args.wiring,
+    conversationId: args.conversationId,
+    content: args.content,
+    fromUserId: args.fromUserId,
+    env,
+  })
+  if (inline) return inline
+
   const readModel = resolveReadModelSource(env)
   if (readModel !== "event_store") {
     await args.wiring.backfillConversation(args.conversationId)

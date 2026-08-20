@@ -264,6 +264,22 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       return rows.map(toStoredStep)
     },
 
+    async listWaitingApprovalStepsForConversation(conversationId) {
+      const rows = await db
+        .select({ step: steps })
+        .from(steps)
+        .innerJoin(runs, eq(steps.runId, runs.runId))
+        .where(
+          and(
+            eq(runs.conversationId, conversationId),
+            eq(steps.kind, "approval"),
+            eq(steps.status, "waiting"),
+          ),
+        )
+        .orderBy(asc(steps.createdAt))
+      return rows.map((row) => toStoredStep(row.step))
+    },
+
     async createScopedGrant(input) {
       await db.insert(scopedGrants).values({
         grantId: input.grantId,
@@ -315,6 +331,13 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         detail: input.detail,
         createdAt: input.createdAt,
       })
+    },
+
+    async updateScopedGrantRemainingUses(grantId, remainingUses) {
+      await db
+        .update(scopedGrants)
+        .set({ remainingUses })
+        .where(eq(scopedGrants.grantId, grantId))
     },
   }
 }

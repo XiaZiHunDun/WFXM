@@ -17,7 +17,8 @@
     "./working-set.js": "./src/working-set.ts",
     "./policy-gate.js": "./src/policy-gate.ts",
     "./capability-boundary.js": "./src/capability-boundary.ts",
-    "./approval-runtime.js": "./src/approval-runtime.ts"
+    "./approval-runtime.js": "./src/approval-runtime.ts",
+    "./inline-approval-intent.js": "./src/inline-approval-intent.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

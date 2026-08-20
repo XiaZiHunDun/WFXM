@@ -87,10 +87,19 @@ describe("approval-runtime", () => {
     })
     const decision = await approveWaitingStep(store, stepId, "owner-1")
     expect(decision.grant.scope.capabilities).toEqual(["send_wechat_file"])
+    expect(decision.grant.remainingUses).toBe(1)
     const updatedRun = await store.getRun(run.id)
     expect(updatedRun?.status).toBe("running")
     const step = await store.getStep(stepId)
     expect(step?.status).toBe("succeeded")
+    await store.updateScopedGrantRemainingUses(decision.grant.id, 0)
+    const exhausted = await store.findActiveGrant({
+      runId: run.id,
+      subject: "owner-1",
+      capability: "send_wechat_file",
+      now: new Date(),
+    })
+    expect(exhausted).toBeNull()
   })
 
   it("denyWaitingStep marks the step and run failed", async () => {

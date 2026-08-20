@@ -30,7 +30,7 @@ CLI / iLink Poller / HTTP / WebSocket
                          PostgreSQL
 ```
 
-P0–P2 迁移已落地：`RunEngine` 收口微信入站 Run；`RuntimeStore` 双写关系表；`BUTLER_V5_READ_MODEL` 控制读模型（默认 `event_store`）；Owner loopback `/v1/owner/*` + `butler approvals|approve|deny`；`BUTLER_V5_SANDBOX=bubblewrap` 时 `run_command` fail-closed 走 bubblewrap。
+P0–P2 迁移已落地；P1.0–P1.4 治理链路已接入生产：`RunEngine` 收口微信入站 Run；`RuntimeStore` 双写关系表；`PolicyGate` + `CapabilityRegistry` 统一工具执行；`waiting_approval` Step + Owner API/CLI + 微信内联「确认/拒绝」；`ScopedGrant` 一次性扣减；`audit_events` 双写子代理审计；`BUTLER_V5_READ_MODEL` 控制读模型（默认 `event_store`）；`BUTLER_V5_SANDBOX=bubblewrap` 时 `run_command` fail-closed 走 bubblewrap。
 
 当前生产 Loop 是 `apps/api/src/wechat-inbound-butler.ts` 的 async/await 编排。`packages/application` 与部分 `packages/infrastructure` 是重构期脚手架，只有自身测试，不在生产调用链上。
 
@@ -68,8 +68,10 @@ WeChat phone
   → Tencent iLink getupdates
   → apps/api ilink-poller
   → POST /v1/wechat/inbound
+  → (optional) inline approval: 确认/拒绝 → ScopedGrant + resume
   → EventBridge append ConversationStarted
-  → runButlerLoop
+  → runButlerLoop → RunEngine.executeInbound
+  → PolicyGate.executeThroughBoundary (tools)
   → LLM / tools / delegate
   → HTTP reply
   → iLink sendmessage
@@ -87,6 +89,7 @@ WeChat phone
 - 超预算时使用 LLM 摘要，失败回退为抽取压缩；
 - 最多执行 5 轮模型/工具交互；
 - 支持原生 tool calls 与 JSON Decision fallback；
+- 需确认副作用（如 `send_wechat_file`）写入 `waiting_approval` Step，Run 暂停；用户可回复「确认/拒绝」，或 Owner 调 `/v1/owner/approvals/*` / `butler approve`；
 - 无 LLM、解码失败或工具异常时仍返回非空回复。
 
 ### 3.2 工具
@@ -135,16 +138,13 @@ delegate_to_subagent
 
 ## 5. 数据边界
 
-### 5.1 唯一生产 schema
+### 5.1 生产 schema
 
-`packages/persistence/src/migrations/0001_initial.sql` 是唯一生产 schema，包含：
+`0001_initial.sql`：event_store / outbox / snapshots / projections。
 
-- `event_store`
-- `outbox`
-- `snapshots`
-- `projections`
+`0002_target_runtime.sql`（additive）：conversations / messages / runs / steps / scoped_grants / audit_events。
 
-生产在 `NODE_ENV=production` 且有 `DATABASE_URL` 时使用 PostgreSQL。测试与显式本地模式使用 PGlite，但执行同一迁移 SQL。
+生产在 `NODE_ENV=production` 且有 `DATABASE_URL` 时使用 PostgreSQL。测试与显式本地模式使用 PGlite，执行同一迁移 SQL。
 
 ### 5.2 禁止第二套 schema
 
@@ -159,26 +159,25 @@ delegate_to_subagent
 
 ---
 
-## 6. 权限事实与缺口
+## 6. 治理与权限（生产事实）
 
-当前已有：
+当前已接入：
 
-- workspace 路径约束与 symlink 逃逸检查；
-- `run_command` 具名白名单；
-- 子代理工具名 capability gate；
-- AskApproval Decision 状态；
-- 审计日志和事件 actor；
-- iLink DM allowlist、CDN host allowlist。
+- **PolicyGate + CapabilityRegistry**：`wechat-inbound-butler` 与子代理 worker 的工具执行经 `executeThroughBoundary`，禁止 apps 层直接 `runTool`（architecture test 锁定）；
+- **waiting_approval Step**：Policy `Ask` 时持久化待执行 capability（含 args/digest/过期时间），Run 转 `waiting_approval`；
+- **ScopedGrant**：Owner approve 或微信内联「确认」后签发 `uses=1` Grant，执行成功后扣减 `remainingUses`；
+- **恢复路径**：`resumeApprovedCapability` 在 approve 后立即执行挂起动作；Run 终态 `succeeded`/`failed`；
+- **Owner API**：`GET/POST /v1/owner/approvals*` + CLI `butler approvals|approve|deny`（`BUTLER_V5_OWNER_TOKEN`）；
+- **微信内联审批**：同对话有待审批 Step 时，用户发送「确认」「拒绝」等短句触发 approve/deny（需为 pending subject 或 `BUTLER_OWNER_WECHAT_ID`）；
+- **审计**：子代理 JSONL + `audit_events` 双写；审批/request/grant/execute 写 `audit_events`；
+- workspace 路径约束、`run_command` 白名单、子代理 capability gate、iLink DM allowlist。
 
-当前未形成统一生产权限内核：
+仍待完善：
 
-- `AskApproval` 只把问题作为回复返回，未持久化 ApprovalRequest，也不能在 Owner 回复后恢复原动作；
-- Domain 的 Policy/Capability 类型未接入 `runButlerLoop`；
-- 父管家工具没有统一经过同一 Policy；
-- Capability 只有 `{tool, expiresAt}` 等不完整形态；
-- `GuardService` 与 Effect Application 用例没有进入生产路径。
-
-在接入浏览器、MCP、定时自治或更多写工具前，必须先完成新版边界路线图的 P1/P2。
+- 浏览器/MCP/调度等多 Channel 条件准入；
+- Grant 路径/域名/网络 scope 细粒度；
+- bubblewrap systemd preflight 运维文档；
+- `packages/application` / 旧 infrastructure 脚手架归档。
 
 ---
 
@@ -187,7 +186,7 @@ delegate_to_subagent
 ### 保留并继续演进
 
 - `apps/api`：生产 delivery 与当前编排；
-- `packages/runtime`：AgentKernel、EventBridge、Decision、Tool Runtime、Delegate Runtime；
+- `packages/runtime`：AgentKernel、EventBridge、RunEngine、PolicyGate、approval-runtime、Tool Runtime、Delegate Runtime；
 - `packages/adapters`：LLM、WeChat 与外部协议；
 - `packages/persistence`：唯一数据实现；
 - `packages/domain`：被生产需求采用的纯策略与类型。

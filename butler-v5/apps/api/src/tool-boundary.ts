@@ -11,6 +11,7 @@ import {
   productionPermissionPolicy,
   type CapabilityRegistry,
 } from "@butler/runtime/policy-gate.js"
+import { markGrantConsumed } from "./approval-resume.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 
 export const DEFAULT_TOOL_TIMEOUT_MS = 5_000
@@ -68,8 +69,9 @@ export function makeToolExecutor(args: {
     registry,
     gate,
     execute: async (def, toolArgs) => {
+      const explicitGrant = args.grant ?? null
       const grant =
-        args.grant ??
+        explicitGrant ??
         (args.store && args.runId
           ? await args.store.findActiveGrant({
               runId: args.runId,
@@ -78,7 +80,7 @@ export function makeToolExecutor(args: {
               now: new Date(),
             })
           : null)
-      return executeToolThroughBoundary(
+      const outcome = await executeToolThroughBoundary(
         registry,
         gate,
         def,
@@ -90,6 +92,10 @@ export function makeToolExecutor(args: {
         },
         approval,
       )
+      if (!explicitGrant && grant && outcome.ok && args.store) {
+        await markGrantConsumed(args.store, grant)
+      }
+      return outcome
     },
   }
 }

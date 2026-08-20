@@ -93,6 +93,9 @@ export interface RuntimeStore {
     readonly updatedAt: Date
   }) => Promise<StoredStep>
   readonly listWaitingApprovalSteps: () => Promise<readonly StoredStep[]>
+  readonly listWaitingApprovalStepsForConversation: (
+    conversationId: string,
+  ) => Promise<readonly StoredStep[]>
   readonly createScopedGrant: (input: {
     readonly grantId: string
     readonly runId: string
@@ -117,6 +120,10 @@ export interface RuntimeStore {
     readonly detail: Readonly<Record<string, unknown>>
     readonly createdAt: Date
   }) => Promise<void>
+  readonly updateScopedGrantRemainingUses: (
+    grantId: string,
+    remainingUses: number | null,
+  ) => Promise<void>
 }
 
 export type ReadModelSource = "event_store" | "hybrid" | "relational"
