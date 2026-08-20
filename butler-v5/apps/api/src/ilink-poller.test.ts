@@ -27,6 +27,21 @@ describe("parseIlinkPollerConfig", () => {
     expect(parsed.value.inboundUrl).toBe("http://127.0.0.1:3000/v1/wechat/inbound")
     expect(parsed.value.token).toBe("tok")
   })
+
+  it("parses allowlist policy and owner id", () => {
+    const parsed = parseIlinkPollerConfig({
+      BUTLER_V5_ILINK_ENABLED: "1",
+      WECHAT_TOKEN: "tok",
+      WECHAT_DM_POLICY: "allowlist",
+      WECHAT_ALLOWED_USERS: "u-a,u-b",
+      BUTLER_OWNER_WECHAT_ID: "u-owner",
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.value.dmPolicy).toBe("allowlist")
+    expect(parsed.value.allowedUserIds).toEqual(["u-a", "u-b", "u-owner"])
+    expect(parsed.value.dropGroups).toBe(true)
+  })
 })
 
 describe("runIlinkPollCycle", () => {
@@ -147,5 +162,53 @@ describe("runIlinkPollCycle", () => {
     )
     expect(stats.expired).toBe(true)
     expect(slept).toBe(7)
+  })
+
+  it("drops group chats and allowlist misses", async () => {
+    const inboundCalls: string[] = []
+    const stats = await runIlinkPollCycle(
+      {
+        getUpdates: async () => ({
+          ok: true,
+          value: {
+            ret: 0,
+            msgs: [
+              {
+                msg_id: "g1",
+                from_user_id: "u-friend",
+                room_id: "room-9",
+                item_list: [{ type: "text", text_item: { content: "群消息" } }],
+              },
+              {
+                msg_id: "d1",
+                from_user_id: "u-stranger",
+                item_list: [{ type: "text", text_item: { content: "私聊" } }],
+              },
+              {
+                msg_id: "d2",
+                from_user_id: "u-owner",
+                item_list: [{ type: "text", text_item: { content: "主人" } }],
+              },
+            ],
+          },
+        }),
+        postInbound: async (input) => {
+          inboundCalls.push(input.fromUserId)
+          return { ok: true, value: "ok" }
+        },
+        sendMessage: async () => ({ ok: true, value: {} }),
+        accountId: "bot-self",
+        emptyPollDelayMs: 0,
+        sessionExpiredSleepMs: 0,
+        sleep: async () => undefined,
+        dmPolicy: "allowlist",
+        allowedUserIds: ["u-owner"],
+        dropGroups: true,
+      },
+      { syncBuf: "", seenIds: new Set() },
+    )
+    expect(stats.processed).toBe(1)
+    expect(stats.skipped).toBe(2)
+    expect(inboundCalls).toEqual(["u-owner"])
   })
 })

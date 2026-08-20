@@ -12,8 +12,14 @@ export const ILINK_APP_CLIENT_VERSION = (2 << 16) | (2 << 8) | 0
 
 export const EP_GET_UPDATES = "ilink/bot/getupdates"
 export const EP_SEND_MESSAGE = "ilink/bot/sendmessage"
+export const EP_GET_BOT_QR = "ilink/bot/get_bot_qrcode"
+export const EP_GET_QR_STATUS = "ilink/bot/get_qrcode_status"
 
 export const ITEM_TEXT = 1
+export const ITEM_IMAGE = 2
+export const ITEM_VOICE = 3
+export const ITEM_FILE = 4
+export const ITEM_VIDEO = 5
 export const MSG_TYPE_BOT = 2
 export const MSG_STATE_FINISH = 2
 export const SESSION_EXPIRED_ERRCODE = -14
@@ -59,6 +65,37 @@ export function extractIlinkText(itemList: unknown): string {
   return ""
 }
 
+function itemType(item: Record<string, unknown>): string | number | undefined {
+  const type = item["type"]
+  return typeof type === "string" || typeof type === "number" ? type : undefined
+}
+
+export function extractIlinkMediaPlaceholder(itemList: unknown): string {
+  if (!Array.isArray(itemList)) {
+    return ""
+  }
+  for (const raw of itemList) {
+    const item = asRecord(raw)
+    if (!item) continue
+    const type = itemType(item)
+    if (type === ITEM_IMAGE || type === "image") return "[收到图片，当前版本暂不解析媒体]"
+    if (type === ITEM_VOICE || type === "voice") return "[收到语音，当前版本暂不解析媒体]"
+    if (type === ITEM_VIDEO || type === "video") return "[收到视频，当前版本暂不解析媒体]"
+    if (type === ITEM_FILE || type === "file") return "[收到文件，当前版本暂不解析媒体]"
+  }
+  return ""
+}
+
+export function extractIlinkContent(itemList: unknown): string {
+  return extractIlinkText(itemList) || extractIlinkMediaPlaceholder(itemList)
+}
+
+export function isIlinkGroupMessage(msg: unknown): boolean {
+  const rec = asRecord(msg)
+  if (!rec) return false
+  return Boolean(strField(rec, "room_id").trim() || strField(rec, "chat_room_id").trim())
+}
+
 export function inboundFromIlinkMsg(msg: unknown): IlinkInbound | undefined {
   const rec = asRecord(msg)
   if (!rec) {
@@ -68,7 +105,7 @@ export function inboundFromIlinkMsg(msg: unknown): IlinkInbound | undefined {
   if (!fromUserId) {
     return undefined
   }
-  const content = extractIlinkText(rec["item_list"])
+  const content = extractIlinkContent(rec["item_list"])
   if (!content) {
     return undefined
   }

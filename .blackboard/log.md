@@ -111,3 +111,7 @@ R8.x.14 LLM 摘要记忆：超预算旧轮次先模型摘要，失败退回抽�
 ## 2026-08-19-cursor-038 · cursor
 R8.x.15 v5 自接 iLink：getupdates → inbound → sendmessage；12 测试绿。默认关闭。
 下次：在 live env 开 `BUTLER_V5_ILINK_ENABLED=1` 后重启 gateway。
+
+## 2026-08-20-cursor-039 · cursor
+真微信回复确认。R8.x.16 allowlist/群丢弃/媒体占位/sync_buf/`wechat-login`。19 测试绿。
+下次：提交推送；然后 WS subscribe token 或 `~/.butler/` 保留拍板。

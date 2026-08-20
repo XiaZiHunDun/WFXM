@@ -236,7 +236,7 @@ bash scripts/typecheck-gate.sh   # PASS
 |---|---|---|
 | `wechat-inbound-butler.ts` only handles `Respond` and `Finish` natively — `CallTool` / `AskApproval` via native tool_calls; `Delegate` via outbox | low | All Decision paths covered |
 | 5-gate: `pnpm format:check` complains about `openclaw-mock.mjs` (prettier not run after first commit) | low | Workaround: `pnpm exec prettier --write` then commit |
-| QR login / media / allowlist not ported from v4 | medium | Native poller needs `WECHAT_TOKEN` from existing env; no `wechat-setup` in v5 yet |
+| QR login / media / allowlist not ported from v4 | medium | **R8.x.16** QR CLI + DM allowlist + media placeholder; CDN decrypt still not ported |
 | R8.x.9 candidate: `conversationId` is server-generated — WS client must open AFTER HTTP call | low | **R8.x.11** client can supply id; default is stable per user |
 | 5 pre-existing architecture tests failing (`tests/architecture/r{2,3,4,5,6}-end-to-end.test.ts`) | low | Same root cause as openclaw-mock prettier issue |
 | `openclaw-mock.mjs` only has `/admin/push` and iLink-mock endpoints | low | Working test fixture; expand as needed |
@@ -260,6 +260,7 @@ Owner `ailearn` needs to decide on `~/.butler/` data retention:
 5. **~~Tool registry expansion~~** — **done in R8.x.12** (`read_file` / `run_command` sandboxed in `workspace-tools.ts`; workspace root = `workspaceRoot` / `BUTLER_V5_WORKSPACE_ROOT` / cwd)
 6. **~~Capability-based delegation audit~~ (per-tool-call)** — **done in R8.x.10** (`kind: "tool_call"` + denial `rejection` with `toolName`)
 7. **~~v5 native iLink~~** — **done in R8.x.15** (`packages/adapters/src/wechat/ilink.ts` + `apps/api/src/ilink-poller.ts`; `butler start` after listen; `BUTLER_V5_ILINK_ENABLED=1` + `WECHAT_TOKEN`)
+8. **~~iLink hardening~~** — **done in R8.x.16** (DM policy/allowlist, drop groups by default, media placeholder, persist sync_buf, `butler wechat-login` QR). Live WeChat reply verified 2026-08-20.
 
 ### 8.3 v4 source migration (long-term)
 

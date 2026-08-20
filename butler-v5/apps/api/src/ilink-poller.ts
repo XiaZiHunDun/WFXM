@@ -9,12 +9,19 @@ import {
   ilinkGetUpdates,
   ilinkSendMessage,
   inboundFromIlinkMsg,
+  isIlinkGroupMessage,
   isIlinkOk,
   isSessionExpired,
   type ILinkClientConfig,
   type ILinkResult,
 } from "@butler/adapters"
-import { parseIlinkPollerConfig, type IlinkPollerConfig } from "./ilink-config.js"
+import {
+  isDmAllowed,
+  parseIlinkPollerConfig,
+  type DmPolicy,
+  type IlinkPollerConfig,
+} from "./ilink-config.js"
+import { loadSyncBuf, saveSyncBuf } from "./ilink-sync.js"
 
 export type IlinkPollerLogger = {
   readonly warn: (msg: string, ...args: unknown[]) => void
@@ -46,6 +53,10 @@ export type IlinkCycleDeps = {
   readonly emptyPollDelayMs: number
   readonly sessionExpiredSleepMs: number
   readonly sleep: (ms: number) => Promise<void>
+  readonly dmPolicy?: DmPolicy
+  readonly allowedUserIds?: readonly string[]
+  readonly dropGroups?: boolean
+  readonly persistSyncBuf?: (syncBuf: string) => void
 }
 
 export type IlinkCycleStats = {
@@ -85,6 +96,7 @@ export async function runIlinkPollCycle(
   const nextBuf = response["get_updates_buf"]
   if (typeof nextBuf === "string" && nextBuf.length > 0) {
     state.syncBuf = nextBuf
+    deps.persistSyncBuf?.(nextBuf)
   }
   if (isSessionExpired(response)) {
     await deps.sleep(deps.sessionExpiredSleepMs)
@@ -101,16 +113,28 @@ export async function runIlinkPollCycle(
     return { processed: 0, sent: 0, skipped: 0, expired: false, empty: true }
   }
 
+  const dmPolicy = deps.dmPolicy ?? "open"
+  const allowedUserIds = deps.allowedUserIds ?? []
+  const dropGroups = deps.dropGroups ?? true
+
   let processed = 0
   let sent = 0
   let skipped = 0
   for (const msg of msgs) {
+    if (dropGroups && isIlinkGroupMessage(msg)) {
+      skipped += 1
+      continue
+    }
     const inbound = inboundFromIlinkMsg(msg)
     if (!inbound) {
       skipped += 1
       continue
     }
     if (deps.accountId && inbound.fromUserId === deps.accountId) {
+      skipped += 1
+      continue
+    }
+    if (!isDmAllowed(inbound.fromUserId, dmPolicy, allowedUserIds)) {
       skipped += 1
       continue
     }
@@ -215,7 +239,10 @@ export function startIlinkPoller(
     fetch: fetchImpl,
     longPollTimeoutMs: config.longPollTimeoutMs,
   }
-  const state: IlinkPollState = { syncBuf: "", seenIds: new Set() }
+  const state: IlinkPollState = {
+    syncBuf: loadSyncBuf(config.syncBufPath),
+    seenIds: new Set(),
+  }
   let stopped = false
 
   const tick = async (): Promise<void> => {
@@ -231,6 +258,10 @@ export function startIlinkPoller(
           emptyPollDelayMs: config.emptyPollDelayMs,
           sessionExpiredSleepMs: config.sessionExpiredSleepMs,
           sleep,
+          dmPolicy: config.dmPolicy,
+          allowedUserIds: config.allowedUserIds,
+          dropGroups: config.dropGroups,
+          persistSyncBuf: (syncBuf) => saveSyncBuf(config.syncBufPath, syncBuf),
         },
         state,
       )
@@ -243,7 +274,9 @@ export function startIlinkPoller(
     }
   }
 
-  logger.warn(`[ilink-poller] started baseUrl=${config.baseUrl} inbound=${config.inboundUrl}`)
+  logger.warn(
+    `[ilink-poller] started baseUrl=${config.baseUrl} inbound=${config.inboundUrl} dmPolicy=${config.dmPolicy}`,
+  )
   void tick()
   return {
     stop: () => {

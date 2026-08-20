@@ -109,6 +109,9 @@ importers:
 
   cli:
     dependencies:
+      '@butler/adapters':
+        specifier: workspace:*
+        version: link:../packages/adapters
       '@butler/api':
         specifier: workspace:*
         version: link:../apps/api

@@ -4,6 +4,7 @@ import {
   ilinkGetUpdates,
   ilinkSendMessage,
   inboundFromIlinkMsg,
+  interpretQrStatus,
   ITEM_TEXT,
 } from "./ilink.js"
 
@@ -29,6 +30,15 @@ describe("iLink protocol extract", () => {
       messageId: "mock-1",
       contextToken: "ct-1",
     })
+  })
+
+  it("uses a media placeholder when there is no text", () => {
+    const inbound = inboundFromIlinkMsg({
+      msg_id: "img-1",
+      from_user_id: "u-wx",
+      item_list: [{ type: 2, image_item: { url: "https://cdn.example/a.jpg" } }],
+    })
+    expect(inbound?.content).toBe("[收到图片，当前版本暂不解析媒体]")
   })
 })
 
@@ -95,6 +105,26 @@ describe("iLink HTTP client", () => {
     expect(result).toEqual({
       ok: true,
       value: { ret: 0, msgs: [], get_updates_buf: "keep" },
+    })
+  })
+})
+
+describe("iLink QR status", () => {
+  it("reads confirmed credentials from get_qrcode_status", () => {
+    expect(
+      interpretQrStatus({
+        status: "confirmed",
+        ilink_bot_id: "bot-1",
+        bot_token: "tok-1",
+        baseurl: "https://ilinkai.weixin.qq.com",
+        ilink_user_id: "user-1",
+      }),
+    ).toEqual({
+      kind: "confirmed",
+      accountId: "bot-1",
+      token: "tok-1",
+      baseUrl: "https://ilinkai.weixin.qq.com",
+      userId: "user-1",
     })
   })
 })

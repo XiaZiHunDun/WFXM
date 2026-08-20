@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+import { homedir } from "node:os"
+import { join } from "node:path"
 import { Command } from "commander"
 import { serve } from "@hono/node-server"
+import { runWechatLogin } from "./wechat-login.js"
 
 const program = new Command()
 
@@ -24,6 +27,22 @@ program
     }
     process.on("SIGINT", shutdown)
     process.on("SIGTERM", shutdown)
+  })
+
+program
+  .command("wechat-login")
+  .description("Scan iLink QR and write WECHAT_TOKEN into ~/.config/butler-v5/env")
+  .action(async () => {
+    const envPath =
+      process.env["BUTLER_V5_ENV_PATH"] ?? join(homedir(), ".config", "butler-v5", "env")
+    const result = await runWechatLogin({
+      envPath,
+      ...(process.env["WECHAT_BASE_URL"] ? { baseUrl: process.env["WECHAT_BASE_URL"] } : {}),
+    })
+    if (!result.ok) {
+      console.error(result.reason)
+      process.exit(1)
+    }
   })
 
 program
