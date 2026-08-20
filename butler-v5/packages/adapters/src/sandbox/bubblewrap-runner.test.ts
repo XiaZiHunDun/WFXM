@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   buildBubblewrapArgs,
   DEFAULT_SANDBOX_PROFILE,
+  preflightBubblewrap,
   runInBubblewrap,
   type ProcessRunner,
 } from "./bubblewrap-runner.js"
@@ -34,5 +35,13 @@ describe("bubblewrap runner", () => {
       runner,
     })
     expect(result).toEqual({ ok: true, stdout: "hi\n", stderr: "" })
+  })
+
+  it("preflightBubblewrap reports missing bwrap", async () => {
+    const result = await preflightBubblewrap("/nonexistent/bwrap-binary")
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toMatch(/preflight failed/i)
+    }
   })
 })

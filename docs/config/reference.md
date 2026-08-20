@@ -855,6 +855,22 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_OPENCODE_AGENT` | `build` | OpenCode agent 类型：`build` / `plan` |
 | `BUTLER_OPENCODE_MODEL` | — | OpenCode 模型，例如 `anthropic/claude-sonnet-4-20250514` |
 
+## Butler v5（生产主线）
+
+> SSOT 示例：[`butler-v5/.env.example`](../../butler-v5/.env.example)。部署事实：[`architecture/v5-production-architecture-2026-08.md`](../architecture/v5-production-architecture-2026-08.md)。
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_V5_DB` | — | `postgres` \| `pglite`；生产 `NODE_ENV=production` + `DATABASE_URL` 时用 Postgres |
+| `BUTLER_V5_READ_MODEL` | `event_store` | 读模型：`event_store` \| `hybrid` \| `relational` |
+| `BUTLER_V5_OWNER_TOKEN` | — | Owner API / `butler approvals` Bearer token |
+| `BUTLER_V5_SANDBOX` | — | 未设 = 进程内 workspace 约束；`bubblewrap` = `run_command` 走 bwrap（缺 bwrap 时 fail-closed） |
+| `BUTLER_V5_WORKSPACE_ROOT` | cwd | `read_file` / `run_command` 工作区根（systemd `WorkingDirectory` 通常为 `butler-v5/`） |
+| `BUTLER_V5_ILINK_ENABLED` | `0` | `1` 启用原生 iLink long-poll（需 `WECHAT_TOKEN`） |
+| `BUTLER_V5_ILINK_INBOUND_TIMEOUT_MS` | — | iLink 入站处理超时 |
+
+bubblewrap 启用前运行：`butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh` 或 `pnpm exec tsx cli/src/index.ts sandbox-preflight`（在 `butler-v5/` 目录）。
+
 ## Deprecated / Legacy
 
 以下变量仍可在 reference 中查到，但 **butler/ 与 scripts/ 无直接字符串引用**（文档/运维专用、Hook 注入示例或历史兼容）。`scripts/check-dead-env.sh` 对 allowlist 项不报错；新代码请勿依赖。

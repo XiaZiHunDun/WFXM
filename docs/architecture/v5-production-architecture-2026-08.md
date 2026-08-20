@@ -176,8 +176,25 @@ delegate_to_subagent
 
 - 浏览器/MCP/调度等多 Channel 条件准入；
 - Grant 路径/域名/网络 scope 细粒度；
-- bubblewrap systemd preflight 运维文档；
 - `packages/application` / 旧 infrastructure 脚手架归档。
+
+### 6.1 bubblewrap 沙箱（opt-in）
+
+`BUTLER_V5_SANDBOX=bubblewrap` 时，`run_command` 经 `packages/adapters/src/sandbox/bubblewrap-runner.ts` 在 bubblewrap 内执行；未安装 `bwrap` 时 **fail-closed**（拒绝执行）。
+
+运维 preflight（生产建议在 systemd 启用）：
+
+```bash
+# CLI
+cd butler-v5 && pnpm exec tsx cli/src/index.ts sandbox-preflight
+
+# 或 cutover 脚本（供 ExecStartPre）
+butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh
+```
+
+`butler-v5-gateway.service` 中已注释 `ExecStartPre=…sandbox-preflight.sh`；启用 bubblewrap 沙箱时取消注释，避免 gateway 在无 `bwrap` 时启动后静默拒绝命令。
+
+环境变量 SSOT：`butler-v5/.env.example`（`BUTLER_V5_SANDBOX`、`BUTLER_V5_WORKSPACE_ROOT`）。
 
 ---
 

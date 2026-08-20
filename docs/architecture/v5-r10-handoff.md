@@ -273,6 +273,22 @@ Do not re-open closed R-stages as “optional debt”. New work follows the post
 11. **~~Inbound voice transcript~~** — **done in R8.x.22** (`voice_item.text` first; optional DashScope ASR for wav/mp3; silk kept on disk if no transcript).
 12. **~~Outbound image/file~~** — **done in R8.x.21** (`send_wechat_file`: workspace-only, getuploadurl + AES-128-ECB + CDN allowlist + sendmessage type=2/4).
 13. **~~Named run_command expand~~** — **done in R8.x.20** (`rg`/`grep`/`python3`/`pnpm`/`node`; still no bash/rm/curl).
+14. **~~bubblewrap sandbox preflight~~** — **done in P2** (`preflightBubblewrap` + `butler sandbox-preflight` CLI + `scripts/cutover/butler-v5-sandbox-preflight.sh`; optional `ExecStartPre` in `butler-v5-gateway.service` when `BUTLER_V5_SANDBOX=bubblewrap`).
+
+### 8.3.1 bubblewrap ops (when `BUTLER_V5_SANDBOX=bubblewrap`)
+
+1. Install bubblewrap: `apt install bubblewrap` (Debian/Ubuntu).
+2. Preflight before enable or on deploy:
+
+   ```bash
+   cd butler-v5
+   pnpm exec tsx cli/src/index.ts sandbox-preflight
+   ```
+
+3. In `~/.config/butler-v5/env`, set `BUTLER_V5_SANDBOX=bubblewrap`.
+4. Uncomment `ExecStartPre=…/butler-v5-sandbox-preflight.sh` in `butler-v5/scripts/cutover/butler-v5-gateway.service`, then `systemctl daemon-reload && systemctl restart butler-v5-gateway`.
+
+Without preflight, gateway starts but `run_command` fail-closes when `bwrap` is missing.
 
 ### 8.3 v4 source migration (long-term)
 

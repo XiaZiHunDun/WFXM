@@ -42,6 +42,36 @@ export interface BubblewrapRunResult {
   readonly reason?: string
 }
 
+export type BubblewrapPreflightResult =
+  | { readonly ok: true; readonly bwrapPath: string; readonly version: string }
+  | { readonly ok: false; readonly reason: string }
+
+/**
+ * Verify `bwrap` is on PATH and responds before enabling
+ * `BUTLER_V5_SANDBOX=bubblewrap` in production.
+ */
+export async function preflightBubblewrap(
+  bwrapPath = "bwrap",
+): Promise<BubblewrapPreflightResult> {
+  const { execFile } = await import("node:child_process")
+  const { promisify } = await import("node:util")
+  const execFileAsync = promisify(execFile)
+  try {
+    const { stdout } = await execFileAsync(bwrapPath, ["--version"], {
+      timeout: 5_000,
+      env: { PATH: process.env["PATH"] ?? "/usr/bin:/bin" },
+    })
+    const version = stdout.trim().split("\n")[0]?.trim() || "unknown"
+    return { ok: true, bwrapPath, version }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    return {
+      ok: false,
+      reason: `bubblewrap preflight failed (${bwrapPath}): ${detail}`,
+    }
+  }
+}
+
 export function buildBubblewrapArgs(profile: SandboxProfile, argv: readonly string[]): string[] {
   const args = [
     "--die-with-parent",

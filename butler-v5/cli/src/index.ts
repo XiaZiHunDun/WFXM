@@ -106,6 +106,27 @@ program
   })
 
 program
+  .command("sandbox-preflight")
+  .description("Verify bubblewrap (bwrap) is available for BUTLER_V5_SANDBOX=bubblewrap")
+  .option("--bwrap <path>", "bwrap binary path", "bwrap")
+  .action(async (opts: { bwrap: string }) => {
+    const { preflightBubblewrap } = await import("@butler/adapters/sandbox/bubblewrap-runner.js")
+    const sandbox = (process.env["BUTLER_V5_SANDBOX"] ?? "").trim()
+    if (sandbox === "bubblewrap") {
+      console.error("BUTLER_V5_SANDBOX=bubblewrap — checking bwrap…")
+    }
+    const result = await preflightBubblewrap(opts.bwrap)
+    if (!result.ok) {
+      console.error(result.reason)
+      console.error(
+        "Install bubblewrap (e.g. apt install bubblewrap) or unset BUTLER_V5_SANDBOX.",
+      )
+      process.exit(1)
+    }
+    console.log(`bubblewrap ok: ${result.bwrapPath} (${result.version})`)
+  })
+
+program
   .command("verify")
   .description("Verify v5 wiring (placeholder)")
   .action(() => {
