@@ -10,19 +10,12 @@ import {
   type ILinkResult,
 } from "./ilink-protocol.js"
 
+export { WECHAT_OUTBOUND_NETWORK_HOSTS } from "@butler/domain/governance/wechat-network-hosts.js"
+import { WECHAT_OUTBOUND_NETWORK_HOST_SET } from "@butler/domain/governance/wechat-network-hosts.js"
+
 export const DEFAULT_WECHAT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
 
-const WECHAT_CDN_HOSTS = new Set([
-  "novac2c.cdn.wechat.qq.com",
-  "novac2c.cdn.weixin.qq.com",
-  "ilinkai.wechat.qq.com",
-  "ilinkai.weixin.qq.com",
-  "wx.qlogo.cn",
-  "thirdwx.qlogo.cn",
-  "res.wx.qq.com",
-  "mmbiz.qpic.cn",
-  "mmbiz.qlogo.cn",
-])
+const WECHAT_CDN_HOSTS = WECHAT_OUTBOUND_NETWORK_HOST_SET
 
 export type IlinkMediaKind = "image" | "voice" | "file" | "video"
 

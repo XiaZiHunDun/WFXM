@@ -51,7 +51,11 @@ describe("decidePolicy", () => {
         id: "grant-1",
         runId: "run-1",
         subject: "owner-1",
-        scope: { capabilities: ["send_wechat_file"] },
+        scope: {
+          capabilities: ["send_wechat_file"],
+          network: "allow",
+          networkHosts: ["novac2c.cdn.weixin.qq.com"],
+        },
         remainingUses: 1,
         expiresAtMs: 2000,
         createdAtMs: 0,
@@ -146,6 +150,51 @@ describe("decidePolicy", () => {
         expiresAtMs: 2000,
         createdAtMs: 0,
       },
+    )
+    expect(decision._tag).toBe("Ask")
+  })
+
+  it("denies always-confirm when grant lacks network allow", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "outbound",
+        capability: "send_wechat_file",
+        resource: "file.png",
+        risk: "medium",
+        digest: "d-send",
+      },
+      policy,
+      1000,
+      {
+        id: "grant-1",
+        runId: "run-1",
+        subject: "owner-1",
+        scope: {
+          capabilities: ["send_wechat_file"],
+          paths: ["file.png"],
+          digest: "d-send",
+        },
+        remainingUses: 1,
+        expiresAtMs: 2000,
+        createdAtMs: 0,
+      },
+    )
+    expect(decision._tag).toBe("Ask")
+  })
+
+  it("asks for mcp capabilities when no grant", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "command",
+        capability: "mcp_search",
+        risk: "high",
+        digest: "mcp",
+      },
+      policy,
+      1000,
+      null,
     )
     expect(decision._tag).toBe("Ask")
   })

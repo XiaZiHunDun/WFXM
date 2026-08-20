@@ -158,4 +158,13 @@ export {
   grantMatchesAction,
   buildScopedGrantScopeFromPending,
   normalizeGrantPath,
+  normalizeGrantHost,
+  actionRequiresNetworkGrant,
+  grantAllowsNetworkHost,
+  isMcpCapability,
+  MCP_CAPABILITY_PREFIX,
 } from "./governance/types.js"
+export {
+  WECHAT_OUTBOUND_NETWORK_HOSTS,
+  WECHAT_OUTBOUND_NETWORK_HOST_SET,
+} from "./governance/wechat-network-hosts.js"

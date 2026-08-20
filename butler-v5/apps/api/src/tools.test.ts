@@ -46,7 +46,7 @@ describe("weibutler tools", () => {
     }
   })
 
-  it("makeWeibutlerTools returns 8 runtime ToolDefinitions", () => {
+  it("makeWeibutlerTools returns 8 runtime ToolDefinitions by default", () => {
     const tools = makeWeibutlerTools({ bridge, conversationId })
     expect(tools).toHaveLength(8)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
@@ -64,6 +64,16 @@ describe("weibutler tools", () => {
     for (const t of tools) {
       expect(typeof t.run).toBe("function")
     }
+  })
+
+  it("makeWeibutlerTools appends MCP tools when opt-in enabled", () => {
+    const tools = makeWeibutlerTools({
+      bridge,
+      conversationId,
+      env: { BUTLER_V5_MCP_ENABLED: "1", BUTLER_V5_MCP_TOOL_NAMES: "search" },
+    })
+    expect(tools).toHaveLength(9)
+    expect(tools.some((t) => (t.name as string) === "mcp_search")).toBe(true)
   })
 
   it("findTool returns matching tool by name", () => {

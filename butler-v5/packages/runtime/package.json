@@ -18,7 +18,9 @@
     "./policy-gate.js": "./src/policy-gate.ts",
     "./capability-boundary.js": "./src/capability-boundary.ts",
     "./approval-runtime.js": "./src/approval-runtime.ts",
-    "./inline-approval-intent.js": "./src/inline-approval-intent.ts"
+    "./inline-approval-intent.js": "./src/inline-approval-intent.ts",
+    "./grant-network.js": "./src/grant-network.ts",
+    "./mcp-gate.js": "./src/mcp-gate.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

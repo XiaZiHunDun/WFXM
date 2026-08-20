@@ -2,6 +2,13 @@ export type RiskLevel = "low" | "medium" | "high"
 
 export type ActionKind = "read" | "write" | "command" | "delegate" | "outbound" | "model"
 
+/** Prefix for MCP-discovered capabilities (opt-in via BUTLER_V5_MCP_ENABLED). */
+export const MCP_CAPABILITY_PREFIX = "mcp_"
+
+export function isMcpCapability(capability: string): boolean {
+  return capability.startsWith(MCP_CAPABILITY_PREFIX)
+}
+
 export interface ActionRequest {
   readonly kind: ActionKind
   readonly capability: string
@@ -25,6 +32,8 @@ export interface ScopedGrantScope {
   readonly capabilities: readonly string[]
   readonly paths?: readonly string[]
   readonly network?: "deny" | "allow"
+  /** When set with network allow, outbound fetches must target one of these hostnames. */
+  readonly networkHosts?: readonly string[]
   readonly maxUses?: number
   /** When set, only the exact action digest from approval may execute. */
   readonly digest?: string
@@ -52,7 +61,10 @@ export function decidePolicy(
   nowMs: number,
   grant: ScopedGrantRecord | null,
 ): PolicyDecision {
-  if (policy.alwaysConfirm.includes(request.capability)) {
+  const needsConfirm =
+    policy.alwaysConfirm.includes(request.capability) || isMcpCapability(request.capability)
+
+  if (needsConfirm) {
     if (
       grant &&
       grant.expiresAtMs > nowMs &&
@@ -96,22 +108,59 @@ export function normalizeGrantPath(path: string): string {
   return path.trim().replace(/\\/g, "/")
 }
 
+export function normalizeGrantHost(host: string): string {
+  return host.trim().toLowerCase()
+}
+
+export function actionRequiresNetworkGrant(kind: ActionKind, capability: string): boolean {
+  if (kind === "outbound") return true
+  if (isMcpCapability(capability)) return true
+  return false
+}
+
 export function buildScopedGrantScopeFromPending(input: {
   readonly capability: string
   readonly resource: string
   readonly digest: string
+  readonly networkHosts?: readonly string[]
 }): ScopedGrantScope {
-  const scope: ScopedGrantScope = {
+  let scope: ScopedGrantScope = {
     capabilities: [input.capability],
     digest: input.digest,
   }
   if (input.capability === "send_wechat_file" || input.capability === "read_file") {
     const path = input.resource.trim()
     if (path) {
-      return { ...scope, paths: [normalizeGrantPath(path)] }
+      scope = { ...scope, paths: [normalizeGrantPath(path)] }
+    }
+  }
+  if (actionRequiresNetworkGrant(outboundKindForCapability(input.capability), input.capability)) {
+    scope = {
+      ...scope,
+      network: "allow",
+      ...(input.networkHosts && input.networkHosts.length > 0
+        ? { networkHosts: input.networkHosts.map(normalizeGrantHost) }
+        : {}),
     }
   }
   return scope
+}
+
+function outboundKindForCapability(capability: string): ActionKind {
+  if (capability === "send_wechat_file") return "outbound"
+  if (isMcpCapability(capability)) return "command"
+  return "read"
+}
+
+export function grantAllowsNetworkHost(
+  grant: ScopedGrantRecord,
+  hostname: string,
+): boolean {
+  if (grant.scope.network !== "allow") return false
+  const hosts = grant.scope.networkHosts
+  if (!hosts || hosts.length === 0) return true
+  const normalized = normalizeGrantHost(hostname)
+  return hosts.some((host) => normalizeGrantHost(host) === normalized)
 }
 
 export function grantMatchesAction(grant: ScopedGrantRecord, request: ActionRequest): boolean {
@@ -125,6 +174,11 @@ export function grantMatchesAction(grant: ScopedGrantRecord, request: ActionRequ
     const resource = normalizeGrantPath(request.resource)
     const allowed = grant.scope.paths.some((path) => normalizeGrantPath(path) === resource)
     if (!allowed) {
+      return false
+    }
+  }
+  if (actionRequiresNetworkGrant(request.kind, request.capability)) {
+    if (grant.scope.network !== "allow") {
       return false
     }
   }

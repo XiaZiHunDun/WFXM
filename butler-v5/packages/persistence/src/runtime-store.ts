@@ -59,7 +59,9 @@ function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord
     readonly capabilities?: readonly string[]
     readonly paths?: readonly string[]
     readonly network?: "deny" | "allow"
+    readonly networkHosts?: readonly string[]
     readonly maxUses?: number
+    readonly digest?: string
   }
   return {
     id: row.grantId,
@@ -69,6 +71,7 @@ function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord
       capabilities: scope.capabilities ?? [],
       ...(scope.paths ? { paths: scope.paths } : {}),
       ...(scope.network ? { network: scope.network } : {}),
+      ...(scope.networkHosts ? { networkHosts: scope.networkHosts } : {}),
       ...(scope.maxUses !== undefined ? { maxUses: scope.maxUses } : {}),
       ...(scope.digest ? { digest: scope.digest } : {}),
     },

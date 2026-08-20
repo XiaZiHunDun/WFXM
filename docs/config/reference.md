@@ -868,8 +868,13 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_V5_WORKSPACE_ROOT` | cwd | `read_file` / `run_command` 工作区根（systemd `WorkingDirectory` 通常为 `butler-v5/`） |
 | `BUTLER_V5_ILINK_ENABLED` | `0` | `1` 启用原生 iLink long-poll（需 `WECHAT_TOKEN`） |
 | `BUTLER_V5_ILINK_INBOUND_TIMEOUT_MS` | — | iLink 入站处理超时 |
+| `BUTLER_V5_MCP_ENABLED` | `0` | `1` 注册 MCP 工具（走 PolicyGate + 审批；默认 off） |
+| `BUTLER_V5_MCP_TOOL_NAMES` | — | MCP 未接 URL 时的 stub 工具名（逗号分隔） |
+| `BUTLER_V5_MCP_URL` | — | MCP 服务器 URL（后续接线；当前可仅用 stub 名） |
 
 bubblewrap 启用前运行：`butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh` 或 `pnpm exec tsx cli/src/index.ts sandbox-preflight`（在 `butler-v5/` 目录）。
+
+未接线包清单：[`v5-unwired-packages-inventory-2026-08.md`](../plans/active/v5-unwired-packages-inventory-2026-08.md)。
 
 ## Deprecated / Legacy
 

@@ -54,6 +54,10 @@ export default defineConfig({
         find: "@butler/domain/governance/types.js",
         replacement: resolve(__dirname, "packages/domain/src/governance/types.ts"),
       },
+      {
+        find: "@butler/domain/governance/wechat-network-hosts.js",
+        replacement: resolve(__dirname, "packages/domain/src/governance/wechat-network-hosts.ts"),
+      },
       { find: "@butler/domain", replacement: resolve(__dirname, "packages/domain/src/index.ts") },
       { find: "@butler/runtime", replacement: resolve(__dirname, "packages/runtime/src") },
       { find: "@butler/persistence", replacement: resolve(__dirname, "packages/persistence/src") },

@@ -1,4 +1,5 @@
 import type { ActionKind, ScopedGrantRecord } from "@butler/domain/governance/types.js"
+import { isMcpCapability } from "@butler/domain/governance/types.js"
 import type { PolicyDecision } from "@butler/domain/governance/types.js"
 import { createWaitingApprovalStep, type PendingApprovalRequest } from "./approval-runtime.js"
 import {
@@ -41,6 +42,7 @@ export function actionKindForTool(toolName: string): ActionKind {
     case "summarize_today":
       return "read"
     default:
+      if (isMcpCapability(toolName)) return "command"
       return "read"
   }
 }
@@ -67,6 +69,9 @@ export function resourceForTool(
     if (Array.isArray(argv)) {
       return argv.map((part) => String(part)).join(" ")
     }
+  }
+  if (isMcpCapability(toolName)) {
+    return toolName
   }
   return fallbackResource
 }

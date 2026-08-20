@@ -1,5 +1,6 @@
 import type { ActionKind, RiskLevel, ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import { buildScopedGrantScopeFromPending } from "@butler/domain/governance/types.js"
+import { outboundNetworkHostsForCapability } from "./grant-network.js"
 import type { RuntimeStore, StoredStep } from "@butler/domain/runtime.js"
 
 export interface PendingCapabilityInput {
@@ -140,6 +141,7 @@ export async function approveWaitingStep(
       capability: pending.capability,
       resource: pending.resource,
       digest: pending.digest,
+      networkHosts: outboundNetworkHostsForCapability(pending.capability),
     }),
     remainingUses: 1,
     expiresAt: new Date(pending.expiresAtMs),

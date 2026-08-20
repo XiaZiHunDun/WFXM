@@ -6,7 +6,7 @@ import { decodeDecision, type ModelDecision } from "@butler/runtime/decision.js"
 import { type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { resolveReadModelSource } from "@butler/domain"
 import type { Wiring } from "./wiring.js"
-import { findTool, makeWeibutlerTools, WEIBUTLER_LLM_TOOLS } from "./tools.js"
+import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
 import { isPendingApprovalOutcome, toRunResult } from "./approval-resume.js"
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
@@ -248,7 +248,9 @@ async function runButlerLoopBody(args: {
     actor: { kind: "agent", id: "wechat-butler-v5" },
     wechatUserId: args.fromUserId,
     runtimeStore: args.wiring.runtimeStore,
+    env,
   })
+  const llmTools = llmToolsForButler({ env })
 
   const toolExecutor = makeToolExecutor({
     tools,
@@ -315,7 +317,7 @@ async function runButlerLoopBody(args: {
   // 3. Main loop.
   for (let iteration = 0; iteration < MAX_LOOP_ITERATIONS; iteration++) {
     const outcome = await Effect.runPromise(
-      adapter.complete(messages, { tools: WEIBUTLER_LLM_TOOLS }).pipe(
+      adapter.complete(messages, { tools: llmTools }).pipe(
         Effect.match({
           onFailure: (err) => {
             logger.error(
