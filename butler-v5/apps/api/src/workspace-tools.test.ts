@@ -108,8 +108,57 @@ describe("makeRunCommandTool", () => {
   })
 
   it("ALLOWED_RUN_COMMANDS is a closed list", () => {
-    expect(ALLOWED_RUN_COMMANDS).toContain("pwd")
+    expect(ALLOWED_RUN_COMMANDS).toEqual([
+      "cat",
+      "date",
+      "echo",
+      "git",
+      "grep",
+      "head",
+      "ls",
+      "node",
+      "pnpm",
+      "pwd",
+      "python3",
+      "rg",
+      "wc",
+    ])
     expect(ALLOWED_RUN_COMMANDS).not.toContain("rm")
     expect(ALLOWED_RUN_COMMANDS).not.toContain("bash")
+    expect(ALLOWED_RUN_COMMANDS).not.toContain("sh")
+    expect(ALLOWED_RUN_COMMANDS).not.toContain("curl")
+    expect(ALLOWED_RUN_COMMANDS).not.toContain("sudo")
+  })
+
+  it("runs python3, node, pnpm, and grep inside the workspace", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
+    writeFileSync(join(root, "needle.txt"), "find-me-butler")
+    const tool = makeRunCommandTool({ workspaceRoot: root })
+    const py = await runTool(tool, { argv: ["python3", "-c", "print(42)"] }, { timeoutMs: 5000 })
+    expect(py.ok).toBe(true)
+    if (py.ok) expect(String(py.output).trim()).toBe("42")
+    const node = await runTool(tool, { argv: ["node", "-e", "console.log(7)"] }, { timeoutMs: 5000 })
+    expect(node.ok).toBe(true)
+    if (node.ok) expect(String(node.output).trim()).toBe("7")
+    const pnpm = await runTool(tool, { argv: ["pnpm", "--version"] }, { timeoutMs: 8000 })
+    expect(pnpm.ok).toBe(true)
+    const grep = await runTool(
+      tool,
+      { argv: ["grep", "find-me-butler", "needle.txt"] },
+      { timeoutMs: 2000 },
+    )
+    expect(grep.ok).toBe(true)
+    if (grep.ok) expect(String(grep.output)).toContain("find-me-butler")
+    const rg = await runTool(tool, { argv: ["rg", "--version"] }, { timeoutMs: 2000 })
+    expect(rg.ok).toBe(true)
+  })
+
+  it("still rejects banned programs after the named expand", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
+    const tool = makeRunCommandTool({ workspaceRoot: root })
+    for (const program of ["bash", "curl", "chmod", "wget"]) {
+      const result = await runTool(tool, { argv: [program] }, { timeoutMs: 1000 })
+      expect(result.ok).toBe(false)
+    }
   })
 })

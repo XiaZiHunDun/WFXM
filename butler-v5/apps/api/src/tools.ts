@@ -369,7 +369,7 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
   {
     name: "run_command",
     description:
-      'Run a short allowlisted command in the workspace (no shell). Pass `argv` as a string array, e.g. ["ls", "-la"] or ["git", "status"]. Allowed programs: cat, date, echo, git, head, ls, pwd, wc. Arguments cannot contain \'..\' or start with \'/\'.',
+      'Run a short allowlisted command in the workspace (no shell). Pass `argv` as a string array, e.g. ["ls", "-la"], ["python3", "-c", "print(1)"], or ["rg", "TODO", "src"]. Allowed programs: cat, date, echo, git, grep, head, ls, node, pnpm, pwd, python3, rg, wc. Arguments cannot contain \'..\' or start with \'/\'. bash/rm/curl and similar are rejected.',
     parameters: {
       type: "object",
       properties: {

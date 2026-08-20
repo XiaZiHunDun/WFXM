@@ -56,7 +56,7 @@ export function buildWechatInboundMessages(content: string): readonly LLMMessage
         "- greet_with_time(): a Chinese greeting based on the current time of day",
         "- summarize_today(): 24-hour activity summary for this conversation, broken down by event type",
         "- read_file(path): read a UTF-8 text file inside the workspace (max 64KiB; path cannot escape the root)",
-        "- run_command(argv): run an allowlisted command with no shell (cat/date/echo/git/head/ls/pwd/wc); args cannot contain '..' or start with '/'",
+        "- run_command(argv): run an allowlisted command with no shell (cat/date/echo/git/grep/head/ls/node/pnpm/pwd/python3/rg/wc); args cannot contain '..' or start with '/'",
         "- send_wechat_file(path, caption?): send a workspace image or file to the current WeChat user",
         "- delegate_to_subagent(task, role?, capabilities?): delegate a task to a subagent (runs in background, returns later). Use when the user's request requires capabilities you don't have. Optional `capabilities` is an array of strings from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, run_command); defaults to ['general'] if unspecified.",
         "",

@@ -2,8 +2,8 @@
  * R8.x.12 — sandboxed `read_file` and `run_command` for the wechat butler.
  *
  * Both tools stay inside a workspace root (ctx.workspaceRoot, else
- * BUTLER_V5_WORKSPACE_ROOT, else process.cwd()). `run_command` never
- * uses a shell: argv[0] must be on a closed allowlist, args cannot
+ * `run_command` never uses a shell: argv[0] must be on a closed
+ * allowlist (R8.x.20: also rg/grep, python3, pnpm, node), args cannot
  * contain `..` or start with `/`.
  *
  * Failures return `{ ok: false, reason }` — no throw.
@@ -18,9 +18,14 @@ export const ALLOWED_RUN_COMMANDS = [
   "date",
   "echo",
   "git",
+  "grep",
   "head",
   "ls",
+  "node",
+  "pnpm",
   "pwd",
+  "python3",
+  "rg",
   "wc",
 ] as const
 

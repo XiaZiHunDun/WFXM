@@ -18,7 +18,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 - **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
 - **Git status:** 20+ commits today on origin/main; everything pushed.
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work:** [R8.x.20 named run_command](../plans/active/v5-followon-projects-2026-08-20.md). **R8.x.21 outbound media done. R8.x.22 voice transcript done.** Calendar D1 after 2026-09-18.
+- **Next work:** Calendar D1 after 2026-09-18 (`~/.butler/` delete). **R8.x.20–22 done.**
 
 ---
 
@@ -268,6 +268,7 @@ Do not re-open as “optional debt”. Next engineering item is **§8.4**.
 10. **~~Inbound CDN media~~** — **done in R8.x.19** (`ilink-media.ts`: allowlisted download, AES-128-ECB, cache under `.butler/ilink-media/`; poller enriches inbound text).
 11. **~~Inbound voice transcript~~** — **done in R8.x.22** (`voice_item.text` first; optional DashScope ASR for wav/mp3; silk kept on disk if no transcript).
 12. **~~Outbound image/file~~** — **done in R8.x.21** (`send_wechat_file`: workspace-only, getuploadurl + AES-128-ECB + CDN allowlist + sendmessage type=2/4).
+13. **~~Named run_command expand~~** — **done in R8.x.20** (`rg`/`grep`/`python3`/`pnpm`/`node`; still no bash/rm/curl).
 
 ### 8.3 v4 source migration (long-term)
 
@@ -278,10 +279,9 @@ Do not re-open as “optional debt”. Next engineering item is **§8.4**.
 
 See [`docs/plans/active/v5-followon-projects-2026-08-20.md`](../plans/active/v5-followon-projects-2026-08-20.md).
 
-1. **R8.x.20 named `run_command` binaries** (`rg`/`python3`/`pnpm`/`node` — still no bash/rm)
-2. **Calendar:** delete `~/.butler/` after 2026-09-18 (D1)
+1. **Calendar:** delete `~/.butler/` after 2026-09-18 (D1)
 
-**Done:** R8.x.21 outbound WeChat media, R8.x.22 inbound voice transcript. **Not a project:** nested architecture r2–r6 gates.
+**Done:** R8.x.20 named `run_command`, R8.x.21 outbound WeChat media, R8.x.22 inbound voice transcript. **Not a project:** nested architecture r2–r6 gates.
 ---
 
 ## 9. Cursor-Specific Tips
@@ -338,12 +338,12 @@ If starting fresh with this document:
    systemctl --user status butler-v5-gateway.service  # should be active
    node scripts/cutover/ws-subagent-push-e2e.mjs       # should exit 0 with subagent reply
    ```
-5. **Next coding work:** R8.x.20 — [`v5-followon-projects-2026-08-20.md`](../plans/active/v5-followon-projects-2026-08-20.md).
+5. **Next coding work:** Calendar D1 after 2026-09-18. Follow-ons R8.x.20–22 are done.
 
 ---
 
 ## 11. TL;DR for Cursor (final)
 
-**Butler v5 is the production mainline.** R8.x.10–R8.x.19 + R8.x.21 + R8.x.22 done. Next: named `run_command`. D1: don't touch `~/.butler/` until 2026-09-18.
+**Butler v5 is the production mainline.** R8.x.10–R8.x.22 done. D1: don't touch `~/.butler/` until 2026-09-18.
 
 Good luck. May the butler loop serve you well.
