@@ -26,7 +26,6 @@ describe("owner routes", () => {
     const bridge = new EventBridge({ db: db.db, workerId: "test" })
     const wiring = makeWiring({
       bridge,
-      adapters: {} as never,
       workerId: "test",
       runtimeStore: createRuntimeStore(db.db),
       runEngine: new RunEngine(createRuntimeStore(db.db)),
@@ -43,7 +42,6 @@ describe("owner routes", () => {
     const bridge = new EventBridge({ db: db.db, workerId: "test" })
     const wiring = makeWiring({
       bridge,
-      adapters: {} as never,
       workerId: "test",
       runtimeStore: createRuntimeStore(db.db),
       runEngine: new RunEngine(createRuntimeStore(db.db)),

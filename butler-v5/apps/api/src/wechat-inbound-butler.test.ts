@@ -55,7 +55,6 @@ describe("runButlerLoop", () => {
     const runEngine = new RunEngine(runtimeStore)
     wiring = makeWiring({
       bridge,
-      adapters: {} as never,
       workerId: "w-butler",
       runtimeStore,
       runEngine,

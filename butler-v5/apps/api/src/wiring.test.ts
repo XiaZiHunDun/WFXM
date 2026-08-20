@@ -2,7 +2,6 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
-import { makePostgresAdapters } from "@butler/adapters/postgres/index.js"
 import { EventBridge } from "@butler/runtime/bridge.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
@@ -25,12 +24,10 @@ describe("v5 wiring", () => {
   beforeEach(async () => {
     db = await makeTestDb()
     const bridge = new EventBridge({ db: db.db, workerId: "test" })
-    const adapters = makePostgresAdapters({ db: db.db, workerId: "test" })
     const runtimeStore = createRuntimeStore(db.db)
     const runEngine = new RunEngine(runtimeStore)
     wiring = makeWiring({
       bridge,
-      adapters,
       workerId: "test",
       runtimeStore,
       runEngine,

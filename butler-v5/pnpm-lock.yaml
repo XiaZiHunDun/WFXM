@@ -83,24 +83,6 @@ importers:
         specifier: ^8.5.10
         version: 8.18.1
 
-  apps/wechat-gateway:
-    dependencies:
-      '@butler/application':
-        specifier: workspace:*
-        version: link:../../packages/application
-      '@butler/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@butler/infrastructure':
-        specifier: workspace:*
-        version: link:../../packages/infrastructure
-      '@butler/ports':
-        specifier: workspace:*
-        version: link:../../packages/ports
-      effect:
-        specifier: ^3.4.0
-        version: 3.22.1
-
   cli:
     dependencies:
       '@butler/adapters':

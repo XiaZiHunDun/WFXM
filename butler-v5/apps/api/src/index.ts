@@ -3,7 +3,6 @@ import { createRoutes } from "./routes.js"
 import { createOwnerRoutes } from "./owner-routes.js"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { EventBridge } from "@butler/runtime/bridge.js"
-import { makePostgresAdapters } from "@butler/adapters/postgres/index.js"
 import { pickLLMProvider } from "@butler/adapters"
 import {
   openButlerDatabase,
@@ -33,10 +32,8 @@ const db = openedDb.value.db
 const bridge = new EventBridge({ db, workerId })
 const runtimeStore = createRuntimeStore(db)
 const runEngine = new RunEngine(runtimeStore)
-const adapters = makePostgresAdapters({ db, workerId })
 const wiring: Wiring = makeWiring({
   bridge,
-  adapters,
   workerId,
   runtimeStore,
   runEngine,
