@@ -18,7 +18,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 - **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
 - **Git status:** 20+ commits today on origin/main; everything pushed.
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work (deferred):** v4 data retention (30-day window then delete). **R8.x.10–R8.x.17 done** (including native iLink + `POST /v1/ws/subscribe`).
+- **Next work (optional debt):** CDN media decrypt; `run_command` allowlist; pre-existing architecture tests. **`~/.butler/` retention: D1 — observe until 2026-09-18, then delete.** **R8.x.10–R8.x.17 done.**
 
 ---
 
@@ -245,11 +245,13 @@ bash scripts/typecheck-gate.sh   # PASS
 
 ## 8. Next Development Work (deferred from R10.x)
 
-### 8.1 v4 data retention (owner decision pending)
+### 8.1 v4 data retention — **D1 decided 2026-08-20**
 
-Owner `ailearn` needs to decide on `~/.butler/` data retention:
-- **Recommendation:** 30-day observation window (≈ 2026-09-18) then delete `~/.butler/` (v5 is sole mainline, v4 data has no use case)
-- `butler/` source is in git history (already preserved) — no need to move to `docs/archive/v4/`
+Owner chose **observe until 2026-09-18, then delete** `~/.butler/`.
+Do not delete before that date. Decision doc:
+[`docs/plans/decisions/v4-butler-home-retention-2026-08-20.md`](../plans/decisions/v4-butler-home-retention-2026-08-20.md).
+
+`butler/` source remains in git history.
 
 ### 8.2 R8.x.10+ candidates (next R-stage)
 
@@ -265,7 +267,7 @@ Owner `ailearn` needs to decide on `~/.butler/` data retention:
 ### 8.3 v4 source migration (long-term)
 
 - v4 butler-gateway code in `butler/` (Python) — preserved as git history; v5 in `butler-v5/` (TypeScript) is sole production
-- v4 runtime state in `~/.butler/` — owner decision (8.1)
+- v4 runtime state in `~/.butler/` — **D1**: keep until 2026-09-18, then delete (see 8.1)
 
 ---
 

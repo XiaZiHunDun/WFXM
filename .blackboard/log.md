@@ -115,3 +115,11 @@ R8.x.15 v5 自接 iLink：getupdates → inbound → sendmessage；12 测试绿�
 ## 2026-08-20-cursor-039 · cursor
 真微信回复确认。R8.x.16 allowlist/群丢弃/媒体占位/sync_buf/`wechat-login`。19 测试绿。
 下次：提交推送；然后 WS subscribe token 或 `~/.butler/` 保留拍板。
+
+## 2026-08-20-cursor-040 · cursor
+R8.x.17 `POST /v1/ws/subscribe` 签发 token；WS 支持 `?token=`。27 相关测试绿。
+下次：owner 拍板 `~/.butler/` 保留；其余为可选债。
+
+## 2026-08-20-cursor-041 · cursor
+D1：`~/.butler/` 观察到 2026-09-18 再删；现在不动磁盘。
+下次：可选债（CDN 媒体 / run_command 白名单 / architecture 预存失败测试）。
