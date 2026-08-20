@@ -6,6 +6,7 @@
  * Started from the CLI after Hono is listening so inbound is reachable.
  */
 import {
+  enrichIlinkInboundContent,
   ilinkGetUpdates,
   ilinkSendMessage,
   inboundFromIlinkMsg,
@@ -57,6 +58,7 @@ export type IlinkCycleDeps = {
   readonly allowedUserIds?: readonly string[]
   readonly dropGroups?: boolean
   readonly persistSyncBuf?: (syncBuf: string) => void
+  readonly enrichInbound?: (msg: unknown, content: string) => Promise<string>
 }
 
 export type IlinkCycleStats = {
@@ -151,9 +153,12 @@ export async function runIlinkPollCycle(
       }
     }
     processed += 1
+    const content = deps.enrichInbound
+      ? await deps.enrichInbound(msg, inbound.content)
+      : inbound.content
     const reply = await deps.postInbound({
       fromUserId: inbound.fromUserId,
-      content: inbound.content,
+      content,
       messageId: inbound.messageId,
     })
     if (!reply.ok) {
@@ -262,6 +267,18 @@ export function startIlinkPoller(
           allowedUserIds: config.allowedUserIds,
           dropGroups: config.dropGroups,
           persistSyncBuf: (syncBuf) => saveSyncBuf(config.syncBufPath, syncBuf),
+          enrichInbound: (msg, content) => {
+            const rec =
+              msg !== null && typeof msg === "object" && !Array.isArray(msg)
+                ? (msg as Record<string, unknown>)
+                : undefined
+            return enrichIlinkInboundContent(rec?.["item_list"], content, {
+              cacheDir: config.mediaCacheDir,
+              cdnBaseUrl: config.cdnBaseUrl,
+              fetch: fetchImpl,
+              maxBytes: config.mediaMaxBytes,
+            })
+          },
         },
         state,
       )

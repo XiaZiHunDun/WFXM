@@ -26,6 +26,8 @@ describe("parseIlinkPollerConfig", () => {
     expect(parsed.value.baseUrl).toBe("http://127.0.0.1:9999")
     expect(parsed.value.inboundUrl).toBe("http://127.0.0.1:3000/v1/wechat/inbound")
     expect(parsed.value.token).toBe("tok")
+    expect(parsed.value.cdnBaseUrl).toContain("novac2c")
+    expect(parsed.value.mediaCacheDir).toContain(".butler")
   })
 
   it("parses allowlist policy and owner id", () => {
@@ -210,5 +212,46 @@ describe("runIlinkPollCycle", () => {
     expect(stats.processed).toBe(1)
     expect(stats.skipped).toBe(2)
     expect(inboundCalls).toEqual(["u-owner"])
+  })
+
+  it("forwards enriched image content to inbound", async () => {
+    const inboundCalls: string[] = []
+    const stats = await runIlinkPollCycle(
+      {
+        getUpdates: async () => ({
+          ok: true,
+          value: {
+            ret: 0,
+            msgs: [
+              {
+                msg_id: "img-1",
+                from_user_id: "u-wx",
+                item_list: [
+                  {
+                    type: 2,
+                    image_item: {
+                      media: { full_url: "https://novac2c.cdn.wechat.qq.com/c2c/x.bin" },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        postInbound: async (input) => {
+          inboundCalls.push(input.content)
+          return { ok: true, value: "看到了" }
+        },
+        sendMessage: async () => ({ ok: true, value: {} }),
+        accountId: "bot-self",
+        emptyPollDelayMs: 0,
+        sessionExpiredSleepMs: 0,
+        sleep: async () => undefined,
+        enrichInbound: async () => "收到图片，已保存到 /tmp/ilink-media/x.jpg",
+      },
+      { syncBuf: "", seenIds: new Set() },
+    )
+    expect(stats.processed).toBe(1)
+    expect(inboundCalls[0]).toContain("/tmp/ilink-media/x.jpg")
   })
 })

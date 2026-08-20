@@ -18,7 +18,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 - **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
 - **Git status:** 20+ commits today on origin/main; everything pushed.
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work:** only [R8.x.19 inbound CDN media](../plans/active/v5-remaining-work-2026-08-20.md). **`~/.butler/` D1:** delete after 2026-09-18. **R8.x.10–R8.x.18 done.** Optional-debt hangers (run_command allowlist, nested architecture gates) **closed** — [`v5-optional-debt-triage-2026-08-20.md`](../plans/decisions/v5-optional-debt-triage-2026-08-20.md).
+- **Next work:** calendar only — delete `~/.butler/` after 2026-09-18 (D1). **R8.x.10–R8.x.19 done.**
 
 ---
 
@@ -236,7 +236,7 @@ bash scripts/typecheck-gate.sh   # PASS
 |---|---|---|
 | `wechat-inbound-butler.ts` only handles `Respond` and `Finish` natively — `CallTool` / `AskApproval` via native tool_calls; `Delegate` via outbox | low | All Decision paths covered |
 | 5-gate: `pnpm format:check` complains about `openclaw-mock.mjs` (prettier not run after first commit) | low | Workaround: `pnpm exec prettier --write` then commit |
-| QR / allowlist / media placeholder | — | **R8.x.16 done.** Remaining media decrypt is R8.x.19 (see remaining-work plan), not a hangers list |
+| QR / allowlist / inbound media | — | **R8.x.16 + R8.x.19.** CDN download+AES-ECB to `.butler/ilink-media/`; failure keeps placeholder |
 | Nested `r{2,3,4,5,6}-end-to-end` architecture tests | — | **Closed 2026-08-20:** excluded from default vitest (duplicate of `pnpm gate`) |
 | `openclaw-mock.mjs` only has `/admin/push` and iLink-mock endpoints | low | Working test fixture; expand as needed |
 
@@ -265,6 +265,7 @@ Do not re-open as “optional debt”. Next engineering item is **§8.4**.
 7. **~~v5 native iLink~~** — **done in R8.x.15** (`packages/adapters/src/wechat/ilink.ts` + `apps/api/src/ilink-poller.ts`; `butler start` after listen; `BUTLER_V5_ILINK_ENABLED=1` + `WECHAT_TOKEN`)
 8. **~~iLink hardening~~** — **done in R8.x.16** (DM policy/allowlist, drop groups by default, media placeholder, persist sync_buf, `butler wechat-login` QR). Live WeChat reply verified 2026-08-20.
 9. **~~Durable Postgres event store~~** — **done in R8.x.18** (`openButlerDatabase` in `@butler/persistence`; production uses compose Postgres; tests stay on PGlite). Restart no longer wipes conversation events.
+10. **~~Inbound CDN media~~** — **done in R8.x.19** (`ilink-media.ts`: allowlisted download, AES-128-ECB, cache under `.butler/ilink-media/`; poller enriches inbound text).
 
 ### 8.3 v4 source migration (long-term)
 
@@ -275,7 +276,7 @@ Do not re-open as “optional debt”. Next engineering item is **§8.4**.
 
 See [`docs/plans/active/v5-remaining-work-2026-08-20.md`](../plans/active/v5-remaining-work-2026-08-20.md).
 
-1. **R8.x.19 inbound CDN media** — decrypt/download WeChat image/voice/file so the loop is not stuck on placeholders.
+1. **~~R8.x.19 inbound CDN media~~** — **done.**
 2. **Calendar (not a coding task):** delete `~/.butler/` after 2026-09-18 (D1).
 
 **Won't do** (removed from next-work lists): expand `run_command` allowlist; fix nested architecture r2–r6 gates.
@@ -335,12 +336,12 @@ If starting fresh with this document:
    systemctl --user status butler-v5-gateway.service  # should be active
    node scripts/cutover/ws-subagent-push-e2e.mjs       # should exit 0 with subagent reply
    ```
-5. **Next coding work** is R8.x.19 only — [`docs/plans/active/v5-remaining-work-2026-08-20.md`](../plans/active/v5-remaining-work-2026-08-20.md).
+5. **No further R-stage is queued.** Calendar: delete `~/.butler/` after 2026-09-18 (D1).
 
 ---
 
 ## 11. TL;DR for Cursor (final)
 
-**Butler v5 is the production mainline.** R0–R10 + R8.x.10–R8.x.18 on origin/main. Live WeChat since 2026-08-14. Next code: R8.x.19 inbound media ([remaining-work plan](../plans/active/v5-remaining-work-2026-08-20.md)). Do not revive closed optional-debt hangers. Don't touch `~/.butler/` until 2026-09-18 (D1).
+**Butler v5 is the production mainline.** R0–R10 + R8.x.10–R8.x.19 on origin/main. Live WeChat since 2026-08-14. No queued coding R-stage; calendar D1 deletes `~/.butler/` after 2026-09-18.
 
 Good luck. May the butler loop serve you well.

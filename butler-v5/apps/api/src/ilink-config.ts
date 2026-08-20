@@ -1,6 +1,10 @@
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { DEFAULT_ILINK_BASE_URL, type ILinkResult } from "@butler/adapters"
+import {
+  DEFAULT_ILINK_BASE_URL,
+  DEFAULT_WECHAT_CDN_BASE_URL,
+  type ILinkResult,
+} from "@butler/adapters"
 
 function envTruthy(raw: string | undefined): boolean {
   if (!raw) return false
@@ -23,6 +27,9 @@ export type IlinkPollerConfig = {
   readonly allowedUserIds: readonly string[]
   readonly dropGroups: boolean
   readonly syncBufPath: string
+  readonly cdnBaseUrl: string
+  readonly mediaCacheDir: string
+  readonly mediaMaxBytes: number
 }
 
 export function parseCsvIds(raw: string | undefined): string[] {
@@ -75,6 +82,8 @@ export function parseIlinkPollerConfig(env: NodeJS.ProcessEnv): ILinkResult<Ilin
     env["BUTLER_V5_ILINK_SYNC_BUF_PATH"] ??
     join(homedir(), ".config", "butler-v5", "ilink-sync.json")
   ).trim()
+  const workspaceRoot = (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim()
+  const mediaMaxBytes = Number(env["WECHAT_MEDIA_MAX_BYTES"] ?? 8 * 1024 * 1024)
   return {
     ok: true,
     value: {
@@ -92,6 +101,10 @@ export function parseIlinkPollerConfig(env: NodeJS.ProcessEnv): ILinkResult<Ilin
       allowedUserIds: uniqueAllowed,
       dropGroups: env["WECHAT_GROUP_POLICY"]?.trim().toLowerCase() === "open" ? false : true,
       syncBufPath,
+      cdnBaseUrl: (env["WECHAT_CDN_BASE_URL"] ?? DEFAULT_WECHAT_CDN_BASE_URL).trim(),
+      mediaCacheDir: join(workspaceRoot, ".butler", "ilink-media"),
+      mediaMaxBytes:
+        Number.isFinite(mediaMaxBytes) && mediaMaxBytes > 0 ? mediaMaxBytes : 8 * 1024 * 1024,
     },
   }
 }

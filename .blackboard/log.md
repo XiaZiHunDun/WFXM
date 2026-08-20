@@ -120,6 +120,6 @@ R8.x.15 v5 自接 iLink：getupdates → inbound → sendmessage；12 测试绿�
 R8.x.17 `POST /v1/ws/subscribe` 签发 token；WS 支持 `?token=`。27 相关测试绿。
 下次：owner 拍板 `~/.butler/` 保留；其余为可选债。
 
-## 2026-08-20-cursor-043 · cursor
-可选债清账：做 R8.x.19 入站媒体；不做 run_command 扩白名单；嵌套 architecture 门禁移出默认 vitest。
-下次：按 `docs/plans/active/v5-remaining-work-2026-08-20.md` 做 R8.x.19，或等 owner 发图再开工。
+## 2026-08-20-cursor-044 · cursor
+R8.x.19 入站 CDN 媒体：允许列表下载 + AES-128-ECB，失败回退占位符。26 相关测试绿。
+下次：重启 gateway 后可收图；提交推送如需上 origin。日历 D1 仍是 2026-09-18。

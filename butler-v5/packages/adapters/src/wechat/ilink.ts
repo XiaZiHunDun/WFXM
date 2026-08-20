@@ -40,6 +40,14 @@ export {
   SESSION_EXPIRED_ERRCODE,
 } from "./ilink-protocol.js"
 export type { ILinkResult, IlinkInbound } from "./ilink-protocol.js"
+export {
+  DEFAULT_WECHAT_CDN_BASE_URL,
+  describeSavedMedia,
+  downloadAndCacheIlinkMedia,
+  enrichIlinkInboundContent,
+  extractIlinkMediaRef,
+} from "./ilink-media.js"
+export type { IlinkMediaDownloadConfig, IlinkMediaKind, IlinkMediaRef } from "./ilink-media.js"
 
 export type ILinkClientConfig = {
   readonly baseUrl: string
