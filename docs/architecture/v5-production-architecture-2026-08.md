@@ -165,7 +165,7 @@ delegate_to_subagent
 
 - **PolicyGate + CapabilityRegistry**：`wechat-inbound-butler` 与子代理 worker 的工具执行经 `executeThroughBoundary`，禁止 apps 层直接 `runTool`（architecture test 锁定）；
 - **waiting_approval Step**：Policy `Ask` 时持久化待执行 capability（含 args/digest/过期时间），Run 转 `waiting_approval`；
-- **ScopedGrant**：Owner approve 或微信内联「确认」后签发 `uses=1` Grant，执行成功后扣减 `remainingUses`；
+- **ScopedGrant**：Owner approve 或微信内联「确认」后签发 `uses=1` Grant（锁定 capability + path + action digest），执行成功后扣减 `remainingUses`；
 - **恢复路径**：`resumeApprovedCapability` 在 approve 后立即执行挂起动作；Run 终态 `succeeded`/`failed`；
 - **Owner API**：`GET/POST /v1/owner/approvals*` + CLI `butler approvals|approve|deny`（`BUTLER_V5_OWNER_TOKEN`）；
 - **微信内联审批**：同对话有待审批 Step 时，用户发送「确认」「拒绝」等短句触发 approve/deny（需为 pending subject 或 `BUTLER_OWNER_WECHAT_ID`）；
@@ -175,7 +175,7 @@ delegate_to_subagent
 仍待完善：
 
 - 浏览器/MCP/调度等多 Channel 条件准入；
-- Grant 路径/域名/网络 scope 细粒度；
+- Grant 网络 scope（出网域名/端口）；
 - `packages/application` / 旧 infrastructure 脚手架归档。
 
 ### 6.1 bubblewrap 沙箱（opt-in）

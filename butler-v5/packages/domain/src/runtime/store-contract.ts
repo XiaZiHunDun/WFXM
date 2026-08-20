@@ -109,6 +109,8 @@ export interface RuntimeStore {
     readonly runId: string
     readonly subject: string
     readonly capability: string
+    readonly resource?: string
+    readonly digest?: string
     readonly now: Date
   }) => Promise<ScopedGrantRecord | null>
   readonly appendAuditEvent: (input: {

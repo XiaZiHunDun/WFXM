@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { decidePolicy, type ActionRequest, type PermissionPolicy } from "./types.js"
+import { decidePolicy, grantMatchesAction, type ActionRequest, type PermissionPolicy } from "./types.js"
 
 const policy: PermissionPolicy = {
   ownerSubject: "owner-1",
@@ -76,5 +76,77 @@ describe("decidePolicy", () => {
       _tag: "Deny",
       reason: "high-risk action without active grant",
     })
+  })
+
+  it("denies always-confirm when grant path does not match", () => {
+    const request: ActionRequest = {
+      ...baseRequest,
+      kind: "outbound",
+      capability: "send_wechat_file",
+      resource: "other.png",
+      risk: "medium",
+      digest: "send_wechat_file:other.png:{}",
+    }
+    expect(
+      grantMatchesAction(
+        {
+          id: "grant-1",
+          runId: "run-1",
+          subject: "owner-1",
+          scope: {
+            capabilities: ["send_wechat_file"],
+            paths: ["approved.png"],
+            digest: "send_wechat_file:approved.png:{}",
+          },
+          remainingUses: 1,
+          expiresAtMs: 2000,
+          createdAtMs: 0,
+        },
+        request,
+      ),
+    ).toBe(false)
+    const decision = decidePolicy(request, policy, 1000, {
+      id: "grant-1",
+      runId: "run-1",
+      subject: "owner-1",
+      scope: {
+        capabilities: ["send_wechat_file"],
+        paths: ["approved.png"],
+        digest: "send_wechat_file:approved.png:{}",
+      },
+      remainingUses: 1,
+      expiresAtMs: 2000,
+      createdAtMs: 0,
+    })
+    expect(decision._tag).toBe("Ask")
+  })
+
+  it("denies always-confirm when grant digest does not match", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "outbound",
+        capability: "send_wechat_file",
+        resource: "file.png",
+        risk: "medium",
+        digest: "send_wechat_file:file.png:{\"path\":\"file.png\"}",
+      },
+      policy,
+      1000,
+      {
+        id: "grant-1",
+        runId: "run-1",
+        subject: "owner-1",
+        scope: {
+          capabilities: ["send_wechat_file"],
+          paths: ["file.png"],
+          digest: "send_wechat_file:file.png:{\"path\":\"other.png\"}",
+        },
+        remainingUses: 1,
+        expiresAtMs: 2000,
+        createdAtMs: 0,
+      },
+    )
+    expect(decision._tag).toBe("Ask")
   })
 })

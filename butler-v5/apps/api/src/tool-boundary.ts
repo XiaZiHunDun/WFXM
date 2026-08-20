@@ -2,6 +2,7 @@ import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import {
   buildCapabilityRegistryFromTools,
+  capabilityDefinitionFromTool,
   executeToolThroughBoundary,
   resourceForTool,
   type ToolExecutionOutcome,
@@ -9,6 +10,7 @@ import {
 import {
   PolicyGate,
   productionPermissionPolicy,
+  actionRequestFromTool,
   type CapabilityRegistry,
 } from "@butler/runtime/policy-gate.js"
 import { markGrantConsumed } from "./approval-resume.js"
@@ -70,6 +72,15 @@ export function makeToolExecutor(args: {
     gate,
     execute: async (def, toolArgs) => {
       const explicitGrant = args.grant ?? null
+      const definition = capabilityDefinitionFromTool(def)
+      const resource = resourceForTool(def.name as string, toolArgs, args.conversationId)
+      const request = actionRequestFromTool(
+        definition.name,
+        args.subject,
+        resource,
+        toolArgs,
+        definition,
+      )
       const grant =
         explicitGrant ??
         (args.store && args.runId
@@ -77,6 +88,8 @@ export function makeToolExecutor(args: {
               runId: args.runId,
               subject: args.subject,
               capability: def.name as string,
+              resource,
+              digest: request.digest,
               now: new Date(),
             })
           : null)
@@ -87,7 +100,7 @@ export function makeToolExecutor(args: {
         toolArgs,
         {
           subject: args.subject,
-          resource: resourceForTool(def.name as string, toolArgs, args.conversationId),
+          resource,
           grant,
         },
         approval,

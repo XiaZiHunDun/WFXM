@@ -87,6 +87,8 @@ describe("approval-runtime", () => {
     })
     const decision = await approveWaitingStep(store, stepId, "owner-1")
     expect(decision.grant.scope.capabilities).toEqual(["send_wechat_file"])
+    expect(decision.grant.scope.paths).toEqual(["photo.jpg"])
+    expect(decision.grant.scope.digest).toBe("d1")
     expect(decision.grant.remainingUses).toBe(1)
     const updatedRun = await store.getRun(run.id)
     expect(updatedRun?.status).toBe("running")

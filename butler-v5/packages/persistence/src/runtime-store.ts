@@ -1,5 +1,6 @@
 import { and, asc, eq, gt } from "drizzle-orm"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
+import { grantMatchesAction, type ActionRequest } from "@butler/domain/governance/types.js"
 import type {
   RunStatus,
   RuntimeStore,
@@ -69,6 +70,7 @@ function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord
       ...(scope.paths ? { paths: scope.paths } : {}),
       ...(scope.network ? { network: scope.network } : {}),
       ...(scope.maxUses !== undefined ? { maxUses: scope.maxUses } : {}),
+      ...(scope.digest ? { digest: scope.digest } : {}),
     },
     remainingUses: row.remainingUses,
     expiresAtMs: row.expiresAt.getTime(),
@@ -316,6 +318,18 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         const grant = toScopedGrant(row)
         if (grant.remainingUses !== null && grant.remainingUses <= 0) continue
         if (!grant.scope.capabilities.includes(input.capability)) continue
+        if (input.resource !== undefined || input.digest !== undefined) {
+          const probe: ActionRequest = {
+            kind: "read",
+            capability: input.capability,
+            subject: input.subject,
+            resource: input.resource ?? "",
+            risk: "low",
+            digest: input.digest ?? "",
+            payload: {},
+          }
+          if (!grantMatchesAction(grant, probe)) continue
+        }
         return grant
       }
       return null

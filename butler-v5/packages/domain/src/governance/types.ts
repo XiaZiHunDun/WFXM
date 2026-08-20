@@ -26,6 +26,8 @@ export interface ScopedGrantScope {
   readonly paths?: readonly string[]
   readonly network?: "deny" | "allow"
   readonly maxUses?: number
+  /** When set, only the exact action digest from approval may execute. */
+  readonly digest?: string
 }
 
 export interface ScopedGrantRecord {
@@ -70,8 +72,8 @@ export function decidePolicy(
     if (!grant || grant.expiresAtMs <= nowMs) {
       return { _tag: "Deny", reason: "high-risk action without active grant" }
     }
-    if (!grant.scope.capabilities.includes(request.capability)) {
-      return { _tag: "Deny", reason: "capability not covered by grant" }
+    if (!grantMatchesAction(grant, request)) {
+      return { _tag: "Deny", reason: "grant scope mismatch" }
     }
     if (grant.remainingUses !== null && grant.remainingUses <= 0) {
       return { _tag: "Deny", reason: "grant exhausted" }
@@ -90,6 +92,41 @@ export function consumeGrantUse(grant: ScopedGrantRecord): ScopedGrantRecord {
   return { ...grant, remainingUses: Math.max(0, grant.remainingUses - 1) }
 }
 
+export function normalizeGrantPath(path: string): string {
+  return path.trim().replace(/\\/g, "/")
+}
+
+export function buildScopedGrantScopeFromPending(input: {
+  readonly capability: string
+  readonly resource: string
+  readonly digest: string
+}): ScopedGrantScope {
+  const scope: ScopedGrantScope = {
+    capabilities: [input.capability],
+    digest: input.digest,
+  }
+  if (input.capability === "send_wechat_file" || input.capability === "read_file") {
+    const path = input.resource.trim()
+    if (path) {
+      return { ...scope, paths: [normalizeGrantPath(path)] }
+    }
+  }
+  return scope
+}
+
 export function grantMatchesAction(grant: ScopedGrantRecord, request: ActionRequest): boolean {
-  return grant.scope.capabilities.includes(request.capability)
+  if (!grant.scope.capabilities.includes(request.capability)) {
+    return false
+  }
+  if (grant.scope.digest && grant.scope.digest !== request.digest) {
+    return false
+  }
+  if (grant.scope.paths && grant.scope.paths.length > 0) {
+    const resource = normalizeGrantPath(request.resource)
+    const allowed = grant.scope.paths.some((path) => normalizeGrantPath(path) === resource)
+    if (!allowed) {
+      return false
+    }
+  }
+  return true
 }

@@ -156,4 +156,6 @@ export {
   decidePolicy,
   consumeGrantUse,
   grantMatchesAction,
+  buildScopedGrantScopeFromPending,
+  normalizeGrantPath,
 } from "./governance/types.js"

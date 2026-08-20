@@ -1,4 +1,5 @@
 import type { ActionKind, RiskLevel, ScopedGrantRecord } from "@butler/domain/governance/types.js"
+import { buildScopedGrantScopeFromPending } from "@butler/domain/governance/types.js"
 import type { RuntimeStore, StoredStep } from "@butler/domain/runtime.js"
 
 export interface PendingCapabilityInput {
@@ -135,7 +136,11 @@ export async function approveWaitingStep(
     grantId: crypto.randomUUID(),
     runId: step.runId,
     subject: pending.subject,
-    scope: { capabilities: [pending.capability] },
+    scope: buildScopedGrantScopeFromPending({
+      capability: pending.capability,
+      resource: pending.resource,
+      digest: pending.digest,
+    }),
     remainingUses: 1,
     expiresAt: new Date(pending.expiresAtMs),
     createdAt: now,
