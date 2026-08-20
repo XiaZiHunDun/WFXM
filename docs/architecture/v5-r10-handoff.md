@@ -18,7 +18,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 - **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
 - **Git status:** 20+ commits today on origin/main; everything pushed.
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work (optional debt):** CDN media decrypt; `run_command` allowlist; pre-existing architecture tests. **`~/.butler/` retention: D1 — observe until 2026-09-18, then delete.** **R8.x.10–R8.x.18 done.**
+- **Next work:** only [R8.x.19 inbound CDN media](../plans/active/v5-remaining-work-2026-08-20.md). **`~/.butler/` D1:** delete after 2026-09-18. **R8.x.10–R8.x.18 done.** Optional-debt hangers (run_command allowlist, nested architecture gates) **closed** — [`v5-optional-debt-triage-2026-08-20.md`](../plans/decisions/v5-optional-debt-triage-2026-08-20.md).
 
 ---
 
@@ -236,9 +236,8 @@ bash scripts/typecheck-gate.sh   # PASS
 |---|---|---|
 | `wechat-inbound-butler.ts` only handles `Respond` and `Finish` natively — `CallTool` / `AskApproval` via native tool_calls; `Delegate` via outbox | low | All Decision paths covered |
 | 5-gate: `pnpm format:check` complains about `openclaw-mock.mjs` (prettier not run after first commit) | low | Workaround: `pnpm exec prettier --write` then commit |
-| QR login / media / allowlist not ported from v4 | medium | **R8.x.16** QR CLI + DM allowlist + media placeholder; CDN decrypt still not ported |
-| R8.x.9 candidate: `conversationId` is server-generated — WS client must open AFTER HTTP call | low | **R8.x.11** client can supply id; default is stable per user |
-| 5 pre-existing architecture tests failing (`tests/architecture/r{2,3,4,5,6}-end-to-end.test.ts`) | low | Same root cause as openclaw-mock prettier issue |
+| QR / allowlist / media placeholder | — | **R8.x.16 done.** Remaining media decrypt is R8.x.19 (see remaining-work plan), not a hangers list |
+| Nested `r{2,3,4,5,6}-end-to-end` architecture tests | — | **Closed 2026-08-20:** excluded from default vitest (duplicate of `pnpm gate`) |
 | `openclaw-mock.mjs` only has `/admin/push` and iLink-mock endpoints | low | Working test fixture; expand as needed |
 
 ---
@@ -253,7 +252,9 @@ Do not delete before that date. Decision doc:
 
 `butler/` source remains in git history.
 
-### 8.2 R8.x.10+ candidates (next R-stage)
+### 8.2 Closed R-stages (R8.x.10–R8.x.18)
+
+Do not re-open as “optional debt”. Next engineering item is **§8.4**.
 
 1. **~~v5 async butler loop / capability execution guard~~** — **done in R8.x.10** (`capability-guard.ts` + child tool loop in `subagent-worker.ts`; declaration allowlist now also gates use)
 2. **~~Conversation discovery seam~~** — **done in R8.x.11** (optional client `conversationId` on `/v1/wechat/inbound`; WS can pre-subscribe)
@@ -270,6 +271,14 @@ Do not delete before that date. Decision doc:
 - v4 butler-gateway code in `butler/` (Python) — preserved as git history; v5 in `butler-v5/` (TypeScript) is sole production
 - v4 runtime state in `~/.butler/` — **D1**: keep until 2026-09-18, then delete (see 8.1)
 
+### 8.4 Remaining development plan
+
+See [`docs/plans/active/v5-remaining-work-2026-08-20.md`](../plans/active/v5-remaining-work-2026-08-20.md).
+
+1. **R8.x.19 inbound CDN media** — decrypt/download WeChat image/voice/file so the loop is not stuck on placeholders.
+2. **Calendar (not a coding task):** delete `~/.butler/` after 2026-09-18 (D1).
+
+**Won't do** (removed from next-work lists): expand `run_command` allowlist; fix nested architecture r2–r6 gates.
 ---
 
 ## 9. Cursor-Specific Tips
@@ -326,15 +335,12 @@ If starting fresh with this document:
    systemctl --user status butler-v5-gateway.service  # should be active
    node scripts/cutover/ws-subagent-push-e2e.mjs       # should exit 0 with subagent reply
    ```
-5. **Start next R-stage** (8.2 list) by:
-   - Picking one feature
-   - Writing a small R-stage plan (or directly dispatching a focused subagent)
-   - Dispatching the subagent with clear scope + constraints
+5. **Next coding work** is R8.x.19 only — [`docs/plans/active/v5-remaining-work-2026-08-20.md`](../plans/active/v5-remaining-work-2026-08-20.md).
 
 ---
 
 ## 11. TL;DR for Cursor (final)
 
-**Butler v5 is the production mainline.** R0-R10 + R8.x + R10.x complete in origin/main. v5 has been live-serving real WeChat since 2026-08-14. Subagent→WS push e2e verified. Next work deferred (v4 data retention, R8.x.10+ candidates). Use existing tools (`llm-provider.ts`, `tools.ts`, `agent-kernel.ts`, `bridge.ts`); don't reinvent. Follow conventions (Effect, --no-verify + [MANUAL-OVERRIDE], YAML frontmatter). Avoid mistakes (don't touch `~/.butler/` or `butler/`, don't use `fix` as frontmatter type).
+**Butler v5 is the production mainline.** R0–R10 + R8.x.10–R8.x.18 on origin/main. Live WeChat since 2026-08-14. Next code: R8.x.19 inbound media ([remaining-work plan](../plans/active/v5-remaining-work-2026-08-20.md)). Do not revive closed optional-debt hangers. Don't touch `~/.butler/` until 2026-09-18 (D1).
 
 Good luck. May the butler loop serve you well.

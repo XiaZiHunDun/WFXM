@@ -120,6 +120,6 @@ R8.x.15 v5 自接 iLink：getupdates → inbound → sendmessage；12 测试绿�
 R8.x.17 `POST /v1/ws/subscribe` 签发 token；WS 支持 `?token=`。27 相关测试绿。
 下次：owner 拍板 `~/.butler/` 保留；其余为可选债。
 
-## 2026-08-20-cursor-042 · cursor
-R8.x.18：生产 event_store 走 Docker Postgres，重启不再丢会话事件。516 测试绿。
-下次：提交推送；其余为可选债（CDN 媒体 / run_command 白名单 / architecture 预存失败）。
+## 2026-08-20-cursor-043 · cursor
+可选债清账：做 R8.x.19 入站媒体；不做 run_command 扩白名单；嵌套 architecture 门禁移出默认 vitest。
+下次：按 `docs/plans/active/v5-remaining-work-2026-08-20.md` 做 R8.x.19，或等 owner 发图再开工。

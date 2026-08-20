@@ -13,7 +13,19 @@ export default defineConfig({
       "tests/e2e/**/*.test.ts",
       "scripts/**/*.test.{ts,mjs}",
     ],
-    exclude: ["**/node_modules/**", "**/dist/**", "**/.turbo/**", "**/*.tsbuildinfo"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.turbo/**",
+      "**/*.tsbuildinfo",
+      // Nested pnpm typecheck/lint/format:check. Duplicate of `pnpm gate`;
+      // closed in docs/plans/decisions/v5-optional-debt-triage-2026-08-20.md.
+      "tests/architecture/r2-end-to-end.test.ts",
+      "tests/architecture/r3-end-to-end.test.ts",
+      "tests/architecture/r4-end-to-end.test.ts",
+      "tests/architecture/r5-end-to-end.test.ts",
+      "tests/architecture/r6-end-to-end.test.ts",
+    ],
     coverage: {
       provider: "v8",
       include: [
