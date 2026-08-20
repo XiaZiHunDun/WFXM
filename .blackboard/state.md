@@ -1,22 +1,17 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-20 21:13_
+_last_synced: 2026-08-20 21:17_
 _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md
 
 ## 当前主线
 
-- Butler v5 / `main`：MCP HTTP bootstrap + 第二 Channel intake 接缝已落地。
-- 生产：微信 iLink opt-in；MCP/Channel 均默认 off。
+- MCP：`http` / `sse` / `stdio` 三传输；Slack/Telegram webhook 入站已接。
+- 全部 opt-in，默认 off；`main` 直接 push。
 
 ## 下一步
 
-- Slack/Telegram 等专用 Channel 适配（立项后）。
-- D1：2026-09-18 前不删除 `~/.butler/`。
-
-## 不要做
-
-- 不把黑板迁进 v5 Run / Task。
+- Slack/Telegram 出站回复；MCP 长连接 session 管理。
 
 ## 上一班
 
-- MCP JSON-RPC HTTP + `POST /v1/channel/inbound`；619 测试全绿。
+- stdio/SSE MCP + Slack/Telegram adapters；630 测试全绿。

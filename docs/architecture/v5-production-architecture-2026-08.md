@@ -174,27 +174,31 @@ delegate_to_subagent
 
 仍待完善：
 
-- 浏览器/调度等多 Channel 专用适配（Slack/Telegram 等）；
+- 浏览器/调度等更多 Channel 出站回复（Slack/Telegram 目前仅入站 webhook → loop）；
 - Grant 出网域名/端口动态扩展（非 WeChat CDN 固定表）；
 - `packages/application` / 旧 infrastructure 脚手架归档（见 [`v5-unwired-packages-inventory-2026-08.md`](../plans/active/v5-unwired-packages-inventory-2026-08.md)）。
 
-### 6.2 MCP HTTP（opt-in）
+### 6.2 MCP 传输（opt-in）
 
-`butler start` 时 `bootstrapMcpTools` 读取 env：
+`bootstrapMcpTools` 支持三种传输（`BUTLER_V5_MCP_TRANSPORT`）：
 
-- `BUTLER_V5_MCP_ENABLED=1` + `BUTLER_V5_MCP_URL` → JSON-RPC `tools/list` / `tools/call`，结果注入 `wiring.mcp`；
-- 仅 stub 名（`BUTLER_V5_MCP_TOOL_NAMES`）→ 无 URL 时的测试/脚手架模式；
-- `BUTLER_V5_MCP_REQUIRED=1` → 发现失败则进程退出。
+| 传输 | 配置 |
+|------|------|
+| `http`（默认） | `BUTLER_V5_MCP_URL` |
+| `sse` | 同上；Accept `text/event-stream` |
+| `stdio` | `BUTLER_V5_MCP_COMMAND` + 可选 `BUTLER_V5_MCP_ARGS` |
+
+发现结果注入 `wiring.mcp`；shutdown 时 `mcp.close()` 关闭 stdio 子进程。
 
 ### 6.3 第二 Channel 接缝（opt-in）
 
-`BUTLER_V5_CHANNEL_API_ENABLED=1` 时开放 `POST /v1/channel/inbound`：
+| 入口 | Env | 说明 |
+|------|-----|------|
+| `POST /v1/channel/inbound` | `BUTLER_V5_CHANNEL_API_ENABLED=1` | 通用 JSON intake |
+| `POST /v1/channel/slack/events` | `BUTLER_V5_SLACK_ENABLED=1` | Slack Events API（签名校验 + url_verification） |
+| `POST /v1/channel/telegram/webhook` | `BUTLER_V5_TELEGRAM_ENABLED=1` | Telegram Bot webhook |
 
-```json
-{ "apiVersion": "v1", "channelId": "api", "fromSubject": "owner-1", "content": "hello" }
-```
-
-与微信路径相同，复用 `runButlerLoop`；`conversationId` 默认 `c-ch-{channelId}-{subject}`。可选 `BUTLER_V5_CHANNEL_ALLOWLIST` 限制 `channelId`。
+三者均复用 `handleChannelInbound` → `runButlerLoop`；默认 conversationId：`c-ch-{channelId}-{subject}`。
 
 ### 6.1 bubblewrap 沙箱（opt-in）
 

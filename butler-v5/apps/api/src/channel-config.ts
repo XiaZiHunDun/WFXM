@@ -11,6 +11,14 @@ export function isChannelApiEnabled(env: NodeJS.ProcessEnv = process.env): boole
   return envTruthy(env["BUTLER_V5_CHANNEL_API_ENABLED"])
 }
 
+export function isSlackChannelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return envTruthy(env["BUTLER_V5_SLACK_ENABLED"])
+}
+
+export function isTelegramChannelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return envTruthy(env["BUTLER_V5_TELEGRAM_ENABLED"])
+}
+
 export function parseAllowedChannelIds(env: NodeJS.ProcessEnv = process.env): readonly string[] {
   const raw = (env["BUTLER_V5_CHANNEL_ALLOWLIST"] ?? "").trim()
   if (!raw) return []

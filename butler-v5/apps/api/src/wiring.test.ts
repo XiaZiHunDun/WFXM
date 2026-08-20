@@ -246,4 +246,49 @@ describe("v5 wiring", () => {
       else process.env["BUTLER_V5_CHANNEL_API_ENABLED"] = prev
     }
   })
+
+  it("slack url_verification returns challenge when enabled", async () => {
+    const prev = process.env["BUTLER_V5_SLACK_ENABLED"]
+    process.env["BUTLER_V5_SLACK_ENABLED"] = "1"
+    try {
+      const app = new Hono()
+      createRoutes(app, wiring)
+      const res = await app.request("/v1/channel/slack/events", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "url_verification", challenge: "challenge-token" }),
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { challenge: string }
+      expect(body.challenge).toBe("challenge-token")
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_SLACK_ENABLED"]
+      else process.env["BUTLER_V5_SLACK_ENABLED"] = prev
+    }
+  })
+
+  it("telegram webhook runs butler loop when enabled", async () => {
+    const prev = process.env["BUTLER_V5_TELEGRAM_ENABLED"]
+    process.env["BUTLER_V5_TELEGRAM_ENABLED"] = "1"
+    try {
+      const app = new Hono()
+      createRoutes(app, wiring)
+      const res = await app.request("/v1/channel/telegram/webhook", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          update_id: 1,
+          message: { message_id: 7, from: { id: 99 }, text: "telegram hi" },
+        }),
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { ok: boolean; reply: string; conversationId: string }
+      expect(body.ok).toBe(true)
+      expect(body.conversationId).toBe("c-ch-telegram-99")
+      expect(body.reply).toBe("stub-reply")
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_TELEGRAM_ENABLED"]
+      else process.env["BUTLER_V5_TELEGRAM_ENABLED"] = prev
+    }
+  })
 })

@@ -79,6 +79,7 @@ runSubagentWorker(bridge, pickLLMProvider, process.env, { runtimeStore })
 // doesn't leave a half-open port behind.
 const shutdown = (): void => {
   void wsHandle.close()
+  void mcp.close?.()
   void openedDb.value.close()
 }
 process.on("SIGINT", shutdown)

@@ -81,6 +81,14 @@ export default defineConfig({
         find: "@butler/adapters/mcp/http-transport.js",
         replacement: resolve(__dirname, "packages/adapters/src/mcp/http-transport.ts"),
       },
+      {
+        find: "@butler/adapters/mcp/stdio-transport.js",
+        replacement: resolve(__dirname, "packages/adapters/src/mcp/stdio-transport.ts"),
+      },
+      {
+        find: "@butler/adapters/mcp/sse-transport.js",
+        replacement: resolve(__dirname, "packages/adapters/src/mcp/sse-transport.ts"),
+      },
       { find: "@butler/migration", replacement: resolve(__dirname, "packages/migration/src") },
       { find: "@butler/api", replacement: resolve(__dirname, "apps/api/src") },
       { find: "@butler/cli", replacement: resolve(__dirname, "cli/src") },

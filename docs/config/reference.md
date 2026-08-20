@@ -869,13 +869,20 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_V5_ILINK_ENABLED` | `0` | `1` 启用原生 iLink long-poll（需 `WECHAT_TOKEN`） |
 | `BUTLER_V5_ILINK_INBOUND_TIMEOUT_MS` | — | iLink 入站处理超时 |
 | `BUTLER_V5_MCP_ENABLED` | `0` | `1` 注册 MCP 工具（走 PolicyGate + 审批；默认 off） |
-| `BUTLER_V5_MCP_TOOL_NAMES` | — | MCP 未接 URL 时的 stub 工具名（逗号分隔） |
-| `BUTLER_V5_MCP_URL` | — | MCP 服务器 JSON-RPC HTTP 端点 |
-| `BUTLER_V5_MCP_TOKEN` | — | MCP HTTP Bearer token（可选） |
-| `BUTLER_V5_MCP_TIMEOUT_MS` | `30000` | MCP HTTP 超时 |
+| `BUTLER_V5_MCP_TRANSPORT` | `http` | `http` \| `sse` \| `stdio` |
+| `BUTLER_V5_MCP_TOOL_NAMES` | — | MCP 未接 URL/stdio 时的 stub 工具名（逗号分隔） |
+| `BUTLER_V5_MCP_URL` | — | MCP HTTP/SSE JSON-RPC 端点 |
+| `BUTLER_V5_MCP_COMMAND` | — | MCP stdio 可执行文件（配合 `MCP_TRANSPORT=stdio`） |
+| `BUTLER_V5_MCP_ARGS` | — | MCP stdio 参数（空格/逗号分隔） |
+| `BUTLER_V5_MCP_TOKEN` | — | MCP HTTP/SSE Bearer token（可选） |
+| `BUTLER_V5_MCP_TIMEOUT_MS` | `30000` | MCP 传输超时 |
 | `BUTLER_V5_MCP_REQUIRED` | `0` | `1` 时 bootstrap 发现失败则拒绝启动 gateway |
-| `BUTLER_V5_CHANNEL_API_ENABLED` | `0` | `1` 启用 `POST /v1/channel/inbound`（第二 Channel 接缝） |
+| `BUTLER_V5_CHANNEL_API_ENABLED` | `0` | `1` 启用 `POST /v1/channel/inbound` |
 | `BUTLER_V5_CHANNEL_ALLOWLIST` | — | 允许的 `channelId` 列表（逗号分隔；空=不限制） |
+| `BUTLER_V5_SLACK_ENABLED` | `0` | `1` 启用 `POST /v1/channel/slack/events` |
+| `BUTLER_V5_SLACK_SIGNING_SECRET` | — | Slack 签名密钥（建议生产必填） |
+| `BUTLER_V5_TELEGRAM_ENABLED` | `0` | `1` 启用 `POST /v1/channel/telegram/webhook` |
+| `BUTLER_V5_TELEGRAM_WEBHOOK_SECRET` | — | Telegram `secret_token` 校验（可选） |
 
 bubblewrap 启用前运行：`butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh` 或 `pnpm exec tsx cli/src/index.ts sandbox-preflight`（在 `butler-v5/` 目录）。
 

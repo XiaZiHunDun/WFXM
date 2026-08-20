@@ -9,7 +9,9 @@
     "./postgres/index.js": "./src/postgres/index.ts",
     "./sandbox/bubblewrap-runner.js": "./src/sandbox/bubblewrap-runner.ts",
     "./mcp/client.js": "./src/mcp/client.ts",
-    "./mcp/http-transport.js": "./src/mcp/http-transport.ts"
+    "./mcp/http-transport.js": "./src/mcp/http-transport.ts",
+    "./mcp/stdio-transport.js": "./src/mcp/stdio-transport.ts",
+    "./mcp/sse-transport.js": "./src/mcp/sse-transport.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

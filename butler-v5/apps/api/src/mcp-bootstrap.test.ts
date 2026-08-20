@@ -38,4 +38,31 @@ describe("bootstrapMcpTools", () => {
     expect(bundle.runtimeTools.map((t) => t.name)).toEqual(["mcp_echo"])
     expect(fetchMock).toHaveBeenCalled()
   })
+
+  it("discovers tools over injected stdio transport", async () => {
+    const transport = {
+      request: async (req: unknown) => {
+        const msg = req as { method: string }
+        if (msg.method === "tools/list") {
+          return {
+            result: {
+              tools: [{ name: "stdio-tool", description: "d", inputSchema: { type: "object" } }],
+            },
+          }
+        }
+        return { result: { content: [{ type: "text", text: "ok" }] } }
+      },
+      close: async () => {},
+    }
+    const bundle = await bootstrapMcpTools(
+      {
+        BUTLER_V5_MCP_ENABLED: "1",
+        BUTLER_V5_MCP_TRANSPORT: "stdio",
+        BUTLER_V5_MCP_COMMAND: "node",
+      },
+      { transport },
+    )
+    expect(bundle.mode).toBe("stdio")
+    expect(bundle.runtimeTools.map((t) => t.name)).toEqual(["mcp_stdio-tool"])
+  })
 })
