@@ -2,6 +2,7 @@ import type { Hono } from "hono"
 import type { Wiring } from "./wiring.js"
 import { parseClientConversationId, defaultWechatConversationId } from "./conversation-id.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
+import { issueSubscribeToken } from "./ws-subscribe.js"
 
 export function createRoutes(app: Hono, wiring: Wiring) {
   app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
@@ -100,6 +101,34 @@ export function createRoutes(app: Hono, wiring: Wiring) {
           finalDecision: loopResult.finalDecision,
           traces: loopResult.traces,
         },
+      },
+      201,
+    )
+  })
+  app.post("/v1/ws/subscribe", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as null | {
+      apiVersion?: string
+      conversationId?: unknown
+    }
+    if (!body || body.apiVersion !== "v1") {
+      return c.text("invalid body", 400)
+    }
+    const parsedId = parseClientConversationId(body.conversationId)
+    if (parsedId.kind !== "valid") {
+      return c.text(
+        parsedId.kind === "absent"
+          ? "conversationId is required"
+          : `invalid conversationId: ${parsedId.reason}`,
+        400,
+      )
+    }
+    const issued = issueSubscribeToken(parsedId.value)
+    return c.json(
+      {
+        conversationId: parsedId.value,
+        token: issued.token,
+        expiresAt: new Date(issued.expiresAtMs).toISOString(),
+        wsPath: `/v1/ws?token=${encodeURIComponent(issued.token)}`,
       },
       201,
     )

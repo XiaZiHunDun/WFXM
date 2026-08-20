@@ -24,6 +24,7 @@ import {
   subscribers,
   type WsServerHandle,
 } from "./ws-routes.js"
+import { clearSubscribeTokens, issueSubscribeToken } from "./ws-subscribe.js"
 
 async function waitForOpen(ws: WebSocket): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -127,6 +128,7 @@ describe("ws-routes — WebSocket server", () => {
 
   beforeEach(async () => {
     clearAllSubscribers()
+    clearSubscribeTokens()
     handle = await startWsServer({ port: 0, host: "127.0.0.1" })
   })
 
@@ -224,6 +226,27 @@ describe("ws-routes — WebSocket server", () => {
   it("closes with 1008 when the client omits conversationId", async () => {
     const baseUrl = await url()
     const client = openClient(`${baseUrl}`)
+    await waitForOpen(client.ws)
+    const closeInfo = await new Promise<{ code: number }>((resolve) => {
+      client.ws.once("close", (code) => resolve({ code }))
+    })
+    expect(closeInfo.code).toBe(1008)
+  })
+
+  it("accepts a subscribe token in place of conversationId", async () => {
+    const issued = issueSubscribeToken("c-token-1")
+    const baseUrl = await url()
+    const client = openClient(`${baseUrl}?token=${encodeURIComponent(issued.token)}`)
+    await waitForOpen(client.ws)
+    const greeting = (await client.nextFrame()) as { kind: string; conversationId: string }
+    expect(greeting.kind).toBe("connected")
+    expect(greeting.conversationId).toBe("c-token-1")
+    client.close()
+  })
+
+  it("closes with 1008 when the subscribe token is unknown", async () => {
+    const baseUrl = await url()
+    const client = openClient(`${baseUrl}?token=not-a-real-token`)
     await waitForOpen(client.ws)
     const closeInfo = await new Promise<{ code: number }>((resolve) => {
       client.ws.once("close", (code) => resolve({ code }))

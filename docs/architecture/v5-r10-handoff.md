@@ -18,7 +18,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 - **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
 - **Git status:** 20+ commits today on origin/main; everything pushed.
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work (deferred):** v4 data retention (30-day window then delete); optional WS subscribe token API. **R8.x.10–R8.x.14 (execution guard, client conversationId, sandboxed tools, multi-turn + LLM summary memory) are done.** **R8.x.15: v5 native iLink poller** (`ilink-poller.ts`, opt-in `BUTLER_V5_ILINK_ENABLED=1`).
+- **Next work (deferred):** v4 data retention (30-day window then delete). **R8.x.10–R8.x.17 done** (including native iLink + `POST /v1/ws/subscribe`).
 
 ---
 
@@ -255,7 +255,7 @@ Owner `ailearn` needs to decide on `~/.butler/` data retention:
 
 1. **~~v5 async butler loop / capability execution guard~~** — **done in R8.x.10** (`capability-guard.ts` + child tool loop in `subagent-worker.ts`; declaration allowlist now also gates use)
 2. **~~Conversation discovery seam~~** — **done in R8.x.11** (optional client `conversationId` on `/v1/wechat/inbound`; WS can pre-subscribe)
-3. **WebSocket subscription API** (`POST /v1/ws/subscribe` returns subscription token)
+3. **~~WebSocket subscription API~~** — **done in R8.x.17** (`POST /v1/ws/subscribe` issues an in-memory token; WS accepts `?token=` in addition to `?conversationId=`)
 4. **~~Multi-turn conversation memory~~** — **done in R8.x.13 + R8.x.14** (stable stream; extractive compact; over-budget turns summarized by LLM with extractive fallback)
 5. **~~Tool registry expansion~~** — **done in R8.x.12** (`read_file` / `run_command` sandboxed in `workspace-tools.ts`; workspace root = `workspaceRoot` / `BUTLER_V5_WORKSPACE_ROOT` / cwd)
 6. **~~Capability-based delegation audit~~ (per-tool-call)** — **done in R8.x.10** (`kind: "tool_call"` + denial `rejection` with `toolName`)

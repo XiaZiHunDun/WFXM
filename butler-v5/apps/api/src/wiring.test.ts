@@ -155,4 +155,36 @@ describe("v5 wiring", () => {
     const text = await res.text()
     expect(text).toMatch(/invalid conversationId/)
   })
+
+  it("R8.x.17: POST /v1/ws/subscribe returns a token for a valid conversationId", async () => {
+    const app = new Hono()
+    createRoutes(app, wiring)
+    const res = await app.request("/v1/ws/subscribe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ apiVersion: "v1", conversationId: "c-owner-live" }),
+    })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as {
+      conversationId: string
+      token: string
+      expiresAt: string
+      wsPath: string
+    }
+    expect(body.conversationId).toBe("c-owner-live")
+    expect(body.token.length).toBeGreaterThan(16)
+    expect(body.wsPath).toContain("token=")
+    expect(Number.isNaN(Date.parse(body.expiresAt))).toBe(false)
+  })
+
+  it("R8.x.17: POST /v1/ws/subscribe rejects a missing conversationId", async () => {
+    const app = new Hono()
+    createRoutes(app, wiring)
+    const res = await app.request("/v1/ws/subscribe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ apiVersion: "v1" }),
+    })
+    expect(res.status).toBe(400)
+  })
 })

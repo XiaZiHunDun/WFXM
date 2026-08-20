@@ -29,6 +29,7 @@
  */
 import { createServer, type Server as HttpServer } from "node:http"
 import { WebSocketServer, type WebSocket as WsWebSocket } from "ws"
+import { lookupSubscribeToken } from "./ws-subscribe.js"
 
 const DEFAULT_WS_PORT = 3001
 const WS_PATH_PREFIX = "/v1/ws"
@@ -130,12 +131,7 @@ function registerSubscriber(conversationId: string, ws: WsWebSocket): () => void
   }
 }
 
-/**
- * Parse `conversationId` from a URL query string. Returns "" when
- * missing or when the query string is malformed (the caller then
- * closes the socket with a 1008 — policy violation).
- */
-export function extractConversationId(url: string): string {
+export function extractQueryParam(url: string, name: string): string {
   const qIndex = url.indexOf("?")
   if (qIndex < 0) return ""
   const query = url.slice(qIndex + 1)
@@ -143,7 +139,7 @@ export function extractConversationId(url: string): string {
     const eq = part.indexOf("=")
     if (eq < 0) continue
     const k = part.slice(0, eq)
-    if (k !== "conversationId") continue
+    if (k !== name) continue
     const raw = part.slice(eq + 1)
     try {
       return decodeURIComponent(raw)
@@ -152,6 +148,38 @@ export function extractConversationId(url: string): string {
     }
   }
   return ""
+}
+
+/**
+ * Parse `conversationId` from a URL query string. Returns "" when
+ * missing or when the query string is malformed (the caller then
+ * closes the socket with a 1008 — policy violation).
+ */
+export function extractConversationId(url: string): string {
+  return extractQueryParam(url, "conversationId")
+}
+
+export type WsIdentity =
+  | { readonly ok: true; readonly conversationId: string }
+  | { readonly ok: false; readonly reason: string }
+
+export function resolveWsIdentity(url: string): WsIdentity {
+  const token = extractQueryParam(url, "token")
+  const conversationId = extractConversationId(url)
+  if (token) {
+    const rec = lookupSubscribeToken(token)
+    if (!rec) {
+      return { ok: false, reason: "invalid or expired token" }
+    }
+    if (conversationId && conversationId !== rec.conversationId) {
+      return { ok: false, reason: "token conversationId mismatch" }
+    }
+    return { ok: true, conversationId: rec.conversationId }
+  }
+  if (!conversationId) {
+    return { ok: false, reason: "missing conversationId" }
+  }
+  return { ok: true, conversationId }
 }
 
 export interface WsServerHandle {
@@ -175,11 +203,12 @@ export async function startWsServer(
   const host = opts.host ?? "127.0.0.1"
   const wss = new WebSocketServer({ noServer: true })
   wss.on("connection", (ws, req) => {
-    const conversationId = extractConversationId(req.url ?? "")
-    if (!conversationId) {
-      ws.close(1008, "missing conversationId")
+    const identity = resolveWsIdentity(req.url ?? "")
+    if (!identity.ok) {
+      ws.close(1008, identity.reason)
       return
     }
+    const conversationId = identity.conversationId
     const teardown = registerSubscriber(conversationId, ws)
     try {
       const greeting: WsOutboundFrame = { kind: "connected", conversationId }
