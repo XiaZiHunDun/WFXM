@@ -1,4 +1,5 @@
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, gt } from "drizzle-orm"
+import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import type {
   RunStatus,
   RuntimeStore,
@@ -10,7 +11,7 @@ import type {
   TriggerSource,
 } from "@butler/domain/runtime.js"
 import type { ButlerDb } from "./db.js"
-import { conversations, messages, runs, steps } from "./schema.js"
+import { auditEvents, conversations, messages, runs, scopedGrants, steps } from "./schema.js"
 
 export class RuntimeVersionConflictError extends Error {
   constructor(
@@ -49,6 +50,29 @@ function toStoredStep(row: typeof steps.$inferSelect): StoredStep {
     output: (row.output as Readonly<Record<string, unknown>> | null) ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  }
+}
+
+function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord {
+  const scope = row.scope as {
+    readonly capabilities?: readonly string[]
+    readonly paths?: readonly string[]
+    readonly network?: "deny" | "allow"
+    readonly maxUses?: number
+  }
+  return {
+    id: row.grantId,
+    runId: row.runId,
+    subject: row.subject,
+    scope: {
+      capabilities: scope.capabilities ?? [],
+      ...(scope.paths ? { paths: scope.paths } : {}),
+      ...(scope.network ? { network: scope.network } : {}),
+      ...(scope.maxUses !== undefined ? { maxUses: scope.maxUses } : {}),
+    },
+    remainingUses: row.remainingUses,
+    expiresAtMs: row.expiresAt.getTime(),
+    createdAtMs: row.createdAt.getTime(),
   }
 }
 
@@ -199,6 +223,98 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       const row = rows[0]
       if (!row) throw new Error("failed to append message")
       return toStoredMessage(row)
+    },
+
+    async getRun(runId) {
+      const rows = await db.select().from(runs).where(eq(runs.runId, runId)).limit(1)
+      const row = rows[0]
+      return row ? toStoredRun(row) : null
+    },
+
+    async getStep(stepId) {
+      const rows = await db.select().from(steps).where(eq(steps.stepId, stepId)).limit(1)
+      const row = rows[0]
+      return row ? toStoredStep(row) : null
+    },
+
+    async updateStep(input) {
+      const patch: {
+        status?: StepStatus
+        output?: Record<string, unknown> | null
+        updatedAt: Date
+      } = { updatedAt: input.updatedAt }
+      if (input.status !== undefined) patch.status = input.status
+      if (input.output !== undefined) patch.output = input.output as Record<string, unknown> | null
+      const updated = await db
+        .update(steps)
+        .set(patch)
+        .where(eq(steps.stepId, input.stepId))
+        .returning()
+      const row = updated[0]
+      if (!row) throw new Error(`step not found: ${input.stepId}`)
+      return toStoredStep(row)
+    },
+
+    async listWaitingApprovalSteps() {
+      const rows = await db
+        .select()
+        .from(steps)
+        .where(and(eq(steps.kind, "approval"), eq(steps.status, "waiting")))
+        .orderBy(asc(steps.createdAt))
+      return rows.map(toStoredStep)
+    },
+
+    async createScopedGrant(input) {
+      await db.insert(scopedGrants).values({
+        grantId: input.grantId,
+        runId: input.runId,
+        subject: input.subject,
+        scope: input.scope,
+        remainingUses: input.remainingUses,
+        expiresAt: input.expiresAt,
+        createdAt: input.createdAt,
+      })
+      const rows = await db
+        .select()
+        .from(scopedGrants)
+        .where(eq(scopedGrants.grantId, input.grantId))
+        .limit(1)
+      const row = rows[0]
+      if (!row) throw new Error("failed to create scoped grant")
+      return toScopedGrant(row)
+    },
+
+    async findActiveGrant(input) {
+      const rows = await db
+        .select()
+        .from(scopedGrants)
+        .where(
+          and(
+            eq(scopedGrants.runId, input.runId),
+            eq(scopedGrants.subject, input.subject),
+            gt(scopedGrants.expiresAt, input.now),
+          ),
+        )
+        .orderBy(asc(scopedGrants.createdAt))
+      for (const row of rows) {
+        const grant = toScopedGrant(row)
+        if (grant.remainingUses !== null && grant.remainingUses <= 0) continue
+        if (!grant.scope.capabilities.includes(input.capability)) continue
+        return grant
+      }
+      return null
+    },
+
+    async appendAuditEvent(input) {
+      await db.insert(auditEvents).values({
+        auditId: input.auditId,
+        runId: input.runId,
+        conversationId: input.conversationId,
+        action: input.action,
+        subject: input.subject,
+        detail: input.detail,
+        createdAt: input.createdAt,
+      })
     },
   }
 }

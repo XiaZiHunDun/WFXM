@@ -5,6 +5,7 @@ import { makeTestDb } from "@butler/persistence/testing.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { EventBridge } from "@butler/runtime/bridge.js"
+import { createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { makeWiring } from "./wiring.js"
 
 describe("owner routes", () => {
@@ -56,5 +57,70 @@ describe("owner routes", () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { items: unknown[] }
     expect(Array.isArray(body.items)).toBe(true)
+  })
+
+  it("approves a waiting step and returns resume outcome", async () => {
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const runtimeStore = createRuntimeStore(db.db)
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
+    const createdAt = new Date("2026-08-20T00:00:00Z")
+    const inbound = await runtimeStore.createConversationWithUserMessage({
+      conversationId: "conv-owner-approve",
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "send" },
+      triggerSource: "channel",
+      idempotencyKey: "owner-approve-msg",
+      createdAt,
+    })
+    const run = await runtimeStore.createRun({
+      id: crypto.randomUUID(),
+      conversationId: inbound.conversationId,
+      parentRunId: null,
+      triggerSource: "channel",
+      idempotencyKey: "owner-approve-run",
+      subject: "owner-1",
+      goal: "reply",
+      budget: { maxSteps: 5 },
+      deadline: null,
+      createdAt,
+    })
+    await runtimeStore.transitionRunStatus(run.id, run.version, "running", createdAt)
+    const { stepId } = await createWaitingApprovalStep(runtimeStore, {
+      runId: run.id,
+      conversationId: inbound.conversationId,
+      subject: "owner-1",
+      capability: "get_current_time",
+      resource: "conv-owner-approve",
+      args: {},
+      question: "Confirm get_current_time?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "d-owner",
+      kind: "read",
+      risk: "low",
+    })
+    const app = new Hono()
+    createOwnerRoutes(app, wiring)
+    const res = await app.request(`/v1/owner/approvals/${stepId}/approve`, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-owner-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ subject: "owner-1" }),
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { ok: boolean; output?: string }
+    expect(body.ok).toBe(true)
+    expect(body.output).toBeTruthy()
+    const updatedRun = await runtimeStore.getRun(run.id)
+    expect(updatedRun?.status).toBe("succeeded")
   })
 })

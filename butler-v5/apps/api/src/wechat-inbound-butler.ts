@@ -7,7 +7,10 @@ import { type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { resolveReadModelSource } from "@butler/domain"
 import type { Wiring } from "./wiring.js"
 import { findTool, makeWeibutlerTools, WEIBUTLER_LLM_TOOLS } from "./tools.js"
-import { makeToolExecutor, resolveOwnerSubject } from "./tool-boundary.js"
+import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
+import { isPendingApprovalOutcome, toRunResult } from "./approval-resume.js"
+import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
+import type { RunResult } from "@butler/runtime/tool-runtime.js"
 import {
   pickLLMProvider,
   type LLMAdapter,
@@ -26,17 +29,6 @@ import {
  * loop returns the stub reply (v4 contract preserved).
  */
 const MAX_LOOP_ITERATIONS = 5
-
-/**
- * Per-tool wall-clock budget. Each tool execution goes through the policy
- * boundary with this timeout — slow tools do not stall the route.
- */
-const TOOL_TIMEOUT_MS = 5000
-const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
-
-export function toolTimeoutMs(toolName: string): number {
-  return toolName === "send_wechat_file" ? SEND_WECHAT_FILE_TIMEOUT_MS : TOOL_TIMEOUT_MS
-}
 
 /**
  * Logger surface for the butler loop. Mirrors the LLMReplyLogger
@@ -79,6 +71,31 @@ interface ToolTrace {
   readonly toolName: string
   readonly ok: boolean
   readonly summary: string
+}
+
+async function executeInboundTool(args: {
+  readonly toolExecutor: ReturnType<typeof makeToolExecutor>
+  readonly def: ToolDefinition
+  readonly toolArgs: Readonly<Record<string, unknown>>
+  readonly iteration: number
+  readonly toolCalls: number
+  readonly traces: readonly string[]
+  readonly toolName: string
+}): Promise<RunResult> {
+  const outcome = await args.toolExecutor.execute(args.def, args.toolArgs)
+  if (isPendingApprovalOutcome(outcome)) {
+    throw new RunPauseForApproval({
+      reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}`,
+      iterations: args.iteration + 1,
+      toolCalls: args.toolCalls,
+      finalDecision: "AskApproval",
+      traces: [
+        ...args.traces,
+        `${args.toolName}@${args.iteration}: waiting approval ${outcome.pendingApproval.stepId}`,
+      ],
+    } satisfies ButlerLoopResult)
+  }
+  return toRunResult(outcome)
 }
 
 /**
@@ -130,7 +147,12 @@ export async function runButlerLoop(args: {
       idempotencyKey,
       triggerSource: "channel",
     },
-    async (ctx) => runButlerLoopBody({ ...args, workingSet: ctx.workingSet }),
+    async (ctx) =>
+      runButlerLoopBody({
+        ...args,
+        runId: ctx.runId,
+        workingSet: ctx.workingSet,
+      }),
   )
 }
 
@@ -160,6 +182,7 @@ async function runButlerLoopBody(args: {
   readonly content: string
   readonly fromUserId: string
   readonly projectId: string
+  readonly runId: string
   readonly workingSet: WorkingSetResult
   readonly env?: NodeJS.ProcessEnv
   readonly logger?: ButlerLoopLogger
@@ -214,14 +237,18 @@ async function runButlerLoopBody(args: {
     conversationId: args.conversationId,
     actor: { kind: "agent", id: "wechat-butler-v5" },
     wechatUserId: args.fromUserId,
+    runtimeStore: args.wiring.runtimeStore,
   })
 
   const toolExecutor = makeToolExecutor({
     tools,
+    store: args.wiring.runtimeStore,
+    runId: args.runId,
     ownerSubject: resolveOwnerSubject(env, args.fromUserId),
     subject: args.fromUserId,
     conversationId: args.conversationId,
     timeoutMsFor: toolTimeoutMs,
+    wechatUserId: args.fromUserId,
   })
 
   const adapter = args.adapter ?? pickLLMProvider(env)
@@ -342,7 +369,15 @@ async function runButlerLoopBody(args: {
           continue
         }
         toolCalls += 1
-        const toolResult = await toolExecutor.execute(def, tc.args)
+        const toolResult = await executeInboundTool({
+          toolExecutor,
+          def,
+          toolArgs: tc.args,
+          iteration,
+          toolCalls,
+          traces,
+          toolName: tc.name,
+        })
         const trace: ToolTrace = {
           iteration,
           toolName: tc.name,
@@ -461,10 +496,15 @@ async function runButlerLoopBody(args: {
           }
         }
         toolCalls += 1
-        const toolResult = await toolExecutor.execute(
+        const toolResult = await executeInboundTool({
+          toolExecutor,
           def,
-          { task: decision.task, role: decision.role },
-        )
+          toolArgs: { task: decision.task, role: decision.role },
+          iteration,
+          toolCalls,
+          traces,
+          toolName: "delegate_to_subagent",
+        })
         const trace: ToolTrace = {
           iteration,
           toolName: "delegate_to_subagent",
@@ -517,7 +557,15 @@ async function runButlerLoopBody(args: {
           }
         }
         toolCalls += 1
-        const toolResult = await toolExecutor.execute(def, decision.args)
+        const toolResult = await executeInboundTool({
+          toolExecutor,
+          def,
+          toolArgs: decision.args,
+          iteration,
+          toolCalls,
+          traces,
+          toolName: decision.toolName,
+        })
         const trace: ToolTrace = {
           iteration,
           toolName: decision.toolName,

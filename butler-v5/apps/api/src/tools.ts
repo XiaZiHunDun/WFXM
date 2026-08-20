@@ -1,4 +1,5 @@
 import type { EventBridge } from "@butler/runtime/bridge.js"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { LLMTool } from "@butler/adapters"
 import {
   ALLOWED_CAPABILITIES,
@@ -6,7 +7,7 @@ import {
   type Capability,
 } from "@butler/runtime/delegate-runtime.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
-import { appendAudit } from "./audit-log.js"
+import { writeSubagentAudit } from "./audit-service.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
 import { makeReadFileTool, makeRunCommandTool } from "./workspace-tools.js"
 
@@ -23,11 +24,13 @@ export interface ButlerToolContext {
   readonly bridge: EventBridge
   readonly conversationId: string
   readonly actor?: { readonly kind: "owner" | "agent" | "system"; readonly id: string }
+  readonly runtimeStore?: RuntimeStore
   /** Sandbox root for read_file / run_command. Defaults to cwd / env. */
   readonly workspaceRoot?: string
   /** Current inbound WeChat user; required by send_wechat_file. */
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
+  readonly env?: NodeJS.ProcessEnv
 }
 
 /**
@@ -254,7 +257,7 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
       const allowedSet = new Set<string>(ALLOWED_CAPABILITIES)
       const invalid = effectiveCaps.find((c) => !allowedSet.has(c))
       if (invalid !== undefined) {
-        appendAudit({
+        writeSubagentAudit(ctx.runtimeStore, {
           ts: new Date().toISOString(),
           kind: "rejection",
           parentConversationId: ctx.conversationId,
@@ -284,7 +287,7 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
           actor: ctx.actor ?? defaultActor,
           bridge: ctx.bridge,
         })
-        appendAudit({
+        writeSubagentAudit(ctx.runtimeStore, {
           ts: new Date().toISOString(),
           kind: "delegation",
           parentConversationId: ctx.conversationId,

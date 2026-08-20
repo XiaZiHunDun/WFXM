@@ -24,6 +24,9 @@ describe("tool-boundary", () => {
       timeoutMsFor: () => 1000,
     })
     const result = await executor.execute(def, {})
-    expect(result).toEqual({ ok: true, output: "t" })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.output).toBe("t")
+    }
   })
 })

@@ -64,7 +64,7 @@ const wsHandle = await startWsServer({ port: wsPort, host: wsHost })
 // same env as the request path (so DASHSCOPE/DEEPSEEK/ANTHROPIC_KEY
 // are picked up uniformly) and is a no-op for non-`Delegate`
 // aggregate types.
-runSubagentWorker(bridge, pickLLMProvider, process.env)
+runSubagentWorker(bridge, pickLLMProvider, process.env, { runtimeStore })
 
 // Clean up the WS server on shutdown so operator SIGINT/SIGTERM
 // doesn't leave a half-open port behind.

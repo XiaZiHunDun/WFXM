@@ -34,8 +34,9 @@ import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
 import { type LLMAdapter, type LLMAssistantResponse, type LLMMessage } from "@butler/adapters"
 import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { pushEventToSubscribers } from "./ws-routes.js"
-import { appendAudit } from "./audit-log.js"
+import { writeSubagentAudit } from "./audit-service.js"
 import {
   isToolCallAllowed,
   llmToolsForCapabilities,
@@ -43,6 +44,7 @@ import {
 } from "./capability-guard.js"
 import { findTool, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, resolveOwnerSubject } from "./tool-boundary.js"
+import { toRunResult } from "./approval-resume.js"
 
 /**
  * Aggregate-type string used by `delegate-runtime` when enqueueing
@@ -108,6 +110,7 @@ async function runChildLlm(
   bridge: EventBridge,
   parentConversationId: string,
   childConversationId: string,
+  runtimeStore?: RuntimeStore,
 ): Promise<{ readonly content: string }> {
   const advertised = llmToolsForCapabilities(capabilities)
   const toolHint =
@@ -166,7 +169,7 @@ async function runChildLlm(
     for (const tc of response.toolCalls) {
       if (!isToolCallAllowed(tc.name, capabilities)) {
         const reason = `capability denied: ${tc.name}`
-        appendAudit({
+        writeSubagentAudit(runtimeStore, {
           ts: new Date().toISOString(),
           kind: "rejection",
           parentConversationId,
@@ -195,8 +198,8 @@ async function runChildLlm(
         })
         continue
       }
-      const toolResult = await toolExecutor.execute(def, tc.args)
-      appendAudit({
+      const toolResult = toRunResult(await toolExecutor.execute(def, tc.args))
+      writeSubagentAudit(runtimeStore, {
         ts: new Date().toISOString(),
         kind: "tool_call",
         parentConversationId,
@@ -240,6 +243,7 @@ async function handleOutboxMessage(
   adapter: LLMAdapter | undefined,
   msg: OutboxMessage,
   logger: SubagentWorkerLogger,
+  runtimeStore?: RuntimeStore,
 ): Promise<void> {
   // Filter redundant aggregates inside the handler so the worker
   // stays correct even if other enqueue paths land here later.
@@ -275,7 +279,7 @@ async function handleOutboxMessage(
   if (invalidCap !== undefined) {
     const reason = `invalid capability: ${invalidCap} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`
     logger.warn(`[subagent-worker] rejecting outbox msg ${msg.messageId}: ${reason}`)
-    appendAudit({
+    writeSubagentAudit(runtimeStore, {
       ts: new Date().toISOString(),
       kind: "rejection",
       parentConversationId: msg.streamId,
@@ -324,6 +328,7 @@ async function handleOutboxMessage(
       bridge,
       msg.streamId,
       childConversationId,
+      runtimeStore,
     )
     logger.warn(`[subagent-worker] LLM replied: ${result.content.slice(0, 80)}`)
   } catch (err) {
@@ -348,7 +353,7 @@ async function handleOutboxMessage(
     // R8.x.9: record completion to the audit log. The excerpt is
     // capped at 200 chars so the JSONL stays grep-friendly even for
     // long LLM replies.
-    appendAudit({
+    writeSubagentAudit(runtimeStore, {
       ts: new Date().toISOString(),
       kind: "completion",
       parentConversationId: msg.streamId,
@@ -407,10 +412,15 @@ export function runSubagentWorker(
   bridge: EventBridge,
   pickProvider: (env: NodeJS.ProcessEnv) => LLMAdapter | undefined,
   env: NodeJS.ProcessEnv,
-  opts: { readonly logger?: SubagentWorkerLogger; readonly intervalMs?: number } = {},
+  opts: {
+    readonly logger?: SubagentWorkerLogger
+    readonly intervalMs?: number
+    readonly runtimeStore?: RuntimeStore
+  } = {},
 ): SubagentWorkerHandle {
   const logger = opts.logger ?? defaultLogger
   const intervalMs = opts.intervalMs ?? POLL_INTERVAL_MS
+  const runtimeStore = opts.runtimeStore
   let stopped = false
 
   const tick = async (): Promise<void> => {
@@ -418,7 +428,7 @@ export function runSubagentWorker(
     try {
       const adapter = pickProvider(env)
       const delivered = await bridge.runWorker(async (msg) => {
-        await handleOutboxMessage(bridge, adapter, msg, logger)
+        await handleOutboxMessage(bridge, adapter, msg, logger, runtimeStore)
       })
       if (delivered > 0) {
         logger.warn(`[subagent-worker] delivered ${delivered} outbox message(s)`)

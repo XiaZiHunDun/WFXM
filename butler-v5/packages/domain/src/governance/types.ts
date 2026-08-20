@@ -51,6 +51,14 @@ export function decidePolicy(
   grant: ScopedGrantRecord | null,
 ): PolicyDecision {
   if (policy.alwaysConfirm.includes(request.capability)) {
+    if (
+      grant &&
+      grant.expiresAtMs > nowMs &&
+      grantMatchesAction(grant, request) &&
+      (grant.remainingUses === null || grant.remainingUses > 0)
+    ) {
+      return { _tag: "Allow" }
+    }
     return {
       _tag: "Ask",
       question: `Confirm ${request.capability} on ${request.resource}?`,

@@ -2,6 +2,12 @@ import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { RunCoordinator } from "./run-coordinator.js"
 import { buildWorkingSet, type WorkingSetResult } from "./working-set.js"
 
+export class RunPauseForApproval extends Error {
+  constructor(public readonly payload: unknown) {
+    super("run paused for approval")
+  }
+}
+
 export interface RunEngineContext {
   readonly conversationId: string
   readonly messageId: string
@@ -80,6 +86,9 @@ export class RunEngine {
         await this.store.transitionRunStatus(running.id, running.version, "succeeded", new Date())
         return result
       } catch (err) {
+        if (err instanceof RunPauseForApproval) {
+          return err.payload as T
+        }
         await this.store.transitionRunStatus(running.id, running.version, "failed", new Date())
         throw err
       }

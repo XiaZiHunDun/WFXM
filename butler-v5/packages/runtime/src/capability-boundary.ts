@@ -1,4 +1,6 @@
 import type { ActionKind, ScopedGrantRecord } from "@butler/domain/governance/types.js"
+import type { PolicyDecision } from "@butler/domain/governance/types.js"
+import { createWaitingApprovalStep, type PendingApprovalRequest } from "./approval-runtime.js"
 import {
   actionRequestFromTool,
   CapabilityRegistry,
@@ -6,6 +8,23 @@ import {
   type PolicyGate,
 } from "./policy-gate.js"
 import { runTool, type RunResult, type ToolDefinition } from "./tool-runtime.js"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
+
+export type ToolExecutionOutcome =
+  | RunResult
+  | {
+      readonly ok: false
+      readonly reason: string
+      readonly pendingApproval: { readonly stepId: string; readonly question: string }
+    }
+
+export interface ApprovalExecutionContext {
+  readonly store: RuntimeStore
+  readonly runId: string
+  readonly conversationId: string
+  readonly wechatUserId?: string
+  readonly wechatContextToken?: string
+}
 
 export function actionKindForTool(toolName: string): ActionKind {
   switch (toolName) {
@@ -83,7 +102,8 @@ export async function executeToolThroughBoundary(
   def: ToolDefinition,
   args: Readonly<Record<string, unknown>>,
   ctx: ToolBoundaryContext,
-): Promise<RunResult> {
+  approval?: ApprovalExecutionContext,
+): Promise<ToolExecutionOutcome> {
   const definition = capabilityDefinitionFromTool(def)
   const request = actionRequestFromTool(
     definition.name,
@@ -96,6 +116,14 @@ export async function executeToolThroughBoundary(
   if (outcome._tag === "Blocked") {
     const decision = outcome.decision
     if (decision._tag === "Ask") {
+      if (approval) {
+        const step = await persistAskApproval(approval, request, definition, args, decision)
+        return {
+          ok: false,
+          reason: `[待审批] ${decision.question}`,
+          pendingApproval: { stepId: step.stepId, question: decision.question },
+        }
+      }
       return { ok: false, reason: `[需要确认] ${decision.question}` }
     }
     if (decision._tag === "Deny") {
@@ -108,4 +136,29 @@ export async function executeToolThroughBoundary(
     return { ok: false, reason: result.reason ?? "capability failed" }
   }
   return { ok: true, output: result.output }
+}
+
+async function persistAskApproval(
+  approval: ApprovalExecutionContext,
+  request: ReturnType<typeof actionRequestFromTool>,
+  definition: CapabilityDefinition,
+  args: Readonly<Record<string, unknown>>,
+  decision: Extract<PolicyDecision, { readonly _tag: "Ask" }>,
+): Promise<{ readonly stepId: string }> {
+  const payload: PendingApprovalRequest = {
+    runId: approval.runId,
+    conversationId: approval.conversationId,
+    subject: request.subject,
+    capability: definition.name,
+    resource: request.resource,
+    args,
+    question: decision.question,
+    expiresAtMs: decision.expiresAtMs,
+    digest: request.digest,
+    kind: definition.kind,
+    risk: definition.risk,
+    ...(approval.wechatUserId ? { wechatUserId: approval.wechatUserId } : {}),
+    ...(approval.wechatContextToken ? { wechatContextToken: approval.wechatContextToken } : {}),
+  }
+  return createWaitingApprovalStep(approval.store, payload)
 }

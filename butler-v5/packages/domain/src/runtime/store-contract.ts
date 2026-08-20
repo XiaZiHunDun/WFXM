@@ -1,3 +1,4 @@
+import type { ScopedGrantRecord } from "../governance/types.js"
 import type { RunStatus, StepKind, StepStatus, TriggerSource } from "./types.js"
 
 export interface StoredMessage {
@@ -83,6 +84,39 @@ export interface RuntimeStore {
     readonly idempotencyKey: string | null
     readonly createdAt: Date
   }) => Promise<StoredMessage>
+  readonly getRun: (runId: string) => Promise<StoredRun | null>
+  readonly getStep: (stepId: string) => Promise<StoredStep | null>
+  readonly updateStep: (input: {
+    readonly stepId: string
+    readonly status?: StepStatus
+    readonly output?: Readonly<Record<string, unknown>> | null
+    readonly updatedAt: Date
+  }) => Promise<StoredStep>
+  readonly listWaitingApprovalSteps: () => Promise<readonly StoredStep[]>
+  readonly createScopedGrant: (input: {
+    readonly grantId: string
+    readonly runId: string
+    readonly subject: string
+    readonly scope: Readonly<Record<string, unknown>>
+    readonly remainingUses: number | null
+    readonly expiresAt: Date
+    readonly createdAt: Date
+  }) => Promise<ScopedGrantRecord>
+  readonly findActiveGrant: (input: {
+    readonly runId: string
+    readonly subject: string
+    readonly capability: string
+    readonly now: Date
+  }) => Promise<ScopedGrantRecord | null>
+  readonly appendAuditEvent: (input: {
+    readonly auditId: string
+    readonly runId: string | null
+    readonly conversationId: string | null
+    readonly action: string
+    readonly subject: string
+    readonly detail: Readonly<Record<string, unknown>>
+    readonly createdAt: Date
+  }) => Promise<void>
 }
 
 export type ReadModelSource = "event_store" | "hybrid" | "relational"

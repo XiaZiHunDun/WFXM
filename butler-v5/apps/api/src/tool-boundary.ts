@@ -1,15 +1,24 @@
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import {
   buildCapabilityRegistryFromTools,
   executeToolThroughBoundary,
   resourceForTool,
+  type ToolExecutionOutcome,
 } from "@butler/runtime/capability-boundary.js"
 import {
   PolicyGate,
   productionPermissionPolicy,
   type CapabilityRegistry,
 } from "@butler/runtime/policy-gate.js"
-import type { RunResult, ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
+
+export const DEFAULT_TOOL_TIMEOUT_MS = 5_000
+export const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
+
+export function toolTimeoutMs(toolName: string): number {
+  return toolName === "send_wechat_file" ? SEND_WECHAT_FILE_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS
+}
 
 export function resolveOwnerSubject(env: NodeJS.ProcessEnv, fallback: string): string {
   const raw = env["BUTLER_OWNER_WECHAT_ID"]?.trim()
@@ -27,7 +36,7 @@ export interface ToolExecutor {
   readonly execute: (
     def: ToolDefinition,
     args: Readonly<Record<string, unknown>>,
-  ) => Promise<RunResult>
+  ) => Promise<ToolExecutionOutcome>
 }
 
 export function makeToolExecutor(args: {
@@ -38,18 +47,49 @@ export function makeToolExecutor(args: {
   readonly timeoutMsFor: (toolName: string) => number
   readonly grant?: ScopedGrantRecord | null
   readonly nowMs?: () => number
+  readonly store?: RuntimeStore
+  readonly runId?: string
+  readonly wechatUserId?: string
+  readonly wechatContextToken?: string
 }): ToolExecutor {
   const registry = buildCapabilityRegistryFromTools(args.tools, args.timeoutMsFor)
   const gate = new PolicyGate(productionPermissionPolicy(args.ownerSubject), args.nowMs ?? Date.now)
-  const grant = args.grant ?? null
+  const approval =
+    args.store && args.runId
+      ? {
+          store: args.store,
+          runId: args.runId,
+          conversationId: args.conversationId,
+          ...(args.wechatUserId ? { wechatUserId: args.wechatUserId } : {}),
+          ...(args.wechatContextToken ? { wechatContextToken: args.wechatContextToken } : {}),
+        }
+      : undefined
   return {
     registry,
     gate,
-    execute: async (def, toolArgs) =>
-      executeToolThroughBoundary(registry, gate, def, toolArgs, {
-        subject: args.subject,
-        resource: resourceForTool(def.name as string, toolArgs, args.conversationId),
-        grant,
-      }),
+    execute: async (def, toolArgs) => {
+      const grant =
+        args.grant ??
+        (args.store && args.runId
+          ? await args.store.findActiveGrant({
+              runId: args.runId,
+              subject: args.subject,
+              capability: def.name as string,
+              now: new Date(),
+            })
+          : null)
+      return executeToolThroughBoundary(
+        registry,
+        gate,
+        def,
+        toolArgs,
+        {
+          subject: args.subject,
+          resource: resourceForTool(def.name as string, toolArgs, args.conversationId),
+          grant,
+        },
+        approval,
+      )
+    },
   }
 }

@@ -37,6 +37,29 @@ describe("decidePolicy", () => {
     expect(decision._tag).toBe("Ask")
   })
 
+  it("allows always-confirm capabilities when a matching grant is active", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "outbound",
+        capability: "send_wechat_file",
+        risk: "medium",
+      },
+      policy,
+      1000,
+      {
+        id: "grant-1",
+        runId: "run-1",
+        subject: "owner-1",
+        scope: { capabilities: ["send_wechat_file"] },
+        remainingUses: 1,
+        expiresAtMs: 2000,
+        createdAtMs: 0,
+      },
+    )
+    expect(decision).toEqual({ _tag: "Allow" })
+  })
+
   it("denies high-risk actions without grant", () => {
     const decision = decidePolicy(
       {
