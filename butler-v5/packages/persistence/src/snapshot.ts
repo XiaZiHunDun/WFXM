@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "./db.js"
 import { snapshots } from "./schema.js"
 
 export type Snapshot = typeof snapshots.$inferSelect
@@ -9,7 +9,7 @@ export type Snapshot = typeof snapshots.$inferSelect
  * recent streamVersion overwrites an older one.
  */
 export async function saveSnapshot(
-  db: PgliteDatabase<Record<string, never>>,
+  db: ButlerDb,
   streamId: string,
   streamVersion: number,
   payload: Record<string, unknown>,
@@ -26,10 +26,7 @@ export async function saveSnapshot(
 /**
  * Load the current snapshot for a stream, or null if none exists.
  */
-export async function loadSnapshot(
-  db: PgliteDatabase<Record<string, never>>,
-  streamId: string,
-): Promise<Snapshot | null> {
+export async function loadSnapshot(db: ButlerDb, streamId: string): Promise<Snapshot | null> {
   const rows = await db.select().from(snapshots).where(eq(snapshots.streamId, streamId))
   return rows[0] ?? null
 }

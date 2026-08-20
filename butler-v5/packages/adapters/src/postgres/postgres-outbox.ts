@@ -1,5 +1,5 @@
 import { Layer } from "effect"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "@butler/persistence"
 import {
   enqueueOutbox as persistenceEnqueueOutbox,
   claimOutbox as persistenceClaimOutbox,
@@ -11,7 +11,7 @@ import { OutboxService } from "@butler/ports"
 import { tryPromise } from "../port-helpers.js"
 
 interface OutboxAdapterConfig {
-  readonly db: PgliteDatabase<Record<string, never>>
+  readonly db: ButlerDb
   readonly workerId: string
   readonly leaseMs?: number
 }

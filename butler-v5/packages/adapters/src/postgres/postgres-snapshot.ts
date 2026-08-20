@@ -1,5 +1,5 @@
 import { Layer } from "effect"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "@butler/persistence"
 import {
   loadSnapshot as persistenceLoadSnapshot,
   saveSnapshot as persistenceSaveSnapshot,
@@ -8,7 +8,7 @@ import { SnapshotService } from "@butler/ports"
 import { tryPromise } from "../port-helpers.js"
 
 interface SnapshotAdapterConfig {
-  readonly db: PgliteDatabase<Record<string, never>>
+  readonly db: ButlerDb
 }
 
 export function makePostgresSnapshotAdapter(config: SnapshotAdapterConfig) {

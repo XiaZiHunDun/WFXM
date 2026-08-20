@@ -1,30 +1,29 @@
 import { Hono } from "hono"
-import { PGlite } from "@electric-sql/pglite"
-import { drizzle } from "drizzle-orm/pglite"
-import { readFileSync } from "node:fs"
-import { dirname, resolve } from "node:path"
-import { fileURLToPath } from "node:url"
 import { createRoutes } from "./routes.js"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { EventBridge } from "@butler/runtime/bridge.js"
 import { makePostgresAdapters } from "@butler/adapters/postgres/index.js"
 import { pickLLMProvider } from "@butler/adapters"
+import { openButlerDatabase } from "@butler/persistence"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer } from "./ws-routes.js"
 
 const app = new Hono()
 const workerId = process.env["WORKER_ID"] ?? "w-default"
 
-// In-process pglite with idempotent schema bootstrap. Production wiring
-// swaps this for a real DATABASE_URL via Postgres adapters (R7.0).
-const pg = new PGlite()
-const migrationsPath = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../../packages/persistence/src/migrations/0001_initial.sql",
-)
-await pg.exec(readFileSync(migrationsPath, "utf8"))
-
-const db = drizzle(pg, {})
+// Production (`NODE_ENV=production` + DATABASE_URL) uses Docker Postgres so
+// conversation events survive gateway restart. Tests and local defaults stay
+// in-process PGlite. `BUTLER_V5_DB` overrides. Postgres open failure exits
+// rather than silently falling back to memory.
+const openedDb = await openButlerDatabase(process.env)
+if (!openedDb.ok) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error(`[butler-v5] database open failed: ${openedDb.reason}`)
+  process.exit(1)
+}
+// eslint-disable-next-line no-console -- operator log when no logger injected
+console.error(`[butler-v5] event store: ${openedDb.value.kind}`)
+const db = openedDb.value.db
 const bridge = new EventBridge({ db, workerId })
 const adapters = makePostgresAdapters({ db, workerId })
 const wiring: Wiring = makeWiring({ bridge, adapters, workerId })
@@ -35,9 +34,11 @@ createRoutes(app, wiring)
 // to connected clients in real-time. The Hono HTTP API stays on
 // its own port — the WS server listens separately and shares the
 // in-process subscriber registry. Port is `WS_PORT` env (default
-// 3001); host is `WS_HOST` env (default 127.0.0.1 — loopback only
-// since this is the operator surface, not a public endpoint).
-const wsPort = Number(process.env["WS_PORT"] ?? 3001)
+// 3001; vitest uses an ephemeral port so e2e imports don't collide
+// with docker wechat-mock on 3001). Host is `WS_HOST` (default
+// 127.0.0.1 — loopback only).
+const vitest = (process.env["VITEST"] ?? "").trim() !== ""
+const wsPort = Number(process.env["WS_PORT"] ?? (vitest ? 0 : 3001))
 const wsHost = process.env["WS_HOST"] ?? "127.0.0.1"
 const wsHandle = await startWsServer({ port: wsPort, host: wsHost })
 
@@ -53,6 +54,7 @@ runSubagentWorker(bridge, pickLLMProvider, process.env)
 // doesn't leave a half-open port behind.
 const shutdown = (): void => {
   void wsHandle.close()
+  void openedDb.value.close()
 }
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)

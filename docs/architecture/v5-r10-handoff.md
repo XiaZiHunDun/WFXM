@@ -14,11 +14,11 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 
 - **Butler v5 is the unique active product mainline.** v4 is decommissioned.
 - **v5 live-serving real WeChat since 2026-08-14** (R10.3 traffic-shift day).
-- **Architecture:** Effect-TS + CQRS + Event Sourcing (pglite local; postgres prod-ready). Modular monolith.
+- **Architecture:** Effect-TS + CQRS + Event Sourcing (PGlite for tests; Docker Postgres in production). Modular monolith.
 - **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
 - **Git status:** 20+ commits today on origin/main; everything pushed.
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work (optional debt):** CDN media decrypt; `run_command` allowlist; pre-existing architecture tests. **`~/.butler/` retention: D1 — observe until 2026-09-18, then delete.** **R8.x.10–R8.x.17 done.**
+- **Next work (optional debt):** CDN media decrypt; `run_command` allowlist; pre-existing architecture tests. **`~/.butler/` retention: D1 — observe until 2026-09-18, then delete.** **R8.x.10–R8.x.18 done.**
 
 ---
 
@@ -30,7 +30,7 @@ Single-user, locally-deployed **personal AI butler** at `/home/ailearn/projects/
 - Receives WeChat (via Tencent iLink Bot API long-poll)
 - Runs butler agent loop (LLM + tool calls + state machine)
 - Replies via WeChat
-- Persists state to pglite (local) or postgres (prod-ready)
+- Persists state to PGlite in tests, Docker Postgres when `NODE_ENV=production` and `DATABASE_URL` is set (`BUTLER_V5_DB` overrides)
 - All state event-sourced
 
 ### 2.2 The User
@@ -263,6 +263,7 @@ Do not delete before that date. Decision doc:
 6. **~~Capability-based delegation audit~~ (per-tool-call)** — **done in R8.x.10** (`kind: "tool_call"` + denial `rejection` with `toolName`)
 7. **~~v5 native iLink~~** — **done in R8.x.15** (`packages/adapters/src/wechat/ilink.ts` + `apps/api/src/ilink-poller.ts`; `butler start` after listen; `BUTLER_V5_ILINK_ENABLED=1` + `WECHAT_TOKEN`)
 8. **~~iLink hardening~~** — **done in R8.x.16** (DM policy/allowlist, drop groups by default, media placeholder, persist sync_buf, `butler wechat-login` QR). Live WeChat reply verified 2026-08-20.
+9. **~~Durable Postgres event store~~** — **done in R8.x.18** (`openButlerDatabase` in `@butler/persistence`; production uses compose Postgres; tests stay on PGlite). Restart no longer wipes conversation events.
 
 ### 8.3 v4 source migration (long-term)
 

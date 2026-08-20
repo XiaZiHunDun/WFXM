@@ -1,5 +1,5 @@
 import { Layer } from "effect"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "@butler/persistence"
 import { makePostgresEventStoreAdapter } from "./postgres-event-store.js"
 import { makePostgresOutboxAdapter } from "./postgres-outbox.js"
 import { makePostgresSnapshotAdapter } from "./postgres-snapshot.js"
@@ -7,7 +7,7 @@ import { makePostgresProjectionAdapter } from "./postgres-projection.js"
 import { EventBridge } from "@butler/runtime"
 
 interface PostgresAdapterInput {
-  readonly db: PgliteDatabase<Record<string, never>>
+  readonly db: ButlerDb
   readonly workerId?: string
   readonly leaseMs?: number
 }

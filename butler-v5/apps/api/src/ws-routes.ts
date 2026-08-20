@@ -275,6 +275,9 @@ export async function startWsServer(
   })
 
   return new Promise<WsServerHandle>((resolve) => {
+    server.once("error", (err) => {
+      wsLogger.error(`[ws-routes] listen failed on ${host}:${port}:`, err)
+    })
     server.listen(port, host, () => {
       // Resolve the actual bound port — `port: 0` requests an
       // ephemeral port and `server.address()` reports it.

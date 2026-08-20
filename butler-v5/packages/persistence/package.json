@@ -22,5 +22,8 @@
     "drizzle-orm": "^0.33.0",
     "pg": "^8.11.0",
     "@electric-sql/pglite": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0"
   }
 }

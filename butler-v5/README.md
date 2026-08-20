@@ -94,16 +94,17 @@ bash scripts/run-test-layer.sh all       # 全部
 
 ## 环境变量
 
-| 变量                                | 默认值                                                | 说明               |
-| ----------------------------------- | ----------------------------------------------------- | ------------------ |
-| `LOOP_MAX_ITERATIONS`               | 50                                                    | 单次循环最大迭代   |
-| `LOOP_TIMEOUT_MS`                   | 600000                                                | 循环超时（ms）     |
-| `GUARDS_OWNER_OFFLINE_THRESHOLD_MS` | 300000                                                | Owner 离线阈值     |
-| `GUARDS_CHAOS_ENABLED`              | false                                                 | 混沌演练开关       |
-| `LLM_PRIMARY`                       | anthropic                                             | 主 LLM provider    |
-| `LLM_FALLBACK`                      | openai                                                | 备选 LLM provider  |
-| `DATABASE_URL`                      | postgres://butler:butler_dev@localhost:5432/butler_v5 | 数据库连接         |
-| `WECHAT_TOKEN`                      | butler-dev-token                                      | 微信签名验证 token |
+| 变量                                | 默认值                                                | 说明                                                         |
+| ----------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
+| `LOOP_MAX_ITERATIONS`               | 50                                                    | 单次循环最大迭代                                             |
+| `LOOP_TIMEOUT_MS`                   | 600000                                                | 循环超时（ms）                                               |
+| `GUARDS_OWNER_OFFLINE_THRESHOLD_MS` | 300000                                                | Owner 离线阈值                                               |
+| `GUARDS_CHAOS_ENABLED`              | false                                                 | 混沌演练开关                                                 |
+| `LLM_PRIMARY`                       | anthropic                                             | 主 LLM provider                                              |
+| `LLM_FALLBACK`                      | openai                                                | 备选 LLM provider                                            |
+| `DATABASE_URL`                      | postgres://butler:butler_dev@localhost:5432/butler_v5 | 数据库连接                                                   |
+| `BUTLER_V5_DB`                      | (auto)                                                | `pglite` / `postgres`；生产有 `DATABASE_URL` 时默认 postgres |
+| `WECHAT_TOKEN`                      | butler-dev-token                                      | 微信签名验证 token                                           |
 
 ## 技术栈
 

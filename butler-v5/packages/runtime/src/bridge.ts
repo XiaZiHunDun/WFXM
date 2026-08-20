@@ -3,7 +3,7 @@
  * Runtime has no direct knowledge of pglite/postgres; it interacts only
  * via this bridge.
  */
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "@butler/persistence"
 import {
   appendEvents,
   loadStream,
@@ -22,7 +22,7 @@ import { loadSnapshot, saveSnapshot } from "@butler/persistence/snapshot.js"
 import { runWorkerOnce } from "@butler/persistence/worker.js"
 
 export interface EventBridgeConfig {
-  readonly db: PgliteDatabase<Record<string, never>>
+  readonly db: ButlerDb
   readonly workerId: string
   readonly leaseMs?: number
 }

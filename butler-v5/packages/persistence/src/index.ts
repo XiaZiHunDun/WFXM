@@ -1,1 +1,6 @@
 export * from "./schema.js"
+export type { ButlerDb } from "./db.js"
+export { resolveButlerDbKind } from "./db-kind.js"
+export type { ButlerDbKind } from "./db-kind.js"
+export { openButlerDatabase } from "./db-open.js"
+export type { OpenedButlerDb, OpenButlerResult } from "./db-open.js"

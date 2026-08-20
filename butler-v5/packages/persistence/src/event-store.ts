@@ -1,5 +1,5 @@
 import { eq, max } from "drizzle-orm"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "./db.js"
 import { eventStore } from "./schema.js"
 
 export class OptimisticConcurrencyError extends Error {
@@ -46,10 +46,7 @@ function toEventUuid(eventId: string): string {
 /**
  * Returns the next available streamVersion for a stream (1 if empty).
  */
-export async function nextVersion(
-  db: PgliteDatabase<Record<string, never>>,
-  streamId: string,
-): Promise<number> {
+export async function nextVersion(db: ButlerDb, streamId: string): Promise<number> {
   const rows = await db
     .select({ max: max(eventStore.streamVersion) })
     .from(eventStore)
@@ -64,7 +61,7 @@ export async function nextVersion(
  * fresh version.
  */
 export async function appendEvents(
-  db: PgliteDatabase<Record<string, never>>,
+  db: ButlerDb,
   streamId: string,
   event: unknown,
   envelope: EnvelopeInput,
@@ -93,10 +90,7 @@ export async function appendEvents(
 /**
  * Load all events for a stream in streamVersion ascending order.
  */
-export async function loadStream(
-  db: PgliteDatabase<Record<string, never>>,
-  streamId: string,
-): Promise<EventStoreRow[]> {
+export async function loadStream(db: ButlerDb, streamId: string): Promise<EventStoreRow[]> {
   return db
     .select()
     .from(eventStore)
@@ -109,7 +103,7 @@ export async function loadStream(
  * on the given stream. Polls every 25ms; cancel via the returned function.
  */
 export function subscribeStream(
-  db: PgliteDatabase<Record<string, never>>,
+  db: ButlerDb,
   streamId: string,
   handler: (e: EventStoreRow) => void,
 ): () => void {

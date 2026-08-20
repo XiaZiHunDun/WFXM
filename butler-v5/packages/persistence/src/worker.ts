@@ -1,6 +1,6 @@
 import { claimOutbox, completeOutbox, failOutbox } from "./outbox.js"
 import type { OutboxMessage } from "./outbox.js"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "./db.js"
 
 type Handler = (msg: OutboxMessage) => Promise<void>
 
@@ -9,7 +9,7 @@ type Handler = (msg: OutboxMessage) => Promise<void>
  * Returns the count successfully delivered in this run.
  */
 export async function runWorkerOnce(
-  db: PgliteDatabase<Record<string, never>>,
+  db: ButlerDb,
   workerId: string,
   leaseMs: number,
   handler: Handler,

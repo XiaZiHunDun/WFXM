@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "./db.js"
 import { projections } from "./schema.js"
 import { loadStream, type EventStoreRow } from "./event-store.js"
 
@@ -20,7 +20,7 @@ export function registerProjection(name: string, handler: Handler): void {
  * persisted projection version to the latest streamVersion processed.
  */
 export async function applyProjection(
-  db: PgliteDatabase<Record<string, never>>,
+  db: ButlerDb,
   streamId: string,
   projectionName: string,
 ): Promise<void> {
@@ -45,7 +45,7 @@ export async function applyProjection(
  * Use when handler logic changes or data drifts.
  */
 export async function rebuildProjection(
-  db: PgliteDatabase<Record<string, never>>,
+  db: ButlerDb,
   streamId: string,
   projectionName: string,
 ): Promise<void> {

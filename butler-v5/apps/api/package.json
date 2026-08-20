@@ -22,8 +22,6 @@
     "@butler/persistence": "workspace:*",
     "@butler/ports": "workspace:*",
     "@butler/runtime": "workspace:*",
-    "@electric-sql/pglite": "^0.2.0",
-    "drizzle-orm": "^0.33.0",
     "effect": "^3.10.0",
     "hono": "^4.0.0",
     "ws": "^8.18.0"

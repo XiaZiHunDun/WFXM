@@ -1,5 +1,5 @@
 import { Layer } from "effect"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "@butler/persistence"
 import {
   appendEvents as persistenceAppendEvents,
   loadStream as persistenceLoadStream,
@@ -11,7 +11,7 @@ import {
 import { EventStoreService } from "@butler/ports"
 
 interface PostgresAdapterConfig {
-  readonly db: PgliteDatabase<Record<string, never>>
+  readonly db: ButlerDb
 }
 
 export function makePostgresEventStoreAdapter(config: PostgresAdapterConfig) {

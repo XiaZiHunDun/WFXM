@@ -1,5 +1,5 @@
 import { Layer } from "effect"
-import type { PgliteDatabase } from "drizzle-orm/pglite"
+import type { ButlerDb } from "@butler/persistence"
 import {
   applyProjection as persistenceApplyProjection,
   rebuildProjection as persistenceRebuildProjection,
@@ -10,7 +10,7 @@ import { ProjectionService } from "@butler/ports"
 import { tryPromise } from "../port-helpers.js"
 
 interface ProjectionAdapterConfig {
-  readonly db: PgliteDatabase<Record<string, never>>
+  readonly db: ButlerDb
 }
 
 export function makePostgresProjectionAdapter(config: ProjectionAdapterConfig) {
