@@ -15,7 +15,8 @@
     "./run-engine.js": "./src/run-engine.ts",
     "./run-coordinator.js": "./src/run-coordinator.ts",
     "./working-set.js": "./src/working-set.ts",
-    "./policy-gate.js": "./src/policy-gate.ts"
+    "./policy-gate.js": "./src/policy-gate.ts",
+    "./capability-boundary.js": "./src/capability-boundary.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

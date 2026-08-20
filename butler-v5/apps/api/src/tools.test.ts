@@ -311,8 +311,7 @@ describe("weibutler tools", () => {
 
   it("delegate_to_subagent silently returns error envelope on bridge failure", async () => {
     const brokenBridge = {
-      appendConversationEvent: vi.fn(async () => {}),
-      enqueueOutbox: vi.fn(async () => {
+      appendConversationEventWithOutbox: vi.fn(async () => {
         throw new Error("outbox-down")
       }),
     } as unknown as EventBridge

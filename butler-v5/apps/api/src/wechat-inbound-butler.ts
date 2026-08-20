@@ -3,10 +3,11 @@ import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { WorkingSetResult } from "@butler/runtime/working-set.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import { decodeDecision, type ModelDecision } from "@butler/runtime/decision.js"
-import { runTool, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { resolveReadModelSource } from "@butler/domain"
 import type { Wiring } from "./wiring.js"
 import { findTool, makeWeibutlerTools, WEIBUTLER_LLM_TOOLS } from "./tools.js"
+import { makeToolExecutor, resolveOwnerSubject } from "./tool-boundary.js"
 import {
   pickLLMProvider,
   type LLMAdapter,
@@ -27,8 +28,8 @@ import {
 const MAX_LOOP_ITERATIONS = 5
 
 /**
- * Per-tool wall-clock budget. Each tool execution is wrapped in
- * runTool with this timeout — slow tools do not stall the route.
+ * Per-tool wall-clock budget. Each tool execution goes through the policy
+ * boundary with this timeout — slow tools do not stall the route.
  */
 const TOOL_TIMEOUT_MS = 5000
 const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
@@ -215,6 +216,14 @@ async function runButlerLoopBody(args: {
     wechatUserId: args.fromUserId,
   })
 
+  const toolExecutor = makeToolExecutor({
+    tools,
+    ownerSubject: resolveOwnerSubject(env, args.fromUserId),
+    subject: args.fromUserId,
+    conversationId: args.conversationId,
+    timeoutMsFor: toolTimeoutMs,
+  })
+
   const adapter = args.adapter ?? pickLLMProvider(env)
   if (!adapter) {
     await safeApplyDecision(kernel, { _tag: "Finish", reason: "no LLM configured" }, logger)
@@ -333,7 +342,7 @@ async function runButlerLoopBody(args: {
           continue
         }
         toolCalls += 1
-        const toolResult = await runTool(def, tc.args, { timeoutMs: toolTimeoutMs(tc.name) })
+        const toolResult = await toolExecutor.execute(def, tc.args)
         const trace: ToolTrace = {
           iteration,
           toolName: tc.name,
@@ -452,10 +461,9 @@ async function runButlerLoopBody(args: {
           }
         }
         toolCalls += 1
-        const toolResult = await runTool(
+        const toolResult = await toolExecutor.execute(
           def,
           { task: decision.task, role: decision.role },
-          { timeoutMs: TOOL_TIMEOUT_MS },
         )
         const trace: ToolTrace = {
           iteration,
@@ -509,9 +517,7 @@ async function runButlerLoopBody(args: {
           }
         }
         toolCalls += 1
-        const toolResult = await runTool(def, decision.args, {
-          timeoutMs: toolTimeoutMs(decision.toolName),
-        })
+        const toolResult = await toolExecutor.execute(def, decision.args)
         const trace: ToolTrace = {
           iteration,
           toolName: decision.toolName,

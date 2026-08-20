@@ -5,9 +5,9 @@
  */
 import type { ButlerDb } from "@butler/persistence"
 import {
-  appendEvents,
+  appendEventAndEnqueueOutbox,
+  appendEventsWithRetry,
   loadStream,
-  nextVersion,
   subscribeStream,
   type ActorRef,
   type EventStoreRow,
@@ -38,14 +38,44 @@ export class EventBridge {
     correlationId: string
     actor: ActorRef
   }) {
-    return appendEvents(this.config.db, input.streamId, input.event, {
+    return appendEventsWithRetry(this.config.db, input.streamId, input.event, {
       eventId: input.eventId,
       eventType: input.eventType,
-      eventVersion: await nextVersion(this.config.db, input.streamId),
       correlationId: input.correlationId,
       occurredAt: new Date(),
       actor: input.actor,
     })
+  }
+
+  async appendConversationEventWithOutbox(input: {
+    streamId: string
+    event: unknown
+    eventId: string
+    eventType: string
+    correlationId: string
+    actor: ActorRef
+    outbox: {
+      aggregateType: string
+      payload: Record<string, unknown>
+    }
+  }): Promise<string> {
+    return appendEventAndEnqueueOutbox(
+      this.config.db,
+      input.streamId,
+      input.event,
+      {
+        eventId: input.eventId,
+        eventType: input.eventType,
+        correlationId: input.correlationId,
+        occurredAt: new Date(),
+        actor: input.actor,
+      },
+      {
+        streamId: input.streamId,
+        aggregateType: input.outbox.aggregateType,
+        payload: input.outbox.payload,
+      },
+    )
   }
 
   loadStream(streamId: string) {

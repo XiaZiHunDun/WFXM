@@ -34,7 +34,6 @@ import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
 import { type LLMAdapter, type LLMAssistantResponse, type LLMMessage } from "@butler/adapters"
 import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
-import { runTool } from "@butler/runtime/tool-runtime.js"
 import { pushEventToSubscribers } from "./ws-routes.js"
 import { appendAudit } from "./audit-log.js"
 import {
@@ -43,6 +42,7 @@ import {
   normalizeCapabilityNames,
 } from "./capability-guard.js"
 import { findTool, makeWeibutlerTools } from "./tools.js"
+import { makeToolExecutor, resolveOwnerSubject } from "./tool-boundary.js"
 
 /**
  * Aggregate-type string used by `delegate-runtime` when enqueueing
@@ -126,6 +126,13 @@ async function runChildLlm(
     conversationId: parentConversationId,
     actor: { kind: "agent", id: `subagent-${role}` },
   })
+  const toolExecutor = makeToolExecutor({
+    tools: runtimeTools,
+    ownerSubject: resolveOwnerSubject(process.env, parentConversationId),
+    subject: `subagent-${role}`,
+    conversationId: parentConversationId,
+    timeoutMsFor: () => CHILD_TOOL_TIMEOUT_MS,
+  })
   const completeOpts = advertised.length > 0 ? { tools: advertised } : undefined
   let lastText = ""
 
@@ -188,7 +195,7 @@ async function runChildLlm(
         })
         continue
       }
-      const toolResult = await runTool(def, tc.args, { timeoutMs: CHILD_TOOL_TIMEOUT_MS })
+      const toolResult = await toolExecutor.execute(def, tc.args)
       appendAudit({
         ts: new Date().toISOString(),
         kind: "tool_call",

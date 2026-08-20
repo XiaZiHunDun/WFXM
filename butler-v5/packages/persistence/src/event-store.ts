@@ -1,5 +1,6 @@
 import { eq, max } from "drizzle-orm"
 import type { ButlerDb } from "./db.js"
+import { enqueueOutbox, type EnqueueInput } from "./outbox.js"
 import { eventStore } from "./schema.js"
 
 export class OptimisticConcurrencyError extends Error {
@@ -25,6 +26,19 @@ export interface EnvelopeInput {
   readonly correlationId: string
   readonly occurredAt: Date
   readonly actor: ActorRef
+}
+
+/** Caller may omit eventVersion; it is assigned inside the append transaction. */
+export type EnvelopeInputFlexible = Omit<EnvelopeInput, "eventVersion"> & {
+  readonly eventVersion?: number
+}
+
+const DEFAULT_APPEND_RETRIES = 3
+
+function isUniqueViolation(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  const msg = err.message.toLowerCase()
+  return msg.includes("unique") || msg.includes("duplicate")
 }
 
 export type EventStoreRow = typeof eventStore.$inferSelect
@@ -55,10 +69,37 @@ export async function nextVersion(db: ButlerDb, streamId: string): Promise<numbe
   return (m ?? 0) + 1
 }
 
+async function appendEventsInTx(
+  tx: ButlerDb,
+  streamId: string,
+  event: unknown,
+  envelope: EnvelopeInputFlexible,
+): Promise<number> {
+  const version = await nextVersion(tx, streamId)
+  if (envelope.eventVersion !== undefined && envelope.eventVersion !== version) {
+    throw new OptimisticConcurrencyError(streamId, envelope.eventVersion)
+  }
+  await tx.insert(eventStore).values({
+    eventId: toEventUuid(envelope.eventId),
+    streamId,
+    streamType: "conversation",
+    streamVersion: version,
+    eventType: envelope.eventType,
+    eventVersion: version,
+    payload: event,
+    occurredAt: envelope.occurredAt,
+    causationId: null,
+    correlationId: envelope.correlationId,
+    actorKind: envelope.actor.kind,
+    actorId: envelope.actor.id,
+  })
+  return version
+}
+
 /**
- * Append an event to a stream. streamVersion must be monotonically increasing;
- * conflicts throw OptimisticConcurrencyError so the caller can retry with a
- * fresh version.
+ * Append an event to a stream inside a single DB transaction. When the caller
+ * supplies eventVersion it must match the next stream version; otherwise
+ * OptimisticConcurrencyError is thrown.
  */
 export async function appendEvents(
   db: ButlerDb,
@@ -66,24 +107,52 @@ export async function appendEvents(
   event: unknown,
   envelope: EnvelopeInput,
 ): Promise<void> {
-  const expectedVersion = envelope.eventVersion
-  const version = await nextVersion(db, streamId)
-  if (version !== expectedVersion) {
-    throw new OptimisticConcurrencyError(streamId, expectedVersion)
+  await db.transaction(async (tx) => {
+    await appendEventsInTx(tx, streamId, event, envelope)
+  })
+}
+
+/**
+ * Append with bounded retry on unique-index races. eventVersion is optional;
+ * each attempt re-reads the next version inside a fresh transaction.
+ */
+export async function appendEventsWithRetry(
+  db: ButlerDb,
+  streamId: string,
+  event: unknown,
+  envelope: EnvelopeInputFlexible,
+  maxAttempts = DEFAULT_APPEND_RETRIES,
+): Promise<void> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      await db.transaction(async (tx) => {
+        await appendEventsInTx(tx, streamId, event, envelope)
+      })
+      return
+    } catch (err) {
+      lastError = err
+      if (err instanceof OptimisticConcurrencyError) throw err
+      if (!isUniqueViolation(err) || attempt === maxAttempts - 1) throw err
+    }
   }
-  await db.insert(eventStore).values({
-    eventId: toEventUuid(envelope.eventId),
-    streamId,
-    streamType: "conversation",
-    streamVersion: version,
-    eventType: envelope.eventType,
-    eventVersion: envelope.eventVersion,
-    payload: event,
-    occurredAt: envelope.occurredAt,
-    causationId: null,
-    correlationId: envelope.correlationId,
-    actorKind: envelope.actor.kind,
-    actorId: envelope.actor.id,
+  throw lastError
+}
+
+/**
+ * Atomically append a domain event and enqueue its outbox message. Rolls back
+ * both writes if either step fails.
+ */
+export async function appendEventAndEnqueueOutbox(
+  db: ButlerDb,
+  streamId: string,
+  event: unknown,
+  envelope: EnvelopeInputFlexible,
+  outboxInput: EnqueueInput,
+): Promise<string> {
+  return db.transaction(async (tx) => {
+    await appendEventsInTx(tx, streamId, event, envelope)
+    return enqueueOutbox(tx, outboxInput)
   })
 }
 

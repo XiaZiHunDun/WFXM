@@ -10,8 +10,7 @@ describe("delegate", () => {
 
   function makeBridgeMock() {
     return {
-      appendConversationEvent: vi.fn(async () => {}),
-      enqueueOutbox: vi.fn(async () => "msg-1"),
+      appendConversationEventWithOutbox: vi.fn(async () => "msg-1"),
     } as unknown as EventBridge
   }
 
@@ -29,8 +28,7 @@ describe("delegate", () => {
     expect(out.capabilities).toEqual(caps)
     expect(out.parentConversationId).toBe("p-1")
     expect(out.childConversationId.startsWith("child-p-1-")).toBe(true)
-    expect(bridge.appendConversationEvent as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1)
-    expect(bridge.enqueueOutbox as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1)
+    expect(bridge.appendConversationEventWithOutbox as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1)
   })
 
   it("rejects empty capability list", async () => {
@@ -45,8 +43,7 @@ describe("delegate", () => {
         bridge,
       }),
     ).rejects.toThrow(/capabilities/i)
-    expect(bridge.appendConversationEvent as ReturnType<typeof vi.fn>).not.toHaveBeenCalled()
-    expect(bridge.enqueueOutbox as ReturnType<typeof vi.fn>).not.toHaveBeenCalled()
+    expect(bridge.appendConversationEventWithOutbox as ReturnType<typeof vi.fn>).not.toHaveBeenCalled()
   })
 
   it("passes capabilities through to the event payload", async () => {
@@ -59,7 +56,7 @@ describe("delegate", () => {
       actor: { kind: "agent", id: "kernel" },
       bridge,
     })
-    const calls = (bridge.appendConversationEvent as ReturnType<typeof vi.fn>).mock.calls
+    const calls = (bridge.appendConversationEventWithOutbox as ReturnType<typeof vi.fn>).mock.calls
     expect(calls.length).toBe(1)
     const input = calls[0]?.[0]
     expect(input?.event).toMatchObject({

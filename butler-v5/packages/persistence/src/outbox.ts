@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, lte, sql } from "drizzle-orm"
 import type { ButlerDb } from "./db.js"
 import { outbox } from "./schema.js"
 
@@ -37,8 +37,9 @@ export async function enqueueOutbox(db: ButlerDb, input: EnqueueInput): Promise<
 }
 
 /**
- * Atomically claim up to `limit` pending messages whose lease has expired.
- * Uses UPDATE … RETURNING for a single-round-trip claim.
+ * Atomically claim up to `limit` pending messages whose backoff has elapsed and
+ * lease has expired. Select + update run in one transaction; limit is applied
+ * in SQL (ordered by next_attempt_at).
  */
 export async function claimOutbox(
   db: ButlerDb,
@@ -48,17 +49,29 @@ export async function claimOutbox(
 ): Promise<OutboxMessage[]> {
   const now = new Date()
   const leaseUntil = new Date(now.getTime() + leaseMs)
-  const rows = await db
-    .update(outbox)
-    .set({ leaseOwner: workerId, leaseUntil, status: "in_flight" })
-    .where(
-      and(
-        eq(outbox.status, "pending"),
-        sql`(${outbox.leaseUntil} IS NULL OR ${outbox.leaseUntil} <= ${now})`,
-      ),
-    )
-    .returning()
-  return rows.slice(0, limit)
+  return db.transaction(async (tx) => {
+    const candidates = await tx
+      .select()
+      .from(outbox)
+      .where(
+        and(
+          eq(outbox.status, "pending"),
+          lte(outbox.nextAttemptAt, now),
+          sql`(${outbox.leaseUntil} IS NULL OR ${outbox.leaseUntil} <= ${now})`,
+        ),
+      )
+      .orderBy(asc(outbox.nextAttemptAt))
+      .limit(limit)
+
+    if (candidates.length === 0) return []
+
+    const ids = candidates.map((row) => row.messageId)
+    return tx
+      .update(outbox)
+      .set({ leaseOwner: workerId, leaseUntil, status: "in_flight" })
+      .where(inArray(outbox.messageId, ids))
+      .returning()
+  })
 }
 
 /**

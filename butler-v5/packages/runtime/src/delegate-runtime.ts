@@ -42,8 +42,8 @@ export interface DelegateOutcome {
 
 /**
  * Delegate a task to a child agent with a strict capability filter.
- * Writes a ChildRunCreated domain event + an outbox message for the worker
- * layer. The actual child execution is handled asynchronously by the worker
+ * Writes a ChildRunCreated domain event and an outbox message atomically via
+ * the bridge. The actual child execution is handled asynchronously by the worker
  * after polling the outbox.
  *
  * Throws Error if capabilities is empty (programmer error).
@@ -53,7 +53,7 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
     throw new Error("delegate: capabilities must not be empty")
   }
   const childConversationId = `child-${input.parentConversationId}-${Date.now()}`
-  await input.bridge.appendConversationEvent({
+  await input.bridge.appendConversationEventWithOutbox({
     streamId: input.parentConversationId,
     eventId: `evt-${Date.now()}-delegate`,
     eventType: "ChildRunCreated",
@@ -65,15 +65,14 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
       role: input.role,
       capabilities: input.capabilities,
     },
-  })
-  await input.bridge.enqueueOutbox({
-    streamId: input.parentConversationId,
-    aggregateType: "Delegate",
-    payload: {
-      childConversationId,
-      role: input.role,
-      task: input.task,
-      capabilities: input.capabilities,
+    outbox: {
+      aggregateType: "Delegate",
+      payload: {
+        childConversationId,
+        role: input.role,
+        task: input.task,
+        capabilities: input.capabilities,
+      },
     },
   })
   return {
