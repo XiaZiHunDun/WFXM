@@ -135,4 +135,66 @@ describe("enrichIlinkInboundContent", () => {
     )
     expect(text).toBe("[收到图片，当前版本暂不解析媒体]")
   })
+
+  it("uses WeChat voice transcript and does not download", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 500 }))
+    const text = await enrichIlinkInboundContent(
+      [
+        {
+          type: 3,
+          voice_item: {
+            text: "明天开会",
+            media: { full_url: CDN_HOST },
+          },
+        },
+      ],
+      "[收到语音，当前版本暂不解析媒体]",
+      {
+        cacheDir: tmpCache(),
+        cdnBaseUrl: "https://novac2c.cdn.weixin.qq.com/c2c",
+        fetch: fetchMock,
+        maxBytes: 1024,
+      },
+    )
+    expect(text).toBe("收到语音：明天开会")
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("appends ASR text when download succeeds and transcribeVoice returns ok", async () => {
+    const plain = Buffer.from("silk-bytes")
+    const fetchMock = vi.fn(async () => new Response(encryptEcb(plain), { status: 200 }))
+    const cacheDir = tmpCache()
+    const text = await enrichIlinkInboundContent(
+      [{ type: 3, voice_item: { media: { full_url: CDN_HOST, aes_key: KEY.toString("base64") } } }],
+      "[收到语音，当前版本暂不解析媒体]",
+      {
+        cacheDir,
+        cdnBaseUrl: "https://novac2c.cdn.weixin.qq.com/c2c",
+        fetch: fetchMock,
+        maxBytes: 1024,
+        transcribeVoice: async () => ({ ok: true, value: "语音内容" }),
+      },
+    )
+    expect(text).toContain("收到语音转写：语音内容")
+    expect(text).toContain(cacheDir)
+  })
+
+  it("keeps saved-path note when ASR fails", async () => {
+    const plain = Buffer.from("silk-bytes")
+    const fetchMock = vi.fn(async () => new Response(encryptEcb(plain), { status: 200 }))
+    const cacheDir = tmpCache()
+    const text = await enrichIlinkInboundContent(
+      [{ type: 3, voice_item: { media: { full_url: CDN_HOST, aes_key: KEY.toString("base64") } } }],
+      "[收到语音，当前版本暂不解析媒体]",
+      {
+        cacheDir,
+        cdnBaseUrl: "https://novac2c.cdn.weixin.qq.com/c2c",
+        fetch: fetchMock,
+        maxBytes: 1024,
+        transcribeVoice: async () => ({ ok: false, reason: "silk decode is not bundled" }),
+      },
+    )
+    expect(text).toMatch(/收到语音，已保存到 /)
+    expect(text).not.toContain("转写")
+  })
 })

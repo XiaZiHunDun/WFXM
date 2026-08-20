@@ -13,6 +13,7 @@ import {
   isIlinkGroupMessage,
   isIlinkOk,
   isSessionExpired,
+  makeTranscribeVoice,
   type ILinkClientConfig,
   type ILinkResult,
 } from "@butler/adapters"
@@ -277,6 +278,7 @@ export function startIlinkPoller(
               cdnBaseUrl: config.cdnBaseUrl,
               fetch: fetchImpl,
               maxBytes: config.mediaMaxBytes,
+              transcribeVoice: makeTranscribeVoice(process.env, fetchImpl),
             })
           },
         },

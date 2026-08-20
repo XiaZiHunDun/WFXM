@@ -18,7 +18,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 - **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
 - **Git status:** 20+ commits today on origin/main; everything pushed.
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work:** calendar only — delete `~/.butler/` after 2026-09-18 (D1). **R8.x.10–R8.x.19 done.**
+- **Next work:** [R8.x.21 outbound media → R8.x.20 named run_command](../plans/active/v5-followon-projects-2026-08-20.md). **R8.x.22 voice transcript done.** Calendar D1 after 2026-09-18.
 
 ---
 
@@ -266,6 +266,7 @@ Do not re-open as “optional debt”. Next engineering item is **§8.4**.
 8. **~~iLink hardening~~** — **done in R8.x.16** (DM policy/allowlist, drop groups by default, media placeholder, persist sync_buf, `butler wechat-login` QR). Live WeChat reply verified 2026-08-20.
 9. **~~Durable Postgres event store~~** — **done in R8.x.18** (`openButlerDatabase` in `@butler/persistence`; production uses compose Postgres; tests stay on PGlite). Restart no longer wipes conversation events.
 10. **~~Inbound CDN media~~** — **done in R8.x.19** (`ilink-media.ts`: allowlisted download, AES-128-ECB, cache under `.butler/ilink-media/`; poller enriches inbound text).
+11. **~~Inbound voice transcript~~** — **done in R8.x.22** (`voice_item.text` first; optional DashScope ASR for wav/mp3; silk kept on disk if no transcript).
 
 ### 8.3 v4 source migration (long-term)
 
@@ -274,12 +275,13 @@ Do not re-open as “optional debt”. Next engineering item is **§8.4**.
 
 ### 8.4 Remaining development plan
 
-See [`docs/plans/active/v5-remaining-work-2026-08-20.md`](../plans/active/v5-remaining-work-2026-08-20.md).
+See [`docs/plans/active/v5-followon-projects-2026-08-20.md`](../plans/active/v5-followon-projects-2026-08-20.md).
 
-1. **~~R8.x.19 inbound CDN media~~** — **done.**
-2. **Calendar (not a coding task):** delete `~/.butler/` after 2026-09-18 (D1).
+1. **R8.x.21 outbound image/file** (CDN upload, workspace-only)
+2. **R8.x.20 named `run_command` binaries** (`rg`/`python3`/`pnpm`/`node` — still no bash/rm)
+3. **Calendar:** delete `~/.butler/` after 2026-09-18 (D1)
 
-**Won't do** (removed from next-work lists): expand `run_command` allowlist; fix nested architecture r2–r6 gates.
+**Done:** R8.x.22 inbound voice transcript. **Not a project:** nested architecture r2–r6 gates.
 ---
 
 ## 9. Cursor-Specific Tips
@@ -336,12 +338,12 @@ If starting fresh with this document:
    systemctl --user status butler-v5-gateway.service  # should be active
    node scripts/cutover/ws-subagent-push-e2e.mjs       # should exit 0 with subagent reply
    ```
-5. **No further R-stage is queued.** Calendar: delete `~/.butler/` after 2026-09-18 (D1).
+5. **Next coding work:** R8.x.21 → R8.x.20 — [`v5-followon-projects-2026-08-20.md`](../plans/active/v5-followon-projects-2026-08-20.md).
 
 ---
 
 ## 11. TL;DR for Cursor (final)
 
-**Butler v5 is the production mainline.** R0–R10 + R8.x.10–R8.x.19 on origin/main. Live WeChat since 2026-08-14. No queued coding R-stage; calendar D1 deletes `~/.butler/` after 2026-09-18.
+**Butler v5 is the production mainline.** R8.x.10–R8.x.19 + R8.x.22 done. Next: outbound WeChat media, then named `run_command`. D1: don't touch `~/.butler/` until 2026-09-18.
 
 Good luck. May the butler loop serve you well.

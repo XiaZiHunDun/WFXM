@@ -24,6 +24,7 @@ export {
   extractIlinkContent,
   extractIlinkMediaPlaceholder,
   extractIlinkText,
+  extractIlinkVoiceText,
   ILINK_APP_CLIENT_VERSION,
   ILINK_APP_ID,
   inboundFromIlinkMsg,
@@ -48,6 +49,7 @@ export {
   extractIlinkMediaRef,
 } from "./ilink-media.js"
 export type { IlinkMediaDownloadConfig, IlinkMediaKind, IlinkMediaRef } from "./ilink-media.js"
+export { makeTranscribeVoice, transcribeDashscopeFile, DASHSCOPE_ASR_URL } from "./ilink-asr.js"
 
 export type ILinkClientConfig = {
   readonly baseUrl: string

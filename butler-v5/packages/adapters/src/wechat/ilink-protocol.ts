@@ -86,8 +86,29 @@ export function extractIlinkMediaPlaceholder(itemList: unknown): string {
   return ""
 }
 
+export function extractIlinkVoiceText(itemList: unknown): string {
+  if (!Array.isArray(itemList)) {
+    return ""
+  }
+  for (const raw of itemList) {
+    const item = asRecord(raw)
+    if (!item) continue
+    const type = itemType(item)
+    if (type !== ITEM_VOICE && type !== "voice") continue
+    const voiceItem = asRecord(item["voice_item"])
+    if (!voiceItem) continue
+    const text = strField(voiceItem, "text") || strField(voiceItem, "content")
+    if (text.trim()) return text.trim()
+  }
+  return ""
+}
+
 export function extractIlinkContent(itemList: unknown): string {
-  return extractIlinkText(itemList) || extractIlinkMediaPlaceholder(itemList)
+  return (
+    extractIlinkText(itemList) ||
+    extractIlinkVoiceText(itemList) ||
+    extractIlinkMediaPlaceholder(itemList)
+  )
 }
 
 export function isIlinkGroupMessage(msg: unknown): boolean {

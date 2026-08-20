@@ -6,6 +6,7 @@ import {
   ITEM_IMAGE,
   ITEM_VIDEO,
   ITEM_VOICE,
+  extractIlinkVoiceText,
   type ILinkResult,
 } from "./ilink-protocol.js"
 
@@ -39,6 +40,7 @@ export type IlinkMediaDownloadConfig = {
   readonly fetch: typeof fetch
   readonly maxBytes: number
   readonly timeoutMs?: number
+  readonly transcribeVoice?: (path: string) => Promise<ILinkResult<string>>
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -211,10 +213,19 @@ export async function enrichIlinkInboundContent(
   existingContent: string,
   config: IlinkMediaDownloadConfig,
 ): Promise<string> {
+  const voiceText = extractIlinkVoiceText(itemList)
+  if (voiceText) return `收到语音：${voiceText}`
+
   const ref = extractIlinkMediaRef(itemList)
   if (!ref) return existingContent
   const saved = await downloadAndCacheIlinkMedia(ref, config)
   if (!saved.ok) return existingContent
+  if (saved.value.kind === "voice" && config.transcribeVoice) {
+    const asr = await config.transcribeVoice(saved.value.path)
+    if (asr.ok) {
+      return `收到语音转写：${asr.value}\n已保存到 ${saved.value.path}`
+    }
+  }
   const note = describeSavedMedia(saved.value.kind, saved.value.path)
   const placeholder = existingContent.includes("当前版本暂不解析媒体")
   if (!existingContent.trim() || placeholder) return note

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import {
   extractIlinkText,
+  extractIlinkVoiceText,
   ilinkGetUpdates,
   ilinkSendMessage,
   inboundFromIlinkMsg,
@@ -39,6 +40,18 @@ describe("iLink protocol extract", () => {
       item_list: [{ type: 2, image_item: { url: "https://cdn.example/a.jpg" } }],
     })
     expect(inbound?.content).toBe("[收到图片，当前版本暂不解析媒体]")
+  })
+
+  it("uses voice_item.text as inbound when WeChat already transcribed", () => {
+    expect(extractIlinkVoiceText([{ type: 3, voice_item: { text: "帮我看看天气" } }])).toBe(
+      "帮我看看天气",
+    )
+    const inbound = inboundFromIlinkMsg({
+      msg_id: "v1",
+      from_user_id: "u-wx",
+      item_list: [{ type: 3, voice_item: { text: "帮我看看天气" } }],
+    })
+    expect(inbound?.content).toBe("帮我看看天气")
   })
 })
 
