@@ -4,7 +4,7 @@
 > **Date:** 2026-08-19 (post-R10.x v4 decommission)
 > **Author:** claude-code (R0-R10 + R8.x + R8.x.9 + R8.x.9 candidate 2 done)
 
-Single-document handoff for the Butler v5 (TypeScript/Effect-TS) personal AI butler project. Captures *current* state plus *next* work.
+Deployment/history handoff for Butler v5. Current production architecture and product boundaries now have dedicated SSOT documents.
 
 If reading with no other context: scroll to **Where to Start** at the bottom.
 
@@ -14,11 +14,11 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 
 - **Butler v5 is the unique active product mainline.** v4 is decommissioned.
 - **v5 live-serving real WeChat since 2026-08-14** (R10.3 traffic-shift day).
-- **Architecture:** Effect-TS + CQRS + Event Sourcing (PGlite for tests; Docker Postgres in production). Modular monolith.
-- **Tests:** 459 in apps/api + 84 in packages = 543 total. 5-gate all green.
-- **Git status:** 20+ commits today on origin/main; everything pushed.
+- **Architecture:** production-path-first modular monolith; async/await delivery shell + Runtime/EventBridge + PostgreSQL Event Store. PGlite is test/local.
+- **Architecture SSOT:** [`v5-production-architecture-2026-08.md`](v5-production-architecture-2026-08.md).
+- **Boundary SSOT:** [`v5-product-boundaries-2026-08.md`](../plans/decisions/v5-product-boundaries-2026-08.md).
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work:** Calendar D1 after 2026-09-18 (`~/.butler/` delete). **R8.x.20–22 done.**
+- **Next work:** P0–P4 follow [`v5-post-boundary-roadmap-2026-08.md`](../plans/active/v5-post-boundary-roadmap-2026-08.md). D1 remains deferred until 2026-09-18.
 
 ---
 
@@ -79,7 +79,7 @@ Single-user, locally-deployed **personal AI butler** at `/home/ailearn/projects/
 
 ### 3.1 Production Verifications
 
-- **Real WeChat end-to-end** — user sent "你好" → v4 wechat-gateway → v5 → DeepSeek → "你好！有什么可以帮您的吗？" → v4 → user phone (R10.3 + R8.x.2 era)
+- **Historical cutover E2E** — user sent "你好" → v4 bridge → v5 → DeepSeek → reply → v4 bridge → phone (R10.3 transition era; the current path is v5 native iLink)
 - **Subagent delegation** — 3 consecutive live tests via `ws-subagent-push-e2e.mjs` verified
 - **WebSocket push** — ws-subagent-push-e2e.mjs proves WS client receives subagent reply
 
@@ -135,25 +135,23 @@ node scripts/cutover/ws-routes-e2e.mjs
 ```
 [user phone WeChat]
   ↓ iLink long-poll
-[v4 wechat-gateway (PID 998, R8.2 has forward_to_v5)]
-  ↓ POST http://127.0.0.1:3000/v1/wechat/inbound
-[butler-v5 Hono server (R7.0+)]
+[v5 apps/api ilink-poller]
+  ↓ POST /v1/wechat/inbound
+[v5 Hono routes + EventBridge]
   ↓
-[wechat-inbound-llm.ts → chooseAndCallLLM]
+[wechat-inbound-butler.ts → AgentKernel + tool loop]
   ↓
 [packages/adapters/src/llm-provider.ts → pickLLMProvider]
-  ↓ DEEPSEEK
-[→ DeepSeek API at api.deepseek.com]
-  ↓ real LLM reply
-[→ reply field in 200 response]
-[v4 wechat-gateway → iLink send]
+  ↓ configured LLM provider
+[→ reply field in HTTP response]
+[v5 ilink-poller → iLink sendmessage]
 [user phone receives message]
 ```
 
 ### 5.2 Subagent flow (with WS push)
 
 ```
-[user phone → v4 gateway → v5 /v1/wechat/inbound]
+[user phone → v5 iLink poller → /v1/wechat/inbound]
   ↓
 [v5 butler loop → LLM (DeepSeek)]
   ↓ returns JSON Delegate decision: {role, task, capabilities}
@@ -181,15 +179,16 @@ node scripts/cutover/ws-routes-e2e.mjs
 
 | Concern | File |
 |---|---|
-| Hono routes + butler loop | `butler-v5/apps/api/src/routes.ts` |
-| WeChat inbound + LLM call wrapper | `butler-v5/apps/api/src/wechat-inbound-llm.ts` |
+| Hono routes | `butler-v5/apps/api/src/routes.ts` |
+| Production butler loop | `butler-v5/apps/api/src/wechat-inbound-butler.ts` |
+| Native iLink poller | `butler-v5/apps/api/src/ilink-poller.ts` |
 | AgentKernel state machine | `butler-v5/packages/runtime/src/agent-kernel.ts` |
 | Decision dispatch (Respond/CallTool/Delegate/...) | `butler-v5/packages/runtime/src/decision.ts` |
 | Delegate runtime + outbox enqueue | `butler-v5/packages/runtime/src/delegate-runtime.ts` |
 | LLM adapter (Anthropic + OpenAI-compatible) | `butler-v5/packages/adapters/src/llm-provider.ts` + `anthropic.ts` + `openai-compatible.ts` |
 | EventBridge (append conversation events) | `butler-v5/packages/runtime/src/bridge.ts` |
 | Tool execution + runTool | `butler-v5/packages/runtime/src/tool-runtime.ts` |
-| Tool registry (current 5 tools + delegate_to_subagent) | `butler-v5/apps/api/src/tools.ts` |
+| Tool registry (current 8 tools) | `butler-v5/apps/api/src/tools.ts` |
 | Subagent worker (polls outbox → LLM → reply) | `butler-v5/apps/api/src/subagent-worker.ts` |
 | WebSocket server + pushEventToSubscribers | `butler-v5/apps/api/src/ws-routes.ts` |
 | Audit log (R8.x.9 capability + delegation) | `butler-v5/apps/api/src/audit-log.ts` |
@@ -199,6 +198,8 @@ node scripts/cutover/ws-routes-e2e.mjs
 | wechat-mock (test fixture for R8.x dev) | `butler-v5/scripts/cutover/openclaw-mock.mjs` (port 3001) |
 | Dockerfile / postgres schema | `butler-v5/docker-compose.yml` + `butler-v5/packages/persistence/src/migrations/0001_initial.sql` |
 | ADR-0001 v4→v5 supersession + R10.x status | `docs/adr/2026-08-08-v4-to-v5-supersession.md` |
+
+`packages/application` and parts of `packages/infrastructure` are not imported by this production path. They are migration scaffolding, not delivered runtime capability. See the production architecture SSOT for their planned disposition.
 
 ---
 
@@ -224,7 +225,7 @@ EXIT=0
 pnpm format:check   # PASS (after prettier --write on modified files)
 pnpm lint           # PASS
 pnpm typecheck      # PASS (all 7 packages)
-pnpm test           # 459 in apps/api + 84 in packages = 543 total
+pnpm test           # run the current workspace test suite; counts change as tests are added
 bash scripts/typecheck-gate.sh   # PASS
 ```
 
@@ -234,15 +235,17 @@ bash scripts/typecheck-gate.sh   # PASS
 
 | Issue | Severity | Notes |
 |---|---|---|
-| `wechat-inbound-butler.ts` only handles `Respond` and `Finish` natively — `CallTool` / `AskApproval` via native tool_calls; `Delegate` via outbox | low | All Decision paths covered |
-| 5-gate: `pnpm format:check` complains about `openclaw-mock.mjs` (prettier not run after first commit) | low | Workaround: `pnpm exec prettier --write` then commit |
+| Approval is not durable | high | `AskApproval` echoes a question; it does not persist/resume the pending action |
+| Production bypasses Effect Application/GuardService | high | Current production path is apps/api async/await; docs must not claim otherwise |
+| Two incompatible persistence schemas | high | `packages/persistence` is production; infrastructure `events` schema must not be wired |
+| Capability Lease is incomplete | high | Tool-name gating exists, but path/domain/call/budget/fingerprint lease fields do not |
 | QR / allowlist / inbound media | — | **R8.x.16 + R8.x.19.** CDN download+AES-ECB to `.butler/ilink-media/`; failure keeps placeholder |
 | Nested `r{2,3,4,5,6}-end-to-end` architecture tests | — | **Closed 2026-08-20:** excluded from default vitest (duplicate of `pnpm gate`) |
 | `openclaw-mock.mjs` only has `/admin/push` and iLink-mock endpoints | low | Working test fixture; expand as needed |
 
 ---
 
-## 8. Next Development Work (deferred from R10.x)
+## 8. Next Development Work
 
 ### 8.1 v4 data retention — **D1 decided 2026-08-20**
 
@@ -252,9 +255,9 @@ Do not delete before that date. Decision doc:
 
 `butler/` source remains in git history.
 
-### 8.2 Closed R-stages (R8.x.10–R8.x.18)
+### 8.2 Closed R-stages (R8.x.10–R8.x.22)
 
-Do not re-open as “optional debt”. Next engineering item is **§8.4**.
+Do not re-open closed R-stages as “optional debt”. New work follows the post-boundary roadmap.
 
 1. **~~v5 async butler loop / capability execution guard~~** — **done in R8.x.10** (`capability-guard.ts` + child tool loop in `subagent-worker.ts`; declaration allowlist now also gates use)
 2. **~~Conversation discovery seam~~** — **done in R8.x.11** (optional client `conversationId` on `/v1/wechat/inbound`; WS can pre-subscribe)
@@ -277,11 +280,14 @@ Do not re-open as “optional debt”. Next engineering item is **§8.4**.
 
 ### 8.4 Remaining development plan
 
-See [`docs/plans/active/v5-followon-projects-2026-08-20.md`](../plans/active/v5-followon-projects-2026-08-20.md).
+See [`v5-post-boundary-roadmap-2026-08.md`](../plans/active/v5-post-boundary-roadmap-2026-08.md).
 
-1. **Calendar:** delete `~/.butler/` after 2026-09-18 (D1)
-
-**Done:** R8.x.20 named `run_command`, R8.x.21 outbound WeChat media, R8.x.22 inbound voice transcript. **Not a project:** nested architecture r2–r6 gates.
+1. **P0:** fact/governance/schema convergence.
+2. **P1:** durable approval + unified Policy + Capability Lease.
+3. **P2:** execution and network sandbox.
+4. **P3:** governed MCP/Channel/local control-plane substrate.
+5. **P4:** separately approved browser, heartbeat, tracing and ingest candidates.
+6. **Calendar:** reconsider deletion of `~/.butler/` after 2026-09-18 (D1).
 ---
 
 ## 9. Cursor-Specific Tips
@@ -289,8 +295,8 @@ See [`docs/plans/active/v5-followon-projects-2026-08-20.md`](../plans/active/v5-
 ### 9.1 Use existing tools, don't reinvent
 
 - LLM call → use `pickLLMProvider(env).complete(messages, opts)` from `apps/api/src/llm-provider.ts` (already Anthropic + OpenAI-compatible)
-- Tool definition → extend `WEIBUTLER_LLM_TOOLS` in `apps/api/src/tools.ts` (already has `greet_with_time`, `summarize_today`, `recall_history`, `delegate_to_subagent`, `get_current_time`)
-- Capability gating → extend `ALLOWED_CAPABILITIES` in `packages/runtime/src/delegate-runtime.ts`
+- Tool definition → extend `WEIBUTLER_LLM_TOOLS` in `apps/api/src/tools.ts`; side effects also require Policy/Lease design
+- Capability gating → current `ALLOWED_CAPABILITIES` is tool-name-only and must converge to the P1 lease model before broad expansion
 - Event persistence → `bridge.appendConversationEvent(...)` from `packages/runtime/src/bridge.ts`
 - Test infra → `apps/api/src/<file>.test.ts` pattern + `butler-v5/scripts/cutover/<file>.mjs` for live e2e
 
@@ -325,6 +331,7 @@ If starting fresh with this document:
    - `ls -la /home/ailearn/projects/WFXM/.blackboard/shifts/ | sort` → reads `.md` files in order
 2. **Read source code** starting from:
    - `butler-v5/apps/api/src/routes.ts` — HTTP routes + butler loop entry
+   - `butler-v5/apps/api/src/wechat-inbound-butler.ts` — production Loop
    - `butler-v5/packages/runtime/src/agent-kernel.ts` — state machine
    - `butler-v5/apps/api/src/tools.ts` — tool registry (extend here for new tools)
 3. **Run 5-gate** to confirm baseline:
@@ -338,12 +345,12 @@ If starting fresh with this document:
    systemctl --user status butler-v5-gateway.service  # should be active
    node scripts/cutover/ws-subagent-push-e2e.mjs       # should exit 0 with subagent reply
    ```
-5. **Next coding work:** Calendar D1 after 2026-09-18. Follow-ons R8.x.20–22 are done.
+5. **Next coding work:** follow P0–P2 in `v5-post-boundary-roadmap-2026-08.md` before opening broader capabilities.
 
 ---
 
 ## 11. TL;DR for Cursor (final)
 
-**Butler v5 is the production mainline.** R8.x.10–R8.x.22 done. D1: don't touch `~/.butler/` until 2026-09-18.
+**Butler v5 is the production mainline.** Closed R8.x work remains done. The next phase is boundary-driven convergence: facts/schema, durable approval/lease, then sandboxed extensions. D1: don't touch `~/.butler/` until 2026-09-18.
 
 Good luck. May the butler loop serve you well.

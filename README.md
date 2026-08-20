@@ -1,75 +1,75 @@
-> 当前状态：Butler v4 maintenance，Butler v5 为唯一活动主线（ADR-0001）。
+> 当前状态：Butler v5 是唯一活动产品主线；Butler v4 已退役并只读归档（ADR-0001）。
 
 [![CI](https://github.com/XiaZiHunDun/WFXM/actions/workflows/ci.yml/badge.svg)](https://github.com/XiaZiHunDun/WFXM/actions/workflows/ci.yml)
 
-# Butler · 微信 AI 管家
+# Butler v5 · 可扩展个人 AI 管家
 
-> **English**: A self-hosted **personal AI butler** for **multiple projects** — talk on **WeChat** or the **CLI**, delegate coding and writing to role agents, with layered memory and optional MCP extensions.
+> **English**: A self-hosted, single-owner personal AI butler with WeChat, CLI/API, tool execution, delegation, durable events, and governed extension points.
 
-**Butler v4** 是自建的 Agent 平台：核心循环在 `butler/core/`，微信网关为 Butler 原生实现（**不**依赖 Hermes `AIAgent` 或 IDE 子进程）。  
-适合「远程用手机指挥多个仓库/小说/软件项目」的个人或小团队场景。
+**Butler v5** 是单 Owner、单信任域、本机自托管的个人 AI 管家。当前主入口是微信，CLI/API/WebSocket 提供运维、集成和异步结果通道。认知环、权限与数据均由本项目掌控，不依赖 Hermes `AIAgent` 或浏览器端 Agent Runtime。
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![Node.js 20](https://img.shields.io/badge/node-20-blue)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
 
 ## 是什么
 
-Butler 是 **多项目 AI 管家**：
+Butler v5 当前提供：
 
-- 你在 **微信** 或终端里用自然语言 / 斜杠命令下指令  
-- Butler（Lead）理解意图后，**委派**给开发 / 内容 / 审核等子代理改代码、写文档、跑验证  
-- **分层记忆**（Owner 画像、项目 MEMORY、向量检索、ingest 写盘）跨会话延续上下文  
-- 每个项目在独立 **workspace** 下运行，带权限门控与人工确认
+- 微信 iLink 原生文本、图片、文件和语音入站，文本/图片/文件出站；
+- 稳定 conversation stream、多轮上下文与摘要压缩；
+- AgentKernel 驱动的 LLM + 结构化工具循环；
+- 工作区文件读取、具名命令执行和文件回传；
+- 子代理委派、PostgreSQL Outbox 与 WebSocket 异步推送；
+- PostgreSQL Event Store 生产持久化，PGlite 测试隔离；
+- 多 Provider LLM 与失败降级。
 
-**典型主路径**：`/切换 项目` → `/简报` 看状态 → 「交给开发代理…」或 `/改` 结构化委派 → 验收卡确认结果。
+生产调用链、已实现能力和已知缺口见 [v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md)。
 
 ---
 
 ## 核心能力
 
-| 能力 | 说明 |
-|------|------|
-| **微信网关** | `butler gateway` + iLink；入站队列、`/steer`、出站重试与 durable outbox |
-| **自建 Agent Loop** | 上下文压缩、工具结果落盘、read-before-edit、委派 cache-safe 前缀 |
-| **多项目** | `project.yaml`、Lead 模式、项目切换、runtime 定时任务 |
-| **委派与验收** | `delegate_task`、Dev 自动 verify 门控、Owner **验收卡**（ingest 等只读写盘单独语义） |
-| **记忆** | 语义检索、fact 提取、记忆待审、`butler memory ingest`、EXT-5 MarkItDown → `.butler/ingest/` |
-| **扩展（opt-in）** | 薄 MCP 客户端（GitHub / Todoist / Firecrawl / MarkItDown 等）；见 Extension R&D 规程 |
-| **可观测** | `/诊断`、`butler doctor`、runtime 指标；LangFuse 可选 |
+| 能力 | 生产实现 |
+|------|----------|
+| **微信** | `apps/api/ilink-poller` + `packages/adapters/wechat` |
+| **Agent Loop** | `apps/api/wechat-inbound-butler` + `packages/runtime/AgentKernel` |
+| **工具** | 历史、时间、摘要、文件读取、受限命令、微信文件发送、委派 |
+| **委派** | transactional outbox + subagent worker + WS push |
+| **记忆** | conversation event history + LLM/extractive compaction |
+| **数据** | PostgreSQL Event Store / Outbox / Snapshot / Projection；测试 PGlite |
+| **扩展边界** | Channel、MCP、浏览器、调度均按 Policy/Lease/Sandbox 条件准入 |
 
 ---
 
 ## 不是什么
 
-为避免误解，下列能力 **不在产品边界内**（详见 [roadmap §1 否决](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)）：
+Butler 不做多租户 SaaS、公开插件 Marketplace、Kubernetes 默认部署、无限制 shell、宿主机全桌面控制或浏览器端第二套 Loop。
 
-- 全量 MCP Host / IDE 内置 Agent / 多租户 SaaS  
-- 用 LangGraph 等 **替换** 自建 Loop  
-- 微信内代码 diff 阅读器、无限制 shell、浏览器自动化默认路径  
-
-我们对标的是 **「微信 + 多项目管家」**，Dev 能力上限参考 Claude Code **CLI** 线束，而非 Cursor IDE 全家桶。
+但 MCP、隔离浏览器、本地控制面、多 Channel、定时自治和可观测不再整类否决；它们按“默认关闭、具名范围、短期租约、风险动作即时审批、沙箱与审计”条件准入。唯一边界入口见 [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md)。
 
 ---
 
 ## 架构一览
 
 ```
-Owner ──→ 微信 / CLI / Gateway
-              │
-              ▼
-        Butler Orchestrator     记忆 · Skill · 分层模型
-              │
-              ▼
-        Agent Loop (core/)      context · retry · tool_batch · delegate
-              │
-              ├─ Transport      多 Provider（OpenAI 兼容 / Anthropic）
-              ├─ Tools          内置 + 可选 MCP + 项目白名单
-              └─ Gateway        message_handler · 队列 · 出站
+Owner ──→ 微信 iLink / CLI / HTTP / WebSocket
+                         │
+                         ▼
+                  apps/api delivery shell
+                         │
+                         ▼
+                runtime AgentKernel / EventBridge
+                   │                    │
+                   ▼                    ▼
+             LLM/WeChat adapters      persistence
+                                           │
+                                           ▼
+                                PostgreSQL Event Store
 ```
 
-实现细节：[v4-architecture.md](docs/architecture/v4-architecture.md) · 解耦说明：[hermes-decoupling.md](docs/architecture/hermes-decoupling.md)
+实现细节：[v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md) · 历史迁移：[ADR-0001](docs/adr/2026-08-08-v4-to-v5-supersession.md)
 
 ---
 
@@ -80,83 +80,70 @@ Owner ──→ 微信 / CLI / Gateway
 ```bash
 git clone https://github.com/XiaZiHunDun/WFXM.git
 cd WFXM
-pip install -e ".[wechat]"    # Butler + 微信网关依赖
+cd butler-v5
+pnpm install
 ```
 
 ### 2. 配置
 
-先读 **[部署三剖面](docs/guides/deploy-profiles-2026-06.md)**（gateway / dev-local / dev-remote），再编辑环境变量：
-
 ```bash
 cp .env.example .env
-# 至少配置一个 LLM API Key（如 MINIMAX_API_KEY、DEEPSEEK_API_KEY）
+# 至少配置一个 LLM API Key。
+# 原生微信另需 BUTLER_V5_ILINK_ENABLED=1 与 WECHAT_TOKEN。
 ```
 
-变量全集：[config/reference.md](docs/config/reference.md) · 示例：[`.env.example`](.env.example)
+示例：[butler-v5/.env.example](butler-v5/.env.example)
 
 ### 3. 运行
 
 ```bash
-# 新机 / 新 Owner 上手（一页纸清单）
-butler onboard --profile gateway
+# 开发运行
+pnpm --filter @butler/cli exec tsx src/index.ts start
 
-# 终端对话
-butler chat
+# 微信 QR 登录
+pnpm --filter @butler/cli exec tsx src/index.ts wechat-login
 
-# 单条指令
-butler exec "列出所有项目"
-
-# 微信网关（生产主场景）
-butler wechat-setup
-bash scripts/install-butler-gateway-service.sh
-bash scripts/butler-gateway-ops.sh status
+# 生产
+systemctl --user status butler-v5-gateway.service
 ```
 
 ### 4. 验证
 
-发版以 **分层 gate** 为准（非裸跑全量 `pytest tests/`）：
-
 ```bash
-bash scripts/butler-pytest-fast-gate.sh
-bash scripts/project-health-check.sh quick
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+bash scripts/typecheck-gate.sh
 ```
-
-策略说明：[agent-testing-strategy](docs/plans/decisions/agent-testing-strategy-2026-06.md)
 
 ---
 
-## 微信 Owner 常用命令
+## 当前操作面
 
-| 说法 / 命令 | 作用 |
-|-------------|------|
-| `/切换 项目名` | 切换当前工作项目 |
-| `/简报` | 待办 · 队列 · 门控 · 昨夜 job |
-| `/帮助` | 五意图首屏（查 · 改 · 批 · 记 · 管） |
-| `/改 …` | 结构化开发/内容委派 |
-| `/诊断` | 运行时健康与 MCP Extension 状态 |
-| `/反馈 …` | Owner 硬反馈（观测闭环） |
-
-扩展验收话术：[EXT-5 微信话术卡](docs/guides/ext5-wechat-phrases-card-2026-06.md)
+- `GET /healthz`：服务健康；
+- `POST /v1/wechat/inbound`：微信/测试入站；
+- `POST /v1/ws/subscribe` + WebSocket：异步子代理结果；
+- `butler start`：启动 API、WS、worker 与可选 iLink poller；
+- `butler wechat-login`：iLink QR 登录并写入本地 env。
 
 ---
 
 ## 仓库结构
 
 ```
-butler/
-├── core/           Agent Loop、上下文、委派门控
-├── gateway/        微信入站/出站、message_handler
-├── transport/      LLM Provider 与协议
-├── tools/          工具注册表、MCP、delegate
-├── memory/         向量、ingest、observation store
-├── dev_engine/     开发验证与编码知识层
-└── main.py         CLI 入口
-docs/               架构、配置、规划（索引 docs/README.md）
-scripts/            网关运维与守门脚本
-tests/              自动化测试（分层 gate）
-```
+butler-v5/
+├── apps/api/              HTTP、WS、iLink poller、Loop、工具与 worker
+├── cli/                   start、wechat-login
+├── packages/runtime/      AgentKernel、EventBridge、Decision、Delegate
+├── packages/adapters/     LLM、WeChat 与外部协议
+├── packages/persistence/  Event Store、Outbox、Snapshot、Projection
+├── packages/domain/       纯类型与策略（按生产需求接入）
+└── scripts/cutover/       systemd、mock 与 E2E
 
-更完整目录说明：[STRUCTURE.md](STRUCTURE.md)
+butler/                    已退役 v4，只读历史参考
+docs/                      架构、决策与路线图
+```
 
 ---
 
@@ -164,17 +151,17 @@ tests/              自动化测试（分层 gate）
 
 | 读者 | 从这里开始 |
 |------|------------|
-| **新用户 / 运维** | [deploy-profiles](docs/guides/deploy-profiles-2026-06.md) → [wechat-gateway-ops](docs/guides/wechat-gateway-ops.md) |
-| **开发者** | [AGENTS.md](AGENTS.md) → [v4-architecture](docs/architecture/v4-architecture.md) |
-| **提需求 / 边界** | [roadmap-backlog](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) |
-| **发版** | [release-runbook](docs/guides/release-runbook-2026-05.md) |
+| **新用户 / 运维** | [v5 handoff](docs/architecture/v5-r10-handoff.md) |
+| **开发者** | [AGENTS.md](AGENTS.md) → [v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md) |
+| **提需求 / 边界** | [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md) |
+| **后续路线** | [post-boundary roadmap](docs/plans/active/v5-post-boundary-roadmap-2026-08.md) |
 | **文档体系** | [DOCUMENTATION.md](docs/DOCUMENTATION.md) |
 
 ---
 
 ## 参与开发
 
-- 改 `butler/core` 或 `butler/gateway` 前请读 [AGENTS.md](AGENTS.md) 守门清单  
+- 改 `butler-v5` 前请读 [AGENTS.md](AGENTS.md) 与 v5 本地规则
 - 贡献约定：[CONTRIBUTING.md](CONTRIBUTING.md)  
 - Cursor 规则：`.cursor/rules/`
 

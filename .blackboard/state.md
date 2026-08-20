@@ -1,10 +1,25 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-07-16 16:00_
-_last_shift: 2026-07-16-claude-code-001_
+_last_synced: 2026-08-20 15:10_
+_last_shift: 2026-08-20-cursor-049_
 
-## 进行中
-（暂无）
+## 当前主线
+
+- Butler v5 是唯一活动产品；v4 已退役。
+- 边界重构文档已完成但尚未提交：v5 产品边界、生产架构事实、P0–P4 路线图、AI Guard 人工迁移清单。
+- 旧 `roadmap-backlog-and-boundaries-2026-05.md` 已标记 SUPERSEDED；核心 README/AGENTS/docs 入口已切到 v5。
+- 当前无进行中的编码任务。
+
+## 下一步
+
+- Owner 审阅并决定是否提交/推送本次文档变更。
+- 若继续开发，先做 P0：重复 persistence schema 与未接线脚手架的依赖/归档收口。
+- 再做 P1/P2：持久审批、统一 Policy/Capability Lease、执行与网络沙箱。
+- D1：`~/.butler/` 在 2026-09-18 前不删除。
+
+---
+
+## Legacy v4 快照（2026-07，仅历史）
 
 ## 待仲裁 / 阻塞
 （无 — BUTLER_CODING_STRICT 默认升级仍 DEFER 至 G3 观察窗口；首批 multi-category 已落 evidence）

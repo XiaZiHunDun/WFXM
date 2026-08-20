@@ -1,7 +1,7 @@
 # Butler 文档索引
 
-> 更新：**2026-07-13** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
-> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md）  
+> 更新：**2026-08-20** | 主线：**Butler v5**（单 Owner、自托管、可扩展个人管家）
+> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 >
 > **与 [`DOCUMENTATION.md`](DOCUMENTATION.md) 的关系**：本文是**卡片**（「我要…」问答快速链接表），适合「我想找具体某篇文档」；[`DOCUMENTATION.md`](DOCUMENTATION.md) 是**手册**（分层 + 维护规则 + 索引结构 + 变更记录），适合「我在维护文档 / 改代码时想知道动哪」。
@@ -18,8 +18,8 @@
 
 | 我要… | 读这里 |
 |--------|--------|
-| 改代码 / 查模块 | [`architecture/v4-architecture.md`](architecture/v4-architecture.md) |
-| 查环境变量 | [`config/reference.md`](config/reference.md) + [`../.env.example`](../.env.example) |
+| 改 v5 代码 / 查模块 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) + [`../butler-v5/AGENTS.md`](../butler-v5/AGENTS.md) |
+| 查 v5 环境变量 | [`../butler-v5/.env.example`](../butler-v5/.env.example) |
 | 配置放哪（env/yaml/secrets） | [`config/config-surfaces.md`](config/config-surfaces.md) |
 | `/诊断` vs `butler doctor` vs `/doctor` | [`ops/diagnostic-entrypoints.md`](ops/diagnostic-entrypoints.md) |
 | 切换项目后影响什么 | [`architecture/project-activation.md`](architecture/project-activation.md) |
@@ -31,7 +31,8 @@
 | 微信发版 / 运维 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) → [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) |
 | 看 CC 能力是否已有 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) |
 | 看规划与命名 | [`plans/README.md`](plans/README.md) |
-| **否决 / 未做 / Backlog（统一）** | [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) |
+| **v5 产品边界 / 条件准入** | [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) |
+| **v5 后续路线** | [`plans/active/v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) |
 | **理论—实现差距（G1–G4）** | [`plans/decisions/theory-implementation-gap-register-2026-06.md`](plans/decisions/theory-implementation-gap-register-2026-06.md) |
 | **Phase 4/9 运营与收口** | [`guides/phase4-ops-runbook.md`](guides/phase4-ops-runbook.md) · [`plans/active/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md) §9 |
 | 四报告已落地 / 18 项不做 | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) · [`plans/four-reports-out-of-scope-2026-05.md`](plans/decisions/four-reports-out-of-scope-2026-05.md) |
@@ -80,7 +81,8 @@
 |------|------|
 | [`DOCUMENTATION.md`](DOCUMENTATION.md) | **文档体系**（L0–L5 分层、维护规则、语料专项） |
 | [`plans/README.md`](plans/README.md) | **规划索引**（CC / 整理 / 外部对标 命名对照） |
-| [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | **否决 / Backlog 决策入口** |
+| [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) | **v5 需求 / 边界决策入口** |
+| [`plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | **SUPERSEDED**：v4 历史边界 |
 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) | Claude Code ↔ Butler（**主对照**） |
 | [`plans/reference-learning-plan-2026-05.md`](plans/archive/reference-learning-plan-2026-05.md) | 外部对标（Prometheus/OpenClaw/Dify）— **已收口** |
 | [`plans/four-reports-improvement-roadmap-2026-05.md`](plans/roadmaps/four-reports-improvement-roadmap-2026-05.md) | 四份报告合并路线图（**已收口** §9） |

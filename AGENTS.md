@@ -1,22 +1,42 @@
-# Cursor / Agent 工作说明（WFXM / Butler v4）
+# Cursor / Agent 工作说明（WFXM / Butler v5）
 
-> 新会话先读本文。**不要**用 `docs/history/` 或训练记忆推断实现。
+> **Butler v5 是唯一活动产品主线；`butler/` v4 已退役。**
+> 新会话不要用 v4 文档、`docs/history/` 或训练记忆推断 v5 实现。
 
 > **新会话开篇前 30 秒**：读 `.blackboard/state.md` + `.blackboard/shifts/` 最近一张卡 + `MEMORY.md` — 然后再按下面的必读表选读。
 
-## 必读（按顺序）
+## v5 必读（按顺序）
 
 | # | 文档 | 何时读 |
 |---|------|--------|
-| 1 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) + [`v4-layer-model.md`](docs/architecture/v4-layer-model.md) + [`layer-theory-engineering-map.md`](docs/architecture/layer-theory-engineering-map.md) | 改 Loop / Gateway / 模块 / 分层选型 / 理论锚点 |
-| 2 | [`docs/guides/deploy-profiles-2026-06.md`](docs/guides/deploy-profiles-2026-06.md) + [`docs/config/reference.md`](docs/config/reference.md) + [`.env.example`](.env.example) | **上手配置**用三剖面；查 `BUTLER_*` 用 reference（勿猜默认值） |
-| 3 | [`docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | **提需求 / 否决 / Backlog** |
-| 4 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层、语料、规划索引、维护规则 |
-| 5 | [`docs/plans/decisions/theory-implementation-gap-register-2026-06.md`](docs/plans/decisions/theory-implementation-gap-register-2026-06.md) | 理论—实现差距（G1–G4）；Phase 9 核对见 `post-consolidation-roadmap` §9 |
-| 6 | [`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) | 改测试 / 加 live_llm / handler sim 断言前 |
-| 7 | [`docs/guides/maintainer-cheat-sheet-2026-07.md`](docs/guides/maintainer-cheat-sheet-2026-07.md) | **维护者/面试**：架构一页纸、角色、记忆、委派、实验清单 |
+| 1 | [`docs/architecture/v5-production-architecture-2026-08.md`](docs/architecture/v5-production-architecture-2026-08.md) | 改生产 Loop、Gateway、工具、数据或模块边界 |
+| 2 | [`docs/plans/decisions/v5-product-boundaries-2026-08.md`](docs/plans/decisions/v5-product-boundaries-2026-08.md) | 提需求、否决、条件准入与立项 |
+| 3 | [`docs/architecture/v5-r10-handoff.md`](docs/architecture/v5-r10-handoff.md) | 部署、现状、R-stage 与操作交接 |
+| 4 | [`docs/plans/active/v5-post-boundary-roadmap-2026-08.md`](docs/plans/active/v5-post-boundary-roadmap-2026-08.md) | 后续优先级与安全前置 |
+| 5 | [`butler-v5/AGENTS.md`](butler-v5/AGENTS.md) | v5 代码约束、包边界和测试 |
+| 6 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层与维护规则 |
 
-**发版**：[`docs/guides/release-runbook-2026-05.md`](docs/guides/release-runbook-2026-05.md)
+## v5 事实规则
+
+- 生产路径是 `butler-v5/cli + apps/api → packages/runtime → adapters/persistence`。
+- `packages/application` 与部分 `packages/infrastructure` 当前未接入生产；不得用其单测声称能力已交付。
+- 生产数据库 schema 只认 `packages/persistence/src/migrations/0001_initial.sql`。
+- 新入口和新副作用必须遵循 Policy → Approval → Lease → Sandbox → Audit。
+- MCP、浏览器、UI、多 Channel、调度是**条件准入**，不是默认能力，也不是整类否决。
+- 不要删除 `~/.butler/`，直到 2026-09-18 后 Owner 重新确认 D1。
+
+## AI 保护迁移说明
+
+根 `.cursorrules`、hooks 与下方保护表仍包含 v4 保护项。在等价 v5 保护建立并经人工复核前：
+
+- 继续遵守这些保护，不得擅自移除；
+- 但它们不是 v5 产品架构或能力现状的事实来源；
+- 修改 AI 守卫、`.claude/settings.json` 或受保护文件仍需人工操作；
+- v5 保护迁移按 [`v5-ai-guard-migration-checklist-2026-08.md`](docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md) 由人工执行，不在普通功能变更中顺手修改。
+
+---
+
+## Legacy v4 保护与操作说明（仅守卫兼容，不是产品主线）
 
 ## AI 工具保护机制（必读）
 

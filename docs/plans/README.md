@@ -1,7 +1,8 @@
 # 规划文档索引
 
 > **文档体系**：[`../DOCUMENTATION.md`](../DOCUMENTATION.md)  
-> **提需求**：[`decisions/roadmap-backlog-and-boundaries-2026-05.md`](decisions/roadmap-backlog-and-boundaries-2026-05.md)
+> **提需求 / 边界**：[`decisions/v5-product-boundaries-2026-08.md`](decisions/v5-product-boundaries-2026-08.md)
+> **当前路线**：[`active/v5-post-boundary-roadmap-2026-08.md`](active/v5-post-boundary-roadmap-2026-08.md)
 
 ## 目录结构
 
@@ -20,7 +21,10 @@
 
 | 文档 | 用途 |
 |------|------|
-| [`decisions/roadmap-backlog-and-boundaries-2026-05.md`](decisions/roadmap-backlog-and-boundaries-2026-05.md) | 否决、深化边界、可选 Backlog |
+| [`decisions/v5-product-boundaries-2026-08.md`](decisions/v5-product-boundaries-2026-08.md) | v5 硬边界、条件准入、按需立项 |
+| [`active/v5-post-boundary-roadmap-2026-08.md`](active/v5-post-boundary-roadmap-2026-08.md) | v5 P0–P4 后续路线 |
+| [`active/v5-ai-guard-migration-checklist-2026-08.md`](active/v5-ai-guard-migration-checklist-2026-08.md) | 受保护规则的人工作业清单 |
+| [`decisions/roadmap-backlog-and-boundaries-2026-05.md`](decisions/roadmap-backlog-and-boundaries-2026-05.md) | **SUPERSEDED**：v4 历史边界 |
 | [`active/v5-followon-projects-2026-08-20.md`](active/v5-followon-projects-2026-08-20.md) | **v5 跟进立项** R8.x.20–22 |
 | [`decisions/v5-followons-2026-08-20.md`](decisions/v5-followons-2026-08-20.md) | 四项跟进要/不要 |
 | [`decisions/v5-optional-debt-triage-2026-08-20.md`](decisions/v5-optional-debt-triage-2026-08-20.md) | v5 可选债清账（白名单扩容 / 嵌套 architecture 门禁） |

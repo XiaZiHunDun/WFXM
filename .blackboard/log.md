@@ -147,3 +147,8 @@ R8.x.19 入站 CDN 媒体。
 ## 2026-08-20-cursor-048 · cursor
 R8.x.21 已推送；R8.x.20 `run_command` 具名扩容（rg/grep/python3/pnpm/node）。
 下次：日历 D1（2026-09-18 后再删 ~/.butler/）。
+
+## 2026-08-20-cursor-049 · cursor
+
+完成 v5 产品边界重构：新增边界 SSOT、真实生产架构、P0–P4 路线图与 AI Guard 人工迁移清单；旧 v4 边界标记 SUPERSEDED，README/AGENTS/handoff/文档索引统一切到 v5。验证：`git diff --check` 通过，4 个新文档 Prettier 通过。未提交。
+下次：Owner 审阅后提交/推送；继续开发则从 P0 schema/脚手架收口开始。

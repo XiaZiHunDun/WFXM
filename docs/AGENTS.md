@@ -2,7 +2,7 @@
 
 > **层级**：文档 / 知识  
 > **父文档**：[`../AGENTS.md`](../AGENTS.md)  
-> **架构参考**：[`v4-architecture.md`](architecture/v4-architecture.md) §7
+> **架构参考**：[`v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
 
 ## 目录结构
 
@@ -21,25 +21,25 @@ docs/
 
 | 子目录 | 职责 | 说明 |
 |--------|------|------|
-| `architecture/` | 架构文档 | 九层模型、分层理论、工程映射 |
-| `guides/` | 操作指南 | 部署配置、维护手册、发版手册 |
+| `architecture/` | 架构文档 | v5 生产事实、handoff、ADR；v4 文档为历史 |
+| `guides/` | 操作指南 | 部署配置、维护手册、发版手册（注意 v4/v5 状态） |
 | `plans/` | 规划文档 | 路线图、决策记录、差距登记 |
-| `config/` | 配置参考 | `BUTLER_*` 环境变量参考 |
+| `config/` | 配置参考 | 主要为 v4 历史；v5 先查 `butler-v5/.env.example` |
 
 ## 必读文档（按顺序）
 
 | # | 文档 | 何时读 |
 |---|------|--------|
-| 1 | `architecture/v4-architecture.md` | 改 Loop / Gateway / 模块 / 分层选型 |
-| 2 | `guides/deploy-profiles-2026-06.md` | 上手配置 |
-| 3 | `plans/decisions/roadmap-backlog-and-boundaries-2026-05.md` | 提需求 / 否决 / Backlog |
+| 1 | `architecture/v5-production-architecture-2026-08.md` | 改生产 Loop / Gateway / 数据 / 模块 |
+| 2 | `plans/decisions/v5-product-boundaries-2026-08.md` | 提需求 / 条件准入 / 否决 |
+| 3 | `plans/active/v5-post-boundary-roadmap-2026-08.md` | 后续优先级 |
 | 4 | `DOCUMENTATION.md` | 文档分层、语料、规划索引 |
-| 5 | `plans/decisions/theory-implementation-gap-register-2026-06.md` | 理论—实现差距 |
+| 5 | `architecture/v5-r10-handoff.md` | 部署与历史交接 |
 
 ## 注意事项
 
-1. **文档同步**：改 CC 线束、外部对标模块、ENG-15 层矩阵或新增 `BUTLER_*` 时，同步 `v4-architecture`、`v4-layer-model`、`config/reference`、`.env.example`
-2. **历史文档**：`docs/history/` 和 `docs/plans/comparisons/*` 正文旧 P0/P2 表**非待办**，勿作实现依据
+1. **文档同步**：改 v5 生产调用链、Policy/Lease、数据 schema 或扩展边界时，同步 v5 production architecture、product boundaries、roadmap 与 `butler-v5/.env.example`
+2. **历史文档**：v4 architecture、`docs/history/` 和 `docs/plans/comparisons/*` 正文旧表**非 v5 待办**，勿作实现依据
 3. **文档维护**：参考 `DOCUMENTATION.md` §6 的维护规则
 
 ## 相关目录

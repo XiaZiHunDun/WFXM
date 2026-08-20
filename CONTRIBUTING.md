@@ -101,7 +101,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - **支撑线 E（P2 子集）**：workflow 步骤与 `project.yaml` 工具列表求交；`tool_modes` 按角色缩工具；`BUTLER_TOOL_IMPLICIT_CONTEXT`；`BUTLER_SCHEMA_OPTIMIZE`；`BUTLER_TOKEN_COST_ESTIMATE`
 - **研究模式补充**：`PROGRAM.md` + skill `research-program`；连续 crash 阻断提示；post-compact 简洁性锚点 — 见 [`docs/plans/roadmaps/four-reports-improvement-roadmap-2026-05.md`](docs/plans/roadmaps/four-reports-improvement-roadmap-2026-05.md) §9
 - **五报告增量（PR-F1–F6）**：outcome log（`/评价`）、handoff、熔断/sessions、`butler_recall` 三层、工具错误策略、Pipeline 步骤诊断 — 见 [`docs/guides/five-reports-capabilities-2026-05.md`](docs/guides/five-reports-capabilities-2026-05.md)
-- **否决 / 未做 / Backlog**：见 [`docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)（**提需求先读**）；五报告 S1–S11 速查 [`five-reports-not-done`](docs/plans/decisions/five-reports-not-done-2026-05.md)；四报告 18 项 [`four-reports-out-of-scope`](docs/plans/decisions/four-reports-out-of-scope-2026-05.md)
+- **v5 产品边界 / 条件准入 / 立项**：见 [`docs/plans/decisions/v5-product-boundaries-2026-08.md`](docs/plans/decisions/v5-product-boundaries-2026-08.md)（**提需求先读**）。旧 roadmap、四/五报告仅作 v4 历史证据，不得作为 v5 Backlog。
 - **文档维护**：见 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)
 - **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 

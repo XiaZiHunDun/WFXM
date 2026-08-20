@@ -1,7 +1,7 @@
 # Butler 文档体系与维护说明
 
-> **更新**：2026-07-13 | **读者**：主公、Claude Code Session、Cursor Agent、Codex 等异构 Agent、贡献者  
-> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md) → 本文（按需）
+> **更新**：2026-08-20 | **读者**：Owner、Claude Code Session、Cursor Agent、Codex 等异构 Agent、贡献者
+> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) → 本文（按需）
 > **黑板入口**：`.blackboard/README.md` · 设计 spec [`superpowers/specs/2026-07-13-wfxm-blackboard-design.md`](superpowers/specs/2026-07-13-wfxm-blackboard-design.md) · 实施计划 [`superpowers/plans/2026-07-13-wfxm-blackboard.md`](superpowers/plans/2026-07-13-wfxm-blackboard.md)
 >
 > **与 [`README.md`](README.md) 的关系**：本文是**手册**（分层 / 维护规则 / 索引结构 / 变更记录），适合「我在维护文档 / 改代码时想知道动哪」；[`README.md`](README.md) 是**卡片**（「我要…」问答快速链接表），适合「我想找具体某篇文档」。两者都列文档清单但视角不同——本文按层级 + 维护规则组织，README 按"我要…"问答组织。
@@ -12,19 +12,19 @@
 
 ```text
 L0  Agent 入口          AGENTS.md、.cursor/rules/
-L1  实现事实来源        v4-architecture.md、config/*、architecture/*（激活/扩展/门控）、ops/diagnostic-entrypoints.md、.env.example
-L2  决策与边界          roadmap-backlog-and-boundaries（否决 / Backlog）
-L3  已落地速查          *-capabilities-2026-05.md、各路线图 §9/§10
-L4  对照全文（归档读）  *-comparison-report / *-learning-plan 正文
-L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实现 SSOT）
+L1  实现事实来源        v5-production-architecture、v5-r10-handoff、butler-v5 代码与 env example
+L2  决策与边界          v5-product-boundaries、ADR
+L3  活跃路线            v5-post-boundary-roadmap
+L4  v4/对照历史         v4 architecture、comparison、learning-plan
+L5  历史（勿作实现依据） docs/history/、已 superseded 文档
 ```
 
 | 层级 | 典型路径 | 用途 |
 |------|----------|------|
-| **L1 架构** | `docs/architecture/` | 模块划分、Loop/Gateway、ADR；[v4.5 Eval/Context 理论](architecture/v4.5-modular-eval-context-theory.md)、[项目激活](architecture/project-activation.md)、[扩展路径](architecture/extension-registry-paths.md)、[门控栈](architecture/permission-gate-stack.md)；新增包结构：`butler/core/agent_loop/`（loop/phases）、`butler/core/`（context/compaction/tool/session/llm/loop）、`butler/dev_engine/coding_knowledge/`（elements/theorems/experience/verification/context/generation/seed_experiences） |
-| **L1 配置** | `docs/config/`、`/.env.example` | `BUTLER_*` 权威默认值 |
-| **L2 决策** | `docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md` | 否决、深化边界、可选 Backlog |
-| **L2 扩展选型** | `docs/plans/active/extension-rd-loop-2026-06.md` | 开源/MCP 接入闭环 |
+| **L1 架构** | `docs/architecture/v5-production-architecture-2026-08.md` | 当前生产调用链、包与数据边界 |
+| **L1 配置** | `butler-v5/.env.example` | v5 环境变量示例 |
+| **L2 决策** | `docs/plans/decisions/v5-product-boundaries-2026-08.md` | 硬边界、条件准入、按需立项 |
+| **L2 路线** | `docs/plans/active/v5-post-boundary-roadmap-2026-08.md` | P0–P4 安全与扩展顺序 |
 | **L2 理论差距** | `docs/plans/decisions/theory-implementation-gap-register-2026-06.md` | 理论声称 vs 代码/运营（G1–G4 登记册） |
 | **L2 Dev 上限** | `docs/plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md` | Dev 对标 CC CLI（非 Cursor IDE） |
 | **L2 规划索引** | `docs/plans/README.md` | 命名对照（CC / 整理 / 外部对标） |
@@ -45,7 +45,7 @@ L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实�
 | **对照报告（comparison-report）** | 长文 + P0/P2 提炼表 | 查文首 **落地状态**；否决见 roadmap-backlog §1 |
 | **学习计划（learning-plan）** | 单源对标、已收口多 | 仅作验收索引；defer 见 external-reference-deferred |
 
-**统一决策入口**：[`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)
+**统一决策入口**：[`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md)
 
 ---
 
@@ -80,7 +80,8 @@ L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实�
 
 | 文档 | 状态 |
 |------|------|
-| [`v4-architecture.md`](architecture/v4-architecture.md) | **当前架构（必读）** |
+| [`v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产架构（必读）** |
+| [`v4-architecture.md`](architecture/v4-architecture.md) | v4 历史架构，不作 v5 实现依据 |
 | [`v4-layer-model.md`](architecture/v4-layer-model.md) | **九层参考模型**（分模块选型 / 依赖守门 / §9 决策树） |
 | [`layer-theory-engineering-map.md`](architecture/layer-theory-engineering-map.md) | **理论七层 ↔ 工程九层**映射与定理索引 |
 | [`hermes-decoupling.md`](architecture/hermes-decoupling.md) | 已完成 |
@@ -171,7 +172,7 @@ L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实�
 
 ### 6.2 新能力需求（产品 / 对标）
 
-1. 先读 [`roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) §0 决策流  
+1. 先读 [`v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) 裁决流
 2. 命中否决 → 拒绝或改边界，**不写**对照报告 P 表  
 3. 已有子集 → 更新 §2 深化边界 + 对应 `*-capabilities` 速查  
 4. 可选立项 → 写入 roadmap-backlog §3，附验收与 env；**开源/MCP 接入**走 [`extension-rd-loop-2026-06.md`](plans/active/extension-rd-loop-2026-06.md) §2–§4
@@ -183,7 +184,7 @@ L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实�
 ```markdown
 > **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）
 > **状态**：…已落地子集…（见合并路线图 §9/§10）
-> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)
+> **决策入口**：[`v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md)
 ```
 
 ### 6.4 禁止事项
@@ -228,7 +229,7 @@ L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实�
 | 总索引 | [`README.md`](README.md) |
 | 规划命名 | [`plans/README.md`](plans/README.md) |
 | 指南列表 | [`guides/README.md`](guides/README.md) |
-| 否决 / Backlog | [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) |
+| 产品边界 / 条件准入 | [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) |
 | 理论—实现差距 | [`plans/decisions/theory-implementation-gap-register-2026-06.md`](plans/decisions/theory-implementation-gap-register-2026-06.md) |
 | Dev 能力上限（对标 CC CLI） | [`plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md`](plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md) |
 | P3 本机 CC 桥接（暂缓） | [`plans/decisions/dev-cc-bridge-optional-2026-06.md`](plans/decisions/dev-cc-bridge-optional-2026-06.md) |
