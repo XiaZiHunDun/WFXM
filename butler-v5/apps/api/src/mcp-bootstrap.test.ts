@@ -50,6 +50,17 @@ describe("bootstrapMcpTools", () => {
     expect(fetchMock).toHaveBeenCalled()
   })
 
+  it("returns off when consent required but server not listed", async () => {
+    const bundle = await bootstrapMcpTools({
+      BUTLER_V5_MCP_ENABLED: "1",
+      BUTLER_V5_MCP_TOOL_NAMES: "search",
+      BUTLER_V5_MCP_REQUIRE_CONSENT: "1",
+      BUTLER_V5_MCP_CONSENT: "other-server",
+    })
+    expect(bundle.mode).toBe("off")
+    expect(bundle.runtimeTools).toEqual([])
+  })
+
   it("discovers tools over injected stdio transport", async () => {
     const transport = {
       request: async (req: unknown) => {

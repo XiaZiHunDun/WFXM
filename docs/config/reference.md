@@ -877,6 +877,9 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_V5_MCP_TOKEN` | — | MCP HTTP/SSE Bearer token（可选） |
 | `BUTLER_V5_MCP_TIMEOUT_MS` | `30000` | MCP 传输超时 |
 | `BUTLER_V5_MCP_REQUIRED` | `0` | `1` 时 bootstrap 发现失败则拒绝启动 gateway |
+| `BUTLER_V5_MCP_REQUIRE_CONSENT` | `0` | `1` 时仅 bootstrap `BUTLER_V5_MCP_CONSENT` 列出的 server id |
+| `BUTLER_V5_MCP_CONSENT` | — | 已 consent 的 MCP server id（逗号/空格分隔） |
+| `BUTLER_V5_MCP_SERVER_ID` | — | 显式 server id（覆盖 URL hostname / command 推导） |
 | `BUTLER_V5_GRANT_NETWORK_HOSTS` | — | 审批 ScopedGrant 时额外允许的出站 hostname（逗号/空格分隔）；MCP 能力自动合并 `BUTLER_V5_MCP_URL` 主机名 |
 | `BUTLER_V5_CHANNEL_API_ENABLED` | `0` | `1` 启用 `POST /v1/channel/inbound` |
 | `BUTLER_V5_CHANNEL_ALLOWLIST` | — | 允许的 `channelId` 列表（逗号分隔；空=不限制） |

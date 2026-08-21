@@ -174,8 +174,9 @@ delegate_to_subagent
 
 仍待完善：
 
-- 浏览器/调度等更多 Channel 能力；
-- `packages/application` / 旧 infrastructure 脚手架归档（见 [`v5-unwired-packages-inventory-2026-08.md`](../plans/active/v5-unwired-packages-inventory-2026-08.md)）。
+- 浏览器/调度等 P4 条件能力（逐项立项）；
+- RunTrigger 构建器接入现有微信/Channel/API 入口（当前仅 domain 草案）；
+- v5 AI 守卫迁移（人工 checklist）。
 
 ### 6.2 MCP 传输（opt-in）
 
@@ -190,6 +191,8 @@ delegate_to_subagent
 发现结果注入 `wiring.mcp`；shutdown 时 `mcp.close()` 关闭 stdio 子进程。
 
 客户端在 `tools/list` / `tools/call` 前执行 MCP `initialize` + `notifications/initialized` 握手；HTTP/SSE 传输复用 `Mcp-Session-Id` 响应头并在后续请求中回传（Streamable HTTP 长连接 session）。
+
+**Consent / manifest（opt-in）**：`BUTLER_V5_MCP_REQUIRE_CONSENT=1` 时 bootstrap 仅允许 `BUTLER_V5_MCP_CONSENT` 列出的 server id（默认从 `MCP_URL` hostname 或 `MCP_COMMAND` 推导）；manifest JSON 解析见 `packages/domain/src/mcp/manifest.ts`（尚未强制加载文件）。
 
 ### 6.3 第二 Channel 接缝（opt-in）
 

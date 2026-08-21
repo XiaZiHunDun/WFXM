@@ -1,12 +1,5 @@
-// ─── run-loop 用例 ────────────────────────────────────────
-export {
-  runLoop,
-  MockLLMLive,
-  MockToolExecutorLive,
-  MockGuardServiceLive,
-  MockLoopInterruptLive,
-  MockEventStoreLive,
-} from "./run-loop/index.js"
-
-// 已归档 → packages/application/_archive/
-// delegate-task | run-workflow | dream
+/**
+ * @butler/application — Effect 用例脚手架已全部归档至 `_archive/`。
+ * 生产 Loop 在 `packages/runtime` + `apps/api/wechat-inbound-butler`。
+ */
+export {}

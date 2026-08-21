@@ -1,12 +1,14 @@
-# @butler/infrastructure — 已归档模块
-
-以下 stub **不在生产调用链**（生产用 `packages/adapters` + `packages/persistence`）。
+# @butler/infrastructure — 已归档 / 保留模块
 
 | 模块 | 路径 | 状态 |
 |------|------|------|
-| `llm` | `_archive/llm/` | 已归档；生产 LLM 在 `packages/adapters/src/llm/` |
-| `wechat` | `_archive/wechat/` | 已归档；生产微信在 `packages/adapters/src/wechat/` |
+| `guards` | `_archive/guards/` | 已归档 |
+| `acl` | `_archive/acl/` | 已归档 |
+| `shadow` | `_archive/shadow/` | 已归档 |
+| `persistence` (Drizzle 并行 schema) | `_archive/persistence/` | 已归档；生产用 `packages/persistence` |
+| `mcp` (Effect stub) | `_archive/mcp/` | 已归档；生产 MCP 在 `apps/api/mcp-bootstrap.ts` |
+| `patch` | `_archive/patch/` | 已归档 |
+| `llm` / `wechat` | `_archive/llm/` `_archive/wechat/` | 已归档 |
+| `migration/v4-to-v5` | `src/migration/` | **保留**至 D1 后评估 |
 
-`layers.ts` 仍从 `_archive` 引用上述 stub 以维持 Effect Layer 组合示例；**禁止** `apps/*` 或 `runtime` 导入。
-
-仍活跃：guards、persistence（并行 schema，勿接生产）、mcp 参考、migration、acl 实验。
+`layers.ts` 仍从 `_archive` 引用 stub Layer，仅供 Effect 示例；**禁止** `apps/*` 导入。

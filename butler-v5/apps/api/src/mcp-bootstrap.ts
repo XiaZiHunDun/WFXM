@@ -7,6 +7,7 @@ import { makeMcpStdioTransport } from "@butler/adapters/mcp/stdio-transport.js"
 import type { McpSessionRef } from "@butler/adapters/mcp/session.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
+import { assertMcpServerConsented, mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
 import {
   loadMcpLlmTools,
   loadMcpToolDefinitions,
@@ -89,6 +90,15 @@ export async function bootstrapMcpTools(
   } = {},
 ): Promise<McpToolBundle> {
   if (!isMcpEnabled(env)) {
+    return EMPTY_BUNDLE
+  }
+
+  const serverId = mcpServerIdFromEnv(env)
+  const consent = assertMcpServerConsented(serverId, env)
+  if (!consent.ok) {
+    if (mcpFailClosedOnBootstrap(env)) {
+      throw new Error(`MCP bootstrap failed: ${consent.reason}`)
+    }
     return EMPTY_BUNDLE
   }
 

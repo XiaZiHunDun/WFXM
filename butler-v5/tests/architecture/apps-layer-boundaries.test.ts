@@ -5,6 +5,7 @@ import { join, relative } from "node:path"
 function listTsFiles(dir: string): string[] {
   const out: string[] = []
   for (const entry of readdirSync(dir)) {
+    if (entry === "node_modules" || entry === "dist") continue
     const path = join(dir, entry)
     const stat = statSync(path)
     if (stat.isDirectory()) out.push(...listTsFiles(path))
@@ -17,8 +18,8 @@ function forbiddenImports(src: string): string[] {
   const hits: string[] = []
   if (src.includes("@butler/infrastructure")) hits.push("@butler/infrastructure")
   if (src.includes("@butler/application")) hits.push("@butler/application")
-  if (src.includes("packages/infrastructure/src/persistence/schema")) {
-    hits.push("packages/infrastructure/src/persistence/schema")
+  if (src.includes("packages/infrastructure/_archive/persistence/schema")) {
+    hits.push("packages/infrastructure/_archive/persistence/schema")
   }
   return hits
 }

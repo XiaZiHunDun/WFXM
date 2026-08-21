@@ -62,6 +62,10 @@ export default defineConfig({
         find: "@butler/domain/governance/grant-network-hosts.js",
         replacement: resolve(__dirname, "packages/domain/src/governance/grant-network-hosts.ts"),
       },
+      {
+        find: "@butler/domain/mcp/manifest.js",
+        replacement: resolve(__dirname, "packages/domain/src/mcp/manifest.ts"),
+      },
       { find: "@butler/domain", replacement: resolve(__dirname, "packages/domain/src/index.ts") },
       { find: "@butler/runtime", replacement: resolve(__dirname, "packages/runtime/src") },
       { find: "@butler/persistence", replacement: resolve(__dirname, "packages/persistence/src") },

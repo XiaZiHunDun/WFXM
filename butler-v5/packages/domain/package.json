@@ -11,7 +11,8 @@
     "./runtime.js": "./src/runtime/index.ts",
     "./governance/types.js": "./src/governance/types.ts",
     "./governance/wechat-network-hosts.js": "./src/governance/wechat-network-hosts.ts",
-    "./governance/grant-network-hosts.js": "./src/governance/grant-network-hosts.ts"
+    "./governance/grant-network-hosts.js": "./src/governance/grant-network-hosts.ts",
+    "./mcp/manifest.js": "./src/mcp/manifest.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
