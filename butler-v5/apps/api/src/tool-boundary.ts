@@ -4,7 +4,9 @@ import {
   capabilityDefinitionFromTool,
   createProductionCapabilityRegistry,
   executeToolThroughBoundary,
+  mcpCapabilityProvidersFromTools,
   resourceForTool,
+  splitCoreAndMcpTools,
   type ToolExecutionOutcome,
 } from "@butler/runtime/capability-boundary.js"
 import {
@@ -55,9 +57,11 @@ export function makeToolExecutor(args: {
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
 }): ToolExecutor {
+  const { core, mcp } = splitCoreAndMcpTools(args.tools)
   const registry = createProductionCapabilityRegistry({
-    tools: args.tools,
+    tools: core,
     timeoutMsFor: args.timeoutMsFor,
+    extraProviders: mcpCapabilityProvidersFromTools(mcp, args.timeoutMsFor),
   })
   const gate = new PolicyGate(productionPermissionPolicy(args.ownerSubject), args.nowMs ?? Date.now)
   const approval =

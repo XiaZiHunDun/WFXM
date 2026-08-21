@@ -4,7 +4,9 @@ import {
   buildCapabilityRegistryFromTools,
   createProductionCapabilityRegistry,
   executeToolThroughBoundary,
+  mcpCapabilityProvidersFromTools,
   resourceForTool,
+  splitCoreAndMcpTools,
 } from "./capability-boundary.js"
 import { defaultPermissionPolicy, PolicyGate } from "./policy-gate.js"
 import type { ToolDefinition } from "./tool-runtime.js"
@@ -121,5 +123,31 @@ describe("capability-boundary", () => {
       { subject: "owner-1", resource: "conv-1", grant: null },
     )
     expect(outcome).toEqual({ ok: true, output: "echo" })
+  })
+
+  it("splits MCP tools and registers them as extra providers", () => {
+    const core: ToolDefinition = {
+      name: "get_current_time" as ToolDefinition["name"],
+      risk: "low",
+      run: vi.fn(async () => ({ ok: true, output: "now" })),
+    }
+    const mcp: ToolDefinition = {
+      name: "mcp_search" as ToolDefinition["name"],
+      risk: "high",
+      run: vi.fn(async () => ({ ok: true, output: "found" })),
+    }
+    const split = splitCoreAndMcpTools([core, mcp])
+    expect(split.core.map((t) => t.name)).toEqual(["get_current_time"])
+    expect(split.mcp.map((t) => t.name)).toEqual(["mcp_search"])
+    const registry = createProductionCapabilityRegistry({
+      tools: split.core,
+      extraProviders: mcpCapabilityProvidersFromTools(split.mcp),
+    })
+    expect(registry.get("get_current_time")).toBeDefined()
+    expect(registry.get("mcp_search")).toEqual({
+      name: "mcp_search",
+      kind: "command",
+      risk: "high",
+    })
   })
 })

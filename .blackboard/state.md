@@ -1,16 +1,15 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-21 09:51_
+_last_synced: 2026-08-21 09:57_
 _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md
 
 ## 当前主线
 
-- CLI `butler run` + `createProductionCapabilityRegistry` 已落地；RunTrigger 四入口（微信/Channel/API/CLI）齐备。
-- MCP manifest 可驱动连接；Owner 审批走 API RunTrigger。
+- MCP 工具经 `extraProviders` 注册；RunTrigger 四入口齐备；Capability Provider 生产注册表已接线。
 
 ## 下一步
 
-- v5 AI 守卫迁移（人工）；P4 单独立项；MCP/Channel 注册为 extraProviders。
+- v5 AI 守卫迁移（人工）；P4 单独立项。
 
 ## 不要做
 
@@ -18,4 +17,4 @@ _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md
 
 ## 上一班
 
-- CLI RunTrigger + Capability Provider registry；685 测试待 commit。
+- MCP extraProviders 接线；687 测试待 commit。

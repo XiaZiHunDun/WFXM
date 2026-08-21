@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { makeMcpToolDefinition } from "./mcp-tools.js"
 import { makeToolExecutor, resolveOwnerSubject } from "./tool-boundary.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 
@@ -27,6 +28,31 @@ describe("tool-boundary", () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.output).toBe("t")
+    }
+  })
+
+  it("routes MCP tools through extra provider registration", async () => {
+    const mcpDef = makeMcpToolDefinition(
+      { name: "search", description: "search" },
+      async () => ({ ok: true, output: "mcp-hit" }),
+    )
+    const executor = makeToolExecutor({
+      tools: [mcpDef],
+      ownerSubject: "owner-1",
+      subject: "owner-1",
+      conversationId: "conv-1",
+      timeoutMsFor: () => 1000,
+    })
+    expect(executor.registry.get("mcp_search")).toEqual({
+      name: "mcp_search",
+      kind: "command",
+      risk: "high",
+    })
+    const result = await executor.execute(mcpDef, { q: "hello" })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toContain("[需要确认]")
+      expect(result.reason).toContain("mcp_search")
     }
   })
 })

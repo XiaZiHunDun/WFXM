@@ -113,6 +113,40 @@ export function createProductionCapabilityRegistry(args: {
   return registry
 }
 
+export function splitCoreAndMcpTools(tools: readonly ToolDefinition[]): {
+  readonly core: readonly ToolDefinition[]
+  readonly mcp: readonly ToolDefinition[]
+} {
+  const core: ToolDefinition[] = []
+  const mcp: ToolDefinition[] = []
+  for (const def of tools) {
+    if (isMcpCapability(def.name as string)) {
+      mcp.push(def)
+    } else {
+      core.push(def)
+    }
+  }
+  return { core, mcp }
+}
+
+/** Register MCP ToolDefinitions as explicit extra providers on the production registry. */
+export function mcpCapabilityProvidersFromTools(
+  tools: readonly ToolDefinition[],
+  timeoutMsFor: (toolName: string) => number = () => 5_000,
+): readonly CapabilityProviderRegistration[] {
+  return tools.map((def) => {
+    const definition = capabilityDefinitionFromTool(def)
+    return {
+      definition,
+      provider: {
+        name: definition.name,
+        execute: async (request) =>
+          runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
+      },
+    }
+  })
+}
+
 export interface ToolBoundaryContext {
   readonly subject: string
   readonly resource: string

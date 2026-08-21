@@ -179,7 +179,7 @@ delegate_to_subagent
 
 **RunTrigger（已接入）**：微信 `buildWechatRunTrigger`、Channel `buildChannelRunTrigger`、Owner 审批 `buildApiRunTrigger`、CLI `butler run` → `buildCliRunTrigger`；元数据在 Run `budget` 或审计事件。
 
-**Capability Provider**：`createProductionCapabilityRegistry()`（`packages/runtime/src/capability-boundary.ts`）为生产注册中心；`tool-boundary.makeToolExecutor` 为 apps 接线点，支持 `extraProviders` 扩展 MCP/Channel 等。
+**Capability Provider**：`createProductionCapabilityRegistry()` 为生产注册中心；核心 WeChat 工具走 `tools`，MCP 工具经 `mcpCapabilityProvidersFromTools()` 注册为 `extraProviders`（`tool-boundary.makeToolExecutor` 自动拆分 `mcp_*` 前缀能力）。
 
 ### 6.2 MCP 传输（opt-in）
 
