@@ -5,6 +5,20 @@
 > 设计参考：[`DESIGN.md`](DESIGN.md)
 
 ---
+## 0. 三层事实（生产 vs 脚手架）
+
+| 层 | 文档/代码 | Agent 怎么用 |
+| --- | --- | --- |
+| **生产** | `docs/architecture/v5-production-architecture-2026-08.md` + `apps/api` + `packages/runtime` + `packages/persistence` | 改功能、查调用链 |
+| **脚手架（未接线）** | `packages/application/_archive/`、`packages/infrastructure/_archive/` | 不要当已实现；不要用其单测声称能力已交付 |
+| **目标架构** | `DESIGN.md`、Policy/ScopedGrant/Sandbox | 规划用，不等于生产已有 |
+
+**修改 butler-v5/ 后必跑：** `cd butler-v5 && pnpm test`
+
+> §一 以下 Effect-TS 包表描述的是**目标架构**；生产 delivery shell 为 async/await + RunEngine，见生产架构文档。
+
+---
+
 
 ## 一、项目概述
 

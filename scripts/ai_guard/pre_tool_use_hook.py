@@ -40,6 +40,14 @@ PROTECTED_FILES: set[str] = {
     "scripts/ai_guard/post_tool_use_hook.py",
     # 黑板交接机制
     ".blackboard/README.md",
+    # === Butler v5 protected (auto) ===
+    "butler-v5/packages/persistence/src/migrations/0001_initial.sql",
+    "butler-v5/apps/api/src/wechat-inbound-butler.ts",
+    "butler-v5/packages/runtime/src/agent-kernel.ts",
+    "butler-v5/packages/runtime/src/run-engine.ts",
+    "butler-v5/packages/runtime/src/capability-boundary.ts",
+    "butler-v5/apps/api/src/tool-boundary.ts",
+    "butler-v5/apps/api/src/workspace-tools.ts",
 }
 
 # 受保护目录前缀（修改需要额外警告）
@@ -53,6 +61,8 @@ PROTECTED_DIR_PATTERNS: list[tuple[str, str]] = [
     (r"^scripts/ai_guard/", "AI 保护脚本"),
     # Blackboard 交接
     (r"^\.blackboard/", "黑板交接机制"),
+    # === Butler v5 protected (auto) ===
+    (r"^butler-v5/packages/persistence/src/migrations/", "v5 生产 schema"),
 ]
 
 # Shim 文件模式 - 警告但不阻止
@@ -64,6 +74,8 @@ SHIM_PATTERN = re.compile(
 
 def _read_stdin_json() -> dict[str, Any]:
     """读取 Claude Code hook 的 stdin JSON 输入。"""
+    if sys.stdin.isatty():
+        return {}
     try:
         raw = sys.stdin.read()
         if raw.strip():
@@ -279,21 +291,20 @@ def _emit_result(severity: str, reason: str, file_path: str) -> int:
 
 
 def main() -> int:
-    # 优先从 stdin 读取（Claude Code hook 模式）
-    hook_input = _read_stdin_json()
-
-    if hook_input:
-        tool_name = hook_input.get("tool_name", "")
-        tool_input = hook_input.get("tool_input", {})
-        file_paths = _extract_file_paths(tool_name, tool_input)
-    elif len(sys.argv) > 1:
-        # 命令行模式
+    # CLI 模式优先，避免 TTY 下 stdin.read() 阻塞
+    if len(sys.argv) > 1:
         file_paths = [sys.argv[1]]
         tool_name = "Edit"
         tool_input = {}
+        hook_input: dict[str, Any] | None = None
     else:
-        # 无输入，允许操作
-        return 0
+        hook_input = _read_stdin_json()
+        if hook_input:
+            tool_name = hook_input.get("tool_name", "")
+            tool_input = hook_input.get("tool_input", {})
+            file_paths = _extract_file_paths(tool_name, tool_input)
+        else:
+            return 0
 
     if not file_paths:
         return 0

@@ -1,4 +1,11 @@
-# AI 行为规则 — WFXM / Butler v4
+# === Butler v5 主线 (auto) ===
+# 产品主线：Butler v5（butler-v5/）。butler/ v4 已退役，仅只读/守卫兼容。
+# 新会话前 30 秒：.blackboard/state.md → butler-v5/AGENTS.md → docs/architecture/v5-production-architecture-2026-08.md
+# 改 butler-v5/ 后：cd butler-v5 && pnpm test
+#
+# 以下 Legacy v4 规则仍保留，直至 v4 完全只读归档。
+
+# AI 行为规则 — WFXM
 # 此文件为所有 AI 编码工具（Cursor、Claude Code、Trae、Copilot 等）提供强制约束。
 # 违反这些规则可能导致代码损坏、功能回归或安全漏洞。
 

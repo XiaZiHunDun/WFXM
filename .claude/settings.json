@@ -21,6 +21,17 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/ai_guard/pre_tool_use_hook.py"
+          }
+        ]
+      }
     ]
   }
 }

@@ -155,10 +155,122 @@ FILE_TO_TESTS: list[tuple[str, list[str], str]] = [
 
 # 快速测试超时（秒）
 QUICK_TEST_TIMEOUT = 30
+# === Butler v5 PostToolUse (auto) ===
+V5_FILE_TO_TESTS: list[tuple[str, list[str], str]] = [
+    (
+        r"^butler-v5/apps/api/src/wechat-inbound-butler\.ts$",
+        ["apps/api/src/wechat-inbound-butler.test.ts"],
+        "v5 butler loop",
+    ),
+    (
+        r"^butler-v5/apps/api/src/tool-boundary\.ts$",
+        ["apps/api/src/tool-boundary.test.ts"],
+        "v5 tool boundary",
+    ),
+    (
+        r"^butler-v5/apps/api/src/workspace-tools\.ts$",
+        ["apps/api/src/workspace-tools.test.ts"],
+        "v5 workspace tools",
+    ),
+    (
+        r"^butler-v5/packages/runtime/src/(agent-kernel|run-engine|capability-boundary)\.ts$",
+        [
+            "packages/runtime/src/run-engine.test.ts",
+            "packages/runtime/src/capability-boundary.test.ts",
+        ],
+        "v5 runtime core",
+    ),
+    (
+        r"^butler-v5/packages/persistence/src/migrations/",
+        ["packages/persistence/src/runtime-schema.test.ts"],
+        "v5 persistence schema",
+    ),
+    (
+        r"^butler-v5/apps/api/src/mcp-",
+        [
+            "apps/api/src/mcp-bootstrap.test.ts",
+            "apps/api/src/mcp-config.test.ts",
+        ],
+        "v5 MCP bootstrap",
+    ),
+]
+
+V5_TEST_TIMEOUT = 120
+
+
+def _find_matching_v5_tests(file_path_str: str) -> tuple[list[str], str]:
+    if not file_path_str:
+        return [], ""
+    try:
+        rel_str = Path(file_path_str).resolve().relative_to(REPO_ROOT).as_posix()
+    except (ValueError, OSError):
+        return [], ""
+    import re
+
+    for pattern, tests, desc in V5_FILE_TO_TESTS:
+        if re.match(pattern, rel_str):
+            return tests, desc
+    return [], ""
+
+
+def _run_v5_vitest(test_files: list[str], desc: str) -> int:
+    import subprocess
+
+    if not test_files:
+        return 0
+    butler_v5 = REPO_ROOT / "butler-v5"
+    if not butler_v5.is_dir():
+        return 0
+    skip = os.environ.get("BUTLER_V5_HOOK_SKIP_VITEST", "").strip().lower()
+    if skip in ("1", "true", "yes"):
+        print(
+            f"[AI Guard] SKIP vitest ({skip}): {desc} -> {test_files}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 0
+
+    print(
+        f"[AI Guard] 修改检测：正在运行 v5 {desc}（vitest，约 20–60 秒）...",
+        file=sys.stderr,
+        flush=True,
+    )
+    cmd = ["pnpm", "exec", "vitest", "run", *test_files, "--reporter=dot"]
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(butler_v5),
+            timeout=V5_TEST_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            f"[AI Guard] WARNING: v5 {desc} 超时（>{V5_TEST_TIMEOUT}s）",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 0
+    except FileNotFoundError:
+        return 0
+
+    if result.returncode == 0:
+        print(f"[AI Guard] ✅ v5 {desc} 通过", file=sys.stderr, flush=True)
+        return 0
+
+    print(f"[AI Guard] ❌ v5 {desc} 失败！exit={result.returncode}", file=sys.stderr, flush=True)
+    print(
+        f"[AI Guard] 请手动：cd butler-v5 && pnpm exec vitest run {' '.join(test_files)}",
+        file=sys.stderr,
+        flush=True,
+    )
+    return 0
+
 
 
 def _read_stdin_json() -> dict[str, Any]:
     """读取 Claude Code hook 的 stdin JSON 输入。"""
+    # TTY 下不读 stdin，否则 CLI 模式会阻塞等待用户输入
+    if sys.stdin.isatty():
+        return {}
     try:
         raw = sys.stdin.read()
         if raw.strip():
@@ -249,19 +361,50 @@ def _run_quick_tests(tests: list[str], desc: str) -> int:
 
 
 def main() -> int:
+    # CLI 模式优先，避免 hook 模式下误触 stdin 阻塞
+    if len(sys.argv) > 1:
+        if sys.argv[1] in ("--match-only", "-n"):
+            if len(sys.argv) < 3:
+                print(
+                    "usage: post_tool_use_hook.py --match-only <file_path>",
+                    file=sys.stderr,
+                )
+                return 1
+            file_path = sys.argv[2]
+            v5_tests, v5_desc = _find_matching_v5_tests(file_path)
+            if v5_tests:
+                print(f"v5: {v5_desc} -> {v5_tests}")
+                return 0
+            tests, desc = _find_matching_tests(file_path)
+            if tests:
+                print(f"v4: {desc} -> {tests}")
+                return 0
+            print("no match")
+            return 0
+        file_path = sys.argv[1]
+        v5_tests, v5_desc = _find_matching_v5_tests(file_path)
+        if v5_tests:
+            return _run_v5_vitest(v5_tests, v5_desc)
+        tests, desc = _find_matching_tests(file_path)
+        if not tests:
+            return 0
+        return _run_quick_tests(tests, desc)
+
     hook_input = _read_stdin_json()
 
     if hook_input:
         tool_name = hook_input.get("tool_name", "")
         tool_input = hook_input.get("tool_input", {})
         file_path = _extract_file_path(tool_name, tool_input) or ""
-    elif len(sys.argv) > 1:
-        file_path = sys.argv[1]
     else:
         return 0
 
     if not file_path:
         return 0
+
+    v5_tests, v5_desc = _find_matching_v5_tests(file_path)
+    if v5_tests:
+        return _run_v5_vitest(v5_tests, v5_desc)
 
     tests, desc = _find_matching_tests(file_path)
     if not tests:
