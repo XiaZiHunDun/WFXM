@@ -4,8 +4,10 @@
 
 | 模块 | 路径 | 状态 |
 |------|------|------|
-| `delegate-task` | `_archive/delegate-task/` | 已归档；生产委派见 `packages/runtime/src/delegate-runtime.ts` |
+| `delegate-task` | `_archive/delegate-task/` | 已归档；生产委派见 `delegate-runtime.ts` |
+| `run-workflow` | `_archive/run-workflow/` | 已归档；非产品 Workflow DAG |
+| `dream` | `_archive/dream/` | 已归档；百轮记忆未立项 |
 
 仍活跃（Effect 脚手架 / 包内测试）：
 
-- `run-loop`、`run-workflow`、`dream` — 冻结参考，勿声称已交付产品能力。
+- `run-loop` — 冻结参考，勿声称已交付产品能力。

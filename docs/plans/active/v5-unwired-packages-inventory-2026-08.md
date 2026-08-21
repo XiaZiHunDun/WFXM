@@ -26,8 +26,8 @@ butler-v5/cli + apps/api
 |------|------|------|----------|
 | `runLoop` | `packages/application/src/run-loop/` | 仅包内测试 + Mock Layers | **保留至 Run 收敛**：生产 Loop 在 `runtime` + `wechat-inbound-butler` |
 | `delegateTask` | `packages/application/_archive/delegate-task/` | **已归档**：生产委派在 `delegate-runtime.ts` |
-| `runWorkflow` | `packages/application/src/run-workflow/` | OPT-1 并行 Channel stub | **冻结**：非产品 Workflow DAG |
-| `dream` | `packages/application/src/dream/` | Mock MemoryService | **冻结**：百轮记忆未立项 |
+| `runWorkflow` | `packages/application/_archive/run-workflow/` | **已归档** |
+| `dream` | `packages/application/_archive/dream/` | **已归档** |
 
 **不要**：用 application 单测声称微信管家 / 审批 / Grant 已交付。
 

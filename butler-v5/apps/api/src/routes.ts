@@ -18,8 +18,8 @@ import {
   verifySlackSignature,
 } from "./channel-inbound.js"
 import {
-  sendSlackOutboundMessage,
-  sendTelegramOutboundMessage,
+  deliverSlackChannelReply,
+  deliverTelegramChannelReply,
   slackBotToken,
   telegramBotToken,
 } from "./channel-outbound.js"
@@ -207,16 +207,18 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       })
       let delivered = false
       let deliveryReason: string | undefined
+      let mediaCount = 0
       const token = slackBotToken(process.env)
       if (token) {
-        const outbound = await sendSlackOutboundMessage({
+        const outbound = await deliverSlackChannelReply({
           token,
           channel: parsed.deliveryChannel,
-          text: result.reply,
+          reply: result.reply,
           ...(parsed.threadTs ? { threadTs: parsed.threadTs } : {}),
         })
-        delivered = outbound.ok
-        if (!outbound.ok) deliveryReason = outbound.reason
+        delivered = outbound.delivered
+        mediaCount = outbound.mediaCount
+        if (outbound.deliveryReason) deliveryReason = outbound.deliveryReason
       }
       return c.json(
         {
@@ -224,6 +226,7 @@ export function createRoutes(app: Hono, wiring: Wiring) {
           reply: result.reply,
           conversationId: result.conversationId,
           delivered,
+          mediaCount,
           ...(deliveryReason ? { deliveryReason } : {}),
         },
         200,
@@ -262,15 +265,17 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       })
       let delivered = false
       let deliveryReason: string | undefined
+      let mediaCount = 0
       const token = telegramBotToken(process.env)
       if (token) {
-        const outbound = await sendTelegramOutboundMessage({
+        const outbound = await deliverTelegramChannelReply({
           token,
           chatId: parsed.fromSubject,
-          text: result.reply,
+          reply: result.reply,
         })
-        delivered = outbound.ok
-        if (!outbound.ok) deliveryReason = outbound.reason
+        delivered = outbound.delivered
+        mediaCount = outbound.mediaCount
+        if (outbound.deliveryReason) deliveryReason = outbound.deliveryReason
       }
       return c.json(
         {
@@ -278,6 +283,7 @@ export function createRoutes(app: Hono, wiring: Wiring) {
           reply: result.reply,
           conversationId: result.conversationId,
           delivered,
+          mediaCount,
           ...(deliveryReason ? { deliveryReason } : {}),
         },
         200,

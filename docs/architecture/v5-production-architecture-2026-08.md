@@ -174,7 +174,7 @@ delegate_to_subagent
 
 仍待完善：
 
-- 浏览器/调度等 Channel 出站富媒体（Slack files.upload / Telegram sendPhoto）；
+- 浏览器/调度等更多 Channel 能力；
 - `packages/application` / 旧 infrastructure 脚手架归档（见 [`v5-unwired-packages-inventory-2026-08.md`](../plans/active/v5-unwired-packages-inventory-2026-08.md)）。
 
 ### 6.2 MCP 传输（opt-in）
@@ -201,7 +201,9 @@ delegate_to_subagent
 
 三者均复用 `handleChannelInbound` → `runButlerLoop`；默认 conversationId：`c-ch-{channelId}-{subject}`。Webhook 响应含 `delivered: boolean`（有 bot token 且 API 成功时为 true）。
 
-**富媒体入站（opt-in）**：Slack `file_share` / `files[]` 与 Telegram `photo`/`document` 会展开为带 `[slack image …]` / `[telegram image …]` 标记的 content；`BUTLER_V5_TELEGRAM_MEDIA_CACHE=1` 且配置 bot token 时，Telegram 附件会下载到 `BUTLER_V5_TELEGRAM_MEDIA_DIR` 并在 content 追加 `saved to …` 路径（供 Loop 引用，出站仍为文本 `sendMessage`）。
+**富媒体入站（opt-in）**：Slack `file_share` / `files[]` 与 Telegram `photo`/`document` 会展开为带 `[slack image …]` / `[telegram image …]` 标记的 content；`BUTLER_V5_TELEGRAM_MEDIA_CACHE=1` 且配置 bot token 时，Telegram 附件会下载到 `BUTLER_V5_TELEGRAM_MEDIA_DIR` 并在 content 追加 `saved to …` 路径。
+
+**富媒体出站（opt-in）**：`BUTLER_V5_CHANNEL_OUTBOUND_MEDIA=1` 时，Loop 回复中的 `[[media:/allowed/path.png]]` 会剥离后上传（Slack `files.upload`、Telegram `sendPhoto`/`sendDocument`）；允许路径限于 workspace / `.butler-v5` / `BUTLER_V5_TELEGRAM_MEDIA_DIR`。Webhook 响应含 `mediaCount`。
 
 ### 6.1 bubblewrap 沙箱（opt-in）
 

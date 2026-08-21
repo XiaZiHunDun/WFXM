@@ -889,6 +889,7 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_V5_TELEGRAM_MEDIA_CACHE` | `0` | `1` 时将入站 photo/document 下载到本地并在 content 中附加路径 |
 | `BUTLER_V5_TELEGRAM_MEDIA_DIR` | `{cwd}/.butler-v5/telegram-media` | Telegram 媒体缓存目录 |
 | `BUTLER_V5_TELEGRAM_MEDIA_MAX_BYTES` | `8388608` | 单文件下载上限 |
+| `BUTLER_V5_CHANNEL_OUTBOUND_MEDIA` | `0` | `1` 时解析回复中的 `[[media:path]]` 并通过 Slack `files.upload` / Telegram `sendPhoto`/`sendDocument` 出站 |
 
 bubblewrap 启用前运行：`butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh` 或 `pnpm exec tsx cli/src/index.ts sandbox-preflight`（在 `butler-v5/` 目录）。
 

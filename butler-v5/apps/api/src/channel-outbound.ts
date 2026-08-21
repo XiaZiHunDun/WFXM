@@ -1,3 +1,11 @@
+import {
+  channelOutboundMediaEnabled,
+  parseChannelOutboundMedia,
+  resolveOutboundAttachment,
+  sendSlackOutboundFile,
+  sendTelegramOutboundMedia,
+} from "./channel-outbound-media.js"
+
 export type ChannelOutboundResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: string }
@@ -123,6 +131,145 @@ export async function sendTelegramOutboundMessage(
     return { ok: false, reason: err instanceof Error ? err.message : String(err) }
   } finally {
     clearTimeout(timer)
+  }
+}
+
+export type ChannelDeliveryResult = {
+  readonly delivered: boolean
+  readonly deliveryReason?: string
+  readonly mediaCount: number
+}
+
+export async function deliverSlackChannelReply(config: {
+  readonly token: string
+  readonly channel: string
+  readonly reply: string
+  readonly threadTs?: string
+  readonly env?: NodeJS.ProcessEnv
+  readonly fetch?: typeof fetch
+}): Promise<ChannelDeliveryResult> {
+  const env = config.env ?? process.env
+  const parsed = parseChannelOutboundMedia(config.reply)
+  const useMedia = channelOutboundMediaEnabled(env) && parsed.attachments.length > 0
+  let mediaSent = 0
+  const reasons: string[] = []
+
+  if (useMedia) {
+    for (const attachment of parsed.attachments) {
+      const resolved = await resolveOutboundAttachment(attachment, env)
+      if (!resolved.ok) {
+        reasons.push(resolved.reason)
+        continue
+      }
+      const upload = await sendSlackOutboundFile({
+        token: config.token,
+        channel: config.channel,
+        filePath: resolved.path,
+        fileName: attachment.name,
+        bytes: resolved.bytes,
+        ...(mediaSent === 0 && parsed.text ? { comment: parsed.text } : {}),
+        ...(config.threadTs ? { threadTs: config.threadTs } : {}),
+        ...(config.fetch ? { fetch: config.fetch } : {}),
+      })
+      if (upload.ok) mediaSent += 1
+      else reasons.push(upload.reason)
+    }
+    if (parsed.text && mediaSent === 0) {
+      const textOnly = await sendSlackOutboundMessage({
+        token: config.token,
+        channel: config.channel,
+        text: parsed.text,
+        ...(config.threadTs ? { threadTs: config.threadTs } : {}),
+        ...(config.fetch ? { fetch: config.fetch } : {}),
+      })
+      return {
+        delivered: textOnly.ok,
+        mediaCount: 0,
+        ...(textOnly.ok ? {} : { deliveryReason: textOnly.reason }),
+      }
+    }
+    return {
+      delivered: mediaSent > 0,
+      mediaCount: mediaSent,
+      ...(reasons.length > 0 ? { deliveryReason: reasons.join("; ") } : {}),
+    }
+  }
+
+  const outbound = await sendSlackOutboundMessage({
+    token: config.token,
+    channel: config.channel,
+    text: config.reply,
+    ...(config.threadTs ? { threadTs: config.threadTs } : {}),
+    ...(config.fetch ? { fetch: config.fetch } : {}),
+  })
+  return {
+    delivered: outbound.ok,
+    mediaCount: 0,
+    ...(outbound.ok ? {} : { deliveryReason: outbound.reason }),
+  }
+}
+
+export async function deliverTelegramChannelReply(config: {
+  readonly token: string
+  readonly chatId: string
+  readonly reply: string
+  readonly env?: NodeJS.ProcessEnv
+  readonly fetch?: typeof fetch
+}): Promise<ChannelDeliveryResult> {
+  const env = config.env ?? process.env
+  const parsed = parseChannelOutboundMedia(config.reply)
+  const useMedia = channelOutboundMediaEnabled(env) && parsed.attachments.length > 0
+  let mediaSent = 0
+  const reasons: string[] = []
+
+  if (useMedia) {
+    for (const [index, attachment] of parsed.attachments.entries()) {
+      const resolved = await resolveOutboundAttachment(attachment, env)
+      if (!resolved.ok) {
+        reasons.push(resolved.reason)
+        continue
+      }
+      const upload = await sendTelegramOutboundMedia({
+        token: config.token,
+        chatId: config.chatId,
+        attachment,
+        bytes: resolved.bytes,
+        ...(index === 0 && parsed.text ? { caption: parsed.text } : {}),
+        ...(config.fetch ? { fetch: config.fetch } : {}),
+      })
+      if (upload.ok) mediaSent += 1
+      else reasons.push(upload.reason)
+    }
+    if (parsed.text && mediaSent === 0) {
+      const textOnly = await sendTelegramOutboundMessage({
+        token: config.token,
+        chatId: config.chatId,
+        text: parsed.text,
+        ...(config.fetch ? { fetch: config.fetch } : {}),
+      })
+      return {
+        delivered: textOnly.ok,
+        mediaCount: 0,
+        ...(textOnly.ok ? {} : { deliveryReason: textOnly.reason }),
+      }
+    }
+    return {
+      delivered: mediaSent > 0,
+      mediaCount: mediaSent,
+      ...(reasons.length > 0 ? { deliveryReason: reasons.join("; ") } : {}),
+    }
+  }
+
+  const outbound = await sendTelegramOutboundMessage({
+    token: config.token,
+    chatId: config.chatId,
+    text: config.reply,
+    ...(config.fetch ? { fetch: config.fetch } : {}),
+  })
+  return {
+    delivered: outbound.ok,
+    mediaCount: 0,
+    ...(outbound.ok ? {} : { deliveryReason: outbound.reason }),
   }
 }
 

@@ -48,11 +48,11 @@ function getTestSubset(filePath) {
   if (rel.includes("packages/application/_archive/delegate-task/")) {
     return "packages/application/_archive/delegate-task/delegate-task.test.ts"
   }
-  if (rel.includes("packages/application/src/run-workflow/")) {
-    return "packages/application/src/run-workflow/run-workflow.test.ts"
+  if (rel.includes("packages/application/_archive/run-workflow/")) {
+    return "packages/application/_archive/run-workflow/run-workflow.test.ts"
   }
-  if (rel.includes("packages/application/src/dream/")) {
-    return "packages/application/src/dream/dream.test.ts"
+  if (rel.includes("packages/application/_archive/dream/")) {
+    return "packages/application/_archive/dream/dream.test.ts"
   }
   if (rel.includes("packages/infrastructure/src/guards/")) {
     return "packages/infrastructure/src/guards/guard-service.test.ts"
