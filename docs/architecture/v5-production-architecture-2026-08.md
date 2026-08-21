@@ -174,7 +174,7 @@ delegate_to_subagent
 
 仍待完善：
 
-- 浏览器/调度等更多 Channel 出站回复（Slack/Telegram 目前仅入站 webhook → loop）；
+- 浏览器/调度等更多 Channel 能力（文件/卡片消息等）；
 - Grant 出网域名/端口动态扩展（非 WeChat CDN 固定表）；
 - `packages/application` / 旧 infrastructure 脚手架归档（见 [`v5-unwired-packages-inventory-2026-08.md`](../plans/active/v5-unwired-packages-inventory-2026-08.md)）。
 
@@ -195,10 +195,10 @@ delegate_to_subagent
 | 入口 | Env | 说明 |
 |------|-----|------|
 | `POST /v1/channel/inbound` | `BUTLER_V5_CHANNEL_API_ENABLED=1` | 通用 JSON intake |
-| `POST /v1/channel/slack/events` | `BUTLER_V5_SLACK_ENABLED=1` | Slack Events API（签名校验 + url_verification） |
-| `POST /v1/channel/telegram/webhook` | `BUTLER_V5_TELEGRAM_ENABLED=1` | Telegram Bot webhook |
+| `POST /v1/channel/slack/events` | `BUTLER_V5_SLACK_ENABLED=1` | Slack Events API；`BUTLER_V5_SLACK_BOT_TOKEN` 时 `chat.postMessage` 出站 |
+| `POST /v1/channel/telegram/webhook` | `BUTLER_V5_TELEGRAM_ENABLED=1` | Telegram Bot webhook；`BUTLER_V5_TELEGRAM_BOT_TOKEN` 时 `sendMessage` 出站 |
 
-三者均复用 `handleChannelInbound` → `runButlerLoop`；默认 conversationId：`c-ch-{channelId}-{subject}`。
+三者均复用 `handleChannelInbound` → `runButlerLoop`；默认 conversationId：`c-ch-{channelId}-{subject}`。Webhook 响应含 `delivered: boolean`（有 bot token 且 API 成功时为 true）。
 
 ### 6.1 bubblewrap 沙箱（opt-in）
 

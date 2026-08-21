@@ -120,6 +120,8 @@ export type SlackWebhookParseResult =
       readonly fromSubject: string
       readonly content: string
       readonly messageId: string
+      readonly deliveryChannel: string
+      readonly threadTs?: string
     }
   | { readonly kind: "ignore" }
   | { readonly kind: "invalid"; readonly reason: string }
@@ -153,7 +155,9 @@ export function parseSlackEventPayload(body: unknown): SlackWebhookParseResult {
   const user = ev["user"]
   const text = ev["text"].trim()
   const ts = ev["ts"]
-  if (typeof user !== "string" || !text) {
+  const channel = ev["channel"]
+  const threadTs = ev["thread_ts"]
+  if (typeof user !== "string" || !text || typeof channel !== "string" || !channel.trim()) {
     return { kind: "ignore" }
   }
   return {
@@ -161,6 +165,12 @@ export function parseSlackEventPayload(body: unknown): SlackWebhookParseResult {
     fromSubject: user,
     content: text,
     messageId: typeof ts === "string" ? `slack-${ts}` : `slack-${Date.now()}`,
+    deliveryChannel: channel.trim(),
+    ...(typeof threadTs === "string" && threadTs.trim()
+      ? { threadTs: threadTs.trim() }
+      : typeof ts === "string" && ts.trim()
+        ? { threadTs: ts.trim() }
+        : {}),
   }
 }
 

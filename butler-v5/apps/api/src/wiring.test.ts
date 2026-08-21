@@ -267,9 +267,14 @@ describe("v5 wiring", () => {
     }
   })
 
-  it("telegram webhook runs butler loop when enabled", async () => {
-    const prev = process.env["BUTLER_V5_TELEGRAM_ENABLED"]
+  it("telegram webhook delivers outbound when bot token is set", async () => {
+    const prevEnabled = process.env["BUTLER_V5_TELEGRAM_ENABLED"]
+    const prevToken = process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"]
     process.env["BUTLER_V5_TELEGRAM_ENABLED"] = "1"
+    process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] = "tg-test-token"
+    const fetchMock = vi.fn(async () => Response.json({ ok: true, result: {} }))
+    const prevFetch = globalThis.fetch
+    globalThis.fetch = fetchMock as typeof fetch
     try {
       const app = new Hono()
       createRoutes(app, wiring)
@@ -282,13 +287,22 @@ describe("v5 wiring", () => {
         }),
       })
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { ok: boolean; reply: string; conversationId: string }
-      expect(body.ok).toBe(true)
+      const body = (await res.json()) as {
+        ok: boolean
+        reply: string
+        conversationId: string
+        delivered: boolean
+      }
       expect(body.conversationId).toBe("c-ch-telegram-99")
       expect(body.reply).toBe("stub-reply")
+      expect(body.delivered).toBe(true)
+      expect(fetchMock).toHaveBeenCalled()
     } finally {
-      if (prev === undefined) delete process.env["BUTLER_V5_TELEGRAM_ENABLED"]
-      else process.env["BUTLER_V5_TELEGRAM_ENABLED"] = prev
+      globalThis.fetch = prevFetch
+      if (prevEnabled === undefined) delete process.env["BUTLER_V5_TELEGRAM_ENABLED"]
+      else process.env["BUTLER_V5_TELEGRAM_ENABLED"] = prevEnabled
+      if (prevToken === undefined) delete process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"]
+      else process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] = prevToken
     }
   })
 })

@@ -16,13 +16,21 @@ describe("slack channel adapter", () => {
   it("parses user message events", () => {
     const parsed = parseSlackEventPayload({
       type: "event_callback",
-      event: { type: "message", user: "U1", text: "hello", ts: "123.456" },
+      event: {
+        type: "message",
+        user: "U1",
+        channel: "C99",
+        text: "hello",
+        ts: "123.456",
+      },
     })
     expect(parsed).toEqual({
       kind: "message",
       fromSubject: "U1",
       content: "hello",
       messageId: "slack-123.456",
+      deliveryChannel: "C99",
+      threadTs: "123.456",
     })
   })
 

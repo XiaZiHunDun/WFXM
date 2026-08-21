@@ -17,6 +17,12 @@ import {
   telegramWebhookAuthorized,
   verifySlackSignature,
 } from "./channel-inbound.js"
+import {
+  sendSlackOutboundMessage,
+  sendTelegramOutboundMessage,
+  slackBotToken,
+  telegramBotToken,
+} from "./channel-outbound.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import { issueSubscribeToken } from "./ws-subscribe.js"
 
@@ -198,7 +204,29 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         content: parsed.content,
         messageId: parsed.messageId,
       })
-      return c.json({ ok: true, reply: result.reply, conversationId: result.conversationId }, 200)
+      let delivered = false
+      let deliveryReason: string | undefined
+      const token = slackBotToken(process.env)
+      if (token) {
+        const outbound = await sendSlackOutboundMessage({
+          token,
+          channel: parsed.deliveryChannel,
+          text: result.reply,
+          ...(parsed.threadTs ? { threadTs: parsed.threadTs } : {}),
+        })
+        delivered = outbound.ok
+        if (!outbound.ok) deliveryReason = outbound.reason
+      }
+      return c.json(
+        {
+          ok: true,
+          reply: result.reply,
+          conversationId: result.conversationId,
+          delivered,
+          ...(deliveryReason ? { deliveryReason } : {}),
+        },
+        200,
+      )
     } catch (err) {
       if (err instanceof ChannelInboundError) {
         return c.text(err.message, err.status as 400 | 403)
@@ -230,7 +258,28 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         content: parsed.content,
         messageId: parsed.messageId,
       })
-      return c.json({ ok: true, reply: result.reply, conversationId: result.conversationId }, 200)
+      let delivered = false
+      let deliveryReason: string | undefined
+      const token = telegramBotToken(process.env)
+      if (token) {
+        const outbound = await sendTelegramOutboundMessage({
+          token,
+          chatId: parsed.fromSubject,
+          text: result.reply,
+        })
+        delivered = outbound.ok
+        if (!outbound.ok) deliveryReason = outbound.reason
+      }
+      return c.json(
+        {
+          ok: true,
+          reply: result.reply,
+          conversationId: result.conversationId,
+          delivered,
+          ...(deliveryReason ? { deliveryReason } : {}),
+        },
+        200,
+      )
     } catch (err) {
       if (err instanceof ChannelInboundError) {
         return c.text(err.message, err.status as 400 | 403)

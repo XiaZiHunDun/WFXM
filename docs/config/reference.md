@@ -881,8 +881,10 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_V5_CHANNEL_ALLOWLIST` | — | 允许的 `channelId` 列表（逗号分隔；空=不限制） |
 | `BUTLER_V5_SLACK_ENABLED` | `0` | `1` 启用 `POST /v1/channel/slack/events` |
 | `BUTLER_V5_SLACK_SIGNING_SECRET` | — | Slack 签名密钥（建议生产必填） |
+| `BUTLER_V5_SLACK_BOT_TOKEN` | — | Slack Bot token；设置后 webhook 自动 `chat.postMessage` 出站 |
 | `BUTLER_V5_TELEGRAM_ENABLED` | `0` | `1` 启用 `POST /v1/channel/telegram/webhook` |
 | `BUTLER_V5_TELEGRAM_WEBHOOK_SECRET` | — | Telegram `secret_token` 校验（可选） |
+| `BUTLER_V5_TELEGRAM_BOT_TOKEN` | — | Telegram Bot token；设置后 webhook 自动 `sendMessage` 出站 |
 
 bubblewrap 启用前运行：`butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh` 或 `pnpm exec tsx cli/src/index.ts sandbox-preflight`（在 `butler-v5/` 目录）。
 
