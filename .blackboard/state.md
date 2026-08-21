@@ -1,17 +1,17 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-21 08:46_
+_last_synced: 2026-08-21 09:06_
 _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md
 
 ## 当前主线
 
-- MCP：`initialize` 握手 + `Mcp-Session-Id` 长连接；Grant 动态 `networkHosts`（env + MCP URL）。
-- Slack/Telegram 入站 + 出站；`main` 直接 push。
+- 未接线包已归档至 `packages/*/_archive/`；Slack/Telegram 富媒体入站 + Telegram 可选缓存。
+- MCP session + Grant 动态 hosts；`main` 直接 push。
 
 ## 下一步
 
-- `packages/application` / infrastructure 归档执行；Channel 富媒体消息。
+- Channel 出站富媒体（Slack files.upload / Telegram sendPhoto）；run-workflow/dream 进一步归档。
 
 ## 上一班
 
-- MCP session + `BUTLER_V5_GRANT_NETWORK_HOSTS`；644 测试全绿。
+- delegate-task + infra llm/wechat 归档；channel-media 入站；653 测试全绿。

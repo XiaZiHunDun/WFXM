@@ -42,5 +42,5 @@
     "@typescript-eslint/array-type": ["warn", { "default": "array" }],
     "@typescript-eslint/prefer-readonly": "warn"
   },
-  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "*.tsbuildinfo", "hooks/"]
+  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "*.tsbuildinfo", "hooks/", "packages/**/_archive/**"]
 }

@@ -25,8 +25,13 @@ function collectFiles(dir: string, pattern: RegExp): string[] {
 
 describe("元审计测试：Mock 恢复完整性 [NEW-OPT-22]", () => {
   it("每个基础设施 service 都有对应的 Mock 变体", () => {
-    const infraDir = resolve(PACKAGES_DIR, "infrastructure/src")
-    const srcFiles = collectFiles(infraDir, /\.ts$/).filter((f) => !f.endsWith(".test.ts"))
+    const infraRoots = [
+      resolve(PACKAGES_DIR, "infrastructure/src"),
+      resolve(PACKAGES_DIR, "infrastructure/_archive"),
+    ]
+    const srcFiles = infraRoots.flatMap((dir) =>
+      collectFiles(dir, /\.ts$/).filter((f) => !f.endsWith(".test.ts")),
+    )
 
     const hasMockInContent: Record<string, boolean> = {
       llm: false,
@@ -53,8 +58,11 @@ describe("元审计测试：Mock 恢复完整性 [NEW-OPT-22]", () => {
   })
 
   it("每个 Mock 都有对应的测试", () => {
-    const infraDir = resolve(PACKAGES_DIR, "infrastructure/src")
-    const testFiles = collectFiles(infraDir, /\.test\.ts$/)
+    const infraRoots = [
+      resolve(PACKAGES_DIR, "infrastructure/src"),
+      resolve(PACKAGES_DIR, "infrastructure/_archive"),
+    ]
+    const testFiles = infraRoots.flatMap((dir) => collectFiles(dir, /\.test\.ts$/))
 
     // 核心服务：每个目录都应该有测试文件（llm 测试在 application 层，跳过）
     const coreDirs = ["guards", "wechat", "mcp", "persistence", "acl", "migration", "shadow"]
@@ -126,12 +134,15 @@ describe("元审计测试：测试文件覆盖率 [NEW-OPT-22]", () => {
   })
 
   it("每个应用层用例都有对应的测试文件", () => {
-    const appDir = resolve(PACKAGES_DIR, "application/src")
+    const appRoots = [
+      resolve(PACKAGES_DIR, "application/src"),
+      resolve(PACKAGES_DIR, "application/_archive"),
+    ]
 
-    const srcFiles = collectFiles(appDir, /\.ts$/).filter(
-      (f) => !f.endsWith(".test.ts") && !f.endsWith("/index.ts"),
+    const srcFiles = appRoots.flatMap((dir) =>
+      collectFiles(dir, /\.ts$/).filter((f) => !f.endsWith(".test.ts") && !f.endsWith("/index.ts")),
     )
-    const testFiles = collectFiles(appDir, /\.test\.ts$/)
+    const testFiles = appRoots.flatMap((dir) => collectFiles(dir, /\.test\.ts$/))
 
     const testFileNames = new Set(
       testFiles.map((f) => relative(ROOT, f).replace(".test.ts", ".ts")),

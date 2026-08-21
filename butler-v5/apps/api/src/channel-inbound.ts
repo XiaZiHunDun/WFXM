@@ -3,6 +3,11 @@ import type { Wiring } from "./wiring.js"
 import { defaultChannelConversationId, parseClientConversationId } from "./conversation-id.js"
 import { isChannelAllowed, parseAllowedChannelIds } from "./channel-config.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
+import {
+  describeSlackFiles,
+  describeTelegramMedia,
+  type ChannelInboundMedia,
+} from "./channel-media.js"
 
 export interface ChannelInboundInput {
   readonly wiring: Wiring
@@ -122,6 +127,7 @@ export type SlackWebhookParseResult =
       readonly messageId: string
       readonly deliveryChannel: string
       readonly threadTs?: string
+      readonly media?: readonly ChannelInboundMedia[]
     }
   | { readonly kind: "ignore" }
   | { readonly kind: "invalid"; readonly reason: string }
@@ -146,26 +152,36 @@ export function parseSlackEventPayload(body: unknown): SlackWebhookParseResult {
     return { kind: "ignore" }
   }
   const ev = event as Record<string, unknown>
-  if (ev["type"] !== "message" || typeof ev["text"] !== "string") {
+  if (ev["type"] !== "message") {
     return { kind: "ignore" }
   }
-  if (ev["subtype"] !== undefined && ev["subtype"] !== null) {
+  const subtype = ev["subtype"]
+  if (
+    subtype !== undefined &&
+    subtype !== null &&
+    subtype !== "file_share" &&
+    subtype !== "file_comment"
+  ) {
     return { kind: "ignore" }
   }
   const user = ev["user"]
-  const text = ev["text"].trim()
+  const text = typeof ev["text"] === "string" ? ev["text"].trim() : ""
   const ts = ev["ts"]
   const channel = ev["channel"]
   const threadTs = ev["thread_ts"]
-  if (typeof user !== "string" || !text || typeof channel !== "string" || !channel.trim()) {
+  if (typeof user !== "string" || typeof channel !== "string" || !channel.trim()) {
     return { kind: "ignore" }
   }
+  const fileContent = describeSlackFiles(ev["files"], text)
+  const content = fileContent?.content ?? text
+  if (!content) return { kind: "ignore" }
   return {
     kind: "message",
     fromSubject: user,
-    content: text,
+    content,
     messageId: typeof ts === "string" ? `slack-${ts}` : `slack-${Date.now()}`,
     deliveryChannel: channel.trim(),
+    ...(fileContent?.media ? { media: fileContent.media } : {}),
     ...(typeof threadTs === "string" && threadTs.trim()
       ? { threadTs: threadTs.trim() }
       : typeof ts === "string" && ts.trim()
@@ -180,6 +196,7 @@ export type TelegramWebhookParseResult =
       readonly fromSubject: string
       readonly content: string
       readonly messageId: string
+      readonly media?: readonly ChannelInboundMedia[]
     }
   | { readonly kind: "ignore" }
   | { readonly kind: "invalid"; readonly reason: string }
@@ -194,10 +211,9 @@ export function parseTelegramUpdate(body: unknown): TelegramWebhookParseResult {
     return { kind: "ignore" }
   }
   const msg = message as Record<string, unknown>
-  const text = msg["text"]
   const from = msg["from"]
   const messageId = msg["message_id"]
-  if (typeof text !== "string" || !from || typeof from !== "object") {
+  if (!from || typeof from !== "object") {
     return { kind: "ignore" }
   }
   const fromRec = from as Record<string, unknown>
@@ -205,7 +221,9 @@ export function parseTelegramUpdate(body: unknown): TelegramWebhookParseResult {
   if (typeof userId !== "number" && typeof userId !== "string") {
     return { kind: "ignore" }
   }
-  const content = text.trim()
+  const text = typeof msg["text"] === "string" ? msg["text"].trim() : ""
+  const mediaContent = describeTelegramMedia(msg)
+  const content = mediaContent?.content ?? text
   if (!content) return { kind: "ignore" }
   return {
     kind: "message",
@@ -215,6 +233,7 @@ export function parseTelegramUpdate(body: unknown): TelegramWebhookParseResult {
       typeof messageId === "number" || typeof messageId === "string"
         ? `telegram-${String(messageId)}`
         : `telegram-${Date.now()}`,
+    ...(mediaContent?.media ? { media: mediaContent.media } : {}),
   }
 }
 

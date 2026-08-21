@@ -2,7 +2,7 @@ import { isMcpCapability } from "./types.js"
 
 /** Extra outbound hosts merged into ScopedGrant (comma/space separated). */
 export function parseGrantNetworkHostsFromEnv(
-  env: NodeJS.ProcessEnv = process.env,
+  env: Readonly<Record<string, string | undefined>>,
 ): readonly string[] {
   const raw = (env["BUTLER_V5_GRANT_NETWORK_HOSTS"] ?? "").trim()
   if (!raw) return []
@@ -22,7 +22,9 @@ export function hostnameFromHttpUrl(url: string): string | undefined {
   }
 }
 
-export function mcpServerHostnameFromEnv(env: NodeJS.ProcessEnv = process.env): string | undefined {
+export function mcpServerHostnameFromEnv(
+  env: Readonly<Record<string, string | undefined>>,
+): string | undefined {
   return hostnameFromHttpUrl(env["BUTLER_V5_MCP_URL"] ?? "")
 }
 
@@ -45,9 +47,9 @@ export function mergeGrantNetworkHosts(
 export function resolveGrantNetworkHosts(input: {
   readonly capability: string
   readonly wechatHosts?: readonly string[]
-  readonly env?: NodeJS.ProcessEnv
+  readonly env?: Readonly<Record<string, string | undefined>>
 }): readonly string[] | undefined {
-  const env = input.env ?? process.env
+  const env = input.env ?? {}
   const extra = parseGrantNetworkHostsFromEnv(env)
 
   if (input.capability === "send_wechat_file") {
@@ -55,7 +57,8 @@ export function resolveGrantNetworkHosts(input: {
   }
 
   if (isMcpCapability(input.capability)) {
-    return mergeGrantNetworkHosts([mcpServerHostnameFromEnv(env)], extra)
+    const mcpHost = mcpServerHostnameFromEnv(env)
+    return mergeGrantNetworkHosts(mcpHost ? [mcpHost] : undefined, extra)
   }
 
   return mergeGrantNetworkHosts(extra)

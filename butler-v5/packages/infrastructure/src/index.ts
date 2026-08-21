@@ -13,11 +13,11 @@ export {
   signPayload,
 } from "./guards/index.js"
 
-// ─── LLM 服务 ──────────────────────────────────────────────
-export { LLMServiceLive, MockLLMLive } from "./llm/index.js"
+// ─── LLM 服务（已归档 stub，仅 Layer 示例） ───────────────
+export { LLMServiceLive, MockLLMLive } from "../_archive/llm/index.js"
 
-// ─── 微信网关 ──────────────────────────────────────────────
-export { WeChatGatewayLive, MockWeChatLive } from "./wechat/index.js"
+// ─── 微信网关（已归档 stub，仅 Layer 示例） ─────────────────
+export { WeChatGatewayLive, MockWeChatLive } from "../_archive/wechat/index.js"
 
 // ─── MCP 发现 ──────────────────────────────────────────────
 export { MCPDiscoveryLive, MockMCPDiscoveryLive } from "./mcp/index.js"

@@ -886,6 +886,9 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_V5_TELEGRAM_ENABLED` | `0` | `1` 启用 `POST /v1/channel/telegram/webhook` |
 | `BUTLER_V5_TELEGRAM_WEBHOOK_SECRET` | — | Telegram `secret_token` 校验（可选） |
 | `BUTLER_V5_TELEGRAM_BOT_TOKEN` | — | Telegram Bot token；设置后 webhook 自动 `sendMessage` 出站 |
+| `BUTLER_V5_TELEGRAM_MEDIA_CACHE` | `0` | `1` 时将入站 photo/document 下载到本地并在 content 中附加路径 |
+| `BUTLER_V5_TELEGRAM_MEDIA_DIR` | `{cwd}/.butler-v5/telegram-media` | Telegram 媒体缓存目录 |
+| `BUTLER_V5_TELEGRAM_MEDIA_MAX_BYTES` | `8388608` | 单文件下载上限 |
 
 bubblewrap 启用前运行：`butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh` 或 `pnpm exec tsx cli/src/index.ts sandbox-preflight`（在 `butler-v5/` 目录）。
 

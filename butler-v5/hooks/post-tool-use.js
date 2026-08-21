@@ -45,8 +45,8 @@ function getTestSubset(filePath) {
   if (rel.includes("packages/application/src/run-loop/")) {
     return "packages/application/src/run-loop/run-loop.test.ts"
   }
-  if (rel.includes("packages/application/src/delegate-task/")) {
-    return "packages/application/src/delegate-task/delegate-task.test.ts"
+  if (rel.includes("packages/application/_archive/delegate-task/")) {
+    return "packages/application/_archive/delegate-task/delegate-task.test.ts"
   }
   if (rel.includes("packages/application/src/run-workflow/")) {
     return "packages/application/src/run-workflow/run-workflow.test.ts"
@@ -57,8 +57,8 @@ function getTestSubset(filePath) {
   if (rel.includes("packages/infrastructure/src/guards/")) {
     return "packages/infrastructure/src/guards/guard-service.test.ts"
   }
-  if (rel.includes("packages/infrastructure/src/wechat/")) {
-    return "packages/infrastructure/src/wechat/wechat.test.ts"
+  if (rel.includes("packages/infrastructure/_archive/wechat/")) {
+    return "packages/infrastructure/_archive/wechat/wechat.test.ts"
   }
   if (rel.includes("packages/infrastructure/src/mcp/")) {
     return "packages/infrastructure/src/mcp/mcp.test.ts"

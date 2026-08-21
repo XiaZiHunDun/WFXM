@@ -23,6 +23,7 @@ import {
   slackBotToken,
   telegramBotToken,
 } from "./channel-outbound.js"
+import { resolveTelegramInboundContent } from "./channel-media.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import { issueSubscribeToken } from "./ws-subscribe.js"
 
@@ -251,11 +252,12 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       return c.body(null, 204)
     }
     try {
+      const inboundContent = await resolveTelegramInboundContent(parsed, process.env)
       const result = await handleChannelInbound({
         wiring,
         channelId: "telegram",
         fromSubject: parsed.fromSubject,
-        content: parsed.content,
+        content: inboundContent,
         messageId: parsed.messageId,
       })
       let delivered = false

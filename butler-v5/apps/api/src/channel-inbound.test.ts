@@ -34,6 +34,26 @@ describe("slack channel adapter", () => {
     })
   })
 
+  it("parses file_share events with attachments", () => {
+    const parsed = parseSlackEventPayload({
+      type: "event_callback",
+      event: {
+        type: "message",
+        subtype: "file_share",
+        user: "U2",
+        channel: "C1",
+        text: "look",
+        ts: "999.1",
+        files: [{ name: "a.png", mimetype: "image/png", size: 100 }],
+      },
+    })
+    expect(parsed.kind).toBe("message")
+    if (parsed.kind !== "message") return
+    expect(parsed.content).toContain("look")
+    expect(parsed.content).toContain("[slack image")
+    expect(parsed.media?.[0]?.name).toBe("a.png")
+  })
+
   it("verifies slack signing secret", () => {
     const raw = '{"type":"event_callback"}'
     const ts = "1700000000"
@@ -53,6 +73,24 @@ describe("telegram channel adapter", () => {
       fromSubject: "42",
       content: "hi",
       messageId: "telegram-9",
+    })
+  })
+
+  it("parses photo-only telegram messages", () => {
+    const parsed = parseTelegramUpdate({
+      update_id: 2,
+      message: {
+        message_id: 10,
+        from: { id: 7 },
+        photo: [{ file_id: "small" }, { file_id: "big-photo" }],
+      },
+    })
+    expect(parsed).toEqual({
+      kind: "message",
+      fromSubject: "7",
+      content: "[telegram image file_id=big-photo]",
+      messageId: "telegram-10",
+      media: [{ kind: "image", fileId: "big-photo", mimeType: "image/jpeg" }],
     })
   })
 

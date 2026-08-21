@@ -25,7 +25,7 @@ butler-v5/cli + apps/api
 | 模块 | 路径 | 状态 | 建议处置 |
 |------|------|------|----------|
 | `runLoop` | `packages/application/src/run-loop/` | 仅包内测试 + Mock Layers | **保留至 Run 收敛**：生产 Loop 在 `runtime` + `wechat-inbound-butler` |
-| `delegateTask` | `packages/application/src/delegate-task/` | Mock ProjectService | **归档候选**：生产委派在 `delegate-runtime.ts` |
+| `delegateTask` | `packages/application/_archive/delegate-task/` | **已归档**：生产委派在 `delegate-runtime.ts` |
 | `runWorkflow` | `packages/application/src/run-workflow/` | OPT-1 并行 Channel stub | **冻结**：非产品 Workflow DAG |
 | `dream` | `packages/application/src/dream/` | Mock MemoryService | **冻结**：百轮记忆未立项 |
 
@@ -39,8 +39,8 @@ butler-v5/cli + apps/api
 |------|------|------|----------|
 | `ProductionLayer` / `TestLayer` | `packages/infrastructure/src/layers.ts` | 无生产消费者 | **保留参考**：MCP/WeChat Port 组合示例 |
 | EventStore (Drizzle) | `packages/infrastructure/src/persistence/` | 与 `packages/persistence` **并行 schema** | **勿接生产**；迁移工具仅测试 |
-| LLM stub | `packages/infrastructure/src/llm/` | 模拟延迟 | **归档候选** |
-| WeChat stub | `packages/infrastructure/src/wechat/` | log-only | **归档候选**；生产用 `adapters/wechat` |
+| LLM stub | `packages/infrastructure/_archive/llm/` | **已归档** |
+| WeChat stub | `packages/infrastructure/_archive/wechat/` | **已归档**；生产用 `adapters/wechat` |
 | MCPDiscoveryLive | `packages/infrastructure/src/mcp/` | 硬编码 local 工具列表 | **参考实现**；生产 MCP opt-in 在 `apps/api/mcp-tools.ts` |
 | Guards G-1~G-7 | `packages/infrastructure/src/guards/` | 骨架 + chaos 测试 | **冻结**：未接 RunEngine |
 | ACL / v4-adapter | `packages/infrastructure/src/acl/` | v4 兼容实验 | **冻结** |
@@ -64,7 +64,7 @@ butler-v5/cli + apps/api
 | 原生 iLink | `BUTLER_V5_ILINK_ENABLED=1` | `apps/api/src/ilink-poller.ts` | 已交付，仍 opt-in |
 | bubblewrap | `BUTLER_V5_SANDBOX=bubblewrap` | `workspace-tools.ts` | P2 已交付 |
 
-第二消息 Channel（Slack/Telegram 等）**未立项**；不得创建第二套 Run 状态机。
+第二消息 Channel（Slack/Telegram webhook + 富媒体入站描述）**已 opt-in**；不得创建第二套 Run 状态机。
 
 ---
 

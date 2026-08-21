@@ -8,8 +8,7 @@ export {
   MockEventStoreLive,
 } from "./run-loop/index.js"
 
-// ─── delegate-task 用例 ───────────────────────────────────
-export { delegateTask, MockProjectServiceLive } from "./delegate-task/index.js"
+// delegate-task 已归档 → packages/application/_archive/delegate-task/
 
 // ─── run-workflow 用例 ────────────────────────────────────
 export { runWorkflow, MockWorkflowServiceLive } from "./run-workflow/index.js"
