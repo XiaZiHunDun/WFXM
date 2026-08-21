@@ -6,6 +6,7 @@ import {
   actionRequestFromTool,
   CapabilityRegistry,
   type CapabilityDefinition,
+  type CapabilityProvider,
   type PolicyGate,
 } from "./policy-gate.js"
 import { runTool, type RunResult, type ToolDefinition } from "./tool-runtime.js"
@@ -87,6 +88,27 @@ export function buildCapabilityRegistryFromTools(
       name: definition.name,
       execute: async (request) => runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
     })
+  }
+  return registry
+}
+
+export interface CapabilityProviderRegistration {
+  readonly definition: CapabilityDefinition
+  readonly provider: CapabilityProvider
+}
+
+/** Production registry factory: tools + optional extra providers (MCP, channel, …). */
+export function createProductionCapabilityRegistry(args: {
+  readonly tools: readonly ToolDefinition[]
+  readonly timeoutMsFor?: (toolName: string) => number
+  readonly extraProviders?: readonly CapabilityProviderRegistration[]
+}): CapabilityRegistry {
+  const registry = buildCapabilityRegistryFromTools(
+    args.tools,
+    args.timeoutMsFor ?? (() => 5_000),
+  )
+  for (const entry of args.extraProviders ?? []) {
+    registry.register(entry.definition, entry.provider)
   }
   return registry
 }

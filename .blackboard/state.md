@@ -1,16 +1,16 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-21 09:47_
+_last_synced: 2026-08-21 09:51_
 _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md
 
 ## 当前主线
 
-- Owner API 审批恢复走 `buildApiRunTrigger`；MCP manifest 可驱动默认连接（env 覆盖）。
-- RunTrigger 已接入微信/Channel/API 审批；MCP manifest gate 已落地。
+- CLI `butler run` + `createProductionCapabilityRegistry` 已落地；RunTrigger 四入口（微信/Channel/API/CLI）齐备。
+- MCP manifest 可驱动连接；Owner 审批走 API RunTrigger。
 
 ## 下一步
 
-- v5 AI 守卫迁移（人工）；P4 单独立项；CLI RunTrigger；Capability Provider 注册表。
+- v5 AI 守卫迁移（人工）；P4 单独立项；MCP/Channel 注册为 extraProviders。
 
 ## 不要做
 
@@ -18,4 +18,4 @@ _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md
 
 ## 上一班
 
-- Owner approval RunTrigger + MCP manifest 连接默认值；682 测试待 commit。
+- CLI RunTrigger + Capability Provider registry；685 测试待 commit。

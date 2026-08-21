@@ -5,7 +5,9 @@
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./bootstrap-wiring.js": "./src/bootstrap-wiring.ts",
+    "./cli-run.js": "./src/cli-run.ts"
   },
   "bin": {
     "butler": "./src/index.ts"

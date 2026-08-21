@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   actionKindForTool,
   buildCapabilityRegistryFromTools,
+  createProductionCapabilityRegistry,
   executeToolThroughBoundary,
   resourceForTool,
 } from "./capability-boundary.js"
@@ -81,5 +82,44 @@ describe("capability-boundary", () => {
       { subject: "guest-1", resource: "conv-1", grant: null },
     )
     expect(outcome).toEqual({ ok: true, output: "now" })
+  })
+
+  it("registers extra providers via createProductionCapabilityRegistry", async () => {
+    const base: ToolDefinition = {
+      name: "get_current_time" as ToolDefinition["name"],
+      risk: "low",
+      run: vi.fn(async () => ({ ok: true, output: "now" })),
+    }
+    const registry = createProductionCapabilityRegistry({
+      tools: [base],
+      extraProviders: [
+        {
+          definition: { name: "custom_echo", kind: "read", risk: "low" },
+          provider: {
+            name: "custom_echo",
+            execute: async () => ({ ok: true, output: "echo" }),
+          },
+        },
+      ],
+    })
+    expect(registry.get("custom_echo")).toEqual({
+      name: "custom_echo",
+      kind: "read",
+      risk: "low",
+    })
+    const gate = new PolicyGate(defaultPermissionPolicy("owner-1"), () => 1000)
+    const def: ToolDefinition = {
+      name: "custom_echo" as ToolDefinition["name"],
+      risk: "low",
+      run: vi.fn(async () => ({ ok: true, output: "unused" })),
+    }
+    const outcome = await executeToolThroughBoundary(
+      registry,
+      gate,
+      def,
+      {},
+      { subject: "owner-1", resource: "conv-1", grant: null },
+    )
+    expect(outcome).toEqual({ ok: true, output: "echo" })
   })
 })

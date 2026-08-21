@@ -1,8 +1,8 @@
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import {
-  buildCapabilityRegistryFromTools,
   capabilityDefinitionFromTool,
+  createProductionCapabilityRegistry,
   executeToolThroughBoundary,
   resourceForTool,
   type ToolExecutionOutcome,
@@ -55,7 +55,10 @@ export function makeToolExecutor(args: {
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
 }): ToolExecutor {
-  const registry = buildCapabilityRegistryFromTools(args.tools, args.timeoutMsFor)
+  const registry = createProductionCapabilityRegistry({
+    tools: args.tools,
+    timeoutMsFor: args.timeoutMsFor,
+  })
   const gate = new PolicyGate(productionPermissionPolicy(args.ownerSubject), args.nowMs ?? Date.now)
   const approval =
     args.store && args.runId

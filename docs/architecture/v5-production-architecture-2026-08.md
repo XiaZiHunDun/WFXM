@@ -177,7 +177,9 @@ delegate_to_subagent
 - 浏览器/调度等 P4 条件能力（逐项立项）；
 - v5 AI 守卫迁移（人工 checklist）。
 
-**RunTrigger（已接入）**：微信入站经 `buildWechatRunTrigger`、Slack/Telegram/Channel API 经 `buildChannelRunTrigger`、Owner 审批恢复经 `buildApiRunTrigger`（`owner-approval-trigger.ts`）写入审计；trigger 元数据持久化在 Run `budget` 或 `approval.resume` 审计事件。
+**RunTrigger（已接入）**：微信 `buildWechatRunTrigger`、Channel `buildChannelRunTrigger`、Owner 审批 `buildApiRunTrigger`、CLI `butler run` → `buildCliRunTrigger`；元数据在 Run `budget` 或审计事件。
+
+**Capability Provider**：`createProductionCapabilityRegistry()`（`packages/runtime/src/capability-boundary.ts`）为生产注册中心；`tool-boundary.makeToolExecutor` 为 apps 接线点，支持 `extraProviders` 扩展 MCP/Channel 等。
 
 ### 6.2 MCP 传输（opt-in）
 

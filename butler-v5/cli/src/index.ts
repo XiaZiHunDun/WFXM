@@ -106,6 +106,36 @@ program
   })
 
 program
+  .command("run")
+  .description("Run a one-shot goal through the v5 butler loop (CLI RunTrigger)")
+  .argument("<goal>", "goal text")
+  .option("--subject <id>", "owner subject for policy evaluation")
+  .option("--conversation-id <id>", "reuse an existing conversation id")
+  .action(async (goal: string, opts: { subject?: string; conversationId?: string }) => {
+    const { createProductionWiring } = await import("@butler/api/bootstrap-wiring.js")
+    const { runCliGoal } = await import("@butler/api/cli-run.js")
+    const boot = await createProductionWiring(process.env)
+    if (!boot.ok) {
+      console.error(boot.reason)
+      process.exit(1)
+    }
+    try {
+      const result = await runCliGoal({
+        wiring: boot.value.wiring,
+        goal,
+        ...(opts.subject ? { subject: opts.subject } : {}),
+        ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
+      })
+      console.log(result.reply)
+      if (result.finalDecision === "AskApproval") {
+        process.exit(2)
+      }
+    } finally {
+      await boot.value.close()
+    }
+  })
+
+program
   .command("sandbox-preflight")
   .description("Verify bubblewrap (bwrap) is available for BUTLER_V5_SANDBOX=bubblewrap")
   .option("--bwrap <path>", "bwrap binary path", "bwrap")
