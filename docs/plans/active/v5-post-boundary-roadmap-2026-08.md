@@ -162,6 +162,8 @@ P3 只建立安全扩展面，不默认安装具体能力。
 
 ### 隔离浏览器
 
+> **Owner 2026-08-21：不立项。** 当前 Butler v5 产品无浏览器操控需求；保留为边界上的条件准入项，不在 active backlog。
+
 - Playwright 独立 profile；
 - origin allowlist；
 - 登录、外发、提交、上传、付款、删除和 ACL 修改即时确认；
@@ -229,5 +231,6 @@ P3 只建立安全扩展面，不默认安装具体能力。
 - Kubernetes / 默认微服务；
 - 无限制 shell 或宿主机 danger-full-access；
 - 浏览器端 Agent Runtime；
+- Butler v5 当前产品的隔离 Playwright/browser session（Owner 2026-08-21 不立项；见产品边界 Owner 立项记录）；
 - 通宵无限循环和无门控 git 修改；
 - v4 功能机械搬运或 v5 事件回写 v4。

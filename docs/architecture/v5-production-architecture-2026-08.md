@@ -174,8 +174,8 @@ delegate_to_subagent
 
 仍待完善：
 
-- 浏览器/调度等 P4 条件能力（逐项立项）；
-- v5 AI 守卫迁移（人工 checklist）。
+- Heartbeat/Schedule、本地控制面 UI 等 P4 候选（按需单独立项；**浏览器已明确不立项**）；
+- v5 AI 守卫迁移（人工 checklist，不阻塞交付）。
 
 **RunTrigger（已接入）**：微信 `buildWechatRunTrigger`、Channel `buildChannelRunTrigger`、Owner 审批 `buildApiRunTrigger`、CLI `butler run` → `buildCliRunTrigger`；元数据在 Run `budget` 或审计事件。
 

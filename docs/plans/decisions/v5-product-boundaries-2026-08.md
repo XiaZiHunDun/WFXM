@@ -179,6 +179,13 @@
 
 `run_command` 从 8 个名字扩到 13 个名字是标准范式：能力按需扩大，但无 shell、路径限制和禁名单不变。
 
+### Owner 立项记录（2026-08）
+
+| 能力 | 决定 | 说明 |
+| --- | --- | --- |
+| 隔离 Playwright 浏览器自动化 | **不立项** | 当前产品（微信管家 + Channel + 审批/MCP opt-in）无浏览器操控场景；边界上仍属条件准入，将来有明确场景再单独立项。 |
+| v5 AI 守卫迁移 | **人工排期** | 见 [`v5-ai-guard-migration-checklist-2026-08.md`](../active/v5-ai-guard-migration-checklist-2026-08.md)；不阻塞功能交付。 |
+
 ---
 
 ## 8. 旧边界迁移

@@ -1,6 +1,7 @@
 # Butler v5 AI Guard 迁移清单（人工执行）
 
 > **状态**：Proposed / manual-only  
+> **排期**：Owner 有空时执行；**不阻塞** v5 功能交付与日常 push。  
 > **原因**：根 `.cursorrules`、`.claude/settings.json`、`scripts/ai_guard/*.py` 和 `butler-v5/AGENTS.md` 均属于保护面；普通 Agent 不应在同一次任务中修改守卫并解除自身约束。  
 > **关联**：[`v5-product-boundaries-2026-08.md`](../decisions/v5-product-boundaries-2026-08.md) · [`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md)
 
