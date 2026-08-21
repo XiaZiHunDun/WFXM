@@ -9,6 +9,10 @@ import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
 import { assertMcpServerConsented, mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
 import {
+  assertMcpServerInManifest,
+  loadMcpManifestFromEnv,
+} from "./mcp-manifest.js"
+import {
   loadMcpLlmTools,
   loadMcpToolDefinitions,
   mcpLlmToolDescriptor,
@@ -93,7 +97,26 @@ export async function bootstrapMcpTools(
     return EMPTY_BUNDLE
   }
 
+  const manifestLoaded = loadMcpManifestFromEnv(env)
+  if (manifestLoaded.kind === "error") {
+    if (mcpFailClosedOnBootstrap(env)) {
+      throw new Error(`MCP bootstrap failed: ${manifestLoaded.reason}`)
+    }
+    return EMPTY_BUNDLE
+  }
+
   const serverId = mcpServerIdFromEnv(env)
+
+  if (manifestLoaded.kind === "loaded") {
+    const inManifest = assertMcpServerInManifest(manifestLoaded.manifest, serverId)
+    if (!inManifest.ok) {
+      if (mcpFailClosedOnBootstrap(env)) {
+        throw new Error(`MCP bootstrap failed: ${inManifest.reason}`)
+      }
+      return EMPTY_BUNDLE
+    }
+  }
+
   const consent = assertMcpServerConsented(serverId, env)
   if (!consent.ok) {
     if (mcpFailClosedOnBootstrap(env)) {

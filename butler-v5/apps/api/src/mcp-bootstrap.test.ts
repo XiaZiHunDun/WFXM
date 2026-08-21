@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, expect, it, vi } from "vitest"
 import { bootstrapMcpTools } from "./mcp-bootstrap.js"
 
@@ -59,6 +62,46 @@ describe("bootstrapMcpTools", () => {
     })
     expect(bundle.mode).toBe("off")
     expect(bundle.runtimeTools).toEqual([])
+  })
+
+  it("returns off when manifest path excludes configured server", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "butler-mcp-bootstrap-"))
+    const manifestPath = join(dir, "mcp.json")
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        version: 1,
+        servers: [{ id: "allowed-only", transport: "stdio", command: "node" }],
+      }),
+    )
+    const bundle = await bootstrapMcpTools({
+      BUTLER_V5_MCP_ENABLED: "1",
+      BUTLER_V5_MCP_TOOL_NAMES: "search",
+      BUTLER_V5_MCP_SERVER_ID: "blocked-server",
+      BUTLER_V5_MCP_MANIFEST_PATH: manifestPath,
+    })
+    expect(bundle.mode).toBe("off")
+    expect(bundle.runtimeTools).toEqual([])
+  })
+
+  it("loads stub tools when manifest includes configured server", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "butler-mcp-bootstrap-"))
+    const manifestPath = join(dir, "mcp.json")
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        version: 1,
+        servers: [{ id: "local-stub", transport: "stdio", command: "node" }],
+      }),
+    )
+    const bundle = await bootstrapMcpTools({
+      BUTLER_V5_MCP_ENABLED: "1",
+      BUTLER_V5_MCP_TOOL_NAMES: "search",
+      BUTLER_V5_MCP_SERVER_ID: "local-stub",
+      BUTLER_V5_MCP_MANIFEST_PATH: manifestPath,
+    })
+    expect(bundle.mode).toBe("stub")
+    expect(bundle.runtimeTools.map((t) => t.name)).toEqual(["mcp_search"])
   })
 
   it("discovers tools over injected stdio transport", async () => {

@@ -3,6 +3,7 @@ import {
   buildApiRunTrigger,
   buildChannelRunTrigger,
   buildWechatRunTrigger,
+  runBudgetWithTrigger,
   validateRunTrigger,
 } from "./run-trigger.js"
 
@@ -40,5 +41,19 @@ describe("RunTrigger builders", () => {
     expect(
       validateRunTrigger({ ...trigger, idempotencyKey: "" }),
     ).toEqual({ ok: false, reason: "idempotencyKey is required" })
+  })
+
+  it("merges trigger metadata into run budget", () => {
+    const trigger = buildWechatRunTrigger({
+      userId: "wx-u1",
+      conversationId: "c-1",
+      content: "hi",
+    })
+    expect(runBudgetWithTrigger(trigger)).toMatchObject({
+      maxSteps: 5,
+      trustLevel: "trusted",
+      triggerPayload: { channelId: "wechat", content: "hi" },
+      conversationRef: "c-1",
+    })
   })
 })

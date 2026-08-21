@@ -175,8 +175,9 @@ delegate_to_subagent
 仍待完善：
 
 - 浏览器/调度等 P4 条件能力（逐项立项）；
-- RunTrigger 构建器接入现有微信/Channel/API 入口（当前仅 domain 草案）；
 - v5 AI 守卫迁移（人工 checklist）。
+
+**RunTrigger（已接入）**：微信入站经 `buildWechatRunTrigger`、Slack/Telegram/Channel API 经 `buildChannelRunTrigger` 写入 `RunEngine.executeInbound`；trigger 元数据（`trustLevel`、`triggerPayload`、`conversationRef`）持久化在 Run `budget` 字段。
 
 ### 6.2 MCP 传输（opt-in）
 
@@ -192,7 +193,7 @@ delegate_to_subagent
 
 客户端在 `tools/list` / `tools/call` 前执行 MCP `initialize` + `notifications/initialized` 握手；HTTP/SSE 传输复用 `Mcp-Session-Id` 响应头并在后续请求中回传（Streamable HTTP 长连接 session）。
 
-**Consent / manifest（opt-in）**：`BUTLER_V5_MCP_REQUIRE_CONSENT=1` 时 bootstrap 仅允许 `BUTLER_V5_MCP_CONSENT` 列出的 server id（默认从 `MCP_URL` hostname 或 `MCP_COMMAND` 推导）；manifest JSON 解析见 `packages/domain/src/mcp/manifest.ts`（尚未强制加载文件）。
+**Consent / manifest（opt-in）**：`BUTLER_V5_MCP_REQUIRE_CONSENT=1` 时 bootstrap 仅允许 `BUTLER_V5_MCP_CONSENT` 列出的 server id（默认从 `MCP_URL` hostname 或 `MCP_COMMAND` 推导）。可选 `BUTLER_V5_MCP_MANIFEST_PATH` 指向 manifest JSON；设置后 bootstrap 额外校验 server id 必须在 manifest 中声明（解析见 `packages/domain/src/mcp/manifest.ts`，加载见 `apps/api/src/mcp-manifest.ts`）。
 
 ### 6.3 第二 Channel 接缝（opt-in）
 

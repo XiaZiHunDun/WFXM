@@ -5,6 +5,11 @@ import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import { decodeDecision, type ModelDecision } from "@butler/runtime/decision.js"
 import { type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { resolveReadModelSource } from "@butler/domain"
+import {
+  buildWechatRunTrigger,
+  validateRunTrigger,
+  type RunTrigger,
+} from "@butler/domain/runtime.js"
 import type { Wiring } from "./wiring.js"
 import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
@@ -128,6 +133,7 @@ export async function runButlerLoop(args: {
   readonly fromUserId: string
   readonly projectId: string
   readonly idempotencyKey?: string
+  readonly runTrigger?: RunTrigger
   readonly env?: NodeJS.ProcessEnv
   readonly logger?: ButlerLoopLogger
   readonly adapter?: LLMAdapter
@@ -148,14 +154,26 @@ export async function runButlerLoop(args: {
   }
   const idempotencyKey =
     args.idempotencyKey ?? `wechat-${args.conversationId}-${args.content.length}-${Date.now()}`
+  const trigger =
+    args.runTrigger ??
+    buildWechatRunTrigger({
+      userId: args.fromUserId,
+      conversationId: args.conversationId,
+      content: args.content,
+      messageId: idempotencyKey,
+    })
+  const validated = validateRunTrigger(trigger)
+  if (!validated.ok) {
+    throw new Error(`invalid RunTrigger: ${validated.reason}`)
+  }
   return args.wiring.runEngine.executeInbound(
     {
       conversationId: args.conversationId,
       messageId: crypto.randomUUID(),
-      subject: args.fromUserId,
+      subject: trigger.subject,
       content: args.content,
       idempotencyKey,
-      triggerSource: "channel",
+      trigger,
     },
     async (ctx) =>
       runButlerLoopBody({

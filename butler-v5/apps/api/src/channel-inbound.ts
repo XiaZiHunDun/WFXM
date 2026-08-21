@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
+import { buildChannelRunTrigger } from "@butler/domain/runtime.js"
 import type { Wiring } from "./wiring.js"
 import { defaultChannelConversationId, parseClientConversationId } from "./conversation-id.js"
 import { isChannelAllowed, parseAllowedChannelIds } from "./channel-config.js"
@@ -74,6 +75,13 @@ export async function handleChannelInbound(
     fromUserId: fromSubject,
     projectId,
     idempotencyKey: input.messageId ?? `channel-${conversationId}-${turnId}`,
+    runTrigger: buildChannelRunTrigger({
+      channelId,
+      fromSubject,
+      conversationId,
+      content: input.content,
+      ...(input.messageId ? { messageId: input.messageId } : {}),
+    }),
   })
   return {
     conversationId,

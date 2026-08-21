@@ -31,6 +31,7 @@ export {
   buildCliRunTrigger,
   buildRunTrigger,
   buildWechatRunTrigger,
+  runBudgetWithTrigger,
   validateRunTrigger,
   type BuildRunTriggerInput,
 } from "./run-trigger.js"

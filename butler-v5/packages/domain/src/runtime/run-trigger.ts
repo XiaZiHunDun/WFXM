@@ -100,3 +100,17 @@ export function validateRunTrigger(
   }
   return { ok: true }
 }
+
+/** Persist RunTrigger metadata alongside the bounded run budget. */
+export function runBudgetWithTrigger(
+  trigger: RunTrigger,
+  base: Readonly<Record<string, unknown>> = {},
+): Readonly<Record<string, unknown>> {
+  return {
+    maxSteps: 5,
+    ...base,
+    trustLevel: trigger.trustLevel,
+    triggerPayload: trigger.payload,
+    ...(trigger.conversationRef ? { conversationRef: trigger.conversationRef } : {}),
+  }
+}

@@ -1,4 +1,5 @@
-import type { RuntimeStore } from "@butler/domain/runtime.js"
+import type { RunTrigger, RuntimeStore } from "@butler/domain/runtime.js"
+import { runBudgetWithTrigger } from "@butler/domain/runtime.js"
 import { RunCoordinator } from "./run-coordinator.js"
 import { buildWorkingSet, type WorkingSetResult } from "./working-set.js"
 
@@ -21,7 +22,8 @@ export interface InboundRunInput {
   readonly subject: string
   readonly content: string
   readonly idempotencyKey: string
-  readonly triggerSource?: "channel" | "cli" | "api" | "webhook"
+  readonly trigger?: RunTrigger
+  readonly triggerSource?: RunTrigger["source"]
   readonly goal?: string
   readonly budget?: Readonly<Record<string, unknown>>
 }
@@ -43,24 +45,31 @@ export class RunEngine {
   ): Promise<T> {
     return this.coordinator.withConversationLock(input.conversationId, async () => {
       const createdAt = new Date()
+      const triggerSource = input.trigger?.source ?? input.triggerSource ?? "channel"
+      const subject = input.trigger?.subject ?? input.subject
+      const messageIdempotencyKey = input.trigger?.idempotencyKey ?? input.idempotencyKey
+      const runIdempotencyKey = `${messageIdempotencyKey}:run`
+      const budget = input.trigger
+        ? runBudgetWithTrigger(input.trigger, input.budget ?? {})
+        : (input.budget ?? { maxSteps: 5 })
       const inbound = await this.store.createConversationWithUserMessage({
         conversationId: input.conversationId,
         messageId: input.messageId,
-        subject: input.subject,
+        subject,
         content: { text: input.content },
-        triggerSource: input.triggerSource ?? "channel",
-        idempotencyKey: input.idempotencyKey,
+        triggerSource,
+        idempotencyKey: messageIdempotencyKey,
         createdAt,
       })
       const run = await this.store.createRun({
         id: crypto.randomUUID(),
         conversationId: inbound.conversationId,
         parentRunId: null,
-        triggerSource: input.triggerSource ?? "channel",
-        idempotencyKey: `${input.idempotencyKey}:run`,
-        subject: input.subject,
+        triggerSource,
+        idempotencyKey: runIdempotencyKey,
+        subject,
         goal: input.goal ?? "reply",
-        budget: input.budget ?? { maxSteps: 5 },
+        budget,
         deadline: null,
         createdAt,
       })
