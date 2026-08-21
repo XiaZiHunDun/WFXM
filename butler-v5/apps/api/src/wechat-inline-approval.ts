@@ -91,7 +91,7 @@ export async function tryWechatInlineApproval(args: {
       step.id,
       args.fromUserId,
     )
-    const resumed = await resumeApprovedCapability(args.wiring, decision, env)
+    const resumed = await resumeApprovedCapability(args.wiring, decision, { env })
     if (resumed.ok) {
       return {
         reply: String(resumed.output),

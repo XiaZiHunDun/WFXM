@@ -1,6 +1,14 @@
 import type { Hono } from "hono"
-import { approveWaitingStep, denyWaitingStep } from "@butler/runtime/approval-runtime.js"
+import {
+  approveWaitingStep,
+  denyWaitingStep,
+  parsePendingCapabilityInput,
+} from "@butler/runtime/approval-runtime.js"
 import { resumeApprovedCapability } from "./approval-resume.js"
+import {
+  assertOwnerApprovalRunTrigger,
+  buildOwnerApprovalRunTrigger,
+} from "./owner-approval-trigger.js"
 import type { Wiring } from "./wiring.js"
 
 function ownerAuthorized(c: { req: { header: (name: string) => string | undefined } }): boolean {
@@ -29,10 +37,29 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
         stepId,
         body.subject ?? "owner",
       )
-      const resumed = await resumeApprovedCapability(wiring, decision)
+      const pending = parsePendingCapabilityInput(decision.step.input)
+      if (!pending) {
+        return c.json({ ok: false, reason: "invalid pending capability step" }, 400)
+      }
+      const ownerSubject = body.subject ?? "owner"
+      const trigger = buildOwnerApprovalRunTrigger({
+        subject: ownerSubject,
+        conversationId: pending.conversationId,
+        stepId,
+        capability: pending.capability,
+      })
+      const triggerCheck = assertOwnerApprovalRunTrigger(trigger)
+      if (!triggerCheck.ok) {
+        return c.json({ ok: false, reason: triggerCheck.reason }, 400)
+      }
+      const resumed = await resumeApprovedCapability(wiring, decision, { trigger })
       return c.json({
         ok: resumed.ok,
         stepId,
+        trigger: {
+          source: trigger.source,
+          idempotencyKey: trigger.idempotencyKey,
+        },
         output: resumed.ok ? resumed.output : undefined,
         reason: resumed.ok ? undefined : resumed.reason,
       })

@@ -1,3 +1,4 @@
+import type { RunTrigger } from "@butler/domain/runtime.js"
 import {
   parsePendingCapabilityInput,
   type ApprovalDecision,
@@ -39,8 +40,12 @@ export function toRunResult(outcome: ToolExecutionOutcome): RunResult {
 export async function resumeApprovedCapability(
   wiring: Wiring,
   decision: ApprovalDecision,
-  env: NodeJS.ProcessEnv = process.env,
+  options: {
+    readonly env?: NodeJS.ProcessEnv
+    readonly trigger?: RunTrigger
+  } = {},
 ): Promise<RunResult> {
+  const env = options.env ?? process.env
   const pending = parsePendingCapabilityInput(decision.step.input)
   if (!pending) {
     return { ok: false, reason: "invalid pending capability step" }
@@ -76,6 +81,23 @@ export async function resumeApprovedCapability(
   if (run) {
     const finalStatus = result.ok ? "succeeded" : "failed"
     await wiring.runtimeStore.transitionRunStatus(run.id, run.version, finalStatus, new Date())
+  }
+  if (options.trigger) {
+    await wiring.runtimeStore.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: decision.runId,
+      conversationId: pending.conversationId,
+      action: "approval.resume",
+      subject: options.trigger.subject,
+      detail: {
+        stepId: decision.step.id,
+        triggerSource: options.trigger.source,
+        trustLevel: options.trigger.trustLevel,
+        idempotencyKey: options.trigger.idempotencyKey,
+        triggerPayload: options.trigger.payload,
+      },
+      createdAt: new Date(),
+    })
   }
   if (result.ok) {
     await markGrantConsumed(wiring.runtimeStore, decision.grant)

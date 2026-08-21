@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
-import type { McpManifest } from "@butler/domain/mcp/manifest.js"
+import type { McpManifest, McpManifestServer } from "@butler/domain/mcp/manifest.js"
+import { findMcpServer } from "@butler/domain/mcp/manifest.js"
 import {
   loadMcpManifestFromJson,
   manifestAllowsServer,
@@ -48,4 +49,11 @@ export function assertMcpServerInManifest(
     ok: false,
     reason: `MCP server "${serverId}" is not declared in BUTLER_V5_MCP_MANIFEST_PATH`,
   }
+}
+
+export function resolveMcpManifestServer(
+  manifest: McpManifest,
+  serverId: string,
+): McpManifestServer | null {
+  return findMcpServer(manifest, serverId) ?? null
 }

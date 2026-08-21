@@ -117,9 +117,17 @@ describe("owner routes", () => {
       body: JSON.stringify({ subject: "owner-1" }),
     })
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { ok: boolean; output?: string }
+    const body = (await res.json()) as {
+      ok: boolean
+      output?: string
+      trigger?: { source: string; idempotencyKey: string }
+    }
     expect(body.ok).toBe(true)
     expect(body.output).toBeTruthy()
+    expect(body.trigger).toEqual({
+      source: "api",
+      idempotencyKey: `owner-approve-${stepId}`,
+    })
     const updatedRun = await runtimeStore.getRun(run.id)
     expect(updatedRun?.status).toBe("succeeded")
   })

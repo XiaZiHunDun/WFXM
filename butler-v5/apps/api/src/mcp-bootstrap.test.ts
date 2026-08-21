@@ -91,7 +91,7 @@ describe("bootstrapMcpTools", () => {
       manifestPath,
       JSON.stringify({
         version: 1,
-        servers: [{ id: "local-stub", transport: "stdio", command: "node" }],
+        servers: [{ id: "local-stub", transport: "http" }],
       }),
     )
     const bundle = await bootstrapMcpTools({
@@ -102,6 +102,54 @@ describe("bootstrapMcpTools", () => {
     })
     expect(bundle.mode).toBe("stub")
     expect(bundle.runtimeTools.map((t) => t.name)).toEqual(["mcp_search"])
+  })
+
+  it("discovers HTTP MCP tools from manifest url without env url", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "butler-mcp-bootstrap-"))
+    const manifestPath = join(dir, "mcp.json")
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        version: 1,
+        servers: [
+          {
+            id: "tools.example.com",
+            transport: "http",
+            url: "http://127.0.0.1:7777/mcp",
+          },
+        ],
+      }),
+    )
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { method: string; id?: number }
+      if (body.method === "initialize") {
+        return Response.json({
+          jsonrpc: "2.0",
+          id: body.id,
+          result: { protocolVersion: "2024-11-05", capabilities: {} },
+        })
+      }
+      if (body.method === "notifications/initialized") {
+        return new Response("", { status: 202 })
+      }
+      return Response.json({
+        jsonrpc: "2.0",
+        id: body.id,
+        result: {
+          tools: [{ name: "manifest-echo", description: "from manifest", inputSchema: { type: "object" } }],
+        },
+      })
+    })
+    const bundle = await bootstrapMcpTools(
+      {
+        BUTLER_V5_MCP_ENABLED: "1",
+        BUTLER_V5_MCP_SERVER_ID: "tools.example.com",
+        BUTLER_V5_MCP_MANIFEST_PATH: manifestPath,
+      },
+      { fetch: fetchMock as typeof fetch },
+    )
+    expect(bundle.mode).toBe("http")
+    expect(bundle.runtimeTools.map((t) => t.name)).toEqual(["mcp_manifest-echo"])
   })
 
   it("discovers tools over injected stdio transport", async () => {

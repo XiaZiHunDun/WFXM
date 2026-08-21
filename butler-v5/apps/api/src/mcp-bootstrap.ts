@@ -11,6 +11,7 @@ import { assertMcpServerConsented, mcpServerIdFromEnv } from "@butler/runtime/mc
 import {
   assertMcpServerInManifest,
   loadMcpManifestFromEnv,
+  resolveMcpManifestServer,
 } from "./mcp-manifest.js"
 import {
   loadMcpLlmTools,
@@ -106,6 +107,10 @@ export async function bootstrapMcpTools(
   }
 
   const serverId = mcpServerIdFromEnv(env)
+  const manifestServer =
+    manifestLoaded.kind === "loaded"
+      ? resolveMcpManifestServer(manifestLoaded.manifest, serverId)
+      : null
 
   if (manifestLoaded.kind === "loaded") {
     const inManifest = assertMcpServerInManifest(manifestLoaded.manifest, serverId)
@@ -125,7 +130,7 @@ export async function bootstrapMcpTools(
     return EMPTY_BUNDLE
   }
 
-  if (mcpUsesStubTools(env)) {
+  if (mcpUsesStubTools(env, manifestServer)) {
     const discovered = mcpStubDiscovered(env)
     const invoke = options.invoke
     return {
@@ -136,7 +141,7 @@ export async function bootstrapMcpTools(
     }
   }
 
-  const connection = parseMcpConnectionConfig(env)
+  const connection = parseMcpConnectionConfig(env, manifestServer)
   if (!connection.ok) {
     if (mcpFailClosedOnBootstrap(env)) {
       throw new Error(`MCP bootstrap failed: ${connection.reason}`)

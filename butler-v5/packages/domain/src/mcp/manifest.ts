@@ -73,3 +73,11 @@ export function parseMcpManifest(raw: unknown): { readonly ok: true; readonly va
 export function mcpServerIds(manifest: McpManifest): readonly string[] {
   return manifest.servers.map((s) => s.id)
 }
+
+export function findMcpServer(
+  manifest: McpManifest,
+  serverId: string,
+): McpManifestServer | undefined {
+  const id = serverId.trim()
+  return manifest.servers.find((server) => server.id === id)
+}

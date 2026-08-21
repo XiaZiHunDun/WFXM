@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { mcpServerIds, parseMcpManifest } from "./manifest.js"
+import { findMcpServer, mcpServerIds, parseMcpManifest } from "./manifest.js"
 
 describe("MCP manifest", () => {
   it("parses server entries", () => {
@@ -17,6 +17,7 @@ describe("MCP manifest", () => {
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
     expect(mcpServerIds(parsed.value)).toEqual(["local"])
+    expect(findMcpServer(parsed.value, "local")?.command).toBe("node")
     expect(parsed.value.servers[0]?.tools?.[0]?.name).toBe("search")
   })
 
