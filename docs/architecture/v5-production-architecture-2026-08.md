@@ -165,7 +165,7 @@ delegate_to_subagent
 
 - **PolicyGate + CapabilityRegistry**：`wechat-inbound-butler` 与子代理 worker 的工具执行经 `executeThroughBoundary`，禁止 apps 层直接 `runTool`（architecture test 锁定）；
 - **waiting_approval Step**：Policy `Ask` 时持久化待执行 capability（含 args/digest/过期时间），Run 转 `waiting_approval`；
-- **ScopedGrant**：Owner approve 或微信内联「确认」后签发 `uses=1` Grant（锁定 capability + path + action digest + **network allow/hosts**），执行成功后扣减 `remainingUses`；
+- **ScopedGrant**：Owner approve 或微信内联「确认」后签发 `uses=1` Grant（锁定 capability + path + action digest + **network allow/hosts**）；WeChat CDN 固定表 + `BUTLER_V5_GRANT_NETWORK_HOSTS` 额外域名；MCP 能力自动合并 `BUTLER_V5_MCP_URL` 主机名；
 - **恢复路径**：`resumeApprovedCapability` 在 approve 后立即执行挂起动作；Run 终态 `succeeded`/`failed`；
 - **Owner API**：`GET/POST /v1/owner/approvals*` + CLI `butler approvals|approve|deny`（`BUTLER_V5_OWNER_TOKEN`）；
 - **微信内联审批**：同对话有待审批 Step 时，用户发送「确认」「拒绝」等短句触发 approve/deny（需为 pending subject 或 `BUTLER_OWNER_WECHAT_ID`）；
@@ -175,7 +175,6 @@ delegate_to_subagent
 仍待完善：
 
 - 浏览器/调度等更多 Channel 能力（文件/卡片消息等）；
-- Grant 出网域名/端口动态扩展（非 WeChat CDN 固定表）；
 - `packages/application` / 旧 infrastructure 脚手架归档（见 [`v5-unwired-packages-inventory-2026-08.md`](../plans/active/v5-unwired-packages-inventory-2026-08.md)）。
 
 ### 6.2 MCP 传输（opt-in）
@@ -189,6 +188,8 @@ delegate_to_subagent
 | `stdio` | `BUTLER_V5_MCP_COMMAND` + 可选 `BUTLER_V5_MCP_ARGS` |
 
 发现结果注入 `wiring.mcp`；shutdown 时 `mcp.close()` 关闭 stdio 子进程。
+
+客户端在 `tools/list` / `tools/call` 前执行 MCP `initialize` + `notifications/initialized` 握手；HTTP/SSE 传输复用 `Mcp-Session-Id` 响应头并在后续请求中回传（Streamable HTTP 长连接 session）。
 
 ### 6.3 第二 Channel 接缝（opt-in）
 

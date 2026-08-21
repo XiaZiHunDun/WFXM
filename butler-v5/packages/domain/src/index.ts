@@ -168,3 +168,10 @@ export {
   WECHAT_OUTBOUND_NETWORK_HOSTS,
   WECHAT_OUTBOUND_NETWORK_HOST_SET,
 } from "./governance/wechat-network-hosts.js"
+export {
+  mergeGrantNetworkHosts,
+  mcpServerHostnameFromEnv,
+  parseGrantNetworkHostsFromEnv,
+  resolveGrantNetworkHosts,
+  hostnameFromHttpUrl,
+} from "./governance/grant-network-hosts.js"

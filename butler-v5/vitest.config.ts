@@ -58,6 +58,10 @@ export default defineConfig({
         find: "@butler/domain/governance/wechat-network-hosts.js",
         replacement: resolve(__dirname, "packages/domain/src/governance/wechat-network-hosts.ts"),
       },
+      {
+        find: "@butler/domain/governance/grant-network-hosts.js",
+        replacement: resolve(__dirname, "packages/domain/src/governance/grant-network-hosts.ts"),
+      },
       { find: "@butler/domain", replacement: resolve(__dirname, "packages/domain/src/index.ts") },
       { find: "@butler/runtime", replacement: resolve(__dirname, "packages/runtime/src") },
       { find: "@butler/persistence", replacement: resolve(__dirname, "packages/persistence/src") },
@@ -88,6 +92,10 @@ export default defineConfig({
       {
         find: "@butler/adapters/mcp/sse-transport.js",
         replacement: resolve(__dirname, "packages/adapters/src/mcp/sse-transport.ts"),
+      },
+      {
+        find: "@butler/adapters/mcp/session.js",
+        replacement: resolve(__dirname, "packages/adapters/src/mcp/session.ts"),
       },
       { find: "@butler/migration", replacement: resolve(__dirname, "packages/migration/src") },
       { find: "@butler/api", replacement: resolve(__dirname, "apps/api/src") },

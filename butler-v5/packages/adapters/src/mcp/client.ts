@@ -1,7 +1,9 @@
-export interface McpTransport {
-  readonly request: (req: unknown) => Promise<{ readonly result: unknown }>
-  readonly close: () => Promise<void>
-}
+import type { McpTransport } from "./client.js"
+import {
+  buildMcpInitializeRequest,
+  buildMcpInitializedNotification,
+  type McpInitializeParams,
+} from "./session.js"
 
 export interface McpDiscoveredTool {
   readonly name: string
@@ -26,6 +28,9 @@ export interface McpClientAdapter {
 
 export interface McpClientConfig {
   readonly transport: McpTransport
+  readonly initialize?: McpInitializeParams
+  /** Skip MCP initialize handshake (unit tests only). */
+  readonly skipInitialize?: boolean
 }
 
 function extractToolOutput(result: unknown): McpInvokeResult {
@@ -54,20 +59,50 @@ function extractToolOutput(result: unknown): McpInvokeResult {
 }
 
 export function makeMcpClientAdapter(config: McpClientConfig): McpClientAdapter {
+  let sessionReady = config.skipInitialize === true
+
+  async function ensureSession(): Promise<void> {
+    if (sessionReady) return
+    await config.transport.request(buildMcpInitializeRequest(config.initialize))
+    await config.transport.request(buildMcpInitializedNotification())
+    sessionReady = true
+  }
+
+  async function resetSession(): Promise<void> {
+    sessionReady = config.skipInitialize === true
+  }
+
   return {
     discover: async () => {
+      await ensureSession()
       const res = await config.transport.request({ method: "tools/list", params: {} })
       const data = res.result as { tools?: readonly McpDiscoveredTool[] }
       return data.tools ?? []
     },
     invoke: async (toolName, args) => {
-      const res = await config.transport.request({
-        method: "tools/call",
-        params: { name: toolName, arguments: args },
-      })
-      return extractToolOutput(res.result)
+      await ensureSession()
+      try {
+        const res = await config.transport.request({
+          method: "tools/call",
+          params: { name: toolName, arguments: args },
+        })
+        return extractToolOutput(res.result)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (/session|initialize|not initialized/i.test(message)) {
+          await resetSession()
+          await ensureSession()
+          const res = await config.transport.request({
+            method: "tools/call",
+            params: { name: toolName, arguments: args },
+          })
+          return extractToolOutput(res.result)
+        }
+        throw err
+      }
     },
     invalidate: async (_server: string) => {
+      await resetSession()
       await config.transport.close()
     },
   }

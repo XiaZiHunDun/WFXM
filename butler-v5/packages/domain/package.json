@@ -10,7 +10,8 @@
     "./event-sourcing.js": "./src/event-sourcing.ts",
     "./runtime.js": "./src/runtime/index.ts",
     "./governance/types.js": "./src/governance/types.ts",
-    "./governance/wechat-network-hosts.js": "./src/governance/wechat-network-hosts.ts"
+    "./governance/wechat-network-hosts.js": "./src/governance/wechat-network-hosts.ts",
+    "./governance/grant-network-hosts.js": "./src/governance/grant-network-hosts.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

@@ -18,15 +18,26 @@ describe("bootstrapMcpTools", () => {
   })
 
   it("discovers HTTP MCP tools when URL is set", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { method: string; id?: number }
+      if (body.method === "initialize") {
+        return Response.json({
+          jsonrpc: "2.0",
+          id: body.id,
+          result: { protocolVersion: "2024-11-05", capabilities: {} },
+        })
+      }
+      if (body.method === "notifications/initialized") {
+        return new Response("", { status: 202 })
+      }
+      return Response.json({
         jsonrpc: "2.0",
-        id: 1,
+        id: body.id,
         result: {
           tools: [{ name: "echo", description: "echo tool", inputSchema: { type: "object" } }],
         },
-      }),
-    )
+      })
+    })
     const bundle = await bootstrapMcpTools(
       {
         BUTLER_V5_MCP_ENABLED: "1",
@@ -43,6 +54,12 @@ describe("bootstrapMcpTools", () => {
     const transport = {
       request: async (req: unknown) => {
         const msg = req as { method: string }
+        if (msg.method === "initialize") {
+          return { result: { protocolVersion: "2024-11-05", capabilities: {} } }
+        }
+        if (msg.method === "notifications/initialized") {
+          return { result: null }
+        }
         if (msg.method === "tools/list") {
           return {
             result: {

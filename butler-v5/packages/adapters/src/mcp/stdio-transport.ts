@@ -1,4 +1,5 @@
 import type { McpTransport } from "./client.js"
+import { isMcpNotification } from "./session.js"
 
 export interface StdioLineProcess {
   readonly writeLine: (line: string) => void
@@ -69,15 +70,26 @@ export function makeMcpStdioTransport(config: McpStdioTransportConfig): McpTrans
   return {
     request: async (req) => {
       const payload = req as { readonly method: string; readonly params?: unknown }
-      const id = ++nextId
+      const isNotification = isMcpNotification(payload.method)
+      const id = isNotification ? undefined : ++nextId
       const child = ensureProcess()
+      if (isNotification) {
+        child.writeLine(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: payload.method,
+            params: payload.params ?? {},
+          }),
+        )
+        return { result: null }
+      }
       const timeoutMs = config.timeoutMs ?? 30_000
       return await new Promise<{ readonly result: unknown }>((resolve, reject) => {
         const timer = setTimeout(() => {
-          pending.delete(id)
+          pending.delete(id as number)
           reject(new Error(`MCP stdio timeout after ${timeoutMs}ms`))
         }, timeoutMs)
-        pending.set(id, { resolve, reject, timer })
+        pending.set(id as number, { resolve, reject, timer })
         child.writeLine(
           JSON.stringify({
             jsonrpc: "2.0",

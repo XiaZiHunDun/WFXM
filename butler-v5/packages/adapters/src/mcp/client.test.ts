@@ -1,25 +1,43 @@
 import { describe, expect, it, vi } from "vitest"
 import { makeMcpClientAdapter } from "./client.js"
 
+function mcpTransportMock() {
+  return {
+    request: vi.fn(async (req: unknown) => {
+      const r = req as { method: string }
+      if (r.method === "initialize") {
+        return { result: { protocolVersion: "2024-11-05", capabilities: {} } }
+      }
+      if (r.method === "notifications/initialized") {
+        return { result: null }
+      }
+      if (r.method === "tools/list") {
+        return {
+          result: {
+            tools: [
+              { name: "echo", description: "echoes", inputSchema: { type: "object" } },
+              { name: "search", description: "searches", inputSchema: { type: "object" } },
+            ],
+          },
+        }
+      }
+      if (r.method === "tools/call") {
+        return {
+          result: {
+            isError: true,
+            content: [{ type: "text", text: "denied" }],
+          },
+        }
+      }
+      throw new Error(`unexpected ${r.method}`)
+    }),
+    close: vi.fn(async () => {}),
+  }
+}
+
 describe("MCP client adapter", () => {
   it("discover returns parsed tools", async () => {
-    const transport = {
-      request: vi.fn(async (req: unknown) => {
-        const r = req as { method: string }
-        if (r.method === "tools/list") {
-          return {
-            result: {
-              tools: [
-                { name: "echo", description: "echoes", inputSchema: { type: "object" } },
-                { name: "search", description: "searches", inputSchema: { type: "object" } },
-              ],
-            },
-          }
-        }
-        throw new Error("unexpected")
-      }),
-      close: vi.fn(async () => {}),
-    }
+    const transport = mcpTransportMock()
     const adapter = makeMcpClientAdapter({ transport: transport as never })
     const tools = await adapter.discover()
     expect(tools.length).toBe(2)
@@ -28,10 +46,7 @@ describe("MCP client adapter", () => {
   })
 
   it("invalidate closes the transport", async () => {
-    const transport = {
-      request: vi.fn(async () => ({ result: { tools: [] } })),
-      close: vi.fn(async () => {}),
-    }
+    const transport = mcpTransportMock()
     const adapter = makeMcpClientAdapter({ transport: transport as never })
     await adapter.invalidate("any-server")
     expect(transport.close).toHaveBeenCalledTimes(1)
@@ -49,15 +64,7 @@ describe("MCP client adapter", () => {
   })
 
   it("invoke returns structured errors from MCP isError", async () => {
-    const transport = {
-      request: vi.fn(async () => ({
-        result: {
-          isError: true,
-          content: [{ type: "text", text: "denied" }],
-        },
-      })),
-      close: vi.fn(async () => {}),
-    }
+    const transport = mcpTransportMock()
     const adapter = makeMcpClientAdapter({ transport: transport as never })
     const result = await adapter.invoke("bad", {})
     expect(result).toEqual({ ok: false, reason: "denied" })

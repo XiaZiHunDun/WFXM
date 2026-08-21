@@ -4,6 +4,7 @@ import { makeMcpClientAdapter } from "@butler/adapters/mcp/client.js"
 import { makeMcpHttpTransport } from "@butler/adapters/mcp/http-transport.js"
 import { makeMcpSseTransport } from "@butler/adapters/mcp/sse-transport.js"
 import { makeMcpStdioTransport } from "@butler/adapters/mcp/stdio-transport.js"
+import type { McpSessionRef } from "@butler/adapters/mcp/session.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
 import {
@@ -45,7 +46,10 @@ function authHeaders(token?: string): Record<string, string> {
 
 function makeTransport(
   conn: McpConnectionConfig,
-  options: { readonly fetch?: typeof fetch },
+  options: {
+    readonly fetch?: typeof fetch
+    readonly session: McpSessionRef
+  },
 ): McpTransport {
   switch (conn.kind) {
     case "http":
@@ -53,6 +57,7 @@ function makeTransport(
         url: conn.url,
         timeoutMs: conn.timeoutMs,
         headers: authHeaders(conn.token),
+        session: options.session,
         ...(options.fetch ? { fetch: options.fetch } : {}),
       })
     case "sse":
@@ -60,6 +65,7 @@ function makeTransport(
         url: conn.url,
         timeoutMs: conn.timeoutMs,
         headers: authHeaders(conn.token),
+        session: options.session,
         ...(options.fetch ? { fetch: options.fetch } : {}),
       })
     case "stdio":
@@ -106,7 +112,8 @@ export async function bootstrapMcpTools(
   }
 
   try {
-    const transport = options.transport ?? makeTransport(connection.value, options)
+    const session: McpSessionRef = {}
+    const transport = options.transport ?? makeTransport(connection.value, { ...options, session })
     const client = makeMcpClientAdapter({ transport })
     const discovered = options.discover
       ? await options.discover()
