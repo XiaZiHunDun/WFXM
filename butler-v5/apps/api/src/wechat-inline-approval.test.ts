@@ -96,5 +96,7 @@ describe("tryWechatInlineApproval", () => {
     expect(out?.toolCalls).toBe(1)
     const updatedRun = await runtimeStore.getRun(run.id)
     expect(updatedRun?.status).toBe("succeeded")
+    const active = await runtimeStore.findActiveMainRun(inbound.conversationId)
+    expect(active).toBeNull()
   })
 })

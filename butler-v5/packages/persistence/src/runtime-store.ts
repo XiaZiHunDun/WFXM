@@ -1,15 +1,18 @@
-import { and, asc, eq, gt } from "drizzle-orm"
+import { and, asc, desc, eq, gt, inArray, isNull, lt, isNotNull } from "drizzle-orm"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import { grantMatchesAction, type ActionRequest } from "@butler/domain/governance/types.js"
-import type {
-  RunStatus,
-  RuntimeStore,
-  StepKind,
-  StepStatus,
-  StoredMessage,
-  StoredRun,
-  StoredStep,
-  TriggerSource,
+import {
+  ACTIVE_MAIN_RUN_STATUSES,
+  inferProjectIdFromConversationId,
+  type RunStatus,
+  type RuntimeStore,
+  type StepKind,
+  type StepStatus,
+  type StoredConversation,
+  type StoredMessage,
+  type StoredRun,
+  type StoredStep,
+  type TriggerSource,
 } from "@butler/domain/runtime.js"
 import type { ButlerDb } from "./db.js"
 import { auditEvents, conversations, messages, runs, scopedGrants, steps } from "./schema.js"
@@ -78,6 +81,10 @@ function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord
     remainingUses: row.remainingUses,
     expiresAtMs: row.expiresAt.getTime(),
     createdAtMs: row.createdAt.getTime(),
+    delegable: row.delegable ?? false,
+    approvalId: row.approvalId ?? null,
+    sandboxProfile: row.sandboxProfile ?? null,
+    networkAllowlist: Array.isArray(row.networkAllowlist) ? row.networkAllowlist : null,
   }
 }
 
@@ -106,12 +113,31 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         return { conversationId: hit.conversationId, messageId: hit.messageId }
       }
 
-      await db.insert(conversations).values({
-        conversationId: input.conversationId,
-        subject: input.subject,
-        createdAt: input.createdAt,
-        updatedAt: input.createdAt,
-      })
+      const existingConv = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.conversationId, input.conversationId))
+        .limit(1)
+      if (!existingConv[0]) {
+        const projectId =
+          input.projectId ?? inferProjectIdFromConversationId(input.conversationId)
+        await db.insert(conversations).values({
+          conversationId: input.conversationId,
+          projectId,
+          subject: input.subject,
+          createdAt: input.createdAt,
+          updatedAt: input.createdAt,
+        })
+      } else {
+        const projectId =
+          input.projectId ??
+          existingConv[0].projectId ??
+          inferProjectIdFromConversationId(input.conversationId)
+        await db
+          .update(conversations)
+          .set({ updatedAt: input.createdAt, subject: input.subject, projectId })
+          .where(eq(conversations.conversationId, input.conversationId))
+      }
       await db.insert(messages).values({
         messageId: input.messageId,
         conversationId: input.conversationId,
@@ -201,6 +227,25 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       return rows.map(toStoredMessage)
     },
 
+    async listConversationsByProject(input) {
+      const limit = Math.min(Math.max(input.limit ?? 50, 1), 200)
+      const rows = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.projectId, input.projectId.trim()))
+        .orderBy(desc(conversations.updatedAt))
+        .limit(limit)
+      return rows.map(
+        (row): StoredConversation => ({
+          id: row.conversationId,
+          projectId: row.projectId,
+          subject: row.subject,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        }),
+      )
+    },
+
     async appendMessage(input) {
       if (input.idempotencyKey) {
         const existing = await db
@@ -232,6 +277,22 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
 
     async getRun(runId) {
       const rows = await db.select().from(runs).where(eq(runs.runId, runId)).limit(1)
+      const row = rows[0]
+      return row ? toStoredRun(row) : null
+    },
+
+    async findActiveMainRun(conversationId) {
+      const rows = await db
+        .select()
+        .from(runs)
+        .where(
+          and(
+            eq(runs.conversationId, conversationId),
+            isNull(runs.parentRunId),
+            inArray(runs.status, [...ACTIVE_MAIN_RUN_STATUSES]),
+          ),
+        )
+        .limit(1)
       const row = rows[0]
       return row ? toStoredRun(row) : null
     },
@@ -294,6 +355,10 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         remainingUses: input.remainingUses,
         expiresAt: input.expiresAt,
         createdAt: input.createdAt,
+        delegable: input.delegable ?? false,
+        approvalId: input.approvalId ?? null,
+        sandboxProfile: input.sandboxProfile ?? null,
+        networkAllowlist: input.networkAllowlist ?? null,
       })
       const rows = await db
         .select()
@@ -355,6 +420,21 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         .update(scopedGrants)
         .set({ remainingUses })
         .where(eq(scopedGrants.grantId, grantId))
+    },
+
+    async listRunsPastDeadline(now) {
+      const rows = await db
+        .select()
+        .from(runs)
+        .where(
+          and(
+            isNotNull(runs.deadline),
+            lt(runs.deadline, now),
+            inArray(runs.status, [...ACTIVE_MAIN_RUN_STATUSES]),
+          ),
+        )
+        .orderBy(asc(runs.deadline))
+      return rows.map(toStoredRun)
     },
   }
 }

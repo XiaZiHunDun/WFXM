@@ -27,14 +27,16 @@ describe("weibutler tools", () => {
     await db.close()
   })
 
-  it("WEIBUTLER_LLM_TOOLS exposes 8 provider-agnostic tool descriptors", () => {
-    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(8)
+  it("WEIBUTLER_LLM_TOOLS exposes 10 provider-agnostic tool descriptors", () => {
+    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(10)
     const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
       "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
       "read_file",
+      "recall_document",
+      "recall_durable_memory",
       "recall_history",
       "run_command",
       "send_wechat_file",
@@ -46,24 +48,34 @@ describe("weibutler tools", () => {
     }
   })
 
-  it("makeWeibutlerTools returns 8 runtime ToolDefinitions by default", () => {
+  it("makeWeibutlerTools returns 9 runtime ToolDefinitions by default (no subagent)", () => {
     const tools = makeWeibutlerTools({ bridge, conversationId })
-    expect(tools).toHaveLength(8)
+    expect(tools).toHaveLength(9)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
-      "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
       "read_file",
+      "recall_document",
+      "recall_durable_memory",
       "recall_history",
       "run_command",
       "send_wechat_file",
       "summarize_today",
     ])
-    const delegate = tools.find((t) => (t.name as string) === "delegate_to_subagent")
-    expect(delegate?.risk).toBe("medium")
     for (const t of tools) {
       expect(typeof t.run).toBe("function")
     }
+  })
+
+  it("makeWeibutlerTools includes delegate when subagent enabled", () => {
+    const tools = makeWeibutlerTools({
+      bridge,
+      conversationId,
+      env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
+    })
+    expect(tools).toHaveLength(10)
+    const delegate = tools.find((t) => (t.name as string) === "delegate_to_subagent")
+    expect(delegate?.risk).toBe("medium")
   })
 
   it("makeWeibutlerTools appends MCP tools when opt-in enabled", () => {
@@ -72,7 +84,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_MCP_ENABLED: "1", BUTLER_V5_MCP_TOOL_NAMES: "search" },
     })
-    expect(tools).toHaveLength(9)
+    expect(tools).toHaveLength(10)
     expect(tools.some((t) => (t.name as string) === "mcp_search")).toBe(true)
   })
 
@@ -265,11 +277,88 @@ describe("weibutler tools", () => {
     const tool = makeRecallHistoryTool({
       bridge: brokenBridge,
       conversationId,
+      env: { BUTLER_V5_READ_MODEL: "event_store" },
     })
     const result = await runTool(tool, {}, { timeoutMs: 1000 })
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.reason).toContain("db-down")
+    }
+  })
+
+  it("recall_history prefers 0002 messages when RuntimeStore is wired (hybrid)", async () => {
+    const { createRuntimeStore } = await import("@butler/persistence/runtime-store.js")
+    const runtimeStore = createRuntimeStore(db.db)
+    const createdAt = new Date()
+    await runtimeStore.createConversationWithUserMessage({
+      conversationId,
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "relational hello" },
+      triggerSource: "channel",
+      idempotencyKey: "tools-rel-1",
+      createdAt,
+    })
+    await runtimeStore.appendMessage({
+      messageId: crypto.randomUUID(),
+      conversationId,
+      role: "assistant",
+      content: { text: "relational reply" },
+      triggerSource: "channel",
+      idempotencyKey: "tools-rel-2",
+      createdAt: new Date(createdAt.getTime() + 1),
+    })
+    const tool = makeRecallHistoryTool({
+      bridge,
+      conversationId,
+      runtimeStore,
+      env: { BUTLER_V5_READ_MODEL: "hybrid" },
+    })
+    const result = await runTool(tool, {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const output = String(result.output)
+      expect(output).toContain("[user] relational hello")
+      expect(output).toContain("[assistant] relational reply")
+      expect(output).not.toContain("ConversationStarted")
+    }
+  })
+
+  it("summarize_today counts relational messages by role in the last 24h", async () => {
+    const { createRuntimeStore } = await import("@butler/persistence/runtime-store.js")
+    const runtimeStore = createRuntimeStore(db.db)
+    const createdAt = new Date()
+    await runtimeStore.createConversationWithUserMessage({
+      conversationId: "c-tools-sum-rel",
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "hi" },
+      triggerSource: "channel",
+      idempotencyKey: "sum-rel-1",
+      createdAt,
+    })
+    await runtimeStore.appendMessage({
+      messageId: crypto.randomUUID(),
+      conversationId: "c-tools-sum-rel",
+      role: "assistant",
+      content: { text: "yo" },
+      triggerSource: "channel",
+      idempotencyKey: "sum-rel-2",
+      createdAt: new Date(createdAt.getTime() + 1),
+    })
+    const tool = makeSummarizeTodayTool({
+      bridge,
+      conversationId: "c-tools-sum-rel",
+      runtimeStore,
+      env: { BUTLER_V5_READ_MODEL: "hybrid" },
+    })
+    const result = await runTool(tool, {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const output = String(result.output)
+      expect(output).toContain("2 条消息")
+      expect(output).toContain("user: 1")
+      expect(output).toContain("assistant: 1")
     }
   })
 

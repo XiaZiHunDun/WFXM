@@ -5,6 +5,7 @@ import type {
   ScopedGrantRecord,
 } from "@butler/domain/governance/types.js"
 import { decidePolicy } from "@butler/domain/governance/types.js"
+import { runWithSideEffectContext } from "./sandbox/side-effect-context.js"
 
 export interface CapabilityDefinition {
   readonly name: string
@@ -73,7 +74,15 @@ export class CapabilityRegistry {
         decision: { _tag: "Deny", reason: `unknown capability ${request.capability}` },
       }
     }
-    const result = await provider.execute({ capability: request.capability, args, grant })
+    const result = await runWithSideEffectContext(
+      {
+        sandboxProfile: grant?.sandboxProfile ?? null,
+        networkAllowlist: grant?.networkAllowlist ?? null,
+        grantId: grant?.id ?? null,
+        capability: request.capability,
+      },
+      () => provider.execute({ capability: request.capability, args, grant }),
+    )
     return { _tag: "Executed", result }
   }
 }

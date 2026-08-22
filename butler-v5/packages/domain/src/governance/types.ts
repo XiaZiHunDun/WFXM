@@ -47,6 +47,14 @@ export interface ScopedGrantRecord {
   readonly remainingUses: number | null
   readonly expiresAtMs: number
   readonly createdAtMs: number
+  /** Child Run may receive a narrowed copy only when true. Default false. */
+  readonly delegable: boolean
+  /** Waiting approval Step id that issued this grant; null for preconfigured grants. */
+  readonly approvalId: string | null
+  /** Elevated sandbox profile when Grant lifts provider default isolation. */
+  readonly sandboxProfile: string | null
+  /** host:port list for workspace-write-network-allowlist (P2b). */
+  readonly networkAllowlist: readonly string[] | null
 }
 
 export interface PermissionPolicy {
@@ -123,6 +131,8 @@ export function buildScopedGrantScopeFromPending(input: {
   readonly resource: string
   readonly digest: string
   readonly networkHosts?: readonly string[]
+  /** When true, stamp network allow (e.g. Grant networkAllowlist on run_command). */
+  readonly forceNetworkAllow?: boolean
 }): ScopedGrantScope {
   let scope: ScopedGrantScope = {
     capabilities: [input.capability],
@@ -134,7 +144,10 @@ export function buildScopedGrantScopeFromPending(input: {
       scope = { ...scope, paths: [normalizeGrantPath(path)] }
     }
   }
-  if (actionRequiresNetworkGrant(outboundKindForCapability(input.capability), input.capability)) {
+  const needsNetwork =
+    input.forceNetworkAllow === true ||
+    actionRequiresNetworkGrant(outboundKindForCapability(input.capability), input.capability)
+  if (needsNetwork) {
     scope = {
       ...scope,
       network: "allow",

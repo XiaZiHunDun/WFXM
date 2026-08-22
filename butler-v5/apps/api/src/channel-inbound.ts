@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { buildChannelRunTrigger } from "@butler/domain/runtime.js"
+import { normalizeChannelInbound } from "@butler/runtime/intake/index.js"
 import type { Wiring } from "./wiring.js"
-import { defaultChannelConversationId, parseClientConversationId } from "./conversation-id.js"
 import { isChannelAllowed, parseAllowedChannelIds } from "./channel-config.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import {
@@ -35,57 +34,52 @@ export interface ChannelInboundResult {
 export async function handleChannelInbound(
   input: ChannelInboundInput,
 ): Promise<ChannelInboundResult> {
-  const channelId = input.channelId.trim()
-  const fromSubject = input.fromSubject.trim()
-  if (!channelId || !fromSubject) {
-    throw new ChannelInboundError("invalid body", 400)
-  }
   const allowlist = parseAllowedChannelIds(process.env)
+  const channelId = input.channelId.trim()
   if (!isChannelAllowed(channelId, allowlist)) {
     throw new ChannelInboundError("channel not allowed", 403)
   }
-  const parsedId = parseClientConversationId(input.conversationId)
-  if (parsedId.kind === "invalid") {
-    throw new ChannelInboundError(`invalid conversationId: ${parsedId.reason}`, 400)
+  const normalized = normalizeChannelInbound({
+    channelId: input.channelId,
+    fromSubject: input.fromSubject,
+    content: input.content,
+    ...(input.messageId ? { messageId: input.messageId } : {}),
+    conversationId: input.conversationId,
+  })
+  if (!normalized.ok) {
+    const message =
+      normalized.error.kind === "invalid_conversation_id"
+        ? `invalid conversationId: ${normalized.error.reason}`
+        : normalized.error.reason
+    throw new ChannelInboundError(message, 400)
   }
-  const conversationId =
-    parsedId.kind === "valid"
-      ? parsedId.value
-      : defaultChannelConversationId(channelId, fromSubject)
-  const turnId = `turn-${Date.now()}`
-  const projectId = `channel:${channelId}`
+  const { value } = normalized
   await input.wiring.eventBridge.appendConversationEvent({
-    streamId: conversationId,
+    streamId: value.conversationId,
     eventId: `evt-${Date.now()}-channel-${input.messageId ?? "no-msgid"}`,
     eventType: "ConversationStarted",
-    correlationId: `corr-${Date.now()}-${fromSubject}`,
+    correlationId: `corr-${Date.now()}-${value.subject}`,
     actor: { kind: "system", id: "channel-intake" },
     event: {
       _tag: "ConversationStarted",
-      projectId,
-      content: input.content,
-      fromUserId: fromSubject,
+      projectId: value.projectId,
+      content: value.content,
+      fromUserId: value.subject,
       channelId,
     },
   })
   const loopResult = await runButlerLoop({
     wiring: input.wiring,
-    conversationId,
-    content: input.content,
-    fromUserId: fromSubject,
-    projectId,
-    idempotencyKey: input.messageId ?? `channel-${conversationId}-${turnId}`,
-    runTrigger: buildChannelRunTrigger({
-      channelId,
-      fromSubject,
-      conversationId,
-      content: input.content,
-      ...(input.messageId ? { messageId: input.messageId } : {}),
-    }),
+    conversationId: value.conversationId,
+    content: value.content,
+    fromUserId: value.subject,
+    projectId: value.projectId,
+    idempotencyKey: value.idempotencyKey,
+    runTrigger: value.runTrigger,
   })
   return {
-    conversationId,
-    turnId,
+    conversationId: value.conversationId,
+    turnId: value.turnId,
     channelId,
     reply: loopResult.reply,
     meta: {

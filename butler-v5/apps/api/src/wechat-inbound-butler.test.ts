@@ -83,6 +83,50 @@ describe("runButlerLoop", () => {
     expect(result.toolCalls).toBe(0)
   })
 
+  it("persists hyphenated projectId for listConversationsByProject", async () => {
+    const conversationId = "c-proj-x-smoke-user"
+    await runButlerLoop({
+      wiring,
+      conversationId,
+      content: "hello",
+      fromUserId: "smoke-user",
+      projectId: "proj-x",
+      env: {},
+      logger: silentLogger,
+    })
+    const items = await wiring.runtimeStore.listConversationsByProject({ projectId: "proj-x" })
+    expect(items.map((row) => row.id)).toContain(conversationId)
+    expect(items.find((row) => row.id === conversationId)?.projectId).toBe("proj-x")
+  })
+
+  it("accumulates user messages across two inbound turns on the same conversation", async () => {
+    const conversationId = "c-persist-two-turns"
+    await runButlerLoop({
+      wiring,
+      conversationId,
+      content: "first turn",
+      fromUserId: "u-persist",
+      projectId: "persist",
+      env: {},
+      logger: silentLogger,
+    })
+    await runButlerLoop({
+      wiring,
+      conversationId,
+      content: "second turn",
+      fromUserId: "u-persist",
+      projectId: "persist",
+      env: {},
+      logger: silentLogger,
+    })
+    const messages = await wiring.runtimeStore.listMessages(conversationId)
+    expect(messages.filter((m) => m.role === "user").map((m) => m.content)).toEqual([
+      { text: "first turn" },
+      { text: "second turn" },
+    ])
+    expect(messages.filter((m) => m.role === "user")).toHaveLength(2)
+  })
+
   it("returns Respond content when the model emits a Respond decision (JSON-decision fallback)", async () => {
     const adapter = makeMockAdapter([
       textResponse(JSON.stringify({ _tag: "Respond", content: "hi back" })),
@@ -202,7 +246,7 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
   })
 
-  it("passes WEIBUTLER_LLM_TOOLS to the adapter on every call", async () => {
+  it("passes core LLM tools to the adapter by default (no subagent)", async () => {
     const completeSpy = vi.fn(() => Effect.succeed(textResponse("ok") as LLMAssistantResponse))
     const adapter: LLMAdapter = { complete: completeSpy }
     await runButlerLoop({
@@ -221,10 +265,11 @@ describe("runButlerLoop", () => {
     expect(opts?.tools).toBeDefined()
     const names = (opts?.tools ?? []).map((t) => t.name).sort()
     expect(names).toEqual([
-      "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
       "read_file",
+      "recall_document",
+      "recall_durable_memory",
       "recall_history",
       "run_command",
       "send_wechat_file",
@@ -272,14 +317,15 @@ describe("runButlerLoop", () => {
   })
 
   it("executes recall_history (native tool_call) with limit and feeds result back", async () => {
-    // Pre-seed the event_store so recall_history has something to return.
-    await bridge.appendConversationEvent({
-      streamId: "c-test-5",
-      eventId: "evt-prev-1",
-      eventType: "ConversationStarted",
-      correlationId: "corr-prev",
-      actor: { kind: "system", id: "test" },
-      event: { _tag: "ConversationStarted", projectId: "p-1", content: "earlier msg" },
+    // Pre-seed 0002 messages (hybrid default) so recall_history has history.
+    await wiring.runtimeStore.createConversationWithUserMessage({
+      conversationId: "c-test-5",
+      messageId: crypto.randomUUID(),
+      subject: "u-1",
+      content: { text: "earlier msg" },
+      triggerSource: "channel",
+      idempotencyKey: "c-test-5-earlier",
+      createdAt: new Date("2026-08-20T00:00:00Z"),
     })
     const adapter = makeMockAdapter([
       toolCallResponse([{ id: "tc_recall", name: "recall_history", args: { limit: 3 } }]),
@@ -477,7 +523,7 @@ describe("runButlerLoop", () => {
       content: "帮我找 Foo 的文档",
       fromUserId: "u-1",
       projectId: "p-1",
-      env: {},
+      env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
       logger: silentLogger,
       adapter,
     })
@@ -503,7 +549,7 @@ describe("runButlerLoop", () => {
       content: "复杂任务要委派给子代理",
       fromUserId: "u-1",
       projectId: "p-1",
-      env: {},
+      env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
       logger: silentLogger,
       adapter,
     })
@@ -528,7 +574,7 @@ describe("runButlerLoop", () => {
       content: "请帮我跑个长任务",
       fromUserId: "u-1",
       projectId: "p-1",
-      env: {},
+      env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
       logger: silentLogger,
       adapter,
     })

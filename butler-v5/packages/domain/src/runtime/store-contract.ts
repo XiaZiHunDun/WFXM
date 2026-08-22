@@ -1,6 +1,18 @@
 import type { ScopedGrantRecord } from "../governance/types.js"
 import type { RunStatus, StepKind, StepStatus, TriggerSource } from "./types.js"
 
+/** Main-Run statuses that block starting another main Run in the same conversation. */
+export const ACTIVE_MAIN_RUN_STATUSES: readonly RunStatus[] = [
+  "queued",
+  "running",
+  "waiting_approval",
+  "waiting_external",
+]
+
+export function isActiveMainRunStatus(status: RunStatus): boolean {
+  return (ACTIVE_MAIN_RUN_STATUSES as readonly string[]).includes(status)
+}
+
 export interface StoredMessage {
   readonly id: string
   readonly conversationId: string
@@ -9,6 +21,14 @@ export interface StoredMessage {
   readonly triggerSource: TriggerSource | null
   readonly idempotencyKey: string | null
   readonly createdAt: Date
+}
+
+export interface StoredConversation {
+  readonly id: string
+  readonly projectId: string | null
+  readonly subject: string
+  readonly createdAt: Date
+  readonly updatedAt: Date
 }
 
 export interface StoredRun {
@@ -47,6 +67,7 @@ export interface RuntimeStore {
     readonly triggerSource: TriggerSource
     readonly idempotencyKey: string
     readonly createdAt: Date
+    readonly projectId?: string
   }) => Promise<{ readonly conversationId: string; readonly messageId: string }>
   readonly createRun: (input: {
     readonly id: string
@@ -75,6 +96,10 @@ export interface RuntimeStore {
     readonly createdAt: Date
   }) => Promise<StoredStep>
   readonly listMessages: (conversationId: string) => Promise<readonly StoredMessage[]>
+  readonly listConversationsByProject: (input: {
+    readonly projectId: string
+    readonly limit?: number
+  }) => Promise<readonly StoredConversation[]>
   readonly appendMessage: (input: {
     readonly messageId: string
     readonly conversationId: string
@@ -85,6 +110,8 @@ export interface RuntimeStore {
     readonly createdAt: Date
   }) => Promise<StoredMessage>
   readonly getRun: (runId: string) => Promise<StoredRun | null>
+  /** Active main Run for a conversation (`parentRunId` null + non-terminal status), if any. */
+  readonly findActiveMainRun: (conversationId: string) => Promise<StoredRun | null>
   readonly getStep: (stepId: string) => Promise<StoredStep | null>
   readonly updateStep: (input: {
     readonly stepId: string
@@ -104,6 +131,10 @@ export interface RuntimeStore {
     readonly remainingUses: number | null
     readonly expiresAt: Date
     readonly createdAt: Date
+    readonly delegable?: boolean
+    readonly approvalId?: string | null
+    readonly sandboxProfile?: string | null
+    readonly networkAllowlist?: readonly string[] | null
   }) => Promise<ScopedGrantRecord>
   readonly findActiveGrant: (input: {
     readonly runId: string
@@ -126,14 +157,20 @@ export interface RuntimeStore {
     grantId: string,
     remainingUses: number | null,
   ) => Promise<void>
+  /** Active main/child Runs whose deadline is strictly before `now`. */
+  readonly listRunsPastDeadline: (now: Date) => Promise<readonly StoredRun[]>
 }
 
 export type ReadModelSource = "event_store" | "hybrid" | "relational"
 
+/** Production default: 0002 relational messages (long sessions / multi-project). */
+export const DEFAULT_READ_MODEL_SOURCE: ReadModelSource = "relational"
+
 export function resolveReadModelSource(
   env: Readonly<Record<string, string | undefined>>,
 ): ReadModelSource {
-  const raw = (env["BUTLER_V5_READ_MODEL"] ?? "event_store").trim().toLowerCase()
-  if (raw === "hybrid" || raw === "relational") return raw
-  return "event_store"
+  const raw = (env["BUTLER_V5_READ_MODEL"] ?? DEFAULT_READ_MODEL_SOURCE).trim().toLowerCase()
+  if (raw === "event_store" || raw === "relational") return raw
+  if (raw === "hybrid") return "hybrid"
+  return DEFAULT_READ_MODEL_SOURCE
 }

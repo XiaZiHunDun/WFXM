@@ -88,6 +88,30 @@ export function buildCliRunTrigger(input: {
   })
 }
 
+export function buildTaskRunTrigger(input: {
+  readonly subject: string
+  readonly taskId: string
+  readonly goal: string
+  readonly conversationId: string
+  readonly idempotencyKey: string
+  readonly procedureId?: string | null
+  readonly stepKey?: string | null
+}): RunTrigger {
+  return buildRunTrigger({
+    subject: input.subject,
+    source: "task",
+    conversationRef: input.conversationId,
+    payload: {
+      taskId: input.taskId,
+      goal: input.goal,
+      ...(input.procedureId ? { procedureId: input.procedureId } : {}),
+      ...(input.stepKey ? { stepKey: input.stepKey } : {}),
+    },
+    trustLevel: "owner",
+    idempotencyKey: input.idempotencyKey,
+  })
+}
+
 export function validateRunTrigger(
   trigger: RunTrigger,
 ): { readonly ok: true } | { readonly ok: false; readonly reason: string } {

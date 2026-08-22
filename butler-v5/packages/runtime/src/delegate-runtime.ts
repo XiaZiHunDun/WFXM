@@ -1,3 +1,4 @@
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { EventBridge } from "./bridge.js"
 
 /**
@@ -31,6 +32,10 @@ export interface DelegateInput {
   readonly parentConversationId: string
   readonly actor: { readonly kind: "owner" | "agent" | "system"; readonly id: string }
   readonly bridge: EventBridge
+  /** When set with runtimeStore, creates a relational Child Run (A5). */
+  readonly parentRunId?: string
+  readonly runtimeStore?: RuntimeStore
+  readonly subject?: string
 }
 
 export interface DelegateOutcome {
@@ -38,13 +43,16 @@ export interface DelegateOutcome {
   readonly capabilities: readonly Capability[]
   readonly parentConversationId: string
   readonly childConversationId: string
+  /** Relational child Run id when parentRunId + runtimeStore were provided. */
+  readonly childRunId: string | null
 }
 
 /**
  * Delegate a task to a child agent with a strict capability filter.
  * Writes a ChildRunCreated domain event and an outbox message atomically via
- * the bridge. The actual child execution is handled asynchronously by the worker
- * after polling the outbox.
+ * the bridge. When `parentRunId` + `runtimeStore` are provided, also creates
+ * a queued Child Run (`parentRunId` set) and an initial model Step.
+ * The actual child execution is handled asynchronously by the worker.
  *
  * Throws Error if capabilities is empty (programmer error).
  */
@@ -53,6 +61,65 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
     throw new Error("delegate: capabilities must not be empty")
   }
   const childConversationId = `child-${input.parentConversationId}-${Date.now()}`
+  const subject = input.subject ?? input.actor.id
+  let childRunId: string | null = null
+
+  if (input.runtimeStore && input.parentRunId) {
+    const now = new Date()
+    const store = input.runtimeStore
+    await store.createConversationWithUserMessage({
+      conversationId: childConversationId,
+      messageId: crypto.randomUUID(),
+      subject,
+      content: { text: input.task },
+      triggerSource: "parent_run",
+      idempotencyKey: `delegate-msg:${input.parentRunId}:${childConversationId}`,
+      createdAt: now,
+    })
+    const childRun = await store.createRun({
+      id: crypto.randomUUID(),
+      conversationId: childConversationId,
+      parentRunId: input.parentRunId,
+      triggerSource: "parent_run",
+      idempotencyKey: `child-run:${input.parentRunId}:${childConversationId}`,
+      subject,
+      goal: input.task.slice(0, 200),
+      budget: {
+        maxSteps: 3,
+        role: input.role,
+        parentRunId: input.parentRunId,
+      },
+      deadline: null,
+      createdAt: now,
+    })
+    childRunId = childRun.id
+    await store.createStep({
+      id: crypto.randomUUID(),
+      runId: childRun.id,
+      kind: "model",
+      status: "queued",
+      input: {
+        role: input.role,
+        task: input.task,
+        capabilities: input.capabilities.map((c) => c.tool as string),
+      },
+      createdAt: now,
+    })
+    await store.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: childRun.id,
+      conversationId: childConversationId,
+      action: "run.child_created",
+      subject,
+      detail: {
+        parentRunId: input.parentRunId,
+        parentConversationId: input.parentConversationId,
+        role: input.role,
+      },
+      createdAt: now,
+    })
+  }
+
   await input.bridge.appendConversationEventWithOutbox({
     streamId: input.parentConversationId,
     eventId: `evt-${Date.now()}-delegate`,
@@ -64,6 +131,8 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
       childConversationId,
       role: input.role,
       capabilities: input.capabilities,
+      ...(childRunId ? { childRunId } : {}),
+      ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
     },
     outbox: {
       aggregateType: "Delegate",
@@ -72,6 +141,8 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
         role: input.role,
         task: input.task,
         capabilities: input.capabilities,
+        ...(childRunId ? { childRunId } : {}),
+        ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
       },
     },
   })
@@ -80,5 +151,6 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
     capabilities: input.capabilities,
     parentConversationId: input.parentConversationId,
     childConversationId,
+    childRunId,
   }
 }

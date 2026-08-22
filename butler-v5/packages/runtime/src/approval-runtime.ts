@@ -1,7 +1,18 @@
 import type { ActionKind, RiskLevel, ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import { buildScopedGrantScopeFromPending } from "@butler/domain/governance/types.js"
+import {
+  hashNetworkAllowlistForAudit,
+  hostnamesFromNetworkAllowlist,
+  SANDBOX_PROFILE_NETWORK_ALLOWLIST,
+  validateNetworkAllowlist,
+  envAllowPrivateEgress,
+} from "@butler/domain/governance/network-allowlist.js"
 import { outboundNetworkHostsForCapability } from "./grant-network.js"
 import type { RuntimeStore, StoredStep } from "@butler/domain/runtime.js"
+import {
+  parseSandboxProfileName,
+  sandboxProfileForApprovedCapability,
+} from "./sandbox/profiles.js"
 
 export interface PendingCapabilityInput {
   readonly _tag: "PendingCapability"
@@ -115,6 +126,15 @@ export async function approveWaitingStep(
   store: RuntimeStore,
   stepId: string,
   ownerSubject: string,
+  options: {
+    /** Elevate sandbox to network-allow (must be stamped on Grant). */
+    readonly elevateNetwork?: boolean
+    /** Explicit profile name; overrides elevateNetwork when valid. */
+    readonly sandboxProfile?: string | null
+    /** host:port egress allowlist → workspace-write-network-allowlist (P2b). */
+    readonly networkAllowlist?: readonly string[]
+    readonly env?: NodeJS.ProcessEnv
+  } = {},
 ): Promise<ApprovalDecision> {
   const step = await store.getStep(stepId)
   if (!step || step.kind !== "approval" || step.status !== "waiting") {
@@ -132,6 +152,39 @@ export async function approveWaitingStep(
   if (!run) {
     throw new Error(`run not found for step ${stepId}`)
   }
+  const env = options.env ?? process.env
+  if (options.elevateNetwork === true && options.networkAllowlist && options.networkAllowlist.length > 0) {
+    throw new Error("elevateNetwork and networkAllowlist are mutually exclusive")
+  }
+  let normalizedAllowlist: readonly string[] | null = null
+  if (options.networkAllowlist && options.networkAllowlist.length > 0) {
+    const validated = validateNetworkAllowlist(options.networkAllowlist, {
+      allowPrivateEgress: envAllowPrivateEgress(env),
+    })
+    if (!validated.ok) {
+      throw new Error(validated.reason)
+    }
+    normalizedAllowlist = validated.normalized
+  }
+  const explicitProfile = parseSandboxProfileName(options.sandboxProfile)
+  if (explicitProfile === SANDBOX_PROFILE_NETWORK_ALLOWLIST && !normalizedAllowlist) {
+    throw new Error("sandboxProfile network-allowlist requires networkAllowlist")
+  }
+  const sandboxProfile =
+    explicitProfile ??
+    (normalizedAllowlist
+      ? SANDBOX_PROFILE_NETWORK_ALLOWLIST
+      : sandboxProfileForApprovedCapability(pending.capability, {
+          elevateNetwork: options.elevateNetwork === true,
+        }))
+  const outboundHosts = outboundNetworkHostsForCapability(pending.capability, env)
+  const allowlistHosts = normalizedAllowlist
+    ? hostnamesFromNetworkAllowlist(normalizedAllowlist)
+    : undefined
+  const networkHosts =
+    allowlistHosts && allowlistHosts.length > 0
+      ? [...new Set([...(outboundHosts ?? []), ...allowlistHosts])]
+      : outboundHosts
   const now = new Date()
   const grant = await store.createScopedGrant({
     grantId: crypto.randomUUID(),
@@ -141,11 +194,16 @@ export async function approveWaitingStep(
       capability: pending.capability,
       resource: pending.resource,
       digest: pending.digest,
-      networkHosts: outboundNetworkHostsForCapability(pending.capability),
+      networkHosts,
+      forceNetworkAllow: normalizedAllowlist !== null,
     }),
     remainingUses: 1,
     expiresAt: new Date(pending.expiresAtMs),
     createdAt: now,
+    delegable: false,
+    approvalId: stepId,
+    sandboxProfile,
+    networkAllowlist: normalizedAllowlist,
   })
   await store.updateStep({
     stepId,
@@ -160,7 +218,15 @@ export async function approveWaitingStep(
     conversationId: pending.conversationId,
     action: "approval.granted",
     subject: ownerSubject,
-    detail: { stepId, capability: pending.capability, grantId: grant.id },
+    detail: {
+      stepId,
+      capability: pending.capability,
+      grantId: grant.id,
+      ...(grant.sandboxProfile ? { sandboxProfile: grant.sandboxProfile } : {}),
+      ...(grant.networkAllowlist && grant.networkAllowlist.length > 0
+        ? { networkAllowlistHash: hashNetworkAllowlistForAudit(grant.networkAllowlist) }
+        : {}),
+    },
     createdAt: now,
   })
   return { step, grant, runId: step.runId }

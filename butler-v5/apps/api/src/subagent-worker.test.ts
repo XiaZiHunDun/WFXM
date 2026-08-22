@@ -127,6 +127,66 @@ describe("subagent worker", () => {
     handle.stop()
   })
 
+  it("finalizes a relational Child Run when outbox carries childRunId", async () => {
+    const { createRuntimeStore } = await import("@butler/persistence/runtime-store.js")
+    const runtimeStore = createRuntimeStore(db.db)
+    const parent = "p-subagent-child-run"
+    const createdAt = new Date("2026-08-20T00:00:00Z")
+    await runtimeStore.createConversationWithUserMessage({
+      conversationId: parent,
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "parent" },
+      triggerSource: "channel",
+      idempotencyKey: "a5-worker-parent-msg",
+      createdAt,
+    })
+    const parentRun = await runtimeStore.createRun({
+      id: crypto.randomUUID(),
+      conversationId: parent,
+      parentRunId: null,
+      triggerSource: "channel",
+      idempotencyKey: "a5-worker-parent-run",
+      subject: "owner-1",
+      goal: "reply",
+      budget: { maxSteps: 5 },
+      deadline: null,
+      createdAt,
+    })
+    await runtimeStore.transitionRunStatus(parentRun.id, parentRun.version, "running", createdAt)
+    const cap: Capability = { tool: "general" as Capability["tool"] }
+    const out = await delegate({
+      role: "researcher",
+      task: "find docs",
+      capabilities: [cap],
+      parentConversationId: parent,
+      actor: { kind: "agent", id: "kernel" },
+      bridge,
+      runtimeStore,
+      parentRunId: parentRun.id,
+      subject: "owner-1",
+    })
+    expect(out.childRunId).toBeTruthy()
+    if (!out.childRunId) throw new Error("expected childRunId")
+    const childRunId = out.childRunId
+
+    const handle = runSubagentWorker(
+      bridge,
+      () => makeStubAdapter("child done"),
+      {},
+      { logger: silentLogger, intervalMs: 10, runtimeStore },
+    )
+    const drained = await waitFor(async () => {
+      const child = await runtimeStore.getRun(childRunId)
+      return child?.status === "succeeded"
+    })
+    expect(drained).toBe(true)
+    const child = await runtimeStore.getRun(childRunId)
+    expect(child?.parentRunId).toBe(parentRun.id)
+    expect(child?.status).toBe("succeeded")
+    handle.stop()
+  })
+
   it("skips outbox messages with aggregateType other than Delegate", async () => {
     const parent = "p-subagent-2"
     await enqueueOutbox(db.db, {

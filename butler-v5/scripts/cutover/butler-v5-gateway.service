@@ -42,7 +42,8 @@ Environment=NODE_ENV=production
 # NO_PROXY=api.deepseek.com,api.openai.com,dashscope.aliyuncs.com,api.minimaxi.com
 Environment=PATH=/home/ailearn/.nvm/versions/node/v20.20.1/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=-%h/.config/butler-v5/env
-# When BUTLER_V5_SANDBOX=bubblewrap, uncomment to fail-closed if bwrap is missing:
+# When BUTLER_V5_SANDBOX=bubblewrap, butler-v5-start.sh runs sandbox-preflight (fail-closed).
+# Optional duplicate guard for systemd:
 # ExecStartPre=/home/ailearn/projects/WFXM/butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh
 
 [Install]

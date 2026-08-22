@@ -1,0 +1,12 @@
+[
+  {
+    "id": "hourly-heartbeat",
+    "everyMs": 3600000,
+    "cooldownMs": 3600000,
+    "goal": "只读巡检：必要时用 recall_history / read_file。若无待办、无异常，回复「无事」。",
+    "maxSteps": 3,
+    "deadlineMs": 120000,
+    "quietSuccess": true,
+    "enabled": true
+  }
+]

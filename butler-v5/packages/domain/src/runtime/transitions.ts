@@ -12,8 +12,8 @@ export type RunTransitionResult =
 const LEGAL_TRANSITIONS: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
   queued: ["running", "cancelled", "expired"],
   running: ["waiting_approval", "waiting_external", "succeeded", "failed", "cancelled", "expired"],
-  waiting_approval: ["running", "cancelled", "expired"],
-  waiting_external: ["running", "cancelled", "expired"],
+  waiting_approval: ["running", "failed", "cancelled", "expired"],
+  waiting_external: ["running", "failed", "cancelled", "expired"],
   succeeded: [],
   failed: [],
   cancelled: [],

@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest"
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { appendEvents, loadStream } from "./event-store.js"
 import { openButlerDatabase } from "./db-open.js"
 
@@ -13,7 +16,7 @@ function testPostgresUrl(env: NodeJS.ProcessEnv): string {
 
 describe("openButlerDatabase", () => {
   it("opens pglite and applies schema", async () => {
-    const opened = await openButlerDatabase({ BUTLER_V5_DB: "pglite" })
+    const opened = await openButlerDatabase({ BUTLER_V5_DB: "pglite", VITEST: "true", NODE_ENV: "test" })
     expect(opened.ok).toBe(true)
     if (!opened.ok) return
     expect(opened.value.kind).toBe("pglite")
@@ -79,5 +82,46 @@ describe("openButlerDatabase", () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]?.eventType).toBe("PersistProbe")
     await second.value.close()
+  })
+
+  it("pglite file path survives reconnect", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "pglite-persist-"))
+    const streamId = `pglite-file-${crypto.randomUUID()}`
+    try {
+      const first = await openButlerDatabase({
+        BUTLER_V5_DB: "pglite",
+        BUTLER_V5_PGLITE_DATA_DIR: tmp,
+        NODE_ENV: "development",
+      })
+      expect(first.ok).toBe(true)
+      if (!first.ok) return
+      await appendEvents(
+        first.value.db,
+        streamId,
+        { n: 1 },
+        {
+          eventId: crypto.randomUUID(),
+          eventType: "PersistProbe",
+          eventVersion: 1,
+          correlationId: "pglite-file",
+          occurredAt: new Date(),
+          actor: { kind: "system", id: "test" },
+        },
+      )
+      await first.value.close()
+
+      const second = await openButlerDatabase({
+        BUTLER_V5_DB: "pglite",
+        BUTLER_V5_PGLITE_DATA_DIR: tmp,
+        NODE_ENV: "development",
+      })
+      expect(second.ok).toBe(true)
+      if (!second.ok) return
+      const rows = await loadStream(second.value.db, streamId)
+      expect(rows).toHaveLength(1)
+      await second.value.close()
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
   })
 })

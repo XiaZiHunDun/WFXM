@@ -5,6 +5,8 @@ import pg from "pg"
 import type { ButlerDb } from "./db.js"
 import { resolveButlerDbKind } from "./db-kind.js"
 import { applyMigrations } from "./migrations/run-migrations.js"
+import { backfillConversationProjectIds } from "./conversation-project-backfill.js"
+import { resolvePgliteDataDir } from "./pglite-data-dir.js"
 
 const { Pool } = pg
 
@@ -31,9 +33,11 @@ export async function openButlerDatabase(env: NodeJS.ProcessEnv): Promise<OpenBu
   const kind = resolveButlerDbKind(env)
   if (kind === "pglite") {
     try {
-      const client = new PGlite()
+      const dataDir = resolvePgliteDataDir(env)
+      const client = dataDir ? new PGlite(dataDir) : new PGlite()
       await applyMigrations((sql) => client.exec(sql))
       const db = drizzlePglite(client, {})
+      await backfillConversationProjectIds(db)
       return {
         ok: true,
         value: {
@@ -62,6 +66,7 @@ export async function openButlerDatabase(env: NodeJS.ProcessEnv): Promise<OpenBu
     return { ok: false, reason: `postgres open failed: ${errorReason(err)}` }
   }
   const db = drizzlePg(pool, {})
+  await backfillConversationProjectIds(db)
   return {
     ok: true,
     value: {

@@ -19,6 +19,16 @@ PROTECTED_FILES=(
     ".claude/settings.json"
     "scripts/ai_guard/pre_tool_use_hook.py"
     "scripts/ai_guard/post_tool_use_hook.py"
+    # Butler v5 production load-bearing (see docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md)
+    "butler-v5/packages/persistence/src/migrations/0001_initial.sql"
+    "butler-v5/apps/api/src/wechat-inbound-butler.ts"
+    "butler-v5/packages/runtime/src/agent-kernel.ts"
+    "butler-v5/packages/runtime/src/run-engine.ts"
+    "butler-v5/packages/runtime/src/bridge.ts"
+    "butler-v5/packages/runtime/src/capability-boundary.ts"
+    "butler-v5/apps/api/src/tool-boundary.ts"
+    "butler-v5/apps/api/src/capability-guard.ts"
+    "butler-v5/apps/api/src/workspace-tools.ts"
 )
 
 VIOLATIONS=0
@@ -102,14 +112,20 @@ if [ -n "$SECRET_HITS" ]; then
 fi
 echo "✅ Secret 扫描通过"
 
-# 3. 检查契约文件是否被修改（警告）
+# 3. Butler v5 迁移 schema 警告
+if git diff --cached --name-only | grep -qE "^butler-v5/packages/persistence/src/migrations/"; then
+    echo "⚠️  WARNING: v5 persistence migration 被修改"
+    echo "   请运行: cd butler-v5 && pnpm exec vitest run packages/persistence/src/runtime-schema.test.ts"
+fi
+
+# 4. 检查契约文件是否被修改（警告）
 if git diff --cached --name-only | grep -qE "^butler/contracts/"; then
     echo "⚠️  WARNING: 契约层文件被修改"
     echo "   请确保已运行契约测试: python -m pytest tests/contracts/ -v"
     echo "   并确认所有 Port 实现已同步更新。"
 fi
 
-# 4. 检查 shim 文件是否被修改（警告）
+# 5. 检查 shim 文件是否被修改（警告）
 SHIM_FILES=$(git diff --cached --name-only | grep -E "\.py$" || true | while read f; do
     if [ -f "$f" ] && head -5 "$f" 2>/dev/null | grep -q "Deprecated:"; then
         echo "$f"

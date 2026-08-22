@@ -49,6 +49,73 @@ export {
   buildDreamResult,
 } from "./memory/pure.js"
 
+// ─── Durable Memory（知识层 2，按需）────────────────────
+export {
+  type DurableMemoryId,
+  type DurableMemorySourceKind,
+  type DurableMemoryStatus,
+  type DurableMemoryProvenance,
+  type DurableMemoryRecord,
+  type CreateDurableMemoryInput,
+  type DurableMemoryValidation,
+  createDurableMemoryRecord,
+  isDurableMemoryActive,
+  matchDurableMemoryQuery,
+  selectDurableMemoriesForWorkingSet,
+  formatDurableMemoryPrefix,
+  confirmDurableMemory,
+  rejectDurableMemory,
+} from "./knowledge/durable-memory.js"
+export {
+  type DocumentId,
+  type DocumentFormat,
+  type DocumentStatus,
+  type DocumentProvenance,
+  type DocumentRecord,
+  type IngestDocumentInput,
+  type DocumentValidation,
+  DOCUMENT_FORMATS,
+  defaultMimeForFormat,
+  parseDocumentFormat,
+  ingestDocumentRecord,
+  matchDocumentQuery,
+  selectDocumentsForRecall,
+  formatDocumentSnippet,
+} from "./knowledge/document-ingest.js"
+export {
+  type TaskId,
+  type ProcedureId,
+  type TaskStatus,
+  type ProcedureStepTemplate,
+  type ProcedureRecord,
+  type TaskRecord,
+  type CreateProcedureInput,
+  type CreateTaskInput,
+  type TaskValidation,
+  type ProcedureValidation,
+  createProcedureRecord,
+  createTaskRecord,
+  resolveTaskRunGoal,
+  advanceTaskAfterStep,
+  defaultTaskConversationId,
+} from "./knowledge/task-procedure.js"
+
+// ─── Local tracing（可观测，默认本地）────────────────────
+export {
+  type TraceKind,
+  type TraceEvent,
+  type CreateTraceEventInput,
+  type TraceExporterKind,
+  type TraceConfig,
+  redactTraceText,
+  redactTraceValue,
+  createTraceEvent,
+  applyTraceRedaction,
+  parseTraceConfig,
+  formatOtelStdoutLine,
+  filterTraceEvents,
+} from "./observability/local-trace.js"
+
 // ─── 防错域 ──────────────────────────────────────────────
 export {
   type IntentReceipt,
@@ -136,13 +203,18 @@ export {
   type RunTransitionResult,
 } from "./runtime/index.js"
 export {
+  ACTIVE_MAIN_RUN_STATUSES,
+  isActiveMainRunStatus,
   type StoredMessage,
+  type StoredConversation,
   type StoredRun,
   type StoredStep,
   type RuntimeStore,
   type ReadModelSource,
+  DEFAULT_READ_MODEL_SOURCE,
   resolveReadModelSource,
 } from "./runtime/store-contract.js"
+export { inferProjectIdFromConversationId } from "./runtime/project-id.js"
 
 // ─── Governance domain ───────────────────────────────────
 export {
@@ -175,3 +247,16 @@ export {
   resolveGrantNetworkHosts,
   hostnameFromHttpUrl,
 } from "./governance/grant-network-hosts.js"
+export {
+  SANDBOX_PROFILE_NETWORK_ALLOWLIST,
+  MAX_NETWORK_ALLOWLIST_ENTRIES,
+  DEFAULT_NETWORK_ALLOWLIST_PORT,
+  normalizeNetworkAllowlistEntry,
+  validateNetworkAllowlist,
+  hashNetworkAllowlistForAudit,
+  hostnamesFromNetworkAllowlist,
+  resolveSandboxNetworkMode,
+  isDestinationAllowedInNetworkAllowlist,
+  destinationKey,
+  envAllowPrivateEgress,
+} from "./governance/network-allowlist.js"

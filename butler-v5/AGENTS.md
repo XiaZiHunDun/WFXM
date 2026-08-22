@@ -13,9 +13,11 @@
 | **脚手架（未接线）** | `packages/application/_archive/`、`packages/infrastructure/_archive/` | 不要当已实现；不要用其单测声称能力已交付 |
 | **目标架构** | `DESIGN.md`、Policy/ScopedGrant/Sandbox | 规划用，不等于生产已有 |
 
-**修改 butler-v5/ 后必跑：** `cd butler-v5 && pnpm test`
+**修改 butler-v5/ 后必跑：** `cd butler-v5 && pnpm test`（默认不含 `_archive` 脚手架测试；需时用 `pnpm test:archived`）
 
 > §一 以下 Effect-TS 包表描述的是**目标架构**；生产 delivery shell 为 async/await + RunEngine，见生产架构文档。
+
+> **运行时安全 vs 开发守卫**：生产路径用 `PolicyGate` + `ScopedGrant` + `waiting_approval` + Owner loopback API（见 production architecture）。§十 GUARD、`load-bearing-marks.json` 与 `packages/infrastructure/_archive/guards/` 是**开发 Butler 仓库时的 AI/工程守卫**，不在微信主路径 runtime 执行。
 
 ---
 
@@ -54,11 +56,13 @@ Butler v5 是微信编码管家的**函数式重写**，采用 TypeScript + Effe
 - 理解问题（必须完整阅读并追踪真实流程）
 - 信任边界处的输入验证
 - 防止数据丢失的错误处理
-- 安全性措施
-- 7 条 GUARD 机制（§十）
+- 生产运行时：`PolicyGate` / ScopedGrant / 审批 Step / Audit（见 production architecture）
+- 开发仓库：scope-boundaries、pre-tool hooks、§十 GUARD（不混入产品运行时）
 - 用户的明确要求
 
 ## 四、受保护文件（BLOCK：绝不允许 AI 直接修改）
+
+**仓库级 PreToolUse**（`scripts/ai_guard/pre_tool_use_hook.py`）另保护 v5 生产承重文件，完整清单见 [`docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md`](../../docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md)。
 
 | 文件                              | 原因                                   |
 | --------------------------------- | -------------------------------------- |
@@ -125,7 +129,9 @@ Butler v5 是微信编码管家的**函数式重写**，采用 TypeScript + Effe
 
 见 `.butler/anti-patterns/registry.json`。每次迭代前自动加载。
 
-## 十、7 条 GUARD 机制速查
+## 十、7 条 GUARD 机制速查（开发仓库用，非生产 runtime）
+
+> 实现位于 `packages/infrastructure/_archive/guards/`；**未接入** `apps/api` / `packages/runtime` 微信主路径。产品运行时审批见 `PolicyGate` + Owner API。
 
 | #       | 机制           | 触发条件                                 |
 | ------- | -------------- | ---------------------------------------- |

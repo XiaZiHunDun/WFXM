@@ -18,10 +18,21 @@
     "./policy-gate.js": "./src/policy-gate.ts",
     "./capability-boundary.js": "./src/capability-boundary.ts",
     "./approval-runtime.js": "./src/approval-runtime.ts",
+    "./run-lifecycle.js": "./src/run-lifecycle.ts",
     "./inline-approval-intent.js": "./src/inline-approval-intent.ts",
     "./grant-network.js": "./src/grant-network.ts",
     "./mcp-gate.js": "./src/mcp-gate.ts",
-    "./mcp-consent.js": "./src/mcp-consent.ts"
+    "./mcp-consent.js": "./src/mcp-consent.ts",
+    "./intake.js": "./src/intake/index.ts",
+    "./intake/index.js": "./src/intake/index.ts",
+    "./intake/conversation-id.js": "./src/intake/conversation-id.ts",
+    "./intake/normalize-inbound.js": "./src/intake/normalize-inbound.ts",
+    "./execution.js": "./src/execution/index.ts",
+    "./execution/index.js": "./src/execution/index.ts",
+    "./execution/conversation-loop.js": "./src/execution/conversation-loop.ts",
+    "./sandbox.js": "./src/sandbox/index.ts",
+    "./sandbox/index.js": "./src/sandbox/index.ts",
+    "./observability/local-tracer.js": "./src/observability/local-tracer.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

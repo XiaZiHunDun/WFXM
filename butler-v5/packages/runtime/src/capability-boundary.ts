@@ -11,6 +11,7 @@ import {
 } from "./policy-gate.js"
 import { runTool, type RunResult, type ToolDefinition } from "./tool-runtime.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
+import { getSharedLocalTracer } from "./observability/local-tracer.js"
 
 export type ToolExecutionOutcome =
   | RunResult
@@ -38,6 +39,8 @@ export function actionKindForTool(toolName: string): ActionKind {
       return "delegate"
     case "read_file":
     case "recall_history":
+    case "recall_durable_memory":
+    case "recall_document":
     case "get_current_time":
     case "greet_with_time":
     case "summarize_today":
@@ -129,7 +132,9 @@ export function splitCoreAndMcpTools(tools: readonly ToolDefinition[]): {
   return { core, mcp }
 }
 
-/** Register MCP ToolDefinitions as explicit extra providers on the production registry. */
+/** Register MCP ToolDefinitions as explicit extra providers on the production registry.
+ * MCP execute runs under the same side-effect sandbox context as core tools (A8).
+ */
 export function mcpCapabilityProvidersFromTools(
   tools: readonly ToolDefinition[],
   timeoutMsFor: (toolName: string) => number = () => 5_000,
@@ -140,8 +145,12 @@ export function mcpCapabilityProvidersFromTools(
       definition,
       provider: {
         name: definition.name,
-        execute: async (request) =>
-          runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
+        execute: async (request) => {
+          // Grant.sandboxProfile is visible via currentSandboxProfileName()
+          // while this provider runs (PolicyGate ALS). Remote MCP I/O is not
+          // bubblewrap'd; profile binds the approved technical ceiling for audit.
+          return runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) })
+        },
       },
     }
   })
@@ -174,11 +183,37 @@ export async function executeToolThroughBoundary(
     definition,
   )
   const outcome = await registry.executeThroughBoundary(gate, request, args, ctx.grant)
+  const tracer = getSharedLocalTracer()
+  const policyTag = outcome._tag === "Blocked" ? outcome.decision._tag : "Allow"
+  tracer.record({
+    kind: "policy",
+    name: policyTag,
+    status: outcome._tag === "Blocked" && outcome.decision._tag === "Deny" ? "error" : "ok",
+    runId: approval?.runId ?? null,
+    conversationId: approval?.conversationId ?? null,
+    subject: ctx.subject,
+    capability: definition.name,
+    policyDecision: policyTag,
+    grantId: ctx.grant?.id ?? null,
+    detail: { resource: ctx.resource },
+  })
   if (outcome._tag === "Blocked") {
     const decision = outcome.decision
     if (decision._tag === "Ask") {
       if (approval) {
         const step = await persistAskApproval(approval, request, definition, args, decision)
+        tracer.record({
+          kind: "approval",
+          name: "requested",
+          status: "waiting",
+          runId: approval.runId,
+          conversationId: approval.conversationId,
+          stepId: step.stepId,
+          waitingStepId: step.stepId,
+          subject: ctx.subject,
+          capability: definition.name,
+          policyDecision: "Ask",
+        })
         return {
           ok: false,
           reason: `[待审批] ${decision.question}`,
@@ -192,7 +227,20 @@ export async function executeToolThroughBoundary(
     }
     return { ok: false, reason: "policy denied" }
   }
+  const started = Date.now()
   const result = outcome.result
+  tracer.record({
+    kind: "capability",
+    name: definition.name,
+    status: result.ok ? "ok" : "error",
+    runId: approval?.runId ?? null,
+    conversationId: approval?.conversationId ?? null,
+    subject: ctx.subject,
+    capability: definition.name,
+    grantId: ctx.grant?.id ?? null,
+    durationMs: Date.now() - started,
+    detail: result.ok ? { ok: true } : { reason: result.reason ?? "failed" },
+  })
   if (!result.ok) {
     return { ok: false, reason: result.reason ?? "capability failed" }
   }

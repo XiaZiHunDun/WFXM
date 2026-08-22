@@ -5,7 +5,14 @@ export type RunId = string
 export type StepId = string
 
 // ─── Trigger ─────────────────────────────────────────────
-export type TriggerSource = "channel" | "cli" | "api" | "webhook" | "schedule" | "parent_run"
+export type TriggerSource =
+  | "channel"
+  | "cli"
+  | "api"
+  | "webhook"
+  | "schedule"
+  | "parent_run"
+  | "task"
 export type TrustLevel = "untrusted" | "trusted" | "owner"
 
 export interface RunTrigger {
@@ -65,7 +72,7 @@ export interface Run {
   readonly updatedAt: number
 }
 
-export type StepKind = "model" | "capability" | "approval" | "result"
+export type StepKind = "model" | "capability" | "approval" | "result" | "external"
 export type StepStatus = "queued" | "running" | "waiting" | "succeeded" | "failed"
 
 export interface Step {

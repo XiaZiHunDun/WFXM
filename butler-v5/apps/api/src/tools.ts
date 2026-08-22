@@ -1,5 +1,7 @@
 import type { EventBridge } from "@butler/runtime/bridge.js"
-import type { RuntimeStore } from "@butler/domain/runtime.js"
+import type { RuntimeStore, StoredMessage } from "@butler/domain/runtime.js"
+import type { DurableMemoryStore, DocumentStore } from "@butler/persistence"
+import { resolveReadModelSource } from "@butler/domain/runtime.js"
 import type { LLMTool } from "@butler/adapters"
 import {
   ALLOWED_CAPABILITIES,
@@ -12,11 +14,13 @@ import { makeSendWechatFileTool } from "./send-wechat-file.js"
 import { makeReadFileTool, makeRunCommandTool } from "./workspace-tools.js"
 import { loadMcpToolDefinitions, loadMcpLlmTools, type McpToolsOptions } from "./mcp-tools.js"
 import type { McpToolBundle } from "./mcp-bootstrap.js"
+import { isSubagentEnabled } from "./subagent-config.js"
 
 /**
  * Minimal context passed to tool handlers. The butler loop wires the
  * current EventBridge + conversation id so tools like `recall_history`
- * can read from event_store without taking a global dependency.
+ * can read the configured read model (0002 messages by default, with
+ * event_store fallback) without taking a global dependency.
  *
  * `actor` (R8.x.6) is the typed actor that will be recorded on any
  * domain events the tool emits (e.g. ChildRunCreated). Tools that do
@@ -27,6 +31,8 @@ export interface ButlerToolContext {
   readonly conversationId: string
   readonly actor?: { readonly kind: "owner" | "agent" | "system"; readonly id: string }
   readonly runtimeStore?: RuntimeStore
+  /** Parent Run id for Child Run creation on delegate (A5). */
+  readonly runId?: string
   /** Sandbox root for read_file / run_command. Defaults to cwd / env. */
   readonly workspaceRoot?: string
   /** Current inbound WeChat user; required by send_wechat_file. */
@@ -36,21 +42,47 @@ export interface ButlerToolContext {
   /** Inject MCP discovery/invoke for tests; production uses wiring.mcp from bootstrap. */
   readonly mcp?: McpToolsOptions
   readonly mcpBundle?: McpToolBundle
+  /** Durable Memory store for explicit recall (layer 2 knowledge). */
+  readonly durableMemoryStore?: DurableMemoryStore | null
+  /** Document ingest store for explicit recall. */
+  readonly documentStore?: DocumentStore | null
+  /** Subject whose memories to search (usually owner / wechat user). */
+  readonly memorySubject?: string
+}
+
+function storedMessageText(content: Readonly<Record<string, unknown>>): string {
+  const text = content["text"]
+  if (typeof text === "string") return text
+  const body = content["body"]
+  if (typeof body === "string") return body
+  return JSON.stringify(content)
+}
+
+type ToolHistory =
+  | { readonly kind: "messages"; readonly rows: readonly StoredMessage[] }
+  | {
+      readonly kind: "events"
+      readonly rows: readonly Awaited<ReturnType<EventBridge["loadStream"]>>
+    }
+
+/**
+ * Prefer 0002 `messages` when BUTLER_V5_READ_MODEL is hybrid/relational
+ * and RuntimeStore is wired; otherwise fall back to event_store.
+ */
+export async function loadToolConversationHistory(ctx: ButlerToolContext): Promise<ToolHistory> {
+  const source = resolveReadModelSource(ctx.env ?? process.env)
+  if (source !== "event_store" && ctx.runtimeStore) {
+    const messages = await ctx.runtimeStore.listMessages(ctx.conversationId)
+    if (source === "relational" || messages.length > 0) {
+      return { kind: "messages", rows: messages }
+    }
+  }
+  return { kind: "events", rows: await ctx.bridge.loadStream(ctx.conversationId) }
 }
 
 /**
- * R8.x.5: the wechat butler is for Chinese-language users in China.
- * The current time is always presented in Asia/Shanghai (UTC+8) so the
- * model can quote it back verbatim without the user having to reconcile
- * a UTC label.
- */
-const SHANGHAI_TIMEZONE = "Asia/Shanghai" as const
-const SHANGHAI_UTC_OFFSET = "UTC+8" as const
-
-/**
- * `recall_history` — query the event_store for the most recent
- * conversation events and return them as a compact string the LLM
- * can quote in its reply. Marked low-risk: it only reads.
+ * `recall_history` — recall recent conversation turns from the configured
+ * read model (0002 messages by default). Marked low-risk: it only reads.
  */
 export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
   return {
@@ -69,8 +101,18 @@ export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
           ? Math.min(Math.floor(limitRaw), 20)
           : 5
       try {
-        const events = await ctx.bridge.loadStream(ctx.conversationId)
-        const recent = events.slice(-limit)
+        const history = await loadToolConversationHistory(ctx)
+        if (history.kind === "messages") {
+          const recent = history.rows.slice(-limit)
+          const lines = recent.map(
+            (m, i) => `${i + 1}. [${m.role}] ${storedMessageText(m.content)}`,
+          )
+          return {
+            ok: true,
+            output: lines.length > 0 ? lines.join("\n") : "(no prior events)",
+          }
+        }
+        const recent = history.rows.slice(-limit)
         const lines = recent.map((e, i) => {
           const payload = e.payload as Record<string, unknown>
           const content =
@@ -87,6 +129,15 @@ export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
     },
   }
 }
+
+/**
+ * R8.x.5: the wechat butler is for Chinese-language users in China.
+ * The current time is always presented in Asia/Shanghai (UTC+8) so the
+ * model can quote it back verbatim without the user having to reconcile
+ * a UTC label.
+ */
+const SHANGHAI_TIMEZONE = "Asia/Shanghai" as const
+const SHANGHAI_UTC_OFFSET = "UTC+8" as const
 
 /**
  * `get_current_time` — R8.x.5: return the wall-clock time formatted in
@@ -178,12 +229,9 @@ function pickGreeting(hour: number): string {
 }
 
 /**
- * `summarize_today` — read the entire event_store for the current
- * conversation and return a 24-hour window summary, broken down by
- * event type. Marked low-risk: pure read. The EventBridge does not
- * expose a generic query API yet, so the summary is derived from
- * `loadStream` (the same source `recall_history` uses). If the bridge
- * errors, the tool returns an error envelope rather than throwing.
+ * `summarize_today` — summarize the last 24 hours from the configured
+ * read model (0002 messages by default; event_store fallback). Marked
+ * low-risk: pure read. Errors return an envelope rather than throwing.
  */
 export function makeSummarizeTodayTool(ctx: ButlerToolContext): ToolDefinition {
   return {
@@ -197,9 +245,25 @@ export function makeSummarizeTodayTool(ctx: ButlerToolContext): ToolDefinition {
       | { readonly ok: false; readonly reason: string }
     > {
       try {
-        const events = await ctx.bridge.loadStream(ctx.conversationId)
+        const history = await loadToolConversationHistory(ctx)
         const cutoff = Date.now() - 24 * 60 * 60 * 1000
-        const recent = events.filter((e) => {
+        if (history.kind === "messages") {
+          const recent = history.rows.filter((m) => m.createdAt.getTime() >= cutoff)
+          const counts = new Map<string, number>()
+          for (const m of recent) {
+            counts.set(m.role, (counts.get(m.role) ?? 0) + 1)
+          }
+          const breakdown = Array.from(counts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([role, count]) => `${role}: ${count}`)
+            .join(", ")
+          const summary =
+            recent.length === 0
+              ? "过去 24 小时内没有消息记录。"
+              : `过去 24 小时共 ${recent.length} 条消息。\n按角色: ${breakdown}`
+          return { ok: true, output: summary }
+        }
+        const recent = history.rows.filter((e) => {
           const ts = e.occurredAt instanceof Date ? e.occurredAt.getTime() : 0
           return ts >= cutoff
         })
@@ -291,6 +355,9 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
           parentConversationId: ctx.conversationId,
           actor: ctx.actor ?? defaultActor,
           bridge: ctx.bridge,
+          ...(ctx.runtimeStore ? { runtimeStore: ctx.runtimeStore } : {}),
+          ...(ctx.runId ? { parentRunId: ctx.runId } : {}),
+          ...(ctx.wechatUserId ? { subject: ctx.wechatUserId } : {}),
         })
         writeSubagentAudit(ctx.runtimeStore, {
           ts: new Date().toISOString(),
@@ -303,7 +370,9 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
         })
         return {
           ok: true,
-          output: `任务已委派给 ${outcome.role} 子代理（child conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`,
+          output: outcome.childRunId
+            ? `任务已委派给 ${outcome.role} 子代理（child run: ${outcome.childRunId}, conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`
+            : `任务已委派给 ${outcome.role} 子代理（child conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`,
         }
       } catch (err) {
         return { ok: false, reason: err instanceof Error ? err.message : String(err) }
@@ -324,14 +393,38 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
   {
     name: "recall_history",
     description:
-      "Recall the most recent conversation events from this conversation's event_store. Pass an optional `limit` (default 5, max 20) to control how many recent messages are returned. Returns a numbered list of past events with their type and content.",
+      "Recall the most recent conversation turns (messages from the runtime store, with event_store fallback). Pass an optional `limit` (default 5, max 20). Returns a numbered list with role/type and content.",
     parameters: {
       type: "object",
       properties: {
         limit: {
           type: "number",
-          description: "Maximum number of recent events to recall (1-20).",
+          description: "Maximum number of recent turns to recall (1-20).",
         },
+      },
+    },
+  },
+  {
+    name: "recall_durable_memory",
+    description:
+      "Search confirmed Durable Memory (owner preferences/facts). Optional `query` substring filter and `limit` (default 5). This is not conversation transcript and never invents memories from summaries.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Optional keyword filter." },
+        limit: { type: "number", description: "Max memories to return (1-20)." },
+      },
+    },
+  },
+  {
+    name: "recall_document",
+    description:
+      "Search ingested documents by keyword over extracted text (plaintext/markdown/pdf-with-preextracted-text). Optional `query` and `limit` (default 3). Not a vector RAG index.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Optional keyword filter." },
+        limit: { type: "number", description: "Max documents to return (1-10)." },
       },
     },
   },
@@ -356,7 +449,7 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
   {
     name: "summarize_today",
     description:
-      "Return a summary of butler activity for this conversation in the last 24 hours, broken down by event type (e.g. 'AssistantMessageProduced: 4, ConversationStarted: 1'). Use when the user asks '今天做了什么' or wants a quick activity recap.",
+      "Return a summary of butler activity for this conversation in the last 24 hours (message roles when using the relational read model, or event types when falling back to event_store). Use when the user asks '今天做了什么' or wants a quick activity recap.",
     parameters: {
       type: "object",
       properties: {},
@@ -436,6 +529,91 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
 ]
 
 /**
+ * `recall_durable_memory` — explicit keyword recall over confirmed Durable Memory.
+ * Does not read Transcript; does not invent facts from compaction.
+ */
+export function makeRecallDurableMemoryTool(ctx: ButlerToolContext): ToolDefinition {
+  return {
+    name: "recall_durable_memory" as ToolDefinition["name"],
+    risk: "low",
+    async run(args: Record<string, unknown>): Promise<
+      | { readonly ok: true; readonly output: unknown }
+      | { readonly ok: false; readonly reason: string }
+    > {
+      const store = ctx.durableMemoryStore
+      if (!store) {
+        return { ok: false, reason: "durable memory store unavailable" }
+      }
+      const subject = (ctx.memorySubject ?? "").trim() || "owner"
+      const query = typeof args["query"] === "string" ? args["query"] : ""
+      const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5
+      const limit = Math.min(20, Math.max(1, Math.floor(limitRaw)))
+      try {
+        const { selectDurableMemoriesForWorkingSet } = await import(
+          "@butler/domain/knowledge/durable-memory.js"
+        )
+        const records = await store.listBySubject({ subject, status: "confirmed", limit: 40 })
+        const selected = selectDurableMemoriesForWorkingSet({
+          records,
+          nowMs: Date.now(),
+          query,
+          limit,
+        })
+        if (selected.length === 0) {
+          return { ok: true, output: "（无匹配的已确认 Durable Memory）" }
+        }
+        const lines = selected.map(
+          (r, i) => `${i + 1}. [${r.id.slice(0, 8)} conf=${Math.round(r.confidence * 100)}%] ${r.content}`,
+        )
+        return { ok: true, output: lines.join("\n") }
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  }
+}
+
+/**
+ * `recall_document` — keyword recall over ingested documents (extracted text).
+ * Not a vector index; does not invent documents.
+ */
+export function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
+  return {
+    name: "recall_document" as ToolDefinition["name"],
+    risk: "low",
+    async run(args: Record<string, unknown>): Promise<
+      | { readonly ok: true; readonly output: unknown }
+      | { readonly ok: false; readonly reason: string }
+    > {
+      const store = ctx.documentStore
+      if (!store) {
+        return { ok: false, reason: "document store unavailable" }
+      }
+      const subject = (ctx.memorySubject ?? "").trim() || "owner"
+      const query = typeof args["query"] === "string" ? args["query"] : ""
+      const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 3
+      const limit = Math.min(10, Math.max(1, Math.floor(limitRaw)))
+      try {
+        const { formatDocumentSnippet, selectDocumentsForRecall } = await import(
+          "@butler/domain/knowledge/document-ingest.js"
+        )
+        const records = await store.listBySubject({ subject, limit: 40 })
+        const selected = selectDocumentsForRecall({ records, query, limit })
+        if (selected.length === 0) {
+          return { ok: true, output: "（无匹配的已 ingest 文档）" }
+        }
+        return {
+          ok: true,
+          output: selected.map((r, i) => `${i + 1}. ${formatDocumentSnippet(r)}`).join("\n\n"),
+        }
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  }
+}
+
+/**
  * Build the runtime ToolDefinition set wired to the current
  * EventBridge + conversationId. The butler loop owns this — tools
  * hold a reference to the bridge, not a global singleton.
@@ -446,20 +624,24 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     ctx.mcpBundle && ctx.mcpBundle.runtimeTools.length > 0
       ? ctx.mcpBundle.runtimeTools
       : loadMcpToolDefinitions(env, ctx.mcp ?? {})
-  return [
+  const core = [
     makeRecallHistoryTool(ctx),
+    makeRecallDurableMemoryTool(ctx),
+    makeRecallDocumentTool(ctx),
     makeGetCurrentTimeTool(),
     makeGreetWithTimeTool(),
     makeSummarizeTodayTool(ctx),
     makeReadFileTool(ctx),
     makeRunCommandTool(ctx),
     makeSendWechatFileTool(ctx),
-    makeDelegateToSubagentTool(ctx),
-    ...mcp,
   ]
+  if (isSubagentEnabled(env)) {
+    core.push(makeDelegateToSubagentTool(ctx))
+  }
+  return [...core, ...mcp]
 }
 
-/** LLM tool list including opt-in MCP descriptors when enabled. */
+/** LLM tool list including opt-in MCP and subagent descriptors when enabled. */
 export function llmToolsForButler(
   ctx: Pick<ButlerToolContext, "env" | "mcp" | "mcpBundle"> = {},
 ): readonly LLMTool[] {
@@ -468,7 +650,10 @@ export function llmToolsForButler(
     ctx.mcpBundle && ctx.mcpBundle.llmTools.length > 0
       ? ctx.mcpBundle.llmTools
       : loadMcpLlmTools(env, ctx.mcp ?? {})
-  return [...WEIBUTLER_LLM_TOOLS, ...mcp]
+  const core = isSubagentEnabled(env)
+    ? WEIBUTLER_LLM_TOOLS
+    : WEIBUTLER_LLM_TOOLS.filter((t) => t.name !== "delegate_to_subagent")
+  return [...core, ...mcp]
 }
 
 /**

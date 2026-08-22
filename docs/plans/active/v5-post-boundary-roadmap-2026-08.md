@@ -113,6 +113,7 @@ Run 预算、action digest、policy version 和决策原因进入 Run/Step/Audit
 
 - 即使 Policy 误放行，sandbox 仍阻止 workspace 外写和未授权网络；
 - 即使 sandbox 允许，业务高风险动作仍需审批；
+- **per-host 出网 allowlist**（第三档 profile）：[`v5-sandbox-network-allowlist-2026-08.md`](v5-sandbox-network-allowlist-2026-08.md) — **P2b/c ✅**；**P2d ✅**（opt-in slirp，见 [`v5-sandbox-p2d-slirp-spike-2026-08.md`](v5-sandbox-p2d-slirp-spike-2026-08.md)）；
 - secret 扫描覆盖 prompt、tool result、audit 与 context artifact；
 - 崩溃后无遗留子进程和挂载凭证。
 
@@ -171,7 +172,9 @@ P3 只建立安全扩展面，不默认安装具体能力。
 
 ### 本地控制面
 
-- loopback + pairing/token；
+> **Owner 2026-08-21：不立项完整 Web UI。** 审批与运维继续用微信内联确认 + Owner API/CLI；边界上仍属条件准入，有明确场景再议。
+
+- （若将来立项）loopback + pairing/token；
 - 在 P1 最小审批 API/CLI 上增加完整 UI；
 - 展示 health、runs、approvals、grants、audit 与配置；
 - 承担 Always-confirm 动作的权威审批和 Grant 撤销；
@@ -179,38 +182,50 @@ P3 只建立安全扩展面，不默认安装具体能力。
 
 ### Heartbeat / Schedule Trigger
 
-- 只读巡检、提醒、摘要优先；
-- 产生隔离 Run Trigger；
+> **Owner 2026-08-21：已立项 MVP。** 默认关闭；`BUTLER_V5_SCHEDULE_ENABLED=1` + `config/schedule-jobs.json`（或 `BUTLER_V5_SCHEDULE_JOBS`）。
+
+- 只读巡检、提醒、摘要优先（默认 `SCHEDULE_SAFE_TOOL_NAMES`）；
+- 产生隔离 Run Trigger（`source=schedule`，subject=`system:scheduler`）；
 - 预算、冷却、幂等键、截止时间、quiet success；
-- 主队列忙时 defer；
-- 无 ScopedGrant 副作用立即停止。
+- 对话忙 / 主队列忙 / 同进程 in-flight 时 defer；
+- 无 ScopedGrant 副作用仍走 Policy Ask（立即停在审批，不扩权）。
 
 ### 本地 tracing / 可选 OTEL
 
-- run/step/capability/policy/grant 记录；审批等待记为 Step；
-- 默认本地；
-- exporter opt-in，可脱敏，可一键停用；
+> **Owner 2026-08-21：已立项 MVP。** 默认本地；OTEL 仅 stdout JSON lines，无 SDK。
+
+- run/step/capability/policy/grant/approval 事件（审批等待记为 `approval`）；
+- 默认本地环形缓冲（`BUTLER_V5_TRACE` 默认开，`=0` 一键停用）；
+- 脱敏默认开（`BUTLER_V5_TRACE_REDACT`）；
+- exporter opt-in：`BUTLER_V5_OTEL_EXPORTER=stdout`；
 - 不把外部 APM 作为运行依赖。
 
 ### 文档 ingest 与多模态
 
-- 按 provider/格式具名接入；
-- provenance、大小、成本、数据驻留和删除策略；
-- 不演化为 RAG Studio 或默认全盘索引。
+> **Owner 2026-08-21：已立项 MVP（文本类具名格式）。** 不做 RAG Studio / 默认全盘索引 / 内嵌 PDF 解析 / OCR。
+
+- 按 provider/格式具名接入：`plaintext`、`markdown`、`pdf`（预提取文本）；
+- provenance、大小、截断上限与删除级联（→ Durable Memory by documentId）；
+- 工具 `recall_document`；`promote-memory` 生成 candidate；
+- 图片 OCR / 向量索引延后，有明确场景再加。
 
 ### Durable Memory 基线
 
-- 只区分 Transcript、Durable Memory 和 Project Knowledge；
+> **Owner 2026-08-21：已立项 MVP。** 迁移 `0004_durable_memory.sql`；注入默认关。
+
+- 只区分 Transcript、Durable Memory 和 Project Knowledge（本 MVP 不含 Project Knowledge）；
 - Run 内部压缩产物和滚动摘要不是知识层，也不自动升级为持久记忆；
-- Durable Memory 记录来源、置信度、有效期与确认状态；
-- 删除原始数据时同步处理派生内容；
-- 默认结构化/全文检索，embedding 由真实召回缺口触发。
+- Durable Memory 记录来源、置信度、有效期与确认状态（`candidate`/`confirmed`/`rejected`）；
+- 删除原始 message 时可 `deleteBySourceMessageId` 同步派生内容；
+- 默认结构化/全文（子串）检索 + `recall_durable_memory`；embedding 延后。
 
 ### Task / Procedure 基线
 
-- 仅在 Conversation/Run 无法表达跨对话待办，或至少两个场景无法由普通 Step 表达时立项；
-- Task 是 Owner 可见的持久待办；一个 Task 可通过内部 `task` Trigger 产生多个 Run；
-- Procedure 是不可变、带版本的线性/条件步骤模板，没有独立运行状态；
+> **Owner 2026-08-21：已立项 MVP。** 场景：跨对话待办板 + 可复用线性 runbook；无 DAG。
+
+- Task 是 Owner 可见的持久待办；`POST .../tasks/:id/run` 经 `source=task` Trigger 产生 Run；
+- Procedure 是不可变、带版本的线性步骤模板（`when` 仅作标签，MVP 不求值）；无独立运行状态；
+- 绑定 Procedure 的 Task 在成功 Run 后推进 `procedureStepIndex`（可用 `advance:false` 关闭）；
 - 通用 DAG、并行合并与 Channel reducer 继续延后。
 
 ---

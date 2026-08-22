@@ -1,24 +1,39 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-21 10:08_
-_handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md
+_last_synced: 2026-08-22 17:35_
+_handoff: docs/plans/active/v5-acceptance-handoff-2026-08.md_
+
+## 生产 env
+
+- P2c allowlist ✅（`SANDBOX_NETWORK_MODE=allowlist`）
+- P2d slirp 未启用（默认 `SANDBOX_EGRESS_ISOLATION=proxy`）
+- `pnpm smoke:allowlist-slirp` ✅（rawBlocked + proxyPath）
 
 ## 当前主线
 
-- P3 接缝已齐：RunTrigger 四入口、MCP manifest/连接/extraProviders、Capability Provider 注册表。
-- 生产路径：微信 + Channel（Slack/Telegram）+ Owner API/CLI + 审批/MCP opt-in。
+- **P2d slirp MVP ✅** — iptables 隔离 + in-netns 探测通过
+- **上游代理** — `BUTLER_V5_SANDBOX_EGRESS_UPSTREAM_PROXY`（mihomo 等 host 出网）
+- **AI guard** — [#2 已关闭](https://github.com/XiaZiHunDun/WFXM/issues/2)；清单 `v5-ai-guard-migration-checklist-2026-08.md`
 
-## 下一步（按需）
+## P2d 启用
 
-- **v5 AI 守卫迁移**：人工 checklist，有空再做，不阻塞交付。
-- **P4 候选**：Schedule/heartbeat、本地控制面 UI 等——有明确 Owner 场景再立项。
+```bash
+# ~/.config/butler-v5/env
+BUTLER_V5_SANDBOX_EGRESS_ISOLATION=slirp
+# 若 host 需系统代理出网：
+# BUTLER_V5_SANDBOX_EGRESS_UPSTREAM_PROXY=http://127.0.0.1:7890
+systemctl --user restart butler-v5-gateway.service
+pnpm smoke:allowlist-slirp
+```
 
-## 不要做
+## 日常回归
 
-- **浏览器 / Playwright**：Owner 2026-08-21 明确不立项（见 `v5-product-boundaries` §7 Owner 立项记录）。
-- 不要改受保护 v4 守卫文件；不要恢复 `_archive` 包到生产路径。
-- Agent 不要把浏览器、RAG Studio、全量 MCP Marketplace 推入 backlog。
+```bash
+cd butler-v5 && pnpm test
+pnpm smoke:allowlist-production
+pnpm smoke:allowlist-slirp   # P2d opt-in 点验
+```
 
 ## 上一班
 
-- ed1ca8cb MCP extraProviders；文档同步浏览器不立项 + AI 守卫排期说明。
+- 修复 slirp iptables（PATH/xtables.lock/串行）；探测全绿；AI guard issue #2。

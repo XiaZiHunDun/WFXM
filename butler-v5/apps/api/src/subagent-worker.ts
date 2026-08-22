@@ -77,6 +77,49 @@ const MAX_CHILD_ITERATIONS = 3
 /** Per-tool wall-clock budget inside the child turn. */
 const CHILD_TOOL_TIMEOUT_MS = 5_000
 
+async function markChildRunRunning(store: RuntimeStore, childRunId: string): Promise<void> {
+  const run = await store.getRun(childRunId)
+  if (!run || run.status !== "queued") return
+  await store.transitionRunStatus(run.id, run.version, "running", new Date())
+}
+
+async function finalizeChildRun(
+  store: RuntimeStore,
+  childRunId: string,
+  outcome: { readonly ok: boolean; readonly reply: string; readonly role: string },
+): Promise<void> {
+  const run = await store.getRun(childRunId)
+  if (!run) return
+  if (run.status !== "queued" && run.status !== "running") return
+  const now = new Date()
+  let current = run
+  if (current.status === "queued") {
+    current = await store.transitionRunStatus(current.id, current.version, "running", now)
+  }
+  const stepId = crypto.randomUUID()
+  await store.createStep({
+    id: stepId,
+    runId: current.id,
+    kind: "result",
+    status: outcome.ok ? "succeeded" : "failed",
+    input: { role: outcome.role },
+    createdAt: now,
+  })
+  await store.updateStep({
+    stepId,
+    output: { reply: outcome.reply.slice(0, 2000) },
+    updatedAt: now,
+  })
+  const fresh = await store.getRun(current.id)
+  if (!fresh || (fresh.status !== "queued" && fresh.status !== "running")) return
+  await store.transitionRunStatus(
+    fresh.id,
+    fresh.version,
+    outcome.ok ? "succeeded" : "failed",
+    new Date(),
+  )
+}
+
 /**
  * Stop signal returned by `runSubagentWorker`. Calling it cancels the
  * next tick (the in-flight tick, if any, runs to completion — there
@@ -259,17 +302,31 @@ async function handleOutboxMessage(
     role?: unknown
     task?: unknown
     capabilities?: unknown
+    childRunId?: unknown
+    parentRunId?: unknown
   }
   const childConversationId =
     typeof payload.childConversationId === "string" ? payload.childConversationId : ""
   const role = typeof payload.role === "string" && payload.role.trim() ? payload.role : "general"
   const task = typeof payload.task === "string" ? payload.task : ""
   const capabilities = normalizeCapabilityNames(payload.capabilities)
+  const childRunId = typeof payload.childRunId === "string" ? payload.childRunId : null
   if (!childConversationId || !task) {
     logger.warn(
       `[subagent-worker] outbox msg ${msg.messageId} missing childConversationId or task; skipping`,
     )
     return
+  }
+  if (runtimeStore && childRunId) {
+    try {
+      await markChildRunRunning(runtimeStore, childRunId)
+    } catch (err) {
+      logger.warn(
+        `[subagent-worker] failed to mark child run running ${childRunId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
+    }
   }
   // R8.x.9: defensive allowlist check. The route layer already
   // rejects invalid capabilities, but if an outbox message was
@@ -295,6 +352,7 @@ async function handleOutboxMessage(
     logger.warn(
       `[subagent-worker] no LLM adapter configured; writing stub reply for child ${childConversationId}`,
     )
+    const stubContent = "（子代理未配置 LLM，无法执行）"
     const stubEvent = {
       streamId: msg.streamId,
       eventId: `evt-${Date.now()}-subagent-stub`,
@@ -303,10 +361,25 @@ async function handleOutboxMessage(
       actor: { kind: "agent" as const, id: `subagent-${role}` },
       event: {
         _tag: "AssistantMessageProduced" as const,
-        content: prefixReply(role, "（子代理未配置 LLM，无法执行）"),
+        content: prefixReply(role, stubContent),
       },
     }
     await bridge.appendConversationEvent(stubEvent)
+    if (runtimeStore && childRunId) {
+      try {
+        await finalizeChildRun(runtimeStore, childRunId, {
+          ok: false,
+          reply: stubContent,
+          role,
+        })
+      } catch (err) {
+        logger.warn(
+          `[subagent-worker] failed to finalize child run ${childRunId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        )
+      }
+    }
     // R8.x.8: push the reply to any WS clients subscribed to the
     // parent conversation. pushEventToSubscribers is a no-op when
     // nobody is listening, so this is safe to call unconditionally.
@@ -318,6 +391,7 @@ async function handleOutboxMessage(
     return
   }
   let result: { readonly content: string }
+  let llmOk = true
   try {
     logger.warn(`[subagent-worker] invoking LLM for role=${role} task=${task.slice(0, 60)}`)
     result = await runChildLlm(
@@ -333,6 +407,7 @@ async function handleOutboxMessage(
     logger.warn(`[subagent-worker] LLM replied: ${result.content.slice(0, 80)}`)
   } catch (err) {
     logger.error(`[subagent-worker] child LLM call failed for child ${childConversationId}:`, err)
+    llmOk = false
     result = {
       content: `（子代理 ${role} 调用失败: ${err instanceof Error ? err.message : String(err)}）`,
     }
@@ -350,6 +425,21 @@ async function handleOutboxMessage(
       },
     }
     await bridge.appendConversationEvent(replyEvent)
+    if (runtimeStore && childRunId) {
+      try {
+        await finalizeChildRun(runtimeStore, childRunId, {
+          ok: llmOk,
+          reply: result.content,
+          role,
+        })
+      } catch (err) {
+        logger.warn(
+          `[subagent-worker] failed to finalize child run ${childRunId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        )
+      }
+    }
     // R8.x.9: record completion to the audit log. The excerpt is
     // capped at 200 chars so the JSONL stays grep-friendly even for
     // long LLM replies.
@@ -373,6 +463,17 @@ async function handleOutboxMessage(
     })
   } catch (err) {
     logger.error(`[subagent-worker] failed to append reply to parent ${msg.streamId}:`, err)
+    if (runtimeStore && childRunId) {
+      try {
+        await finalizeChildRun(runtimeStore, childRunId, {
+          ok: false,
+          reply: err instanceof Error ? err.message : String(err),
+          role,
+        })
+      } catch {
+        // best-effort
+      }
+    }
     // Return a rejected promise so the outbox layer schedules a
     // retry — losing the reply would silently break the
     // `recall_history` story. We do this via `Promise.reject`

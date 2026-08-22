@@ -5,8 +5,8 @@ export type ButlerDbKind = "pglite" | "postgres"
  *
  * - `BUTLER_V5_DB=pglite|postgres` wins when set
  * - otherwise production (`NODE_ENV=production`) with a non-empty
- *   `DATABASE_URL` uses postgres so restarts keep conversation memory
- * - everything else (tests, local `pnpm start` without flags) stays pglite
+ *   `DATABASE_URL` uses postgres (durable; long sessions / multi-project)
+ * - everything else (tests, local dev without flags) stays pglite
  */
 export function resolveButlerDbKind(env: NodeJS.ProcessEnv): ButlerDbKind {
   const explicit = (env["BUTLER_V5_DB"] ?? "").trim().toLowerCase()

@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest"
 import {
   buildApiRunTrigger,
   buildChannelRunTrigger,
+  buildTaskRunTrigger,
   buildWechatRunTrigger,
   runBudgetWithTrigger,
   validateRunTrigger,
 } from "./run-trigger.js"
+import { buildScheduleRunTrigger } from "./schedule.js"
 
 describe("RunTrigger builders", () => {
   it("builds wechat channel trigger", () => {
@@ -55,5 +57,35 @@ describe("RunTrigger builders", () => {
       triggerPayload: { channelId: "wechat", content: "hi" },
       conversationRef: "c-1",
     })
+  })
+
+  it("builds schedule trigger as system:scheduler", () => {
+    const trigger = buildScheduleRunTrigger({
+      jobId: "heartbeat",
+      goal: "巡检",
+      conversationId: "schedule-heartbeat",
+      idempotencyKey: "schedule:heartbeat:1",
+      everyMs: 3600_000,
+    })
+    expect(trigger.source).toBe("schedule")
+    expect(trigger.subject).toBe("system:scheduler")
+    expect(trigger.trustLevel).toBe("trusted")
+    expect(validateRunTrigger(trigger)).toEqual({ ok: true })
+  })
+
+  it("builds task trigger with owner trust", () => {
+    const trigger = buildTaskRunTrigger({
+      subject: "owner",
+      taskId: "t1",
+      goal: "do work",
+      conversationId: "task-t1",
+      idempotencyKey: "task:t1:1",
+      procedureId: "p1",
+      stepKey: "check",
+    })
+    expect(trigger.source).toBe("task")
+    expect(trigger.trustLevel).toBe("owner")
+    expect(trigger.payload).toMatchObject({ taskId: "t1", stepKey: "check" })
+    expect(validateRunTrigger(trigger)).toEqual({ ok: true })
   })
 })

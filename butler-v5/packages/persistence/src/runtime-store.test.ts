@@ -38,6 +38,37 @@ describe("RuntimeStore repository", () => {
     }
   })
 
+  it("appends a second user message to an existing conversation", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const conversationId = crypto.randomUUID()
+    try {
+      await store.createConversationWithUserMessage({
+        conversationId,
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "first" },
+        triggerSource: "channel",
+        idempotencyKey: "msg-1",
+        createdAt: new Date("2026-08-20T00:00:00Z"),
+      })
+      await store.createConversationWithUserMessage({
+        conversationId,
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "second" },
+        triggerSource: "channel",
+        idempotencyKey: "msg-2",
+        createdAt: new Date("2026-08-20T00:01:00Z"),
+      })
+      const messages = await store.listMessages(conversationId)
+      expect(messages).toHaveLength(2)
+      expect(messages.map((m) => m.content)).toEqual([{ text: "first" }, { text: "second" }])
+    } finally {
+      await db.close()
+    }
+  })
+
   it("creates and transitions a main Run with optimistic versioning", async () => {
     const db = await makeTestDb()
     const store: RuntimeStore = createRuntimeStore(db)
@@ -124,6 +155,47 @@ describe("RuntimeStore repository", () => {
           input: { prompt: "hello" },
         }),
       )
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("lists conversations by projectId ordered by updatedAt desc", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const t0 = new Date("2026-08-20T00:00:00Z")
+    const t1 = new Date("2026-08-21T00:00:00Z")
+    try {
+      await store.createConversationWithUserMessage({
+        conversationId: "c-WFXM-user-a",
+        messageId: crypto.randomUUID(),
+        subject: "user-a",
+        content: { text: "a" },
+        triggerSource: "channel",
+        idempotencyKey: "k-a",
+        createdAt: t0,
+      })
+      await store.createConversationWithUserMessage({
+        conversationId: "c-WFXM-user-b",
+        messageId: crypto.randomUUID(),
+        subject: "user-b",
+        content: { text: "b" },
+        triggerSource: "channel",
+        idempotencyKey: "k-b",
+        createdAt: t1,
+      })
+      await store.createConversationWithUserMessage({
+        conversationId: "c-other-user",
+        messageId: crypto.randomUUID(),
+        subject: "other",
+        content: { text: "x" },
+        triggerSource: "channel",
+        idempotencyKey: "k-x",
+        createdAt: t1,
+      })
+      const items = await store.listConversationsByProject({ projectId: "WFXM" })
+      expect(items.map((c) => c.id)).toEqual(["c-WFXM-user-b", "c-WFXM-user-a"])
+      expect(items.every((c) => c.projectId === "WFXM")).toBe(true)
     } finally {
       await db.close()
     }

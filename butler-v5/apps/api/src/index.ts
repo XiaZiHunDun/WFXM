@@ -4,7 +4,9 @@ import { createOwnerRoutes } from "./owner-routes.js"
 import { createProductionWiring } from "./bootstrap-wiring.js"
 import { pickLLMProvider } from "@butler/adapters"
 import { runSubagentWorker } from "./subagent-worker.js"
-import { startWsServer } from "./ws-routes.js"
+import { startWsServer, type WsServerHandle } from "./ws-routes.js"
+import { startScheduleWorkerIfEnabled } from "./schedule-worker.js"
+import { isSubagentEnabled } from "./subagent-config.js"
 
 const app = new Hono()
 
@@ -27,16 +29,38 @@ createRoutes(app, wiring)
 createOwnerRoutes(app, wiring)
 
 const vitest = (process.env["VITEST"] ?? "").trim() !== ""
-const wsPort = Number(process.env["WS_PORT"] ?? (vitest ? 0 : 3001))
-const wsHost = process.env["WS_HOST"] ?? "127.0.0.1"
-const wsHandle = await startWsServer({ port: wsPort, host: wsHost })
+const subagentEnabled = isSubagentEnabled(process.env)
+let wsHandle: WsServerHandle | undefined
+let stopSubagent: (() => void) | undefined
 
-runSubagentWorker(wiring.eventBridge, pickLLMProvider, process.env, {
-  runtimeStore: wiring.runtimeStore,
-})
+if (subagentEnabled) {
+  const wsPort = Number(process.env["WS_PORT"] ?? (vitest ? 0 : 3001))
+  const wsHost = process.env["WS_HOST"] ?? "127.0.0.1"
+  wsHandle = await startWsServer({ port: wsPort, host: wsHost })
+  stopSubagent = runSubagentWorker(wiring.eventBridge, pickLLMProvider, process.env, {
+    runtimeStore: wiring.runtimeStore,
+  }).stop
+  if (!vitest) {
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error("[butler-v5] subagent worker + WS enabled")
+  }
+} else if (!vitest) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error(
+    "[butler-v5] subagent disabled (set BUTLER_V5_SUBAGENT_ENABLED=1 for delegate + WS push)",
+  )
+}
+
+const scheduleHandle = startScheduleWorkerIfEnabled({ wiring, env: process.env })
+if (scheduleHandle) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error("[butler-v5] schedule worker started")
+}
 
 const shutdown = (): void => {
-  void wsHandle.close()
+  scheduleHandle?.stop()
+  stopSubagent?.()
+  void wsHandle?.close()
   void boot.value.close()
 }
 process.on("SIGINT", shutdown)
@@ -47,4 +71,6 @@ export const __wsHandle__ = wsHandle
 export { startIlinkPollerIfEnabled } from "./ilink-poller.js"
 export { createProductionWiring } from "./bootstrap-wiring.js"
 export { runCliGoal, defaultCliConversationId } from "./cli-run.js"
+export { runScheduleJob } from "./schedule-run.js"
+export { startScheduleWorkerIfEnabled, runScheduleTick } from "./schedule-worker.js"
 export default app

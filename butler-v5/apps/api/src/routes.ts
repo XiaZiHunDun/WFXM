@@ -1,9 +1,9 @@
 import type { Hono } from "hono"
-import type { Wiring } from "./wiring.js"
 import {
-  defaultWechatConversationId,
+  normalizeWechatInbound,
   parseClientConversationId,
-} from "./conversation-id.js"
+} from "@butler/runtime/intake/index.js"
+import type { Wiring } from "./wiring.js"
 import {
   isChannelApiEnabled,
   isSlackChannelEnabled,
@@ -71,53 +71,47 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     ) {
       return c.text("invalid body", 400)
     }
-    // Map wechat forward to ConversationStarted event.
-    // Use body.projectId when provided, else fall back to "wechat".
-    // R8.x.3: after writing the event, run the full AgentKernel-backed
-    // butler loop (state machine + tool execution). The loop always
-    // returns a non-empty `reply` — either the model's Respond
-    // content or the stub fallback — so the v4 → v5 → v4 contract is
-    // preserved regardless of LLM availability, tool failure, or
-    // decode error.
-    //
-    // R8.x.11: optional client-supplied conversationId lets WS
-    // clients subscribe before this HTTP handler returns.
-    // R8.x.13: omitted id is stable per project+user so turns share memory.
-    const projectId = body.projectId ?? "wechat"
-    const parsedId = parseClientConversationId(body.conversationId)
-    if (parsedId.kind === "invalid") {
-      return c.text(`invalid conversationId: ${parsedId.reason}`, 400)
+    // R8.x.3 / R8.x.11 / R8.x.13: Intake normalize → Execution (butler loop).
+    const normalized = normalizeWechatInbound({
+      fromUserId: body.fromUserId,
+      content: body.content,
+      ...(body.messageId ? { messageId: body.messageId } : {}),
+      ...(body.projectId ? { projectId: body.projectId } : {}),
+      conversationId: body.conversationId,
+    })
+    if (!normalized.ok) {
+      if (normalized.error.kind === "invalid_conversation_id") {
+        return c.text(`invalid conversationId: ${normalized.error.reason}`, 400)
+      }
+      return c.text(normalized.error.reason, 400)
     }
-    const conversationId =
-      parsedId.kind === "valid"
-        ? parsedId.value
-        : defaultWechatConversationId(projectId, body.fromUserId)
-    const turnId = `turn-${Date.now()}`
+    const { value } = normalized
     await wiring.eventBridge.appendConversationEvent({
-      streamId: conversationId,
+      streamId: value.conversationId,
       eventId: `evt-${Date.now()}-wechat-${body.messageId ?? "no-msgid"}`,
       eventType: "ConversationStarted",
-      correlationId: `corr-${Date.now()}-${body.fromUserId}`,
+      correlationId: `corr-${Date.now()}-${value.subject}`,
       actor: { kind: "system", id: "wechat-forward" },
       event: {
         _tag: "ConversationStarted",
-        projectId,
-        content: body.content,
-        fromUserId: body.fromUserId,
+        projectId: value.projectId,
+        content: value.content,
+        fromUserId: value.subject,
       },
     })
     const loopResult = await runButlerLoop({
       wiring,
-      conversationId,
-      content: body.content,
-      fromUserId: body.fromUserId,
-      projectId,
-      idempotencyKey: body.messageId ?? `wechat-${conversationId}-${turnId}`,
+      conversationId: value.conversationId,
+      content: value.content,
+      fromUserId: value.subject,
+      projectId: value.projectId,
+      idempotencyKey: value.idempotencyKey,
+      runTrigger: value.runTrigger,
     })
     return c.json(
       {
-        conversationId,
-        turnId,
+        conversationId: value.conversationId,
+        turnId: value.turnId,
         reply: loopResult.reply,
         meta: {
           iterations: loopResult.iterations,

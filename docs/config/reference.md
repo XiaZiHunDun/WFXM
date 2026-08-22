@@ -862,10 +862,18 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `BUTLER_V5_DB` | — | `postgres` \| `pglite`；生产 `NODE_ENV=production` + `DATABASE_URL` 时用 Postgres |
-| `BUTLER_V5_READ_MODEL` | `event_store` | 读模型：`event_store` \| `hybrid` \| `relational` |
-| `BUTLER_V5_OWNER_TOKEN` | — | Owner API / `butler approvals` Bearer token |
-| `BUTLER_V5_SANDBOX` | — | 未设 = 进程内 workspace 约束；`bubblewrap` = `run_command` 走 bwrap（缺 bwrap 时 fail-closed） |
+| `BUTLER_V5_PGLITE_DATA_DIR` | `~/.butler/v5-data`（非 test） | PGlite 落盘目录；`memory` / `:memory:` 强制内存；vitest 始终内存 |
+| `BUTLER_V5_READ_MODEL` | `relational` | 读模型：`event_store` \| `hybrid` \| `relational`；默认仅 0002 messages（长会话/多项目）；legacy 迁移可设 `hybrid` |
+
+**CLI（loopback Owner API）**：`butler conversations --project <id>` 列出项目下会话；`butler approvals` / `butler verify --api …` 等同理。
+| `BUTLER_V5_SANDBOX` | — | 未设 = 进程内 workspace 约束；`bubblewrap` = `run_command`（及统一 sandbox 入口）走 bwrap（缺 bwrap 时 fail-closed）。`butler sandbox-preflight` / `pnpm smoke:sandbox` 预检；`butler sandbox-probe` / `pnpm smoke:sandbox-network` 验证 network-deny 阻断 vs Grant `elevateNetwork`（`workspace-write-network-allow`）可达。启动脚本 `butler-v5-start.sh` 也会预检。Grant 第三档：`workspace-write-network-allowlist` + `networkAllowlist`（P2b，见下方 env）。 |
+| `BUTLER_V5_SANDBOX_ALLOW_PRIVATE_EGRESS` | `0` | `1` 时 Owner 审批 `networkAllowlist` 可含 `127.0.0.0/8`、RFC1918 等（默认 fail-closed）。**无**全局 permanent allowlist env。 |
+| `BUTLER_V5_SANDBOX_NETWORK_MODE` | `binary` | `allowlist` 启用 P2c egress proxy：`workspace-write-network-allowlist` Grant 经 `HTTPS_PROXY` 过滤 host:port；`binary` 下 allowlist Grant **fail-closed**。点验：`pnpm smoke:sandbox-allowlist` |
+| `BUTLER_V5_SANDBOX_EGRESS_ISOLATION` | `proxy` | `slirp` 启用 P2d：`unshare -U -r -n` + slirp4netns + iptables，仅允许 slirp host gateway（`10.0.2.2`）连 egress proxy；阻断 raw socket 绕过。需 `SANDBOX_NETWORK_MODE=allowlist`。点验：`pnpm smoke:allowlist-slirp` |
+| `BUTLER_V5_SANDBOX_EGRESS_UPSTREAM_PROXY` | — | 可选；host 需经系统代理出网时，egress proxy 经此 upstream CONNECT（未设则继承 `HTTPS_PROXY`/`HTTP_PROXY`） |
 | `BUTLER_V5_WORKSPACE_ROOT` | cwd | `read_file` / `run_command` 工作区根（systemd `WorkingDirectory` 通常为 `butler-v5/`） |
+| `BUTLER_V5_DURABLE_MEMORY` | `0` | `1` 将 **confirmed** durable memory 注入 Loop 工作集（表始终迁移；Owner CRUD 始终可用）。CLI：`butler memory list|add|confirm|reject|delete`；冒烟：`pnpm smoke:durable-memory` |
+| `BUTLER_V5_SUBAGENT_ENABLED` | `0` | `1` 启用 background subagent：loopback WS（`WS_PORT` 默认 3001）+ outbox worker + `delegate_to_subagent` 工具 |
 | `BUTLER_V5_ILINK_ENABLED` | `0` | `1` 启用原生 iLink long-poll（需 `WECHAT_TOKEN`） |
 | `BUTLER_V5_ILINK_INBOUND_TIMEOUT_MS` | — | iLink 入站处理超时 |
 | `BUTLER_V5_MCP_ENABLED` | `0` | `1` 注册 MCP 工具（走 PolicyGate + 审批；默认 off） |

@@ -92,6 +92,9 @@ describe("approval-runtime", () => {
     expect(decision.grant.scope.network).toBe("allow")
     expect(decision.grant.scope.networkHosts?.length).toBeGreaterThan(0)
     expect(decision.grant.remainingUses).toBe(1)
+    expect(decision.grant.delegable).toBe(false)
+    expect(decision.grant.approvalId).toBe(stepId)
+    expect(decision.grant.sandboxProfile).toBeNull()
     const updatedRun = await store.getRun(run.id)
     expect(updatedRun?.status).toBe("running")
     const step = await store.getStep(stepId)
@@ -104,6 +107,93 @@ describe("approval-runtime", () => {
       now: new Date(),
     })
     expect(exhausted).toBeNull()
+  })
+
+  it("approveWaitingStep binds sandboxProfile deny ceiling for run_command", async () => {
+    const { store, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "run_command",
+      resource: "ls",
+      args: { argv: ["ls"] },
+      question: "Confirm run_command?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "run_command:ls",
+      kind: "command",
+      risk: "high",
+    })
+    const decision = await approveWaitingStep(store, stepId, "owner-1")
+    expect(decision.grant.sandboxProfile).toBe("workspace-write-network-deny")
+  })
+
+  it("approveWaitingStep can elevate sandboxProfile to network-allow", async () => {
+    const { store, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "run_command",
+      resource: "ls",
+      args: { argv: ["ls"] },
+      question: "Confirm run_command?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "run_command:ls:elevate",
+      kind: "command",
+      risk: "high",
+    })
+    const decision = await approveWaitingStep(store, stepId, "owner-1", {
+      elevateNetwork: true,
+    })
+    expect(decision.grant.sandboxProfile).toBe("workspace-write-network-allow")
+  })
+
+  it("approveWaitingStep can stamp networkAllowlist on run_command", async () => {
+    const { store, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "run_command",
+      resource: "pnpm install",
+      args: { argv: ["pnpm", "install"] },
+      question: "Confirm run_command?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "run_command:pnpm:allowlist",
+      kind: "command",
+      risk: "high",
+    })
+    const decision = await approveWaitingStep(store, stepId, "owner-1", {
+      networkAllowlist: ["registry.npmjs.org:443", "pypi.org"],
+    })
+    expect(decision.grant.sandboxProfile).toBe("workspace-write-network-allowlist")
+    expect(decision.grant.networkAllowlist).toEqual(["registry.npmjs.org:443", "pypi.org:443"])
+    expect(decision.grant.scope.network).toBe("allow")
+    expect(decision.grant.scope.networkHosts).toContain("registry.npmjs.org")
+  })
+
+  it("rejects mutually exclusive elevateNetwork and networkAllowlist", async () => {
+    const { store, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "run_command",
+      resource: "ls",
+      args: { argv: ["ls"] },
+      question: "Confirm?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "run_command:ls:conflict",
+      kind: "command",
+      risk: "high",
+    })
+    await expect(
+      approveWaitingStep(store, stepId, "owner-1", {
+        elevateNetwork: true,
+        networkAllowlist: ["registry.npmjs.org:443"],
+      }),
+    ).rejects.toThrow(/mutually exclusive/)
   })
 
   it("denyWaitingStep marks the step and run failed", async () => {

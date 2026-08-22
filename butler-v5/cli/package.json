@@ -18,6 +18,7 @@
   "dependencies": {
     "@butler/api": "workspace:*",
     "@butler/adapters": "workspace:*",
+    "@butler/persistence": "workspace:*",
     "@hono/node-server": "^1.13.0",
     "commander": "^12.1.0"
   }

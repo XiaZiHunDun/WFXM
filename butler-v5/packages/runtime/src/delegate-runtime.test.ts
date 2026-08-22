@@ -28,6 +28,7 @@ describe("delegate", () => {
     expect(out.capabilities).toEqual(caps)
     expect(out.parentConversationId).toBe("p-1")
     expect(out.childConversationId.startsWith("child-p-1-")).toBe(true)
+    expect(out.childRunId).toBeNull()
     expect(bridge.appendConversationEventWithOutbox as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1)
   })
 
@@ -64,5 +65,64 @@ describe("delegate", () => {
       role: "researcher",
       capabilities: caps,
     })
+  })
+
+  it("creates a relational Child Run when parentRunId + runtimeStore are provided", async () => {
+    const { createRuntimeStore } = await import("@butler/persistence/runtime-store.js")
+    const { makeTestDb } = await import("@butler/persistence/testing.js")
+    const db = await makeTestDb()
+    try {
+      const store = createRuntimeStore(db.db)
+      const createdAt = new Date("2026-08-20T00:00:00Z")
+      const inbound = await store.createConversationWithUserMessage({
+        conversationId: "parent-conv-a5",
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "parent" },
+        triggerSource: "channel",
+        idempotencyKey: "a5-parent-msg",
+        createdAt,
+      })
+      const parent = await store.createRun({
+        id: crypto.randomUUID(),
+        conversationId: inbound.conversationId,
+        parentRunId: null,
+        triggerSource: "channel",
+        idempotencyKey: "a5-parent-run",
+        subject: "owner-1",
+        goal: "reply",
+        budget: { maxSteps: 5 },
+        deadline: null,
+        createdAt,
+      })
+      await store.transitionRunStatus(parent.id, parent.version, "running", createdAt)
+      const bridge = makeBridgeMock()
+      const out = await delegate({
+        role: "researcher",
+        task: "find docs",
+        capabilities: [{ tool: "general" as Capability["tool"] }],
+        parentConversationId: inbound.conversationId,
+        actor: { kind: "agent", id: "kernel" },
+        bridge,
+        runtimeStore: store,
+        parentRunId: parent.id,
+        subject: "owner-1",
+      })
+      expect(out.childRunId).toBeTruthy()
+      if (!out.childRunId) throw new Error("expected childRunId")
+      const child = await store.getRun(out.childRunId)
+      expect(child?.parentRunId).toBe(parent.id)
+      expect(child?.triggerSource).toBe("parent_run")
+      expect(child?.status).toBe("queued")
+      expect(child?.conversationId).toBe(out.childConversationId)
+      const calls = (bridge.appendConversationEventWithOutbox as ReturnType<typeof vi.fn>).mock
+        .calls
+      expect(calls[0]?.[0]?.outbox?.payload).toMatchObject({
+        childRunId: out.childRunId,
+        parentRunId: parent.id,
+      })
+    } finally {
+      await db.close()
+    }
   })
 })

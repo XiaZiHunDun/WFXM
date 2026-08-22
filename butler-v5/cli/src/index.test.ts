@@ -7,6 +7,7 @@ vi.mock("commander", () => ({
     version = vi.fn().mockReturnThis()
     command = vi.fn().mockReturnThis()
     option = vi.fn().mockReturnThis()
+    requiredOption = vi.fn().mockReturnThis()
     argument = vi.fn().mockReturnThis()
     action = vi.fn().mockReturnThis()
     parseAsync = vi.fn().mockResolvedValue(undefined)

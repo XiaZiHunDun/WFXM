@@ -18,6 +18,8 @@ export default defineConfig({
       "**/dist/**",
       "**/.turbo/**",
       "**/*.tsbuildinfo",
+      "**/_archive/**",
+      "packages/contracts/**",
       // Nested pnpm typecheck/lint/format:check. Duplicate of `pnpm gate`;
       // closed in docs/plans/decisions/v5-optional-debt-triage-2026-08-20.md.
       "tests/architecture/r2-end-to-end.test.ts",
@@ -63,8 +65,28 @@ export default defineConfig({
         replacement: resolve(__dirname, "packages/domain/src/governance/grant-network-hosts.ts"),
       },
       {
+        find: "@butler/domain/governance/network-allowlist.js",
+        replacement: resolve(__dirname, "packages/domain/src/governance/network-allowlist.ts"),
+      },
+      {
         find: "@butler/domain/mcp/manifest.js",
         replacement: resolve(__dirname, "packages/domain/src/mcp/manifest.ts"),
+      },
+      {
+        find: "@butler/domain/knowledge/durable-memory.js",
+        replacement: resolve(__dirname, "packages/domain/src/knowledge/durable-memory.ts"),
+      },
+      {
+        find: "@butler/domain/knowledge/document-ingest.js",
+        replacement: resolve(__dirname, "packages/domain/src/knowledge/document-ingest.ts"),
+      },
+      {
+        find: "@butler/domain/knowledge/task-procedure.js",
+        replacement: resolve(__dirname, "packages/domain/src/knowledge/task-procedure.ts"),
+      },
+      {
+        find: "@butler/domain/observability/local-trace.js",
+        replacement: resolve(__dirname, "packages/domain/src/observability/local-trace.ts"),
       },
       { find: "@butler/domain", replacement: resolve(__dirname, "packages/domain/src/index.ts") },
       { find: "@butler/runtime", replacement: resolve(__dirname, "packages/runtime/src") },

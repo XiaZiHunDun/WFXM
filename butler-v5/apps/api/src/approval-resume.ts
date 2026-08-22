@@ -5,11 +5,20 @@ import {
 } from "@butler/runtime/approval-runtime.js"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
+import { AgentKernel } from "@butler/runtime/agent-kernel.js"
+import {
+  DEFAULT_MAX_LOOP_ITERATIONS,
+  runConversationLoop,
+  type ConversationLoopResult,
+} from "@butler/runtime/execution/index.js"
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import type { ToolExecutionOutcome } from "@butler/runtime/capability-boundary.js"
 import type { RunResult } from "@butler/runtime/tool-runtime.js"
-import { findTool, makeWeibutlerTools } from "./tools.js"
+import { Effect } from "effect"
+import { pickLLMProvider, type LLMMessage } from "@butler/adapters"
+import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
+import { stubReply } from "./wechat-inbound-llm.js"
 import type { Wiring } from "./wiring.js"
 
 export { approveWaitingStep, denyWaitingStep } from "@butler/runtime/approval-runtime.js"
@@ -37,12 +46,228 @@ export function toRunResult(outcome: ToolExecutionOutcome): RunResult {
   return { ok: false, reason: outcome.reason }
 }
 
+async function persistCapabilityStep(
+  store: RuntimeStore,
+  args: {
+    readonly runId: string
+    readonly capability: string
+    readonly toolArgs: Readonly<Record<string, unknown>>
+    readonly approvalStepId: string
+    readonly grantId: string
+    readonly result: RunResult
+  },
+): Promise<void> {
+  const now = new Date()
+  const stepId = crypto.randomUUID()
+  await store.createStep({
+    id: stepId,
+    runId: args.runId,
+    kind: "capability",
+    status: args.result.ok ? "succeeded" : "failed",
+    input: {
+      capability: args.capability,
+      args: args.toolArgs,
+      approvalStepId: args.approvalStepId,
+      grantId: args.grantId,
+      resumed: true,
+    },
+    createdAt: now,
+  })
+  await store.updateStep({
+    stepId,
+    output: args.result.ok
+      ? { output: String(args.result.output) }
+      : { reason: args.result.reason },
+    updatedAt: now,
+  })
+}
+
+function isLoopResult(value: unknown): value is ConversationLoopResult {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    "reply" in value &&
+    typeof (value as ConversationLoopResult).reply === "string" &&
+    !("ok" in value)
+  )
+}
+
+/**
+ * After the approved capability succeeds, continue with the full multi-turn
+ * conversation loop (tools allowed) so resume is not limited to a single
+ * phrasing Step.
+ */
+async function continueLoopAfterCapability(args: {
+  readonly wiring: Wiring
+  readonly runId: string
+  readonly conversationId: string
+  readonly subject: string
+  readonly capability: string
+  readonly toolOutput: string
+  readonly env: NodeJS.ProcessEnv
+  readonly wechatUserId?: string
+  readonly wechatContextToken?: string
+}): Promise<string> {
+  const adapter = pickLLMProvider(args.env)
+  if (!adapter) {
+    const now = new Date()
+    const stepId = crypto.randomUUID()
+    await args.wiring.runtimeStore.createStep({
+      id: stepId,
+      runId: args.runId,
+      kind: "result",
+      status: "succeeded",
+      input: { afterCapability: args.capability, source: "tool_fallback" },
+      createdAt: now,
+    })
+    await args.wiring.runtimeStore.updateStep({
+      stepId,
+      output: { reply: args.toolOutput },
+      updatedAt: now,
+    })
+    return args.toolOutput
+  }
+  const kernel = new AgentKernel({
+    bridge: args.wiring.eventBridge,
+    conversationId: args.conversationId,
+    projectId: "approval-resume",
+    actor: { kind: "agent", id: "approval-resume" },
+  })
+  const userContent =
+    `已批准并执行 ${args.capability}，结果：\n${args.toolOutput}\n` +
+    `请用中文继续完成用户目标；需要时可调用工具。`
+  try {
+    await kernel.openTurn({ userMessage: { role: "user", content: userContent } })
+  } catch {
+    return args.toolOutput
+  }
+
+  const tools = makeWeibutlerTools({
+    bridge: args.wiring.eventBridge,
+    conversationId: args.conversationId,
+    actor: { kind: "agent", id: "approval-resume" },
+    ...(args.wechatUserId ? { wechatUserId: args.wechatUserId } : {}),
+    ...(args.wechatContextToken ? { wechatContextToken: args.wechatContextToken } : {}),
+    runtimeStore: args.wiring.runtimeStore,
+    runId: args.runId,
+    env: args.env,
+    mcpBundle: args.wiring.mcp,
+  })
+  const llmTools = llmToolsForButler({ env: args.env, mcpBundle: args.wiring.mcp })
+  const toolExecutor = makeToolExecutor({
+    tools,
+    store: args.wiring.runtimeStore,
+    runId: args.runId,
+    ownerSubject: resolveOwnerSubject(args.env, args.subject),
+    subject: args.subject,
+    conversationId: args.conversationId,
+    timeoutMsFor: toolTimeoutMs,
+    ...(args.wechatUserId ? { wechatUserId: args.wechatUserId } : {}),
+  })
+
+  const loopResult = await runConversationLoop({
+    kernel,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a helpful butler. An Owner-approved capability already ran. " +
+          "Continue the task in Chinese. You may call tools when needed.",
+      },
+      { role: "user", content: userContent },
+    ],
+    llmTools,
+    maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
+    initialTraces: [`post-approval-loop after ${args.capability}`],
+    ports: {
+      stubReply: () => stubReply(userContent, args.subject, "approval-resume"),
+      findTool: (name) => findTool(tools, name),
+      persistAssistantReply: async (content) => {
+        try {
+          await args.wiring.runtimeStore.appendMessage({
+            messageId: crypto.randomUUID(),
+            conversationId: args.conversationId,
+            role: "assistant",
+            content: { text: content },
+            triggerSource: "api",
+            idempotencyKey: `assistant:approval:${args.runId}:${Date.now()}`,
+            createdAt: new Date(),
+          })
+        } catch {
+          // non-fatal
+        }
+      },
+      complete: async (msgs, toolsForLlm) => {
+        const llmMessages = msgs as unknown as LLMMessage[]
+        return Effect.runPromise(
+          adapter.complete(llmMessages, { tools: toolsForLlm }).pipe(
+            Effect.match({
+              onFailure: (err) => ({
+                ok: false as const,
+                reason: err instanceof Error ? err.message : String(err),
+              }),
+              onSuccess: (resp) => ({
+                ok: true as const,
+                response: {
+                  content: resp.content,
+                  toolCalls: resp.toolCalls,
+                },
+              }),
+            }),
+          ),
+        )
+      },
+      executeTool: async (def, toolArgs) => {
+        const outcome = await toolExecutor.execute(def, toolArgs)
+        if (isPendingApprovalOutcome(outcome)) {
+          throw new RunPauseForApproval({
+            reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}\n回复「确认」批准，或「拒绝」取消。`,
+            iterations: 0,
+            toolCalls: 0,
+            finalDecision: "AskApproval",
+            traces: [`post-approval waiting ${outcome.pendingApproval.stepId}`],
+          } satisfies ConversationLoopResult)
+        }
+        return toRunResult(outcome)
+      },
+    },
+  })
+
+  const now = new Date()
+  const stepId = crypto.randomUUID()
+  await args.wiring.runtimeStore.createStep({
+    id: stepId,
+    runId: args.runId,
+    kind: "result",
+    status: "succeeded",
+    input: {
+      afterCapability: args.capability,
+      source: "conversation_loop",
+      iterations: loopResult.iterations,
+      toolCalls: loopResult.toolCalls,
+    },
+    createdAt: now,
+  })
+  await args.wiring.runtimeStore.updateStep({
+    stepId,
+    output: { reply: loopResult.reply, traces: loopResult.traces },
+    updatedAt: now,
+  })
+  return loopResult.reply
+}
+
+/**
+ * Resume the same Run after Owner approval: execute the pending capability
+ * under the issued ScopedGrant, persist capability Step, then continue with
+ * the full multi-turn conversation loop (A7+).
+ */
 export async function resumeApprovedCapability(
   wiring: Wiring,
   decision: ApprovalDecision,
   options: {
     readonly env?: NodeJS.ProcessEnv
     readonly trigger?: RunTrigger
+    readonly content?: string
   } = {},
 ): Promise<RunResult> {
   const env = options.env ?? process.env
@@ -50,72 +275,124 @@ export async function resumeApprovedCapability(
   if (!pending) {
     return { ok: false, reason: "invalid pending capability step" }
   }
-  const tools = makeWeibutlerTools({
-    bridge: wiring.eventBridge,
-    conversationId: pending.conversationId,
-    actor: { kind: "agent", id: "approval-resume" },
-    ...(pending.wechatUserId ? { wechatUserId: pending.wechatUserId } : {}),
-    ...(pending.wechatContextToken ? { wechatContextToken: pending.wechatContextToken } : {}),
-    env,
-  })
-  const def = findTool(tools, pending.capability)
-  if (!def) {
-    return { ok: false, reason: `unknown capability: ${pending.capability}` }
-  }
-  const executor = makeToolExecutor({
-    tools,
-    store: wiring.runtimeStore,
-    runId: decision.runId,
-    ownerSubject: resolveOwnerSubject(env, pending.subject),
-    subject: pending.subject,
-    conversationId: pending.conversationId,
-    timeoutMsFor: toolTimeoutMs,
-    grant: decision.grant,
-  })
-  const outcome = await executor.execute(def, pending.args)
-  if (isPendingApprovalOutcome(outcome)) {
-    return { ok: false, reason: outcome.reason }
-  }
-  const result = toRunResult(outcome)
-  const run = await wiring.runtimeStore.getRun(decision.runId)
-  if (run) {
-    const finalStatus = result.ok ? "succeeded" : "failed"
-    await wiring.runtimeStore.transitionRunStatus(run.id, run.version, finalStatus, new Date())
-  }
-  if (options.trigger) {
-    await wiring.runtimeStore.appendAuditEvent({
-      auditId: crypto.randomUUID(),
+
+  const out = await wiring.runEngine.resumeRun(
+    {
       runId: decision.runId,
       conversationId: pending.conversationId,
-      action: "approval.resume",
-      subject: options.trigger.subject,
-      detail: {
-        stepId: decision.step.id,
-        triggerSource: options.trigger.source,
-        trustLevel: options.trigger.trustLevel,
-        idempotencyKey: options.trigger.idempotencyKey,
-        triggerPayload: options.trigger.payload,
-      },
-      createdAt: new Date(),
-    })
-  }
-  if (result.ok) {
-    await markGrantConsumed(wiring.runtimeStore, decision.grant)
-    await wiring.runtimeStore.appendAuditEvent({
-      auditId: crypto.randomUUID(),
-      runId: decision.runId,
-      conversationId: pending.conversationId,
-      action: "approval.executed",
-      subject: pending.subject,
-      detail: {
-        stepId: decision.step.id,
+      content: options.content ?? "确认",
+      messageId: `approval-resume:${decision.step.id}`,
+    },
+    async (ctx) => {
+      const failRun = async (reason: string): Promise<RunResult> => {
+        const current = await wiring.runtimeStore.getRun(ctx.runId)
+        if (current?.status === "running") {
+          await wiring.runtimeStore.transitionRunStatus(
+            current.id,
+            current.version,
+            "failed",
+            new Date(),
+          )
+        }
+        return { ok: false, reason }
+      }
+
+      const tools = makeWeibutlerTools({
+        bridge: wiring.eventBridge,
+        conversationId: pending.conversationId,
+        actor: { kind: "agent", id: "approval-resume" },
+        ...(pending.wechatUserId ? { wechatUserId: pending.wechatUserId } : {}),
+        ...(pending.wechatContextToken ? { wechatContextToken: pending.wechatContextToken } : {}),
+        env,
+      })
+      const def = findTool(tools, pending.capability)
+      if (!def) {
+        return failRun(`unknown capability: ${pending.capability}`)
+      }
+      const executor = makeToolExecutor({
+        tools,
+        store: wiring.runtimeStore,
+        runId: ctx.runId,
+        ownerSubject: resolveOwnerSubject(env, pending.subject),
+        subject: pending.subject,
+        conversationId: pending.conversationId,
+        timeoutMsFor: toolTimeoutMs,
+        grant: decision.grant,
+      })
+      const outcome = await executor.execute(def, pending.args)
+      if (isPendingApprovalOutcome(outcome)) {
+        return failRun(outcome.reason)
+      }
+      const result = toRunResult(outcome)
+      await persistCapabilityStep(wiring.runtimeStore, {
+        runId: ctx.runId,
         capability: pending.capability,
-        output: String(result.output),
-      },
-      createdAt: new Date(),
-    })
+        toolArgs: pending.args,
+        approvalStepId: decision.step.id,
+        grantId: decision.grant.id,
+        result,
+      })
+
+      if (options.trigger) {
+        await wiring.runtimeStore.appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: decision.runId,
+          conversationId: pending.conversationId,
+          action: "approval.resume",
+          subject: options.trigger.subject,
+          detail: {
+            stepId: decision.step.id,
+            triggerSource: options.trigger.source,
+            trustLevel: options.trigger.trustLevel,
+            idempotencyKey: options.trigger.idempotencyKey,
+            triggerPayload: options.trigger.payload,
+            sameRun: true,
+          },
+          createdAt: new Date(),
+        })
+      }
+
+      if (!result.ok) {
+        return failRun(result.reason)
+      }
+
+      await markGrantConsumed(wiring.runtimeStore, decision.grant)
+      const reply = await continueLoopAfterCapability({
+        wiring,
+        runId: ctx.runId,
+        conversationId: pending.conversationId,
+        subject: pending.subject,
+        capability: pending.capability,
+        toolOutput: String(result.output),
+        env,
+        ...(pending.wechatUserId ? { wechatUserId: pending.wechatUserId } : {}),
+        ...(pending.wechatContextToken ? { wechatContextToken: pending.wechatContextToken } : {}),
+      })
+      await wiring.runtimeStore.appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: decision.runId,
+        conversationId: pending.conversationId,
+        action: "approval.executed",
+        subject: pending.subject,
+        detail: {
+          stepId: decision.step.id,
+          capability: pending.capability,
+          output: reply,
+          sameRun: true,
+          continuedLoop: true,
+        },
+        createdAt: new Date(),
+      })
+      return { ok: true as const, output: reply }
+    },
+  )
+
+  // runBodyAndFinalize may return a ConversationLoopResult when a nested
+  // AskApproval pause escapes the post-approval loop.
+  if (isLoopResult(out)) {
+    return { ok: true, output: out.reply }
   }
-  return result
+  return out
 }
 
 export function throwIfPendingApproval(

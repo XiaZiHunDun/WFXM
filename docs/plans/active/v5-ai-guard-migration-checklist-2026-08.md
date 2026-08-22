@@ -1,42 +1,47 @@
-# Butler v5 AI Guard 迁移清单（人工执行）
+# Butler v5 AI Guard 迁移清单
 
-> **状态**：Proposed / manual-only  
-> **排期**：Owner 有空时执行；**不阻塞** v5 功能交付与日常 push。  
-> **原因**：根 `.cursorrules`、`.claude/settings.json`、`scripts/ai_guard/*.py` 和 `butler-v5/AGENTS.md` 均属于保护面；普通 Agent 不应在同一次任务中修改守卫并解除自身约束。  
-> **关联**：[`v5-product-boundaries-2026-08.md`](../decisions/v5-product-boundaries-2026-08.md) · [`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md)
+> **状态**：✅ Done（2026-08-22，Owner）  
+> **Issue**：[GitHub #2](https://github.com/XiaZiHunDun/WFXM/issues/2)  
+> **备份**：`.backup/v5-ai-guard/20260821-110247/`（增量见本次 commit）
 
-## 需要纠正的旧前提
+## 已交付
 
-- 根规则仍把 `butler/core`、v4 九层与 v4 Python gates 当唯一主线；
-- `butler-v5/AGENTS.md` 把未接线的 Effect Application/Infrastructure 描述为完整生产架构；
-- `butler-v5/AGENTS.md` 的“所有可恢复错误必须走 Effect ADT”“模块级 Map 一律可疑”等规则与当前生产 async/await delivery shell 不完全一致；
-- 根 PostToolUse/Stop 流程主要覆盖 v4 文件和 v4 黑板习惯；
-- v5 的真实承重文件、唯一 schema、生产 Loop 与权限入口没有同等级保护。
+| 项 | 位置 |
+| --- | --- |
+| PreToolUse v5 承重文件 block | `scripts/ai_guard/pre_tool_use_hook.py` → `PROTECTED_FILES` |
+| v5 schema 目录 warn | `PROTECTED_DIR_PATTERNS` → `butler-v5/packages/persistence/src/migrations/` |
+| PostToolUse vitest 映射 | `scripts/ai_guard/post_tool_use_hook.py` → `V5_FILE_TO_TESTS` |
+| pre-commit v5 保护 | `scripts/ai_guard/pre_commit_hook.sh` |
+| 生产 vs 脚手架 | `butler-v5/AGENTS.md` §0 |
+| v4 保护保留 | 未删除 legacy 项 |
 
-## 人工迁移步骤
+## v5 承重文件（PreToolUse block）
 
-1. 在 GitHub 创建 guard migration issue，链接产品边界与生产架构 SSOT。
-2. 备份当前规则与 hook 输出，确认已有 v4 保护仍需保留到何时。
-3. 在 `butler-v5/AGENTS.md` 区分：
-   - 生产路径约束；
-   - 未接线脚手架约束；
-   - 目标 Policy/ScopedGrant/Sandbox 约束。
-4. 把以下 v5 文件加入承重保护候选：
-   - `apps/api/src/wechat-inbound-butler.ts`
-   - `packages/runtime/src/agent-kernel.ts`
-   - `packages/runtime/src/bridge.ts`
-   - `packages/persistence/src/migrations/0001_initial.sql`
-   - `apps/api/src/workspace-tools.ts`
-   - `apps/api/src/capability-guard.ts`
-5. 新增或调整 hook，使修改 v5 TypeScript 时运行对应测试、typecheck、lint 与 architecture tests。
-6. 保留禁止 secret、wildcard import、危险 shell、绕过测试和自改守卫的规则。
-7. 不删除 v4 保护，直到确认 v4 只读归档且无运营依赖。
-8. 由人工修改保护文件，并按仓库要求使用 `[MANUAL-OVERRIDE]`。
+- `butler-v5/apps/api/src/wechat-inbound-butler.ts`
+- `butler-v5/apps/api/src/workspace-tools.ts`
+- `butler-v5/apps/api/src/tool-boundary.ts`
+- `butler-v5/apps/api/src/capability-guard.ts`
+- `butler-v5/packages/runtime/src/agent-kernel.ts`
+- `butler-v5/packages/runtime/src/run-engine.ts`
+- `butler-v5/packages/runtime/src/bridge.ts`
+- `butler-v5/packages/runtime/src/capability-boundary.ts`
+- `butler-v5/packages/persistence/src/migrations/0001_initial.sql`
+
+## PostToolUse vitest 触发（示例）
+
+```bash
+python3 scripts/ai_guard/post_tool_use_hook.py --match-only butler-v5/apps/api/src/workspace-tools.ts
+# → v5 workspace tools -> apps/api/src/workspace-tools.test.ts
+```
 
 ## 验收
 
-- Agent 新会话首先读 v5 SSOT，不再从 v4 文档推断；
-- 修改生产 Loop、schema、工具沙箱或权限入口会触发 v5 专项验证；
-- 守卫本身仍不能被普通 Agent 修改；
-- 规则不强迫生产代码伪装成未接线 Effect 架构；
-- v4 历史保护移除有独立、可审计的人工作业。
+- [x] 修改 `wechat-inbound-butler.ts` / `workspace-tools.ts` 触发 v5 测试子集
+- [x] Agent 无法直接改受保护守卫文件（`pre_tool_use_hook.py` self-protect）
+- [x] `butler-v5/AGENTS.md` 区分生产路径 vs 未接线脚手架（§0）
+- [x] 守卫变更需 `[MANUAL-OVERRIDE]`（pre-commit）
+
+## 仍由 Owner 维护
+
+- 根 `.cursorrules` / `.claude/settings.json` 与 v4 保护并存至 v4 只读归档
+- 新 v5 承重文件加入清单时同步三处：`pre_tool_use_hook.py`、`post_tool_use_hook.py`、`pre_commit_hook.sh`

@@ -30,7 +30,7 @@ CLI / iLink Poller / HTTP / WebSocket
                          PostgreSQL
 ```
 
-P0–P2 迁移已落地；P1.0–P1.4 治理链路已接入生产：`RunEngine` 收口微信入站 Run；`RuntimeStore` 双写关系表；`PolicyGate` + `CapabilityRegistry` 统一工具执行；`waiting_approval` Step + Owner API/CLI + 微信内联「确认/拒绝」；`ScopedGrant` 一次性扣减；`audit_events` 双写子代理审计；`BUTLER_V5_READ_MODEL` 控制读模型（默认 `event_store`）；`BUTLER_V5_SANDBOX=bubblewrap` 时 `run_command` fail-closed 走 bubblewrap。
+P0–P2 迁移已落地；P1.0–P1.4 治理链路已接入生产：`RunEngine` 收口微信入站 Run；`RuntimeStore` 双写关系表；`PolicyGate` + `CapabilityRegistry` 统一工具执行；`waiting_approval` Step + Owner API/CLI + 微信内联「确认/拒绝」；`ScopedGrant` 一次性扣减；`audit_events` 双写子代理审计；`BUTLER_V5_READ_MODEL` 控制读模型（默认 `relational`，0002 messages）；`BUTLER_V5_SANDBOX=bubblewrap` 时 `run_command` fail-closed 走 bubblewrap。
 
 当前生产 Loop 是 `apps/api/src/wechat-inbound-butler.ts` 的 async/await 编排。`packages/application` 与部分 `packages/infrastructure` 是重构期脚手架，只有自身测试，不在生产调用链上。
 
@@ -50,13 +50,13 @@ P0–P2 迁移已落地；P1.0–P1.4 治理链路已接入生产：`RunEngine` 
 1. 动态加载 `@butler/api`；
 2. 启动 Hono HTTP；
 3. Hono 监听后按配置启动原生 iLink poller；
-4. API 模块同时启动 WebSocket server 和 subagent outbox worker；
+4. 按配置可选启动 WebSocket + subagent outbox worker（`BUTLER_V5_SUBAGENT_ENABLED=1`）与 schedule worker；
 5. SIGINT/SIGTERM 关闭 HTTP、WS、poller 与数据库连接。
 
 生产由 `butler-v5-gateway.service` 运行，默认：
 
 - HTTP：`PORT=3000`；
-- WebSocket：由 `WS_PORT` 配置；代码默认 3001；
+- WebSocket：**opt-in**（`BUTLER_V5_SUBAGENT_ENABLED=1`）；由 `WS_PORT` 配置，默认 3001，绑定 loopback；
 - PostgreSQL 与 wechat mock：Docker Compose；
 - 凭证：`~/.config/butler-v5/env`；
 - 工作目录：`butler-v5/`。
@@ -68,9 +68,10 @@ WeChat phone
   → Tencent iLink getupdates
   → apps/api ilink-poller
   → POST /v1/wechat/inbound
-  → (optional) inline approval: 确认/拒绝 → ScopedGrant + resume
+  → Intake normalizeWechatInbound（conversationId / idempotency / RunTrigger）
+  → (optional) inline approval: 确认/拒绝 → ScopedGrant + RunEngine.resumeRun（同一 runId）
   → EventBridge append ConversationStarted
-  → runButlerLoop → RunEngine.executeInbound
+  → runButlerLoop → RunEngine.executeInbound（若已有 active main Run 则拒绝另开）
   → PolicyGate.executeThroughBoundary (tools)
   → LLM / tools / delegate
   → HTTP reply
@@ -80,16 +81,24 @@ WeChat phone
 
 该路径不经过退役的 v4 gateway。
 
+**Intake（A6）**：`packages/runtime/src/intake/` 负责 conversationId 校验/默认、idempotencyKey、`RunTrigger` 构造；Slack/Telegram 协议解析与 channel allowlist 仍在 `apps/api`。
+
 ### 3.1 Loop
 
-`runButlerLoop`：
+Execution 多轮循环在 `packages/runtime/src/execution/conversation-loop.ts`（`runConversationLoop`）。`apps/api/wechat-inbound-butler` 负责：
 
-- 创建 `AgentKernel`，写入 `TurnOpened`；
-- 加载同一 conversation stream 的历史；
-- 超预算时使用 LLM 摘要，失败回退为抽取压缩；
-- 最多执行 5 轮模型/工具交互；
+- 内联审批、backfill、`RunEngine.executeInbound`；
+- 打开 `AgentKernel` Turn、组装历史（relational / event_store compact）；
+- 注入 LLM / 工具 ports；
+- 调用 `runConversationLoop`（默认最多 5 轮）。
+
+循环内行为：
+
 - 支持原生 tool calls 与 JSON Decision fallback；
-- 需确认副作用（如 `send_wechat_file`）写入 `waiting_approval` Step，Run 暂停；用户可回复「确认/拒绝」，或 Owner 调 `/v1/owner/approvals/*` / `butler approve`；
+- 需确认副作用写入 `waiting_approval` Step，Run 暂停；用户可回复「确认/拒绝」，或 Owner 调 `/v1/owner/approvals/*` / `butler approve`；
+- 审批通过后经 `RunEngine.resumeRun` **恢复同一 Run**：执行挂起 capability、写入 capability Step，再跑完整多轮 `runConversationLoop`（可再调工具）；不 `createRun`；
+- 对话已有 active main Run（`queued`/`running`/`waiting_approval`）时，普通入站不再另开主 Run（`ActiveMainRunConflict` → 友好提示）；
+- `waiting_external` + trusted/owner 入站：自动 resume 同 Run 并继续 Loop；
 - 无 LLM、解码失败或工具异常时仍返回非空回复。
 
 ### 3.2 工具
@@ -126,7 +135,7 @@ delegate_to_subagent
   → WebSocket pushEventToSubscribers
 ```
 
-子代理能力由 `ALLOWED_CAPABILITIES` 具名授予，并在 LLM 工具广告和执行时分别检查。`general` 只表示语言任务，不解锁工具。
+子代理能力由 `ALLOWED_CAPABILITIES` 具名授予，并在 LLM 工具广告和执行时分别检查。`general` 只表示语言任务，不解锁工具。委派时若有 parent `runId`，会创建 `parentRunId` Child Run（`triggerSource=parent_run`），outbox worker 将其推进到终态并写 result Step。
 
 当前限制：
 
@@ -142,9 +151,13 @@ delegate_to_subagent
 
 `0001_initial.sql`：event_store / outbox / snapshots / projections。
 
-`0002_target_runtime.sql`（additive）：conversations / messages / runs / steps / scoped_grants / audit_events。
+`0002_target_runtime.sql`（additive）：conversations（含 `project_id` 索引）/ messages / runs / steps / scoped_grants / audit_events。
 
-生产在 `NODE_ENV=production` 且有 `DATABASE_URL` 时使用 PostgreSQL。测试与显式本地模式使用 PGlite，执行同一迁移 SQL。
+`0003_scoped_grant_fields.sql`（additive）：`scoped_grants.delegable`（默认 false）、`approval_id`、`sandbox_profile`。
+
+生产在 `NODE_ENV=production` 且有 `DATABASE_URL` 时使用 PostgreSQL（长轮次、多项目、Run 状态持久化所需）。测试与显式本地模式使用 PGlite，执行同一迁移 SQL。
+
+**读模型**：`BUTLER_V5_READ_MODEL` 默认 `relational`——Loop 工作集与 `recall_history` / `summarize_today` 读 0002 `messages`。`event_store` 仍写入（审计/outbox/兼容）；入站时 `backfillConversation` 可将 legacy 事件流一次性投影到 relational。显式 `hybrid` 仅在迁移期需要 event 回退；`event_store` 仅事件流调试。
 
 ### 5.2 禁止第二套 schema
 
@@ -165,19 +178,86 @@ delegate_to_subagent
 
 - **PolicyGate + CapabilityRegistry**：`wechat-inbound-butler` 与子代理 worker 的工具执行经 `executeThroughBoundary`，禁止 apps 层直接 `runTool`（architecture test 锁定）；
 - **waiting_approval Step**：Policy `Ask` 时持久化待执行 capability（含 args/digest/过期时间），Run 转 `waiting_approval`；
-- **ScopedGrant**：Owner approve 或微信内联「确认」后签发 `uses=1` Grant（锁定 capability + path + action digest + **network allow/hosts**）；WeChat CDN 固定表 + `BUTLER_V5_GRANT_NETWORK_HOSTS` 额外域名；MCP 能力自动合并 `BUTLER_V5_MCP_URL` 主机名；
-- **恢复路径**：`resumeApprovedCapability` 在 approve 后立即执行挂起动作；Run 终态 `succeeded`/`failed`；
-- **Owner API**：`GET/POST /v1/owner/approvals*` + CLI `butler approvals|approve|deny`（`BUTLER_V5_OWNER_TOKEN`）；
+- **ScopedGrant**：Owner approve 或微信内联「确认」后签发 `uses=1` Grant（锁定 capability + path + action digest + **network allow/hosts**）；一等列 `delegable=false`、`approval_id`→审批 Step、`sandbox_profile`（提升隔离时填写，A8 扩面）；WeChat CDN 固定表 + `BUTLER_V5_GRANT_NETWORK_HOSTS` 额外域名；MCP 能力自动合并 `BUTLER_V5_MCP_URL` 主机名；
+- **恢复路径**：`resumeApprovedCapability` → `RunEngine.resumeRun`（同一 `runId`）执行挂起 capability + 持久化 capability/result Step；Run 终态由引擎收口为 `succeeded`/`failed`；
+- **Owner API**：`GET /v1/owner/conversations?projectId=`（多项目会话列表）+ `GET /v1/owner/conversations/:id/messages`（读 0002 消息，供 recall/运维）+ `POST /v1/owner/schedule/tick`（手动跑一轮 Schedule）+ `GET/POST /v1/owner/approvals*` + …；CLI `butler conversations` / `butler schedule tick`（**loopback only**）；
+- **Run 终态**：`cancelRun` / `expireOverdueRuns`（`run-lifecycle.ts`）；`waiting_external` enter/resume；**可信/Owner 入站**在 `executeInbound` 自动 resume 同 Run；
 - **微信内联审批**：同对话有待审批 Step 时，用户发送「确认」「拒绝」等短句触发 approve/deny（需为 pending subject 或 `BUTLER_OWNER_WECHAT_ID`）；
-- **审计**：子代理 JSONL + `audit_events` 双写；审批/request/grant/execute 写 `audit_events`；
+- **审计**：子代理 JSONL + `audit_events` 双写；审批/request/grant/execute/cancel/expire 写 `audit_events`；
 - workspace 路径约束、`run_command` 白名单、子代理 capability gate、iLink DM allowlist。
 
 仍待完善：
 
-- Heartbeat/Schedule、本地控制面 UI 等 P4 候选（按需单独立项；**浏览器已明确不立项**）；
-- v5 AI 守卫迁移（人工 checklist，不阻塞交付）。
+- Project Knowledge 等其余按需候选（**Web UI / 浏览器 / Task·Procedure DAG 已不立项或已交付 MVP**）；
+- Schedule / Durable Memory / Document ingest / Local tracing / Task·Procedure MVP 已落地；
+- Child Run relational（A5）：`delegate` 创建 `parentRunId` + `triggerSource=parent_run`；worker 写 running→终态 + result Step；
+- Conversation Loop（A7）：多轮循环在 `runtime/execution`；apps 仅接线。
+- 审批 resume 后接完整多轮 `runConversationLoop`；waiting_external 可信入站自动 resume（已落地）。
 
-**RunTrigger（已接入）**：微信 `buildWechatRunTrigger`、Channel `buildChannelRunTrigger`、Owner 审批 `buildApiRunTrigger`、CLI `butler run` → `buildCliRunTrigger`；元数据在 Run `budget` 或审计事件。
+**RunTrigger（已接入）**：微信 `buildWechatRunTrigger`、Channel `buildChannelRunTrigger`、Owner 审批 `buildApiRunTrigger`、CLI `butler run` → `buildCliRunTrigger`、Schedule `buildScheduleRunTrigger`（opt-in worker）、Task `buildTaskRunTrigger`；元数据在 Run `budget` 或审计事件。
+
+### 6.0 Schedule / Heartbeat（opt-in）
+
+| Env | 说明 |
+| --- | --- |
+| `BUTLER_V5_SCHEDULE_ENABLED` | 默认关；`1` 启动 API 进程内 tick worker |
+| `BUTLER_V5_SCHEDULE_TICK_MS` | 轮询间隔，默认 60000 |
+| `BUTLER_V5_SCHEDULE_JOBS_PATH` | JSON 任务文件（默认 `config/schedule-jobs.json`） |
+| `BUTLER_V5_SCHEDULE_JOBS` | 内联 JSON（设置时优先于 path） |
+| `BUTLER_V5_SCHEDULE_DEFER_WHEN_BUSY` | `1` 时尊重主队列 busy 钩子 |
+
+任务字段：`id` / `everyMs` / `goal` / `cooldownMs` / `maxSteps` / `deadlineMs` / `quietSuccess` / `enabled`。Fire 路径：`evaluateScheduleTick` → `runScheduleJob` → `runButlerLoop`（只读工具白名单）。不建第二套 Run Engine。
+
+### 6.0b Durable Memory（MVP）
+
+| 面 | 说明 |
+| --- | --- |
+| Schema | `durable_memories`（migration `0004`）：subject/content/source_kind/status/confidence/provenance/expires |
+| 写入 | Owner `POST /v1/owner/memories`；CLI `butler memory add\|list\|confirm\|reject\|delete` |
+| 召回 | 工具 `recall_durable_memory`（子串）；注入工作集需 `BUTLER_V5_DURABLE_MEMORY=1` |
+| 边界 | 非 Transcript；压缩摘要不自动升级；非 Owner 来源默认 `candidate` |
+
+### 6.0c Document ingest（MVP）
+
+| 面 | 说明 |
+| --- | --- |
+| Schema | `documents`（migration `0005`）：format/mime/byte_size/extracted_text/provenance |
+| 格式 | `plaintext` / `markdown` / `pdf`（pdf **必须**预提取文本；无内嵌解析器） |
+| 写入 | Owner `POST /v1/owner/documents`；CLI `butler document add\|list\|get\|delete\|promote` |
+| 召回 | 工具 `recall_document`（子串）；`promote-memory` → Durable Memory candidate |
+| 删除 | 级联 `deleteBySourceDocumentId` |
+
+### 6.0d Local tracing（MVP）
+
+| Env | 说明 |
+| --- | --- |
+| `BUTLER_V5_TRACE` | 默认开；`0` 停用 |
+| `BUTLER_V5_TRACE_REDACT` | 默认开 |
+| `BUTLER_V5_TRACE_MAX_EVENTS` | 环形缓冲上限，默认 500 |
+| `BUTLER_V5_OTEL_EXPORTER` | `off`（默认）\| `stdout`（OTLP-ish JSON lines，无 SDK） |
+
+接线：`RunEngine` 记 run start/finish；`executeToolThroughBoundary` 记 policy/capability/approval。Owner `GET /v1/owner/traces`、`POST .../clear`；CLI `butler traces`。
+
+### 6.0e Task / Procedure（MVP）
+
+| 概念 | 说明 |
+| --- | --- |
+| Procedure | 不可变线性模板（`name`+`version`）；`steps[{key,title,goal,when?}]`；`when` 仅标签 |
+| Task | Owner 持久待办；可绑 Procedure + `procedureStepIndex` |
+| 执行 | `POST /v1/owner/tasks/:id/run` → `buildTaskRunTrigger` → `runButlerLoop`；成功后默认推进步骤 |
+| 表 | `0006_task_procedure.sql`（`procedures` / `tasks`） |
+| CLI | `butler task list\|add\|run\|done\|proc-list\|proc-add` |
+
+无 DAG、无并行合并、无 WorkflowRun；不建第二套 Run Engine。
+
+### 6.0f P4 真实路径验收（无真微信）
+
+| 命令 | 说明 |
+| --- | --- |
+| `pnpm test:p4-acceptance` | 模拟 `POST /v1/wechat/inbound` → Schedule fire → Task/Procedure step → Owner traces |
+| `butler verify [--api url]` | 校验迁移清单含 0004–0006；可选 ping `/healthz` |
+
+Harness：`apps/api/src/p4-acceptance.harness.test.ts`（不启 iLink / Web UI）。
 
 **Capability Provider**：`createProductionCapabilityRegistry()` 为生产注册中心；核心 WeChat 工具走 `tools`，MCP 工具经 `mcpCapabilityProvidersFromTools()` 注册为 `extraProviders`（`tool-boundary.makeToolExecutor` 自动拆分 `mcp_*` 前缀能力）。
 
@@ -213,7 +293,16 @@ delegate_to_subagent
 
 ### 6.1 bubblewrap 沙箱（opt-in）
 
-`BUTLER_V5_SANDBOX=bubblewrap` 时，`run_command` 经 `packages/adapters/src/sandbox/bubblewrap-runner.ts` 在 bubblewrap 内执行；未安装 `bwrap` 时 **fail-closed**（拒绝执行）。
+`BUTLER_V5_SANDBOX=bubblewrap` 时，本地 argv 副作用经统一入口 `executeArgvInSandbox`（`bubblewrap-runner.ts`）执行；缺 `bwrap` 时 **fail-closed**。
+
+- Provider 默认隔离：`workspace-write-network-deny`（`--unshare-net`）。
+- 审批签发：`run_command` / `mcp_*` Grant 写入 `sandboxProfile=workspace-write-network-deny`；Owner `elevateNetwork: true` → `workspace-write-network-allow`（去掉 unshare-net）。
+- 执行时 PolicyGate 经 ALS 把 `Grant.sandboxProfile` 传给 sandbox 入口；MCP 远程 I/O 不套 bwrap，profile 作天花板与审计。
+- CLI：`butler approve <stepId> --elevate-network`。
+
+`butler-v5-gateway.service` 中已注释 `ExecStartPre=…sandbox-preflight.sh`；启用 bubblewrap 沙箱时取消注释，避免 gateway 在无 `bwrap` 时启动后静默拒绝命令。
+
+环境变量 SSOT：`butler-v5/.env.example`（`BUTLER_V5_SANDBOX`、`BUTLER_V5_WORKSPACE_ROOT`）。
 
 运维 preflight（生产建议在 systemd 启用）：
 

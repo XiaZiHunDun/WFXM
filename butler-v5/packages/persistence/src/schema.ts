@@ -2,11 +2,13 @@ import {
   pgTable,
   text,
   integer,
+  boolean,
   timestamp,
   jsonb,
   uuid,
   index,
   uniqueIndex,
+  doublePrecision,
 } from "drizzle-orm/pg-core"
 
 export const eventStore = pgTable(
@@ -69,6 +71,7 @@ export const projections = pgTable("projections", {
 
 export const conversations = pgTable("conversations", {
   conversationId: text("conversation_id").primaryKey().notNull(),
+  projectId: text("project_id"),
   subject: text("subject").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
@@ -149,9 +152,18 @@ export const scopedGrants = pgTable(
     remainingUses: integer("remaining_uses"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    /** When true, Child Run may receive a narrowed copy of this grant. Default false. */
+    delegable: boolean("delegable").notNull().default(false),
+    /** Waiting approval Step that issued this grant; null for Owner-preconfigured grants. */
+    approvalId: uuid("approval_id"),
+    /** Elevated sandbox profile when Grant lifts provider default isolation. */
+    sandboxProfile: text("sandbox_profile"),
+    /** host:port egress allowlist when sandboxProfile is network-allowlist (P2b). */
+    networkAllowlist: jsonb("network_allowlist").$type<readonly string[] | null>(),
   },
   (t) => ({
     runIdx: index("scoped_grants_run_idx").on(t.runId, t.expiresAt),
+    approvalIdx: index("scoped_grants_approval_idx").on(t.approvalId),
   }),
 )
 
@@ -169,5 +181,84 @@ export const auditEvents = pgTable(
   (t) => ({
     conversationIdx: index("audit_events_conversation_idx").on(t.conversationId, t.createdAt),
     runIdx: index("audit_events_run_idx").on(t.runId, t.createdAt),
+  }),
+)
+
+export const durableMemories = pgTable(
+  "durable_memories",
+  {
+    memoryId: uuid("memory_id").primaryKey().notNull(),
+    subject: text("subject").notNull(),
+    content: text("content").notNull(),
+    sourceKind: text("source_kind").notNull(),
+    status: text("status").notNull(),
+    confidence: doublePrecision("confidence").notNull(),
+    provenance: jsonb("provenance").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    subjectStatusIdx: index("durable_memories_subject_status_idx").on(
+      t.subject,
+      t.status,
+      t.updatedAt,
+    ),
+    expiresIdx: index("durable_memories_expires_idx").on(t.expiresAt),
+  }),
+)
+
+export const documents = pgTable(
+  "documents",
+  {
+    documentId: uuid("document_id").primaryKey().notNull(),
+    subject: text("subject").notNull(),
+    title: text("title").notNull(),
+    format: text("format").notNull(),
+    mimeType: text("mime_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    extractedText: text("extracted_text").notNull(),
+    status: text("status").notNull(),
+    failureReason: text("failure_reason"),
+    provenance: jsonb("provenance").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    subjectUpdatedIdx: index("documents_subject_updated_idx").on(t.subject, t.updatedAt),
+  }),
+)
+
+export const procedures = pgTable(
+  "procedures",
+  {
+    procedureId: uuid("procedure_id").primaryKey().notNull(),
+    name: text("name").notNull(),
+    version: integer("version").notNull(),
+    steps: jsonb("steps").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    nameVersionUniq: uniqueIndex("procedures_name_version_uniq").on(t.name, t.version),
+  }),
+)
+
+export const tasks = pgTable(
+  "tasks",
+  {
+    taskId: uuid("task_id").primaryKey().notNull(),
+    subject: text("subject").notNull(),
+    title: text("title").notNull(),
+    goal: text("goal").notNull(),
+    status: text("status").notNull(),
+    conversationId: text("conversation_id"),
+    procedureId: uuid("procedure_id"),
+    procedureStepIndex: integer("procedure_step_index"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    subjectStatusIdx: index("tasks_subject_status_idx").on(t.subject, t.status, t.updatedAt),
   }),
 )

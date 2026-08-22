@@ -2,7 +2,13 @@ import { Effect } from "effect"
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { WorkingSetResult } from "@butler/runtime/working-set.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
-import { decodeDecision, type ModelDecision } from "@butler/runtime/decision.js"
+import type { ModelDecision } from "@butler/runtime/decision.js"
+import {
+  DEFAULT_MAX_LOOP_ITERATIONS,
+  runConversationLoop,
+  type ConversationLoopMessage,
+  type ConversationLoopResult,
+} from "@butler/runtime/execution/index.js"
 import { type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { resolveReadModelSource } from "@butler/domain"
 import {
@@ -14,12 +20,10 @@ import type { Wiring } from "./wiring.js"
 import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
 import { isPendingApprovalOutcome, toRunResult } from "./approval-resume.js"
-import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
-import type { RunResult } from "@butler/runtime/tool-runtime.js"
+import { ActiveMainRunConflict, RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import {
   pickLLMProvider,
   type LLMAdapter,
-  type LLMAssistantResponse,
   type LLMMessage,
 } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
@@ -28,13 +32,7 @@ import {
   eventsToHistoryMessages,
 } from "./conversation-memory.js"
 import { tryWechatInlineApproval } from "./wechat-inline-approval.js"
-
-/**
- * Maximum tool-call iterations per inbound turn. Bounds the loop so a
- * chatty model cannot drive v5 into runaway tool use; on overrun the
- * loop returns the stub reply (v4 contract preserved).
- */
-const MAX_LOOP_ITERATIONS = 5
+import { loadDurableMemorySystemPrefix } from "./durable-memory-inject.js"
 
 /**
  * Logger surface for the butler loop. Mirrors the LLMReplyLogger
@@ -57,74 +55,13 @@ const defaultLogger: ButlerLoopLogger = {
 }
 
 /**
- * Result of a single butler loop run. The route returns `reply` to
- * the wechat caller and logs `traces` for operator debugging.
+ * Result of a single butler loop run. Alias of Execution ConversationLoopResult.
  */
-export interface ButlerLoopResult {
-  readonly reply: string
-  readonly iterations: number
-  readonly toolCalls: number
-  readonly finalDecision: ModelDecision["_tag"]
-  readonly traces: readonly string[]
-}
+export type ButlerLoopResult = ConversationLoopResult
 
 /**
- * Tool call trace entry — captured for the operator log so a
- * postmortem can see which tools ran during a turn.
- */
-interface ToolTrace {
-  readonly iteration: number
-  readonly toolName: string
-  readonly ok: boolean
-  readonly summary: string
-}
-
-async function executeInboundTool(args: {
-  readonly toolExecutor: ReturnType<typeof makeToolExecutor>
-  readonly def: ToolDefinition
-  readonly toolArgs: Readonly<Record<string, unknown>>
-  readonly iteration: number
-  readonly toolCalls: number
-  readonly traces: readonly string[]
-  readonly toolName: string
-}): Promise<RunResult> {
-  const outcome = await args.toolExecutor.execute(args.def, args.toolArgs)
-  if (isPendingApprovalOutcome(outcome)) {
-    throw new RunPauseForApproval({
-      reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}\n回复「确认」批准，或「拒绝」取消。`,
-      iterations: args.iteration + 1,
-      toolCalls: args.toolCalls,
-      finalDecision: "AskApproval",
-      traces: [
-        ...args.traces,
-        `${args.toolName}@${args.iteration}: waiting approval ${outcome.pendingApproval.stepId}`,
-      ],
-    } satisfies ButlerLoopResult)
-  }
-  return toRunResult(outcome)
-}
-
-/**
- * Run the full AgentKernel-backed butler loop for one wechat
- * inbound turn. Replaces R8.x.2's synchronous LLM call with a real
- * state machine + tool execution, while preserving the v4 → v5 → v4
- * contract (always returns a non-empty `reply`).
- *
- * The loop (R8.x.4: native tool_calls):
- *  1. Open a turn on a fresh AgentKernel (records TurnOpened).
- *  2. Build messages (system + recent history + current user msg).
- *  3. Call the LLM with the wechat tool set.
- *  4. If the response carries native tool_calls (R8.x.4):
- *     - push the assistant message back (with toolCalls preserved)
- *     - run each tool, push a tool-result message
- *     - loop back to step 3
- *  5. If the response is text-only:
- *     - try `decodeDecision(content)` for the JSON-decision protocol
- *       (legacy / models without native tool support)
- *     - if it parses, apply the ModelDecision
- *     - else treat the raw text as a Respond (best-effort)
- *  6. Bound by MAX_LOOP_ITERATIONS; on overrun, fall back to the stub
- *     reply (the v4 contract is preserved).
+ * Delivery-shell entry: Intake already normalized; this wires WeChat-specific
+ * tools/LLM/history then runs Execution `runConversationLoop` under RunEngine.
  */
 export async function runButlerLoop(args: {
   readonly wiring: Wiring
@@ -134,6 +71,11 @@ export async function runButlerLoop(args: {
   readonly projectId: string
   readonly idempotencyKey?: string
   readonly runTrigger?: RunTrigger
+  readonly budget?: Readonly<Record<string, unknown>>
+  readonly deadline?: Date | null
+  readonly goal?: string
+  /** When set, only these tool names are exposed to the model. */
+  readonly allowedToolNames?: readonly string[]
   readonly env?: NodeJS.ProcessEnv
   readonly logger?: ButlerLoopLogger
   readonly adapter?: LLMAdapter
@@ -150,7 +92,10 @@ export async function runButlerLoop(args: {
 
   const readModel = resolveReadModelSource(env)
   if (readModel !== "event_store") {
-    await args.wiring.backfillConversation(args.conversationId)
+    const existing = await args.wiring.runtimeStore.listMessages(args.conversationId)
+    if (existing.length === 0) {
+      await args.wiring.backfillConversation(args.conversationId)
+    }
   }
   const idempotencyKey =
     args.idempotencyKey ?? `wechat-${args.conversationId}-${args.content.length}-${Date.now()}`
@@ -166,22 +111,43 @@ export async function runButlerLoop(args: {
   if (!validated.ok) {
     throw new Error(`invalid RunTrigger: ${validated.reason}`)
   }
-  return args.wiring.runEngine.executeInbound(
-    {
-      conversationId: args.conversationId,
-      messageId: crypto.randomUUID(),
-      subject: trigger.subject,
-      content: args.content,
-      idempotencyKey,
-      trigger,
-    },
-    async (ctx) =>
-      runButlerLoopBody({
-        ...args,
-        runId: ctx.runId,
-        workingSet: ctx.workingSet,
-      }),
-  )
+  try {
+    return await args.wiring.runEngine.executeInbound(
+      {
+        conversationId: args.conversationId,
+        messageId: crypto.randomUUID(),
+        subject: trigger.subject,
+        content: args.content,
+        idempotencyKey,
+        trigger,
+        projectId: args.projectId,
+        ...(args.goal ? { goal: args.goal } : {}),
+        ...(args.budget ? { budget: args.budget } : {}),
+        ...(args.deadline !== undefined ? { deadline: args.deadline } : {}),
+      },
+      async (ctx) =>
+        runButlerLoopBody({
+          ...args,
+          runId: ctx.runId,
+          workingSet: ctx.workingSet,
+        }),
+    )
+  } catch (err) {
+    if (err instanceof ActiveMainRunConflict) {
+      const waiting =
+        err.activeRun.status === "waiting_approval" || err.activeRun.status === "waiting_external"
+      return {
+        reply: waiting
+          ? `当前对话仍有未完成的 Run（${err.activeRun.status}）。请先回复「确认」或「拒绝」完成审批，或等待外部步骤结束。`
+          : `当前对话已有进行中的 Run（${err.activeRun.id}），请稍后再试。`,
+        iterations: 0,
+        toolCalls: 0,
+        finalDecision: "Finish",
+        traces: [`active-main-run-conflict: ${err.activeRun.id} ${err.activeRun.status}`],
+      }
+    }
+    throw err
+  }
 }
 
 async function persistAssistantReply(args: {
@@ -204,6 +170,7 @@ async function persistAssistantReply(args: {
     // compat path must not break the wechat reply contract
   }
 }
+
 async function runButlerLoopBody(args: {
   readonly wiring: Wiring
   readonly conversationId: string
@@ -212,6 +179,7 @@ async function runButlerLoopBody(args: {
   readonly projectId: string
   readonly runId: string
   readonly workingSet: WorkingSetResult
+  readonly allowedToolNames?: readonly string[]
   readonly env?: NodeJS.ProcessEnv
   readonly logger?: ButlerLoopLogger
   readonly adapter?: LLMAdapter
@@ -227,8 +195,6 @@ async function runButlerLoopBody(args: {
     actor: { kind: "agent", id: "wechat-butler-v5" },
   })
 
-  // 1. Open the turn. Kernel records TurnOpened + transitions to
-  //    'running'. Failure here means we cannot proceed.
   const userMessage = { role: "user" as const, content: args.content }
   try {
     await kernel.openTurn({ userMessage })
@@ -243,10 +209,7 @@ async function runButlerLoopBody(args: {
     }
   }
 
-  // 2. Load prior turns, then compact (LLM summary when over budget)
-  //    after we know the adapter. Current TurnOpened is dropped by
-  //    eventsToHistoryMessages.
-  const base = buildWechatInboundMessages(args.content)
+  const base = buildWechatInboundMessages(args.content, env)
   const systemMsg = base[0]
   const userMsg = base[1]
   let historyTurns: LLMMessage[] = []
@@ -260,16 +223,24 @@ async function runButlerLoopBody(args: {
     )
   }
 
+  const allow = args.allowedToolNames ? new Set(args.allowedToolNames) : null
+  const memorySubject = resolveOwnerSubject(env, args.fromUserId)
   const tools: readonly ToolDefinition[] = makeWeibutlerTools({
     bridge,
     conversationId: args.conversationId,
     actor: { kind: "agent", id: "wechat-butler-v5" },
     wechatUserId: args.fromUserId,
     runtimeStore: args.wiring.runtimeStore,
+    runId: args.runId,
     env,
     mcpBundle: args.wiring.mcp,
-  })
-  const llmTools = llmToolsForButler({ env, mcpBundle: args.wiring.mcp })
+    durableMemoryStore: args.wiring.durableMemoryStore,
+    documentStore: args.wiring.documentStore,
+    memorySubject,
+  }).filter((t) => (allow ? allow.has(t.name as string) : true))
+  const llmTools = llmToolsForButler({ env, mcpBundle: args.wiring.mcp }).filter((t) =>
+    allow ? allow.has(t.name) : true,
+  )
 
   const toolExecutor = makeToolExecutor({
     tools,
@@ -284,7 +255,11 @@ async function runButlerLoopBody(args: {
 
   const adapter = args.adapter ?? pickLLMProvider(env)
   if (!adapter) {
-    await safeApplyDecision(kernel, { _tag: "Finish", reason: "no LLM configured" }, logger)
+    try {
+      await kernel.applyDecision({ _tag: "Finish", reason: "no LLM configured" })
+    } catch {
+      // ignore
+    }
     return {
       reply: stubReply(args.content, args.fromUserId, args.projectId),
       iterations: 0,
@@ -313,374 +288,97 @@ async function runButlerLoopBody(args: {
     eventStoreCompactSource = compact.source
   }
 
-  const messages: LLMMessage[] = []
+  const messages: ConversationLoopMessage[] = []
   if (systemMsg) messages.push({ role: systemMsg.role, content: systemMsg.content })
-  messages.push(...historyMessages)
+  const memoryPrefix = await loadDurableMemorySystemPrefix({
+    store: args.wiring.durableMemoryStore,
+    subject: memorySubject,
+    query: args.content,
+    env,
+  })
+  if (memoryPrefix) {
+    messages.push({ role: "system", content: memoryPrefix })
+  }
+  for (const m of historyMessages) {
+    messages.push({
+      role: m.role,
+      content: m.content,
+      ...(m.toolCalls ? { toolCalls: m.toolCalls } : {}),
+      ...(m.toolCallId ? { toolCallId: m.toolCallId } : {}),
+      ...(m.toolName ? { toolName: m.toolName } : {}),
+    })
+  }
   if (userMsg) messages.push({ role: userMsg.role, content: userMsg.content })
 
-  const traces: string[] = []
+  const initialTraces: string[] = []
+  if (memoryPrefix) {
+    initialTraces.push("durable-memory: injected confirmed prefix")
+  }
   if (historyMessages.length > 0) {
     if (useRelationalHistory) {
-      traces.push(
+      initialTraces.push(
         `history: ${historyMessages.length} msgs source=relational:${args.workingSet.source}`,
       )
     } else {
-      traces.push(
+      initialTraces.push(
         `history: ${historyMessages.length} msgs source=event_store compacted=${eventStoreCompactSource}`,
       )
     }
   }
-  let toolCalls = 0
-  let lastDecision: ModelDecision["_tag"] = "Finish"
 
-  // 3. Main loop.
-  for (let iteration = 0; iteration < MAX_LOOP_ITERATIONS; iteration++) {
-    const outcome = await Effect.runPromise(
-      adapter.complete(messages, { tools: llmTools }).pipe(
-        Effect.match({
-          onFailure: (err) => {
-            logger.error(
-              `[v5-butler-loop] LLM call failed (fromUserId=${args.fromUserId}); falling back to stub:`,
-              err,
-            )
-            return {
-              ok: false as const,
-              reason: err instanceof Error ? err.message : String(err),
-            }
-          },
-          onSuccess: (resp) => ({ ok: true as const, response: resp }),
-        }),
-      ),
-    )
-
-    if (!outcome.ok) {
-      // LLM failed — return stub reply, mark kernel complete.
-      await safeApplyDecision(
-        kernel,
-        { _tag: "Finish", reason: `llm failure: ${outcome.reason}` },
-        logger,
-      )
-      return {
-        reply: stubReply(args.content, args.fromUserId, args.projectId),
-        iterations: iteration + 1,
-        toolCalls,
-        finalDecision: "Finish",
-        traces: [...traces, `llm failure: ${outcome.reason}`],
-      }
-    }
-
-    const response: LLMAssistantResponse = outcome.response
-
-    // 4. Native tool_calls path (R8.x.4). Echo the assistant message
-    //    back (with toolCalls preserved) and queue tool result messages.
-    if (response.toolCalls.length > 0) {
-      // Persist the assistant turn (tool_use only — text accompanying
-      // the tool calls is included in content so the model sees it
-      // next iteration).
-      messages.push({
-        role: "assistant",
-        content: response.content,
-        toolCalls: response.toolCalls,
-      })
-
-      const toolResultMessages: LLMMessage[] = []
-      for (const tc of response.toolCalls) {
-        const def = findTool(tools, tc.name)
-        if (!def) {
-          logger.warn(
-            `[v5-butler-loop] Unknown tool '${tc.name}' at iteration ${iteration}; pushing error result`,
-          )
-          traces.push(`unknown tool: ${tc.name}`)
-          toolResultMessages.push({
-            role: "tool",
-            content: `[error] unknown tool: ${tc.name}`,
-            toolCallId: tc.id,
-            toolName: tc.name,
-          })
-          continue
-        }
-        toolCalls += 1
-        const toolResult = await executeInboundTool({
-          toolExecutor,
-          def,
-          toolArgs: tc.args,
-          iteration,
-          toolCalls,
-          traces,
-          toolName: tc.name,
-        })
-        const trace: ToolTrace = {
-          iteration,
-          toolName: tc.name,
-          ok: toolResult.ok,
-          summary: toolResult.ok
-            ? summarizeForLog(String(toolResult.output))
-            : `error: ${toolResult.reason}`,
-        }
-        traces.push(`${trace.toolName}@${trace.iteration}: ${trace.summary}`)
-        toolResultMessages.push({
-          role: "tool",
-          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
-          toolCallId: tc.id,
-          toolName: tc.name,
-        })
-      }
-      // Append the tool result messages in order.
-      messages.push(...toolResultMessages)
-      // Continue the loop — the model will see the tool results and
-      // decide whether to call another tool or respond with text.
-      continue
-    }
-
-    // 5. Text-only path: JSON-decision fallback (legacy R8.x.3
-    //    protocol) then plain-text Respond as last resort.
-    const raw = response.content.trim()
-    const decoded = decodeDecision(raw)
-    if (!decoded.ok) {
-      logger.warn(
-        `[v5-butler-loop] decodeDecision failed at iteration ${iteration}: ${decoded.reason}; treating as Respond`,
-      )
-      // The model returned plain text rather than JSON. Treat the raw
-      // text as a Respond decision so the user still gets a reply.
-      const respondDecision: ModelDecision = { _tag: "Respond", content: raw }
-      await safeApplyDecision(kernel, respondDecision, logger)
-      lastDecision = "Respond"
-      return {
-        reply: raw || stubReply(args.content, args.fromUserId, args.projectId),
-        iterations: iteration + 1,
-        toolCalls,
-        finalDecision: "Respond",
-        traces: [...traces, `decode failed (${decoded.reason}); plain-text reply`],
-      }
-    }
-
-    const decision = decoded.value
-    lastDecision = decision._tag
-
-    switch (decision._tag) {
-      case "Respond": {
-        await safeApplyDecision(kernel, decision, logger)
-        const text = decision.content.trim()
+  return runConversationLoop({
+    kernel,
+    messages,
+    llmTools,
+    maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
+    initialTraces,
+    ports: {
+      logger,
+      stubReply: () => stubReply(args.content, args.fromUserId, args.projectId),
+      findTool: (name) => findTool(tools, name),
+      persistAssistantReply: async (content) => {
         await persistAssistantReply({
           wiring: args.wiring,
           conversationId: args.conversationId,
-          content: text || stubReply(args.content, args.fromUserId, args.projectId),
+          content,
           idempotencyKey: `assistant:${args.conversationId}:${Date.now()}`,
         })
-        return {
-          reply: text || stubReply(args.content, args.fromUserId, args.projectId),
-          iterations: iteration + 1,
-          toolCalls,
-          finalDecision: "Respond",
-          traces,
+      },
+      complete: async (msgs, toolsForLlm) => {
+        const llmMessages = msgs as unknown as LLMMessage[]
+        return Effect.runPromise(
+          adapter.complete(llmMessages, { tools: toolsForLlm }).pipe(
+            Effect.match({
+              onFailure: (err) => ({
+                ok: false as const,
+                reason: err instanceof Error ? err.message : String(err),
+              }),
+              onSuccess: (resp) => ({
+                ok: true as const,
+                response: {
+                  content: resp.content,
+                  toolCalls: resp.toolCalls,
+                },
+              }),
+            }),
+          ),
+        )
+      },
+      executeTool: async (def, toolArgs) => {
+        const outcome = await toolExecutor.execute(def, toolArgs)
+        if (isPendingApprovalOutcome(outcome)) {
+          throw new RunPauseForApproval({
+            reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}\n回复「确认」批准，或「拒绝」取消。`,
+            iterations: 0,
+            toolCalls: 0,
+            finalDecision: "AskApproval" as ModelDecision["_tag"],
+            traces: [
+              `waiting approval ${outcome.pendingApproval.stepId} for ${String(def.name)}`,
+            ],
+          } satisfies ButlerLoopResult)
         }
-      }
-      case "Finish": {
-        await safeApplyDecision(kernel, decision, logger)
-        return {
-          reply: stubReply(args.content, args.fromUserId, args.projectId),
-          iterations: iteration + 1,
-          toolCalls,
-          finalDecision: "Finish",
-          traces,
-        }
-      }
-      case "AskApproval": {
-        // Wechat is one-shot — there is no interactive approval flow.
-        // Echo the question back as a Respond-equivalent so the user
-        // sees what the model wanted to ask.
-        await safeApplyDecision(kernel, decision, logger)
-        const text = `[需要确认] ${decision.question}`
-        return {
-          reply: text,
-          iterations: iteration + 1,
-          toolCalls,
-          finalDecision: "AskApproval",
-          traces: [...traces, `AskApproval echoed: ${decision.question}`],
-        }
-      }
-      case "Delegate": {
-        // R8.x.6: dispatch via the delegate_to_subagent tool (which
-        // wraps delegate-runtime), then loop back so the model can
-        // emit a follow-up Respond using the child conversation id.
-        // We synthesize a fake assistant(toolCalls) + tool-result
-        // pair so the LLM has the outcome in context — same shape
-        // the legacy CallTool path uses.
-        await safeApplyDecision(kernel, decision, logger)
-        const def = findTool(tools, "delegate_to_subagent")
-        if (!def) {
-          logger.warn(
-            `[v5-butler-loop] delegate_to_subagent tool not registered; treating as Finish`,
-          )
-          traces.push("delegate_to_subagent missing")
-          await safeApplyDecision(
-            kernel,
-            { _tag: "Finish", reason: "delegate_to_subagent missing" },
-            logger,
-          )
-          return {
-            reply: stubReply(args.content, args.fromUserId, args.projectId),
-            iterations: iteration + 1,
-            toolCalls,
-            finalDecision: "Delegate",
-            traces,
-          }
-        }
-        toolCalls += 1
-        const toolResult = await executeInboundTool({
-          toolExecutor,
-          def,
-          toolArgs: { task: decision.task, role: decision.role },
-          iteration,
-          toolCalls,
-          traces,
-          toolName: "delegate_to_subagent",
-        })
-        const trace: ToolTrace = {
-          iteration,
-          toolName: "delegate_to_subagent",
-          ok: toolResult.ok,
-          summary: toolResult.ok
-            ? summarizeForLog(String(toolResult.output))
-            : `error: ${toolResult.reason}`,
-        }
-        traces.push(`${trace.toolName}@${trace.iteration}: ${trace.summary}`)
-        // Echo the decision as a fake assistant tool_call so the
-        // model has structured context for the next iteration.
-        const toolCallId = `json-${iteration}-delegate_to_subagent`
-        messages.push({
-          role: "assistant",
-          content: JSON.stringify(decision),
-          toolCalls: [
-            {
-              id: toolCallId,
-              name: "delegate_to_subagent",
-              args: { task: decision.task, role: decision.role },
-            },
-          ],
-        })
-        messages.push({
-          role: "tool",
-          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
-          toolCallId,
-          toolName: "delegate_to_subagent",
-        })
-        continue
-      }
-      case "CallTool": {
-        // R8.x.4: a JSON-decision CallTool is the legacy path. Run
-        // the tool, then loop. The model should switch to native
-        // tool_calls once available, but we keep this for the
-        // JSON-decision protocol.
-        await safeApplyDecision(kernel, decision, logger)
-        const def = findTool(tools, decision.toolName)
-        if (!def) {
-          logger.warn(
-            `[v5-butler-loop] Unknown tool '${decision.toolName}' at iteration ${iteration}; treating as Finish`,
-          )
-          traces.push(`unknown tool: ${decision.toolName}`)
-          return {
-            reply: stubReply(args.content, args.fromUserId, args.projectId),
-            iterations: iteration + 1,
-            toolCalls,
-            finalDecision: "CallTool",
-            traces,
-          }
-        }
-        toolCalls += 1
-        const toolResult = await executeInboundTool({
-          toolExecutor,
-          def,
-          toolArgs: decision.args,
-          iteration,
-          toolCalls,
-          traces,
-          toolName: decision.toolName,
-        })
-        const trace: ToolTrace = {
-          iteration,
-          toolName: decision.toolName,
-          ok: toolResult.ok,
-          summary: toolResult.ok
-            ? summarizeForLog(String(toolResult.output))
-            : `error: ${toolResult.reason}`,
-        }
-        traces.push(`${trace.toolName}@${trace.iteration}: ${trace.summary}`)
-        // Echo the legacy decision as a fake assistant message + tool
-        // result so the model has context for the next iteration.
-        messages.push({
-          role: "assistant",
-          content: JSON.stringify(decision),
-          toolCalls: [
-            {
-              id: `json-${iteration}-${decision.toolName}`,
-              name: decision.toolName,
-              args: decision.args,
-            },
-          ],
-        })
-        messages.push({
-          role: "tool",
-          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
-          toolCallId: `json-${iteration}-${decision.toolName}`,
-          toolName: decision.toolName,
-        })
-        continue
-      }
-      default: {
-        const _: never = decision
-        void _
-        return {
-          reply: stubReply(args.content, args.fromUserId, args.projectId),
-          iterations: iteration + 1,
-          toolCalls,
-          finalDecision: "Finish",
-          traces,
-        }
-      }
-    }
-  }
-
-  // Loop exhausted — fall back to stub reply. Kernel may already be
-  // in 'completed' state from a prior iteration, so wrap in try/catch.
-  logger.warn(
-    `[v5-butler-loop] Loop exhausted after ${MAX_LOOP_ITERATIONS} iterations; falling back to stub`,
-  )
-  await safeApplyDecision(kernel, { _tag: "Finish", reason: "loop exhausted" }, logger)
-  return {
-    reply: stubReply(args.content, args.fromUserId, args.projectId),
-    iterations: MAX_LOOP_ITERATIONS,
-    toolCalls,
-    finalDecision: lastDecision,
-    traces: [...traces, `loop exhausted (max=${MAX_LOOP_ITERATIONS})`],
-  }
-}
-
-/**
- * Apply a decision via the kernel, logging + swallowing the
- * "already completed" error. Lets the butler loop tolerate replay
- * attempts on a finished kernel without throwing.
- */
-async function safeApplyDecision(
-  kernel: AgentKernel,
-  decision: ModelDecision,
-  logger: ButlerLoopLogger,
-): Promise<void> {
-  try {
-    await kernel.applyDecision(decision)
-  } catch (err) {
-    logger.warn(
-      `[v5-butler-loop] applyDecision(${decision._tag}) failed; continuing:`,
-      err instanceof Error ? err.message : String(err),
-    )
-  }
-}
-
-/**
- * Compact a tool output string for the operator trace log. Long
- * outputs are truncated so the trace stays scannable.
- */
-function summarizeForLog(s: string, maxLen = 80): string {
-  if (s.length <= maxLen) return s
-  return `${s.slice(0, maxLen - 3)}...`
+        return toRunResult(outcome)
+      },
+    },
+  })
 }

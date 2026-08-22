@@ -91,6 +91,9 @@ importers:
       '@butler/api':
         specifier: workspace:*
         version: link:../apps/api
+      '@butler/persistence':
+        specifier: workspace:*
+        version: link:../packages/persistence
       '@hono/node-server':
         specifier: ^1.13.0
         version: 1.19.17(hono@4.13.1)

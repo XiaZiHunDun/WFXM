@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { decidePolicy, grantMatchesAction, type ActionRequest, type PermissionPolicy } from "./types.js"
+import {
+  decidePolicy,
+  grantMatchesAction,
+  type ActionRequest,
+  type PermissionPolicy,
+  type ScopedGrantRecord,
+} from "./types.js"
 
 const policy: PermissionPolicy = {
   ownerSubject: "owner-1",
@@ -15,6 +21,24 @@ const baseRequest: ActionRequest = {
   risk: "low",
   digest: "d1",
   payload: {},
+}
+
+function grant(
+  partial: Partial<ScopedGrantRecord> & Pick<ScopedGrantRecord, "scope">,
+): ScopedGrantRecord {
+  return {
+    id: "grant-1",
+    runId: "run-1",
+    subject: "owner-1",
+    remainingUses: 1,
+    expiresAtMs: 2000,
+    createdAtMs: 0,
+    delegable: false,
+    approvalId: null,
+    sandboxProfile: null,
+    networkAllowlist: null,
+    ...partial,
+  }
 }
 
 describe("decidePolicy", () => {
@@ -47,19 +71,13 @@ describe("decidePolicy", () => {
       },
       policy,
       1000,
-      {
-        id: "grant-1",
-        runId: "run-1",
-        subject: "owner-1",
+      grant({
         scope: {
           capabilities: ["send_wechat_file"],
           network: "allow",
           networkHosts: ["novac2c.cdn.weixin.qq.com"],
         },
-        remainingUses: 1,
-        expiresAtMs: 2000,
-        createdAtMs: 0,
-      },
+      }),
     )
     expect(decision).toEqual({ _tag: "Allow" })
   })
@@ -93,35 +111,28 @@ describe("decidePolicy", () => {
     }
     expect(
       grantMatchesAction(
-        {
-          id: "grant-1",
-          runId: "run-1",
-          subject: "owner-1",
+        grant({
           scope: {
             capabilities: ["send_wechat_file"],
             paths: ["approved.png"],
             digest: "send_wechat_file:approved.png:{}",
           },
-          remainingUses: 1,
-          expiresAtMs: 2000,
-          createdAtMs: 0,
-        },
+        }),
         request,
       ),
     ).toBe(false)
-    const decision = decidePolicy(request, policy, 1000, {
-      id: "grant-1",
-      runId: "run-1",
-      subject: "owner-1",
-      scope: {
-        capabilities: ["send_wechat_file"],
-        paths: ["approved.png"],
-        digest: "send_wechat_file:approved.png:{}",
-      },
-      remainingUses: 1,
-      expiresAtMs: 2000,
-      createdAtMs: 0,
-    })
+    const decision = decidePolicy(
+      request,
+      policy,
+      1000,
+      grant({
+        scope: {
+          capabilities: ["send_wechat_file"],
+          paths: ["approved.png"],
+          digest: "send_wechat_file:approved.png:{}",
+        },
+      }),
+    )
     expect(decision._tag).toBe("Ask")
   })
 
@@ -133,23 +144,17 @@ describe("decidePolicy", () => {
         capability: "send_wechat_file",
         resource: "file.png",
         risk: "medium",
-        digest: "send_wechat_file:file.png:{\"path\":\"file.png\"}",
+        digest: 'send_wechat_file:file.png:{"path":"file.png"}',
       },
       policy,
       1000,
-      {
-        id: "grant-1",
-        runId: "run-1",
-        subject: "owner-1",
+      grant({
         scope: {
           capabilities: ["send_wechat_file"],
           paths: ["file.png"],
-          digest: "send_wechat_file:file.png:{\"path\":\"other.png\"}",
+          digest: 'send_wechat_file:file.png:{"path":"other.png"}',
         },
-        remainingUses: 1,
-        expiresAtMs: 2000,
-        createdAtMs: 0,
-      },
+      }),
     )
     expect(decision._tag).toBe("Ask")
   })
@@ -166,19 +171,13 @@ describe("decidePolicy", () => {
       },
       policy,
       1000,
-      {
-        id: "grant-1",
-        runId: "run-1",
-        subject: "owner-1",
+      grant({
         scope: {
           capabilities: ["send_wechat_file"],
           paths: ["file.png"],
           digest: "d-send",
         },
-        remainingUses: 1,
-        expiresAtMs: 2000,
-        createdAtMs: 0,
-      },
+      }),
     )
     expect(decision._tag).toBe("Ask")
   })

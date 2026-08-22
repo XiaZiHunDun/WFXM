@@ -173,8 +173,14 @@ V5_FILE_TO_TESTS: list[tuple[str, list[str], str]] = [
         "v5 workspace tools",
     ),
     (
-        r"^butler-v5/packages/runtime/src/(agent-kernel|run-engine|capability-boundary)\.ts$",
+        r"^butler-v5/apps/api/src/capability-guard\.ts$",
+        ["apps/api/src/capability-guard.test.ts"],
+        "v5 capability guard",
+    ),
+    (
+        r"^butler-v5/packages/runtime/src/(agent-kernel|run-engine|capability-boundary|bridge)\.ts$",
         [
+            "packages/runtime/src/agent-kernel.test.ts",
             "packages/runtime/src/run-engine.test.ts",
             "packages/runtime/src/capability-boundary.test.ts",
         ],
@@ -192,6 +198,15 @@ V5_FILE_TO_TESTS: list[tuple[str, list[str], str]] = [
             "apps/api/src/mcp-config.test.ts",
         ],
         "v5 MCP bootstrap",
+    ),
+    (
+        r"^butler-v5/packages/adapters/src/sandbox/",
+        [
+            "packages/adapters/src/sandbox/bubblewrap-runner.test.ts",
+            "packages/adapters/src/sandbox/slirp-egress.test.ts",
+            "apps/api/src/workspace-tools.bubblewrap.test.ts",
+        ],
+        "v5 sandbox adapters",
     ),
 ]
 

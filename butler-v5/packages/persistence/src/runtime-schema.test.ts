@@ -30,6 +30,35 @@ describe("target runtime migration and schema", () => {
         "scoped_grants",
         "steps",
       ])
+      const grantCols = await db.pg.query<{ column_name: string }>(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'scoped_grants'
+          AND column_name IN ('delegable', 'approval_id', 'sandbox_profile')
+        ORDER BY column_name
+      `)
+      expect(grantCols.rows.map((row) => row.column_name)).toEqual([
+        "approval_id",
+        "delegable",
+        "sandbox_profile",
+      ])
+      const convCols = await db.pg.query<{ column_name: string }>(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'conversations'
+          AND column_name = 'project_id'
+      `)
+      expect(convCols.rows.map((row) => row.column_name)).toEqual(["project_id"])
+      const convIdType = await db.pg.query<{ data_type: string }>(`
+        SELECT data_type
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'conversations'
+          AND column_name = 'conversation_id'
+      `)
+      expect(convIdType.rows[0]?.data_type).toBe("text")
     } finally {
       await db.close()
     }

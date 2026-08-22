@@ -1,16 +1,13 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm"
-import type { ReadModelSource, RunStatus } from "@butler/domain/runtime.js"
+import {
+  ACTIVE_MAIN_RUN_STATUSES,
+  inferProjectIdFromConversationId,
+  type ReadModelSource,
+} from "@butler/domain/runtime.js"
 import type { EventStoreRow } from "./event-store.js"
 import type { ButlerDb } from "./db.js"
 import { conversations, messages, runs } from "./schema.js"
 import { createRuntimeStore } from "./runtime-store.js"
-
-const ACTIVE_MAIN_STATUSES: readonly RunStatus[] = [
-  "queued",
-  "running",
-  "waiting_approval",
-  "waiting_external",
-]
 
 function payloadContent(payload: unknown): string {
   if (payload === null || typeof payload !== "object") return ""
@@ -22,6 +19,24 @@ function payloadRole(payload: unknown): string {
   if (payload === null || typeof payload !== "object") return ""
   const role = (payload as { role?: unknown }).role
   return typeof role === "string" ? role : ""
+}
+
+function messageText(content: Readonly<Record<string, unknown>>): string {
+  const text = content["text"]
+  return typeof text === "string" ? text.trim() : ""
+}
+
+async function relationalHasUserText(
+  db: ButlerDb,
+  conversationId: string,
+  text: string,
+): Promise<boolean> {
+  if (!text) return false
+  const rows = await db
+    .select({ content: messages.content, role: messages.role })
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+  return rows.some((row) => row.role === "user" && messageText(row.content) === text)
 }
 
 function eventsToStoredMessages(
@@ -99,6 +114,7 @@ export async function backfillRuntimeFromEventStore(
       const firstAt = events[0]?.occurredAt ?? new Date()
       await db.insert(conversations).values({
         conversationId: streamId,
+        projectId: inferProjectIdFromConversationId(streamId),
         subject: streamId,
         createdAt: firstAt,
         updatedAt: firstAt,
@@ -113,6 +129,12 @@ export async function backfillRuntimeFromEventStore(
         .where(eq(messages.idempotencyKey, msg.idempotencyKey))
         .limit(1)
       if (before.length > 0) continue
+      if (
+        msg.role === "user" &&
+        (await relationalHasUserText(db, streamId, messageText(msg.content)))
+      ) {
+        continue
+      }
       await db.insert(messages).values({
         messageId: msg.messageId,
         conversationId: msg.conversationId,
@@ -210,7 +232,7 @@ export async function findActiveMainRun(db: ButlerDb, conversationId: string) {
       and(
         eq(runs.conversationId, conversationId),
         isNull(runs.parentRunId),
-        inArray(runs.status, [...ACTIVE_MAIN_STATUSES]),
+        inArray(runs.status, [...ACTIVE_MAIN_RUN_STATUSES]),
       ),
     )
     .limit(1)
