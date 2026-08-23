@@ -31,6 +31,9 @@ secrets.yaml
 .DS_Store
 Thumbs.db
 
+# AI guard local backups (never commit)
+.backup/
+
 # Butler data
 .butler/reports/
 *.db

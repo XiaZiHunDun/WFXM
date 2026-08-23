@@ -1,6 +1,6 @@
 # v5 Sandbox 出网 Host Allowlist — 方案设计（2026-08）
 
-> **状态**：P2b 已落地（Grant schema + Owner API + 域校验）；P2c/d 执行层待立项  
+> **状态**：P2b/c/d ✅ 已落地（Grant + egress proxy + opt-in slirp）；见 [`v5-sandbox-p2d-slirp-spike-2026-08.md`](v5-sandbox-p2d-slirp-spike-2026-08.md)  
 > **前置**：A8 已落地 — `BUTLER_V5_SANDBOX=bubblewrap`、Grant `sandboxProfile`、binary network deny/allow  
 > **关联**：[`v5-post-boundary-roadmap-2026-08.md`](v5-post-boundary-roadmap-2026-08.md) P2、[`v5-product-boundaries-2026-08.md`](../decisions/v5-product-boundaries-2026-08.md) §执行隔离
 
