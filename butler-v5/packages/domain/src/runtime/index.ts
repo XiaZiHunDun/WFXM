@@ -54,3 +54,10 @@ export {
   type ScheduleTickDecision,
   type ScheduleTickInput,
 } from "./schedule.js"
+export {
+  WECHAT_CORE_TOOL_NAMES,
+  WECHAT_SUBAGENT_TOOL_NAME,
+  buildWechatAllowedToolNames,
+  type WechatProjectToolAllowlist,
+  type WechatToolAllowlistConfig,
+} from "./wechat-tools.js"

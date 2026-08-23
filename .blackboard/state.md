@@ -1,31 +1,30 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-23 20:38_
+_last_synced: 2026-08-23 20:47_
 _handoff: docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md_
-_commit: 4fa64f24 (fix MCP approval resume)_
+_commit: (pending — github trim + wechat allowlist)_
 
 ## 主线
 
-P3 MCP 四 server 生产接线 ✅ — Grant 真调用验收通过（firecrawl + todoist）。
+P3 MCP ✅ — Grant 验收通过；github 只读裁剪 + 微信 Loop MCP 白名单已实现（待 commit / 生产 env）。
 
 ## 生产 MCP
 
-- `mode: multi`，34 tools（markitdown 1 + firecrawl 3 + github 26 + todoist 4）
-- manifest: `butler-v5/config/mcp-manifest.json`
-- 验收: `butler mcp status --api http://127.0.0.1:3000`
+- manifest github：26 → 14 只读工具（待 gateway 重启生效）
+- 微信白名单：`config/wechat-tool-allowlist.json`（需 env `BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH`）
 
 ## 下一步
 
-1. `git push`（main 超前 origin 4 commits）
-2. Project Knowledge — 单独立项
-3. github 工具裁剪 / 微信 Loop MCP 白名单（可选）
+1. commit + push
+2. 生产 env 加 `BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH=config/wechat-tool-allowlist.json` 并 restart gateway
+3. Project Knowledge — 单独立项
 
 ## 不要做
 
 - 浏览器 MCP / Marketplace
-- env 里留 `BUTLER_V5_MCP_COMMAND`（会串台）
+- env 里留 `BUTLER_V5_MCP_COMMAND`
 - 改 ai_guard 无 `[MANUAL-OVERRIDE]`
 
 ## 上一班
 
-- 修复 multi-server MCP 审批恢复（grant scope 解析 + resume 加载 mcpBundle）；firecrawl/todoist 真调用验收通过；commit `4fa64f24`。
+- github manifest 只读裁剪；微信 Loop 按 project 过滤 MCP；40 项相关测试通过。

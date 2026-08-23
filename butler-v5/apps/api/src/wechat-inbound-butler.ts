@@ -33,6 +33,7 @@ import {
 } from "./conversation-memory.js"
 import { tryWechatInlineApproval } from "./wechat-inline-approval.js"
 import { loadDurableMemorySystemPrefix } from "./durable-memory-inject.js"
+import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 
 /**
  * Logger surface for the butler loop. Mirrors the LLMReplyLogger
@@ -111,6 +112,13 @@ export async function runButlerLoop(args: {
   if (!validated.ok) {
     throw new Error(`invalid RunTrigger: ${validated.reason}`)
   }
+  const allowedToolNames =
+    args.allowedToolNames ??
+    resolveWechatAllowedToolNames({
+      projectId: args.projectId,
+      env,
+      mcpBundle: args.wiring.mcp,
+    })
   try {
     return await args.wiring.runEngine.executeInbound(
       {
@@ -128,6 +136,7 @@ export async function runButlerLoop(args: {
       async (ctx) =>
         runButlerLoopBody({
           ...args,
+          allowedToolNames,
           runId: ctx.runId,
           workingSet: ctx.workingSet,
         }),

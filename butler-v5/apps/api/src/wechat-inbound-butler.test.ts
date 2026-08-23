@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { mkdtempSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { Effect } from "effect"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
 import { EventBridge } from "@butler/runtime/bridge.js"
@@ -669,5 +672,78 @@ describe("runButlerLoop", () => {
     expect(firstOpts?.tools).toBeUndefined()
     const secondMessages = complete.mock.calls[1]?.[0] as { content: string }[] | undefined
     expect((secondMessages ?? []).some((m) => m.content.includes("用户聊过"))).toBe(true)
+  })
+
+  it("filters MCP tools via BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wechat-allow-"))
+    const configPath = join(dir, "allowlist.json")
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        version: 1,
+        projects: { "p-1": { mcpTools: ["mcp_allowed_only"] } },
+      }),
+    )
+    const runtimeStore = createRuntimeStore(db.db)
+    const mcpWiring = makeWiring({
+      bridge,
+      workerId: "w-test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      mcp: {
+        runtimeTools: [
+          {
+            name: "mcp_allowed_only" as never,
+            risk: "high",
+            run: async () => ({ ok: true, output: "ok" }),
+          },
+          {
+            name: "mcp_blocked" as never,
+            risk: "high",
+            run: async () => ({ ok: true, output: "no" }),
+          },
+        ],
+        llmTools: [
+          {
+            name: "mcp_allowed_only",
+            description: "allowed",
+            parameters: { type: "object", properties: {} },
+          },
+          {
+            name: "mcp_blocked",
+            description: "blocked",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+        mode: "multi",
+        discovered: [],
+        servers: [],
+        serverIdByCapability: {
+          mcp_allowed_only: "demo",
+          mcp_blocked: "demo",
+        },
+      },
+    })
+    const adapter = makeMockAdapter([
+      textResponse(JSON.stringify({ _tag: "Respond", content: "ok-filtered" })),
+    ])
+    const result = await runButlerLoop({
+      wiring: mcpWiring,
+      conversationId: "c-allowlist",
+      content: "hi",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: { BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH: configPath },
+      logger: silentLogger,
+      adapter,
+    })
+    expect(result.reply).toBe("ok-filtered")
+    const complete = adapter.complete as ReturnType<typeof vi.fn>
+    const firstOpts = complete.mock.calls[0]?.[1] as { tools?: { name: string }[] } | undefined
+    const toolNames = (firstOpts?.tools ?? []).map((tool) => tool.name)
+    expect(toolNames).toContain("mcp_allowed_only")
+    expect(toolNames).not.toContain("mcp_blocked")
   })
 })

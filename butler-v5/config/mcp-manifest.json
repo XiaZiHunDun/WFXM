@@ -26,7 +26,23 @@
     {
       "id": "github",
       "transport": "stdio",
-      "command": "/home/ailearn/projects/WFXM/butler-v5/node_modules/.bin/mcp-server-github"
+      "command": "/home/ailearn/projects/WFXM/butler-v5/node_modules/.bin/mcp-server-github",
+      "tools": [
+        { "name": "search_repositories", "risk": "low" },
+        { "name": "get_file_contents", "risk": "low" },
+        { "name": "list_commits", "risk": "low" },
+        { "name": "list_issues", "risk": "low" },
+        { "name": "search_code", "risk": "low" },
+        { "name": "search_issues", "risk": "low" },
+        { "name": "search_users", "risk": "low" },
+        { "name": "get_issue", "risk": "low" },
+        { "name": "get_pull_request", "risk": "low" },
+        { "name": "list_pull_requests", "risk": "low" },
+        { "name": "get_pull_request_files", "risk": "low" },
+        { "name": "get_pull_request_status", "risk": "low" },
+        { "name": "get_pull_request_comments", "risk": "low" },
+        { "name": "get_pull_request_reviews", "risk": "low" }
+      ]
     },
     {
       "id": "todoist",
