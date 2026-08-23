@@ -408,4 +408,69 @@ describe("owner routes", () => {
     const updated = await runtimeStore.getRun(run.id)
     expect(updated?.status).toBe("expired")
   })
+
+  it("returns MCP status and revokes server grants via Owner API", async () => {
+    const runtimeStore = createRuntimeStore(db.db)
+    const now = new Date()
+    const inbound = await runtimeStore.createConversationWithUserMessage({
+      conversationId: crypto.randomUUID(),
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "hi" },
+      triggerSource: "channel",
+      idempotencyKey: "mcp-owner",
+      createdAt: now,
+    })
+    const run = await runtimeStore.createRun({
+      id: crypto.randomUUID(),
+      conversationId: inbound.conversationId,
+      parentRunId: null,
+      triggerSource: "channel",
+      idempotencyKey: "mcp-run",
+      subject: "owner-1",
+      goal: "test",
+      budget: {},
+      deadline: null,
+      createdAt: now,
+    })
+    await runtimeStore.createScopedGrant({
+      grantId: crypto.randomUUID(),
+      runId: run.id,
+      subject: "owner-1",
+      scope: {
+        capabilities: ["mcp_search"],
+        digest: "d1",
+        network: "allow",
+        mcp: { serverId: "demo-server", toolName: "search" },
+      },
+      remainingUses: 1,
+      expiresAt: new Date(Date.now() + 3600_000),
+      createdAt: now,
+    })
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
+    const app = new Hono()
+    createOwnerRoutes(app, wiring)
+    const statusRes = await app.request("/v1/owner/mcp/status")
+    expect(statusRes.status).toBe(200)
+    const status = (await statusRes.json()) as { activeGrants: number; mode: string }
+    expect(status.mode).toBe("off")
+    expect(status.activeGrants).toBe(0)
+    const revokeRes = await app.request("/v1/owner/mcp/servers/demo-server/revoke-grants", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ subject: "owner" }),
+    })
+    expect(revokeRes.status).toBe(200)
+    const revoked = (await revokeRes.json()) as { ok: boolean; revoked: number }
+    expect(revoked.ok).toBe(true)
+    expect(revoked.revoked).toBe(1)
+  })
 })

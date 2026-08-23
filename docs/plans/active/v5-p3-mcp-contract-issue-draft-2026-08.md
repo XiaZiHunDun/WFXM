@@ -1,6 +1,6 @@
 # GitHub Issue 草稿 — P3 MCP 注册契约补全
 
-> **状态**：Open — [GitHub #3](https://github.com/XiaZiHunDun/WFXM/issues/3)  
+> **状态**：Done — [GitHub #3](https://github.com/XiaZiHunDun/WFXM/issues/3)（2026-08-23）  
 > **路线图**：[`v5-post-boundary-roadmap-2026-08.md`](v5-post-boundary-roadmap-2026-08.md) §P3.3  
 > **架构差距**：[`v5-architecture-alignment-handoff-2026-08.md`](v5-architecture-alignment-handoff-2026-08.md) §5.9
 
@@ -39,7 +39,8 @@ P3 MCP 首个适配 **部分交付**：manifest gate、consent、transport、ext
 - [x] Grant 绑定 server + tool（`ScopedGrantScope.mcp` + `grantMatchesAction`）
 - [x] Owner 卸载/禁用 MCP server 后 revoke grants（`bootstrapMcpTools` + `revokeScopedGrantsForMcpServer`）
 - [x] Provider 元数据骨架（`defaultMcpProviderMetadata`：risk/sandbox/audit）
-- [x] `cd butler-v5 && pnpm test` 绿（748 passed）
+- [x] Owner API/CLI 手动 revoke（`GET /v1/owner/mcp/status`、`POST .../revoke-grants`、`butler mcp`）
+- [x] MCP 执行 trace 含 provider 元数据 + Grant mcp scope
 
 ## 顺序约束
 

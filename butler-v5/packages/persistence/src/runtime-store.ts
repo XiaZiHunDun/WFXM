@@ -448,6 +448,24 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       return revoked
     },
 
+    async countActiveScopedGrantsForMcpServer(serverId, now) {
+      const rows = await db
+        .select()
+        .from(scopedGrants)
+        .where(gt(scopedGrants.expiresAt, now))
+      let count = 0
+      for (const row of rows) {
+        const grant = toScopedGrant(row)
+        if (grant.remainingUses !== null && grant.remainingUses <= 0) {
+          continue
+        }
+        if (scopedGrantScopeTargetsMcpServer(grant.scope, serverId)) {
+          count += 1
+        }
+      }
+      return count
+    },
+
     async listRunsPastDeadline(now) {
       const rows = await db
         .select()

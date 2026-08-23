@@ -1,5 +1,6 @@
 import type { ActionKind, ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import { isMcpCapability } from "@butler/domain/governance/types.js"
+import { defaultMcpProviderMetadata } from "@butler/domain/governance/mcp-tool-capability.js"
 import type { PolicyDecision } from "@butler/domain/governance/types.js"
 import { createWaitingApprovalStep, type PendingApprovalRequest } from "./approval-runtime.js"
 import {
@@ -137,20 +138,20 @@ export function splitCoreAndMcpTools(tools: readonly ToolDefinition[]): {
  */
 export function mcpCapabilityProvidersFromTools(
   tools: readonly ToolDefinition[],
-  timeoutMsFor: (toolName: string) => number = () => 5_000,
+  options: {
+    readonly timeoutMsFor?: (toolName: string) => number
+    readonly serverId?: string
+  } = {},
 ): readonly CapabilityProviderRegistration[] {
+  const timeoutMsFor = options.timeoutMsFor ?? (() => 5_000)
   return tools.map((def) => {
     const definition = capabilityDefinitionFromTool(def)
     return {
       definition,
       provider: {
         name: definition.name,
-        execute: async (request) => {
-          // Grant.sandboxProfile is visible via currentSandboxProfileName()
-          // while this provider runs (PolicyGate ALS). Remote MCP I/O is not
-          // bubblewrap'd; profile binds the approved technical ceiling for audit.
-          return runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) })
-        },
+        execute: async (request) =>
+          runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
       },
     }
   })
@@ -160,6 +161,7 @@ export interface ToolBoundaryContext {
   readonly subject: string
   readonly resource: string
   readonly grant: ScopedGrantRecord | null
+  readonly mcpServerId?: string
 }
 
 /**
@@ -229,6 +231,10 @@ export async function executeToolThroughBoundary(
   }
   const started = Date.now()
   const result = outcome.result
+  const mcpProvider =
+    isMcpCapability(definition.name) && ctx.mcpServerId
+      ? defaultMcpProviderMetadata(ctx.mcpServerId)
+      : null
   tracer.record({
     kind: "capability",
     name: definition.name,
@@ -239,7 +245,24 @@ export async function executeToolThroughBoundary(
     capability: definition.name,
     grantId: ctx.grant?.id ?? null,
     durationMs: Date.now() - started,
-    detail: result.ok ? { ok: true } : { reason: result.reason ?? "failed" },
+    detail: {
+      resource: ctx.resource,
+      ...(result.ok ? { ok: true } : { reason: result.reason ?? "failed" }),
+      ...(mcpProvider
+        ? {
+            mcpServerId: mcpProvider.serverId,
+            auditPolicy: mcpProvider.auditPolicy,
+            sandboxProfile: mcpProvider.defaultSandboxProfile,
+            risk: mcpProvider.defaultRisk,
+          }
+        : {}),
+      ...(ctx.grant?.scope.mcp
+        ? {
+            grantMcpServerId: ctx.grant.scope.mcp.serverId,
+            grantMcpToolName: ctx.grant.scope.mcp.toolName,
+          }
+        : {}),
+    },
   })
   if (!result.ok) {
     return { ok: false, reason: result.reason ?? "capability failed" }

@@ -141,7 +141,7 @@ describe("capability-boundary", () => {
     expect(split.mcp.map((t) => t.name)).toEqual(["mcp_search"])
     const registry = createProductionCapabilityRegistry({
       tools: split.core,
-      extraProviders: mcpCapabilityProvidersFromTools(split.mcp),
+      extraProviders: mcpCapabilityProvidersFromTools(split.mcp, {}),
     })
     expect(registry.get("get_current_time")).toBeDefined()
     expect(registry.get("mcp_search")).toEqual({

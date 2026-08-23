@@ -29,6 +29,10 @@ import type { Wiring } from "./wiring.js"
 import { ownerAuthorized } from "./owner-auth.js"
 import { parseScheduleWorkerConfig } from "./schedule-config.js"
 import { runScheduleTick } from "./schedule-worker.js"
+import { revokeScopedGrantsForMcpServer } from "@butler/runtime/mcp-grant-lifecycle.js"
+import { mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
+import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
+import { defaultMcpProviderMetadata } from "@butler/domain/governance/mcp-tool-capability.js"
 
 export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/conversations", async (c) => {
@@ -134,6 +138,7 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
           id: decision.grant.id,
           sandboxProfile: decision.grant.sandboxProfile,
           networkAllowlist: decision.grant.networkAllowlist,
+          ...(decision.grant.scope.mcp ? { mcp: decision.grant.scope.mcp } : {}),
         },
         trigger: {
           source: trigger.source,
@@ -602,5 +607,45 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
       updatedAt: Date.now(),
     })
     return c.json({ ok: true, item: updated })
+  })
+
+  app.get("/v1/owner/mcp/status", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const env = process.env
+    const enabled = isMcpEnabled(env)
+    const serverId = mcpServerIdFromEnv(env)
+    const bundle = wiring.mcp
+    const now = new Date()
+    const activeGrants = enabled
+      ? await wiring.runtimeStore.countActiveScopedGrantsForMcpServer(serverId, now)
+      : 0
+    return c.json({
+      enabled,
+      mode: bundle.mode,
+      serverId,
+      tools: bundle.runtimeTools.map((t) => t.name),
+      discovered: bundle.discovered.map((t) => t.name),
+      activeGrants,
+      provider: defaultMcpProviderMetadata(serverId),
+    })
+  })
+
+  app.post("/v1/owner/mcp/servers/:serverId/revoke-grants", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const serverId = c.req.param("serverId").trim()
+    if (!serverId) return c.text("serverId required", 400)
+    const body = (await c.req.json().catch(() => ({}))) as { readonly subject?: string }
+    const now = new Date()
+    const revoked = await revokeScopedGrantsForMcpServer(wiring.runtimeStore, serverId, now)
+    await wiring.runtimeStore.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "mcp.grants_revoked",
+      subject: body.subject ?? "owner",
+      detail: { serverId, revoked },
+      createdAt: now,
+    })
+    return c.json({ ok: true, serverId, revoked })
   })
 }

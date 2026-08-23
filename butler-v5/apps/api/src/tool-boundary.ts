@@ -9,6 +9,7 @@ import {
   splitCoreAndMcpTools,
   type ToolExecutionOutcome,
 } from "@butler/runtime/capability-boundary.js"
+import { mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
 import {
   PolicyGate,
   productionPermissionPolicy,
@@ -58,10 +59,14 @@ export function makeToolExecutor(args: {
   readonly wechatContextToken?: string
 }): ToolExecutor {
   const { core, mcp } = splitCoreAndMcpTools(args.tools)
+  const mcpServerId = mcp.length > 0 ? mcpServerIdFromEnv(process.env) : undefined
   const registry = createProductionCapabilityRegistry({
     tools: core,
     timeoutMsFor: args.timeoutMsFor,
-    extraProviders: mcpCapabilityProvidersFromTools(mcp, args.timeoutMsFor),
+    extraProviders: mcpCapabilityProvidersFromTools(mcp, {
+      timeoutMsFor: args.timeoutMsFor,
+      ...(mcpServerId ? { serverId: mcpServerId } : {}),
+    }),
   })
   const gate = new PolicyGate(productionPermissionPolicy(args.ownerSubject), args.nowMs ?? Date.now)
   const approval =
@@ -109,6 +114,7 @@ export function makeToolExecutor(args: {
           subject: args.subject,
           resource,
           grant,
+          ...(mcpServerId ? { mcpServerId } : {}),
         },
         approval,
       )

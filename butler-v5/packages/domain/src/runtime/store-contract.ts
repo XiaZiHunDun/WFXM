@@ -162,6 +162,11 @@ export interface RuntimeStore {
     serverId: string,
     now: Date,
   ) => Promise<number>
+  /** P3: count non-exhausted MCP grants for a server (for Owner status). */
+  readonly countActiveScopedGrantsForMcpServer: (
+    serverId: string,
+    now: Date,
+  ) => Promise<number>
   /** Active main/child Runs whose deadline is strictly before `now`. */
   readonly listRunsPastDeadline: (now: Date) => Promise<readonly StoredRun[]>
 }

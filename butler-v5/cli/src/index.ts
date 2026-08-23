@@ -639,6 +639,42 @@ program
   )
 
 program
+  .command("mcp")
+  .description("MCP Owner operations (loopback API)")
+  .argument("<action>", "status | revoke-grants")
+  .argument("[serverId]", "MCP server id (revoke-grants)")
+  .option("--api <url>", "API base URL", "http://127.0.0.1:3000")
+  .action(async (action: string, serverId: string | undefined, opts: { api: string }) => {
+    const base = opts.api.replace(/\/$/, "")
+    if (action === "status") {
+      const res = await fetch(`${base}/v1/owner/mcp/status`)
+      console.log(await res.text())
+      if (!res.ok) process.exit(1)
+      return
+    }
+    if (action === "revoke-grants") {
+      const id = (serverId ?? "").trim()
+      if (!id) {
+        console.error("serverId required for revoke-grants")
+        process.exit(1)
+      }
+      const res = await fetch(
+        `${base}/v1/owner/mcp/servers/${encodeURIComponent(id)}/revoke-grants`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ subject: "owner" }),
+        },
+      )
+      console.log(await res.text())
+      if (!res.ok) process.exit(1)
+      return
+    }
+    console.error(`unknown mcp action: ${action}`)
+    process.exit(1)
+  })
+
+program
   .command("verify")
   .description("Verify v5 migrations registry and optional Owner API health")
   .option("--api <url>", "API base URL to ping /healthz", "")
