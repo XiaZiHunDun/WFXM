@@ -2,11 +2,11 @@
 
 _last_synced: 2026-08-23 20:47_
 _handoff: docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md_
-_commit: (pending — github trim + wechat allowlist)_
+_commit: b59651a2 (github trim + wechat allowlist)_
 
 ## 主线
 
-P3 MCP ✅ — Grant 验收通过；github 只读裁剪 + 微信 Loop MCP 白名单已实现（待 commit / 生产 env）。
+P3 MCP ✅ — Grant 验收通过；github 只读裁剪 + 微信 Loop MCP 白名单已 commit（`b59651a2`）。
 
 ## 生产 MCP
 
