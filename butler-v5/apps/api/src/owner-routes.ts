@@ -613,20 +613,48 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const env = process.env
     const enabled = isMcpEnabled(env)
-    const serverId = mcpServerIdFromEnv(env)
     const bundle = wiring.mcp
     const now = new Date()
-    const activeGrants = enabled
-      ? await wiring.runtimeStore.countActiveScopedGrantsForMcpServer(serverId, now)
-      : 0
+    const servers =
+      bundle.servers.length > 0
+        ? bundle.servers
+        : bundle.runtimeTools.length > 0
+          ? [
+              {
+                serverId: mcpServerIdFromEnv(env),
+                mode: bundle.mode,
+                discovered: bundle.discovered,
+              },
+            ]
+          : []
+    const activeGrantsByServer: Record<string, number> = {}
+    let activeGrants = 0
+    if (enabled) {
+      for (const server of servers) {
+        const count = await wiring.runtimeStore.countActiveScopedGrantsForMcpServer(
+          server.serverId,
+          now,
+        )
+        activeGrantsByServer[server.serverId] = count
+        activeGrants += count
+      }
+    }
     return c.json({
       enabled,
       mode: bundle.mode,
-      serverId,
       tools: bundle.runtimeTools.map((t) => t.name),
       discovered: bundle.discovered.map((t) => t.name),
+      servers: servers.map((server) => ({
+        serverId: server.serverId,
+        mode: server.mode,
+        tools: bundle.runtimeTools
+          .filter((tool) => bundle.serverIdByCapability[tool.name as string] === server.serverId)
+          .map((tool) => tool.name),
+        discovered: server.discovered.map((tool) => tool.name),
+        activeGrants: activeGrantsByServer[server.serverId] ?? 0,
+        provider: defaultMcpProviderMetadata(server.serverId),
+      })),
       activeGrants,
-      provider: defaultMcpProviderMetadata(serverId),
     })
   })
 

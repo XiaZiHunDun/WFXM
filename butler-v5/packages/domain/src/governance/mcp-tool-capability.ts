@@ -11,6 +11,7 @@ export interface McpGrantScope {
 export interface McpToolCapability {
   readonly capability: string
   readonly toolName: string
+  readonly serverId?: string
 }
 
 export type McpAuditPolicy = "full" | "summary"
@@ -49,15 +50,54 @@ export function toMcpCapabilityName(toolName: string): string | null {
   return `${MCP_CAPABILITY_PREFIX}${trimmed}`
 }
 
-export function parseMcpCapability(capability: string): McpToolCapability | null {
+/** v4-style namespacing: `mcp_{serverId}_{toolName}` for multi-server manifests. */
+export function toMcpCapabilityNameForServer(serverId: string, toolName: string): string | null {
+  const sid = normalizeMcpServerId(serverId)
+  const tool = normalizeMcpToolName(toolName)
+  if (!sid || !tool) {
+    return null
+  }
+  return `${MCP_CAPABILITY_PREFIX}${sid}_${tool}`
+}
+
+export function parseMcpCapability(
+  capability: string,
+  serverIds: readonly string[] = [],
+): McpToolCapability | null {
   if (!isMcpCapability(capability)) {
     return null
   }
-  const toolName = normalizeMcpToolName(capability.slice(MCP_CAPABILITY_PREFIX.length))
+  const rest = capability.slice(MCP_CAPABILITY_PREFIX.length)
+  if (!rest) {
+    return null
+  }
+  const normalizedIds = [...serverIds]
+    .map((id) => normalizeMcpServerId(id))
+    .filter((id) => id.length > 0)
+    .sort((a, b) => b.length - a.length)
+  for (const serverId of normalizedIds) {
+    const prefix = `${serverId}_`
+    if (rest.toLowerCase().startsWith(prefix)) {
+      const toolName = normalizeMcpToolName(rest.slice(prefix.length))
+      if (!toolName) {
+        return null
+      }
+      return { capability, toolName, serverId }
+    }
+  }
+  const toolName = normalizeMcpToolName(rest)
   if (!toolName) {
     return null
   }
   return { capability, toolName }
+}
+
+export function resolveMcpServerIdFromCapability(
+  capability: string,
+  serverIds: readonly string[],
+): string | undefined {
+  const parsed = parseMcpCapability(capability, serverIds)
+  return parsed?.serverId
 }
 
 export function defaultMcpProviderMetadata(serverId: string): McpProviderMetadata {

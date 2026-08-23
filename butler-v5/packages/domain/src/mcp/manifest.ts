@@ -9,6 +9,7 @@ export type McpManifestServer = {
   readonly transport: "http" | "sse" | "stdio"
   readonly url?: string
   readonly command?: string
+  readonly args?: readonly string[]
   readonly tools?: readonly McpManifestTool[]
 }
 
@@ -49,6 +50,13 @@ export function parseMcpManifest(raw: unknown): { readonly ok: true; readonly va
       transport,
       ...(typeof s["url"] === "string" ? { url: s["url"] } : {}),
       ...(typeof s["command"] === "string" ? { command: s["command"] } : {}),
+      ...(Array.isArray(s["args"])
+        ? {
+            args: s["args"]
+              .filter((part) => typeof part === "string" && part.trim().length > 0)
+              .map((part) => (part as string).trim()),
+          }
+        : {}),
       ...(Array.isArray(s["tools"])
         ? {
             tools: s["tools"]

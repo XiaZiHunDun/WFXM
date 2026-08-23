@@ -1,4 +1,5 @@
 import { parseMcpManifest, type McpManifest } from "@butler/domain/mcp/manifest.js"
+import { resolveMcpServerIdFromCapability } from "@butler/domain/governance/mcp-tool-capability.js"
 
 function envTruthy(raw: string | undefined): boolean {
   if (!raw) return false
@@ -73,4 +74,31 @@ export function loadMcpManifestFromJson(
 
 export function manifestAllowsServer(manifest: McpManifest, serverId: string): boolean {
   return manifest.servers.some((server) => server.id === serverId.trim())
+}
+
+export function mcpKnownServerIds(env: NodeJS.ProcessEnv = process.env): readonly string[] {
+  const fromConsent = parseMcpConsentServers(env)
+  if (fromConsent.size > 0) {
+    return [...fromConsent]
+  }
+  const explicit = (env["BUTLER_V5_MCP_SERVER_ID"] ?? "").trim()
+  if (explicit) {
+    return [explicit]
+  }
+  return []
+}
+
+export function mcpServerIdForCapability(
+  capability: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  if (!capability.startsWith("mcp_")) {
+    return undefined
+  }
+  const known = mcpKnownServerIds(env)
+  const fromCap = known.length > 0 ? resolveMcpServerIdFromCapability(capability, known) : undefined
+  if (fromCap) {
+    return fromCap
+  }
+  return mcpServerIdFromEnv(env)
 }

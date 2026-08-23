@@ -251,6 +251,7 @@ async function runButlerLoopBody(args: {
     conversationId: args.conversationId,
     timeoutMsFor: toolTimeoutMs,
     wechatUserId: args.fromUserId,
+    mcpServerIdByCapability: args.wiring.mcp.serverIdByCapability,
   })
 
   const adapter = args.adapter ?? pickLLMProvider(env)

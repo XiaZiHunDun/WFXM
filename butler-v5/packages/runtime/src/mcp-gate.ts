@@ -2,6 +2,7 @@ export {
   MCP_CAPABILITY_PREFIX,
   isMcpCapability,
   toMcpCapabilityName,
+  toMcpCapabilityNameForServer,
 } from "@butler/domain/governance/mcp-tool-capability.js"
 
 /** True when `BUTLER_V5_MCP_ENABLED=1` (opt-in; default off). */

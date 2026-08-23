@@ -9,7 +9,7 @@ import {
   envAllowPrivateEgress,
 } from "@butler/domain/governance/network-allowlist.js"
 import { outboundNetworkHostsForCapability } from "./grant-network.js"
-import { mcpServerIdFromEnv } from "./mcp-consent.js"
+import { mcpServerIdForCapability } from "./mcp-consent.js"
 import type { RuntimeStore, StoredStep } from "@butler/domain/runtime.js"
 import {
   parseSandboxProfileName,
@@ -199,7 +199,7 @@ export async function approveWaitingStep(
       networkHosts,
       forceNetworkAllow: normalizedAllowlist !== null,
       ...(isMcpCapability(pending.capability)
-        ? { mcpServerId: mcpServerIdFromEnv(env) }
+        ? { mcpServerId: mcpServerIdForCapability(pending.capability, env) }
         : {}),
     }),
     remainingUses: 1,

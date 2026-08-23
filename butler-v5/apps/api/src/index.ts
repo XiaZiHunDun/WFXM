@@ -22,7 +22,7 @@ const wiring = boot.value.wiring
 if (boot.value.mcp.mode !== "off") {
   // eslint-disable-next-line no-console -- operator log when no logger injected
   console.error(
-    `[butler-v5] MCP enabled mode=${boot.value.mcp.mode} tools=${boot.value.mcp.runtimeTools.length}`,
+    `[butler-v5] MCP enabled mode=${boot.value.mcp.mode} tools=${boot.value.mcp.runtimeTools.length} servers=${boot.value.mcp.servers.length}`,
   )
 }
 createRoutes(app, wiring)

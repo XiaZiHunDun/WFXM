@@ -58,6 +58,8 @@ export function makeWiring(config: WiringConfig): Wiring {
       llmTools: [],
       mode: "off",
       discovered: [],
+      servers: [],
+      serverIdByCapability: {},
     },
     durableMemoryStore: config.durableMemoryStore ?? null,
     documentStore: config.documentStore ?? null,

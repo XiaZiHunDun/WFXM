@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "servers": [
+    {
+      "id": "markitdown",
+      "transport": "stdio",
+      "command": "/home/ailearn/.local/bin/markitdown-mcp",
+      "tools": [
+        {
+          "name": "convert_to_markdown",
+          "description": "Convert office/PDF documents to Markdown",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "firecrawl",
+      "transport": "stdio",
+      "command": "/home/ailearn/projects/WFXM/butler-v5/node_modules/.bin/firecrawl-mcp",
+      "tools": [
+        { "name": "firecrawl_scrape", "risk": "low" },
+        { "name": "firecrawl_crawl", "risk": "low" },
+        { "name": "firecrawl_map", "risk": "low" }
+      ]
+    },
+    {
+      "id": "github",
+      "transport": "stdio",
+      "command": "/home/ailearn/projects/WFXM/butler-v5/node_modules/.bin/mcp-server-github"
+    },
+    {
+      "id": "todoist",
+      "transport": "stdio",
+      "command": "/home/ailearn/projects/WFXM/butler-v5/node_modules/.bin/openapi-mcp-server",
+      "args": [
+        "--api-base-url",
+        "https://api.todoist.com",
+        "--openapi-spec",
+        "/home/ailearn/.butler/openapi/todoist-v1-readonly.yml"
+      ],
+      "tools": [
+        { "name": "lst-projects", "risk": "low" },
+        { "name": "get-project", "risk": "low" },
+        { "name": "lst-tasks", "risk": "low" },
+        { "name": "get-task", "risk": "low" }
+      ]
+    }
+  ]
+}

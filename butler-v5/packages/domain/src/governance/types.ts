@@ -207,7 +207,8 @@ export function grantMatchesAction(grant: ScopedGrantRecord, request: ActionRequ
     return false
   }
   if (isMcpCapability(request.capability)) {
-    const parsed = parseMcpCapability(request.capability)
+    const serverIds = grant.scope.mcp ? [grant.scope.mcp.serverId] : []
+    const parsed = parseMcpCapability(request.capability, serverIds)
     if (!parsed || !grantScopeMatchesMcpTool(grant.scope, parsed)) {
       return false
     }

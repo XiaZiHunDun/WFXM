@@ -52,39 +52,104 @@ function parseTimeoutMs(env: NodeJS.ProcessEnv): number {
   return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000
 }
 
-export function parseMcpStdioArgs(env: NodeJS.ProcessEnv): readonly string[] {
+export function parseMcpStdioArgs(
+  env: NodeJS.ProcessEnv,
+  manifestServer?: McpManifestServer | null,
+  serverId?: string,
+): readonly string[] {
+  if (manifestServer?.args && manifestServer.args.length > 0 && preferManifestConnection(env, serverId)) {
+    return manifestServer.args
+  }
+  const envArgs = parseMcpStdioArgsFromEnv(env)
+  if (envArgs.length > 0) {
+    return envArgs
+  }
+  return manifestServer?.args ?? []
+}
+
+function parseMcpStdioArgsFromEnv(env: NodeJS.ProcessEnv): readonly string[] {
   const raw = (env["BUTLER_V5_MCP_ARGS"] ?? "").trim()
   if (!raw) return []
   return raw.split(/[,\s]+/).filter((part) => part.length > 0)
 }
 
+function useEnvConnectionOverrides(env: NodeJS.ProcessEnv, serverId?: string): boolean {
+  const explicit = (env["BUTLER_V5_MCP_SERVER_ID"] ?? "").trim()
+  const manifestPath = (env["BUTLER_V5_MCP_MANIFEST_PATH"] ?? "").trim()
+  if (!manifestPath) {
+    return true
+  }
+  if (!explicit) {
+    return false
+  }
+  if (!serverId) {
+    return true
+  }
+  return explicit === serverId
+}
+
+function scopedEnvForServer(env: NodeJS.ProcessEnv, serverId?: string): NodeJS.ProcessEnv {
+  if (useEnvConnectionOverrides(env, serverId)) {
+    return env
+  }
+  return {
+    ...env,
+    BUTLER_V5_MCP_COMMAND: "",
+    BUTLER_V5_MCP_ARGS: "",
+    BUTLER_V5_MCP_URL: "",
+    BUTLER_V5_MCP_TRANSPORT: "",
+  }
+}
+
 function resolveMcpUrl(
   env: NodeJS.ProcessEnv,
   manifestServer?: McpManifestServer | null,
+  serverId?: string,
 ): string {
+  if (manifestServer?.url && preferManifestConnection(env, serverId)) {
+    return manifestServer.url.trim()
+  }
   return (env["BUTLER_V5_MCP_URL"] ?? "").trim() || (manifestServer?.url ?? "").trim()
 }
 
 function resolveMcpCommand(
   env: NodeJS.ProcessEnv,
   manifestServer?: McpManifestServer | null,
+  serverId?: string,
 ): string {
+  if (manifestServer?.command && preferManifestConnection(env, serverId)) {
+    return manifestServer.command.trim()
+  }
   return (env["BUTLER_V5_MCP_COMMAND"] ?? "").trim() || (manifestServer?.command ?? "").trim()
+}
+
+function preferManifestConnection(env: NodeJS.ProcessEnv, serverId?: string): boolean {
+  const manifestPath = (env["BUTLER_V5_MCP_MANIFEST_PATH"] ?? "").trim()
+  if (!manifestPath) {
+    return false
+  }
+  const explicit = (env["BUTLER_V5_MCP_SERVER_ID"] ?? "").trim()
+  if (!explicit) {
+    return true
+  }
+  return !serverId || explicit === serverId
 }
 
 export function parseMcpConnectionConfig(
   env: NodeJS.ProcessEnv,
   manifestServer?: McpManifestServer | null,
+  options: { readonly serverId?: string } = {},
 ): ILinkResult<McpConnectionConfig> {
   if (!isMcpEnabled(env)) {
     return { ok: false, reason: "BUTLER_V5_MCP_ENABLED is off" }
   }
-  const kind = parseMcpTransportKind(env, manifestServer)
+  const scopedEnv = scopedEnvForServer(env, options.serverId)
+  const kind = parseMcpTransportKind(scopedEnv, manifestServer)
   const timeoutMs = parseTimeoutMs(env)
   const token = (env["BUTLER_V5_MCP_TOKEN"] ?? "").trim()
 
   if (kind === "stdio") {
-    const command = resolveMcpCommand(env, manifestServer)
+    const command = resolveMcpCommand(scopedEnv, manifestServer, options.serverId)
     if (!command) {
       return { ok: false, reason: "BUTLER_V5_MCP_COMMAND is required for stdio transport" }
     }
@@ -93,13 +158,13 @@ export function parseMcpConnectionConfig(
       value: {
         kind: "stdio",
         command,
-        args: parseMcpStdioArgs(env),
+        args: parseMcpStdioArgs(scopedEnv, manifestServer, options.serverId),
         timeoutMs,
       },
     }
   }
 
-  const url = resolveMcpUrl(env, manifestServer)
+  const url = resolveMcpUrl(scopedEnv, manifestServer, options.serverId)
   if (!url) {
     return { ok: false, reason: "BUTLER_V5_MCP_URL is not set" }
   }

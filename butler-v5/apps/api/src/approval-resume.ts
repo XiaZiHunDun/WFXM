@@ -163,6 +163,7 @@ async function continueLoopAfterCapability(args: {
     conversationId: args.conversationId,
     timeoutMsFor: toolTimeoutMs,
     ...(args.wechatUserId ? { wechatUserId: args.wechatUserId } : {}),
+    mcpServerIdByCapability: args.wiring.mcp.serverIdByCapability,
   })
 
   const loopResult = await runConversationLoop({
@@ -318,6 +319,7 @@ export async function resumeApprovedCapability(
         conversationId: pending.conversationId,
         timeoutMsFor: toolTimeoutMs,
         grant: decision.grant,
+        mcpServerIdByCapability: wiring.mcp.serverIdByCapability,
       })
       const outcome = await executor.execute(def, pending.args)
       if (isPendingApprovalOutcome(outcome)) {

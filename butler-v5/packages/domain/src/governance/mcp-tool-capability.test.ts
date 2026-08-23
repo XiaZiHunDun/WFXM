@@ -6,6 +6,7 @@ import {
   parseMcpCapability,
   scopedGrantScopeTargetsMcpServer,
   toMcpCapabilityName,
+  toMcpCapabilityNameForServer,
 } from "./mcp-tool-capability.js"
 
 describe("mcp tool capability", () => {
@@ -58,5 +59,16 @@ describe("mcp tool capability", () => {
       defaultSandboxProfile: "workspace-write-network-deny",
       auditPolicy: "summary",
     })
+  })
+
+  it("parses namespaced capabilities with server ids", () => {
+    expect(parseMcpCapability("mcp_firecrawl_firecrawl_scrape", ["firecrawl", "github"])).toEqual({
+      capability: "mcp_firecrawl_firecrawl_scrape",
+      serverId: "firecrawl",
+      toolName: "firecrawl_scrape",
+    })
+    expect(toMcpCapabilityNameForServer("firecrawl", "firecrawl_scrape")).toBe(
+      "mcp_firecrawl_firecrawl_scrape",
+    )
   })
 })

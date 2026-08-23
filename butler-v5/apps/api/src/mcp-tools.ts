@@ -4,6 +4,7 @@ import {
   isMcpEnabled,
   mcpStubToolNames,
   toMcpCapabilityName,
+  toMcpCapabilityNameForServer,
 } from "@butler/runtime/mcp-gate.js"
 
 export interface McpDiscoveredTool {
@@ -29,11 +30,22 @@ function defaultInvoke(toolName: string): McpInvokeFn {
   })
 }
 
+export interface McpToolsOptions {
+  readonly discovered?: readonly McpDiscoveredTool[]
+  readonly invoke?: McpInvokeFn
+  readonly serverId?: string
+  readonly namespaced?: boolean
+}
+
 export function makeMcpToolDefinition(
   discovered: McpDiscoveredTool,
   invoke: McpInvokeFn = defaultInvoke(discovered.name),
+  options: { readonly serverId?: string; readonly namespaced?: boolean } = {},
 ): ToolDefinition {
-  const capability = toMcpCapabilityName(discovered.name)
+  const capability =
+    options.namespaced && options.serverId
+      ? toMcpCapabilityNameForServer(options.serverId, discovered.name)
+      : toMcpCapabilityName(discovered.name)
   if (!capability) {
     throw new Error(`invalid MCP tool name: ${discovered.name}`)
   }
@@ -46,8 +58,14 @@ export function makeMcpToolDefinition(
   }
 }
 
-export function mcpLlmToolDescriptor(discovered: McpDiscoveredTool): LLMTool {
-  const name = toMcpCapabilityName(discovered.name)
+export function mcpLlmToolDescriptor(
+  discovered: McpDiscoveredTool,
+  options: { readonly serverId?: string; readonly namespaced?: boolean } = {},
+): LLMTool {
+  const name =
+    options.namespaced && options.serverId
+      ? toMcpCapabilityNameForServer(options.serverId, discovered.name)
+      : toMcpCapabilityName(discovered.name)
   if (!name) {
     throw new Error(`invalid MCP tool name: ${discovered.name}`)
   }
@@ -73,7 +91,13 @@ export function loadMcpToolDefinitions(
     options.discovered ??
     mcpStubToolNames(env).map((name) => ({ name, description: `MCP stub: ${name}` }))
   const invoke = options.invoke
-  return discovered.map((tool) => makeMcpToolDefinition(tool, invoke ?? defaultInvoke(tool.name)))
+  const toolOptions = {
+    ...(options.serverId ? { serverId: options.serverId } : {}),
+    ...(options.namespaced ? { namespaced: options.namespaced } : {}),
+  }
+  return discovered.map((tool) =>
+    makeMcpToolDefinition(tool, invoke ?? defaultInvoke(tool.name), toolOptions),
+  )
 }
 
 export function loadMcpLlmTools(
@@ -84,5 +108,8 @@ export function loadMcpLlmTools(
   const discovered =
     options.discovered ??
     mcpStubToolNames(env).map((name) => ({ name, description: `MCP stub: ${name}` }))
-  return discovered.map(mcpLlmToolDescriptor)
+  return discovered.map((tool) => mcpLlmToolDescriptor(tool, {
+    ...(options.serverId ? { serverId: options.serverId } : {}),
+    ...(options.namespaced ? { namespaced: options.namespaced } : {}),
+  }))
 }
