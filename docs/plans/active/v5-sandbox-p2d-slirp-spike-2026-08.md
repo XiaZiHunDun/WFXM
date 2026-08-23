@@ -67,8 +67,8 @@ pnpm smoke:allowlist-production --slirp
 
 - [x] slirp 模式代码 + 单测
 - [x] raw socket 探测（`sandbox-probe-allowlist-slirp`）
-- [ ] 生产 env 启用 slirp（Owner opt-in）
-- [ ] live registry + slirp 同机 PASS（依赖 host gateway 连通）
+- [x] 生产 env 启用 slirp（Owner opt-in，`~/.config/butler-v5/env`）
+- [ ] live registry + slirp 同机 PASS（依赖 host gateway 连通；可用 `pnpm smoke:allowlist-pnpm` 点验）
 
 ---
 
