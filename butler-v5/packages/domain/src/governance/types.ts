@@ -168,7 +168,7 @@ export function buildScopedGrantScopeFromPending(input: {
     }
   }
   if (isMcpCapability(input.capability) && input.mcpServerId?.trim()) {
-    const parsed = parseMcpCapability(input.capability)
+    const parsed = parseMcpCapability(input.capability, [input.mcpServerId])
     const mcpScope =
       parsed &&
       normalizeMcpGrantScope({

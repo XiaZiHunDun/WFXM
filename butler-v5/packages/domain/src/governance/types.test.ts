@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildScopedGrantScopeFromPending,
   decidePolicy,
   grantMatchesAction,
   type ActionRequest,
@@ -242,5 +243,31 @@ describe("decidePolicy", () => {
       }),
     )
     expect(decision._tag).toBe("Allow")
+  })
+})
+
+describe("buildScopedGrantScopeFromPending", () => {
+  it("parses multi-server MCP capability with serverId prefix", () => {
+    const scope = buildScopedGrantScopeFromPending({
+      capability: "mcp_firecrawl_firecrawl_scrape",
+      resource: "mcp_firecrawl_firecrawl_scrape",
+      digest: "d-fc",
+      mcpServerId: "firecrawl",
+    })
+    expect(scope.mcp).toEqual({ serverId: "firecrawl", toolName: "firecrawl_scrape" })
+    expect(
+      grantMatchesAction(
+        grant({ scope: { ...scope, network: "allow" } }),
+        {
+          kind: "command",
+          capability: "mcp_firecrawl_firecrawl_scrape",
+          subject: "owner-1",
+          resource: "mcp_firecrawl_firecrawl_scrape",
+          risk: "high",
+          digest: "d-fc",
+          payload: {},
+        },
+      ),
+    ).toBe(true)
   })
 })

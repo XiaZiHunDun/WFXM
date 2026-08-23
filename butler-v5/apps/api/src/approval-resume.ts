@@ -304,7 +304,10 @@ export async function resumeApprovedCapability(
         actor: { kind: "agent", id: "approval-resume" },
         ...(pending.wechatUserId ? { wechatUserId: pending.wechatUserId } : {}),
         ...(pending.wechatContextToken ? { wechatContextToken: pending.wechatContextToken } : {}),
+        runtimeStore: wiring.runtimeStore,
+        runId: ctx.runId,
         env,
+        mcpBundle: wiring.mcp,
       })
       const def = findTool(tools, pending.capability)
       if (!def) {
