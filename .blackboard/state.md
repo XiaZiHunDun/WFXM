@@ -1,12 +1,12 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-23 20:10_
+_last_synced: 2026-08-23 20:38_
 _handoff: docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md_
-_commit: 6c8d2ced (feat(v5) multi-server MCP)_
+_commit: 4fa64f24 (fix MCP approval resume)_
 
 ## 主线
 
-P3 MCP 四 server 生产接线 ✅ — 见交接文档。
+P3 MCP 四 server 生产接线 ✅ — Grant 真调用验收通过（firecrawl + todoist）。
 
 ## 生产 MCP
 
@@ -16,9 +16,9 @@ P3 MCP 四 server 生产接线 ✅ — 见交接文档。
 
 ## 下一步
 
-1. 真调用 + Grant 验收（firecrawl / todoist）
+1. `git push`（main 超前 origin 4 commits）
 2. Project Knowledge — 单独立项
-3. `pnpm test` 全绿后 push
+3. github 工具裁剪 / 微信 Loop MCP 白名单（可选）
 
 ## 不要做
 
@@ -28,4 +28,4 @@ P3 MCP 四 server 生产接线 ✅ — 见交接文档。
 
 ## 上一班
 
-- multi-server MCP bootstrap 落地；交接文档已写；commit `80017a8c`。
+- 修复 multi-server MCP 审批恢复（grant scope 解析 + resume 加载 mcpBundle）；firecrawl/todoist 真调用验收通过；commit `4fa64f24`。
