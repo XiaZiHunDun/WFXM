@@ -337,7 +337,7 @@ program
 
 program
   .command("sandbox-probe-allowlist-pnpm")
-  .description("Live pnpm registry fetch via allowlist egress proxy (needs network)")
+  .description("Live npm registry HTTPS fetch via allowlist egress proxy (needs network)")
   .option("--workspace <path>", "workspace root for bwrap bind")
   .action(async (opts: { workspace?: string }) => {
     const { probeAllowlistPnpmRegistry } = await import(
@@ -361,7 +361,7 @@ program
       console.error(live.reason ?? "pnpm registry probe failed")
       process.exit(1)
     }
-    console.log(`pnpm allowlist registry ok: ${(live.output ?? "").trim()}`)
+    console.log(`registry allowlist ok: ${(live.output ?? "").trim()}`)
   })
 
 program

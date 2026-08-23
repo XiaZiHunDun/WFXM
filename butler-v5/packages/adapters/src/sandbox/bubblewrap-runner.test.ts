@@ -15,6 +15,7 @@ describe("bubblewrap runner", () => {
     expect(args).toContain("--unshare-net")
     expect(args).toContain("--bind")
     expect(DEFAULT_SANDBOX_PROFILE.readOnlySystemPaths).toContain("/etc/alternatives")
+    expect(DEFAULT_SANDBOX_PROFILE.readOnlySystemPaths).toContain("/etc/ssl")
     expect(args.at(-2)).toBe("echo")
     expect(args.at(-1)).toBe("hi")
   })

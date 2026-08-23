@@ -1,33 +1,30 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-23 15:38_
+_last_synced: 2026-08-23 15:40_
 _handoff: docs/plans/active/v5-acceptance-handoff-2026-08.md_
-_commit: bb20a07d (pushed main)_
+_commit: (pending) sandbox SSL + registry smoke fix_
 
 ## 验收状态 ✅
 
-| 检查 | 结果 | 时间 |
-| --- | --- | --- |
-| `pnpm test:p4-acceptance` | 6/6 PASS | 2026-08-23 |
-| `pnpm test` | 740 passed, 1 skipped | 2026-08-23 |
-| `tsx cli/src/index.ts verify --api …` | 9 migrations + healthz ok | 2026-08-23 |
-| `pnpm smoke:allowlist-production` | PASS | 2026-08-23 |
-| `pnpm smoke:allowlist-slirp` | PASS（rawBlocked + proxyPath） | 2026-08-23 |
-| `pnpm smoke:schedule` | PASS（tick fired=1） | 2026-08-23 |
-
-开发主线已收口；**稳态运维**。
+| 检查 | 结果 |
+| --- | --- |
+| `pnpm test:p4-acceptance` | 6/6 PASS |
+| `pnpm test` | 740 passed, 1 skipped |
+| `pnpm smoke:allowlist-production` | PASS |
+| `pnpm smoke:allowlist-slirp` | PASS |
+| `pnpm smoke:allowlist-pnpm` | PASS（live registry HTTPS） |
+| `pnpm smoke:schedule` | PASS |
 
 ## 生产 env
 
-- P2c allowlist ✅（`SANDBOX_NETWORK_MODE=allowlist`）
-- **P2d slirp ✅**（`SANDBOX_EGRESS_ISOLATION=slirp`，2026-08-23 启用 + gateway 重启）
-- `BUTLER_V5_DURABLE_MEMORY=1` ✅
-- `BUTLER_V5_SCHEDULE_ENABLED=1` ✅（`config/schedule-jobs.json`）
+- P2c allowlist + **P2d slirp** ✅
+- `BUTLER_V5_SANDBOX_EGRESS_UPSTREAM_PROXY=http://127.0.0.1:7890` ✅（mihomo）
+- Durable Memory + Schedule ✅
 
-## 下一可选（Owner 决策）
+## 下一主线（Owner）
 
-1. **live registry + slirp** — `pnpm smoke:allowlist-pnpm`（需 npm registry 出网）
-2. **P3 立项** — MCP per-tool Grant / Provider 卸载失效
+- **P3 MCP 契约补全** — issue 草稿：`v5-p3-mcp-contract-issue-draft-2026-08.md`（待开 GitHub issue）
+- 日常回归见下
 
 ## 日常回归
 
@@ -35,15 +32,10 @@ _commit: bb20a07d (pushed main)_
 cd butler-v5 && pnpm test:p4-acceptance
 pnpm smoke:allowlist-production
 pnpm smoke:allowlist-slirp
+pnpm smoke:allowlist-pnpm
 pnpm smoke:schedule
-pnpm exec tsx cli/src/index.ts verify --api http://127.0.0.1:3000
 ```
-
-## 不要做
-
-- 不立项浏览器 / 完整 Web UI / RAG Studio
-- 不把 `packages/application/_archive` 接回生产
 
 ## 上一班
 
-- housekeeping 推送 `bb20a07d`；Schedule + P2d slirp 冒烟全绿；生产启用 slirp。
+- 修复 allowlist live registry 探测（`/etc/ssl` bind + python HTTPS）；pnpm smoke 全绿；P3 MCP issue 草稿。

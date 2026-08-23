@@ -261,8 +261,9 @@ export async function probeSandboxAllowlistEgress(args: {
 }
 
 const REGISTRY_ALLOWLIST_ENTRY = "registry.npmjs.org:443"
+const REGISTRY_PROBE_URL = "https://registry.npmjs.org/left-pad"
 
-/** Live pnpm registry query through allowlist egress proxy (production point-check). */
+/** Live npm registry HTTPS fetch through allowlist egress (production point-check). */
 export async function probeAllowlistPnpmRegistry(args: {
   readonly workspaceRoot: string
   readonly env?: NodeJS.ProcessEnv
@@ -272,11 +273,20 @@ export async function probeAllowlistPnpmRegistry(args: {
     ...(args.env ?? process.env),
     BUTLER_V5_SANDBOX: "bubblewrap",
     BUTLER_V5_SANDBOX_NETWORK_MODE: "allowlist",
+    // Live registry probe uses egress proxy path (P2c); slirp raw path is covered by probeSandboxAllowlistSlirpIsolation.
+    BUTLER_V5_SANDBOX_EGRESS_ISOLATION: "proxy",
   }
   const runner = args.runner ?? createDefaultProcessRunner()
 
+  const code = [
+    "import urllib.request",
+    `r = urllib.request.urlopen(${JSON.stringify(REGISTRY_PROBE_URL)}, timeout=15)`,
+    "body = r.read(4096).decode('utf-8', errors='replace')",
+    "print(r.status, body[:120])",
+  ].join("\n")
+
   const result = await executeArgvInSandbox({
-    argv: ["pnpm", "view", "left-pad", "version", "--registry", "https://registry.npmjs.org"],
+    argv: ["python3", "-c", code],
     workspaceRoot: args.workspaceRoot,
     profileName: "workspace-write-network-allowlist",
     networkAllowlist: [REGISTRY_ALLOWLIST_ENTRY],
@@ -288,9 +298,14 @@ export async function probeAllowlistPnpmRegistry(args: {
     return { ok: false, reason: "sandbox disabled" }
   }
   if (!result.ok) {
-    return { ok: false, reason: result.reason ?? "pnpm failed under allowlist" }
+    const detail = [result.reason, result.stderr, result.stdout].filter(Boolean).join(" | ")
+    return { ok: false, reason: detail || "registry probe failed under allowlist" }
   }
-  return { ok: true, output: result.stdout }
+  const output = (result.stdout ?? "").trim()
+  if (!output.startsWith("200")) {
+    return { ok: false, reason: output || "registry probe did not return HTTP 200" }
+  }
+  return { ok: true, output }
 }
 
 export interface SandboxSlirpProbeResult {

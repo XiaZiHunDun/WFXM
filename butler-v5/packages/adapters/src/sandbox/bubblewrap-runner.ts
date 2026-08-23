@@ -24,7 +24,7 @@ export const DEFAULT_SANDBOX_PROFILE: SandboxProfile = {
   name: "workspace-write-network-deny",
   workspaceRoot: process.cwd(),
   network: "deny",
-  readOnlySystemPaths: ["/usr", "/bin", "/lib", "/lib64", "/etc/alternatives"],
+  readOnlySystemPaths: ["/usr", "/bin", "/lib", "/lib64", "/etc/alternatives", "/etc/ssl"],
   maxOutputBytes: 32 * 1024,
   timeoutMs: 5000,
 }
