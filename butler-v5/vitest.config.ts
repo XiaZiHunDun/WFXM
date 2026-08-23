@@ -69,6 +69,10 @@ export default defineConfig({
         replacement: resolve(__dirname, "packages/domain/src/governance/network-allowlist.ts"),
       },
       {
+        find: "@butler/domain/governance/mcp-tool-capability.js",
+        replacement: resolve(__dirname, "packages/domain/src/governance/mcp-tool-capability.ts"),
+      },
+      {
         find: "@butler/domain/mcp/manifest.js",
         replacement: resolve(__dirname, "packages/domain/src/mcp/manifest.ts"),
       },

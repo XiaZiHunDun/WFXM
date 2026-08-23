@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it, vi } from "vitest"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { bootstrapMcpTools } from "./mcp-bootstrap.js"
 
 describe("bootstrapMcpTools", () => {
@@ -9,6 +10,21 @@ describe("bootstrapMcpTools", () => {
     const bundle = await bootstrapMcpTools({ BUTLER_V5_MCP_ENABLED: "0" })
     expect(bundle.mode).toBe("off")
     expect(bundle.runtimeTools).toEqual([])
+  })
+
+  it("revokes MCP grants when MCP disabled and runtimeStore is wired", async () => {
+    const revoke = vi.fn(async () => 1)
+    const store = {
+      revokeScopedGrantsForMcpServer: revoke,
+    } as unknown as RuntimeStore
+    await bootstrapMcpTools(
+      {
+        BUTLER_V5_MCP_ENABLED: "0",
+        BUTLER_V5_MCP_SERVER_ID: "demo-server",
+      },
+      { runtimeStore: store },
+    )
+    expect(revoke).toHaveBeenCalledWith("demo-server", expect.any(Date))
   })
 
   it("loads stub tools without URL", async () => {

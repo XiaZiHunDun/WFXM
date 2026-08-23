@@ -2,12 +2,19 @@ export type RiskLevel = "low" | "medium" | "high"
 
 export type ActionKind = "read" | "write" | "command" | "delegate" | "outbound" | "model"
 
-/** Prefix for MCP-discovered capabilities (opt-in via BUTLER_V5_MCP_ENABLED). */
-export const MCP_CAPABILITY_PREFIX = "mcp_"
+import {
+  grantScopeMatchesMcpTool,
+  isMcpCapability,
+  normalizeMcpGrantScope,
+  parseMcpCapability,
+  type McpGrantScope,
+} from "./mcp-tool-capability.js"
 
-export function isMcpCapability(capability: string): boolean {
-  return capability.startsWith(MCP_CAPABILITY_PREFIX)
-}
+export {
+  MCP_CAPABILITY_PREFIX,
+  isMcpCapability,
+  type McpGrantScope,
+} from "./mcp-tool-capability.js"
 
 export interface ActionRequest {
   readonly kind: ActionKind
@@ -37,6 +44,8 @@ export interface ScopedGrantScope {
   readonly maxUses?: number
   /** When set, only the exact action digest from approval may execute. */
   readonly digest?: string
+  /** P3: bind MCP Grant to a specific server + tool name. */
+  readonly mcp?: McpGrantScope
 }
 
 export interface ScopedGrantRecord {
@@ -133,6 +142,8 @@ export function buildScopedGrantScopeFromPending(input: {
   readonly networkHosts?: readonly string[]
   /** When true, stamp network allow (e.g. Grant networkAllowlist on run_command). */
   readonly forceNetworkAllow?: boolean
+  /** P3: MCP server id for per-tool ScopedGrant scope. */
+  readonly mcpServerId?: string
 }): ScopedGrantScope {
   let scope: ScopedGrantScope = {
     capabilities: [input.capability],
@@ -154,6 +165,21 @@ export function buildScopedGrantScopeFromPending(input: {
       ...(input.networkHosts && input.networkHosts.length > 0
         ? { networkHosts: input.networkHosts.map(normalizeGrantHost) }
         : {}),
+    }
+  }
+  if (isMcpCapability(input.capability) && input.mcpServerId?.trim()) {
+    const parsed = parseMcpCapability(input.capability)
+    const mcpScope =
+      parsed &&
+      normalizeMcpGrantScope({
+        serverId: input.mcpServerId,
+        toolName: parsed.toolName,
+      })
+    if (mcpScope) {
+      scope = {
+        ...scope,
+        mcp: mcpScope,
+      }
     }
   }
   return scope
@@ -179,6 +205,12 @@ export function grantAllowsNetworkHost(
 export function grantMatchesAction(grant: ScopedGrantRecord, request: ActionRequest): boolean {
   if (!grant.scope.capabilities.includes(request.capability)) {
     return false
+  }
+  if (isMcpCapability(request.capability)) {
+    const parsed = parseMcpCapability(request.capability)
+    if (!parsed || !grantScopeMatchesMcpTool(grant.scope, parsed)) {
+      return false
+    }
   }
   if (grant.scope.digest && grant.scope.digest !== request.digest) {
     return false

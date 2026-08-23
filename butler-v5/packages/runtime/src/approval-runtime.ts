@@ -1,5 +1,6 @@
 import type { ActionKind, RiskLevel, ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import { buildScopedGrantScopeFromPending } from "@butler/domain/governance/types.js"
+import { isMcpCapability } from "@butler/domain/governance/types.js"
 import {
   hashNetworkAllowlistForAudit,
   hostnamesFromNetworkAllowlist,
@@ -8,6 +9,7 @@ import {
   envAllowPrivateEgress,
 } from "@butler/domain/governance/network-allowlist.js"
 import { outboundNetworkHostsForCapability } from "./grant-network.js"
+import { mcpServerIdFromEnv } from "./mcp-consent.js"
 import type { RuntimeStore, StoredStep } from "@butler/domain/runtime.js"
 import {
   parseSandboxProfileName,
@@ -196,6 +198,9 @@ export async function approveWaitingStep(
       digest: pending.digest,
       networkHosts,
       forceNetworkAllow: normalizedAllowlist !== null,
+      ...(isMcpCapability(pending.capability)
+        ? { mcpServerId: mcpServerIdFromEnv(env) }
+        : {}),
     }),
     remainingUses: 1,
     expiresAt: new Date(pending.expiresAtMs),
@@ -225,6 +230,9 @@ export async function approveWaitingStep(
       ...(grant.sandboxProfile ? { sandboxProfile: grant.sandboxProfile } : {}),
       ...(grant.networkAllowlist && grant.networkAllowlist.length > 0
         ? { networkAllowlistHash: hashNetworkAllowlistForAudit(grant.networkAllowlist) }
+        : {}),
+      ...(grant.scope.mcp
+        ? { mcpServerId: grant.scope.mcp.serverId, mcpToolName: grant.scope.mcp.toolName }
         : {}),
     },
     createdAt: now,

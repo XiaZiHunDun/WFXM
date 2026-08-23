@@ -200,4 +200,74 @@ describe("RuntimeStore repository", () => {
       await db.close()
     }
   })
+
+  it("revokes MCP scoped grants for a server id (P3)", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const now = new Date("2026-08-23T00:00:00Z")
+    try {
+      const inbound = await store.createConversationWithUserMessage({
+        conversationId: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "hi" },
+        triggerSource: "channel",
+        idempotencyKey: "mcp-revoke",
+        createdAt: now,
+      })
+      const run = await store.createRun({
+        id: crypto.randomUUID(),
+        conversationId: inbound.conversationId,
+        parentRunId: null,
+        triggerSource: "channel",
+        idempotencyKey: "run-mcp",
+        subject: "owner-1",
+        goal: "test",
+        budget: {},
+        deadline: null,
+        createdAt: now,
+      })
+      const grantId = crypto.randomUUID()
+      await store.createScopedGrant({
+        grantId,
+        runId: run.id,
+        subject: "owner-1",
+        scope: {
+          capabilities: ["mcp_search"],
+          digest: "d1",
+          network: "allow",
+          mcp: { serverId: "demo-server", toolName: "search" },
+        },
+        remainingUses: 1,
+        expiresAt: new Date(now.getTime() + 60_000),
+        createdAt: now,
+      })
+      await store.createScopedGrant({
+        grantId: crypto.randomUUID(),
+        runId: run.id,
+        subject: "owner-1",
+        scope: {
+          capabilities: ["mcp_fetch"],
+          digest: "d2",
+          network: "allow",
+          mcp: { serverId: "other-server", toolName: "fetch" },
+        },
+        remainingUses: 1,
+        expiresAt: new Date(now.getTime() + 60_000),
+        createdAt: now,
+      })
+      const revoked = await store.revokeScopedGrantsForMcpServer("demo-server", now)
+      expect(revoked).toBe(1)
+      const active = await store.findActiveGrant({
+        runId: run.id,
+        subject: "owner-1",
+        capability: "mcp_search",
+        digest: "d1",
+        now,
+      })
+      expect(active).toBeNull()
+    } finally {
+      await db.close()
+    }
+  })
 })

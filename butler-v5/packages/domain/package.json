@@ -13,6 +13,7 @@
     "./governance/wechat-network-hosts.js": "./src/governance/wechat-network-hosts.ts",
     "./governance/grant-network-hosts.js": "./src/governance/grant-network-hosts.ts",
     "./governance/network-allowlist.js": "./src/governance/network-allowlist.ts",
+    "./governance/mcp-tool-capability.js": "./src/governance/mcp-tool-capability.ts",
     "./mcp/manifest.js": "./src/mcp/manifest.ts",
     "./knowledge/durable-memory.js": "./src/knowledge/durable-memory.ts",
     "./knowledge/document-ingest.js": "./src/knowledge/document-ingest.ts",

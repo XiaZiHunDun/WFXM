@@ -197,4 +197,50 @@ describe("decidePolicy", () => {
     )
     expect(decision._tag).toBe("Ask")
   })
+
+  it("asks when mcp grant scope tool does not match capability", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "command",
+        capability: "mcp_search",
+        risk: "high",
+        digest: "mcp-search",
+      },
+      policy,
+      1000,
+      grant({
+        scope: {
+          capabilities: ["mcp_search"],
+          digest: "mcp-search",
+          network: "allow",
+          mcp: { serverId: "demo", toolName: "fetch" },
+        },
+      }),
+    )
+    expect(decision._tag).toBe("Ask")
+  })
+
+  it("allows mcp when grant scope matches server and tool", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "command",
+        capability: "mcp_search",
+        risk: "high",
+        digest: "mcp-search",
+      },
+      policy,
+      1000,
+      grant({
+        scope: {
+          capabilities: ["mcp_search"],
+          digest: "mcp-search",
+          network: "allow",
+          mcp: { serverId: "demo", toolName: "search" },
+        },
+      }),
+    )
+    expect(decision._tag).toBe("Allow")
+  })
 })

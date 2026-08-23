@@ -1,41 +1,26 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-23 15:40_
-_handoff: docs/plans/active/v5-acceptance-handoff-2026-08.md_
-_commit: (pending) sandbox SSL + registry smoke fix_
+_last_synced: 2026-08-23 16:05_
+_handoff: docs/plans/active/v5-p3-mcp-contract-issue-draft-2026-08.md_
+_commit: (pending) P3 MCP Grant scope_
 
-## 验收状态 ✅
+## P3 MCP 契约 ✅（#3 首包）
 
-| 检查 | 结果 |
+| 项 | 状态 |
 | --- | --- |
-| `pnpm test:p4-acceptance` | 6/6 PASS |
-| `pnpm test` | 740 passed, 1 skipped |
-| `pnpm smoke:allowlist-production` | PASS |
-| `pnpm smoke:allowlist-slirp` | PASS |
-| `pnpm smoke:allowlist-pnpm` | PASS（live registry HTTPS） |
-| `pnpm smoke:schedule` | PASS |
-
-## 生产 env
-
-- P2c allowlist + **P2d slirp** ✅
-- `BUTLER_V5_SANDBOX_EGRESS_UPSTREAM_PROXY=http://127.0.0.1:7890` ✅（mihomo）
-- Durable Memory + Schedule ✅
-
-## 下一主线（Owner）
-
-- **P3 MCP 契约补全** — issue 草稿：`v5-p3-mcp-contract-issue-draft-2026-08.md`（待开 GitHub issue）
-- 日常回归见下
+| `McpToolCapability` + Grant scope 规范化 | ✅ domain `mcp-tool-capability.ts` |
+| Policy `grantMatchesAction` per-tool | ✅ |
+| 审批签发 `scope.mcp` | ✅ `approval-runtime` |
+| Provider 卸载 revoke | ✅ `mcp-grant-lifecycle` + bootstrap |
+| 测试 | 748 passed |
 
 ## 日常回归
 
 ```bash
-cd butler-v5 && pnpm test:p4-acceptance
-pnpm smoke:allowlist-production
-pnpm smoke:allowlist-slirp
-pnpm smoke:allowlist-pnpm
-pnpm smoke:schedule
+cd butler-v5 && pnpm test
+pnpm test:p4-acceptance
 ```
 
 ## 上一班
 
-- 修复 allowlist live registry 探测（`/etc/ssl` bind + python HTTPS）；pnpm smoke 全绿；P3 MCP issue 草稿。
+- 实现 GitHub #3 P3 MCP 首包：per-tool Grant scope、卸载 revoke、provider 元数据骨架。

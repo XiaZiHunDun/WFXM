@@ -237,6 +237,23 @@ export {
   MCP_CAPABILITY_PREFIX,
 } from "./governance/types.js"
 export {
+  type McpGrantScope,
+  type McpToolCapability,
+  type McpProviderMetadata,
+  type McpAuditPolicy,
+  toMcpCapabilityName,
+  parseMcpCapability,
+  normalizeMcpServerId,
+  normalizeMcpToolName,
+  normalizeMcpGrantScope,
+  grantScopeMatchesMcpTool,
+  scopedGrantScopeTargetsMcpServer,
+  defaultMcpProviderMetadata,
+  DEFAULT_MCP_SANDBOX_PROFILE,
+  DEFAULT_MCP_RISK,
+  DEFAULT_MCP_AUDIT_POLICY,
+} from "./governance/mcp-tool-capability.js"
+export {
   WECHAT_OUTBOUND_NETWORK_HOSTS,
   WECHAT_OUTBOUND_NETWORK_HOST_SET,
 } from "./governance/wechat-network-hosts.js"

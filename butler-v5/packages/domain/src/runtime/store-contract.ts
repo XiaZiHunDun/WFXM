@@ -157,6 +157,11 @@ export interface RuntimeStore {
     grantId: string,
     remainingUses: number | null,
   ) => Promise<void>
+  /** P3: expire MCP grants bound to a server (sets remainingUses=0). */
+  readonly revokeScopedGrantsForMcpServer: (
+    serverId: string,
+    now: Date,
+  ) => Promise<number>
   /** Active main/child Runs whose deadline is strictly before `now`. */
   readonly listRunsPastDeadline: (now: Date) => Promise<readonly StoredRun[]>
 }

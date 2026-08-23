@@ -8,6 +8,8 @@ import type { McpSessionRef } from "@butler/adapters/mcp/session.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
 import { assertMcpServerConsented, mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
+import { revokeScopedGrantsForMcpServer } from "@butler/runtime/mcp-grant-lifecycle.js"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import {
   assertMcpServerInManifest,
   loadMcpManifestFromEnv,
@@ -92,9 +94,19 @@ export async function bootstrapMcpTools(
     readonly discover?: () => Promise<readonly McpDiscoveredTool[]>
     readonly invoke?: McpInvokeFn
     readonly transport?: McpTransport
+    /** When set, revoke MCP ScopedGrants on disconnect / consent removal (P3). */
+    readonly runtimeStore?: RuntimeStore
   } = {},
 ): Promise<McpToolBundle> {
+  const serverId = mcpServerIdFromEnv(env)
+  const maybeRevoke = async () => {
+    if (options.runtimeStore) {
+      await revokeScopedGrantsForMcpServer(options.runtimeStore, serverId)
+    }
+  }
+
   if (!isMcpEnabled(env)) {
+    await maybeRevoke()
     return EMPTY_BUNDLE
   }
 
@@ -103,10 +115,10 @@ export async function bootstrapMcpTools(
     if (mcpFailClosedOnBootstrap(env)) {
       throw new Error(`MCP bootstrap failed: ${manifestLoaded.reason}`)
     }
+    await maybeRevoke()
     return EMPTY_BUNDLE
   }
 
-  const serverId = mcpServerIdFromEnv(env)
   const manifestServer =
     manifestLoaded.kind === "loaded"
       ? resolveMcpManifestServer(manifestLoaded.manifest, serverId)
@@ -118,6 +130,7 @@ export async function bootstrapMcpTools(
       if (mcpFailClosedOnBootstrap(env)) {
         throw new Error(`MCP bootstrap failed: ${inManifest.reason}`)
       }
+      await maybeRevoke()
       return EMPTY_BUNDLE
     }
   }
@@ -127,6 +140,7 @@ export async function bootstrapMcpTools(
     if (mcpFailClosedOnBootstrap(env)) {
       throw new Error(`MCP bootstrap failed: ${consent.reason}`)
     }
+    await maybeRevoke()
     return EMPTY_BUNDLE
   }
 
@@ -146,6 +160,7 @@ export async function bootstrapMcpTools(
     if (mcpFailClosedOnBootstrap(env)) {
       throw new Error(`MCP bootstrap failed: ${connection.reason}`)
     }
+    await maybeRevoke()
     return EMPTY_BUNDLE
   }
 

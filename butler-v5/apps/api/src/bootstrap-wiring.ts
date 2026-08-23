@@ -42,7 +42,7 @@ export async function createProductionWiring(
   const procedureStore = createProcedureStore(db)
   const taskStore = createTaskStore(db)
   const runEngine = new RunEngine(runtimeStore)
-  const mcp = await bootstrapMcpTools(env)
+  const mcp = await bootstrapMcpTools(env, { runtimeStore })
   const wiring = makeWiring({
     bridge,
     workerId,

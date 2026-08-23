@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, isNull, lt, isNotNull } from "drizzle-orm"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import { grantMatchesAction, type ActionRequest } from "@butler/domain/governance/types.js"
+import { scopedGrantScopeTargetsMcpServer } from "@butler/domain/governance/mcp-tool-capability.js"
 import {
   ACTIVE_MAIN_RUN_STATUSES,
   inferProjectIdFromConversationId,
@@ -65,6 +66,7 @@ function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord
     readonly networkHosts?: readonly string[]
     readonly maxUses?: number
     readonly digest?: string
+    readonly mcp?: { readonly serverId: string; readonly toolName: string }
   }
   return {
     id: row.grantId,
@@ -77,6 +79,7 @@ function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord
       ...(scope.networkHosts ? { networkHosts: scope.networkHosts } : {}),
       ...(scope.maxUses !== undefined ? { maxUses: scope.maxUses } : {}),
       ...(scope.digest ? { digest: scope.digest } : {}),
+      ...(scope.mcp ? { mcp: scope.mcp } : {}),
     },
     remainingUses: row.remainingUses,
     expiresAtMs: row.expiresAt.getTime(),
@@ -420,6 +423,29 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         .update(scopedGrants)
         .set({ remainingUses })
         .where(eq(scopedGrants.grantId, grantId))
+    },
+
+    async revokeScopedGrantsForMcpServer(serverId, now) {
+      const rows = await db
+        .select()
+        .from(scopedGrants)
+        .where(gt(scopedGrants.expiresAt, now))
+      let revoked = 0
+      for (const row of rows) {
+        const grant = toScopedGrant(row)
+        if (grant.remainingUses !== null && grant.remainingUses <= 0) {
+          continue
+        }
+        if (!scopedGrantScopeTargetsMcpServer(grant.scope, serverId)) {
+          continue
+        }
+        await db
+          .update(scopedGrants)
+          .set({ remainingUses: 0 })
+          .where(eq(scopedGrants.grantId, row.grantId))
+        revoked += 1
+      }
+      return revoked
     },
 
     async listRunsPastDeadline(now) {

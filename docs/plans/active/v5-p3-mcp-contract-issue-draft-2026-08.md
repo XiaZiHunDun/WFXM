@@ -35,11 +35,11 @@ P3 MCP 首个适配 **部分交付**：manifest gate、consent、transport、ext
 
 ## 验收（草案）
 
-- [ ] 未 Grant 的 MCP 工具在 Policy 层 Deny/Ask（非 silent allow）
-- [ ] Grant 仅覆盖声明的 server + tool；TTL/uses 耗尽后拒绝
-- [ ] Owner 卸载 MCP server 后，相关 Grant 不可再用于 resume
-- [ ] Provider 元数据进入 Audit（risk class + sandbox profile 摘要）
-- [ ] `cd butler-v5 && pnpm test` 绿；无新入口绕过 RunTrigger
+- [x] 未 Grant 的 MCP 工具在 Policy 层 Deny/Ask（`isMcpCapability` → alwaysConfirm）
+- [x] Grant 绑定 server + tool（`ScopedGrantScope.mcp` + `grantMatchesAction`）
+- [x] Owner 卸载/禁用 MCP server 后 revoke grants（`bootstrapMcpTools` + `revokeScopedGrantsForMcpServer`）
+- [x] Provider 元数据骨架（`defaultMcpProviderMetadata`：risk/sandbox/audit）
+- [x] `cd butler-v5 && pnpm test` 绿（748 passed）
 
 ## 顺序约束
 

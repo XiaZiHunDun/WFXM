@@ -34,6 +34,9 @@ export function makeMcpToolDefinition(
   invoke: McpInvokeFn = defaultInvoke(discovered.name),
 ): ToolDefinition {
   const capability = toMcpCapabilityName(discovered.name)
+  if (!capability) {
+    throw new Error(`invalid MCP tool name: ${discovered.name}`)
+  }
   return {
     name: capability as ToolDefinition["name"],
     risk: "high",
@@ -45,6 +48,9 @@ export function makeMcpToolDefinition(
 
 export function mcpLlmToolDescriptor(discovered: McpDiscoveredTool): LLMTool {
   const name = toMcpCapabilityName(discovered.name)
+  if (!name) {
+    throw new Error(`invalid MCP tool name: ${discovered.name}`)
+  }
   return {
     name,
     description:
