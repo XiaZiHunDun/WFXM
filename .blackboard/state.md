@@ -1,23 +1,23 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-23 20:50_
+_last_synced: 2026-08-23 20:53_
 _handoff: docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md_
-_commit: b30466d7_
+_commit: 9229fff5_
 
 ## 主线
 
-P3 MCP ✅ — github 只读裁剪 + 微信白名单已生产生效（22 tools）。
+P3 MCP 全链路验收完成 — 四 server 真调用 + Grant 均已通过。
 
 ## 生产 MCP
 
-- `mode: multi`，22 tools（markitdown 1 + firecrawl 3 + github 14 + todoist 4）
-- 白名单 env：`BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH=config/wechat-tool-allowlist.json`
-- 验收: `butler mcp status --api http://127.0.0.1:3000`
+- `mode: multi`，22 tools（github 14 只读）
+- 白名单：`BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH=config/wechat-tool-allowlist.json`
+- 已验 Grant：firecrawl / todoist / github(search) / markitdown
 
 ## 下一步
 
-1. Project Knowledge — 单独立项
-2. markitdown / github 真调用 Grant 验收（可选）
+1. **Project Knowledge** — 单独立项（Owner 确认场景）
+2. 无其他 P3 MCP 阻塞项
 
 ## 不要做
 
@@ -27,4 +27,4 @@ P3 MCP ✅ — github 只读裁剪 + 微信白名单已生产生效（22 tools�
 
 ## 上一班
 
-- 生产 env + gateway 重启；MCP 22 tools / github 无写工具；verify 全绿。
+- github + markitdown Grant 真调用验收通过；黑板已 push `9229fff5`。
