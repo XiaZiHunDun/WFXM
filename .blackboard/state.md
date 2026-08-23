@@ -1,23 +1,23 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-23 20:47_
+_last_synced: 2026-08-23 20:50_
 _handoff: docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md_
-_commit: b59651a2 (github trim + wechat allowlist)_
+_commit: b30466d7_
 
 ## 主线
 
-P3 MCP ✅ — Grant 验收通过；github 只读裁剪 + 微信 Loop MCP 白名单已 commit（`b59651a2`）。
+P3 MCP ✅ — github 只读裁剪 + 微信白名单已生产生效（22 tools）。
 
 ## 生产 MCP
 
-- manifest github：26 → 14 只读工具（待 gateway 重启生效）
-- 微信白名单：`config/wechat-tool-allowlist.json`（需 env `BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH`）
+- `mode: multi`，22 tools（markitdown 1 + firecrawl 3 + github 14 + todoist 4）
+- 白名单 env：`BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH=config/wechat-tool-allowlist.json`
+- 验收: `butler mcp status --api http://127.0.0.1:3000`
 
 ## 下一步
 
-1. commit + push
-2. 生产 env 加 `BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH=config/wechat-tool-allowlist.json` 并 restart gateway
-3. Project Knowledge — 单独立项
+1. Project Knowledge — 单独立项
+2. markitdown / github 真调用 Grant 验收（可选）
 
 ## 不要做
 
@@ -27,4 +27,4 @@ P3 MCP ✅ — Grant 验收通过；github 只读裁剪 + 微信 Loop MCP 白名
 
 ## 上一班
 
-- github manifest 只读裁剪；微信 Loop 按 project 过滤 MCP；40 项相关测试通过。
+- 生产 env + gateway 重启；MCP 22 tools / github 无写工具；verify 全绿。
