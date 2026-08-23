@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-23 20:10_
 _handoff: docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md_
-_commit: 80017a8c (feat(v5) multi-server MCP)_
+_commit: 6c8d2ced (feat(v5) multi-server MCP)_
 
 ## 主线
 
@@ -28,4 +28,4 @@ P3 MCP 四 server 生产接线 ✅ — 见交接文档。
 
 ## 上一班
 
-- multi-server MCP bootstrap 落地；交接文档已写；commit `b8f1b2a5`。
+- multi-server MCP bootstrap 落地；交接文档已写；commit `80017a8c`。
