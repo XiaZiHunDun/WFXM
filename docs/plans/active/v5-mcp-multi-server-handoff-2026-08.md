@@ -1,6 +1,6 @@
 # Butler v5 MCP 多 Server 生产接线 — 会话交接（2026-08-23）
 
-> **状态**：Active — 代码待提交后由下一班接续  
+> **状态**：Accepted — commit `6c8d2ced`（2026-08-23）  
 > **上一班结论**：P3 MCP 契约 + 四 server 生产接线（markitdown / firecrawl / github / todoist）  
 > **工程规约**：[`../decisions/v5-engineering-handoff-2026-08.md`](../decisions/v5-engineering-handoff-2026-08.md)  
 > **P3 契约背景**：[`v5-p3-mcp-contract-issue-draft-2026-08.md`](v5-p3-mcp-contract-issue-draft-2026-08.md)（GitHub #3 Done）  
