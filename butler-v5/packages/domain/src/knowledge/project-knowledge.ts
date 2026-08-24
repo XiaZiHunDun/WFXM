@@ -24,6 +24,8 @@ export interface ProjectKnowledgeProvenance {
   readonly messageId?: string
   readonly documentId?: string
   readonly sourcePath?: string
+  readonly sourceMtimeMs?: number
+  readonly sourceSize?: number
   readonly note?: string
 }
 

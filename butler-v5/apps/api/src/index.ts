@@ -6,6 +6,7 @@ import { pickLLMProvider } from "@butler/adapters"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer, type WsServerHandle } from "./ws-routes.js"
 import { startScheduleWorkerIfEnabled } from "./schedule-worker.js"
+import { startProjectKnowledgeWatchWorkerIfEnabled } from "./project-knowledge-watch-worker.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 
 const app = new Hono()
@@ -57,8 +58,18 @@ if (scheduleHandle) {
   console.error("[butler-v5] schedule worker started")
 }
 
+const projectKnowledgeWatchHandle = startProjectKnowledgeWatchWorkerIfEnabled({
+  wiring,
+  env: process.env,
+})
+if (projectKnowledgeWatchHandle) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error("[butler-v5] project-knowledge watch worker started")
+}
+
 const shutdown = (): void => {
   scheduleHandle?.stop()
+  projectKnowledgeWatchHandle?.stop()
   stopSubagent?.()
   void wsHandle?.close()
   void boot.value.close()
@@ -73,4 +84,8 @@ export { createProductionWiring } from "./bootstrap-wiring.js"
 export { runCliGoal, defaultCliConversationId } from "./cli-run.js"
 export { runScheduleJob } from "./schedule-run.js"
 export { startScheduleWorkerIfEnabled, runScheduleTick } from "./schedule-worker.js"
+export {
+  startProjectKnowledgeWatchWorkerIfEnabled,
+  runProjectKnowledgeWatchTick,
+} from "./project-knowledge-watch-worker.js"
 export default app

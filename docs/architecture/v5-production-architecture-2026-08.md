@@ -237,6 +237,8 @@ delegate_to_subagent
 | CLI | `butler project-knowledge list\|add\|get\|delete\|promote-doc\|snapshot` |
 | 召回 | 工具 `recall_project_knowledge`（子串，project 作用域）；跨 project 读取 Deny |
 | 注入 | 工作集 prefix 需 `BUTLER_V5_PROJECT_KNOWLEDGE=1`（默认 `0`） |
+| K1.1 watch | `config/project-knowledge-sources.json` + `BUTLER_V5_PROJECT_KNOWLEDGE_WATCH=1`；Owner `POST .../sync` 或 CLI `project-knowledge sync` |
+| markitdown chain | sources 中 office/PDF → `mcp_markitdown_convert_to_markdown` → document → `ingested_document` |
 | 边界 | 非 Durable Memory / 非 Transcript；无 embedding / 全盘索引 |
 
 ### 6.0d Local tracing（MVP）

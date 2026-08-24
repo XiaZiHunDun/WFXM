@@ -149,7 +149,7 @@ ScopedGrant：首版 **不需要** 新 Grant 类型；写操作走现有 approva
 | **K1-b** | Owner routes + CLI | 0.5d |
 | **K1-c** | `recall_project_knowledge` 工具 + projectId 上下文 | 0.5d |
 | **K1-d** | 测试 + production architecture 文档 | 0.5d |
-| **K1.1** | sources.json watch / markitdown chain | 按需 +1d |
+| **K1.1** | sources.json watch / markitdown chain | ✅ 2026-08-24 |
 
 **不**与 Project Knowledge 同批：Web UI、浏览器、向量索引、v4 机械迁移。
 

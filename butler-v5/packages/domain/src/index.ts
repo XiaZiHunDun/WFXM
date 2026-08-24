@@ -99,6 +99,19 @@ export {
   formatProjectKnowledgePrefix,
 } from "./knowledge/project-knowledge.js"
 export {
+  type ProjectKnowledgeSourcesManifest,
+  type ProjectKnowledgeSourcesProject,
+  type ProjectKnowledgeSourcesParseResult,
+  type ResolvedSourceFile,
+  parseProjectKnowledgeSourcesJson,
+  globPatternToRegExp,
+  matchGlobPath,
+  extensionOf,
+  isMarkitdownExtension,
+  isTextSnapshotExtension,
+  resolveManifestSourceFiles,
+} from "./knowledge/project-knowledge-sources.js"
+export {
   type TaskId,
   type ProcedureId,
   type TaskStatus,

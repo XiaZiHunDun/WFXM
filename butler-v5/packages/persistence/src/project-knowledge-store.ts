@@ -9,12 +9,17 @@ import { projectKnowledgeItems } from "./schema.js"
 
 export interface ProjectKnowledgeStore {
   readonly create: (record: ProjectKnowledgeRecord) => Promise<ProjectKnowledgeRecord>
+  readonly update: (record: ProjectKnowledgeRecord) => Promise<ProjectKnowledgeRecord>
   readonly get: (itemId: string) => Promise<ProjectKnowledgeRecord | null>
   readonly delete: (itemId: string) => Promise<boolean>
   readonly listByProject: (input: {
     readonly projectId: string
     readonly limit?: number
   }) => Promise<readonly ProjectKnowledgeRecord[]>
+  readonly findBySourcePath: (input: {
+    readonly projectId: string
+    readonly sourcePath: string
+  }) => Promise<ProjectKnowledgeRecord | null>
   readonly deleteBySourceDocumentId: (documentId: string) => Promise<number>
 }
 
@@ -49,6 +54,21 @@ export function createProjectKnowledgeStore(db: ButlerDb): ProjectKnowledgeStore
       return record
     },
 
+    async update(record) {
+      await db
+        .update(projectKnowledgeItems)
+        .set({
+          title: record.title,
+          kind: record.kind,
+          body: record.body,
+          byteSize: record.byteSize,
+          provenance: record.provenance,
+          updatedAt: new Date(record.updatedAt),
+        })
+        .where(eq(projectKnowledgeItems.itemId, record.id))
+      return record
+    },
+
     async get(itemId) {
       const rows = await db
         .select()
@@ -76,6 +96,22 @@ export function createProjectKnowledgeStore(db: ButlerDb): ProjectKnowledgeStore
         .orderBy(desc(projectKnowledgeItems.updatedAt))
         .limit(limit)
       return rows.map(toRecord)
+    },
+
+    async findBySourcePath(input) {
+      const projectId = input.projectId.trim()
+      const sourcePath = input.sourcePath.trim()
+      if (!projectId || !sourcePath) return null
+      const rows = await db
+        .select()
+        .from(projectKnowledgeItems)
+        .where(
+          sql`${projectKnowledgeItems.projectId} = ${projectId} AND ${projectKnowledgeItems.provenance}->>'sourcePath' = ${sourcePath}`,
+        )
+        .orderBy(desc(projectKnowledgeItems.updatedAt))
+        .limit(1)
+      const row = rows[0]
+      return row ? toRecord(row) : null
     },
 
     async deleteBySourceDocumentId(documentId) {

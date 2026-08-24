@@ -40,6 +40,11 @@ import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
 import { defaultMcpProviderMetadata } from "@butler/domain/governance/mcp-tool-capability.js"
 import { readFileSync } from "node:fs"
 import { resolveUnderWorkspace, workspaceRootFrom } from "./workspace-tools.js"
+import {
+  loadProjectKnowledgeSourcesFromEnv,
+  isProjectKnowledgeWatchEnabled,
+} from "./project-knowledge-sources-config.js"
+import { syncProjectKnowledgeFromManifest } from "./project-knowledge-sync.js"
 
 export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/conversations", async (c) => {
@@ -530,6 +535,25 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     const saved = await store.create(created.value)
     return c.json({ ok: true, item: saved })
+  })
+
+  app.post("/v1/owner/project-knowledge/sync", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const store = wiring.projectKnowledgeStore
+    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    const loaded = loadProjectKnowledgeSourcesFromEnv(process.env)
+    if (loaded.kind === "none") {
+      return c.json({ ok: false, reason: "no sources manifest configured" }, 400)
+    }
+    if (loaded.kind === "error") {
+      return c.json({ ok: false, reason: loaded.reason }, 400)
+    }
+    const stats = await syncProjectKnowledgeFromManifest({
+      wiring,
+      manifest: loaded.manifest,
+      env: process.env,
+    })
+    return c.json({ ok: true, stats, watchEnabled: isProjectKnowledgeWatchEnabled(process.env) })
   })
 
   app.delete("/v1/owner/project-knowledge/:itemId", async (c) => {

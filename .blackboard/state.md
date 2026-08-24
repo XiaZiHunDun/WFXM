@@ -1,28 +1,29 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-24 09:35_
+_last_synced: 2026-08-24 09:50_
 _handoff: docs/plans/active/v5-project-knowledge-proposal-2026-08.md_
-_commit: (K1 收尾待 commit)_
+_commit: (K1.1 待 commit)_
 
 ## 主线
 
-Project Knowledge K1 ✅ + **K1 收尾 ✅** — CLI/文档/测试修复；WFXM 运营 ingest 5 条。
+Project Knowledge **K1.1 ✅** — sources.json + watch worker + markitdown chain + Owner sync API。
 
-## 生产 PK 内容（WFXM）
+## K1.1 交付
 
-- manual_note：MCP multi-server / WeChat allowlist / MCP topology
-- file_snapshot：`butler-v5/config/wechat-tool-allowlist.json`
-- ingested_document：PK MVP summary（document promote 验收）
+- `config/project-knowledge-sources.json`（WFXM 7 路径）
+- `BUTLER_V5_PROJECT_KNOWLEDGE_WATCH=1` opt-in 轮询
+- `POST /v1/owner/project-knowledge/sync` + `butler project-knowledge sync`
+- mtime/size 增量 skip；office/PDF → markitdown → document → PK
 
 ## 生产
 
-- Gateway active；MCP 22 tools
-- `BUTLER_V5_PROJECT_KNOWLEDGE=0`（inject 未开）
+- Gateway 待 restart 加载 K1.1
+- PK inject 仍默认关
 
 ## 下一步
 
-- Owner 决定是否开 K1.1（sources.json watch / markitdown chain）
-- 或 P0 v5 AI guard 迁移（人工 checklist）
+- restart gateway → `butler project-knowledge sync` 验收
+- 可选开 `BUTLER_V5_PROJECT_KNOWLEDGE_WATCH=1`
 
 ## 不要做
 
@@ -30,4 +31,4 @@ Project Knowledge K1 ✅ + **K1 收尾 ✅** — CLI/文档/测试修复；WFXM 
 
 ## 上一班
 
-- K1 收尾 + WFXM 三路 ingest 验收（add/snapshot/promote-doc/recall）。
+- K1.1 实施：sources manifest、sync engine、watch worker、文档更新。

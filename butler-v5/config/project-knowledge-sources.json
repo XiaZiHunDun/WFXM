@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "projects": {
+    "WFXM": {
+      "globs": [
+        "butler-v5/DESIGN.md",
+        "docs/plans/decisions/v5-product-boundaries-2026-08.md",
+        "docs/architecture/v5-production-architecture-2026-08.md",
+        "docs/plans/active/v5-project-knowledge-proposal-2026-08.md",
+        "docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md",
+        "butler-v5/config/wechat-tool-allowlist.json",
+        "butler-v5/config/mcp-manifest.json"
+      ],
+      "markitdownGlobs": []
+    }
+  }
+}

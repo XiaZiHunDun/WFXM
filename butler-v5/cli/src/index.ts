@@ -427,7 +427,7 @@ program
 program
   .command("project-knowledge")
   .description("Project Knowledge ingest/list via Owner API (WFXM MVP)")
-  .argument("<action>", "list | add | get | delete | promote-doc | snapshot")
+  .argument("<action>", "list | add | get | delete | promote-doc | snapshot | sync")
   .argument("[arg]", "item id, document id, or note content")
   .option("--api <url>", "API base URL", "http://127.0.0.1:3000")
   .option("--project <id>", "project id", "WFXM")
@@ -523,7 +523,13 @@ program
         if (!res.ok) process.exit(1)
         return
       }
-      console.error("action must be list | add | get | delete | promote-doc | snapshot")
+      if (action === "sync") {
+        const res = await fetch(`${base}/sync`, { method: "POST", headers })
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      console.error("action must be list | add | get | delete | promote-doc | snapshot | sync")
       process.exit(1)
     },
   )
