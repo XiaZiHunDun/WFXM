@@ -458,9 +458,9 @@ program
           headers,
           body: JSON.stringify({
             projectId: opts.project,
-            kind: opts.kind,
+            kind: opts.kind === "note" ? "manual_note" : opts.kind,
             title: opts.title,
-            content: arg,
+            text: arg,
           }),
         })
         console.log(await res.text())
