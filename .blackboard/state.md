@@ -1,28 +1,30 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-24 12:05_
-_handoff: docs/plans/active/v5-project-knowledge-proposal-2026-08.md_
-_commit: 7d15dd8b_
+_last_synced: 2026-08-24 13:58_
+_handoff: docs/plans/active/v5-project-knowledge-handoff-2026-08.md_
+_commit: 472e92fe_
 
 ## 主线
 
-Project Knowledge **K1 + K1.1 + 微信验收 ✅** — inject（0 toolCalls → Accepted）+ recall 工具链 smoke PASS。
+Project Knowledge **Done**（K1 + K1.1 + 生产 + 微信 smoke）。下一班见交接文档。
 
 ## 生产 PK
 
-- `BUTLER_V5_PROJECT_KNOWLEDGE=1` + `WATCH=1`
-- sources：**10 路径**（+ `butler-v5/AGENTS.md`、`v5-engineering-handoff`）
-- 条目：**14**（sync scanned=10, created=2）
-- smoke：`scripts/cutover/smoke-project-knowledge.mjs` PASS
+- env：`PROJECT_KNOWLEDGE=1` + `WATCH=1` + sources manifest
+- gateway：`butler-v5-gateway.service` active
+- smoke：`butler-v5/scripts/cutover/smoke-project-knowledge.mjs`
 
 ## 下一步
 
-- P0 v5 AI guard 迁移（人工 checklist，非自动）
+- **P0** AI guard / `.cursorrules` 与 v5 守卫收敛（人工）
+- 或 **按需** 扩 sources（灵文1号等）
+- **日历** 2026-09-18：D1 删 `~/.butler/`（Owner 再确认）
 
 ## 不要做
 
-- embedding / RAG Studio
+- PK K2 / embedding / RAG Studio
+- 删 `~/.butler/`（D1 前）
 
 ## 上一班
 
-- 微信 PK inject/recall 验收；扩 sources；单测 + smoke 脚本。
+- 写 PK 全闭环交接文档；PK 线收口。
