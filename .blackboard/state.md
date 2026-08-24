@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-24 11:56_
 _handoff: docs/plans/active/v5-project-knowledge-proposal-2026-08.md_
-_commit: (markitdownGlobs 待 commit)_
+_commit: c329105e_
 
 ## 主线
 
