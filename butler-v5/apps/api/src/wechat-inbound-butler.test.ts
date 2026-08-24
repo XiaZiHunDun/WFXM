@@ -274,6 +274,7 @@ describe("runButlerLoop", () => {
       "recall_document",
       "recall_durable_memory",
       "recall_history",
+      "recall_project_knowledge",
       "run_command",
       "send_wechat_file",
       "summarize_today",

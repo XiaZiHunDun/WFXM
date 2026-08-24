@@ -15,6 +15,11 @@ import {
   parseDocumentFormat,
 } from "@butler/domain/knowledge/document-ingest.js"
 import {
+  createProjectKnowledgeRecord,
+  projectKnowledgeFromDocument,
+  type ProjectKnowledgeKind,
+} from "@butler/domain/knowledge/project-knowledge.js"
+import {
   createProcedureRecord,
   createTaskRecord,
 } from "@butler/domain/knowledge/task-procedure.js"
@@ -33,6 +38,8 @@ import { revokeScopedGrantsForMcpServer } from "@butler/runtime/mcp-grant-lifecy
 import { mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
 import { defaultMcpProviderMetadata } from "@butler/domain/governance/mcp-tool-capability.js"
+import { readFileSync } from "node:fs"
+import { resolveUnderWorkspace, workspaceRootFrom } from "./workspace-tools.js"
 
 export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/conversations", async (c) => {
@@ -437,6 +444,130 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     return c.json({ ok: true, item: saved })
   })
 
+  app.get("/v1/owner/project-knowledge", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const store = wiring.projectKnowledgeStore
+    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    const projectId = (c.req.query("projectId") ?? "").trim()
+    if (!projectId) return c.text("projectId query required", 400)
+    const items = await store.listByProject({ projectId, limit: 100 })
+    return c.json({
+      items: items.map((item) => ({
+        ...item,
+        body: item.body.length > 500 ? `${item.body.slice(0, 500)}…` : item.body,
+      })),
+    })
+  })
+
+  app.get("/v1/owner/project-knowledge/:itemId", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const store = wiring.projectKnowledgeStore
+    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    const item = await store.get(c.req.param("itemId"))
+    if (!item) return c.json({ ok: false, reason: "not found" }, 404)
+    return c.json({ ok: true, item })
+  })
+
+  app.post("/v1/owner/project-knowledge", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const store = wiring.projectKnowledgeStore
+    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    const body = (await c.req.json().catch(() => ({}))) as {
+      readonly projectId?: string
+      readonly title?: string
+      readonly kind?: string
+      readonly text?: string
+      readonly filePath?: string
+      readonly provenance?: Record<string, unknown>
+    }
+    const projectId = (body.projectId ?? "").trim()
+    if (!projectId) return c.json({ ok: false, reason: "projectId is required" }, 400)
+
+    const kindRaw = (body.kind ?? "manual_note").trim() as ProjectKnowledgeKind
+    if (kindRaw === "ingested_document") {
+      return c.json(
+        { ok: false, reason: "use promote-project-knowledge for ingested_document" },
+        400,
+      )
+    }
+
+    let text = typeof body.text === "string" ? body.text : ""
+    let sourcePath: string | undefined
+    if (typeof body.filePath === "string" && body.filePath.trim()) {
+      const root = workspaceRootFrom({ workspaceRoot: process.env["BUTLER_V5_WORKSPACE_ROOT"] })
+      const resolved = resolveUnderWorkspace(root, body.filePath.trim())
+      if (!resolved.ok) return c.json({ ok: false, reason: resolved.reason }, 400)
+      try {
+        text = readFileSync(resolved.path, "utf8")
+        sourcePath = body.filePath.trim()
+      } catch (err) {
+        return c.json(
+          {
+            ok: false,
+            reason: err instanceof Error ? err.message : String(err),
+          },
+          400,
+        )
+      }
+    }
+
+    const created = createProjectKnowledgeRecord({
+      projectId,
+      title: body.title ?? (sourcePath ? sourcePath : "note"),
+      kind: kindRaw === "file_snapshot" || sourcePath ? "file_snapshot" : kindRaw,
+      body: text,
+      ...(body.provenance || sourcePath
+        ? {
+            provenance: {
+              ...(sourcePath ? { sourcePath } : {}),
+              ...(typeof body.provenance?.["note"] === "string"
+                ? { note: body.provenance["note"] }
+                : {}),
+            },
+          }
+        : {}),
+    })
+    if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    const saved = await store.create(created.value)
+    return c.json({ ok: true, item: saved })
+  })
+
+  app.delete("/v1/owner/project-knowledge/:itemId", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const store = wiring.projectKnowledgeStore
+    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    const itemId = c.req.param("itemId")
+    const ok = await store.delete(itemId)
+    if (!ok) return c.json({ ok: false, reason: "not found" }, 404)
+    return c.json({ ok: true, itemId })
+  })
+
+  app.post("/v1/owner/documents/:documentId/promote-project-knowledge", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const docs = wiring.documentStore
+    const pk = wiring.projectKnowledgeStore
+    if (!docs || !pk) {
+      return c.json({ ok: false, reason: "document or project knowledge store unavailable" }, 503)
+    }
+    const documentId = c.req.param("documentId")
+    const doc = await docs.get(documentId)
+    if (!doc) return c.json({ ok: false, reason: "not found" }, 404)
+    const body = (await c.req.json().catch(() => ({}))) as {
+      readonly projectId?: string
+      readonly title?: string
+    }
+    const projectId = (body.projectId ?? c.req.query("projectId") ?? "").trim()
+    if (!projectId) return c.json({ ok: false, reason: "projectId is required" }, 400)
+    const created = projectKnowledgeFromDocument({
+      projectId,
+      document: doc,
+      ...(typeof body.title === "string" && body.title.trim() ? { title: body.title } : {}),
+    })
+    if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    const saved = await pk.create(created.value)
+    return c.json({ ok: true, item: saved })
+  })
+
   app.delete("/v1/owner/documents/:documentId", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const store = wiring.documentStore
@@ -446,7 +577,14 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     if (!ok) return c.json({ ok: false, reason: "not found" }, 404)
     const cascaded =
       (await wiring.durableMemoryStore?.deleteBySourceDocumentId(documentId)) ?? 0
-    return c.json({ ok: true, documentId, cascadedMemories: cascaded })
+    const cascadedProjectKnowledge =
+      (await wiring.projectKnowledgeStore?.deleteBySourceDocumentId(documentId)) ?? 0
+    return c.json({
+      ok: true,
+      documentId,
+      cascadedMemories: cascaded,
+      cascadedProjectKnowledge,
+    })
   })
 
   app.get("/v1/owner/traces", async (c) => {

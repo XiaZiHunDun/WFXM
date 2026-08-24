@@ -5,6 +5,7 @@ import {
   createRuntimeStore,
   createDurableMemoryStore,
   createDocumentStore,
+  createProjectKnowledgeStore,
   createProcedureStore,
   createTaskStore,
   backfillRuntimeFromEventStore,
@@ -39,6 +40,7 @@ export async function createProductionWiring(
   const runtimeStore = createRuntimeStore(db)
   const durableMemoryStore = createDurableMemoryStore(db)
   const documentStore = createDocumentStore(db)
+  const projectKnowledgeStore = createProjectKnowledgeStore(db)
   const procedureStore = createProcedureStore(db)
   const taskStore = createTaskStore(db)
   const runEngine = new RunEngine(runtimeStore)
@@ -52,6 +54,7 @@ export async function createProductionWiring(
     mcp,
     durableMemoryStore,
     documentStore,
+    projectKnowledgeStore,
     procedureStore,
     taskStore,
     backfillConversation: async (conversationId) => {

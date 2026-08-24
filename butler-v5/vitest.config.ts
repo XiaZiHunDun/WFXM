@@ -85,6 +85,10 @@ export default defineConfig({
         replacement: resolve(__dirname, "packages/domain/src/knowledge/document-ingest.ts"),
       },
       {
+        find: "@butler/domain/knowledge/project-knowledge.js",
+        replacement: resolve(__dirname, "packages/domain/src/knowledge/project-knowledge.ts"),
+      },
+      {
         find: "@butler/domain/knowledge/task-procedure.js",
         replacement: resolve(__dirname, "packages/domain/src/knowledge/task-procedure.ts"),
       },

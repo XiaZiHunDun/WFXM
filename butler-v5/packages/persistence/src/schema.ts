@@ -230,6 +230,27 @@ export const documents = pgTable(
   }),
 )
 
+export const projectKnowledgeItems = pgTable(
+  "project_knowledge_items",
+  {
+    itemId: uuid("item_id").primaryKey().notNull(),
+    projectId: text("project_id").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind").notNull(),
+    body: text("body").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    provenance: jsonb("provenance").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    projectUpdatedIdx: index("project_knowledge_items_project_updated_idx").on(
+      t.projectId,
+      t.updatedAt,
+    ),
+  }),
+)
+
 export const procedures = pgTable(
   "procedures",
   {

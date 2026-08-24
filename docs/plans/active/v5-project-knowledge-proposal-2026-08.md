@@ -1,6 +1,6 @@
 # Butler v5 Project Knowledge — 立项草案（2026-08-23）
 
-> **状态**：Draft — 待 Owner 确认场景与 MVP 范围  
+> **状态**：**Accepted**（2026-08-24 Owner 决策）  
 > **前置**：P3 MCP 四 server + Grant 验收已闭环（[`v5-mcp-multi-server-handoff-2026-08.md`](v5-mcp-multi-server-handoff-2026-08.md)）  
 > **目标架构 SSOT**：[`butler-v5/DESIGN.md`](../../../butler-v5/DESIGN.md) §9  
 > **生产事实**：[`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md) §6.0b–c  
@@ -155,16 +155,26 @@ ScopedGrant：首版 **不需要** 新 Grant 类型；写操作走现有 approva
 
 ---
 
-## 9. Owner 决策清单（请勾选或否决）
+## 9. Owner 决策清单（已确认 2026-08-24）
 
-请 Owner 确认以下项后，方可从 Draft → **Accepted** 并开实施会话：
+- [x] **A. 场景确认**：首版 **WFXM + wechat 多项目** 足够；灵文1号非 Day-1 必做
+- [x] **B. MVP 范围**：同意 §5.1–5.3（子串召回、显式 ingest、无 embedding）
+- [x] **C. 数据源**：Owner 手动 + **workspace 文件快照** + **Document promote**
+- [x] **D. 工具名**：保留 `recall_project_knowledge`
+- [x] **E. 注入**：`BUTLER_V5_PROJECT_KNOWLEDGE=0`（opt-in，默认关）
+- [x] **F. 优先级**：**下一优先**（P3 MCP 已闭环后实施 K1）
 
-- [ ] **A. 场景确认**：首版服务 **WFXM + wechat 多项目** 是否足够？是否必须 Day-1 支持 **灵文1号** 独立 projectId？
-- [ ] **B. MVP 范围**：是否同意 §5.1–5.3（子串召回、显式 ingest、无 embedding）？
-- [ ] **C. 数据源**：首版 ingest 来源 — 仅 Owner 手动 / 是否包含 **workspace 文件快照** / 是否包含 **Document promote**？
-- [ ] **D. 工具名**：`recall_project_knowledge` 是否保留 v4 命名，或改为 `recall_project_knowledge` + 别名？
-- [ ] **E. 注入**：默认 `BUTLER_V5_PROJECT_KNOWLEDGE=0`（opt-in）是否接受？
-- [ ] **F. 优先级**：相对 **MCP 白名单微调 / github 只读** 已完成项，Project Knowledge 是否为 **下一优先**？
+Owner 原文：
+
+```text
+Project Knowledge 立项：
+- A: WFXM + wechat 足够
+- B: 同意 MVP
+- C: 手动 + workspace 快照 + Document promote
+- D: 保留 recall_project_knowledge
+- E: opt-in 默认 0
+- F: 下一优先
+```
 
 ---
 

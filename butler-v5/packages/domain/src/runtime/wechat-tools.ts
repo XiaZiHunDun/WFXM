@@ -3,6 +3,7 @@ export const WECHAT_CORE_TOOL_NAMES: readonly string[] = [
   "recall_history",
   "recall_durable_memory",
   "recall_document",
+  "recall_project_knowledge",
   "get_current_time",
   "greet_with_time",
   "summarize_today",

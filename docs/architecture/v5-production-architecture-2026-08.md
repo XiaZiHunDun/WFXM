@@ -188,7 +188,7 @@ delegate_to_subagent
 
 仍待完善：
 
-- Project Knowledge 等其余按需候选（**Web UI / 浏览器 / Task·Procedure DAG 已不立项或已交付 MVP**）；
+- Project Knowledge MVP（K1 实施中）；
 - Schedule / Durable Memory / Document ingest / Local tracing / Task·Procedure MVP 已落地；
 - Child Run relational（A5）：`delegate` 创建 `parentRunId` + `triggerSource=parent_run`；worker 写 running→终态 + result Step；
 - Conversation Loop（A7）：多轮循环在 `runtime/execution`；apps 仅接线。
@@ -226,6 +226,18 @@ delegate_to_subagent
 | 写入 | Owner `POST /v1/owner/documents`；CLI `butler document add\|list\|get\|delete\|promote` |
 | 召回 | 工具 `recall_document`（子串）；`promote-memory` → Durable Memory candidate |
 | 删除 | 级联 `deleteBySourceDocumentId` |
+
+### 6.0c1 Project Knowledge（MVP，K1）
+
+| 面 | 说明 |
+| --- | --- |
+| Schema | `project_knowledge_items`（migration `0010`）：project_id/title/kind/body/byte_size/provenance |
+| Kind | `manual_note` / `ingested_document` / `workspace_snapshot` |
+| 写入 | Owner `POST /v1/owner/project-knowledge`；Document `POST .../promote-project-knowledge`；workspace `POST .../snapshot` |
+| CLI | `butler project-knowledge list\|add\|get\|delete\|promote-doc\|snapshot` |
+| 召回 | 工具 `recall_project_knowledge`（子串，project 作用域）；跨 project 读取 Deny |
+| 注入 | 工作集 prefix 需 `BUTLER_V5_PROJECT_KNOWLEDGE=1`（默认 `0`） |
+| 边界 | 非 Durable Memory / 非 Transcript；无 embedding / 全盘索引 |
 
 ### 6.0d Local tracing（MVP）
 

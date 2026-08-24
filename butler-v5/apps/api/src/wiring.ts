@@ -6,6 +6,7 @@ import type {
   DurableMemoryStore,
   DocumentStore,
   ProcedureStore,
+  ProjectKnowledgeStore,
   TaskStore,
 } from "@butler/persistence"
 import type { McpToolBundle } from "./mcp-bootstrap.js"
@@ -20,6 +21,7 @@ export interface WiringConfig {
   readonly mcp?: McpToolBundle
   readonly durableMemoryStore?: DurableMemoryStore
   readonly documentStore?: DocumentStore
+  readonly projectKnowledgeStore?: ProjectKnowledgeStore
   readonly procedureStore?: ProcedureStore
   readonly taskStore?: TaskStore
 }
@@ -35,6 +37,7 @@ export interface Wiring {
   readonly mcp: McpToolBundle
   readonly durableMemoryStore: DurableMemoryStore | null
   readonly documentStore: DocumentStore | null
+  readonly projectKnowledgeStore: ProjectKnowledgeStore | null
   readonly procedureStore: ProcedureStore | null
   readonly taskStore: TaskStore | null
 }
@@ -63,6 +66,7 @@ export function makeWiring(config: WiringConfig): Wiring {
     },
     durableMemoryStore: config.durableMemoryStore ?? null,
     documentStore: config.documentStore ?? null,
+    projectKnowledgeStore: config.projectKnowledgeStore ?? null,
     procedureStore: config.procedureStore ?? null,
     taskStore: config.taskStore ?? null,
   }

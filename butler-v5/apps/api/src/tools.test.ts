@@ -27,8 +27,8 @@ describe("weibutler tools", () => {
     await db.close()
   })
 
-  it("WEIBUTLER_LLM_TOOLS exposes 10 provider-agnostic tool descriptors", () => {
-    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(10)
+  it("WEIBUTLER_LLM_TOOLS exposes 11 provider-agnostic tool descriptors", () => {
+    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(11)
     const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
       "delegate_to_subagent",
@@ -38,6 +38,7 @@ describe("weibutler tools", () => {
       "recall_document",
       "recall_durable_memory",
       "recall_history",
+      "recall_project_knowledge",
       "run_command",
       "send_wechat_file",
       "summarize_today",
@@ -48,9 +49,9 @@ describe("weibutler tools", () => {
     }
   })
 
-  it("makeWeibutlerTools returns 9 runtime ToolDefinitions by default (no subagent)", () => {
+  it("makeWeibutlerTools returns 10 runtime ToolDefinitions by default (no subagent)", () => {
     const tools = makeWeibutlerTools({ bridge, conversationId })
-    expect(tools).toHaveLength(9)
+    expect(tools).toHaveLength(10)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
       "get_current_time",
       "greet_with_time",
@@ -58,6 +59,7 @@ describe("weibutler tools", () => {
       "recall_document",
       "recall_durable_memory",
       "recall_history",
+      "recall_project_knowledge",
       "run_command",
       "send_wechat_file",
       "summarize_today",
@@ -73,7 +75,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
     })
-    expect(tools).toHaveLength(10)
+    expect(tools).toHaveLength(11)
     const delegate = tools.find((t) => (t.name as string) === "delegate_to_subagent")
     expect(delegate?.risk).toBe("medium")
   })
@@ -84,7 +86,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_MCP_ENABLED: "1", BUTLER_V5_MCP_TOOL_NAMES: "search" },
     })
-    expect(tools).toHaveLength(10)
+    expect(tools).toHaveLength(11)
     expect(tools.some((t) => (t.name as string) === "mcp_search")).toBe(true)
   })
 

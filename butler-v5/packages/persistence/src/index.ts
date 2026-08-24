@@ -9,6 +9,8 @@ export { createDurableMemoryStore } from "./durable-memory-store.js"
 export type { DurableMemoryStore } from "./durable-memory-store.js"
 export { createDocumentStore } from "./document-store.js"
 export type { DocumentStore } from "./document-store.js"
+export { createProjectKnowledgeStore } from "./project-knowledge-store.js"
+export type { ProjectKnowledgeStore } from "./project-knowledge-store.js"
 export { createProcedureStore, createTaskStore } from "./task-procedure-store.js"
 export type { ProcedureStore, TaskStore } from "./task-procedure-store.js"
 export {

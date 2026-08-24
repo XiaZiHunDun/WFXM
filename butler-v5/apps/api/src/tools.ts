@@ -1,6 +1,6 @@
 import type { EventBridge } from "@butler/runtime/bridge.js"
 import type { RuntimeStore, StoredMessage } from "@butler/domain/runtime.js"
-import type { DurableMemoryStore, DocumentStore } from "@butler/persistence"
+import type { DurableMemoryStore, DocumentStore, ProjectKnowledgeStore } from "@butler/persistence"
 import { resolveReadModelSource } from "@butler/domain/runtime.js"
 import type { LLMTool } from "@butler/adapters"
 import {
@@ -48,6 +48,10 @@ export interface ButlerToolContext {
   readonly documentStore?: DocumentStore | null
   /** Subject whose memories to search (usually owner / wechat user). */
   readonly memorySubject?: string
+  /** Conversation project id for project-scoped recall. */
+  readonly projectId?: string
+  /** Project Knowledge store for explicit recall. */
+  readonly projectKnowledgeStore?: ProjectKnowledgeStore | null
 }
 
 function storedMessageText(content: Readonly<Record<string, unknown>>): string {
@@ -429,6 +433,22 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
     },
   },
   {
+    name: "recall_project_knowledge",
+    description:
+      "Search Project Knowledge for the current project (ingested notes, file snapshots, promoted documents). Optional `query` substring filter and `limit` (default 5). Does not search personal Durable Memory or invent facts.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Optional keyword filter." },
+        limit: { type: "number", description: "Max items to return (1-20)." },
+        projectId: {
+          type: "string",
+          description: "Optional project id override (must match current conversation project).",
+        },
+      },
+    },
+  },
+  {
     name: "get_current_time",
     description:
       "Return the current time in Asia/Shanghai (UTC+8) as a formatted Chinese string (e.g. '当前时区: Asia/Shanghai (UTC+8) 2026年8月15日 星期五 07:26:41'). Use when the user asks about the current time or date and a precise answer matters.",
@@ -614,6 +634,58 @@ export function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
 }
 
 /**
+ * `recall_project_knowledge` — keyword recall over project-scoped ingest.
+ * Cross-project reads are denied when projectId arg disagrees with context.
+ */
+export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefinition {
+  return {
+    name: "recall_project_knowledge" as ToolDefinition["name"],
+    risk: "low",
+    async run(args: Record<string, unknown>): Promise<
+      | { readonly ok: true; readonly output: unknown }
+      | { readonly ok: false; readonly reason: string }
+    > {
+      const store = ctx.projectKnowledgeStore
+      if (!store) {
+        return { ok: false, reason: "project knowledge store unavailable" }
+      }
+      const contextProjectId = (ctx.projectId ?? "").trim()
+      const requestedProjectId =
+        typeof args["projectId"] === "string" && args["projectId"].trim()
+          ? args["projectId"].trim()
+          : contextProjectId
+      if (!requestedProjectId) {
+        return { ok: false, reason: "projectId is required for project knowledge recall" }
+      }
+      if (contextProjectId && requestedProjectId !== contextProjectId) {
+        return { ok: false, reason: "cross-project project knowledge recall denied" }
+      }
+      const query = typeof args["query"] === "string" ? args["query"] : ""
+      const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5
+      const limit = Math.min(20, Math.max(1, Math.floor(limitRaw)))
+      try {
+        const { formatProjectKnowledgeSnippet, selectProjectKnowledgeForRecall } = await import(
+          "@butler/domain/knowledge/project-knowledge.js"
+        )
+        const records = await store.listByProject({ projectId: requestedProjectId, limit: 40 })
+        const selected = selectProjectKnowledgeForRecall({ records, query, limit })
+        if (selected.length === 0) {
+          return { ok: true, output: "（无匹配的项目知识条目）" }
+        }
+        return {
+          ok: true,
+          output: selected
+            .map((r, i) => `${i + 1}. ${formatProjectKnowledgeSnippet(r)}`)
+            .join("\n\n"),
+        }
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  }
+}
+
+/**
  * Build the runtime ToolDefinition set wired to the current
  * EventBridge + conversationId. The butler loop owns this — tools
  * hold a reference to the bridge, not a global singleton.
@@ -628,6 +700,7 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     makeRecallHistoryTool(ctx),
     makeRecallDurableMemoryTool(ctx),
     makeRecallDocumentTool(ctx),
+    makeRecallProjectKnowledgeTool(ctx),
     makeGetCurrentTimeTool(),
     makeGreetWithTimeTool(),
     makeSummarizeTodayTool(ctx),

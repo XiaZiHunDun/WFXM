@@ -15,5 +15,6 @@ describe("migrations registry", () => {
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS documents")
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS procedures")
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS tasks")
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS project_knowledge_items")
   })
 })

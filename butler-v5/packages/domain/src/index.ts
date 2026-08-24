@@ -83,6 +83,22 @@ export {
   formatDocumentSnippet,
 } from "./knowledge/document-ingest.js"
 export {
+  type ProjectKnowledgeId,
+  type ProjectKnowledgeKind,
+  type ProjectKnowledgeProvenance,
+  type ProjectKnowledgeRecord,
+  type CreateProjectKnowledgeInput,
+  type ProjectKnowledgeValidation,
+  PROJECT_KNOWLEDGE_KINDS,
+  normalizeProjectId,
+  createProjectKnowledgeRecord,
+  projectKnowledgeFromDocument,
+  matchProjectKnowledgeQuery,
+  selectProjectKnowledgeForRecall,
+  formatProjectKnowledgeSnippet,
+  formatProjectKnowledgePrefix,
+} from "./knowledge/project-knowledge.js"
+export {
   type TaskId,
   type ProcedureId,
   type TaskStatus,

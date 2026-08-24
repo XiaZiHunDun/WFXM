@@ -33,6 +33,7 @@ import {
 } from "./conversation-memory.js"
 import { tryWechatInlineApproval } from "./wechat-inline-approval.js"
 import { loadDurableMemorySystemPrefix } from "./durable-memory-inject.js"
+import { loadProjectKnowledgeSystemPrefix } from "./project-knowledge-inject.js"
 import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 
 /**
@@ -245,7 +246,9 @@ async function runButlerLoopBody(args: {
     mcpBundle: args.wiring.mcp,
     durableMemoryStore: args.wiring.durableMemoryStore,
     documentStore: args.wiring.documentStore,
+    projectKnowledgeStore: args.wiring.projectKnowledgeStore,
     memorySubject,
+    projectId: args.projectId,
   }).filter((t) => (allow ? allow.has(t.name as string) : true))
   const llmTools = llmToolsForButler({ env, mcpBundle: args.wiring.mcp }).filter((t) =>
     allow ? allow.has(t.name) : true,
@@ -308,6 +311,15 @@ async function runButlerLoopBody(args: {
   })
   if (memoryPrefix) {
     messages.push({ role: "system", content: memoryPrefix })
+  }
+  const projectKnowledgePrefix = await loadProjectKnowledgeSystemPrefix({
+    store: args.wiring.projectKnowledgeStore,
+    projectId: args.projectId,
+    query: args.content,
+    env,
+  })
+  if (projectKnowledgePrefix) {
+    messages.push({ role: "system", content: projectKnowledgePrefix })
   }
   for (const m of historyMessages) {
     messages.push({

@@ -425,6 +425,102 @@ program
   })
 
 program
+  .command("project-knowledge")
+  .description("Project Knowledge ingest/list via Owner API (WFXM MVP)")
+  .argument("<action>", "list | add | get | delete | promote-doc | snapshot")
+  .argument("[arg]", "item id, document id, or note content")
+  .option("--api <url>", "API base URL", "http://127.0.0.1:3000")
+  .option("--project <id>", "project id", "WFXM")
+  .option("--kind <kind>", "note | document | workspace_snapshot", "note")
+  .option("--title <title>", "optional title")
+  .option("--path <path>", "relative path for snapshot")
+  .action(
+    async (
+      action: string,
+      arg: string | undefined,
+      opts: { api: string; project: string; kind: string; title?: string; path?: string },
+    ) => {
+      const headers = { "content-type": "application/json" }
+      const base = `${opts.api}/v1/owner/project-knowledge`
+      if (action === "list") {
+        const res = await fetch(`${base}?projectId=${encodeURIComponent(opts.project)}`, { headers })
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      if (action === "add") {
+        if (!arg?.trim()) {
+          console.error("usage: butler project-knowledge add <content>")
+          process.exit(1)
+        }
+        const res = await fetch(base, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            projectId: opts.project,
+            kind: opts.kind,
+            title: opts.title,
+            content: arg,
+          }),
+        })
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      if (action === "get") {
+        if (!arg?.trim()) {
+          console.error("usage: butler project-knowledge get <id>")
+          process.exit(1)
+        }
+        const res = await fetch(`${base}/${arg}`, { headers })
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      if (action === "delete") {
+        if (!arg?.trim()) {
+          console.error("usage: butler project-knowledge delete <id>")
+          process.exit(1)
+        }
+        const res = await fetch(`${base}/${arg}`, { method: "DELETE", headers })
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      if (action === "promote-doc") {
+        if (!arg?.trim()) {
+          console.error("usage: butler project-knowledge promote-doc <documentId>")
+          process.exit(1)
+        }
+        const res = await fetch(`${base}/promote-document`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ projectId: opts.project, documentId: arg }),
+        })
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      if (action === "snapshot") {
+        if (!opts.path?.trim()) {
+          console.error("usage: butler project-knowledge snapshot --path <relative-path>")
+          process.exit(1)
+        }
+        const res = await fetch(`${base}/snapshot`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ projectId: opts.project, path: opts.path }),
+        })
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      console.error("action must be list | add | get | delete | promote-doc | snapshot")
+      process.exit(1)
+    },
+  )
+
+program
   .command("document")
   .description("Ingest or manage documents via Owner API")
   .argument("<action>", "list | add | get | delete | promote")

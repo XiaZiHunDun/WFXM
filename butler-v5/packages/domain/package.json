@@ -17,6 +17,7 @@
     "./mcp/manifest.js": "./src/mcp/manifest.ts",
     "./knowledge/durable-memory.js": "./src/knowledge/durable-memory.ts",
     "./knowledge/document-ingest.js": "./src/knowledge/document-ingest.ts",
+    "./knowledge/project-knowledge.js": "./src/knowledge/project-knowledge.ts",
     "./knowledge/task-procedure.js": "./src/knowledge/task-procedure.ts",
     "./observability/local-trace.js": "./src/observability/local-trace.ts"
   },
