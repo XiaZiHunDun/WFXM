@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-24 12:05_
 _handoff: docs/plans/active/v5-project-knowledge-proposal-2026-08.md_
-_commit: (PK wechat smoke 待 commit)_
+_commit: 7d15dd8b_
 
 ## 主线
 
