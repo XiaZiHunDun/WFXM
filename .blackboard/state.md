@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-24 20:32_
 _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md_
-_commit: c6085d47_
+_commit: 94c8f06b_
 
 ## 主线
 
