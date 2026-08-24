@@ -6,7 +6,8 @@ import { Effect } from "effect"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
 import { EventBridge } from "@butler/runtime/bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
+import { createProjectKnowledgeStore, createRuntimeStore } from "@butler/persistence"
+import { createProjectKnowledgeRecord } from "@butler/domain/knowledge/project-knowledge.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { runButlerLoop, type ButlerLoopLogger } from "./wechat-inbound-butler.js"
@@ -746,5 +747,102 @@ describe("runButlerLoop", () => {
     const toolNames = (firstOpts?.tools ?? []).map((tool) => tool.name)
     expect(toolNames).toContain("mcp_allowed_only")
     expect(toolNames).not.toContain("mcp_blocked")
+  })
+
+  it("injects project knowledge prefix when BUTLER_V5_PROJECT_KNOWLEDGE=1", async () => {
+    const projectKnowledgeStore = createProjectKnowledgeStore(db.db)
+    const marker = "PK-WECHAT-INJECT-MARKER-2026"
+    const created = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "inject smoke",
+      kind: "manual_note",
+      body: marker,
+    })
+    if (!created.ok) throw new Error(created.reason)
+    await projectKnowledgeStore.create(created.value)
+
+    let capturedMessages: readonly Record<string, unknown>[] = []
+    const adapter: LLMAdapter = {
+      complete: vi.fn((msgs, _opts) => {
+        capturedMessages = msgs as readonly Record<string, unknown>[]
+        return Effect.succeed(textResponse(`status=${marker}`))
+      }),
+    }
+
+    const result = await runButlerLoop({
+      wiring: makeWiring({
+        bridge,
+        workerId: "w-butler",
+        runtimeStore: wiring.runtimeStore,
+        runEngine: wiring.runEngine,
+        db: db.db,
+        backfillConversation: async () => undefined,
+        projectKnowledgeStore,
+      }),
+      conversationId: "c-pk-inject",
+      content: "what is the project knowledge status?",
+      fromUserId: "u-pk",
+      projectId: "WFXM",
+      env: { BUTLER_V5_PROJECT_KNOWLEDGE: "1" },
+      logger: silentLogger,
+      adapter,
+    })
+
+    expect(result.toolCalls).toBe(0)
+    expect(result.reply).toContain(marker)
+    expect(
+      result.traces.some((t) => t.includes("project-knowledge: injected working-set prefix")),
+    ).toBe(true)
+    const systemTexts = capturedMessages
+      .filter((m) => m["role"] === "system")
+      .map((m) => String(m["content"] ?? ""))
+    expect(systemTexts.some((t) => t.includes("Project Knowledge") && t.includes(marker))).toBe(true)
+  })
+
+  it("executes recall_project_knowledge and feeds result back", async () => {
+    const projectKnowledgeStore = createProjectKnowledgeStore(db.db)
+    const marker = "PK-WECHAT-RECALL-MARKER-2026"
+    const created = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "recall smoke",
+      kind: "manual_note",
+      body: marker,
+    })
+    if (!created.ok) throw new Error(created.reason)
+    await projectKnowledgeStore.create(created.value)
+
+    const adapter = makeMockAdapter([
+      toolCallResponse([
+        {
+          id: "tc_pk",
+          name: "recall_project_knowledge",
+          args: { projectId: "WFXM", query: "RECALL-MARKER", limit: 3 },
+        },
+      ]),
+      textResponse(`found ${marker}`),
+    ])
+
+    const result = await runButlerLoop({
+      wiring: makeWiring({
+        bridge,
+        workerId: "w-butler",
+        runtimeStore: wiring.runtimeStore,
+        runEngine: wiring.runEngine,
+        db: db.db,
+        backfillConversation: async () => undefined,
+        projectKnowledgeStore,
+      }),
+      conversationId: "c-pk-recall",
+      content: "find project knowledge about RECALL-MARKER",
+      fromUserId: "u-pk",
+      projectId: "WFXM",
+      env: { BUTLER_V5_PROJECT_KNOWLEDGE: "1" },
+      logger: silentLogger,
+      adapter,
+    })
+
+    expect(result.reply).toContain(marker)
+    expect(result.toolCalls).toBe(1)
+    expect(result.traces.some((t) => t.startsWith("recall_project_knowledge@"))).toBe(true)
   })
 })

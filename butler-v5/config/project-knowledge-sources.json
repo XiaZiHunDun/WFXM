@@ -4,7 +4,9 @@
     "WFXM": {
       "globs": [
         "butler-v5/DESIGN.md",
+        "butler-v5/AGENTS.md",
         "docs/plans/decisions/v5-product-boundaries-2026-08.md",
+        "docs/plans/decisions/v5-engineering-handoff-2026-08.md",
         "docs/architecture/v5-production-architecture-2026-08.md",
         "docs/plans/active/v5-project-knowledge-proposal-2026-08.md",
         "docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md",

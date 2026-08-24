@@ -1,21 +1,19 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-24 11:56_
+_last_synced: 2026-08-24 12:05_
 _handoff: docs/plans/active/v5-project-knowledge-proposal-2026-08.md_
-_commit: c329105e_
+_commit: (PK wechat smoke 待 commit)_
 
 ## 主线
 
-Project Knowledge **K1 + K1.1 ✅** — 生产 inject + watch + **PDF markitdownGlobs ✅**。
+Project Knowledge **K1 + K1.1 + 微信验收 ✅** — inject（0 toolCalls → Accepted）+ recall 工具链 smoke PASS。
 
 ## 生产 PK
 
-- `BUTLER_V5_PROJECT_KNOWLEDGE=1`（工作集 prefix 注入）
-- `BUTLER_V5_PROJECT_KNOWLEDGE_WATCH=1`（5min sync）
-- sources：`config/project-knowledge-sources.json`（7 text globs + 2 markitdownGlobs）
-- markitdown：`tests/fixtures/ext5/*.pdf`、`docs/**/*.pdf`
-- 最新 sync：**scanned=8, created=1**（sample.pdf → ingested_document）
-- 启用脚本：`butler-v5/scripts/cutover/enable-project-knowledge-prod.sh`
+- `BUTLER_V5_PROJECT_KNOWLEDGE=1` + `WATCH=1`
+- sources：**10 路径**（+ `butler-v5/AGENTS.md`、`v5-engineering-handoff`）
+- 条目：**14**（sync scanned=10, created=2）
+- smoke：`scripts/cutover/smoke-project-knowledge.mjs` PASS
 
 ## 下一步
 
@@ -27,4 +25,4 @@ Project Knowledge **K1 + K1.1 ✅** — 生产 inject + watch + **PDF markitdown
 
 ## 上一班
 
-- PDF markitdownGlobs：scoped glob 修复 + sources 解析 + 生产 ingest sample.pdf 验收。
+- 微信 PK inject/recall 验收；扩 sources；单测 + smoke 脚本。
