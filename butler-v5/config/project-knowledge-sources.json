@@ -8,8 +8,13 @@
         "docs/plans/decisions/v5-product-boundaries-2026-08.md",
         "docs/plans/decisions/v5-engineering-handoff-2026-08.md",
         "docs/architecture/v5-production-architecture-2026-08.md",
+        "docs/architecture/v5-r10-handoff.md",
         "docs/plans/active/v5-project-knowledge-proposal-2026-08.md",
+        "docs/plans/active/v5-project-knowledge-handoff-2026-08.md",
         "docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md",
+        "docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md",
+        "docs/plans/active/v5-unwired-packages-inventory-2026-08.md",
+        "docs/plans/active/v5-post-boundary-roadmap-2026-08.md",
         "butler-v5/config/wechat-tool-allowlist.json",
         "butler-v5/config/mcp-manifest.json"
       ],
@@ -17,6 +22,21 @@
         "tests/fixtures/ext5/*.pdf",
         "docs/**/*.pdf"
       ]
+    },
+    "LingWen": {
+      "globs": [
+        "projects/LingWen1/README.md",
+        "projects/LingWen1/project.yaml",
+        "projects/LingWen1/docs/pilot-log.md",
+        "projects/LingWen1/docs/memory-guide.md",
+        "projects/LingWen1/docs/dual-playbook.md",
+        "projects/LingWen1/docs/project-lead-scope.md",
+        "projects/LingWen1/skills/lingwen-project-lead.md",
+        "projects/LingWen1/novel-factory/references/00-index.md",
+        "projects/LingWen1/novel-factory/references/01-world-and-power-system.md",
+        "projects/LingWen1/novel-factory/references/02-character-bible.md"
+      ],
+      "markitdownGlobs": []
     }
   }
 }
