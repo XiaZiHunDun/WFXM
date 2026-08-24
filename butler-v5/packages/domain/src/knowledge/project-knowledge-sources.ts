@@ -66,7 +66,6 @@ function parseProjectEntry(raw: unknown): ProjectKnowledgeSourcesProject | null 
     const g = normalizeGlob(item)
     if (g) globs.push(g)
   }
-  if (globs.length === 0) return null
   const markitdownGlobs: string[] = []
   const mdRaw = obj["markitdownGlobs"]
   if (Array.isArray(mdRaw)) {
@@ -76,6 +75,7 @@ function parseProjectEntry(raw: unknown): ProjectKnowledgeSourcesProject | null 
       if (g) markitdownGlobs.push(g)
     }
   }
+  if (globs.length === 0 && markitdownGlobs.length === 0) return null
   return {
     globs,
     ...(markitdownGlobs.length > 0 ? { markitdownGlobs } : {}),

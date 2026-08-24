@@ -62,4 +62,70 @@ describe("project-knowledge-sync", () => {
     await db.close()
     rmSync(root, { recursive: true, force: true })
   })
+
+  it("syncs PDF paths via markitdown chain into ingested_document", async () => {
+    const root = mkdtempSync(join(tmpdir(), "pk-sync-md-"))
+    mkdirSync(join(root, "docs"), { recursive: true })
+    writeFileSync(join(root, "docs/spec.pdf"), "%PDF-1.4 fixture")
+
+    const parsed = parseProjectKnowledgeSourcesJson(
+      JSON.stringify({
+        version: 1,
+        projects: { WFXM: { globs: [], markitdownGlobs: ["docs/*.pdf"] } },
+      }),
+    )
+    if (!parsed.ok) throw new Error(parsed.reason)
+
+    const db = await makeTestDb()
+    const bridge = new EventBridge({ db: db.db, workerId: "w-pk-md" })
+    const runtimeStore = createRuntimeStore(db.db)
+    const wiring = makeWiring({
+      bridge,
+      workerId: "w-pk-md",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      projectKnowledgeStore: createProjectKnowledgeStore(db.db),
+      documentStore: createDocumentStore(db.db),
+      mcp: {
+        runtimeTools: [
+          {
+            name: "mcp_markitdown_convert_to_markdown",
+            risk: "low",
+            async run() {
+              return { ok: true, output: "# Spec\nConverted from PDF fixture." }
+            },
+          },
+        ],
+        llmTools: [],
+        mode: "multi",
+        discovered: [],
+        servers: [],
+        serverIdByCapability: {},
+      },
+    })
+
+    const stats = await syncProjectKnowledgeFromManifest({
+      wiring,
+      manifest: parsed.manifest,
+      env: { BUTLER_V5_WORKSPACE_ROOT: root },
+      nowMs: () => 9000,
+    })
+    expect(stats.scanned).toBe(1)
+    expect(stats.created).toBe(1)
+    expect(stats.errors).toHaveLength(0)
+
+    const store = wiring.projectKnowledgeStore
+    if (!store) throw new Error("projectKnowledgeStore missing")
+    const item = await store.findBySourcePath({
+      projectId: "WFXM",
+      sourcePath: "docs/spec.pdf",
+    })
+    expect(item?.kind).toBe("ingested_document")
+    expect(item?.body).toContain("Converted from PDF")
+
+    await db.close()
+    rmSync(root, { recursive: true, force: true })
+  })
 })

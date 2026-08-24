@@ -11,7 +11,10 @@
         "butler-v5/config/wechat-tool-allowlist.json",
         "butler-v5/config/mcp-manifest.json"
       ],
-      "markitdownGlobs": []
+      "markitdownGlobs": [
+        "tests/fixtures/ext5/*.pdf",
+        "docs/**/*.pdf"
+      ]
     }
   }
 }

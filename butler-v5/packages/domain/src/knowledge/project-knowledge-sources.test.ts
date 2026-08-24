@@ -23,6 +23,16 @@ describe("project-knowledge-sources", () => {
     expect(parsed.manifest.projects["WFXM"]?.globs).toHaveLength(2)
   })
 
+  it("parses project with markitdownGlobs only", () => {
+    const parsed = parseProjectKnowledgeSourcesJson(
+      JSON.stringify({
+        version: 1,
+        projects: { WFXM: { globs: [], markitdownGlobs: ["docs/*.pdf"] } },
+      }),
+    )
+    expect(parsed.ok).toBe(true)
+  })
+
   it("rejects globs with traversal", () => {
     const parsed = parseProjectKnowledgeSourcesJson(
       JSON.stringify({
