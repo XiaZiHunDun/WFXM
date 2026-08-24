@@ -3,7 +3,7 @@
  */
 import {
   formatProjectKnowledgePrefix,
-  selectProjectKnowledgeForRecall,
+  selectProjectKnowledgeForWorkingSet,
 } from "@butler/domain/knowledge/project-knowledge.js"
 import type { ProjectKnowledgeStore } from "@butler/persistence"
 
@@ -29,7 +29,7 @@ export async function loadProjectKnowledgeSystemPrefix(args: {
   const projectId = args.projectId.trim()
   if (!projectId) return null
   const records = await args.store.listByProject({ projectId, limit: 40 })
-  const selected = selectProjectKnowledgeForRecall({
+  const selected = selectProjectKnowledgeForWorkingSet({
     records,
     query: args.query,
     limit: args.limit ?? 6,

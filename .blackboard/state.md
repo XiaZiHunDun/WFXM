@@ -1,34 +1,29 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-24 09:50_
+_last_synced: 2026-08-24 10:54_
 _handoff: docs/plans/active/v5-project-knowledge-proposal-2026-08.md_
-_commit: (K1.1 待 commit)_
+_commit: (PK prod enable 待 commit)_
 
 ## 主线
 
-Project Knowledge **K1.1 ✅** — sources.json + watch worker + markitdown chain + Owner sync API。
+Project Knowledge **K1 + K1.1 ✅** — 生产已开 inject + watch。
 
-## K1.1 交付
+## 生产 PK
 
-- `config/project-knowledge-sources.json`（WFXM 7 路径）
-- `BUTLER_V5_PROJECT_KNOWLEDGE_WATCH=1` opt-in 轮询
-- `POST /v1/owner/project-knowledge/sync` + `butler project-knowledge sync`
-- mtime/size 增量 skip；office/PDF → markitdown → document → PK
-
-## 生产
-
-- Gateway 待 restart 加载 K1.1
-- PK inject 仍默认关
+- `BUTLER_V5_PROJECT_KNOWLEDGE=1`（工作集 prefix 注入）
+- `BUTLER_V5_PROJECT_KNOWLEDGE_WATCH=1`（5min sync，首 tick skipped=7）
+- sources：`config/project-knowledge-sources.json`（7 路径）
+- 启用脚本：`butler-v5/scripts/cutover/enable-project-knowledge-prod.sh`
 
 ## 下一步
 
-- restart gateway → `butler project-knowledge sync` 验收
-- 可选开 `BUTLER_V5_PROJECT_KNOWLEDGE_WATCH=1`
+- P0 v5 AI guard 迁移（人工 checklist，非自动）
+- 或按需加 `markitdownGlobs`  ingest PDF
 
 ## 不要做
 
-- embedding / RAG Studio / 全盘索引
+- embedding / RAG Studio
 
 ## 上一班
 
-- K1.1 实施：sources manifest、sync engine、watch worker、文档更新。
+- 生产启用 PK inject + watch；inject trace；gateway restart 验收。

@@ -3,6 +3,7 @@ import {
   createProjectKnowledgeRecord,
   projectKnowledgeFromDocument,
   selectProjectKnowledgeForRecall,
+  selectProjectKnowledgeForWorkingSet,
 } from "./project-knowledge.js"
 import type { DocumentRecord } from "./document-ingest.js"
 
@@ -68,5 +69,30 @@ describe("project knowledge", () => {
     })
     expect(selected).toHaveLength(1)
     expect(selected[0]?.title).toBe("A")
+  })
+
+  it("working set falls back to recent items when query does not match", () => {
+    const a = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "older",
+      kind: "manual_note",
+      body: "alpha",
+      nowMs: 1,
+    })
+    const b = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "newer",
+      kind: "manual_note",
+      body: "beta",
+      nowMs: 2,
+    })
+    if (!a.ok || !b.ok) throw new Error("setup failed")
+    const selected = selectProjectKnowledgeForWorkingSet({
+      records: [a.value, b.value],
+      query: "this long user message matches nothing in ingest",
+      limit: 2,
+    })
+    expect(selected).toHaveLength(2)
+    expect(selected[0]?.title).toBe("newer")
   })
 })

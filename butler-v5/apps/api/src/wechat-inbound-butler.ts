@@ -336,6 +336,9 @@ async function runButlerLoopBody(args: {
   if (memoryPrefix) {
     initialTraces.push("durable-memory: injected confirmed prefix")
   }
+  if (projectKnowledgePrefix) {
+    initialTraces.push("project-knowledge: injected working-set prefix")
+  }
   if (historyMessages.length > 0) {
     if (useRelationalHistory) {
       initialTraces.push(

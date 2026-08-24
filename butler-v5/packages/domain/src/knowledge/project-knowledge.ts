@@ -142,6 +142,22 @@ export function selectProjectKnowledgeForRecall(input: {
     .slice(0, Math.max(0, limit))
 }
 
+/** Working-set inject: query match first, else recent ingest (user utterance rarely substring-matches). */
+export function selectProjectKnowledgeForWorkingSet(input: {
+  readonly records: readonly ProjectKnowledgeRecord[]
+  readonly query?: string
+  readonly limit?: number
+}): readonly ProjectKnowledgeRecord[] {
+  const limit = input.limit ?? 6
+  const matched = selectProjectKnowledgeForRecall({
+    records: input.records,
+    query: input.query,
+    limit,
+  })
+  if (matched.length > 0) return matched
+  return [...input.records].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, Math.max(0, limit))
+}
+
 export function formatProjectKnowledgeSnippet(record: ProjectKnowledgeRecord, maxChars = 800): string {
   const body =
     record.body.length <= maxChars ? record.body : `${record.body.slice(0, maxChars)}…`

@@ -95,6 +95,7 @@ export {
   projectKnowledgeFromDocument,
   matchProjectKnowledgeQuery,
   selectProjectKnowledgeForRecall,
+  selectProjectKnowledgeForWorkingSet,
   formatProjectKnowledgeSnippet,
   formatProjectKnowledgePrefix,
 } from "./knowledge/project-knowledge.js"
