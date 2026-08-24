@@ -187,6 +187,7 @@
 | 本地控制面完整 Web UI | **不立项** | Owner 2026-08-21：不做 Web UI；审批与运维继续用微信内联确认 + Owner API/CLI。边界上「本地控制面」仍属条件准入，将来有明确场景再议。 |
 | Heartbeat / Schedule Trigger | **已立项（MVP）** | Owner 2026-08-21：按优先级落地；`source=schedule` + `system:scheduler`；默认只读工具白名单；opt-in `BUTLER_V5_SCHEDULE_ENABLED`；不建第二套引擎。 |
 | Durable Memory 基线 | **已立项（MVP）** | Owner 2026-08-21：表 `durable_memories`；来源/置信度/有效期/确认状态；Owner API+CLI；`recall_durable_memory`；注入需 `BUTLER_V5_DURABLE_MEMORY=1`；压缩产物不自动升级。 |
+| Project Knowledge 基线 | **已立项（MVP）** | Owner 2026-08-24：表 `project_knowledge_items`（0010）；projectId 维度；Owner API+CLI；`recall_project_knowledge`；手动 + workspace 快照 + Document promote；注入需 `BUTLER_V5_PROJECT_KNOWLEDGE=1`；无 embedding / 全盘索引。 |
 | 文档 ingest（具名格式） | **已立项（MVP）** | Owner 2026-08-21：`plaintext`/`markdown`/`pdf`（pdf 需预提取文本）；表 `documents`；Owner API+CLI；`recall_document`；可 promote 为 Durable Memory candidate；不做 RAG Studio / OCR / 全盘索引。 |
 | 本地 tracing / 可选 OTEL | **已立项（MVP）** | Owner 2026-08-21：默认本地环形缓冲（run/policy/capability/approval）；脱敏默认开；`BUTLER_V5_OTEL_EXPORTER=stdout` 可选；无 OTEL SDK / 外部 APM 依赖；`butler traces`。 |
 | Task / Procedure 基线 | **已立项（MVP）** | Owner 2026-08-21：跨对话待办 + 不可变线性模板；`source=task` Trigger；无 DAG/并行合并；表 `tasks`/`procedures`；Owner API+CLI。 |

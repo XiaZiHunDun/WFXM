@@ -213,7 +213,7 @@ P3 只建立安全扩展面，不默认安装具体能力。
 
 > **Owner 2026-08-21：已立项 MVP。** 迁移 `0004_durable_memory.sql`；注入默认关。
 
-- 只区分 Transcript、Durable Memory 和 Project Knowledge（本 MVP 不含 Project Knowledge）；
+- 只区分 Transcript、Durable Memory 和 Project Knowledge（**Project Knowledge MVP ✅ 2026-08-24**，见 [`v5-project-knowledge-proposal-2026-08.md`](v5-project-knowledge-proposal-2026-08.md)）；
 - Run 内部压缩产物和滚动摘要不是知识层，也不自动升级为持久记忆；
 - Durable Memory 记录来源、置信度、有效期与确认状态（`candidate`/`confirmed`/`rejected`）；
 - 删除原始 message 时可 `deleteBySourceMessageId` 同步派生内容；

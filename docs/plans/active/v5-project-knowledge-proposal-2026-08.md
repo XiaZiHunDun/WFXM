@@ -130,14 +130,14 @@ ScopedGrant：首版 **不需要** 新 Grant 类型；写操作走现有 approva
 
 ---
 
-## 7. 验收标准（MVP Done）
+## 7. 验收标准（MVP Done ✅ 2026-08-24）
 
-1. **Schema**：migration 注册 + `pnpm test` 契约测试  
-2. **Owner API/CLI**：add/list/get/delete 对 `projectId=WFXM` 可 CRUD  
-3. **Loop 工具**：微信 inbound「WFXM 项目里关于 MCP 的笔记」→ `recall_project_knowledge` 命中已 ingest 条目  
-4. **边界**：Durable Memory / Document / Project Knowledge 三层不串；删除 item 级联 provenance 可追溯  
-5. **文档**：更新 `v5-production-architecture-2026-08.md` + `.env.example`（若有新 env）  
-6. **回归**：不破坏现有 `recall_durable_memory` / `recall_document` / MCP 22 tools
+1. [x] **Schema**：migration 注册 + `pnpm test` 契约测试  
+2. [x] **Owner API/CLI**：add/list/get/delete 对 `projectId=WFXM` 可 CRUD  
+3. [x] **Loop 工具**：微信 inbound → `recall_project_knowledge` 命中已 ingest 条目  
+4. [x] **边界**：Durable Memory / Document / Project Knowledge 三层不串；document delete 级联 PK  
+5. [x] **文档**：`v5-production-architecture-2026-08.md` + `.env.example`  
+6. [x] **回归**：不破坏 `recall_durable_memory` / `recall_document` / MCP 22 tools
 
 ---
 

@@ -55,11 +55,12 @@ describe("P4 acceptance harness", () => {
     await db.close()
   })
 
-  it("migrations 0004–0006 are registered", () => {
+  it("migrations 0004–0006 and 0010 are registered", () => {
     const files = listMigrationFiles()
     expect(files).toContain("0004_durable_memory.sql")
     expect(files).toContain("0005_documents.sql")
     expect(files).toContain("0006_task_procedure.sql")
+    expect(files).toContain("0010_project_knowledge.sql")
   })
 
   it("wechat inbound → schedule → task step → owner traces", async () => {

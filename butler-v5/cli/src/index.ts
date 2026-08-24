@@ -492,11 +492,14 @@ program
           console.error("usage: butler project-knowledge promote-doc <documentId>")
           process.exit(1)
         }
-        const res = await fetch(`${base}/promote-document`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ projectId: opts.project, documentId: arg }),
-        })
+        const res = await fetch(
+          `${opts.api}/v1/owner/documents/${encodeURIComponent(arg)}/promote-project-knowledge`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ projectId: opts.project }),
+          },
+        )
         console.log(await res.text())
         if (!res.ok) process.exit(1)
         return
@@ -506,10 +509,15 @@ program
           console.error("usage: butler project-knowledge snapshot --path <relative-path>")
           process.exit(1)
         }
-        const res = await fetch(`${base}/snapshot`, {
+        const res = await fetch(base, {
           method: "POST",
           headers,
-          body: JSON.stringify({ projectId: opts.project, path: opts.path }),
+          body: JSON.stringify({
+            projectId: opts.project,
+            kind: "file_snapshot",
+            title: opts.title ?? opts.path,
+            filePath: opts.path,
+          }),
         })
         console.log(await res.text())
         if (!res.ok) process.exit(1)
@@ -781,6 +789,7 @@ program
       "0004_durable_memory.sql",
       "0005_documents.sql",
       "0006_task_procedure.sql",
+      "0010_project_knowledge.sql",
     ] as const
     const missing = required.filter((name) => !files.includes(name))
     if (missing.length > 0) {

@@ -188,7 +188,7 @@ delegate_to_subagent
 
 仍待完善：
 
-- Project Knowledge MVP（K1 实施中）；
+- Project Knowledge MVP（K1 ✅ 2026-08-24）；
 - Schedule / Durable Memory / Document ingest / Local tracing / Task·Procedure MVP 已落地；
 - Child Run relational（A5）：`delegate` 创建 `parentRunId` + `triggerSource=parent_run`；worker 写 running→终态 + result Step；
 - Conversation Loop（A7）：多轮循环在 `runtime/execution`；apps 仅接线。
@@ -227,7 +227,7 @@ delegate_to_subagent
 | 召回 | 工具 `recall_document`（子串）；`promote-memory` → Durable Memory candidate |
 | 删除 | 级联 `deleteBySourceDocumentId` |
 
-### 6.0c1 Project Knowledge（MVP，K1）
+### 6.0c1 Project Knowledge（MVP，K1 ✅）
 
 | 面 | 说明 |
 | --- | --- |
@@ -267,7 +267,7 @@ delegate_to_subagent
 | 命令 | 说明 |
 | --- | --- |
 | `pnpm test:p4-acceptance` | 模拟 `POST /v1/wechat/inbound` → Schedule fire → Task/Procedure step → Owner traces |
-| `butler verify [--api url]` | 校验迁移清单含 0004–0006；可选 ping `/healthz` |
+| `butler verify [--api url]` | 校验迁移清单含 0004–0006、0010；可选 ping `/healthz` |
 
 Harness：`apps/api/src/p4-acceptance.harness.test.ts`（不启 iLink / Web UI）。
 

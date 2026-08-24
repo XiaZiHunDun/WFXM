@@ -78,9 +78,18 @@ describe("makeReadFileTool", () => {
 
 describe("makeRunCommandTool", () => {
   let root: string
+  let prevSandbox: string | undefined
+
+  beforeEach(() => {
+    // Host env may set bubblewrap; nvm node/pnpm are not visible inside bwrap ro-bind.
+    prevSandbox = process.env["BUTLER_V5_SANDBOX"]
+    delete process.env["BUTLER_V5_SANDBOX"]
+  })
 
   afterEach(() => {
     if (root) rmSync(root, { recursive: true, force: true })
+    if (prevSandbox === undefined) delete process.env["BUTLER_V5_SANDBOX"]
+    else process.env["BUTLER_V5_SANDBOX"] = prevSandbox
   })
 
   it("runs pwd inside the workspace", async () => {
