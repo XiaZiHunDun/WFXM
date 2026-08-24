@@ -18,14 +18,13 @@ if (apiEq) {
 const base = api.replace(/\/$/, "")
 const projectId = "WFXM"
 const fromUserId = `pk-smoke-${Date.now()}`
-const conversationId = `c-${projectId}-${fromUserId}`
 
 function fail(step, detail) {
   console.error(`smoke FAIL [${step}]: ${detail}`)
   process.exit(1)
 }
 
-async function postInbound(content, messageId) {
+async function postInbound(content, messageId, inboundProjectId = projectId) {
   const res = await fetch(`${base}/v1/wechat/inbound`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -34,8 +33,8 @@ async function postInbound(content, messageId) {
       fromUserId,
       content,
       messageId,
-      projectId,
-      conversationId,
+      projectId: inboundProjectId,
+      conversationId: `c-${inboundProjectId}-${fromUserId}`,
     }),
   })
   const text = await res.text()
@@ -96,6 +95,17 @@ async function main() {
   console.log(
     `smoke ok [recall]: toolCalls=${toolCalls} recallTool=${usedRecallTool} reply=${recallReply.slice(0, 120)}`,
   )
+
+  // Real ilink path uses projectId=wechat; PK store is WFXM (default inbound map)
+  const wechatInjectQ =
+    "WFXM Project Knowledge 立项状态？只回答 Accepted、Draft 或 Pending 之一。"
+  const wechatRes = await postInbound(wechatInjectQ, `pk-smoke-wechat-${Date.now()}`, "wechat")
+  assertInjectTraces(wechatRes.meta, "wechat/inject/traces")
+  const wechatReply = String(wechatRes.reply ?? "")
+  if (!/accepted/i.test(wechatReply)) {
+    fail("wechat/inject/reply", `expected Accepted via wechat→WFXM map, got: ${wechatReply.slice(0, 400)}`)
+  }
+  console.log(`smoke ok [wechat→WFXM inject]: toolCalls=${wechatRes.meta?.toolCalls ?? "?"}`)
 
   console.log("smoke PASS")
 }

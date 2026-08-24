@@ -2,12 +2,27 @@ import { describe, expect, it } from "vitest"
 import {
   createProjectKnowledgeRecord,
   projectKnowledgeFromDocument,
+  resolveProjectKnowledgeInboundProjectId,
   selectProjectKnowledgeForRecall,
   selectProjectKnowledgeForWorkingSet,
 } from "./project-knowledge.js"
 import type { DocumentRecord } from "./document-ingest.js"
 
 describe("project knowledge", () => {
+  it("maps inbound wechat projectId to WFXM for PK by default", () => {
+    expect(resolveProjectKnowledgeInboundProjectId("wechat")).toBe("WFXM")
+    expect(resolveProjectKnowledgeInboundProjectId("WFXM")).toBe("WFXM")
+    expect(resolveProjectKnowledgeInboundProjectId("LingWen")).toBe("LingWen")
+  })
+
+  it("honours BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP override", () => {
+    expect(
+      resolveProjectKnowledgeInboundProjectId("wechat", {
+        BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP: "wechat:LingWen",
+      }),
+    ).toBe("LingWen")
+  })
+
   it("creates a manual note record", () => {
     const created = createProjectKnowledgeRecord({
       projectId: "WFXM",

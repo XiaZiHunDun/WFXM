@@ -60,6 +60,30 @@ export function normalizeProjectId(projectId: string): string {
   return projectId.trim()
 }
 
+const DEFAULT_PROJECT_KNOWLEDGE_INBOUND_MAP = "wechat:WFXM"
+
+/**
+ * Map inbound conversation projectId (e.g. ilink default `wechat`) to PK store projectId.
+ * Override: BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP=wechat:WFXM,LingWen1:LingWen
+ */
+export function resolveProjectKnowledgeInboundProjectId(
+  inboundProjectId: string,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  const id = normalizeProjectId(inboundProjectId)
+  if (!id) return id
+  const mapRaw = (env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"] ?? DEFAULT_PROJECT_KNOWLEDGE_INBOUND_MAP).trim()
+  if (!mapRaw) return id
+  for (const pair of mapRaw.split(",")) {
+    const colon = pair.indexOf(":")
+    if (colon <= 0) continue
+    const from = pair.slice(0, colon).trim()
+    const to = pair.slice(colon + 1).trim()
+    if (from && to && id === from) return to
+  }
+  return id
+}
+
 export function createProjectKnowledgeRecord(
   input: CreateProjectKnowledgeInput,
 ): ProjectKnowledgeValidation {

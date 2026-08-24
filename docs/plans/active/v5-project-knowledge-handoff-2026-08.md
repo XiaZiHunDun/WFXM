@@ -149,16 +149,22 @@ pnpm exec vitest run \
 
 ## 7. 建议后续工作（任选，需 Owner 拍板）
 
-Project Knowledge **无 K2 在 active backlog**。下一班常见方向：
+Project Knowledge **无 K2 在 active backlog**。
 
-| 优先级 | 方向 | 说明 |
+| 优先级 | 方向 | 状态（2026-08-24） |
 | --- | --- | --- |
-| **运营** | 扩 sources / 灵文1号 projectId | Owner 原话：灵文非 Day-1；按需加 `projects.LingWen` |
-| **运营** | 真机微信话术复验 | smoke 已 PASS；手机侧可选 |
-| **工程 P0** | AI guard / `.cursorrules` 与 v5 守卫收敛 | [`v5-ai-guard-migration-checklist-2026-08.md`](v5-ai-guard-migration-checklist-2026-08.md) 标 Done，根规则仍含 v4 项 |
-| **工程 P0** | 未接线包归档决策 | [`v5-unwired-packages-inventory-2026-08.md`](v5-unwired-packages-inventory-2026-08.md) |
-| **日历** | D1 删 `~/.butler/` | 2026-09-18 后 Owner 决策 |
+| **运营** | 扩 sources / 灵文1号 | ✅ WFXM +5 globs；`LingWen` 10 globs + sync |
+| **运营** | 真机微信 PK | ✅ loopback smoke PASS（含 `wechat→WFXM` inject）；手机侧可选 |
+| **工程 P0** | AI guard / `.cursorrules` | ✅ 已收敛（`ef61a1fc`） |
+| **工程 P0** | 未接线包归档决策 | ✅ Owner 决策见 [`v5-unwired-packages-inventory-2026-08.md`](v5-unwired-packages-inventory-2026-08.md) §Owner 决策 |
+| **工程 P0** | `.claude/settings.json` Stop gate | ⏳ Owner 人工，见 [`v5-claude-settings-owner-actions-2026-08.md`](v5-claude-settings-owner-actions-2026-08.md) |
+| **日历** | D1 删 `~/.butler/` | 📅 **2026-09-18** 后 Owner 再确认（见 [`v5-r10-handoff.md`](../../architecture/v5-r10-handoff.md) §8.1） |
 | **按需立项** | 新 MCP / Channel / Extension R&D | 各走边界 + 单独立项 |
+
+**projectId 映射（生产）**：
+
+- ilink 入站默认 `projectId=wechat` → PK inject/recall 默认映射 **`WFXM`**（`BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP=wechat:WFXM`）
+- sources manifest 中灵文语料 key 为 **`LingWen`**；v5 微信项目切换未接线前，灵文 PK 仅 loopback `projectId=LingWen` 或扩展 map（如 `灵文1号:LingWen`）后生效
 
 **明确不立项**：Web UI、Playwright 浏览器、RAG Studio（见产品边界 Owner 记录）。
 

@@ -799,6 +799,55 @@ describe("runButlerLoop", () => {
     expect(systemTexts.some((t) => t.includes("Project Knowledge") && t.includes(marker))).toBe(true)
   })
 
+  it("injects WFXM project knowledge when inbound projectId is wechat", async () => {
+    const projectKnowledgeStore = createProjectKnowledgeStore(db.db)
+    const marker = "PK-WECHAT-ALIAS-MARKER-2026"
+    const created = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "wechat alias inject",
+      kind: "manual_note",
+      body: marker,
+    })
+    if (!created.ok) throw new Error(created.reason)
+    await projectKnowledgeStore.create(created.value)
+
+    let capturedMessages: readonly Record<string, unknown>[] = []
+    const adapter: LLMAdapter = {
+      complete: vi.fn((msgs, _opts) => {
+        capturedMessages = msgs as readonly Record<string, unknown>[]
+        return Effect.succeed(textResponse(`alias=${marker}`))
+      }),
+    }
+
+    const result = await runButlerLoop({
+      wiring: makeWiring({
+        bridge,
+        workerId: "w-butler",
+        runtimeStore: wiring.runtimeStore,
+        runEngine: wiring.runEngine,
+        db: db.db,
+        backfillConversation: async () => undefined,
+        projectKnowledgeStore,
+      }),
+      conversationId: "c-pk-wechat-alias",
+      content: "project knowledge alias check",
+      fromUserId: "u-pk",
+      projectId: "wechat",
+      env: { BUTLER_V5_PROJECT_KNOWLEDGE: "1" },
+      logger: silentLogger,
+      adapter,
+    })
+
+    expect(result.reply).toContain(marker)
+    expect(
+      result.traces.some((t) => t.includes("project-knowledge: injected working-set prefix")),
+    ).toBe(true)
+    const systemTexts = capturedMessages
+      .filter((m) => m["role"] === "system")
+      .map((m) => String(m["content"] ?? ""))
+    expect(systemTexts.some((t) => t.includes(marker))).toBe(true)
+  })
+
   it("executes recall_project_knowledge and feeds result back", async () => {
     const projectKnowledgeStore = createProjectKnowledgeStore(db.db)
     const marker = "PK-WECHAT-RECALL-MARKER-2026"

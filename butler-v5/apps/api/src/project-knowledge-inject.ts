@@ -3,6 +3,7 @@
  */
 import {
   formatProjectKnowledgePrefix,
+  resolveProjectKnowledgeInboundProjectId,
   selectProjectKnowledgeForWorkingSet,
 } from "@butler/domain/knowledge/project-knowledge.js"
 import type { ProjectKnowledgeStore } from "@butler/persistence"
@@ -26,7 +27,8 @@ export async function loadProjectKnowledgeSystemPrefix(args: {
 }): Promise<string | null> {
   if (!isProjectKnowledgeInjectEnabled(args.env ?? process.env)) return null
   if (!args.store) return null
-  const projectId = args.projectId.trim()
+  const env = args.env ?? process.env
+  const projectId = resolveProjectKnowledgeInboundProjectId(args.projectId, env)
   if (!projectId) return null
   const records = await args.store.listByProject({ projectId, limit: 40 })
   const selected = selectProjectKnowledgeForWorkingSet({

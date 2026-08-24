@@ -649,15 +649,21 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
       if (!store) {
         return { ok: false, reason: "project knowledge store unavailable" }
       }
+      const { resolveProjectKnowledgeInboundProjectId } = await import(
+        "@butler/domain/knowledge/project-knowledge.js"
+      )
+      const env = ctx.env ?? process.env
       const contextProjectId = (ctx.projectId ?? "").trim()
-      const requestedProjectId =
+      const requestedRaw =
         typeof args["projectId"] === "string" && args["projectId"].trim()
           ? args["projectId"].trim()
           : contextProjectId
+      const resolvedContext = resolveProjectKnowledgeInboundProjectId(contextProjectId, env)
+      const requestedProjectId = resolveProjectKnowledgeInboundProjectId(requestedRaw, env)
       if (!requestedProjectId) {
         return { ok: false, reason: "projectId is required for project knowledge recall" }
       }
-      if (contextProjectId && requestedProjectId !== contextProjectId) {
+      if (resolvedContext && requestedProjectId !== resolvedContext) {
         return { ok: false, reason: "cross-project project knowledge recall denied" }
       }
       const query = typeof args["query"] === "string" ? args["query"] : ""

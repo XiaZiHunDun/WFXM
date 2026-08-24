@@ -91,6 +91,7 @@ export {
   type ProjectKnowledgeValidation,
   PROJECT_KNOWLEDGE_KINDS,
   normalizeProjectId,
+  resolveProjectKnowledgeInboundProjectId,
   createProjectKnowledgeRecord,
   projectKnowledgeFromDocument,
   matchProjectKnowledgeQuery,
