@@ -874,6 +874,7 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_V5_WORKSPACE_ROOT` | cwd | `read_file` / `run_command` 工作区根（systemd `WorkingDirectory` 通常为 `butler-v5/`） |
 | `BUTLER_V5_DURABLE_MEMORY` | `0` | `1` 将 **confirmed** durable memory 注入 Loop 工作集（表始终迁移；Owner CRUD 始终可用）。CLI：`butler memory list|add|confirm|reject|delete`；冒烟：`pnpm smoke:durable-memory` |
 | `BUTLER_V5_SUBAGENT_ENABLED` | `0` | `1` 启用 background subagent：loopback WS（`WS_PORT` 默认 3001）+ outbox worker + `delegate_to_subagent` 工具 |
+| `BUTLER_V5_SUBAGENT_AUDIT_PATH` | — | Subagent JSONL 审计路径；默认 `~/.config/butler-v5/audit/subagent.jsonl`（D1 前自 `~/.butler/audit/` 迁出） |
 | `BUTLER_V5_ILINK_ENABLED` | `0` | `1` 启用原生 iLink long-poll（需 `WECHAT_TOKEN`） |
 | `BUTLER_V5_ILINK_INBOUND_TIMEOUT_MS` | — | iLink 入站处理超时 |
 | `BUTLER_V5_MCP_ENABLED` | `0` | `1` 注册 MCP 工具（走 PolicyGate + 审批；默认 off） |

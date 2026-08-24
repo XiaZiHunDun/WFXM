@@ -1,24 +1,24 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-24 16:25_
+_last_synced: 2026-08-24 20:32_
 _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md_
-_commit: 1bb64c93_
+_commit: c6085d47_
 
 ## 主线
 
-§7 全收口；Claude Code Stop 改为 **state.md 软提醒**（去掉 `BLACKBOARD_STRICT=1`）。
+D1 审计 P0 **#1+#2 Done**：Todoist spec 入仓 + audit 路径迁 `~/.config/butler-v5/`。见 [`v5-d1-butler-home-audit-2026-08-24.md`](docs/plans/active/v5-d1-butler-home-audit-2026-08-24.md)。
 
 ## 下一步
 
-- **D1 2026-09-18**：删 `~/.butler/` + 复核 v4-to-v5 migration（Owner 确认）
-- v5 微信项目切换后：扩展 `INBOUND_MAP`（如 `灵文1号:LingWen`）
-- `.blackboard/README.md` 改一页规约（受保护，Owner 人工可选）
+- gateway restart + Todoist MCP smoke（lst-projects）
+- **2026-09-11**：disable v4 systemd + tar 备份 `~/.butler`
+- **2026-09-18**：分块删 v4 子树（§7）
 
 ## 不要做
 
 - PK K2 / embedding / RAG Studio
-- 删 `~/.butler/`（D1 前）
+- 删 `~/.butler/`（备份前）
 
 ## 上一班
 
-- settings.json 软提醒 + claude_session_end v5 校验；blackboard 测试更新。
+- D1 P0：todoist yml → `butler-v5/config/openapi/`；manifest 相对路径 + resolve；audit 默认 `~/.config/butler-v5/audit/subagent.jsonl`。

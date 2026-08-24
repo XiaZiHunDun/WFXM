@@ -51,4 +51,34 @@ describe("parseMcpConnectionConfig", () => {
   it("detects manifest endpoint for stub fallback", () => {
     expect(mcpHasServerEndpoint({}, httpManifestServer)).toBe(true)
   })
+
+  it("resolves manifest-relative --openapi-spec for stdio transport", () => {
+    const todoistServer: McpManifestServer = {
+      id: "todoist",
+      transport: "stdio",
+      command: "openapi-mcp-server",
+      args: [
+        "--api-base-url",
+        "https://api.todoist.com",
+        "--openapi-spec",
+        "openapi/todoist-v1-readonly.yml",
+      ],
+    }
+    const parsed = parseMcpConnectionConfig(
+      {
+        BUTLER_V5_MCP_ENABLED: "1",
+        BUTLER_V5_MCP_MANIFEST_PATH: "/repo/butler-v5/config/mcp-manifest.json",
+      },
+      todoistServer,
+      { serverId: "todoist" },
+    )
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok || parsed.value.kind !== "stdio") return
+    expect(parsed.value.args).toEqual([
+      "--api-base-url",
+      "https://api.todoist.com",
+      "--openapi-spec",
+      "/repo/butler-v5/config/openapi/todoist-v1-readonly.yml",
+    ])
+  })
 })

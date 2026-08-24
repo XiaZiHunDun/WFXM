@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { findMcpServer, mcpServerIds, parseMcpManifest } from "./manifest.js"
+import { findMcpServer, mcpServerIds, parseMcpManifest, resolveManifestStdioArgs } from "./manifest.js"
 
 describe("MCP manifest", () => {
   it("parses server entries", () => {
@@ -25,5 +25,26 @@ describe("MCP manifest", () => {
     expect(
       parseMcpManifest({ version: 1, servers: [{ id: "x", transport: "ws" }] }).ok,
     ).toBe(false)
+  })
+
+  it("resolves --openapi-spec paths relative to manifest directory", () => {
+    const resolved = resolveManifestStdioArgs("/repo/butler-v5/config/mcp-manifest.json", [
+      "--api-base-url",
+      "https://api.todoist.com",
+      "--openapi-spec",
+      "openapi/todoist-v1-readonly.yml",
+    ])
+    expect(resolved).toEqual([
+      "--api-base-url",
+      "https://api.todoist.com",
+      "--openapi-spec",
+      "/repo/butler-v5/config/openapi/todoist-v1-readonly.yml",
+    ])
+  })
+
+  it("leaves absolute --openapi-spec paths unchanged", () => {
+    const abs = "/abs/todoist.yml"
+    const resolved = resolveManifestStdioArgs("/repo/config/mcp.json", ["--openapi-spec", abs])
+    expect(resolved).toEqual(["--openapi-spec", abs])
   })
 })

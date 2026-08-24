@@ -52,7 +52,7 @@
         "--api-base-url",
         "https://api.todoist.com",
         "--openapi-spec",
-        "/home/ailearn/.butler/openapi/todoist-v1-readonly.yml"
+        "openapi/todoist-v1-readonly.yml"
       ],
       "tools": [
         { "name": "lst-projects", "risk": "low" },

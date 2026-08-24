@@ -1,3 +1,5 @@
+import { dirname, isAbsolute, resolve } from "node:path"
+
 export type McpManifestTool = {
   readonly name: string
   readonly description?: string
@@ -16,6 +18,34 @@ export type McpManifestServer = {
 export type McpManifest = {
   readonly version: number
   readonly servers: readonly McpManifestServer[]
+}
+
+/**
+ * Resolve manifest-relative stdio args (e.g. `--openapi-spec` paths) against
+ * the manifest file directory so repo-local specs work without ~/.butler.
+ */
+export function resolveManifestStdioArgs(
+  manifestPath: string,
+  args: readonly string[],
+): readonly string[] {
+  if (args.length === 0) return args
+  const baseDir = dirname(resolve(manifestPath))
+  const out: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    if (arg === undefined) continue
+    if (arg === "--openapi-spec") {
+      const specPath = args[i + 1]
+      if (specPath !== undefined) {
+        out.push(arg)
+        out.push(isAbsolute(specPath) ? specPath : resolve(baseDir, specPath))
+        i++
+        continue
+      }
+    }
+    out.push(arg)
+  }
+  return out
 }
 
 export function parseMcpManifest(raw: unknown): { readonly ok: true; readonly value: McpManifest } | { readonly ok: false; readonly reason: string } {

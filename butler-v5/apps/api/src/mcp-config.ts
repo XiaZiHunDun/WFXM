@@ -1,5 +1,6 @@
 import type { ILinkResult } from "@butler/adapters"
 import type { McpManifestServer } from "@butler/domain/mcp/manifest.js"
+import { resolveManifestStdioArgs } from "@butler/domain/mcp/manifest.js"
 import { isMcpEnabled, mcpStubToolNames } from "@butler/runtime/mcp-gate.js"
 
 function envTruthy(raw: string | undefined): boolean {
@@ -153,12 +154,17 @@ export function parseMcpConnectionConfig(
     if (!command) {
       return { ok: false, reason: "BUTLER_V5_MCP_COMMAND is required for stdio transport" }
     }
+    let args = parseMcpStdioArgs(scopedEnv, manifestServer, options.serverId)
+    const manifestPath = (env["BUTLER_V5_MCP_MANIFEST_PATH"] ?? "").trim()
+    if (manifestPath && args.length > 0) {
+      args = resolveManifestStdioArgs(manifestPath, args)
+    }
     return {
       ok: true,
       value: {
         kind: "stdio",
         command,
-        args: parseMcpStdioArgs(scopedEnv, manifestServer, options.serverId),
+        args,
         timeoutMs,
       },
     }

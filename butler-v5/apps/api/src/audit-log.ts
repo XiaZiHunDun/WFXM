@@ -2,8 +2,9 @@
  * R8.x.9 — subagent audit log.
  *
  * Appends one JSON line per delegation / completion / rejection to
- * `~/.butler/audit/subagent-r8x9.jsonl`. Designed for the owner to
- * grep / tail / pipe to a SIEM later; not a structured query log.
+ * `~/.config/butler-v5/audit/subagent.jsonl` (override:
+ * `BUTLER_V5_SUBAGENT_AUDIT_PATH`). Designed for the owner to grep /
+ * tail / pipe to a SIEM later; not a structured query log.
  *
  * Constraints:
  *   - Never throws: every filesystem call is wrapped in try/catch so a
@@ -12,17 +13,30 @@
  *   - Directory is created lazily on first write.
  */
 import { appendFileSync, mkdirSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { homedir } from "node:os"
 
 /**
- * Compute the audit log path lazily so tests can override
- * `process.env.HOME` between calls. Reading `homedir()` at module
- * load would freeze the path to the original $HOME.
+ * Resolve the subagent JSONL audit path. Explicit env wins; otherwise
+ * default under ~/.config/butler-v5/audit/ (not ~/.butler/).
  */
+export function resolveSubagentAuditLogPath(env: NodeJS.ProcessEnv = process.env): string {
+  const home = env["HOME"] ?? homedir()
+  const explicit = (env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] ?? "").trim()
+  if (explicit) {
+    if (explicit.startsWith("~/")) {
+      return join(home, explicit.slice(2))
+    }
+    if (explicit.startsWith("~")) {
+      return join(home, explicit.slice(1))
+    }
+    return resolve(explicit)
+  }
+  return join(home, ".config", "butler-v5", "audit", "subagent.jsonl")
+}
+
 function auditLogPath(): string {
-  const home = process.env["HOME"] ?? homedir()
-  return join(home, ".butler", "audit", "subagent-r8x9.jsonl")
+  return resolveSubagentAuditLogPath(process.env)
 }
 
 function ensureLogPath(): void {

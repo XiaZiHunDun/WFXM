@@ -4,31 +4,43 @@
  * The module is intentionally side-effect free: every filesystem call
  * is swallowed so a broken filesystem never crashes the route. The
  * tests below use a temp directory (HOME override) to keep the real
- * `~/.butler/audit` untouched and to verify the directory is created
- * on first write.
+ * audit path untouched and to verify the directory is created on first write.
  */
 import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { appendAudit, type AuditEntry } from "./audit-log.js"
+import { appendAudit, resolveSubagentAuditLogPath, type AuditEntry } from "./audit-log.js"
 
 const ORIGINAL_HOME = process.env["HOME"]
+const ORIGINAL_AUDIT_PATH = process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
 let tempHome: string
 
 beforeEach(() => {
   tempHome = mkdtempSync(join(tmpdir(), "audit-log-test-"))
   process.env["HOME"] = tempHome
+  delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
 })
 
 afterEach(() => {
   process.env["HOME"] = ORIGINAL_HOME
+  if (ORIGINAL_AUDIT_PATH === undefined) {
+    delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+  } else {
+    process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] = ORIGINAL_AUDIT_PATH
+  }
   if (existsSync(tempHome)) {
     rmSync(tempHome, { recursive: true, force: true })
   }
 })
 
 describe("audit-log", () => {
+  it("defaults audit path under ~/.config/butler-v5/audit/", () => {
+    expect(resolveSubagentAuditLogPath(process.env)).toBe(
+      join(tempHome, ".config", "butler-v5", "audit", "subagent.jsonl"),
+    )
+  })
+
   it("appendAudit writes one JSONL line to the audit file", () => {
     const entry: AuditEntry = {
       ts: "2026-08-19T00:00:00.000Z",
@@ -40,7 +52,7 @@ describe("audit-log", () => {
       capabilities: ["general"],
     }
     appendAudit(entry)
-    const logPath = join(tempHome, ".butler", "audit", "subagent-r8x9.jsonl")
+    const logPath = join(tempHome, ".config", "butler-v5", "audit", "subagent.jsonl")
     expect(existsSync(logPath)).toBe(true)
     const lines = readFileSync(logPath, "utf8").trim().split("\n")
     expect(lines).toHaveLength(1)
@@ -51,7 +63,6 @@ describe("audit-log", () => {
   })
 
   it("ensureLogPath creates the audit directory if missing", () => {
-    // First call should create ~/.butler/audit and succeed.
     appendAudit({
       ts: "2026-08-19T00:00:00.000Z",
       kind: "completion",
@@ -62,7 +73,23 @@ describe("audit-log", () => {
       capabilities: ["general"],
       replyExcerpt: "ok",
     })
-    const auditDir = join(tempHome, ".butler", "audit")
+    const auditDir = join(tempHome, ".config", "butler-v5", "audit")
     expect(existsSync(auditDir)).toBe(true)
+  })
+
+  it("honors BUTLER_V5_SUBAGENT_AUDIT_PATH override", () => {
+    const customPath = join(tempHome, "custom-audit.jsonl")
+    process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] = customPath
+    appendAudit({
+      ts: "2026-08-19T00:00:00.000Z",
+      kind: "rejection",
+      parentConversationId: "p-3",
+      childConversationId: "c-3",
+      role: "general",
+      task: "blocked",
+      capabilities: ["general"],
+      reason: "policy",
+    })
+    expect(existsSync(customPath)).toBe(true)
   })
 })
