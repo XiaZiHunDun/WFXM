@@ -43,5 +43,6 @@ python3 scripts/ai_guard/post_tool_use_hook.py --match-only butler-v5/apps/api/s
 
 ## 仍由 Owner 维护
 
-- 根 `.cursorrules` / `.claude/settings.json` 与 v4 保护并存至 v4 只读归档
-- 新 v5 承重文件加入清单时同步三处：`pre_tool_use_hook.py`、`post_tool_use_hook.py`、`pre_commit_hook.sh`
+- ~~根 `.cursorrules`~~ → **2026-08-24 已收敛**（v5 承重清单 + 测试命令 + 常见陷阱；v4 标 legacy 保留）
+- `.claude/settings.json` 与 v4 hook 配置并存至 v4 只读归档
+- 新 v5 承重文件加入清单时同步四处：`pre_tool_use_hook.py`、`post_tool_use_hook.py`、`pre_commit_hook.sh`、`.cursorrules`

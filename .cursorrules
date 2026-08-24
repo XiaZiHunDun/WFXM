@@ -3,6 +3,9 @@
 # 新会话前 30 秒：.blackboard/state.md → butler-v5/AGENTS.md → docs/architecture/v5-production-architecture-2026-08.md
 # 改 butler-v5/ 后：cd butler-v5 && pnpm test
 #
+# 受保护文件 SSOT：scripts/ai_guard/pre_tool_use_hook.py → PROTECTED_FILES / PROTECTED_DIR_PATTERNS
+# v5 守卫清单：docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md
+#
 # 以下 Legacy v4 规则仍保留，直至 v4 完全只读归档。
 
 # AI 行为规则 — WFXM
@@ -14,20 +17,39 @@
 以下操作**绝不允许**，无论何种理由：
 
 ### 1. 禁止修改受保护文件
-受保护文件清单见 `scripts/ai_guard/pre_tool_use_hook.py` 中的 `PROTECTED_FILES`：
-- `butler/core/agent_loop/loop.py` — 核心循环
-- `butler/contracts/__init__.py` — 契约层入口
+
+**SSOT**：`scripts/ai_guard/pre_tool_use_hook.py` 中的 `PROTECTED_FILES`（PreToolUse 自动 block）。
+
+#### v5 生产承重文件（Butler v5 主线）
+
+- `butler-v5/apps/api/src/wechat-inbound-butler.ts` — 微信入站 Loop
+- `butler-v5/apps/api/src/workspace-tools.ts` — 工作区工具
+- `butler-v5/apps/api/src/tool-boundary.ts` — 工具边界
+- `butler-v5/apps/api/src/capability-guard.ts` — 能力守卫
+- `butler-v5/packages/runtime/src/agent-kernel.ts` — Agent 内核
+- `butler-v5/packages/runtime/src/run-engine.ts` — Run 引擎
+- `butler-v5/packages/runtime/src/bridge.ts` — 桥接层
+- `butler-v5/packages/runtime/src/capability-boundary.ts` — 能力边界
+- `butler-v5/packages/persistence/src/migrations/0001_initial.sql` — 生产 schema
+
+受保护目录（warn）：`butler-v5/packages/persistence/src/migrations/`（非 0001 亦需人工 + 迁移测试）
+
+#### 仓库级 + Legacy v4
+
 - `pyproject.toml` — 项目配置
 - `.claude/settings.json` — AI 工具配置
 - `scripts/ai_guard/*.py` — AI 保护脚本
 - `.blackboard/README.md` — 交接规约
+- `butler/core/agent_loop/loop.py` — v4 核心循环（legacy）
+- `butler/contracts/__init__.py` — v4 契约层入口（legacy）
 
 如需修改，必须：
 1. 在 GitHub 创建 issue 说明原因
 2. 由人工修改
-3. 运行完整门禁 `./scripts/butler-pytest-fast-gate.sh`
+3. v5 文件：改后 `cd butler-v5 && pnpm test`；v4 文件：`./scripts/butler-pytest-fast-gate.sh`
+4. commit message 含 `[MANUAL-OVERRIDE]`
 
-### 2. 禁止删除 Shim 文件
+### 2. 禁止删除 Shim 文件（Legacy v4）
 带 `DeprecationWarning` 的 shim 文件（约 37 个）是向后兼容层。
 - **不要**删除它们 — 其他模块可能还在导入
 - **不要**修改它们的导出列表 — 会破坏 `__all__` 契约
@@ -37,23 +59,25 @@
 
 ### 3. 禁止绕过门禁
 - 不要修改 `scripts/*_gate.sh` 门禁脚本
-- 不要修改 `tests/layer_import_rules` 层依赖规则
-- 不要在测试中使用 `@pytest.mark.skip` 跳过失败测试
+- 不要修改 `tests/layer_import_rules` 层依赖规则（v4）
+- 不要在测试中使用 `@pytest.mark.skip` / vitest skip 跳过失败测试
 - 不要注释掉或删除失败的测试断言
 
-### 4. 禁止修改契约接口
+### 4. 禁止修改契约接口（Legacy v4）
 `butler/contracts/` 下的 Port/Protocol 接口定义：
 - 不要修改方法签名（参数名、类型、返回值）
 - 不要删除已有方法
 - 不要修改 `__all__` 导出列表
 - 添加新方法可以，但必须同时添加测试
 
+v5 Port/Tag 接口：`butler-v5/packages/ports/src/index.ts`、`packages/domain/src/errors.ts` — 同规则，见 `butler-v5/AGENTS.md` §四。
+
 ### 5. 禁止通配符 import（G4）
-- 不要使用 `from X import *` — 会污染命名空间、隐藏依赖
-- 显式列出所有导入名：`from X import name1, name2`
+- 不要使用 `from X import *` / `import *` — 会污染命名空间、隐藏依赖
+- Python：显式列出所有导入名；TypeScript：显式 named import
 - PreToolUse hook 会自动检测并阻止
 
-### 6. 禁止删除或注释 `__all__`（G4）
+### 6. 禁止删除或注释 `__all__`（G4，Legacy v4 Python）
 - 不要用 `# __all__ = [...]` 注释掉模块的公共接口
 - 不要用 `del __all__` 删除导出列表
 - 修改 `__all__` 时只能**追加**新导出，不能删除已有导出
@@ -69,34 +93,44 @@
 
 ### 1. 修改前必读
 - 新会话前 30 秒：读 `.blackboard/state.md`；快照过期再读最近班次卡。交接见 `docs/plans/decisions/v5-engineering-handoff-2026-08.md`。
-- 按 `AGENTS.md` 必读表选读架构文档
-- **不要**用 `docs/history/` 或训练记忆推断实现
+- v5 代码：读 `butler-v5/AGENTS.md`；查调用链用 `docs/architecture/v5-production-architecture-2026-08.md`
+- 按根 `AGENTS.md` 必读表选读架构文档
+- **不要**用 `docs/history/` 或训练记忆推断 v5 实现
 
 ### 2. 修改后必跑
-修改任何 `butler/` 下的 `.py` 文件后，运行对应测试：
+
+**butler-v5/（主线，默认）**：
 ```bash
-# 快速验证（3-5 分钟）
-./scripts/butler-pytest-fast-gate.sh
+cd butler-v5 && pnpm test
+# 类型检查：cd butler-v5 && pnpm typecheck
+# PostToolUse 会自动映射 vitest 子集（见 v5-ai-guard-migration-checklist）
+```
 
-# 层依赖检查
-bash scripts/butler-layer-import-gate.sh
-
-# 按域运行
+**butler/（Legacy v4，仅改 v4 时）**：
+```bash
+./scripts/butler-pytest-fast-gate.sh          # 快速验证（3-5 分钟）
+bash scripts/butler-layer-import-gate.sh      # 层依赖检查
 bash scripts/butler-domain-pytest.sh gateway  # 或 core / memory / ops / dev_engine
 ```
 
 ### 3. 大文件拆分规则（G6）
 拆分超过 800 行的文件时（>1200 行 pre-commit 会阻止提交）：
-- 原文件改为 shim（保留 `__all__` + `DeprecationWarning`）
-- 子模块放在同名包目录下
-- **必须**同步更新 `pyproject.toml` 的 mypy strict 模块列表
+- v5 TypeScript：拆分为同目录子模块；改后 `pnpm test`
+- v4 Python：原文件改为 shim（保留 `__all__` + `DeprecationWarning`）；子模块放在同名包目录下
+- **必须**同步更新 `pyproject.toml` 的 mypy strict 模块列表（v4）
 - **必须**运行测试验证拆分后功能不变
-- **必须**在 `_phase_*` 或 `_dispatch_*` 等函数中保持 `loop._turn_tools`、`loop._tool_calls_count` 等状态同步
+- v4 拆分时**必须**在 `_phase_*` 或 `_dispatch_*` 等函数中保持 `loop._turn_tools`、`loop._tool_calls_count` 等状态同步
 - **必须**保持 shim 的 `__all__` 与包的 `__all__` 一致（G2 契约测试会验证）
 - 检查命令：`python3 scripts/ai_guard/file_size_check.py --ci`
 
 ### 4. 文档同步义务
-改 CC 线束、外部对标模块、四/五报告能力、ENG-15 层矩阵或新增 `BUTLER_*` 时，同步更新：
+
+**v5**：改生产路径、Policy/ScopedGrant、`BUTLER_V5_*`、MCP manifest 时同步：
+- `docs/architecture/v5-production-architecture-2026-08.md`
+- `butler-v5/.env.example`、`butler-v5/DESIGN.md`（目标架构变更时）
+- `docs/plans/decisions/v5-product-boundaries-2026-08.md`（边界变更时）
+
+**Legacy v4**：改 CC 线束、外部对标模块、四/五报告能力、ENG-15 层矩阵或新增 `BUTLER_*` 时同步：
 - `v4-architecture`、`v4-layer-model`
 - `config/reference`、`.env.example`
 - 对应 `*-capabilities` 文档
@@ -105,9 +139,9 @@ bash scripts/butler-domain-pytest.sh gateway  # 或 core / memory / ops / dev_en
 ## 推荐做法（SHOULD）
 
 ### 1. 使用子代理处理复杂任务
-- 搜索代码库用 `search` 子代理
-- 实现独立功能用 `general_purpose_task` 子代理
-- 浏览器测试用 `browser_use` 子代理
+- 搜索代码库用 `explore` 子代理
+- 实现独立功能用 `generalPurpose` 子代理
+- 浏览器测试用 `cursor-ide-browser` MCP
 
 ### 2. 先读后改
 - **不要**在不读文件的情况下提出修改建议
@@ -127,24 +161,30 @@ bash scripts/butler-domain-pytest.sh gateway  # 或 core / memory / ops / dev_en
 
 ## 常见陷阱
 
-### 1. 循环依赖
-WFXM 项目有 9 层架构（L1-L9），层间导入必须遵守 `v4-layer-model.md`。
+### 1. v5 生产 vs 脚手架
+- 生产路径：`butler-v5/cli + apps/api → packages/runtime → adapters/persistence`
+- `packages/application/_archive/`、`packages/infrastructure/_archive/` **未接线** — 不要用其单测声称能力已交付
+- 新副作用：Policy →（Ask 时 waiting_approval）→ ScopedGrant → Provider Boundary → Audit
+- 查 `BUTLER_V5_*`：先读 `butler-v5/.env.example`，勿猜默认值
+
+### 2. v5 包边界（FC/IS）
+- `domain` 不 import 任何项目包
+- `application` / `infrastructure` 未接入生产；改 Loop 看 `runtime` + `wechat-inbound-butler.ts`
+- 生产 schema 只认 `migrations/0001_initial.sql`（后续 migration 走 Owner 流程）
+
+### 3. Legacy v4 循环依赖
+WFXM v4 有 9 层架构（L1-L9），层间导入必须遵守 `v4-layer-model.md`。
 - L3（core）不能导入 L1（gateway）
 - L5（memory）不能导入 L3（core）的实现
 - 使用 `butler/contracts/` 中的 Port 接口解耦
 
-### 2. 状态同步
-`AgentLoop` 的 `_run_turn_body` 有多个状态需要在拆分时同步：
-- `state.iteration` — 每次循环开始时递增
-- `loop._turn_tools` — 工具选择后更新
-- `loop._tool_calls_count` — 工具调用后递增
+### 4. Legacy v4 状态同步
+`AgentLoop` 的 `_run_turn_body` 拆分时需同步：`state.iteration`、`loop._turn_tools`、`loop._tool_calls_count`
 
-### 3. Lazy Import
-项目中大量使用函数内 `import`（lazy import）避免循环依赖。
-- 不要将函数内 import 提到模块级别
-- 预算限制：`scripts/p3i-lazy-import-report.sh`（≤1910 个）
+### 5. Legacy v4 Lazy Import
+- 函数内 `import` 避免循环依赖；不要提到模块级别
+- 预算：`scripts/p3i-lazy-import-report.sh`（≤1910 个）
 
-### 4. 环境变量
-- 查 `BUTLER_*` 环境变量用 `docs/config/reference.md`（勿猜默认值）
-- 新增 `BUTLER_*` 时同步 `.env.example` 和 `reference.md`
+### 6. Legacy v4 环境变量
+- 查 `BUTLER_*`：`docs/config/reference.md`
 - 使用 `butler.utilities.env_parse` 的 `env_truthy` / `int_env` / `float_env`
