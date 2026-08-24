@@ -157,7 +157,7 @@ Project Knowledge **无 K2 在 active backlog**。
 | **运营** | 真机微信 PK | ✅ loopback smoke PASS（含 `wechat→WFXM` inject）；手机侧可选 |
 | **工程 P0** | AI guard / `.cursorrules` | ✅ 已收敛（`ef61a1fc`） |
 | **工程 P0** | 未接线包归档决策 | ✅ Owner 决策见 [`v5-unwired-packages-inventory-2026-08.md`](v5-unwired-packages-inventory-2026-08.md) §Owner 决策 |
-| **工程 P0** | `.claude/settings.json` Stop gate | ⏳ Owner 人工，见 [`v5-claude-settings-owner-actions-2026-08.md`](v5-claude-settings-owner-actions-2026-08.md) |
+| **工程 P0** | `.claude/settings.json` Stop gate | ✅ 软提醒（2026-08-24，见 [`v5-claude-settings-owner-actions-2026-08.md`](v5-claude-settings-owner-actions-2026-08.md)） |
 | **日历** | D1 删 `~/.butler/` | 📅 **2026-09-18** 后 Owner 再确认（见 [`v5-r10-handoff.md`](../../architecture/v5-r10-handoff.md) §8.1） |
 | **按需立项** | 新 MCP / Channel / Extension R&D | 各走边界 + 单独立项 |
 
