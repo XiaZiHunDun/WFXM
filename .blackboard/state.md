@@ -1,24 +1,23 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-24 20:32_
+_last_synced: 2026-08-25 09:45_
 _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md_
-_commit: 94c8f06b_
+_commit: 00e9407d_
 
 ## 主线
 
-D1 审计 P0 **#1+#2 Done**：Todoist spec 入仓 + audit 路径迁 `~/.config/butler-v5/`。见 [`v5-d1-butler-home-audit-2026-08-24.md`](docs/plans/active/v5-d1-butler-home-audit-2026-08-24.md)。
+D1 前置 **#1–#4 Done**：MCP spec + audit 路径迁移；v4 systemd 已停/disable；`~/.butler` 已 tar 备份。见 [`v5-d1-butler-home-audit-2026-08-24.md`](docs/plans/active/v5-d1-butler-home-audit-2026-08-24.md)。
 
 ## 下一步
 
-- gateway restart + Todoist MCP smoke（lst-projects）
-- **2026-09-11**：disable v4 systemd + tar 备份 `~/.butler`
-- **2026-09-18**：分块删 v4 子树（§7）
+- **2026-09-18 D1**：分块删 v4 子树（§7）；gateway restart + smoke
+- （可选）导出 `tenants/default/memory/` 只读归档
 
 ## 不要做
 
 - PK K2 / embedding / RAG Studio
-- 删 `~/.butler/`（备份前）
+- 删 `~/.butler/`（D1 日；备份在 `~/backup-butler-home-20260825.tgz`）
 
 ## 上一班
 
-- D1 P0：todoist yml → `butler-v5/config/openapi/`；manifest 相对路径 + resolve；audit 默认 `~/.config/butler-v5/audit/subagent.jsonl`。
+- stop/reset/disable v4 morning-brief（卡死 1 周）+ push-drain + b9；tar 88MB→12MB + sha256。

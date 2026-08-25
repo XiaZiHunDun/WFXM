@@ -106,16 +106,26 @@ apps/api/src/audit-service.ts → audit-log.ts
 
 **建议**：D1 前 `tar czf ~/backup-butler-home-20260918.tgz ~/.butler`，再按 §5 分步删除。
 
+**2026-08-25 备份**（提前完成）：
+
+| 文件 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `~/backup-butler-home-20260825.tgz` | 12 MB | `3b3caa7dd49de951d79fa7e9102b92b9026b13e13997fd33f5c867b6f1de19f0` |
+
+校验：`sha256sum -c ~/backup-butler-home-20260825.tgz.sha256`
+
 ---
 
 ## 5. systemd / 脚本（D1 前清理）
 
-| 单元 | 状态（2026-08-24） | 建议 |
+| 单元 | 状态（2026-08-25） | 建议 |
 | --- | --- | --- |
 | `butler-v5-gateway.service` | **active** | 保留 |
-| `butler-morning-brief.service` | activating/failed | v4 脚本；**disable timer** |
-| `butler-b9-weekly-gate.service` | failed | v4；**disable** |
-| `butler-push-drain.service` | failed | v4 出站；**disable** |
+| `butler-morning-brief.service` | **stopped**（原 activating 卡死已 kill） | ✅ disabled |
+| `butler-b9-weekly-gate.service` | **inactive**（failed 已 reset） | ✅ disabled |
+| `butler-push-drain.service` | **inactive**（failed 已 reset） | ✅ disabled |
+
+**2026-08-25 执行**：`systemctl --user stop` + `reset-failed` + `disable` 上述三 service + 对应 timer（timer 本就 disabled）。v5 gateway 未受影响。
 
 v4 相关 `scripts/butler-*-preflight.sh` 仍默认读 `~/.butler/mcp.yaml` / `secrets.yaml` — 删除后这些脚本仅用于考古，或改文档标 legacy。
 
@@ -136,8 +146,8 @@ v4 相关 `scripts/butler-*-preflight.sh` 仍默认读 `~/.butler/mcp.yaml` / `s
 T-7 日（2026-09-11）
   ☑ 完成 §3.1 manifest spec 迁入仓库
   ☑ 完成 §3.2 audit 路径迁移或停写决策
-  □ disable v4 systemd 单元
-  □ tar 备份 ~/.butler → ~/backup-butler-home-YYYYMMDD.tgz
+  ☑ disable v4 systemd 单元
+  ☑ tar 备份 ~/.butler → ~/backup-butler-home-20260825.tgz
 
 D1 日
   □ curl healthz + smoke-project-knowledge.mjs + 微信一句
@@ -159,8 +169,8 @@ T+1
 | --- | --- | --- | --- | --- |
 | 1 | Todoist OpenAPI spec 入仓 + manifest 改路径 | 30 min | **是** | ✅ 2026-08-24 |
 | 2 | audit JSONL 路径迁 `~/.config/butler-v5/` 或停写 | 1 h | **是** | ✅ 2026-08-24 |
-| 3 | disable v4 systemd（morning-brief / b9 / push-drain） | 15 min | 否 | ☐ |
-| 4 | 备份 tar + 记录 checksum | 15 min | 否 | ☐ |
+| 3 | disable v4 systemd（morning-brief / b9 / push-drain） | 15 min | 否 | ✅ 2026-08-25 |
+| 4 | 备份 tar + 记录 checksum | 15 min | 否 | ✅ 2026-08-25 |
 | 5 | （可选）导出 `tenants/default/memory/` 只读归档 | 30 min | 否 | ☐ |
 
 ---
