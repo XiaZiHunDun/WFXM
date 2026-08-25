@@ -21,6 +21,7 @@
     "smoke:allowlist-production": "node scripts/cutover/smoke-allowlist-production.mjs",
     "smoke:allowlist-pnpm": "node scripts/cutover/smoke-allowlist-production.mjs --pnpm",
     "smoke:allowlist-slirp": "node scripts/cutover/smoke-allowlist-production.mjs --slirp",
+    "smoke:mcp": "node scripts/cutover/smoke-mcp-hardened.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ci": "vitest run -- --reporter=verbose",

@@ -1,7 +1,8 @@
 # Butler v5 MCP 多 Server 生产接线 — 会话交接（2026-08-23）
 
-> **状态**：Accepted — commit `6c8d2ced`（2026-08-23）  
-> **上一班结论**：P3 MCP 契约 + 四 server 生产接线（markitdown / firecrawl / github / todoist）  
+> **状态**：Hardened — github 只读裁剪 + 微信 allowlist + Grant smoke（2026-08-25）  
+> **上一 commit（multi bootstrap）**：`6c8d2ced`（2026-08-23）  
+> **加固**：`b59651a2`（github trim + allowlist）；验收 `pnpm smoke:mcp`  
 > **工程规约**：[`../decisions/v5-engineering-handoff-2026-08.md`](../decisions/v5-engineering-handoff-2026-08.md)  
 > **P3 契约背景**：[`v5-p3-mcp-contract-issue-draft-2026-08.md`](v5-p3-mcp-contract-issue-draft-2026-08.md)（GitHub #3 Done）  
 > **生产事实**：[`../../architecture/v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md)
@@ -29,12 +30,13 @@
 | **Grant serverId 路由** | ✅ | approval / tool-boundary 按 capability 解析 |
 | 生产 env + gateway | ✅ | `butler-v5-gateway.service` 已重启验收 |
 
-### 生产 MCP 现状（2026-08-23 18:12）
+### 生产 MCP 现状（2026-08-25）
 
 ```
 mode: multi
-servers: markitdown(1) + firecrawl(3) + github(26) + todoist(4) = 34 tools
-activeGrants: 0（预期；调用仍走 Ask/审批）
+servers: markitdown(1) + firecrawl(3) + github(14 read-only) + todoist(4) = 22 tools
+wechat allowlist: BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH=config/wechat-tool-allowlist.json
+activeGrants: 0（常态；MCP 调用走 Ask → Owner approve → 单次 Grant）
 ```
 
 验收命令：
@@ -58,6 +60,9 @@ pnpm exec tsx cli/src/index.ts verify --api http://127.0.0.1:3000
 | Consent + serverId 解析 | `butler-v5/packages/runtime/src/mcp-consent.ts` |
 | Owner status（多 server） | `butler-v5/apps/api/src/owner-routes.ts` → `GET /v1/owner/mcp/status` |
 | **生产 manifest** | `butler-v5/config/mcp-manifest.json` |
+| **微信 MCP 白名单** | `butler-v5/config/wechat-tool-allowlist.json` |
+| **启用脚本** | `butler-v5/scripts/cutover/enable-mcp-prod.sh` |
+| **Smoke** | `butler-v5/scripts/cutover/smoke-mcp-hardened.mjs` |
 | MCP npm 包（workspace） | `butler-v5/package.json` devDeps：`firecrawl-mcp`, `@modelcontextprotocol/server-github`, `@ivotoby/openapi-mcp-server` |
 | 黑板快照 | `.blackboard/state.md` |
 
@@ -94,7 +99,7 @@ systemctl --user restart butler-v5-gateway.service
 | --- | --- | --- |
 | markitdown | `/home/ailearn/.local/bin/markitdown-mcp` | `convert_to_markdown` |
 | firecrawl | `butler-v5/node_modules/.bin/firecrawl-mcp` | scrape/crawl/map only |
-| github | `butler-v5/node_modules/.bin/mcp-server-github` | 全量 discover（26） |
+| github | `butler-v5/node_modules/.bin/mcp-server-github` | manifest `tools` 只读 14 项（search/get/list） |
 | todoist | `node_modules/.bin/openapi-mcp-server` + openapi spec | lst/get 只读 4 工具 |
 
 markitdown 用 `uv tool install markitdown-mcp` 预装；其余三者在 workspace `pnpm add -wD`。**勿用 npx 冷启动**（bootstrap 超时/并行失败）。
@@ -103,28 +108,32 @@ markitdown 用 `uv tool install markitdown-mcp` 预装；其余三者在 workspa
 
 ## 6. 推荐下一班步骤（按优先级）
 
-### A. 提交后验证（必做）
+### A. 日常回归（必做）
 
 ```bash
 cd butler-v5 && pnpm test
-pnpm test:p4-acceptance
+pnpm smoke:mcp                    # config + grant path（外部 API 502 时 grant 仍绿）
+pnpm smoke:mcp -- --skip-grant    # 仅 manifest/allowlist/status
 pnpm exec tsx cli/src/index.ts mcp status --api http://127.0.0.1:3000
 ```
 
-### B. 真调用验收（建议）
+生产 env 幂等启用：`scripts/cutover/enable-mcp-prod.sh`
 
-1. 微信或 CLI 触发需 MCP 的任务（如「用 Firecrawl 抓 example.com」）  
-2. Owner 审批 Grant → 确认 `activeGrants` 增加、`scope.mcp` 含正确 serverId/toolName  
-3. 执行成功后查 trace：`butler traces` 或 Owner traces API  
+### B. 真调用验收（Owner 点验）
+
+1. 微信触发 Todoist / Firecrawl 等 MCP 任务  
+2. 回复「确认」或 Owner API approve → 查 `grant.scope.mcp`  
+3. Todoist 502 时查 `~/.config/butler-v5/env` 中 `TODOIST_API_TOKEN` / `API_HEADERS`  
+4. `butler traces` 或 Owner traces API  
 
 ### C. 可选产品向
 
 | 选项 | 说明 |
 | --- | --- |
-| **Project Knowledge** | 需 Owner 单独立项，不在 P3/P4 MVP |
-| **MCP 工具白名单** | 微信 Loop 侧按 project 过滤 34 工具中的子集 |
-| **github 工具裁剪** | manifest `tools` 数组限只读工具，降低暴露面 |
-| **读模型收敛** | `BUTLER_V5_READ_MODEL=relational` 已是默认，无需改 env |
+| **Project Knowledge** | 需 Owner 单独立项 |
+| **按 project 缩 MCP 子集** | 编辑 `config/wechat-tool-allowlist.json` |
+| **github 再裁剪** | 编辑 manifest `github.tools` |
+| **MCP 出网 allowlist** | approve 时传 `networkAllowlist`（Firecrawl 等） |
 
 ### D. 明确不做
 
@@ -159,4 +168,4 @@ pnpm exec tsx cli/src/index.ts verify --api http://127.0.0.1:3000
 
 ## 9. 上一班一句话
 
-P3 MCP 已生产启用四 server（34 工具）；multi-bootstrap + manifest 已落地；下一班优先真调用 Grant 验收或 Project Knowledge 立项。
+MCP hardened：github 14 只读工具、微信 allowlist 生产启用、`pnpm smoke:mcp` Grant 路径验收。

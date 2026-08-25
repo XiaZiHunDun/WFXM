@@ -1,25 +1,24 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-25 17:00_
-_handoff: docs/plans/active/v5-post-boundary-roadmap-2026-08.md_
-_commit: bd801b7a_
+_last_synced: 2026-08-25 17:05_
+_handoff: docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md_
+_commit: (pending)_
 
 ## 主线
 
-**D1 Done** — `~/.butler/` 已于 2026-08-25 删除；删除前后 smoke PASS；微信真机点验 PASS；保留决策 EXECUTED。
+**MCP Hardened** — github 14 只读工具；微信 allowlist 生产启用；`pnpm smoke:mcp` Grant 路径 PASS。
 
 ## 下一步
 
-- post-D1 开发：[`v5-post-boundary-roadmap-2026-08.md`](docs/plans/active/v5-post-boundary-roadmap-2026-08.md) P1+
-- 跟进立项：[`v5-followon-projects-2026-08-20.md`](docs/plans/active/v5-followon-projects-2026-08-20.md)（均 done）
-- PK / MCP 按需：[`v5-project-knowledge-handoff-2026-08.md`](docs/plans/active/v5-project-knowledge-handoff-2026-08.md)、[`v5-mcp-multi-server-handoff-2026-08.md`](docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md)
+- post-D1 / 按需：[`v5-post-boundary-roadmap-2026-08.md`](docs/plans/active/v5-post-boundary-roadmap-2026-08.md) P1+ 余量
+- PK 运营：[`v5-project-knowledge-handoff-2026-08.md`](docs/plans/active/v5-project-knowledge-handoff-2026-08.md) 扩 sources / 灵文 map
+- Todoist MCP 502：查 `~/.config/butler-v5/env` 中 `TODOIST_API_TOKEN` / `API_HEADERS`
 
 ## 不要做
 
-- 删 `~/.config/butler-v5/`、`WFXM/.butler/`、`butler-v5/.butler/`
-- 删备份：`~/backup-butler-home-20260825.tgz`、`~/backup-butler-v4-memory-20260825.tgz`
-- 未经立项做 PK K2 / embedding
+- 删备份 tgz / `~/.config/butler-v5/`
+- 未经立项 PK K2 / embedding / 浏览器 MCP
 
 ## 上一班
 
-- D1 文档卫生：清掉 2026-09-18 过期引用（AGENTS、r10-handoff、PK/followons/remaining-work 等）。
+- MCP 加固：smoke + 测试 + enable-mcp-prod.sh；交接文档更新。
