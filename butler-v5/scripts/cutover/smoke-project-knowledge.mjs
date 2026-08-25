@@ -107,6 +107,29 @@ async function main() {
   }
   console.log(`smoke ok [wechat→WFXM inject]: toolCalls=${wechatRes.meta?.toolCalls ?? "?"}`)
 
+  // LingWen1 inbound map → LingWen PK (requires BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP)
+  const lwList = await fetch(
+    `${base}/v1/owner/project-knowledge?projectId=${encodeURIComponent("LingWen")}`,
+  )
+  const lwText = await lwList.text()
+  if (!lwList.ok) fail("project-knowledge/LingWen", `${lwList.status} ${lwText}`)
+  const lwBody = JSON.parse(lwText)
+  const lwCount = (lwBody.items ?? []).length
+  if (lwCount < 5) {
+    fail("project-knowledge/LingWen", `expected >=5 LingWen items, got ${lwCount}`)
+  }
+  console.log(`smoke ok [project-knowledge/LingWen]: ${lwCount} items`)
+
+  const lwQ =
+    "灵文1号当前默认是维护态还是新书态？只回答「维护态」或「新书态」之一；可参考项目知识 dual-playbook。"
+  const lwRes = await postInbound(lwQ, `pk-smoke-lingwen-${Date.now()}`, "LingWen1")
+  assertInjectTraces(lwRes.meta, "LingWen1/inject/traces")
+  const lwReply = String(lwRes.reply ?? "")
+  if (!/维护态/.test(lwReply)) {
+    fail("LingWen1/inject/reply", `expected 维护态 via LingWen1→LingWen map, got: ${lwReply.slice(0, 400)}`)
+  }
+  console.log(`smoke ok [LingWen1→LingWen inject]: toolCalls=${lwRes.meta?.toolCalls ?? "?"}`)
+
   console.log("smoke PASS")
 }
 

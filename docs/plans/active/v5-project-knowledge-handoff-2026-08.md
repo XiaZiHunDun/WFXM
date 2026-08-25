@@ -153,7 +153,7 @@ Project Knowledge **无 K2 在 active backlog**。
 
 | 优先级 | 方向 | 状态（2026-08-25） |
 | --- | --- | --- |
-| **运营** | 扩 sources / 灵文1号 | ✅ WFXM +5 globs；`LingWen` 10 globs + sync |
+| **运营** | 扩 sources / 灵文1号 | ✅ WFXM +D1/blackboard；LingWen +5 refs；inbound map 三线 |
 | **运营** | 真机微信 PK | ✅ loopback smoke + 真机点验 PASS |
 | **工程 P0** | AI guard / `.cursorrules` | ✅ 已收敛（`ef61a1fc`） |
 | **工程 P0** | 未接线包归档决策 | ✅ Owner 决策见 [`v5-unwired-packages-inventory-2026-08.md`](v5-unwired-packages-inventory-2026-08.md) §Owner 决策 |
@@ -161,10 +161,11 @@ Project Knowledge **无 K2 在 active backlog**。
 | **日历** | D1 删 `~/.butler/` | ✅ **2026-08-25 EXECUTED** |
 | **按需立项** | 新 MCP / Channel / Extension R&D | 各走边界 + 单独立项 |
 
-**projectId 映射（生产）**：
+**projectId 映射（生产，2026-08-25）**：
 
-- ilink 入站默认 `projectId=wechat` → PK inject/recall 默认映射 **`WFXM`**（`BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP=wechat:WFXM`）
-- sources manifest 中灵文语料 key 为 **`LingWen`**；v5 微信项目切换未接线前，灵文 PK 仅 loopback `projectId=LingWen` 或扩展 map（如 `灵文1号:LingWen`）后生效
+- ilink 入站默认 `projectId=wechat` → PK **`WFXM`**（`wechat:WFXM`）
+- loopback / 未来切换：`LingWen1` 或 `灵文1号` → PK **`LingWen`**
+- env：`BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP=wechat:WFXM,LingWen1:LingWen,灵文1号:LingWen`（`enable-project-knowledge-prod.sh`）
 
 **明确不立项**：Web UI、Playwright 浏览器、RAG Studio（见产品边界 Owner 记录）。
 

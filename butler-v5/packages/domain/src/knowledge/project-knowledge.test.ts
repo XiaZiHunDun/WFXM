@@ -16,11 +16,12 @@ describe("project knowledge", () => {
   })
 
   it("honours BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP override", () => {
-    expect(
-      resolveProjectKnowledgeInboundProjectId("wechat", {
-        BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP: "wechat:LingWen",
-      }),
-    ).toBe("LingWen")
+    const env = {
+      BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP: "wechat:WFXM,LingWen1:LingWen,灵文1号:LingWen",
+    }
+    expect(resolveProjectKnowledgeInboundProjectId("wechat", env)).toBe("WFXM")
+    expect(resolveProjectKnowledgeInboundProjectId("LingWen1", env)).toBe("LingWen")
+    expect(resolveProjectKnowledgeInboundProjectId("灵文1号", env)).toBe("LingWen")
   })
 
   it("creates a manual note record", () => {

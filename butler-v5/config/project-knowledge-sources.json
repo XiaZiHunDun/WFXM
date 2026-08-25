@@ -11,12 +11,17 @@
         "docs/architecture/v5-r10-handoff.md",
         "docs/plans/active/v5-project-knowledge-proposal-2026-08.md",
         "docs/plans/active/v5-project-knowledge-handoff-2026-08.md",
-        "docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md",
-        "docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md",
+      "docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md",
+      "docs/plans/active/v5-d1-execution-handoff-2026-08-25.md",
+      "docs/plans/active/v5-d1-butler-home-audit-2026-08-24.md",
+      "docs/plans/decisions/v4-butler-home-retention-2026-08-20.md",
+      "docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md",
         "docs/plans/active/v5-unwired-packages-inventory-2026-08.md",
         "docs/plans/active/v5-post-boundary-roadmap-2026-08.md",
-        "butler-v5/config/wechat-tool-allowlist.json",
-        "butler-v5/config/mcp-manifest.json"
+      "butler-v5/config/wechat-tool-allowlist.json",
+      "butler-v5/config/mcp-manifest.json",
+      ".blackboard/state.md",
+      "AGENTS.md"
       ],
       "markitdownGlobs": [
         "tests/fixtures/ext5/*.pdf",
@@ -34,7 +39,12 @@
         "projects/LingWen1/skills/lingwen-project-lead.md",
         "projects/LingWen1/novel-factory/references/00-index.md",
         "projects/LingWen1/novel-factory/references/01-world-and-power-system.md",
-        "projects/LingWen1/novel-factory/references/02-character-bible.md"
+        "projects/LingWen1/novel-factory/references/02-character-bible.md",
+        "projects/LingWen1/novel-factory/references/03-plot-timeline-foreshadowing.md",
+        "projects/LingWen1/novel-factory/references/04-writing-craft-checklist.md",
+        "projects/LingWen1/novel-factory/references/05-consistency-rules.md",
+        "projects/LingWen1/docs/pilot-setup.md",
+        "projects/LingWen1/docs/wechat-smoke.md"
       ],
       "markitdownGlobs": []
     }
