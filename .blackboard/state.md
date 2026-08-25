@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-25 17:00_
 _handoff: docs/plans/active/v5-post-boundary-roadmap-2026-08.md_
-_commit: (pending doc sync commit)_
+_commit: bd801b7a_
 
 ## 主线
 
