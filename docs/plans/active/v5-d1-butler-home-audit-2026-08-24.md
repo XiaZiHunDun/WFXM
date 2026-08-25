@@ -138,6 +138,15 @@ v4 相关 `scripts/butler-*-preflight.sh` 仍默认读 `~/.butler/mcp.yaml` / `s
 - D1 含义：删除 `~/.butler` **不丢 v5 已迁移数据**（已在 Postgres）；仅丢 v4 历史会话/记忆文件副本。
 - 若 Owner 要保留 v4 memory 文本：D1 前从 `tenants/default/memory/` 导出归档，**非**跑 stub migration。
 
+**2026-08-25 归档**（#5 Done）：
+
+| 文件 | 大小 | 内容 |
+| --- | ---: | --- |
+| `~/backup-butler-v4-memory-20260825.tgz` | 694 KB | raw SQLite + profile；exports JSON/SQL（16 experiences，82 vectors） |
+| SHA256 | — | `ac9a5287b548859c3c3bbc596192fcbadf18f559c536f6d586f7f645f75e13de` |
+
+校验：`sha256sum -c ~/backup-butler-v4-memory-20260825.tgz.sha256`。解压目录含 `README.md`。
+
 ---
 
 ## 7. D1 当天建议流程（2026-09-18 后）
