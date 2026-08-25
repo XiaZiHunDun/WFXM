@@ -1,23 +1,24 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-25 09:48_
-_handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md_
-_commit: de1d634d_
+_last_synced: 2026-08-25 09:50_
+_handoff: docs/plans/active/v5-d1-execution-handoff-2026-08-25.md_
+_commit: 4125fcf2_
 
 ## 主线
 
-D1 前置 **#1–#5 全部 Done**。见 [`v5-d1-butler-home-audit-2026-08-24.md`](docs/plans/active/v5-d1-butler-home-audit-2026-08-24.md)。
+D1 prep **#1–#5 Done**；Owner **提前到今天** 执行 `~/.butler/` 删除。下一班读交接文档执行 §4。
 
 ## 下一步
 
-- **2026-09-18 D1**：按 §7 分块删 v4 子树 + smoke
-- 备份清单：`~/backup-butler-home-20260825.tgz` + `~/backup-butler-v4-memory-20260825.tgz`
+- **新会话**：[`v5-d1-execution-handoff-2026-08-25.md`](docs/plans/active/v5-d1-execution-handoff-2026-08-25.md) §4（smoke → 分块删 → smoke → 文档）
+- 备份勿删：`~/backup-butler-home-20260825.tgz` + `~/backup-butler-v4-memory-20260825.tgz`
 
 ## 不要做
 
-- PK K2 / embedding / RAG Studio
-- 删 `~/.butler/`（D1 日）
+- 重复 prep #1–#5
+- 删 `~/.config/butler-v5/`、`WFXM/.butler/`、`butler-v5/.butler/`
+- PK K2 / embedding
 
 ## 上一班
 
-- v4 memory 只读归档（16 exp / 82 vec）；D1 prep backlog 清零，等 9/18。
+- 写 D1 执行交接；prep 清零；gateway active；备份 sha256 已验。

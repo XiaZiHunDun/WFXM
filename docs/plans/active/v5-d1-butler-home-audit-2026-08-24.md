@@ -1,8 +1,8 @@
 # D1 审计：`~/.butler/` 删除准备（2026-08-24）
 
-> **状态**：Active（只读审计）  
+> **状态**：Active（prep Done；**执行交接** [`v5-d1-execution-handoff-2026-08-25.md`](v5-d1-execution-handoff-2026-08-25.md)）  
 > **决策 SSOT**：[`v4-butler-home-retention-2026-08-20.md`](../decisions/v4-butler-home-retention-2026-08-20.md)  
-> **日历**：**2026-09-18** 后 Owner 再确认是否删除  
+> **日历**：原 **2026-09-18**；Owner **2026-08-25 提前执行**（见执行交接）  
 > **生产事实**：v5 gateway active；`BUTLER_V5_DB=postgres`；v4 gateway **未**运行
 
 ---
