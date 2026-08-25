@@ -171,7 +171,7 @@ T+1
 | 2 | audit JSONL 路径迁 `~/.config/butler-v5/` 或停写 | 1 h | **是** | ✅ 2026-08-24 |
 | 3 | disable v4 systemd（morning-brief / b9 / push-drain） | 15 min | 否 | ✅ 2026-08-25 |
 | 4 | 备份 tar + 记录 checksum | 15 min | 否 | ✅ 2026-08-25 |
-| 5 | （可选）导出 `tenants/default/memory/` 只读归档 | 30 min | 否 | ☐ |
+| 5 | （可选）导出 `tenants/default/memory/` 只读归档 | 30 min | 否 | ✅ 2026-08-25 |
 
 ---
 
