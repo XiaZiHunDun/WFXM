@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-25 17:05_
 _handoff: docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md_
-_commit: (pending)_
+_commit: 59d2274c_
 
 ## 主线
 
