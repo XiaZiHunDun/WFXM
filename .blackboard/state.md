@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-25 17:10_
 _handoff: docs/plans/active/v5-project-knowledge-handoff-2026-08.md_
-_commit: (pending)_
+_commit: ffcc172b_
 
 ## 主线
 
