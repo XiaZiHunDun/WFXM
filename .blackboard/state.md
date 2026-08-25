@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-25 10:05_
 _handoff: docs/plans/active/v5-post-boundary-roadmap-2026-08.md_
-_commit: 1166f4ae_
+_commit: cecb8b51_
 
 ## 主线
 
