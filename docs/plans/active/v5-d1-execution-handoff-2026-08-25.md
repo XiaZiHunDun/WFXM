@@ -1,6 +1,6 @@
 # D1 执行交接：删除 `~/.butler/`（2026-08-25）
 
-> **状态**：Active — **Owner 决定提前执行**（原日历 2026-09-18）  
+> **状态**：EXECUTED（2026-08-25）— Owner 提前执行（原日历 2026-09-18）  
 > **前置审计 SSOT**：[`v5-d1-butler-home-audit-2026-08-24.md`](v5-d1-butler-home-audit-2026-08-24.md)  
 > **保留决策 SSOT**：[`v4-butler-home-retention-2026-08-20.md`](../decisions/v4-butler-home-retention-2026-08-20.md)  
 > **新会话开篇**：读本文件 → `.blackboard/state.md` → 按 §4 执行

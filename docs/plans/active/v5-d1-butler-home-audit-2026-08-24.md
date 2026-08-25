@@ -1,6 +1,6 @@
 # D1 审计：`~/.butler/` 删除准备（2026-08-24）
 
-> **状态**：Active（prep Done；**执行交接** [`v5-d1-execution-handoff-2026-08-25.md`](v5-d1-execution-handoff-2026-08-25.md)）  
+> **状态**：EXECUTED（2026-08-25；prep + D1 删除均完成）  
 > **决策 SSOT**：[`v4-butler-home-retention-2026-08-20.md`](../decisions/v4-butler-home-retention-2026-08-20.md)  
 > **日历**：原 **2026-09-18**；Owner **2026-08-25 提前执行**（见执行交接）  
 > **生产事实**：v5 gateway active；`BUTLER_V5_DB=postgres`；v4 gateway **未**运行
@@ -158,16 +158,16 @@ T-7 日（2026-09-11）
   ☑ disable v4 systemd 单元
   ☑ tar 备份 ~/.butler → ~/backup-butler-home-20260825.tgz
 
-D1 日
-  □ curl healthz + smoke-project-knowledge.mjs + 微信一句
-  □ 确认 Todoist MCP 仍绿（lst-projects）
-  □ rm -rf ~/.butler/tenants ~/.butler/sessions ~/.butler/runtime …（分块删 v4 子树）
-  □ 保留直至确认无用：openapi/、audit/（若未迁移）
-  □ 最终：若 §3 已完成 → rm -rf ~/.butler
+D1 日（2026-08-25 执行）
+  ☑ curl healthz + smoke-project-knowledge.mjs + 微信一句（微信真机 Owner 点验）
+  ☑ 确认 Todoist MCP 仍绿（gateway 日志无 openapi 路径错误）
+  ☑ rm -rf ~/.butler/tenants ~/.butler/sessions ~/.butler/runtime …（分块删 v4 子树）
+  ☑ openapi/、audit/ 已删（§3 已迁移）
+  ☑ 最终：rm -rf ~/.butler（目录已不存在）
 
-T+1
-  □ gateway restart + 同上 smoke
-  □ 更新 v4-butler-home-retention 决策为 EXECUTED
+T+1（同日完成）
+  ☑ gateway restart + 同上 smoke PASS
+  ☑ 更新 v4-butler-home-retention 决策为 EXECUTED
 ```
 
 ---
