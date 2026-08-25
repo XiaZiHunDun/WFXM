@@ -9,7 +9,9 @@
 
 ## 1. 结论（TL;DR）
 
-**不能在 2026-09-18 无准备地「整目录删除 `~/.butler/`」。**
+> **2026-08-25 更新**：D1 已执行 — `~/.butler/` 已删除；见 [`v5-d1-execution-handoff-2026-08-25.md`](v5-d1-execution-handoff-2026-08-25.md)。
+
+**审计时点结论（2026-08-24）**：不能在无准备情况下「整目录删除 `~/.butler/`」。
 
 v5 生产曾 **硬依赖** `~/.butler/` 中 2 项；**2026-08-24 已迁移入仓/迁路径**（见 §3）：
 
@@ -149,7 +151,7 @@ v4 相关 `scripts/butler-*-preflight.sh` 仍默认读 `~/.butler/mcp.yaml` / `s
 
 ---
 
-## 7. D1 当天建议流程（2026-09-18 后）
+## 7. D1 当天建议流程（2026-08-25 执行；原日历 2026-09-18）
 
 ```text
 T-7 日（2026-09-11）
@@ -187,5 +189,5 @@ T+1（同日完成）
 ## 9. 相关链接
 
 - 保留决策：[`v4-butler-home-retention-2026-08-20.md`](../decisions/v4-butler-home-retention-2026-08-20.md)
-- 未接线包（migration 保留至 D1）：[`v5-unwired-packages-inventory-2026-08.md`](v5-unwired-packages-inventory-2026-08.md)
+- 未接线包（`migration/v4-to-v5` 保留决策）：[`v5-unwired-packages-inventory-2026-08.md`](v5-unwired-packages-inventory-2026-08.md)
 - 备份脚本：[`scripts/backup-butler-data.sh`](../../../scripts/backup-butler-data.sh)

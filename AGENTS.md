@@ -25,7 +25,7 @@
 - 生产数据库 schema 只认 `packages/persistence/src/migrations/0001_initial.sql`。
 - 新入口归一化为 Run Trigger；新副作用必须经过 Policy →（Ask 时 waiting_approval）→（需要时 ScopedGrant）→ Provider Boundary → Audit。模型调用不走副作用咽喉。
 - MCP、浏览器、UI、多 Channel、调度是**条件准入**，不是默认能力，也不是整类否决。
-- 不要删除 `~/.butler/`，直到 2026-09-18 后 Owner 重新确认 D1。
+- **D1 已执行（2026-08-25）**：`~/.butler/` 已删除；回滚见 `~/backup-butler-home-20260825.tgz`。勿删 `~/.config/butler-v5/` 与备份 tgz。
 
 ## AI 保护迁移说明
 

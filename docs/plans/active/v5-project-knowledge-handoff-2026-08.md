@@ -143,7 +143,7 @@ pnpm exec vitest run \
 - **Agent 写 ingest 工具**（`ingest_project_file`）— 立项未做；写仍走 Owner API
 - **把 Run 压缩摘要写入 PK**
 - 从 v4 `search_project_knowledge` **机械移植**
-- 删除 `~/.butler/` — **D1 日历 2026-09-18 前 Owner 再确认**（见 [`v5-r10-handoff.md`](../../architecture/v5-r10-handoff.md) §8.1）
+- ~~删除 `~/.butler/`~~ — **D1 EXECUTED 2026-08-25**（目录已不存在；勿删备份 tgz）
 
 ---
 
@@ -151,14 +151,14 @@ pnpm exec vitest run \
 
 Project Knowledge **无 K2 在 active backlog**。
 
-| 优先级 | 方向 | 状态（2026-08-24） |
+| 优先级 | 方向 | 状态（2026-08-25） |
 | --- | --- | --- |
 | **运营** | 扩 sources / 灵文1号 | ✅ WFXM +5 globs；`LingWen` 10 globs + sync |
-| **运营** | 真机微信 PK | ✅ loopback smoke PASS（含 `wechat→WFXM` inject）；手机侧可选 |
+| **运营** | 真机微信 PK | ✅ loopback smoke + 真机点验 PASS |
 | **工程 P0** | AI guard / `.cursorrules` | ✅ 已收敛（`ef61a1fc`） |
 | **工程 P0** | 未接线包归档决策 | ✅ Owner 决策见 [`v5-unwired-packages-inventory-2026-08.md`](v5-unwired-packages-inventory-2026-08.md) §Owner 决策 |
 | **工程 P0** | `.claude/settings.json` Stop gate | ✅ 软提醒（2026-08-24，见 [`v5-claude-settings-owner-actions-2026-08.md`](v5-claude-settings-owner-actions-2026-08.md)） |
-| **日历** | D1 删 `~/.butler/` | 📅 **2026-09-18** 后 Owner 再确认（见 [`v5-r10-handoff.md`](../../architecture/v5-r10-handoff.md) §8.1） |
+| **日历** | D1 删 `~/.butler/` | ✅ **2026-08-25 EXECUTED** |
 | **按需立项** | 新 MCP / Channel / Extension R&D | 各走边界 + 单独立项 |
 
 **projectId 映射（生产）**：

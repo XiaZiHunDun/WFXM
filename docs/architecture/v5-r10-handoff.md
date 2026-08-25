@@ -18,7 +18,7 @@ If reading with no other context: scroll to **Where to Start** at the bottom.
 - **Architecture SSOT:** [`v5-production-architecture-2026-08.md`](v5-production-architecture-2026-08.md).
 - **Boundary SSOT:** [`v5-product-boundaries-2026-08.md`](../plans/decisions/v5-product-boundaries-2026-08.md).
 - **Real WeChat e2e verified:** subagent→WS push flow live-tested via `ws-subagent-push-e2e.mjs` (commit `38f69120`).
-- **Next work:** P0–P4 follow [`v5-post-boundary-roadmap-2026-08.md`](../plans/active/v5-post-boundary-roadmap-2026-08.md). D1 remains deferred until 2026-09-18.
+- **Next work:** P0–P4 follow [`v5-post-boundary-roadmap-2026-08.md`](../plans/active/v5-post-boundary-roadmap-2026-08.md). **D1 executed 2026-08-25** (`~/.butler/` deleted; see [`v4-butler-home-retention-2026-08-20.md`](../plans/decisions/v4-butler-home-retention-2026-08-20.md)).
 
 ---
 
@@ -248,11 +248,14 @@ bash scripts/typecheck-gate.sh   # PASS
 
 ## 8. Next Development Work
 
-### 8.1 v4 data retention — **D1 decided 2026-08-20**
+### 8.1 v4 data retention — **D1 EXECUTED 2026-08-25**
 
-Owner chose **observe until 2026-09-18, then delete** `~/.butler/`.
-Do not delete before that date. Decision doc:
-[`docs/plans/decisions/v4-butler-home-retention-2026-08-20.md`](../plans/decisions/v4-butler-home-retention-2026-08-20.md).
+Owner originally chose observe until 2026-09-18; **executed early on 2026-08-25** after prep + smoke.
+`~/.butler/` no longer exists on this host. Decision + execution record:
+[`docs/plans/decisions/v4-butler-home-retention-2026-08-20.md`](../plans/decisions/v4-butler-home-retention-2026-08-20.md),
+[`docs/plans/active/v5-d1-execution-handoff-2026-08-25.md`](../plans/active/v5-d1-execution-handoff-2026-08-25.md).
+
+Rollback (if ever needed): `~/backup-butler-home-20260825.tgz`. Do **not** delete backup archives casually.
 
 `butler/` source remains in git history.
 
@@ -293,7 +296,7 @@ Without preflight, gateway starts but `run_command` fail-closes when `bwrap` is 
 ### 8.3 v4 source migration (long-term)
 
 - v4 butler-gateway code in `butler/` (Python) — preserved as git history; v5 in `butler-v5/` (TypeScript) is sole production
-- v4 runtime state in `~/.butler/` — **D1**: keep until 2026-09-18, then delete (see 8.1)
+- v4 runtime state in `~/.butler/` — **D1 EXECUTED 2026-08-25** (deleted; backup at `~/backup-butler-home-20260825.tgz`; see §8.1)
 
 ### 8.4 Remaining development plan
 
@@ -304,7 +307,7 @@ See [`v5-post-boundary-roadmap-2026-08.md`](../plans/active/v5-post-boundary-roa
 3. **P2:** execution and network sandbox.
 4. **P3:** governed MCP/Channel/local control-plane substrate.
 5. **P4:** separately approved browser, heartbeat, tracing and ingest candidates.
-6. **Calendar:** reconsider deletion of `~/.butler/` after 2026-09-18 (D1).
+6. ~~**Calendar:** deletion of `~/.butler/` (D1)~~ — **done 2026-08-25**.
 
 ---
 
@@ -369,6 +372,6 @@ If starting fresh with this document:
 
 ## 11. TL;DR for Cursor (final)
 
-**Butler v5 is the production mainline.** Closed R8.x work remains done. The next phase is boundary-driven convergence: facts/schema, durable approval/lease, then sandboxed extensions. D1: don't touch `~/.butler/` until 2026-09-18.
+**Butler v5 is the production mainline.** Closed R8.x work remains done. The next phase is boundary-driven convergence: facts/schema, durable approval/lease, then sandboxed extensions. D1 (`~/.butler/` cleanup) **executed 2026-08-25**.
 
 Good luck. May the butler loop serve you well.

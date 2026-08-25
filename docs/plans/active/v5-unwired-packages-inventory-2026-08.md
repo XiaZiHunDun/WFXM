@@ -72,9 +72,9 @@ MCP、Slack/Telegram、iLink、bubblewrap、Channel API — 见 [`v5-production-
 | 项 | 决策 |
 | --- | --- |
 | `@butler/application` 归档模块 | **保留** `_archive/`，不删 git 历史 |
-| `@butler/infrastructure` 归档模块 | **保留** `_archive/`；`migration/v4-to-v5` **保留至 D1**（2026-09-18） |
+| `@butler/infrastructure` 归档模块 | **保留** `_archive/`；`migration/v4-to-v5` 仍保留（D1 已执行；Owner 复核是否仍需要） |
 | `layers.ts` Effect 示例 | **保留**，无生产消费者，不接线 |
 | P3 接缝（RunTrigger / MCP manifest / consent） | **保留** opt-in 草案，不强行接入生产 |
 | 彻底删除未接线包 | **否决**（2026-08-24）；待 v5 多季度稳定后再议 |
 
-下一动作：D1 后 Owner 复核 `~/.butler/` 与 `migration/v4-to-v5` 是否仍需要。
+下一动作：Owner 复核 `migration/v4-to-v5` stub 是否仍需要（`~/.butler/` 已于 D1 删除）。
