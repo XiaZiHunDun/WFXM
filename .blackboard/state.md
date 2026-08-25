@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-25 09:50_
 _handoff: docs/plans/active/v5-d1-execution-handoff-2026-08-25.md_
-_commit: 4125fcf2_
+_commit: c0f2d8cc_
 
 ## 主线
 
