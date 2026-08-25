@@ -2,7 +2,7 @@
 
 _last_synced: 2026-08-25 09:45_
 _handoff: docs/plans/decisions/v5-engineering-handoff-2026-08.md_
-_commit: 00e9407d_
+_commit: 376412f0_
 
 ## 主线
 
@@ -10,7 +10,8 @@ D1 前置 **#1–#4 Done**：MCP spec + audit 路径迁移；v4 systemd 已停/d
 
 ## 下一步
 
-- **2026-09-18 D1**：分块删 v4 子树（§7）；gateway restart + smoke
+- **2026-09-18 D1**：分块删 v4 子树（§7）；smoke 点验
+- gateway **已 restart**（Todoist MCP 新 spec 路径已生效）
 - （可选）导出 `tenants/default/memory/` 只读归档
 
 ## 不要做
