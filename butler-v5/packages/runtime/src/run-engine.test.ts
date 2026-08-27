@@ -6,6 +6,7 @@ import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { runs } from "@butler/persistence/schema.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { createWaitingApprovalStep } from "./approval-runtime.js"
+import { fixedClock } from "@butler/ports/core/clock.js"
 import { ActiveMainRunConflict, InvalidRunTriggerError, RunEngine } from "./run-engine.js"
 
 describe("RunEngine", () => {
@@ -444,6 +445,33 @@ describe("RunEngine", () => {
           async (ctx) => ctx,
         ),
       ).rejects.toBeInstanceOf(ActiveMainRunConflict)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("uses injected ClockPort for business timestamps", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const t0 = new Date("2026-01-01T00:00:00Z")
+    const engine = new RunEngine(store, undefined, fixedClock(t0))
+    try {
+      const conversationId = crypto.randomUUID()
+      const result = await engine.executeInbound(
+        {
+          conversationId,
+          messageId: crypto.randomUUID(),
+          subject: "owner-1",
+          content: "hello",
+          idempotencyKey: "clock-1",
+        },
+        async (ctx) => ctx,
+      )
+      const messages = await store.listMessages(conversationId)
+      expect(messages).toHaveLength(1)
+      expect(new Date(messages[0].createdAt).getTime()).toBe(t0.getTime())
+      const run = await store.getRun(result.runId)
+      expect(run?.createdAt.getTime()).toBe(t0.getTime())
     } finally {
       await db.close()
     }

@@ -10,6 +10,7 @@ import {
   type WorkingSetMode,
 } from "./working-set-budget.js"
 import { getSharedLocalTracer } from "./observability/local-tracer.js"
+import { systemClock, type ClockPort } from "@butler/ports/core/clock.js"
 
 export class RunPauseForApproval extends Error {
   constructor(public readonly payload: unknown) {
@@ -93,6 +94,7 @@ export class RunEngine {
   constructor(
     private readonly store: RuntimeStore,
     coordinator?: RunCoordinator,
+    private readonly clock: ClockPort = systemClock,
   ) {
     this.coordinator = coordinator ?? new RunCoordinator()
   }
@@ -125,7 +127,7 @@ export class RunEngine {
         throw new ActiveMainRunConflict(input.conversationId, existing)
       }
 
-      const createdAt = new Date()
+      const createdAt = this.clock.now()
       const triggerSource = input.trigger?.source ?? input.triggerSource ?? "channel"
       const subject = input.trigger?.subject ?? input.subject
       const messageIdempotencyKey = input.trigger?.idempotencyKey ?? input.idempotencyKey
@@ -214,7 +216,7 @@ export class RunEngine {
     existing: StoredRun,
     runBody: (ctx: RunEngineContext) => Promise<T>,
   ): Promise<T> {
-    const createdAt = new Date()
+    const createdAt = this.clock.now()
     const triggerSource = input.trigger?.source ?? input.triggerSource ?? "channel"
     const subject = input.trigger?.subject ?? input.subject
     const messageIdempotencyKey = input.trigger?.idempotencyKey ?? input.idempotencyKey
@@ -289,7 +291,7 @@ export class RunEngine {
       })
       const current = await this.store.getRun(args.run.id)
       if (current?.status === "running") {
-        await this.store.transitionRunStatus(current.id, current.version, "succeeded", new Date())
+        await this.store.transitionRunStatus(current.id, current.version, "succeeded", this.clock.now())
       }
       tracer.record({
         kind: "run",
@@ -318,7 +320,7 @@ export class RunEngine {
       }
       const current = await this.store.getRun(args.run.id)
       if (current && (current.status === "running" || current.status === "waiting_approval")) {
-        await this.store.transitionRunStatus(current.id, current.version, "failed", new Date())
+        await this.store.transitionRunStatus(current.id, current.version, "failed", this.clock.now())
       }
       tracer.record({
         kind: "run",

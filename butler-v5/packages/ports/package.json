@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./core/event-store.js": "./src/core/event-store.ts",
-    "./core/credential-provider.js": "./src/core/credential-provider.ts"
+    "./core/credential-provider.js": "./src/core/credential-provider.ts",
+    "./core/clock.js": "./src/core/clock.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

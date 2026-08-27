@@ -1,9 +1,9 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-27 17:33_
+_last_synced: 2026-08-27 20:45_
 _handoff: .blackboard/shifts/2026-08-26-cursor-scheme-b-p1-p2.md_
 
-## 主线
+**P5 端口化完整性 — Clock Port 已实施（2026-08-27）**：目标架构对齐评估显示唯一真缺口是时钟可注入（runtime 业务时钟分散于多模块、`ports` 仅 2 真 Port）。本轮新增 **`ClockPort`**（`packages/ports/src/core/clock.ts`，含 `systemClock` / `fixedClock`，DESIGN §7），并在 **`RunEngine`** 构造注入（默认 `systemClock`，测试可传假时钟）替换 4 处业务时间戳（createdAt / 状态成功/失败时间）；组合根 `apps/api/src/bootstrap-wiring.ts` 显式注入 `systemClock`。`ports` package.json 增 `./core/clock.js` export。甄别后**未**接入：`agent-kernel`/`delegate-runtime` 的 `Date.now()` 属 eventId/correlationId **ID 生成**（非时钟）；`scoped-grant-service`/`run-lifecycle`/`mcp-grant-lifecycle`/`normalize-inbound` 已用 `now/nowMs/createdAt` 参数注入（不重写）；观测计时（trace durationMs）保留。新增测试：ports clock.test（2 例）+ run-engine 假时钟确定性（1 例）。验证：typecheck 全绿、lint 0 警告、主测试 **990 pass**（较基线 +1）/ 1 skipped / 2 failed（环境耦合 postgres+bubblewrap，同基线无回归）。docs 同步：roadmap P5 段更新为「ClockPort 已实施，Repository/Model/Channel 仅在有替换/隔离真实需求时再物化」。
 
 **方案 B + P1/P2 本线已绿** — slirp resume 已修（fallback）；MiniMax CN OK；`smoke:prod-tune` / `smoke:allowlist-owner` PASS（resume/exec 无 WARN）。
 

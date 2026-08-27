@@ -11,6 +11,7 @@ import {
   backfillRuntimeFromEventStore,
 } from "@butler/persistence"
 import { resetSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
+import { systemClock } from "@butler/ports/core/clock.js"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { bootstrapMcpTools, type McpToolBundle } from "./mcp-bootstrap.js"
 
@@ -43,7 +44,8 @@ export async function createProductionWiring(
   const projectKnowledgeStore = createProjectKnowledgeStore(db)
   const procedureStore = createProcedureStore(db)
   const taskStore = createTaskStore(db)
-  const runEngine = new RunEngine(runtimeStore)
+  // Composition Root: 注入系统时钟；测试可用 fixedClock 注入假时钟做确定性断言。
+  const runEngine = new RunEngine(runtimeStore, undefined, systemClock)
   const mcp = await bootstrapMcpTools(env, { runtimeStore })
   const wiring = makeWiring({
     bridge,
