@@ -71,4 +71,39 @@ describe("decodeDecision", () => {
       expect(out.value.toolName).toBe("write_file")
     }
   })
+
+  it("decodes JSON wrapped in markdown code fence", () => {
+    const fenced = "```json\n{\"_tag\":\"CallTool\",\"toolName\":\"read_file\",\"args\":{}}\n```"
+    const out = decodeDecision(fenced)
+    expect(out.ok).toBe(true)
+    if (out.ok && out.value._tag === "CallTool") expect(out.value.toolName).toBe("read_file")
+  })
+
+  it("decodes JSON with trailing commas (LLM deviation)", () => {
+    const trailing = '{"_tag":"CallTool","toolName":"read_file","args":{"path":"/ws",},}'
+    const out = decodeDecision(trailing)
+    expect(out.ok).toBe(true)
+    if (out.ok && out.value._tag === "CallTool") {
+      expect(out.value.toolName).toBe("read_file")
+      expect((out.value.args as { path?: unknown }).path).toBe("/ws")
+    }
+  })
+
+  it("decodes single-quoted JSON payload", () => {
+    const out = decodeDecision("{'_tag': 'Respond', 'content': 'hi'}")
+    expect(out.ok).toBe(true)
+    if (out.ok && out.value._tag === "Respond") expect(out.value.content).toBe("hi")
+  })
+
+  it("decodes single-quoted JSON with escaped apostrophe in content", () => {
+    const out = decodeDecision("{'_tag': 'Respond', 'content': 'it\\'s fine'}")
+    expect(out.ok).toBe(true)
+    if (out.ok && out.value._tag === "Respond") expect(out.value.content).toBe("it's fine")
+  })
+
+  it("preserves failure reason when repairs cannot recover", () => {
+    const out = decodeDecision('{"_tag":"SelfDestruct","content":"x"}')
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.reason).toMatch(/unknown tag/i)
+  })
 })

@@ -235,8 +235,9 @@ export async function runConversationLoop(input: {
     const raw = response.content.trim()
     const decoded = decodeDecision(raw)
     if (!decoded.ok) {
+      const preview = raw.length > 120 ? `${raw.slice(0, 120)}…` : raw
       logger.warn(
-        `[conversation-loop] decodeDecision failed at iteration ${iteration}: ${decoded.reason}; treating as Respond`,
+        `[conversation-loop] decodeDecision failed at iteration ${iteration}: ${decoded.reason}; treating as Respond; raw=${JSON.stringify(preview)}`,
       )
       const respondDecision: ModelDecision = { _tag: "Respond", content: raw }
       await safeApplyDecision(input.kernel, respondDecision, logger)
