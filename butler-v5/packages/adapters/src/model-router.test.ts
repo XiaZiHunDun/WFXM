@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { pickExecLLM, pickLLMForRole, pickPlanLLM, execModelTrace } from "./model-router.js"
+import type * as OpenAICompatible from "./llm/openai-compatible.js"
+
+vi.mock("./llm/openai-compatible.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof OpenAICompatible>()
+  return { ...actual, makeOpenAICompatibleAdapter: vi.fn(actual.makeOpenAICompatibleAdapter) }
+})
+import { makeOpenAICompatibleAdapter } from "./llm/openai-compatible.js"
 
 const emptyEnv: NodeJS.ProcessEnv = {}
 
@@ -79,5 +86,44 @@ describe("model-router", () => {
     expect(pickLLMForRole(env, "plan")).toBeDefined()
     expect(pickLLMForRole(env, "exec")).toBeDefined()
     expect(pickLLMForRole(env, "intake")).toBeDefined()
+  })
+
+  it("pickExecLLM routes deepseek model names to DeepSeek provider (fix 400)", () => {
+    const mock = vi.mocked(makeOpenAICompatibleAdapter)
+    mock.mockClear()
+    const adapter = pickExecLLM({
+      DEEPSEEK_API_KEY: "sk-ds",
+      MINIMAX_API_KEY: "sk-mm",
+      BUTLER_V5_MODEL_EXEC: "deepseek-chat",
+      ...emptyEnv,
+    })
+    expect(adapter).toBeDefined()
+    const lastCall = mock.mock.calls.at(-1)?.[0]
+    expect(lastCall?.baseUrl).toContain("deepseek.com")
+    expect(lastCall?.model).toBe("deepseek-chat")
+  })
+
+  it("pickExecLLM keeps MiniMax for non-deepseek exec model", () => {
+    const mock = vi.mocked(makeOpenAICompatibleAdapter)
+    mock.mockClear()
+    const adapter = pickExecLLM({
+      DEEPSEEK_API_KEY: "sk-ds",
+      MINIMAX_API_KEY: "sk-mm",
+      BUTLER_V5_MODEL_EXEC: "MiniMax-M3",
+      ...emptyEnv,
+    })
+    expect(adapter).toBeDefined()
+    const lastCall = mock.mock.calls.at(-1)?.[0]
+    expect(lastCall?.baseUrl).toContain("minimax")
+  })
+
+  it("execModelTrace reports deepseek when exec model is deepseek + deepseek key", () => {
+    expect(
+      execModelTrace({
+        DEEPSEEK_API_KEY: "sk-ds",
+        BUTLER_V5_MODEL_EXEC: "deepseek-chat",
+        ...emptyEnv,
+      }),
+    ).toBe("exec:deepseek-chat")
   })
 })

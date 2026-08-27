@@ -11,6 +11,11 @@ function envTrim(env: NodeJS.ProcessEnv, key: string): string {
   return (env[key] ?? "").trim()
 }
 
+/** True for DeepSeek model ids（deepseek-chat / deepseek-v4-* 等），用于按模型名路由 provider。 */
+function isDeepSeekModelName(model: string): boolean {
+  return model.trim().toLowerCase().startsWith("deepseek")
+}
+
 function deepseekAdapter(env: NodeJS.ProcessEnv, model: string): LLMAdapter | undefined {
   const key = envTrim(env, "DEEPSEEK_API_KEY")
   if (!key) return undefined
@@ -69,6 +74,10 @@ export function execModelTrace(env: NodeJS.ProcessEnv = process.env): string {
     envTrim(env, "MINIMAX_MODEL") ||
     envTrim(env, "BUTLER_SMOKE_MINIMAX_MODEL") ||
     "MiniMax-M3"
+  if (isDeepSeekModelName(model)) {
+    if (envTrim(env, "DEEPSEEK_API_KEY")) return `exec:${model}`
+    return "exec-fallback:plan"
+  }
   const key = envTrim(env, "MINIMAX_API_KEY") || envTrim(env, "MINIMAX_CN_API_KEY")
   if (key) return `exec:${model}`
   return "exec-fallback:plan"
@@ -80,6 +89,12 @@ export function pickExecLLM(env: NodeJS.ProcessEnv = process.env): LLMAdapter | 
     envTrim(env, "MINIMAX_MODEL") ||
     envTrim(env, "BUTLER_SMOKE_MINIMAX_MODEL") ||
     "MiniMax-M3"
+  // BUTLER_V5_MODEL_EXEC 可能指定 deepseek 模型（如 deepseek-chat）：
+  // 按模型名路由到 deepseek 通道，避免把 deepseek 模型名发给 MiniMax（400）。
+  if (isDeepSeekModelName(model)) {
+    const ds = deepseekAdapter(env, model)
+    if (ds) return ds
+  }
   const mm = minimaxAdapter(env, model)
   if (mm) return mm
   return pickPlanLLM(env)
