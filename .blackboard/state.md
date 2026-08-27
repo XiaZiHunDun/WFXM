@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-27 17:03_
+_last_synced: 2026-08-27 17:33_
 _handoff: .blackboard/shifts/2026-08-26-cursor-scheme-b-p1-p2.md_
 
 ## 主线
@@ -88,11 +88,29 @@ _handoff: .blackboard/shifts/2026-08-26-cursor-scheme-b-p1-p2.md_
 
 **pending→approve 分支（关键收口）**：真机 dev_task 天然被 dev-session anchor grant 预授权，不触发 pending——`wechat-intake.ts` L245 dev_task（requiresDevSession）每次 `ensureDevSessionGrants` 自动补签 30min run_command/write_file，删 DB 行无效（会被下一条 dev_task 刷回）。pending→approve 是「非授权场景」落点。**本轮修 1 处真 bug**：子代理 run_command 的 waiting_approval step 原本带 `parentConversationId`，而 child run 用 `childConversationId` → owner approve 时 `resumeRun` 400「belongs to child-..., not ...」。改 `subagent-worker` 子代理由 `childConversationId`（工具读流仍用 parent）；对应测试 `child run_command → persistAskApproval → /v1/owner/approvals/{id}/approve(networkAllowlist) → resume` 返回 200 + grant.sandboxProfile=`workspace-write-network-allowlist` + 输出 888。delegation/approval/owner-routes 相关 57 条测试无回归。**用户决策 B**：pending→approve 用自动化单测闭合，不强行真机制造（dev_task 语义本就 anchor 直行）。
 
+## 提交后基线复核（2026-08-27，quality 收尾）
+
+`f60de759`（P0–P4 + monorepo 收敛，281 files）已推送 origin/main。提交后门禁复核：
+typecheck 10/11 全过、lint 0 警告、`test:archived` 19 文件 83 测试全绿、主测试 **989 通过**（987 pass + 1 skipped）/ 2 failed。2 个失败均为环境相关、与收敛无回归、同历史基线：
+- `db-open.test.ts` postgres 实连不可用（无真实 PG 服务）；
+- `workspace-tools.bubblewrap.test.ts` AI 沙箱拒写 `/proc/<pid>/uid_map` → bubblewrap+slirp 无法在受限执行沙箱内实通（同 P2d 根因）。需在 operator 直控终端（非 AI 沙箱）复核。
+
+**已收尾**：monorepo 收敛发散四处引用（根 AGENTS.md/.cursorrules/apply_agents_md_v5.py/r10-handoff）已授权改指根 `_archive/packages/`；hooks 复核无需再改；7 个 tmp 探测草稿已清理；守卫 `bridge.ts→persistence/src/event-bridge.ts` 指针更新经 `[MANUAL-OVERRIDE]` 提交。
+
+## 下一步备忘
+
+- 质量：主测试在 operator 直控终端复核那 2 个环境耦合项（postgres 实连 / bubblewrap slirp）。
+- 备查项（不阻塞）：`BUTLER_V5_MODEL_EXEC=deepseek-chat` 子代理 400；主 loop 偶发 `decodeDecision invalid JSON` 兜底 Respond。
+- 人力项：v5 AI 守卫迁移（`docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md`）由 operator 推动。
+- roadmap：P4 后无新立项，P5 候选待规划。
+
 ## 不要做
 
 - 改 `wechat-inbound-butler.ts`
 - live smoke 升格 PR 硬门槛
+- 不改受保护 AI 守卫（`scripts/ai_guard/*.py`、AGENTS、.cursorrules）除非 operator 明确授权
 
 ## 上一班
 
 - CN MiniMax 切换；slirp ProcessRunner 抽取；Scheme B delegation allowlist 策略。
+- 本班：P0–P4 + monorepo 收敛交付并推送；提交后基线复核全绿（仅 2 环境耦合红）。
