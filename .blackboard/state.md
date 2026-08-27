@@ -102,7 +102,7 @@ typecheck 10/11 全过、lint 0 警告、`test:archived` 19 文件 83 测试全�
 - 质量：主测试在 operator 直控终端复核那 2 个环境耦合项（postgres 实连 / bubblewrap slirp）。
 - 备查项（不阻塞）：`BUTLER_V5_MODEL_EXEC=deepseek-chat` 子代理 400；主 loop 偶发 `decodeDecision invalid JSON` 兜底 Respond。
 - 人力项：v5 AI 守卫迁移（`docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md`）由 operator 推动。
-- roadmap：P4 后无新立项，P5 候选待规划。
+- roadmap：P5「端口化完整性」已列为下一批架构演进候选（2026-08-27）——补 Repository/Model/Channel/Clock 四个 Port 接口 + 组合根装配；不强制 Effect/全量 DI，按 DESIGN §15。非承诺实施，优先顺序：Repository > Model > Channel > Clock（Capability 契约已承载）。
 
 ## 不要做
 

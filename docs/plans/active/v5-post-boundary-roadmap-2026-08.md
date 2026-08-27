@@ -240,6 +240,27 @@ P3 只建立安全扩展面，不默认安装具体能力。
 
 ---
 
+## P5 — 端口化完整性（架构演进候选）
+
+> **Owner 2026-08-27：列为下一批架构演进候选，非承诺实施。**
+> 来源：目标架构对齐评估——生产已达成骨架对齐（单 Run Engine / 单 Policy / 单 schema / 两接缝 / 依赖方向 / monorepo 收敛），但 **ports 包仅物化 2 个真 Port**（`packages/ports/src/core/credential-provider.ts`、`event-store.ts`）；DESIGN §7 定义 5 个 Port（Repository / Model / Channel / Capability / Clock）仍以 delivery shell async/await + 闭包注入承载，未物化为端口接口。
+
+**目标**：在不改变生产交付形态（DESIGN §15 允许的 async/await + 组合根）前提下，把真正可替换/不可信边界物化为 Port 接口，补足缺口。补齐顺序按可测试性与隔离收益：
+
+- **Repository Port**（Repository 读写信道：Conversation/Run/Step/Grant/Audit/Outbox）——收益最高：当前 `runtime-store` / `event-store` 双实现靠函数签名耦合，无接口抽象；物化后持久化实现可替换、可 mock 独立单测。
+- **Model Port**——明确"模型是规划、副作用走 Capability"咽喉边界；DESIGN §7 要求模型调用走独立 Model Port，当前 `model-router` 以具体 adapter 直连，减轻不可信规划器进入核心的依赖面。
+- **Channel Port**——出站回复/富媒体发送抽象（WeChat iLink / 未来 Slack / Telegram）；当前出站直接调用具体 WeChat adapter。
+- **Clock Port**——时间/调度可注入，提升确定性测试（已有假时钟实践，补接口契约）。
+- **Capability 契约已在 `capability-boundary` 承载**，做"实现即接口"核对，不重复新建。
+
+### 边界与验收
+
+- **不强制**：不要求 Effect-TS / 全量 Port DI；`domain` 纯函数与单次 DB 查询不为此包 Effect（DESIGN §15）。
+- **组合根装配**：`apps/*`、`cli` Composition Root 注入具体实现；runtime Core 仍不得 import persistence/adapters（架构测试继续锁定）。
+- **验收**：每个新增 Port 有 `tests/contracts` 对应用例；替换某个 driven adapter（如 PGlite→pg mock）不需要改 Core；架构测试允许新真相（allowlist 精确到新增 Port 文件）。
+
+---
+
 ## 顺序约束
 
 - P1 未完成，不立项可写 MCP、浏览器动作或长期自治。
