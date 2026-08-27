@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-27 21:40_
+_last_synced: 2026-08-27 22:05_
 _handoff: .blackboard/shifts/2026-08-26-cursor-scheme-b-p1-p2.md_
 
 **P5 端口化完整性 — Clock Port 已实施（2026-08-27）**：目标架构对齐评估显示唯一真缺口是时钟可注入（runtime 业务时钟分散于多模块、`ports` 仅 2 真 Port）。本轮新增 **`ClockPort`**（`packages/ports/src/core/clock.ts`，含 `systemClock` / `fixedClock`，DESIGN §7），并在 **`RunEngine`** 构造注入（默认 `systemClock`，测试可传假时钟）替换 4 处业务时间戳（createdAt / 状态成功/失败时间）；组合根 `apps/api/src/bootstrap-wiring.ts` 显式注入 `systemClock`。`ports` package.json 增 `./core/clock.js` export。甄别后**未**接入：`agent-kernel`/`delegate-runtime` 的 `Date.now()` 属 eventId/correlationId **ID 生成**（非时钟）；`scoped-grant-service`/`run-lifecycle`/`mcp-grant-lifecycle`/`normalize-inbound` 已用 `now/nowMs/createdAt` 参数注入（不重写）；观测计时（trace durationMs）保留。新增测试：ports clock.test（2 例）+ run-engine 假时钟确定性（1 例）。验证：typecheck 全绿、lint 0 警告、主测试 **990 pass**（较基线 +1）/ 1 skipped / 2 failed（环境耦合 postgres+bubblewrap，同基线无回归）。docs 同步：roadmap P5 段更新为「ClockPort 已实施，Repository/Model/Channel 仅在有替换/隔离真实需求时再物化」。
@@ -99,7 +99,7 @@ typecheck 10/11 全过、lint 0 警告、`test:archived` 19 文件 83 测试全�
 
 ## 下一步备忘
 
-- 质量：主测试在 operator 直控终端复核那 2 个环境耦合项（postgres 实连 / bubblewrap slirp）。
+- 质量：2 个环境耦合项复核完成（2026-08-27）。**db-open postgres 已解决**——根因是沙箱注入 `CI=true` 使 `testPostgresUrl` 误用未配置的 CI 库（test:test@butler_test）；清空 `CI` 走 dev URL（butler@butler_v5，5432 实连可用）后 4/4 通过。**bubblewrap slirp resume 为 AI 沙箱硬拦截**（写 `/proc/<pid>/uid_map` 与 `.config/butler-v5/`），非代码问题；host 侧此前已用 `pnpm smoke:allowlist-slirp` 验证 PASS。当前基线：`CI= pnpm test` → 999 pass / 1 skip / 1 failed（仅沙箱拦截项）。operator 复核命令见下。
 - 备查项：`BUTLER_V5_MODEL_EXEC=deepseek-chat` 子代理 400 已修复（2026-08-27）；`decodeDecision invalid JSON` 兜底 Respond 已修复（2026-08-27）——根因是解码只做直接 parse + 嵌入抽取，对 LLM 常见偏差（markdown 围栏/尾逗号/单引号 JSON）无容错；现加保守修复阶梯（fence 剥离→尾逗号→单引号，字符串感知、失败保留原错误原因），并在 conversation-loop 兜底日志附带截断原文便于诊断。新增 6 测试，998 pass 无回归。至此备查项全部清零。
 - 人力项：v5 AI 守卫迁移（`docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md`）由 operator 推动。
 - roadmap：P5「端口化完整性」ClockPort 已实施（2026-08-27）；Repository/Model/Channel 仅在出现替换/隔离真实需求时再物化（DESIGN §7 不为架构完整造休眠接口），见 `v5-post-boundary-roadmap-2026-08.md`。
