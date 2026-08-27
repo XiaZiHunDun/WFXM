@@ -10,11 +10,11 @@
     "./decision.js": "./src/decision.ts",
     "./delegate-runtime.js": "./src/delegate-runtime.ts",
     "./tool-runtime.js": "./src/tool-runtime.ts",
-    "./bridge.js": "./src/bridge.ts",
     "./contracts.js": "./src/contracts.ts",
     "./run-engine.js": "./src/run-engine.ts",
     "./run-coordinator.js": "./src/run-coordinator.ts",
     "./working-set.js": "./src/working-set.ts",
+    "./working-set-budget.js": "./src/working-set-budget.ts",
     "./policy-gate.js": "./src/policy-gate.ts",
     "./capability-boundary.js": "./src/capability-boundary.ts",
     "./approval-runtime.js": "./src/approval-runtime.ts",
@@ -33,7 +33,9 @@
     "./execution/conversation-loop.js": "./src/execution/conversation-loop.ts",
     "./sandbox.js": "./src/sandbox/index.ts",
     "./sandbox/index.js": "./src/sandbox/index.ts",
-    "./observability/local-tracer.js": "./src/observability/local-tracer.ts"
+    "./observability/local-tracer.js": "./src/observability/local-tracer.ts",
+    "./scoped-grant-service.js": "./src/scoped-grant-service.ts",
+    "./secret-redact.js": "./src/secret-redact.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
@@ -41,7 +43,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@butler/persistence": "workspace:*",
-    "@butler/domain": "workspace:*"
+    "@butler/domain": "workspace:*",
+    "@butler/ports": "workspace:*"
+  },
+  "devDependencies": {
+    "@butler/persistence": "workspace:*"
   }
 }

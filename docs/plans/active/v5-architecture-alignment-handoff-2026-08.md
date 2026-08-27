@@ -137,10 +137,15 @@ CLI / iLink / HTTP / WebSocket / Channel webhooks
 - Schedule ✅ MVP（opt-in `BUTLER_V5_SCHEDULE_ENABLED`；`buildScheduleRunTrigger` + worker）
 - Webhook Trigger ⚠️ Channel 入口已有；独立 webhook schedule 源未单开
 
-### 5.9 MCP 注册契约（P3 余量）
+### 5.9 MCP 注册契约（P3 Done — GitHub #3 + manifest provider 骨架 2026-08-25）
 
-- 已有：manifest、consent、transport、extraProviders。
-- 未完整：per-tool ScopedGrant、Provider 卸载 Grant 失效、risk/sandbox/audit 声明骨架。
+- ✅ manifest gate、consent、transport、extraProviders、multi-server bootstrap
+- ✅ per-tool ScopedGrant（`scope.mcp` + `grantMatchesAction`）；Child Run 默认无 MCP（`ALLOWED_CAPABILITIES` 闭集）
+- ✅ Provider 卸载 / consent 失效 → `revokeScopedGrantsForMcpServer`（fail-closed）
+- ✅ manifest 声明 `defaultRisk` / `defaultSandboxProfile` / `auditPolicy`；Owner `GET /v1/owner/mcp/status` 返回 `provider`
+- ✅ MCP 执行 trace 含 tool risk + provider 元数据 + Grant mcp scope
+- ✅ Owner `POST .../revoke-grants` + `butler mcp revoke-grants`
+- opt-in：`BUTLER_V5_MCP_READONLY_AUTO_ALLOW=1` — owner + manifest `risk=low` 免逐次 Ask
 
 ### 5.10 ActionRequest 命名
 

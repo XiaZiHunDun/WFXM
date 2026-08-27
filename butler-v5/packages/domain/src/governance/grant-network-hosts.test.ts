@@ -26,6 +26,32 @@ describe("grant network hosts", () => {
     expect(hosts).toEqual(["mcp.internal", "cdn.example.com"])
   })
 
+  it("adds Todoist outbound host for todoist MCP capabilities", () => {
+    const hosts = resolveGrantNetworkHosts({
+      capability: "mcp_todoist_lst-projects",
+      env: {},
+    })
+    expect(hosts).toEqual(["api.todoist.com"])
+  })
+
+  it("adds Firecrawl outbound host for firecrawl MCP capabilities", () => {
+    expect(
+      resolveGrantNetworkHosts({
+        capability: "mcp_firecrawl_firecrawl_scrape",
+        env: {},
+      }),
+    ).toEqual(["api.firecrawl.dev"])
+  })
+
+  it("adds GitHub outbound host for github MCP capabilities", () => {
+    expect(
+      resolveGrantNetworkHosts({
+        capability: "mcp_github_search_repositories",
+        env: {},
+      }),
+    ).toEqual(["api.github.com"])
+  })
+
   it("returns undefined when no hosts configured for read_file", () => {
     expect(resolveGrantNetworkHosts({ capability: "read_file", env: {} })).toBeUndefined()
   })

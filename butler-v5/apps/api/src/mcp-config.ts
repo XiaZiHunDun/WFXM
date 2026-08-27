@@ -216,7 +216,7 @@ export function parseMcpServerConfig(env: NodeJS.ProcessEnv): ILinkResult<McpHtt
   if (parsed.value.kind !== "http") {
     return { ok: false, reason: "BUTLER_V5_MCP_TRANSPORT is not http" }
   }
-  return parsed
+  return { ok: true, value: parsed.value }
 }
 
 export function mcpHasServerEndpoint(

@@ -13,9 +13,11 @@
     "./sandbox/p2d-preflight.js": "./src/sandbox/p2d-preflight.ts",
     "./sandbox/slirp-egress.js": "./src/sandbox/slirp-egress.ts",
     "./mcp/client.js": "./src/mcp/client.ts",
+    "./mcp/session.js": "./src/mcp/session.ts",
     "./mcp/http-transport.js": "./src/mcp/http-transport.ts",
     "./mcp/stdio-transport.js": "./src/mcp/stdio-transport.ts",
-    "./mcp/sse-transport.js": "./src/mcp/sse-transport.ts"
+    "./mcp/sse-transport.js": "./src/mcp/sse-transport.ts",
+    "./credentials/host-credentials.js": "./src/credentials/host-credentials.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

@@ -70,6 +70,8 @@ export interface PermissionPolicy {
   readonly ownerSubject: string
   readonly alwaysConfirm: readonly string[]
   readonly denyByDefault: readonly ActionKind[]
+  /** When true, owner low-risk MCP tools skip per-call Ask (BUTLER_V5_MCP_READONLY_AUTO_ALLOW). */
+  readonly mcpReadonlyAutoAllow?: boolean
 }
 
 export function decidePolicy(
@@ -78,8 +80,14 @@ export function decidePolicy(
   nowMs: number,
   grant: ScopedGrantRecord | null,
 ): PolicyDecision {
-  const needsConfirm =
-    policy.alwaysConfirm.includes(request.capability) || isMcpCapability(request.capability)
+  const mcpNeedsConfirm =
+    isMcpCapability(request.capability) &&
+    !(
+      policy.mcpReadonlyAutoAllow === true &&
+      request.risk === "low" &&
+      request.subject === policy.ownerSubject
+    )
+  const needsConfirm = policy.alwaysConfirm.includes(request.capability) || mcpNeedsConfirm
 
   if (needsConfirm) {
     if (
@@ -149,7 +157,11 @@ export function buildScopedGrantScopeFromPending(input: {
     capabilities: [input.capability],
     digest: input.digest,
   }
-  if (input.capability === "send_wechat_file" || input.capability === "read_file") {
+  if (
+    input.capability === "send_wechat_file" ||
+    input.capability === "read_file" ||
+    input.capability === "write_file"
+  ) {
     const path = input.resource.trim()
     if (path) {
       scope = { ...scope, paths: [normalizeGrantPath(path)] }

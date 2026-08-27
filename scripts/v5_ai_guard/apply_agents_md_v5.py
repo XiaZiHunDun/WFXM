@@ -14,7 +14,7 @@ SECTION = """
 | 层 | 文档/代码 | Agent 怎么用 |
 | --- | --- | --- |
 | **生产** | `docs/architecture/v5-production-architecture-2026-08.md` + `apps/api` + `packages/runtime` + `packages/persistence` | 改功能、查调用链 |
-| **脚手架（未接线）** | `packages/application/_archive/`、`packages/infrastructure/_archive/` | 不要当已实现；不要用其单测声称能力已交付 |
+| **脚手架（未接线）** | `_archive/packages/application/`、`_archive/packages/infrastructure/` | 不要当已实现；不要用其单测声称能力已交付 |
 | **目标架构** | `DESIGN.md`、Policy/ScopedGrant/Sandbox | 规划用，不等于生产已有 |
 
 **修改 butler-v5/ 后必跑：** `cd butler-v5 && pnpm test`

@@ -38,6 +38,8 @@ export function actionKindForTool(toolName: string): ActionKind {
       return "outbound"
     case "delegate_to_subagent":
       return "delegate"
+    case "write_file":
+      return "write"
     case "read_file":
     case "recall_history":
     case "recall_durable_memory":
@@ -65,7 +67,7 @@ export function resourceForTool(
   args: Readonly<Record<string, unknown>>,
   fallbackResource: string,
 ): string {
-  if (toolName === "read_file" || toolName === "send_wechat_file") {
+  if (toolName === "read_file" || toolName === "write_file" || toolName === "send_wechat_file") {
     const path = args["path"]
     return typeof path === "string" && path.trim() ? path.trim() : fallbackResource
   }
@@ -133,6 +135,29 @@ export function splitCoreAndMcpTools(tools: readonly ToolDefinition[]): {
   return { core, mcp }
 }
 
+/**
+ * P3-2: uninstall a capability provider and make related Grants expire
+ * (fail-consistent): removes the provider/definition from the registry now, then
+ * revokes every active Grant whose scope targets that capability via the store.
+ * Returns how many Grants were revoked so the caller can surface it in audit.
+ */
+export async function unregisterCapability(args: {
+  readonly registry: CapabilityRegistry
+  readonly name: string
+  readonly store?: RuntimeStore | null
+  readonly now?: Date
+}): Promise<{ readonly removed: boolean; readonly revokedGrants: number }> {
+  const removed = args.registry.unregister(args.name)
+  let revokedGrants = 0
+  if (removed && args.store) {
+    revokedGrants = await args.store.revokeScopedGrantsForCapability(
+      args.name,
+      args.now ?? new Date(),
+    )
+  }
+  return { removed, revokedGrants }
+}
+
 /** Register MCP ToolDefinitions as explicit extra providers on the production registry.
  * MCP execute runs under the same side-effect sandbox context as core tools (A8).
  */
@@ -141,8 +166,11 @@ export function mcpCapabilityProvidersFromTools(
   options: {
     readonly timeoutMsFor?: (toolName: string) => number
     readonly serverId?: string
+    /** P3-3: default true; pass false to give a (child/delegated) run no MCP. */
+    readonly mcpEnabled?: boolean
   } = {},
 ): readonly CapabilityProviderRegistration[] {
+  if (options.mcpEnabled === false) return []
   const timeoutMsFor = options.timeoutMsFor ?? (() => 5_000)
   return tools.map((def) => {
     const definition = capabilityDefinitionFromTool(def)
@@ -253,7 +281,7 @@ export async function executeToolThroughBoundary(
             mcpServerId: mcpProvider.serverId,
             auditPolicy: mcpProvider.auditPolicy,
             sandboxProfile: mcpProvider.defaultSandboxProfile,
-            risk: mcpProvider.defaultRisk,
+            risk: definition.risk,
           }
         : {}),
       ...(ctx.grant?.scope.mcp

@@ -5,7 +5,9 @@
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./core/event-store.js": "./src/core/event-store.ts",
+    "./core/credential-provider.js": "./src/core/credential-provider.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { BubblewrapRunResult, ProcessRunner, SandboxProfile } from "./bubblewrap-runner.js"
@@ -71,13 +71,20 @@ export function buildSlirpInnerScript(args: {
   return `#!/bin/bash
 set -euo pipefail
 IPTABLES=$(command -v iptables-legacy || command -v iptables)
-slirp4netns --configure $$ tap0 &
+SLIRP_PID=""
+cleanup() {
+  if [ -n "$SLIRP_PID" ]; then
+    kill "$SLIRP_PID" 2>/dev/null || true
+    wait "$SLIRP_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM HUP
+slirp4netns --configure $$ tap0 2>/dev/null &
 SLIRP_PID=$!
 sleep ${SLIRP_SETUP_SLEEP_SEC}
 (
 ${iptables}
 ) || { echo "iptables setup failed"; exit 1; }
-trap 'kill "$SLIRP_PID" 2>/dev/null || true' EXIT
 exec timeout -s KILL ${args.commandTimeoutSec} ${bwrapCmd}
 `
 }
@@ -102,6 +109,30 @@ export interface SlirpAllowlistRunInput {
 }
 
 let slirpRunChain: Promise<BubblewrapRunResult> = Promise.resolve({ ok: true })
+
+/** Best-effort: reap slirp4netns orphaned when probe parent died (PPID 1). Never throws. */
+export function cleanupOrphanSlirp4netns(): void {
+  try {
+    for (const name of readdirSync("/proc")) {
+      if (!/^\d+$/.test(name)) continue
+      const pid = Number(name)
+      if (!Number.isFinite(pid) || pid <= 1) continue
+      try {
+        const cmdline = readFileSync(`/proc/${pid}/cmdline`, "utf8")
+        if (!cmdline.includes("slirp4netns")) continue
+        const stat = readFileSync(`/proc/${pid}/stat`, "utf8")
+        const ppid = Number(stat.split(" ")[3])
+        if (ppid === 1) {
+          process.kill(pid, "SIGKILL")
+        }
+      } catch {
+        // process exited between readdir and read
+      }
+    }
+  } catch {
+    // non-Linux or permission issue — skip
+  }
+}
 
 /**
  * P2d: rootless netns + slirp + iptables, then bwrap --share-net.
@@ -154,10 +185,11 @@ export async function runInSlirpAllowlistSandbox(
       },
     )
     if (result.code !== 0) {
+      const detail = [result.stderr, result.stdout].filter(Boolean).join("\n").trim()
       return {
         ok: false,
         stderr: result.stderr,
-        reason: result.stderr || result.stdout || `slirp sandbox exit ${result.code}`,
+        reason: detail || `slirp sandbox exit ${result.code}`,
       }
     }
     return { ok: true, stdout: result.stdout, stderr: result.stderr }
@@ -168,6 +200,7 @@ export async function runInSlirpAllowlistSandbox(
     }
   } finally {
     rmSync(tempDir, { recursive: true, force: true })
+    cleanupOrphanSlirp4netns()
   }
   }
 

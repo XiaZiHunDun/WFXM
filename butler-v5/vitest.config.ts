@@ -19,7 +19,6 @@ export default defineConfig({
       "**/.turbo/**",
       "**/*.tsbuildinfo",
       "**/_archive/**",
-      "packages/contracts/**",
       // Nested pnpm typecheck/lint/format:check. Duplicate of `pnpm gate`;
       // closed in docs/plans/decisions/v5-optional-debt-triage-2026-08-20.md.
       "tests/architecture/r2-end-to-end.test.ts",
@@ -32,8 +31,6 @@ export default defineConfig({
       provider: "v8",
       include: [
         "packages/domain/src/**/*.ts",
-        "packages/application/src/**/*.ts",
-        "packages/infrastructure/src/**/*.ts",
       ],
       exclude: ["**/*.test.ts", "**/index.ts"],
       thresholds: {
@@ -104,14 +101,6 @@ export default defineConfig({
       { find: "@butler/runtime", replacement: resolve(__dirname, "packages/runtime/src") },
       { find: "@butler/persistence", replacement: resolve(__dirname, "packages/persistence/src") },
       { find: "@butler/ports", replacement: resolve(__dirname, "packages/ports/src") },
-      {
-        find: "@butler/application",
-        replacement: resolve(__dirname, "packages/application/src"),
-      },
-      {
-        find: "@butler/infrastructure",
-        replacement: resolve(__dirname, "packages/infrastructure/src"),
-      },
       { find: "@butler/config", replacement: resolve(__dirname, "packages/config/src") },
       { find: "@butler/shared", replacement: resolve(__dirname, "packages/shared/src") },
       { find: "@butler/adapters", replacement: resolve(__dirname, "packages/adapters/src") },

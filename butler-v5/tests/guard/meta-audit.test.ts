@@ -26,8 +26,8 @@ function collectFiles(dir: string, pattern: RegExp): string[] {
 describe("元审计测试：Mock 恢复完整性 [NEW-OPT-22]", () => {
   it("每个基础设施 service 都有对应的 Mock 变体", () => {
     const infraRoots = [
-      resolve(PACKAGES_DIR, "infrastructure/src"),
-      resolve(PACKAGES_DIR, "infrastructure/_archive"),
+      resolve(ROOT, "_archive/packages/infrastructure/src"),
+      resolve(ROOT, "_archive/packages/infrastructure/_archive"),
     ]
     const srcFiles = infraRoots.flatMap((dir) =>
       collectFiles(dir, /\.ts$/).filter((f) => !f.endsWith(".test.ts")),
@@ -59,12 +59,13 @@ describe("元审计测试：Mock 恢复完整性 [NEW-OPT-22]", () => {
 
   it("每个 Mock 都有对应的测试", () => {
     const infraRoots = [
-      resolve(PACKAGES_DIR, "infrastructure/src"),
-      resolve(PACKAGES_DIR, "infrastructure/_archive"),
+      resolve(ROOT, "_archive/packages/infrastructure/src"),
+      resolve(ROOT, "_archive/packages/infrastructure/_archive"),
     ]
     const testFiles = infraRoots.flatMap((dir) => collectFiles(dir, /\.test\.ts$/))
 
-    // 核心服务：每个目录都应该有测试文件（llm 测试在 application 层，跳过）
+    // 核心服务（归档 infrastructure 资产）：每个目录都应该有测试文件（llm 测试在
+    // application 层，跳过）
     const coreDirs = ["guards", "wechat", "mcp", "persistence", "acl", "migration", "shadow"]
     const testDirs = new Set(
       testFiles.map((f) => {
@@ -85,18 +86,11 @@ describe("元审计测试：循环依赖检测 [NEW-OPT-22]", () => {
     const allowedDeps: Record<string, string[]> = {
       "@butler/domain": [],
       "@butler/ports": ["@butler/domain"],
-      "@butler/application": ["@butler/domain", "@butler/ports"],
-      "@butler/infrastructure": [
-        "@butler/domain",
-        "@butler/ports",
-        "@butler/config",
-        "@butler/shared",
-      ],
       "@butler/config": ["@butler/ports"],
       "@butler/shared": [],
     }
 
-    const pkgDirs = ["domain", "ports", "application", "infrastructure", "config", "shared"]
+    const pkgDirs = ["domain", "ports", "config", "shared"]
 
     for (const pkg of pkgDirs) {
       const pkgPath = resolve(PACKAGES_DIR, pkg, "src")

@@ -5,6 +5,9 @@
       "id": "markitdown",
       "transport": "stdio",
       "command": "/home/ailearn/.local/bin/markitdown-mcp",
+      "defaultRisk": "low",
+      "auditPolicy": "summary",
+      "defaultSandboxProfile": "workspace-write-network-deny",
       "tools": [
         {
           "name": "convert_to_markdown",
@@ -17,6 +20,9 @@
       "id": "firecrawl",
       "transport": "stdio",
       "command": "/home/ailearn/projects/WFXM/butler-v5/node_modules/.bin/firecrawl-mcp",
+      "defaultRisk": "low",
+      "auditPolicy": "summary",
+      "defaultSandboxProfile": "workspace-write-network-deny",
       "tools": [
         { "name": "firecrawl_scrape", "risk": "low" },
         { "name": "firecrawl_crawl", "risk": "low" },
@@ -27,6 +33,9 @@
       "id": "github",
       "transport": "stdio",
       "command": "/home/ailearn/projects/WFXM/butler-v5/node_modules/.bin/mcp-server-github",
+      "defaultRisk": "low",
+      "auditPolicy": "summary",
+      "defaultSandboxProfile": "workspace-write-network-deny",
       "tools": [
         { "name": "search_repositories", "risk": "low" },
         { "name": "get_file_contents", "risk": "low" },
@@ -48,6 +57,9 @@
       "id": "todoist",
       "transport": "stdio",
       "command": "/home/ailearn/projects/WFXM/butler-v5/node_modules/.bin/openapi-mcp-server",
+      "defaultRisk": "low",
+      "auditPolicy": "summary",
+      "defaultSandboxProfile": "workspace-write-network-deny",
       "args": [
         "--api-base-url",
         "https://api.todoist.com",

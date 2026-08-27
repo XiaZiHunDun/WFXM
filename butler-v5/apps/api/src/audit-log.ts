@@ -12,7 +12,7 @@
  *   - No `// ts-prune-ignore-next` annotations.
  *   - Directory is created lazily on first write.
  */
-import { appendFileSync, mkdirSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { homedir } from "node:os"
 
@@ -71,5 +71,39 @@ export function appendAudit(entry: AuditEntry): void {
     appendFileSync(auditLogPath(), JSON.stringify(entry) + "\n")
   } catch {
     // swallow
+  }
+}
+
+/**
+ * Read the most recent audit rows (newest last). Never throws.
+ */
+export function readRecentSubagentAudit(
+  limit: number,
+  env: NodeJS.ProcessEnv = process.env,
+): readonly AuditEntry[] {
+  const safeLimit = Math.max(1, Math.min(limit, 50))
+  try {
+    const path = resolveSubagentAuditLogPath(env)
+    if (!existsSync(path)) return []
+    const raw = readFileSync(path, "utf8")
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+    const tail = lines.slice(-safeLimit)
+    const entries: AuditEntry[] = []
+    for (const line of tail) {
+      try {
+        const parsed: unknown = JSON.parse(line)
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          entries.push(parsed as AuditEntry)
+        }
+      } catch {
+        // skip malformed line
+      }
+    }
+    return entries
+  } catch {
+    return []
   }
 }

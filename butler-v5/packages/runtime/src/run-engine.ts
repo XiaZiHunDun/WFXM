@@ -1,13 +1,26 @@
 import type { RunTrigger, RuntimeStore, StoredRun } from "@butler/domain/runtime.js"
-import { isActiveMainRunStatus, runBudgetWithTrigger } from "@butler/domain/runtime.js"
+import { isActiveMainRunStatus, runBudgetWithTrigger, validateRunTrigger } from "@butler/domain/runtime.js"
 import { RunCoordinator } from "./run-coordinator.js"
 import { resumeFromWaitingExternal } from "./run-lifecycle.js"
 import { buildWorkingSet, type WorkingSetResult } from "./working-set.js"
+import {
+  filterDevHistoryNoise,
+  resolveWorkingSetBudget,
+  workingSetModeFromTriggerPayload,
+  type WorkingSetMode,
+} from "./working-set-budget.js"
 import { getSharedLocalTracer } from "./observability/local-tracer.js"
 
 export class RunPauseForApproval extends Error {
   constructor(public readonly payload: unknown) {
     super("run paused for approval")
+  }
+}
+
+/** Thrown when an inbound RunTrigger fails `validateRunTrigger` (P3-1 seam, fail-closed). */
+export class InvalidRunTriggerError extends Error {
+  constructor(public readonly reason: string) {
+    super(`invalid RunTrigger: ${reason}`)
   }
 }
 
@@ -45,6 +58,8 @@ export interface InboundRunInput {
   readonly budget?: Readonly<Record<string, unknown>>
   /** Optional Run deadline (Schedule / heartbeat uses this). */
   readonly deadline?: Date | null
+  /** Override working-set budget mode (default reads trigger.payload.workingSetMode). */
+  readonly workingSetMode?: WorkingSetMode
 }
 
 export interface ResumeRunInput {
@@ -58,6 +73,18 @@ export interface ResumeRunInput {
 function isTrustedInboundTrigger(trigger: RunTrigger | undefined): boolean {
   const level = trigger?.trustLevel
   return level === "trusted" || level === "owner"
+}
+
+function resolveInboundWorkingSetMode(
+  input: InboundRunInput,
+  run?: StoredRun,
+): WorkingSetMode {
+  if (input.workingSetMode) return input.workingSetMode
+  const fromInputTrigger = workingSetModeFromTriggerPayload(input.trigger?.payload)
+  if (fromInputTrigger === "dev") return "dev"
+  return workingSetModeFromTriggerPayload(
+    run?.budget?.["triggerPayload"] as Readonly<Record<string, unknown>> | undefined,
+  )
 }
 
 export class RunEngine {
@@ -82,6 +109,13 @@ export class RunEngine {
     input: InboundRunInput,
     runBody: (ctx: RunEngineContext) => Promise<T>,
   ): Promise<T> {
+    // P3-1 seam: when an adapter hands us a normalized RunTrigger, it MUST be
+    // valid (subject + idempotencyKey + channel/webhook conversationRef). Fail
+    // closed so no new entry can bypass the trigger contract.
+    if (input.trigger) {
+      const check = validateRunTrigger(input.trigger)
+      if (!check.ok) throw new InvalidRunTriggerError(check.reason)
+    }
     return this.coordinator.withConversationLock(input.conversationId, async () => {
       const existing = await this.store.findActiveMainRun(input.conversationId)
       if (existing && isActiveMainRunStatus(existing.status)) {
@@ -133,6 +167,7 @@ export class RunEngine {
         run: running,
         content: input.content,
         resumed: false,
+        workingSetMode: resolveInboundWorkingSetMode(input, running),
         runBody,
       })
     })
@@ -166,6 +201,9 @@ export class RunEngine {
         run,
         content: input.content ?? "",
         resumed: true,
+        workingSetMode: workingSetModeFromTriggerPayload(
+          run.budget?.["triggerPayload"] as Readonly<Record<string, unknown>> | undefined,
+        ),
         runBody,
       })
     })
@@ -198,6 +236,7 @@ export class RunEngine {
       run: running,
       content: input.content,
       resumed: true,
+      workingSetMode: resolveInboundWorkingSetMode(input, running),
       runBody,
     })
   }
@@ -208,12 +247,23 @@ export class RunEngine {
     readonly run: StoredRun
     readonly content: string
     readonly resumed: boolean
+    readonly workingSetMode?: WorkingSetMode
     readonly runBody: (ctx: RunEngineContext) => Promise<T>
   }): Promise<T> {
-    const messages = await this.store.listMessages(args.conversationId)
+    const env = process.env
+    const workingSetMode =
+      args.workingSetMode ??
+      workingSetModeFromTriggerPayload(args.run.budget?.["triggerPayload"] as
+        | Readonly<Record<string, unknown>>
+        | undefined)
+    let messages = await this.store.listMessages(args.conversationId)
+    if (workingSetMode === "dev") {
+      messages = filterDevHistoryNoise(messages)
+    }
     const workingSet = buildWorkingSet({
       messages,
       trailingUserContent: args.content,
+      budget: resolveWorkingSetBudget(env, workingSetMode),
     })
     const tracer = getSharedLocalTracer()
     const startedAt = Date.now()

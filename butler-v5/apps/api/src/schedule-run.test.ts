@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { eq } from "drizzle-orm"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { runs } from "@butler/persistence/schema.js"
@@ -9,6 +9,7 @@ import { makeWiring, type Wiring } from "./wiring.js"
 import { runScheduleJob } from "./schedule-run.js"
 import { runScheduleTick } from "./schedule-worker.js"
 import type { ScheduleJobSpec } from "@butler/domain/runtime.js"
+import { SCHEDULE_SAFE_TOOL_NAMES } from "@butler/domain/runtime.js"
 
 const job = (over: Partial<ScheduleJobSpec> = {}): ScheduleJobSpec => ({
   id: "heartbeat",
@@ -103,5 +104,54 @@ describe("schedule run + tick", () => {
     })
     expect(stats.deferred).toBe(1)
     expect(stats.fired).toBe(0)
+  })
+
+  it("defers when the injected main-queue-busy signal is set (P4 seam)", async () => {
+    const stats = await runScheduleTick({
+      wiring,
+      jobs: [job()],
+      nowMs: () => 125_000,
+      lastAttemptByJob: new Map(),
+      scheduleInFlight: { value: false },
+      isMainQueueBusy: async () => true,
+      env: {},
+      logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+    })
+    expect(stats.deferred).toBe(1)
+    expect(stats.fired).toBe(0)
+  })
+
+  it("defers when a schedule job is already executing in-process", async () => {
+    const stats = await runScheduleTick({
+      wiring,
+      jobs: [job()],
+      nowMs: () => 125_000,
+      lastAttemptByJob: new Map(),
+      scheduleInFlight: { value: true },
+      isMainQueueBusy: () => false,
+      env: {},
+      logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+    })
+    expect(stats.deferred).toBe(1)
+    expect(stats.fired).toBe(0)
+  })
+
+  it("schedule allowlist is read-only by default (no escalation)", () => {
+    // Encode P4 acceptance: first-cut Schedule jobs cannot reach any side-effect
+    // tool; even in Policy Ask flow they must stop, never expand capability.
+    const execLike = SCHEDULE_SAFE_TOOL_NAMES.filter(
+      (n) =>
+        n.includes("write") ||
+        n.includes("command") ||
+        n.includes("delegate") ||
+        n.includes("outbound") ||
+        n.includes("mcp_") ||
+        n.includes("submit") ||
+        n.includes("approve") ||
+        n.includes("grant"),
+    )
+    expect(execLike).toEqual([])
+    expect(SCHEDULE_SAFE_TOOL_NAMES).toContain("read_file")
+    expect(SCHEDULE_SAFE_TOOL_NAMES).toContain("recall_history")
   })
 })

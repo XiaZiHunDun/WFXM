@@ -5,11 +5,40 @@ import {
   type EgressProxyHandle,
 } from "./egress-proxy.js"
 import {
+  cleanupOrphanSlirp4netns,
   parseProxyPort,
   runInSlirpAllowlistSandbox,
   SLIRP_HOST_GATEWAY,
   canCreateRootlessNetns,
 } from "./slirp-egress.js"
+
+/**
+ * Resolve the sandbox scratch disk quota from `BUTLER_V5_SANDBOX_MAX_FILE_BYTES`.
+ * Enforced as RLIMIT_FSIZE on the bwrap child (inherited by the sandboxed
+ * command). Returns the cap in bytes, or null when unset/0/invalid (no cap).
+ * `/tmp` is already a tmpfs inside the sandbox, so scratch cannot grow the host
+ * disk; the RLIMIT caps max single-file size written anywhere in the sandbox.
+ */
+export function resolveSandboxFileQuotaBytes(
+  env: Readonly<Record<string, string | undefined>> = {},
+): number | null {
+  const raw = (env["BUTLER_V5_SANDBOX_MAX_FILE_BYTES"] ?? "").trim()
+  if (raw === "") return null
+  const n = Number(raw)
+  if (!Number.isSafeInteger(n) || n <= 0) return null
+  return n
+}
+
+/** Prefix `argv` with `prlimit --fsize=N:N --` when a quota is set, else pass through. */
+export function wrapWithFileSizeLimit(
+  argv: readonly string[],
+  bytes: number | null,
+): readonly string[] {
+  if (bytes !== null && bytes > 0) {
+    return ["prlimit", `--fsize=${bytes}:${bytes}`, "--", ...argv]
+  }
+  return argv
+}
 
 export interface SandboxProfile {
   readonly name: string
@@ -95,12 +124,15 @@ export async function executeArgvInSandbox(input: {
   readonly profileName?: string | null
   readonly networkAllowlist?: readonly string[] | null
   readonly env?: NodeJS.ProcessEnv
+  /** P2 host-injected credentials, merged verbatim into the child env. */
+  readonly injectEnv?: Readonly<Record<string, string>>
   readonly runner?: ProcessRunner
   readonly bwrapPath?: string
 }): Promise<
   BubblewrapRunResult | { readonly ok: true; readonly mode: "disabled" }
 > {
   const env = input.env ?? process.env
+  const injectEnv = input.injectEnv ?? {}
   if ((env["BUTLER_V5_SANDBOX"] ?? "").trim() !== "bubblewrap") {
     return { ok: true, mode: "disabled" }
   }
@@ -128,6 +160,11 @@ export async function executeArgvInSandbox(input: {
   const egressIsolation = resolveSandboxEgressIsolation(env)
   const useSlirpIsolation = isAllowlistProfile && egressIsolation === "slirp"
 
+  function slirpFallbackEnabled(): boolean {
+    const raw = (env["BUTLER_V5_SANDBOX_SLIRP_FALLBACK"] ?? "1").trim().toLowerCase()
+    return raw === "1" || raw === "true" || raw === "yes"
+  }
+
   try {
     if (isAllowlistProfile && input.networkAllowlist) {
       if (useSlirpIsolation) {
@@ -146,35 +183,67 @@ export async function executeArgvInSandbox(input: {
         childEnv = {
           PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
           ...buildSandboxProxyEnv(`http://${SLIRP_HOST_GATEWAY}:${proxyPort}`),
+          ...injectEnv,
         }
       } else {
         proxyHandle = await startEgressAllowlistProxy(input.networkAllowlist, { env })
         childEnv = {
           PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
           ...buildSandboxProxyEnv(proxyHandle.proxyUrl),
+          ...injectEnv,
         }
       }
     }
 
     const profile = resolveSandboxProfile({
       workspaceRoot: input.workspaceRoot,
-      profileName: input.profileName,
+      ...(input.profileName !== undefined ? { profileName: input.profileName } : {}),
     })
+    const profileWithTimeout =
+      useSlirpIsolation && profile.network === "allowlist"
+        ? {
+            ...profile,
+            timeoutMs: Math.max(
+              profile.timeoutMs,
+              Number(env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"]) > 0
+                ? Number(env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"])
+                : 120_000,
+            ),
+          }
+        : profile
 
     if (useSlirpIsolation && input.networkAllowlist && childEnv && proxyHandle) {
       if (!input.runner) {
         return { ok: false, reason: "bubblewrap unavailable (fail-closed)" }
       }
       const proxyPort = parseProxyPort(proxyHandle.proxyUrl)
-      const bwrapArgs = buildBubblewrapArgs(profile, input.argv, { shareNet: true })
-      return await runInSlirpAllowlistSandbox({
+      const quotaBytes = resolveSandboxFileQuotaBytes(env)
+      const bwrapArgs = wrapWithFileSizeLimit(
+        buildBubblewrapArgs(profile, input.argv, { shareNet: true }),
+        quotaBytes,
+      )
+      const slirpResult = await runInSlirpAllowlistSandbox({
         argv: input.argv,
-        profile,
+        profile: profileWithTimeout,
         runner: input.runner,
         bwrapArgs,
         ...(input.bwrapPath ? { bwrapPath: input.bwrapPath } : {}),
         childEnv,
         proxyPort,
+      })
+      if (slirpResult.ok || !slirpFallbackEnabled() || !input.runner) {
+        return slirpResult
+      }
+      const proxyOnlyEnv: NodeJS.ProcessEnv = {
+        PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+        ...buildSandboxProxyEnv(proxyHandle.proxyUrl),
+        ...injectEnv,
+      }
+      return await runInBubblewrap({
+        argv: input.argv,
+        profile,
+        runner: input.runner,
+        childEnv: proxyOnlyEnv,
       })
     }
 
@@ -241,6 +310,92 @@ export function buildBubblewrapArgs(
   return args
 }
 
+/**
+ * Production ProcessRunner: detached process groups + slirp orphan cleanup.
+ * Required for P2d slirp allowlist (workspace-tools must not use a bare spawn).
+ */
+export function createDefaultProcessRunner(): ProcessRunner {
+  return {
+    spawn: async (command, args, opts) => {
+      const { spawn } = await import("node:child_process")
+      const spawnEnv = {
+        PATH: process.env["PATH"] ?? "/usr/bin:/bin",
+        ...(opts.env ?? {}),
+      }
+      return await new Promise((resolvePromise) => {
+        let child: ReturnType<typeof spawn>
+        let settled = false
+        const outChunks: Buffer[] = []
+        const errChunks: Buffer[] = []
+        let outTotal = 0
+        let errTotal = 0
+        try {
+          child = spawn(command, [...args], {
+            cwd: opts.cwd,
+            env: spawnEnv,
+            stdio: ["ignore", "pipe", "pipe"],
+            detached: true,
+          })
+        } catch (err) {
+          resolvePromise({
+            code: 1,
+            stdout: "",
+            stderr: err instanceof Error ? err.message : String(err),
+          })
+          return
+        }
+        const takeOut = (buf: Buffer) => {
+          outTotal += buf.length
+          if (outTotal <= opts.maxOutputBytes) outChunks.push(buf)
+        }
+        const takeErr = (buf: Buffer) => {
+          errTotal += buf.length
+          if (errTotal <= opts.maxOutputBytes) errChunks.push(buf)
+        }
+        child.stdout?.on("data", (b: Buffer) => takeOut(b))
+        child.stderr?.on("data", (b: Buffer) => takeErr(b))
+        const finish = (code: number) => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          resolvePromise({
+            code,
+            stdout: Buffer.concat(outChunks).toString("utf8"),
+            stderr: Buffer.concat(errChunks).toString("utf8"),
+          })
+        }
+        const timer = setTimeout(() => {
+          if (child.pid !== undefined) {
+            try {
+              process.kill(-child.pid, "SIGKILL")
+            } catch {
+              child.kill("SIGKILL")
+            }
+          } else {
+            child.kill("SIGKILL")
+          }
+          cleanupOrphanSlirp4netns()
+        }, opts.timeoutMs)
+        child.on("close", (code) => {
+          cleanupOrphanSlirp4netns()
+          finish(code ?? 1)
+        })
+        child.on("error", (err) => {
+          cleanupOrphanSlirp4netns()
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          resolvePromise({
+            code: 1,
+            stdout: Buffer.concat(outChunks).toString("utf8"),
+            stderr: err.message,
+          })
+        })
+      })
+    },
+  }
+}
+
 export async function runInBubblewrap(input: BubblewrapRunInput): Promise<BubblewrapRunResult> {
   if (input.argv.length === 0) {
     return { ok: false, reason: "argv must not be empty" }
@@ -257,13 +412,18 @@ export async function runInBubblewrap(input: BubblewrapRunInput): Promise<Bubble
     return { ok: false, reason: "bubblewrap unavailable (fail-closed)" }
   }
 
+  const quotaBytes = resolveSandboxFileQuotaBytes(process.env)
+  const execArgv = wrapWithFileSizeLimit([bwrap, ...args], quotaBytes)
+  const execProgram = execArgv[0] ?? bwrap
+  const execProgramArgs = execArgv.slice(1)
+
   const spawnEnv: NodeJS.ProcessEnv = {
     PATH: process.env["PATH"] ?? "/usr/bin:/bin",
     ...(input.childEnv ?? {}),
   }
 
   try {
-    const result = await runner.spawn(bwrap, args, {
+    const result = await runner.spawn(execProgram, execProgramArgs, {
       cwd: input.profile.workspaceRoot,
       timeoutMs: input.profile.timeoutMs,
       maxOutputBytes: input.profile.maxOutputBytes,

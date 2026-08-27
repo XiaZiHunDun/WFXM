@@ -282,6 +282,7 @@ export {
   grantScopeMatchesMcpTool,
   scopedGrantScopeTargetsMcpServer,
   defaultMcpProviderMetadata,
+  mcpProviderMetadataFromManifest,
   DEFAULT_MCP_SANDBOX_PROFILE,
   DEFAULT_MCP_RISK,
   DEFAULT_MCP_AUDIT_POLICY,

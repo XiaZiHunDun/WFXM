@@ -1,5 +1,5 @@
 import type { RuntimeStore } from "@butler/domain/runtime.js"
-import type { EventBridge } from "./bridge.js"
+import type { EventStorePort } from "@butler/ports/core/event-store.js"
 
 /**
  * R8.x.9: closed allowlist of capability tool names that a subagent
@@ -17,6 +17,7 @@ export const ALLOWED_CAPABILITIES = [
   "summarize_today",
   "recall_history",
   "read_file",
+  "write_file",
   "run_command",
 ] as const
 export type AllowedCapability = (typeof ALLOWED_CAPABILITIES)[number]
@@ -31,11 +32,13 @@ export interface DelegateInput {
   readonly capabilities: readonly Capability[]
   readonly parentConversationId: string
   readonly actor: { readonly kind: "owner" | "agent" | "system"; readonly id: string }
-  readonly bridge: EventBridge
+  readonly bridge: EventStorePort
   /** When set with runtimeStore, creates a relational Child Run (A5). */
   readonly parentRunId?: string
   readonly runtimeStore?: RuntimeStore
   readonly subject?: string
+  /** When set, proactive WeChat notify targets this user on child completion. */
+  readonly notifySubject?: string
 }
 
 export interface DelegateOutcome {
@@ -143,6 +146,7 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
         capabilities: input.capabilities,
         ...(childRunId ? { childRunId } : {}),
         ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
+        ...(input.notifySubject?.trim() ? { notifySubject: input.notifySubject.trim() } : {}),
       },
     },
   })

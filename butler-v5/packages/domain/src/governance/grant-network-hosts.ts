@@ -28,6 +28,20 @@ export function mcpServerHostnameFromEnv(
   return hostnameFromHttpUrl(env["BUTLER_V5_MCP_URL"] ?? "")
 }
 
+/** External API hosts reached by stdio MCP subprocesses (not BUTLER_V5_MCP_URL). */
+export function mcpCapabilityOutboundHosts(capability: string): readonly string[] | undefined {
+  if (capability.startsWith("mcp_todoist_")) {
+    return ["api.todoist.com"]
+  }
+  if (capability.startsWith("mcp_firecrawl_")) {
+    return ["api.firecrawl.dev"]
+  }
+  if (capability.startsWith("mcp_github_")) {
+    return ["api.github.com"]
+  }
+  return undefined
+}
+
 export function mergeGrantNetworkHosts(
   ...groups: readonly (readonly string[] | undefined)[]
 ): readonly string[] | undefined {
@@ -58,7 +72,8 @@ export function resolveGrantNetworkHosts(input: {
 
   if (isMcpCapability(input.capability)) {
     const mcpHost = mcpServerHostnameFromEnv(env)
-    return mergeGrantNetworkHosts(mcpHost ? [mcpHost] : undefined, extra)
+    const outbound = mcpCapabilityOutboundHosts(input.capability)
+    return mergeGrantNetworkHosts(mcpHost ? [mcpHost] : undefined, outbound, extra)
   }
 
   return mergeGrantNetworkHosts(extra)

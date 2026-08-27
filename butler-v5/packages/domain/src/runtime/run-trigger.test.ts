@@ -22,6 +22,20 @@ describe("RunTrigger builders", () => {
     expect(trigger.idempotencyKey).toBe("msg-1")
   })
 
+  it("merges extraPayload into wechat trigger", () => {
+    const trigger = buildWechatRunTrigger({
+      userId: "wx-u1",
+      conversationId: "c-wx-1",
+      content: "dev task",
+      extraPayload: { workingSetMode: "dev" },
+    })
+    expect(trigger.payload).toMatchObject({
+      channelId: "wechat",
+      content: "dev task",
+      workingSetMode: "dev",
+    })
+  })
+
   it("builds slack/telegram webhook trigger", () => {
     const trigger = buildChannelRunTrigger({
       channelId: "slack",

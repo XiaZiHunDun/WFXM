@@ -59,7 +59,7 @@ function checkLayerViolations(filePath: string): string[] {
     }
 
     // infrastructure/ 不能导入 application/
-    if (rel.includes("packages/infrastructure/")) {
+    if (rel.includes("packages/infrastructure/") || rel.includes("_archive/packages/infrastructure/")) {
       if (content.includes("@butler/application")) {
         violations.push(`infrastructure 层导入 @butler/application`)
       }
@@ -103,7 +103,7 @@ describe("守卫测试：架构分层约束 [NEW-OPT-21]", () => {
   })
 
   it("infrastructure/ 层不导入 application/", () => {
-    const infraDir = resolve(PACKAGES_DIR, "infrastructure/src")
+    const infraDir = resolve(ROOT, "_archive/packages/infrastructure/src")
     const files = collectTsFiles(infraDir)
     const allViolations: string[] = []
 

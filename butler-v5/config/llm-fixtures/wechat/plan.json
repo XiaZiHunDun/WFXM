@@ -1,0 +1,19 @@
+{
+  "responses": [
+    {
+      "content": "{\"_tag\":\"Respond\",\"content\":\"pong\"}",
+      "toolCalls": [],
+      "stopReason": "end_turn"
+    },
+    {
+      "content": "{\"_tag\":\"Delegate\",\"role\":\"developer\",\"task\":\"write butler-v5/tmp-product-contract.txt with content contract-ok\"}",
+      "toolCalls": [],
+      "stopReason": "end_turn"
+    },
+    {
+      "content": "{\"_tag\":\"Respond\",\"content\":\"已委派开发子代理处理写入任务\"}",
+      "toolCalls": [],
+      "stopReason": "end_turn"
+    }
+  ]
+}

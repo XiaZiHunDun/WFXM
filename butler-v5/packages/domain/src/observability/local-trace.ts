@@ -226,9 +226,10 @@ export function filterTraceEvents(
   },
 ): readonly TraceEvent[] {
   const limit = filter.limit ?? 100
+  if (limit <= 0) return []
   return events
     .filter((e) => (filter.runId ? e.runId === filter.runId : true))
     .filter((e) => (filter.conversationId ? e.conversationId === filter.conversationId : true))
     .filter((e) => (filter.kind ? e.kind === filter.kind : true))
-    .slice(-Math.max(0, limit))
+    .slice(-limit)
 }

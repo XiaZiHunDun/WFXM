@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "projects": {
+    "wechat": {
+      "label": "WFXM 管家主线",
+      "readmePath": "AGENTS.md",
+      "manifestPath": "butler-v5/DESIGN.md"
+    },
+    "LingWen1": {
+      "label": "灵文1号试点",
+      "readmePath": "projects/LingWen1/README.md",
+      "manifestPath": "projects/LingWen1/project.yaml"
+    },
+    "灵文1号": {
+      "label": "灵文1号试点",
+      "readmePath": "projects/LingWen1/README.md",
+      "manifestPath": "projects/LingWen1/project.yaml"
+    }
+  }
+}

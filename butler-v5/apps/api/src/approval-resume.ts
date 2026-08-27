@@ -15,10 +15,11 @@ import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import type { ToolExecutionOutcome } from "@butler/runtime/capability-boundary.js"
 import type { RunResult } from "@butler/runtime/tool-runtime.js"
 import { Effect } from "effect"
-import { pickLLMProvider, type LLMMessage } from "@butler/adapters"
+import { pickLLMForRole, type LLMMessage, type LLMTool } from "@butler/adapters"
 import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
 import { stubReply } from "./wechat-inbound-llm.js"
+import { isExecCapability } from "./wechat-tool-profile.js"
 import type { Wiring } from "./wiring.js"
 
 export { approveWaitingStep, denyWaitingStep } from "@butler/runtime/approval-runtime.js"
@@ -92,6 +93,21 @@ function isLoopResult(value: unknown): value is ConversationLoopResult {
   )
 }
 
+function formatPostExecReply(capability: string, toolOutput: string): string {
+  if (capability === "write_file") {
+    return `✅ 文件已写入\n${toolOutput}`
+  }
+  if (capability === "run_command") {
+    return `✅ 命令已执行\n\`\`\`\n${toolOutput.trim()}\n\`\`\``
+  }
+  return toolOutput
+}
+
+function postApprovalLoopEnabled(env: NodeJS.ProcessEnv): boolean {
+  const raw = (env["BUTLER_V5_POST_APPROVAL_LOOP"] ?? "").trim().toLowerCase()
+  return raw === "1" || raw === "true" || raw === "on"
+}
+
 /**
  * After the approved capability succeeds, continue with the full multi-turn
  * conversation loop (tools allowed) so resume is not limited to a single
@@ -108,7 +124,27 @@ async function continueLoopAfterCapability(args: {
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
 }): Promise<string> {
-  const adapter = pickLLMProvider(args.env)
+  if (isExecCapability(args.capability) && !postApprovalLoopEnabled(args.env)) {
+    const reply = formatPostExecReply(args.capability, args.toolOutput)
+    const now = new Date()
+    const stepId = crypto.randomUUID()
+    await args.wiring.runtimeStore.createStep({
+      id: stepId,
+      runId: args.runId,
+      kind: "result",
+      status: "succeeded",
+      input: { afterCapability: args.capability, source: "exec_direct" },
+      createdAt: now,
+    })
+    await args.wiring.runtimeStore.updateStep({
+      stepId,
+      output: { reply },
+      updatedAt: now,
+    })
+    return reply
+  }
+
+  const adapter = pickLLMForRole(args.env, "plan")
   if (!adapter) {
     const now = new Date()
     const stepId = crypto.randomUUID()
@@ -142,7 +178,7 @@ async function continueLoopAfterCapability(args: {
     return args.toolOutput
   }
 
-  const tools = makeWeibutlerTools({
+  const allTools = makeWeibutlerTools({
     bridge: args.wiring.eventBridge,
     conversationId: args.conversationId,
     actor: { kind: "agent", id: "approval-resume" },
@@ -153,7 +189,10 @@ async function continueLoopAfterCapability(args: {
     env: args.env,
     mcpBundle: args.wiring.mcp,
   })
-  const llmTools = llmToolsForButler({ env: args.env, mcpBundle: args.wiring.mcp })
+  const tools = allTools.filter((t) => !isExecCapability(t.name as string))
+  const llmTools = llmToolsForButler({ env: args.env, mcpBundle: args.wiring.mcp }).filter(
+    (t) => !isExecCapability(t.name),
+  )
   const toolExecutor = makeToolExecutor({
     tools,
     store: args.wiring.runtimeStore,
@@ -173,7 +212,8 @@ async function continueLoopAfterCapability(args: {
         role: "system",
         content:
           "You are a helpful butler. An Owner-approved capability already ran. " +
-          "Continue the task in Chinese. You may call tools when needed.",
+          "Continue the task in Chinese. You may call read-only tools; " +
+          "do not request run_command or write_file again in this turn.",
       },
       { role: "user", content: userContent },
     ],
@@ -201,7 +241,7 @@ async function continueLoopAfterCapability(args: {
       complete: async (msgs, toolsForLlm) => {
         const llmMessages = msgs as unknown as LLMMessage[]
         return Effect.runPromise(
-          adapter.complete(llmMessages, { tools: toolsForLlm }).pipe(
+          adapter.complete(llmMessages, { tools: toolsForLlm as unknown as readonly LLMTool[] }).pipe(
             Effect.match({
               onFailure: (err) => ({
                 ok: false as const,

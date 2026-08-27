@@ -1,4 +1,4 @@
-import type { EventBridge } from "@butler/runtime/bridge.js"
+import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { RuntimeStore, StoredMessage } from "@butler/domain/runtime.js"
 import type { DurableMemoryStore, DocumentStore, ProjectKnowledgeStore } from "@butler/persistence"
 import { resolveReadModelSource } from "@butler/domain/runtime.js"
@@ -10,11 +10,13 @@ import {
 } from "@butler/runtime/delegate-runtime.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { writeSubagentAudit } from "./audit-service.js"
+import { recordChildRunDelegated } from "./project-state.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
-import { makeReadFileTool, makeRunCommandTool } from "./workspace-tools.js"
+import { makeReadFileTool, makeRunCommandTool, makeWriteFileTool } from "./workspace-tools.js"
 import { loadMcpToolDefinitions, loadMcpLlmTools, type McpToolsOptions } from "./mcp-tools.js"
 import type { McpToolBundle } from "./mcp-bootstrap.js"
 import { isSubagentEnabled } from "./subagent-config.js"
+import { defaultCapabilitiesForRole } from "./delegate-capabilities.js"
 
 /**
  * Minimal context passed to tool handlers. The butler loop wires the
@@ -33,7 +35,7 @@ export interface ButlerToolContext {
   readonly runtimeStore?: RuntimeStore
   /** Parent Run id for Child Run creation on delegate (A5). */
   readonly runId?: string
-  /** Sandbox root for read_file / run_command. Defaults to cwd / env. */
+  /** Sandbox root for read_file / write_file / run_command. Defaults to cwd / env. */
   readonly workspaceRoot?: string
   /** Current inbound WeChat user; required by send_wechat_file. */
   readonly wechatUserId?: string
@@ -66,7 +68,7 @@ type ToolHistory =
   | { readonly kind: "messages"; readonly rows: readonly StoredMessage[] }
   | {
       readonly kind: "events"
-      readonly rows: readonly Awaited<ReturnType<EventBridge["loadStream"]>>
+      readonly rows: Awaited<ReturnType<EventBridge["loadStream"]>>
     }
 
 /**
@@ -326,7 +328,8 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
       const requestedCaps: readonly string[] = Array.isArray(capsRaw)
         ? capsRaw.filter((c): c is string => typeof c === "string")
         : []
-      const effectiveCaps = requestedCaps.length > 0 ? requestedCaps : ["general"]
+      const effectiveCaps =
+        requestedCaps.length > 0 ? requestedCaps : defaultCapabilitiesForRole(role)
       const allowedSet = new Set<string>(ALLOWED_CAPABILITIES)
       const invalid = effectiveCaps.find((c) => !allowedSet.has(c))
       if (invalid !== undefined) {
@@ -362,6 +365,7 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
           ...(ctx.runtimeStore ? { runtimeStore: ctx.runtimeStore } : {}),
           ...(ctx.runId ? { parentRunId: ctx.runId } : {}),
           ...(ctx.wechatUserId ? { subject: ctx.wechatUserId } : {}),
+          ...(ctx.wechatUserId ? { notifySubject: ctx.wechatUserId } : {}),
         })
         writeSubagentAudit(ctx.runtimeStore, {
           ts: new Date().toISOString(),
@@ -372,6 +376,16 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
           task,
           capabilities: effectiveCaps,
         })
+        if (ctx.wechatUserId) {
+          recordChildRunDelegated({
+            userId: ctx.wechatUserId,
+            projectId: (ctx.projectId ?? "wechat").trim() || "wechat",
+            childRunId: outcome.childRunId,
+            role,
+            task,
+            env: ctx.env,
+          })
+        }
         return {
           ok: true,
           output: outcome.childRunId
@@ -488,6 +502,19 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
     },
   },
   {
+    name: "write_file",
+    description:
+      "Write UTF-8 text to a file inside the butler workspace. Pass `path` relative to the workspace root and full `content`. Creates parent directories when needed. Max 64KiB. Requires owner confirmation before executing.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "File path relative to the workspace root." },
+        content: { type: "string", description: "Full UTF-8 text to write." },
+      },
+      required: ["path", "content"],
+    },
+  },
+  {
     name: "run_command",
     description:
       'Run a short allowlisted command in the workspace (no shell). Pass `argv` as a string array, e.g. ["ls", "-la"], ["python3", "-c", "print(1)"], or ["rg", "TODO", "src"]. Allowed programs: cat, date, echo, git, grep, head, ls, node, pnpm, pwd, python3, rg, wc. Arguments cannot contain \'..\' or start with \'/\'. bash/rm/curl and similar are rejected.',
@@ -540,7 +567,7 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
           type: "array",
           items: { type: "string" },
           description:
-            "Optional list of capability tool names the subagent may use. Must come from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, run_command). Defaults to ['general'] when unspecified.",
+            "Optional list of capability tool names the subagent may use. Must come from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, write_file, run_command). Defaults to ['general'] when unspecified.",
         },
       },
       required: ["task"],
@@ -711,6 +738,7 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     makeGreetWithTimeTool(),
     makeSummarizeTodayTool(ctx),
     makeReadFileTool(ctx),
+    makeWriteFileTool(ctx),
     makeRunCommandTool(ctx),
     makeSendWechatFileTool(ctx),
   ]

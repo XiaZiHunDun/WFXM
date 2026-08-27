@@ -1,4 +1,4 @@
-import type { ScopedGrantRecord } from "../governance/types.js"
+import type { ScopedGrantRecord, ScopedGrantScope } from "../governance/types.js"
 import type { RunStatus, StepKind, StepStatus, TriggerSource } from "./types.js"
 
 /** Main-Run statuses that block starting another main Run in the same conversation. */
@@ -127,7 +127,7 @@ export interface RuntimeStore {
     readonly grantId: string
     readonly runId: string
     readonly subject: string
-    readonly scope: Readonly<Record<string, unknown>>
+    readonly scope: ScopedGrantScope
     readonly remainingUses: number | null
     readonly expiresAt: Date
     readonly createdAt: Date
@@ -165,6 +165,12 @@ export interface RuntimeStore {
   /** P3: count non-exhausted MCP grants for a server (for Owner status). */
   readonly countActiveScopedGrantsForMcpServer: (
     serverId: string,
+    now: Date,
+  ) => Promise<number>
+  /** P3-2: expire grants whose scope targets a capability (sets remainingUses=0)
+   * when that capability provider is uninstalled. */
+  readonly revokeScopedGrantsForCapability: (
+    capability: string,
     now: Date,
   ) => Promise<number>
   /** Active main/child Runs whose deadline is strictly before `now`. */

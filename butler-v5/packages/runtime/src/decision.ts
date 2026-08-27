@@ -9,17 +9,7 @@ export type DecodeResult =
   | { readonly ok: true; readonly value: ModelDecision }
   | { readonly ok: false; readonly reason: string }
 
-export function decodeDecision(raw: string): DecodeResult {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    return { ok: false, reason: "invalid JSON" }
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { ok: false, reason: "not an object" }
-  }
-  const obj = parsed as Record<string, unknown>
+function parseModelDecisionObject(obj: Record<string, unknown>): DecodeResult {
   const tag = obj["_tag"]
   switch (tag) {
     case "Respond": {
@@ -62,4 +52,73 @@ export function decodeDecision(raw: string): DecodeResult {
     default:
       return { ok: false, reason: `unknown tag: ${String(tag)}` }
   }
+}
+
+function decodeDecisionJson(text: string): DecodeResult {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return { ok: false, reason: "invalid JSON" }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { ok: false, reason: "not an object" }
+  }
+  return parseModelDecisionObject(parsed as Record<string, unknown>)
+}
+
+/** Extract `{...}` objects that look like ModelDecision payloads from mixed LLM text. */
+export function extractEmbeddedDecisionJson(raw: string): readonly string[] {
+  const found: string[] = []
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] !== "{") continue
+    let depth = 0
+    let inString = false
+    let escaped = false
+    for (let j = i; j < raw.length; j++) {
+      const ch = raw[j]
+      if (inString) {
+        if (escaped) {
+          escaped = false
+          continue
+        }
+        if (ch === "\\") {
+          escaped = true
+          continue
+        }
+        if (ch === '"') inString = false
+        continue
+      }
+      if (ch === '"') {
+        inString = true
+        continue
+      }
+      if (ch === "{") depth += 1
+      else if (ch === "}") {
+        depth -= 1
+        if (depth === 0) {
+          const slice = raw.slice(i, j + 1)
+          if (slice.includes('"_tag"')) found.push(slice)
+          break
+        }
+      }
+    }
+  }
+  return found
+}
+
+export function decodeDecision(raw: string): DecodeResult {
+  const trimmed = raw.trim()
+  const direct = decodeDecisionJson(trimmed)
+  if (direct.ok) return direct
+
+  const embedded = extractEmbeddedDecisionJson(trimmed)
+  for (let i = embedded.length - 1; i >= 0; i--) {
+    const candidate = embedded[i]
+    if (!candidate) continue
+    const decoded = decodeDecisionJson(candidate)
+    if (decoded.ok) return decoded
+  }
+
+  return direct
 }

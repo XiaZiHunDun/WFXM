@@ -1,4 +1,4 @@
-import type { EventBridge } from "@butler/runtime/bridge.js"
+import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { RunEngine } from "@butler/runtime/run-engine.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type {

@@ -9,6 +9,13 @@ import type { AgentKernel } from "../agent-kernel.js"
 import { decodeDecision, type ModelDecision } from "../decision.js"
 import { RunPauseForApproval } from "../run-engine.js"
 import type { RunResult, ToolDefinition } from "../tool-runtime.js"
+import { redactSecretText, shouldRedactToolResults } from "../secret-redact.js"
+
+/** Tool output as model-visible text; redacted in strict mode (default off). */
+function formatToolOutput(output: unknown): string {
+  const text = typeof output === "string" ? output : JSON.stringify(output)
+  return shouldRedactToolResults(process.env) ? redactSecretText(text) : text
+}
 
 export const DEFAULT_MAX_LOOP_ITERATIONS = 5
 
@@ -216,7 +223,7 @@ export async function runConversationLoop(input: {
         )
         toolResultMessages.push({
           role: "tool",
-          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
+          content: toolResult.ok ? formatToolOutput(toolResult.output) : `[error] ${toolResult.reason}`,
           toolCallId: tc.id,
           toolName: tc.name,
         })
@@ -334,7 +341,7 @@ export async function runConversationLoop(input: {
         })
         messages.push({
           role: "tool",
-          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
+          content: toolResult.ok ? formatToolOutput(toolResult.output) : `[error] ${toolResult.reason}`,
           toolCallId,
           toolName: "delegate_to_subagent",
         })
@@ -386,7 +393,7 @@ export async function runConversationLoop(input: {
         })
         messages.push({
           role: "tool",
-          content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
+          content: toolResult.ok ? formatToolOutput(toolResult.output) : `[error] ${toolResult.reason}`,
           toolCallId: `json-${iteration}-${decision.toolName}`,
           toolName: decision.toolName,
         })

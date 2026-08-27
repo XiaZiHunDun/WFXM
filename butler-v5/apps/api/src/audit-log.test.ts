@@ -10,7 +10,7 @@ import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { appendAudit, resolveSubagentAuditLogPath, type AuditEntry } from "./audit-log.js"
+import { appendAudit, readRecentSubagentAudit, resolveSubagentAuditLogPath, type AuditEntry } from "./audit-log.js"
 
 const ORIGINAL_HOME = process.env["HOME"]
 const ORIGINAL_AUDIT_PATH = process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -75,6 +75,31 @@ describe("audit-log", () => {
     })
     const auditDir = join(tempHome, ".config", "butler-v5", "audit")
     expect(existsSync(auditDir)).toBe(true)
+  })
+
+  it("readRecentSubagentAudit returns newest rows", () => {
+    appendAudit({
+      ts: "2026-08-19T00:00:00.000Z",
+      kind: "delegation",
+      parentConversationId: "p-a",
+      childConversationId: "c-a",
+      role: "general",
+      task: "first",
+      capabilities: ["general"],
+    })
+    appendAudit({
+      ts: "2026-08-19T00:00:01.000Z",
+      kind: "completion",
+      parentConversationId: "p-a",
+      childConversationId: "c-a",
+      role: "general",
+      task: "first",
+      capabilities: ["general"],
+      replyExcerpt: "done",
+    })
+    const rows = readRecentSubagentAudit(5, process.env)
+    expect(rows).toHaveLength(2)
+    expect(rows[1]?.kind).toBe("completion")
   })
 
   it("honors BUTLER_V5_SUBAGENT_AUDIT_PATH override", () => {

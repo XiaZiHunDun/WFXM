@@ -2,12 +2,68 @@ import { describe, expect, it } from "vitest"
 import {
   defaultMcpProviderMetadata,
   grantScopeMatchesMcpTool,
+  mcpAllowedForRunSubject,
+  mcpProviderMetadataFromManifest,
+  mcpToolsFromServer,
   normalizeMcpGrantScope,
   parseMcpCapability,
+  rejectMcpTokenPassthrough,
+  resolveMcpOAuthAudience,
+  resolveMcpToolRisk,
   scopedGrantScopeTargetsMcpServer,
   toMcpCapabilityName,
   toMcpCapabilityNameForServer,
 } from "./mcp-tool-capability.js"
+
+describe("P3-3 named registry / untrusted descriptions", () => {
+  it("treats tool descriptions as untrusted: server default risk is authoritative", () => {
+    expect(
+      resolveMcpToolRisk({ id: "s", defaultRisk: "high", tools: [] }, { risk: "low" }),
+    ).toBe("high")
+    expect(resolveMcpToolRisk({ id: "s", defaultRisk: "low", tools: [] }, { risk: "high" })).toBe("low")
+  })
+
+  it("scales a refused risk up to the fail-closed default when server omits it", () => {
+    expect(resolveMcpToolRisk({ id: "s", tools: [] }, { risk: "low" })).toBe("high")
+  })
+
+  it("maps a named server + tools into concrete per-tool capabilities", () => {
+    const tools = mcpToolsFromServer({
+      id: "github",
+      defaultRisk: "high",
+      tools: [{ name: "search", risk: "low" }, { name: "read" }],
+    })
+    expect(tools).toEqual([
+      { toolName: "search", capability: "mcp_github_search", risk: "high", serverId: "github" },
+      { toolName: "read", capability: "mcp_github_read", risk: "high", serverId: "github" },
+    ])
+  })
+
+  it("defaults Child (non-owner) runs to no MCP", () => {
+    expect(mcpAllowedForRunSubject("owner-1", "owner-1")).toBe(true)
+    expect(mcpAllowedForRunSubject("delegate-sub", "owner-1")).toBe(false)
+  })
+})
+
+describe("P3-3 remote OAuth audience binding / no token passthrough", () => {
+  it("derives audience only for remote servers with an explicit oauthAudience", () => {
+    expect(resolveMcpOAuthAudience({ id: "x", transport: "http", url: "https://api.example.com", oauthAudience: "api.example.com", tools: [] })).toBe("api.example.com")
+    expect(resolveMcpOAuthAudience({ id: "x", transport: "http", url: "https://api.example.com", tools: [] })).toBeNull()
+    expect(resolveMcpOAuthAudience({ id: "x", transport: "stdio", command: "node", tools: [] })).toBeNull()
+  })
+
+  it("rejects tokenish args to a remote server without audience (no passthrough)", () => {
+    const bare = { id: "x", transport: "http", url: "https://api.example.com", tools: [] }
+    expect(rejectMcpTokenPassthrough(bare, { query: "hi" })).toEqual({ ok: true })
+    expect(rejectMcpTokenPassthrough(bare, { token: "sekrit" })).toMatchObject({ ok: false })
+    expect(rejectMcpTokenPassthrough(bare, { api_key: "k" })).toMatchObject({ ok: false })
+  })
+
+  it("allows tokenish args once an explicit oauthAudience is bound", () => {
+    const bound = { id: "x", transport: "sse", url: "https://mcp.example.com/sse", oauthAudience: "mcp.example.com", tools: [] }
+    expect(rejectMcpTokenPassthrough(bound, { token: "aud-bound" })).toEqual({ ok: true })
+  })
+})
 
 describe("mcp tool capability", () => {
   it("normalizes capability names", () => {
@@ -58,6 +114,22 @@ describe("mcp tool capability", () => {
       defaultRisk: "high",
       defaultSandboxProfile: "workspace-write-network-deny",
       auditPolicy: "summary",
+    })
+  })
+
+  it("reads provider metadata from manifest server defaults", () => {
+    expect(
+      mcpProviderMetadataFromManifest({
+        serverId: "github",
+        defaultRisk: "low",
+        auditPolicy: "full",
+        defaultSandboxProfile: "workspace-write-network-allowlist",
+      }),
+    ).toEqual({
+      serverId: "github",
+      defaultRisk: "low",
+      defaultSandboxProfile: "workspace-write-network-allowlist",
+      auditPolicy: "full",
     })
   })
 

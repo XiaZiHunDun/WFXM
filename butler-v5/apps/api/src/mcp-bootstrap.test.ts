@@ -70,6 +70,26 @@ describe("bootstrapMcpTools", () => {
   })
 
   it("returns off when consent required but server not listed", async () => {
+    const revoke = vi.fn(async () => 2)
+    const store = {
+      revokeScopedGrantsForMcpServer: revoke,
+    } as unknown as RuntimeStore
+    const bundle = await bootstrapMcpTools(
+      {
+        BUTLER_V5_MCP_ENABLED: "1",
+        BUTLER_V5_MCP_TOOL_NAMES: "search",
+        BUTLER_V5_MCP_REQUIRE_CONSENT: "1",
+        BUTLER_V5_MCP_CONSENT: "other-server",
+        BUTLER_V5_MCP_SERVER_ID: "blocked-server",
+      },
+      { runtimeStore: store },
+    )
+    expect(bundle.mode).toBe("off")
+    expect(bundle.runtimeTools).toEqual([])
+    expect(revoke).toHaveBeenCalledWith("blocked-server", expect.any(Date))
+  })
+
+  it("returns off when consent required but server not listed (no store)", async () => {
     const bundle = await bootstrapMcpTools({
       BUTLER_V5_MCP_ENABLED: "1",
       BUTLER_V5_MCP_TOOL_NAMES: "search",

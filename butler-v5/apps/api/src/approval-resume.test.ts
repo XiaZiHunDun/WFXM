@@ -7,7 +7,7 @@ import {
   approveWaitingStep,
   createWaitingApprovalStep,
 } from "@butler/runtime/approval-runtime.js"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { resumeApprovedCapability } from "./approval-resume.js"
 import { makeWiring } from "./wiring.js"
@@ -71,12 +71,16 @@ describe("resumeApprovedCapability (A1 same-Run resume)", () => {
       risk: "low",
     })
     const decision = await approveWaitingStep(runtimeStore, stepId, "owner-1")
+    expect(decision._tag).toBe("approved")
+    if (decision._tag !== "approved") throw new Error("expected approved")
     const result = await resumeApprovedCapability(wiring, decision, {
       env: {
         ...process.env,
         OPENAI_API_KEY: "",
         ANTHROPIC_API_KEY: "",
         MINIMAX_API_KEY: "",
+        DEEPSEEK_API_KEY: "",
+        DASHSCOPE_API_KEY: "",
       },
     })
     expect(result.ok).toBe(true)
@@ -95,6 +99,6 @@ describe("resumeApprovedCapability (A1 same-Run resume)", () => {
     const resultStep = runSteps.find((s) => s.kind === "result")
     expect(resultStep).toBeTruthy()
     const input = resultStep?.input as { source?: string } | null
-    expect(input?.source === "tool_fallback" || input?.source === "conversation_loop").toBe(true)
+    expect(input?.source === "tool_fallback" || input?.source === "conversation_loop" || input?.source === "exec_direct").toBe(true)
   })
 })

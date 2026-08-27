@@ -101,11 +101,21 @@ export function resolveMcpServerIdFromCapability(
 }
 
 export function defaultMcpProviderMetadata(serverId: string): McpProviderMetadata {
+  return mcpProviderMetadataFromManifest({ serverId })
+}
+
+/** Resolve provider metadata from manifest server defaults (P3 skeleton). */
+export function mcpProviderMetadataFromManifest(input: {
+  readonly serverId: string
+  readonly defaultRisk?: McpRiskLevel
+  readonly defaultSandboxProfile?: string
+  readonly auditPolicy?: McpAuditPolicy
+}): McpProviderMetadata {
   return {
-    serverId: normalizeMcpServerId(serverId),
-    defaultRisk: DEFAULT_MCP_RISK,
-    defaultSandboxProfile: DEFAULT_MCP_SANDBOX_PROFILE,
-    auditPolicy: DEFAULT_MCP_AUDIT_POLICY,
+    serverId: normalizeMcpServerId(input.serverId),
+    defaultRisk: input.defaultRisk ?? DEFAULT_MCP_RISK,
+    defaultSandboxProfile: input.defaultSandboxProfile ?? DEFAULT_MCP_SANDBOX_PROFILE,
+    auditPolicy: input.auditPolicy ?? DEFAULT_MCP_AUDIT_POLICY,
   }
 }
 
@@ -147,4 +157,115 @@ export function grantScopeMatchesMcpTool(
     return true
   }
   return normalizeMcpToolName(scope.mcp.toolName) === parsed.toolName
+}
+
+// ---- P3-3: named server/tool registry, untrusted descriptions, remote OAuth ----
+
+/** A server-declared tool entry is scaled up to a concrete registered tool with
+ * an authoritative risk + sandbox profile. */
+export interface McpServerToolRegistration {
+  readonly toolName: string
+  readonly capability: string
+  readonly risk: McpRiskLevel
+  readonly serverId: string
+}
+
+export interface McpServerDescriptor {
+  readonly id: string
+  readonly defaultRisk?: McpRiskLevel
+  readonly defaultSandboxProfile?: string
+  readonly auditPolicy?: McpAuditPolicy
+  readonly transport?: "http" | "sse" | "stdio" | string
+  readonly url?: string
+  readonly oauthAudience?: string
+  readonly tools: readonly { readonly name: string; readonly risk?: McpRiskLevel }[]
+}
+
+/**
+ * Tool descriptions are untrusted: a server-declared `risk` is ignored and can
+ * never lower isolation. The SERVER default (explicit or high) is authoritative.
+ */
+export function resolveMcpToolRisk(
+  server: McpServerDescriptor,
+  _tool: { readonly risk?: McpRiskLevel } = {},
+): McpRiskLevel {
+  return server.defaultRisk ?? DEFAULT_MCP_RISK
+}
+
+/** Map a server + its tool names to concrete registered MCP capabilities. */
+export function mcpToolsFromServer(server: McpServerDescriptor): readonly McpServerToolRegistration[] {
+  const serverId = normalizeMcpServerId(server.id)
+  if (!serverId) return []
+  return server.tools
+    .map((tool) => {
+      const capability = toMcpCapabilityNameForServer(serverId, tool.name)
+      if (!capability) return null
+      return {
+        toolName: normalizeMcpToolName(tool.name),
+        capability,
+        risk: resolveMcpToolRisk(server, tool),
+        serverId,
+      }
+    })
+    .filter((reg): reg is McpServerToolRegistration => reg !== null)
+}
+
+/**
+ * Remote OAuth audience binding: a remote (http/sse) MCP server must declare the
+ * expected OAuth `audience` the host will present. A remote server WITHOUT a
+ * declared audience is refused OAuth/passthrough token flows (fail-closed).
+ */
+export function resolveMcpOAuthAudience(server: McpServerDescriptor): string | null {
+  if (server.transport !== "http" && server.transport !== "sse") return null
+  const raw = (server.oauthAudience ?? "").trim()
+  return raw ? raw : null
+}
+
+/** Reject model-supplied credential-style args from reaching a remote server
+ * unless that server has an explicit OAuth audience binding (no token passthrough). */
+const TOKENISH_KEYS = new Set([
+  "authorization",
+  "api_key",
+  "apiKey",
+  "bearer",
+  "credential",
+  "token",
+  "password",
+  "secret",
+  "access_token",
+])
+
+export function rejectMcpTokenPassthrough(
+  server: McpServerDescriptor,
+  args: Readonly<Record<string, unknown>>,
+): { readonly ok: true } | { readonly ok: false; readonly reason: string } {
+  const audience = resolveMcpOAuthAudience(server)
+  if (audience) return { ok: true }
+  for (const [key, value] of Object.entries(args)) {
+    if (TOKENISH_KEYS.has(key) && !isBlank(value)) {
+      return {
+        ok: false,
+        reason: `remote MCP server "${server.id}" has no oauthAudience binding; refusing token arg "${key}" (no token passthrough)`,
+      }
+    }
+  }
+  return { ok: true }
+}
+
+function isBlank(value: unknown): boolean {
+  if (value === null || value === undefined) return true
+  if (typeof value === "string") return value.trim().length === 0
+  return false
+}
+
+/**
+ * P3-3: Child (delegated) Runs get no MCP by default. A run is treated as a
+ * child/no-MCP subject unless it runs as the owner. Grants must be delegable to
+ * carry MCP into a child; default is fail-closed.
+ */
+export function mcpAllowedForRunSubject(
+  subject: string,
+  ownerSubject: string,
+): boolean {
+  return subject.trim() === ownerSubject.trim()
 }

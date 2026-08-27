@@ -32,6 +32,18 @@
     },
     "WFXM": {
       "mcpTools": "*"
+    },
+    "LingWen1": {
+      "mcpTools": [
+        "mcp_markitdown_convert_to_markdown",
+        "mcp_firecrawl_firecrawl_scrape"
+      ]
+    },
+    "灵文1号": {
+      "mcpTools": [
+        "mcp_markitdown_convert_to_markdown",
+        "mcp_firecrawl_firecrawl_scrape"
+      ]
     }
   }
 }

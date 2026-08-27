@@ -136,7 +136,8 @@ function handleHttpForward(
     (upstream, pending) => {
       const path = `${parsed.pathname}${parsed.search}`
       const headers = { ...req.headers, host: parsed.host }
-      delete headers["proxy-connection"]
+      const headerRecord = headers as Record<string, string | string[] | undefined>
+      delete headerRecord["proxy-connection"]
       upstream.write(`${req.method ?? "GET"} ${path} HTTP/1.1\r\n`)
       for (const [key, value] of Object.entries(headers)) {
         if (value === undefined) continue

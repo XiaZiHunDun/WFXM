@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "projects": {
+    "wechat": {
+      "cwd": "butler-v5",
+      "commands": [
+        {
+          "name": "surface-test",
+          "argv": ["pnpm", "exec", "vitest", "run", "apps/api/src/wechat-project-surface.test.ts"],
+          "timeoutMs": 90000
+        }
+      ]
+    },
+    "LingWen1": {
+      "cwd": "projects/LingWen1",
+      "commands": [
+        {
+          "name": "readme",
+          "argv": ["test", "-f", "README.md"],
+          "timeoutMs": 5000
+        },
+        {
+          "name": "manifest",
+          "argv": ["test", "-f", "project.yaml"],
+          "timeoutMs": 5000
+        }
+      ]
+    },
+    "灵文1号": {
+      "cwd": "projects/LingWen1",
+      "commands": [
+        {
+          "name": "readme",
+          "argv": ["test", "-f", "README.md"],
+          "timeoutMs": 5000
+        }
+      ]
+    }
+  }
+}

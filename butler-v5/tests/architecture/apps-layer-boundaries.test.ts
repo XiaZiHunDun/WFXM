@@ -18,8 +18,8 @@ function forbiddenImports(src: string): string[] {
   const hits: string[] = []
   if (src.includes("@butler/infrastructure")) hits.push("@butler/infrastructure")
   if (src.includes("@butler/application")) hits.push("@butler/application")
-  if (src.includes("packages/infrastructure/_archive/persistence/schema")) {
-    hits.push("packages/infrastructure/_archive/persistence/schema")
+  if (src.includes("_archive/packages/infrastructure/src/persistence/schema")) {
+    hits.push("_archive/packages/infrastructure/src/persistence/schema")
   }
   return hits
 }

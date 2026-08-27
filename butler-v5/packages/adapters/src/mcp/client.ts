@@ -1,9 +1,25 @@
-import type { McpTransport } from "./client.js"
 import {
   buildMcpInitializeRequest,
   buildMcpInitializedNotification,
   type McpInitializeParams,
 } from "./session.js"
+
+/** JSON-RPC request shape accepted by a transport (params optional for notifications). */
+export interface McpRequest {
+  readonly method: string
+  readonly params?: unknown
+}
+
+/** Minimal JSON-RPC response read by the client (`result` only). */
+export interface McpResponse {
+  readonly result?: unknown
+}
+
+/** Transport boundary the McpClient depends on; implemented by http/sse/stdio adapters. */
+export interface McpTransport {
+  readonly request: (req: McpRequest) => Promise<McpResponse>
+  readonly close: () => Promise<void>
+}
 
 export interface McpDiscoveredTool {
   readonly name: string

@@ -4,7 +4,7 @@ import { createOwnerRoutes } from "./owner-routes.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { makeWiring } from "./wiring.js"
 import * as ownerAuth from "./owner-auth.js"
@@ -164,6 +164,69 @@ describe("owner routes", () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { items: unknown[] }
     expect(Array.isArray(body.items)).toBe(true)
+  })
+
+  it("P1 acceptance: owner approvals list does not leak pending task args", async () => {
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const runtimeStore = createRuntimeStore(db.db)
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
+    const createdAt = new Date("2026-08-20T00:00:00Z")
+    const secret = "SK-abcd-1234-sensitive"
+    const inbound = await runtimeStore.createConversationWithUserMessage({
+      conversationId: "conv-owner-leak",
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "deploy" },
+      triggerSource: "channel",
+      idempotencyKey: "owner-leak-msg",
+      createdAt,
+    })
+    const run = await runtimeStore.createRun({
+      id: crypto.randomUUID(),
+      conversationId: inbound.conversationId,
+      parentRunId: null,
+      triggerSource: "channel",
+      idempotencyKey: "owner-leak-run",
+      subject: "owner-1",
+      goal: "reply",
+      budget: { maxSteps: 5 },
+      deadline: null,
+      createdAt,
+    })
+    await runtimeStore.transitionRunStatus(run.id, run.version, "running", createdAt)
+    await createWaitingApprovalStep(runtimeStore, {
+      runId: run.id,
+      conversationId: inbound.conversationId,
+      subject: "owner-1",
+      capability: "run_command",
+      resource: "deploy",
+      args: { argv: ["deploy"], token: secret },
+      question: "Confirm run_command?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "run_command:deploy",
+      kind: "command",
+      risk: "high",
+    })
+    const app = new Hono()
+    createOwnerRoutes(app, wiring)
+    const res = await app.request("/v1/owner/approvals")
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { items: (Record<string, unknown> | null)[] }
+    expect(body.items).toHaveLength(1)
+    const item = JSON.stringify(body.items[0])
+    // Sensitive tool args must not be surfaced on the Owner list.
+    expect(item).not.toContain(secret)
+    expect(item).not.toContain("argv")
+    // But the fields needed to approve are present.
+    expect(item).toContain("run_command")
+    expect(item).toContain("run_command:deploy")
   })
 
   it("approves a waiting step and returns resume outcome", async () => {

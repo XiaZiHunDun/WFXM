@@ -1,8 +1,11 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest"
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { Hono } from "hono"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { createRoutes } from "./routes.js"
@@ -163,6 +166,51 @@ describe("v5 wiring", () => {
     expect(res.status).toBe(400)
     const text = await res.text()
     expect(text).toMatch(/invalid conversationId/)
+  })
+
+  it("handles /切换 before butler loop and switches active project", async () => {
+    const storeDir = mkdtempSync(join(tmpdir(), "butler-route-switch-"))
+    const prevStore = process.env["BUTLER_V5_WECHAT_ACTIVE_PROJECT_STORE"]
+    const prevMap = process.env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"]
+    process.env["BUTLER_V5_WECHAT_ACTIVE_PROJECT_STORE"] = join(storeDir, "active.json")
+    process.env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"] =
+      "wechat:WFXM,LingWen1:LingWen,灵文1号:LingWen"
+    try {
+      const app = new Hono()
+      createRoutes(app, wiring)
+      const res = await app.request("/v1/wechat/inbound", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          apiVersion: "v1",
+          fromUserId: "u-switch",
+          content: "/切换 灵文1号",
+          projectId: "wechat",
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { reply: string; conversationId: string }
+      expect(body.reply).toContain("已切换到项目")
+      expect(body.conversationId).toBe("c-wechat-u-switch")
+
+      const follow = await app.request("/v1/wechat/inbound", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          apiVersion: "v1",
+          fromUserId: "u-switch",
+          content: "hello lingwen",
+        }),
+      })
+      const followBody = (await follow.json()) as { conversationId: string }
+      expect(followBody.conversationId).toBe("c-1-u-switch")
+    } finally {
+      rmSync(storeDir, { recursive: true, force: true })
+      if (prevStore === undefined) delete process.env["BUTLER_V5_WECHAT_ACTIVE_PROJECT_STORE"]
+      else process.env["BUTLER_V5_WECHAT_ACTIVE_PROJECT_STORE"] = prevStore
+      if (prevMap === undefined) delete process.env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"]
+      else process.env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"] = prevMap
+    }
   })
 
   it("R8.x.17: POST /v1/ws/subscribe returns a token for a valid conversationId", async () => {

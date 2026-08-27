@@ -25,7 +25,7 @@ function getTestSubset(filePath) {
   const rel = relative(process.cwd(), resolve(filePath))
 
   if (rel.includes("packages/domain/src/guards/")) {
-    return "packages/domain/src/guards/pure.test.ts packages/infrastructure/_archive/guards/guard-service.test.ts"
+    return "packages/domain/src/guards/pure.test.ts _archive/packages/infrastructure/_archive/guards/guard-service.test.ts"
   }
   if (rel.includes("packages/domain/src/conversation/")) {
     return "packages/domain/src/conversation/transitions.test.ts packages/domain/src/conversation/context.test.ts"
@@ -42,29 +42,29 @@ function getTestSubset(filePath) {
   if (rel.includes("packages/domain/src/permissions/")) {
     return "packages/domain/src/permissions/decidePermission.test.ts"
   }
-  if (rel.includes("packages/application/_archive/run-loop/")) {
-    return "packages/application/_archive/run-loop/run-loop.test.ts"
+  if (rel.includes("_archive/packages/application/_archive/run-loop/")) {
+    return "_archive/packages/application/_archive/run-loop/run-loop.test.ts"
   }
-  if (rel.includes("packages/application/_archive/delegate-task/")) {
-    return "packages/application/_archive/delegate-task/delegate-task.test.ts"
+  if (rel.includes("_archive/packages/application/_archive/delegate-task/")) {
+    return "_archive/packages/application/_archive/delegate-task/delegate-task.test.ts"
   }
-  if (rel.includes("packages/application/_archive/run-workflow/")) {
-    return "packages/application/_archive/run-workflow/run-workflow.test.ts"
+  if (rel.includes("_archive/packages/application/_archive/run-workflow/")) {
+    return "_archive/packages/application/_archive/run-workflow/run-workflow.test.ts"
   }
-  if (rel.includes("packages/application/_archive/dream/")) {
-    return "packages/application/_archive/dream/dream.test.ts"
+  if (rel.includes("_archive/packages/application/_archive/dream/")) {
+    return "_archive/packages/application/_archive/dream/dream.test.ts"
   }
-  if (rel.includes("packages/infrastructure/_archive/guards/")) {
-    return "packages/infrastructure/_archive/guards/guard-service.test.ts"
+  if (rel.includes("_archive/packages/infrastructure/_archive/guards/")) {
+    return "_archive/packages/infrastructure/_archive/guards/guard-service.test.ts"
   }
-  if (rel.includes("packages/infrastructure/_archive/wechat/")) {
-    return "packages/infrastructure/_archive/wechat/wechat.test.ts"
+  if (rel.includes("_archive/packages/infrastructure/_archive/wechat/")) {
+    return "_archive/packages/infrastructure/_archive/wechat/wechat.test.ts"
   }
-  if (rel.includes("packages/infrastructure/_archive/mcp/")) {
-    return "packages/infrastructure/_archive/mcp/mcp.test.ts"
+  if (rel.includes("_archive/packages/infrastructure/_archive/mcp/")) {
+    return "_archive/packages/infrastructure/_archive/mcp/mcp.test.ts"
   }
-  if (rel.includes("packages/infrastructure/_archive/persistence/")) {
-    return "packages/infrastructure/_archive/persistence/eventstore.test.ts"
+  if (rel.includes("_archive/packages/infrastructure/_archive/persistence/")) {
+    return "_archive/packages/infrastructure/_archive/persistence/eventstore.test.ts"
   }
   if (rel.includes("packages/config/")) {
     return "packages/config/"

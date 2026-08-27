@@ -1,6 +1,8 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
+import { auditEvents, scopedGrants } from "@butler/persistence/schema.js"
+import { eq } from "drizzle-orm"
 import {
   approveWaitingStep,
   createWaitingApprovalStep,
@@ -86,6 +88,8 @@ describe("approval-runtime", () => {
       risk: "medium",
     })
     const decision = await approveWaitingStep(store, stepId, "owner-1")
+    expect(decision._tag).toBe("approved")
+    if (decision._tag !== "approved") throw new Error("expected approved")
     expect(decision.grant.scope.capabilities).toEqual(["send_wechat_file"])
     expect(decision.grant.scope.paths).toEqual(["photo.jpg"])
     expect(decision.grant.scope.digest).toBe("d1")
@@ -125,6 +129,7 @@ describe("approval-runtime", () => {
       risk: "high",
     })
     const decision = await approveWaitingStep(store, stepId, "owner-1")
+    if (decision._tag !== "approved") throw new Error("expected approved")
     expect(decision.grant.sandboxProfile).toBe("workspace-write-network-deny")
   })
 
@@ -146,6 +151,7 @@ describe("approval-runtime", () => {
     const decision = await approveWaitingStep(store, stepId, "owner-1", {
       elevateNetwork: true,
     })
+    if (decision._tag !== "approved") throw new Error("expected approved")
     expect(decision.grant.sandboxProfile).toBe("workspace-write-network-allow")
   })
 
@@ -167,6 +173,7 @@ describe("approval-runtime", () => {
     const decision = await approveWaitingStep(store, stepId, "owner-1", {
       networkAllowlist: ["registry.npmjs.org:443", "pypi.org"],
     })
+    if (decision._tag !== "approved") throw new Error("expected approved")
     expect(decision.grant.sandboxProfile).toBe("workspace-write-network-allowlist")
     expect(decision.grant.networkAllowlist).toEqual(["registry.npmjs.org:443", "pypi.org:443"])
     expect(decision.grant.scope.network).toBe("allow")
@@ -216,5 +223,112 @@ describe("approval-runtime", () => {
     expect(step?.status).toBe("failed")
     const updatedRun = await store.getRun(run.id)
     expect(updatedRun?.status).toBe("failed")
+  })
+
+  it("P1 idempotency: repeated approve does not double-issue a grant", async () => {
+    const { store, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "send_wechat_file",
+      resource: "photo.jpg",
+      args: { path: "photo.jpg" },
+      question: "Confirm?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "idem-approve",
+      kind: "outbound",
+      risk: "medium",
+    })
+    const first = await approveWaitingStep(store, stepId, "owner-1")
+    expect(first._tag).toBe("approved")
+    if (first._tag !== "approved") throw new Error("expected approved")
+    const second = await approveWaitingStep(store, stepId, "owner-1")
+    expect(second._tag).toBe("alreadyProcessed")
+
+    // Only one grant was issued for this approval step.
+    const grants = await db.db
+      .select()
+      .from(scopedGrants)
+      .where(eq(scopedGrants.approvalId, stepId))
+    expect(grants).toHaveLength(1)
+    // The run is not re-resumed to a phantom running state duplicate.
+    const step = await store.getStep(stepId)
+    expect(step?.status).toBe("succeeded")
+  })
+
+  it("P1 idempotency: deny after approve is a no-op (already processed)", async () => {
+    const { store, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "send_wechat_file",
+      resource: "photo.jpg",
+      args: { path: "photo.jpg" },
+      question: "Confirm?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "idem-deny-after-approve",
+      kind: "outbound",
+      risk: "medium",
+    })
+    const approved = await approveWaitingStep(store, stepId, "owner-1")
+    expect(approved._tag).toBe("approved")
+    if (approved._tag !== "approved") throw new Error("expected approved")
+    const reject = await denyWaitingStep(store, stepId, "owner-1")
+    expect(reject.alreadyProcessed).toBe(true)
+    // Deny does not overwrite the succeeded step nor add a second audit.
+    const step = await store.getStep(stepId)
+    expect(step?.status).toBe("succeeded")
+  })
+
+  it("P1 idempotency: repeat deny does not double-audit", async () => {
+    const { store, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "send_wechat_file",
+      resource: "photo.jpg",
+      args: { path: "photo.jpg" },
+      question: "Confirm?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "idem-deny",
+      kind: "outbound",
+      risk: "medium",
+    })
+    const firstDeny = await denyWaitingStep(store, stepId, "owner-1")
+    expect(firstDeny.alreadyProcessed).toBe(false)
+    const secondDeny = await denyWaitingStep(store, stepId, "owner-1")
+    expect(secondDeny.alreadyProcessed).toBe(true)
+    const audits = await db.db.select().from(auditEvents)
+    expect(audits.filter((a) => a.action === "approval.denied")).toHaveLength(1)
+  })
+
+  it("P1 idempotency: approve after expiry issues no grant (ack alreadyProcessed)", async () => {
+    const { store, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "send_wechat_file",
+      resource: "photo.jpg",
+      args: { path: "photo.jpg" },
+      question: "Confirm?",
+      expiresAtMs: Date.now() - 1,
+      digest: "idem-expired",
+      kind: "outbound",
+      risk: "medium",
+    })
+    const outcome = await approveWaitingStep(store, stepId, "owner-1")
+    expect(outcome._tag).toBe("alreadyProcessed")
+    expect(outcome.reason).toBe("expired")
+    const grants = await db.db
+      .select()
+      .from(scopedGrants)
+      .where(eq(scopedGrants.approvalId, stepId))
+    expect(grants).toHaveLength(0)
+    const step = await store.getStep(stepId)
+    expect(step?.status).toBe("failed")
   })
 })

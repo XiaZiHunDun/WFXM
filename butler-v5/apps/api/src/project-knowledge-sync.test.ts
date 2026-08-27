@@ -6,7 +6,7 @@ import { parseProjectKnowledgeSourcesJson } from "@butler/domain/knowledge/proje
 import { createDocumentStore, createProjectKnowledgeStore } from "@butler/persistence"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { makeWiring } from "./wiring.js"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { createRuntimeStore } from "@butler/persistence"
 import { syncProjectKnowledgeFromManifest } from "./project-knowledge-sync.js"

@@ -12,7 +12,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Effect } from "effect"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { delegate, type Capability } from "@butler/runtime/delegate-runtime.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { enqueueOutbox } from "@butler/persistence/outbox.js"

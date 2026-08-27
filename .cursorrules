@@ -28,7 +28,7 @@
 - `butler-v5/apps/api/src/capability-guard.ts` — 能力守卫
 - `butler-v5/packages/runtime/src/agent-kernel.ts` — Agent 内核
 - `butler-v5/packages/runtime/src/run-engine.ts` — Run 引擎
-- `butler-v5/packages/runtime/src/bridge.ts` — 桥接层
+- `butler-v5/packages/persistence/src/event-bridge.ts` — 桥接层（driven adapter）
 - `butler-v5/packages/runtime/src/capability-boundary.ts` — 能力边界
 - `butler-v5/packages/persistence/src/migrations/0001_initial.sql` — 生产 schema
 
@@ -163,7 +163,7 @@ bash scripts/butler-domain-pytest.sh gateway  # 或 core / memory / ops / dev_en
 
 ### 1. v5 生产 vs 脚手架
 - 生产路径：`butler-v5/cli + apps/api → packages/runtime → adapters/persistence`
-- `packages/application/_archive/`、`packages/infrastructure/_archive/` **未接线** — 不要用其单测声称能力已交付
+- `_archive/packages/application/`、`_archive/packages/infrastructure/` **未接线** — 不要用其单测声称能力已交付
 - 新副作用：Policy →（Ask 时 waiting_approval）→ ScopedGrant → Provider Boundary → Audit
 - 查 `BUTLER_V5_*`：先读 `butler-v5/.env.example`，勿猜默认值
 

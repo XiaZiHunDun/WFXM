@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { AgentKernel } from "../agent-kernel.js"
-import type { EventBridge } from "../bridge.js"
+import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import { runConversationLoop } from "./conversation-loop.js"
 import type { ToolDefinition } from "../tool-runtime.js"
 

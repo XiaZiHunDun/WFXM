@@ -10,30 +10,33 @@
 | 层 | 文档/代码 | Agent 怎么用 |
 | --- | --- | --- |
 | **生产** | `docs/architecture/v5-production-architecture-2026-08.md` + `apps/api` + `packages/runtime` + `packages/persistence` | 改功能、查调用链 |
-| **脚手架（未接线）** | `packages/application/_archive/`、`packages/infrastructure/_archive/` | 不要当已实现；不要用其单测声称能力已交付 |
+| **脚手架（未接线）** | `_archive/packages/application/`、`_archive/packages/infrastructure/` | 不要当已实现；不要用其单测声称能力已交付 |
 | **目标架构** | `DESIGN.md`、Policy/ScopedGrant/Sandbox | 规划用，不等于生产已有 |
 
 **修改 butler-v5/ 后必跑：** `cd butler-v5 && pnpm test`（默认不含 `_archive` 脚手架测试；需时用 `pnpm test:archived`）
 
-> §一 以下 Effect-TS 包表描述的是**目标架构**；生产 delivery shell 为 async/await + RunEngine，见生产架构文档。
+> §一 的包表按六边形三条带（Core / Ports / 适配器）组织，描述的是**目标架构**；生产 delivery shell 为 async/await + RunEngine，见生产架构文档。
 
-> **运行时安全 vs 开发守卫**：生产路径用 `PolicyGate` + `ScopedGrant` + `waiting_approval` + Owner loopback API（见 production architecture）。§十 GUARD、`load-bearing-marks.json` 与 `packages/infrastructure/_archive/guards/` 是**开发 Butler 仓库时的 AI/工程守卫**，不在微信主路径 runtime 执行。
+> **运行时安全 vs 开发守卫**：生产路径用 `PolicyGate` + `ScopedGrant` + `waiting_approval` + Owner loopback API（见 production architecture）。§十 GUARD、`load-bearing-marks.json` 与 `_archive/packages/infrastructure/_archive/guards/` 是**开发 Butler 仓库时的 AI/工程守卫**，不在微信主路径 runtime 执行。
 
 ---
 
 
 ## 一、项目概述
 
-Butler v5 是微信编码管家的**函数式重写**，采用 TypeScript + Effect-TS，核心范式为**函数式核心 + 命令式外壳（FC/IS）**。
+Butler v5 是微信编码管家的**模块化单体**，采用 TypeScript，目标架构为**六边形（端口-适配器）**：内核 Domain→Application→Ports 单向分层，Driving/Driven 适配器走两条接缝。生产 delivery shell 为 async/await + RunEngine（见生产架构文档）。Effect-TS 是可选实现工具，只在生命周期/并发/cancel 语义处使用。目标架构见 [`DESIGN.md`](DESIGN.md) §1–§17。
 
-| 包               | 职责                   | 核心约束                       |
-| ---------------- | ---------------------- | ------------------------------ |
-| `domain`         | ADT + 纯函数（零依赖） | 不 import 任何项目包           |
-| `ports`          | Effect Tag 接口定义    | 只依赖 domain 类型             |
-| `application`    | 用例编排（Effect.gen） | 只依赖 ports + domain          |
-| `infrastructure` | 副作用实现（Layer）    | 只依赖 ports + domain + config |
-| `config`         | 单 Schema 配置         | 只依赖 domain 类型             |
-| `shared`         | 跨包通用工具           | 零项目依赖                     |
+| 包带 | 包 | 职责 | 依赖方向 |
+| --- | --- | --- | --- |
+| Core 内核 | `runtime` | Application 编排（RunEngine / PolicyGate / 审批 / working-set） | → ports + domain |
+| Core 内核 | `domain` | 纯规则 / 聚合 / 状态机（零依赖） | 不 import 任何项目包 |
+| Ports | `ports` | 端口接口定义（Repository / Model / Capability / Channel / Clock） | 只依赖 domain 类型 |
+| Driven 适配器 | `persistence` | 唯一 schema + repo（runtime-store / event-store / outbox） | → ports + domain |
+| Driven 适配器 | `adapters` | LLM / Channel / 沙箱 / MCP | → ports + domain + 协议 SDK |
+| Driving 适配器 | `apps/*`、`cli` | HTTP / WS / CLI 入口 + Composition Root（wiring） | → Core.Ports → Core |
+| 配置/共享（可选瘦身） | `config`、`shared` | 精简后的零依赖纯工具 | 零项目依赖 |
+
+> `_archive/packages/application`、`_archive/packages/infrastructure` 是**未接线脚手架**（根 `_archive/`），不在生产调用链；不要用其单测声称能力已交付。
 
 ## 二、核心行为准则（七级决策阶梯）
 
@@ -79,7 +82,7 @@ Butler v5 是微信编码管家的**函数式重写**，采用 TypeScript + Effe
 | ----------- | --------------------- | -------------------------- |
 | 单文件行数  | >800                  | 警告（建议拆分）           |
 | 单文件行数  | >1200                 | 阻止（必须拆分）           |
-| 跨层 import | domain→infrastructure | 阻止（违反 FC/IS）         |
+| 跨层 import | Core（runtime/domain）→ 具体适配器（persistence/adapters 实现） | 阻止（违反端口化/依赖方向） |
 | 危险模式    | `import *`            | 阻止                       |
 | 全局副作用  | 模块级 `new Map()`    | 警告（应放 Layer 内）      |
 | 死代码      | 未使用的导出          | 警告（`ts-prune` CI 检查） |
@@ -131,7 +134,7 @@ Butler v5 是微信编码管家的**函数式重写**，采用 TypeScript + Effe
 
 ## 十、7 条 GUARD 机制速查（开发仓库用，非生产 runtime）
 
-> 实现位于 `packages/infrastructure/_archive/guards/`；**未接入** `apps/api` / `packages/runtime` 微信主路径。产品运行时审批见 `PolicyGate` + Owner API。
+> 实现位于 `_archive/packages/infrastructure/_archive/guards/`；**未接入** `apps/api` / `packages/runtime` 微信主路径。产品运行时审批见 `PolicyGate` + Owner API。
 
 | #       | 机制           | 触发条件                                 |
 | ------- | -------------- | ---------------------------------------- |

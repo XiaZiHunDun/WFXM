@@ -39,4 +39,44 @@ describe("taskProcedureStore", () => {
       await db.close()
     }
   })
+
+  it("persists advance, filters by status, and returns null for missing", async () => {
+    const db = await makeTestDb()
+    try {
+      const procedures = createProcedureStore(db.db)
+      const tasks = createTaskStore(db.db)
+      const proc = createProcedureRecord({
+        name: "三步",
+        steps: [
+          { key: "a", title: "A", goal: "ga" },
+          { key: "b", title: "B", goal: "gb" },
+        ],
+        nowMs: 1,
+      })
+      const task = createTaskRecord({
+        subject: "owner",
+        title: "跑",
+        goal: "ga",
+        procedureId: proc.value.id,
+        procedureStepIndex: 0,
+        nowMs: 2,
+      })
+      expect(proc.ok && task.ok).toBe(true)
+      if (!proc.ok || !task.ok) return
+      await procedures.create(proc.value)
+      await tasks.create(task.value)
+
+      await tasks.update({ ...task.value, goal: "gb", procedureStepIndex: 1, updatedAt: 3 })
+      const got = await tasks.get(task.value.id)
+      expect(got?.procedureStepIndex).toBe(1)
+      expect(got?.goal).toBe("gb")
+
+      await tasks.update({ ...task.value, goal: "gb", procedureStepIndex: 1, status: "done", updatedAt: 4 })
+      expect(await tasks.listBySubject({ subject: "owner", status: "open" })).toHaveLength(0)
+      expect(await tasks.listBySubject({ subject: "owner", status: "done" })).toHaveLength(1)
+      expect(await tasks.get("ffffffff-ffff-ffff-ffff-ffffffffffff")).toBeNull()
+    } finally {
+      await db.close()
+    }
+  })
 })

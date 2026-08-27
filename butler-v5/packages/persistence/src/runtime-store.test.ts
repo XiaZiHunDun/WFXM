@@ -38,6 +38,31 @@ describe("RuntimeStore repository", () => {
     }
   })
 
+  it("redacts secret-bearing message content before persisting (durable transcript)", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const conversationId = crypto.randomUUID()
+    try {
+      const created = await store.createConversationWithUserMessage({
+        conversationId,
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "token=deadbeef and Bearer xyz.abc.def plus sk-abc123456789" },
+        triggerSource: "channel",
+        idempotencyKey: "msg-secret-1",
+        createdAt: new Date("2026-08-26T00:00:00Z"),
+      })
+      const messages = await store.listMessages(conversationId)
+      const stored = messages.find((m) => m.id === created.messageId)
+      const storedText = (stored?.content as Readonly<Record<string, unknown>>)["text"]
+      expect(String(storedText)).not.toContain("deadbeef")
+      expect(String(storedText)).not.toContain("sk-abc123456789")
+      expect(String(storedText)).toContain("***")
+    } finally {
+      await db.close()
+    }
+  })
+
   it("appends a second user message to an existing conversation", async () => {
     const db = await makeTestDb()
     const store: RuntimeStore = createRuntimeStore(db)
@@ -266,6 +291,75 @@ describe("RuntimeStore repository", () => {
         now,
       })
       expect(active).toBeNull()
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("revokes grants whose scope targets a capability (P3-2 uninstall)", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const now = new Date("2026-08-26T00:00:00Z")
+    try {
+      const inbound = await store.createConversationWithUserMessage({
+        conversationId: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "hi" },
+        triggerSource: "channel",
+        idempotencyKey: "cap-revoke",
+        createdAt: now,
+      })
+      const run = await store.createRun({
+        id: crypto.randomUUID(),
+        conversationId: inbound.conversationId,
+        parentRunId: null,
+        triggerSource: "channel",
+        idempotencyKey: "run-cap-revoke",
+        subject: "owner-1",
+        goal: "test",
+        budget: {},
+        deadline: null,
+        createdAt: now,
+      })
+      await store.createScopedGrant({
+        grantId: crypto.randomUUID(),
+        runId: run.id,
+        subject: "owner-1",
+        scope: { capabilities: ["mcp_search"], digest: "s1" },
+        remainingUses: 1,
+        expiresAt: new Date(now.getTime() + 60_000),
+        createdAt: now,
+      })
+      await store.createScopedGrant({
+        grantId: crypto.randomUUID(),
+        runId: run.id,
+        subject: "owner-1",
+        scope: { capabilities: ["read_file"], digest: "s2" },
+        remainingUses: 1,
+        expiresAt: new Date(now.getTime() + 60_000),
+        createdAt: now,
+      })
+      const revoked = await store.revokeScopedGrantsForCapability("mcp_search", now)
+      expect(revoked).toBe(1)
+      expect(
+        await store.findActiveGrant({
+          runId: run.id,
+          subject: "owner-1",
+          capability: "mcp_search",
+          digest: "s1",
+          now,
+        }),
+      ).toBeNull()
+      expect(
+        await store.findActiveGrant({
+          runId: run.id,
+          subject: "owner-1",
+          capability: "read_file",
+          digest: "s2",
+          now,
+        }),
+      ).not.toBeNull()
     } finally {
       await db.close()
     }

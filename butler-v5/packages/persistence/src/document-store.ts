@@ -69,7 +69,7 @@ export function createDocumentStore(db: ButlerDb): DocumentStore {
       const deleted = await db
         .delete(documents)
         .where(eq(documents.documentId, documentId))
-        .returning({ id: documents.documentId })
+        .returning()
       return deleted.length > 0
     },
 

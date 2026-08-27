@@ -69,7 +69,8 @@ a90b175f  feat(v5): Project Knowledge K1 MVP
 - 表：`project_knowledge_items`（migration `0010_project_knowledge.sql`）
 - 项目：**WFXM**；约 **14 条**（7 file_snapshot + 1 PDF ingested + 若干 manual/promote）
 - sources 清单：[`butler-v5/config/project-knowledge-sources.json`](../../../butler-v5/config/project-knowledge-sources.json)
-  - 9 text globs + 2 markitdownGlobs（`docs/**/*.pdf` 当前无匹配文件）
+  - WFXM **24 globs** + 2 markitdownGlobs；LingWen **22 globs**（含 atlas 06–09）
+  - 生产约 **29 WFXM / 22 LingWen** 条（2026-08-25 sync：`scanned=47, created=12`）
 
 ### 3.4 调用链（事实）
 

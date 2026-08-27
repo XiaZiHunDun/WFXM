@@ -30,21 +30,28 @@
  *   - All new code lives in `apps/api/src/`.
  */
 import { Effect } from "effect"
-import type { EventBridge } from "@butler/runtime/bridge.js"
+import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
 import { type LLMAdapter, type LLMAssistantResponse, type LLMMessage } from "@butler/adapters"
 import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { pushEventToSubscribers } from "./ws-routes.js"
 import { writeSubagentAudit } from "./audit-service.js"
+import { notifySubagentCompletion } from "./wechat-run-notify.js"
 import {
   isToolCallAllowed,
   llmToolsForCapabilities,
   normalizeCapabilityNames,
 } from "./capability-guard.js"
 import { findTool, makeWeibutlerTools } from "./tools.js"
-import { makeToolExecutor, resolveOwnerSubject } from "./tool-boundary.js"
-import { toRunResult } from "./approval-resume.js"
+import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
+import { toRunResult, isPendingApprovalOutcome } from "./approval-resume.js"
+import { ensureDelegationToolGrants } from "./delegation-grants.js"
+import { enrichSubagentDevReply } from "./dev-quality-gate.js"
+import { execModelTrace } from "@butler/adapters"
+import { getWechatActiveProjectId } from "./wechat-active-project.js"
+import { recordChildRunStatus } from "./project-state.js"
+import { resolveWechatUserFromConversation } from "./wechat-run-notify.js"
 
 /**
  * Aggregate-type string used by `delegate-runtime` when enqueueing
@@ -73,9 +80,6 @@ const POLL_INTERVAL_MS = 5_000
  * (or a short fallback).
  */
 const MAX_CHILD_ITERATIONS = 3
-
-/** Per-tool wall-clock budget inside the child turn. */
-const CHILD_TOOL_TIMEOUT_MS = 5_000
 
 async function markChildRunRunning(store: RuntimeStore, childRunId: string): Promise<void> {
   const run = await store.getRun(childRunId)
@@ -153,8 +157,25 @@ async function runChildLlm(
   bridge: EventBridge,
   parentConversationId: string,
   childConversationId: string,
+  env: NodeJS.ProcessEnv,
   runtimeStore?: RuntimeStore,
-): Promise<{ readonly content: string }> {
+  childRunId?: string | null,
+): Promise<{ readonly content: string; readonly waitingApproval?: boolean }> {
+  const ownerSubject = resolveOwnerSubject(env, parentConversationId)
+  if (runtimeStore && childRunId) {
+    try {
+      await ensureDelegationToolGrants({
+        store: runtimeStore,
+        childRunId,
+        ownerSubject,
+        capabilities,
+        maxUses: MAX_CHILD_ITERATIONS,
+        env,
+      })
+    } catch {
+      // Grant pre-issue is best-effort; tool boundary still enforces policy.
+    }
+  }
   const advertised = llmToolsForCapabilities(capabilities)
   const toolHint =
     advertised.length === 0
@@ -171,13 +192,24 @@ async function runChildLlm(
     bridge,
     conversationId: parentConversationId,
     actor: { kind: "agent", id: `subagent-${role}` },
+    env,
+    runtimeStore,
+    runId: childRunId ?? undefined,
+    workspaceRoot: (env["BUTLER_V5_WORKSPACE_ROOT"] ?? "").trim() || undefined,
   })
   const toolExecutor = makeToolExecutor({
     tools: runtimeTools,
-    ownerSubject: resolveOwnerSubject(process.env, parentConversationId),
-    subject: `subagent-${role}`,
-    conversationId: parentConversationId,
-    timeoutMsFor: () => CHILD_TOOL_TIMEOUT_MS,
+    store: runtimeStore,
+    runId: childRunId ?? undefined,
+    ownerSubject,
+    subject: ownerSubject,
+    // The child run record is created with conversationId = childConversationId
+    // (delegate-runtime). A run_command that asks approval must carry the SAME
+    // conversationId on its waiting_approval step, otherwise resumeRun on approve
+    // rejects the mismatch ("belongs to child-..., not parent..."). The child's
+    // tools still read the parent stream (runtimeTools above uses parentConversationId).
+    conversationId: childConversationId,
+    timeoutMsFor: toolTimeoutMs,
   })
   const completeOpts = advertised.length > 0 ? { tools: advertised } : undefined
   let lastText = ""
@@ -241,7 +273,15 @@ async function runChildLlm(
         })
         continue
       }
-      const toolResult = toRunResult(await toolExecutor.execute(def, tc.args))
+      const rawOutcome = await toolExecutor.execute(def, tc.args)
+      if (isPendingApprovalOutcome(rawOutcome)) {
+        const stepId = rawOutcome.pendingApproval.stepId
+        return {
+          content: `${rawOutcome.reason}\n审批编号: ${stepId}\n需出网命令请 Owner 执行：butler approve ${stepId} --network-allowlist registry.npmjs.org:443`,
+          waitingApproval: true,
+        }
+      }
+      const toolResult = toRunResult(rawOutcome)
       writeSubagentAudit(runtimeStore, {
         ts: new Date().toISOString(),
         kind: "tool_call",
@@ -286,7 +326,8 @@ async function handleOutboxMessage(
   adapter: LLMAdapter | undefined,
   msg: OutboxMessage,
   logger: SubagentWorkerLogger,
-  runtimeStore?: RuntimeStore,
+  runtimeStore: RuntimeStore | undefined,
+  env: NodeJS.ProcessEnv,
 ): Promise<void> {
   // Filter redundant aggregates inside the handler so the worker
   // stays correct even if other enqueue paths land here later.
@@ -297,6 +338,7 @@ async function handleOutboxMessage(
     return
   }
   logger.warn(`[subagent-worker] processing outbox msg ${msg.messageId} for stream ${msg.streamId}`)
+  logger.warn(`[subagent-worker] ${execModelTrace(env)}`)
   const payload = msg.payload as {
     childConversationId?: unknown
     role?: unknown
@@ -304,6 +346,7 @@ async function handleOutboxMessage(
     capabilities?: unknown
     childRunId?: unknown
     parentRunId?: unknown
+    notifySubject?: unknown
   }
   const childConversationId =
     typeof payload.childConversationId === "string" ? payload.childConversationId : ""
@@ -311,6 +354,8 @@ async function handleOutboxMessage(
   const task = typeof payload.task === "string" ? payload.task : ""
   const capabilities = normalizeCapabilityNames(payload.capabilities)
   const childRunId = typeof payload.childRunId === "string" ? payload.childRunId : null
+  const notifySubject =
+    typeof payload.notifySubject === "string" ? payload.notifySubject.trim() : ""
   if (!childConversationId || !task) {
     logger.warn(
       `[subagent-worker] outbox msg ${msg.messageId} missing childConversationId or task; skipping`,
@@ -320,6 +365,15 @@ async function handleOutboxMessage(
   if (runtimeStore && childRunId) {
     try {
       await markChildRunRunning(runtimeStore, childRunId)
+      if (notifySubject) {
+        recordChildRunStatus({
+          userId: notifySubject,
+          projectId: getWechatActiveProjectId(notifySubject, env),
+          childRunId,
+          status: "running",
+          env,
+        })
+      }
     } catch (err) {
       logger.warn(
         `[subagent-worker] failed to mark child run running ${childRunId}: ${
@@ -390,7 +444,7 @@ async function handleOutboxMessage(
     })
     return
   }
-  let result: { readonly content: string }
+  let result: { readonly content: string; readonly waitingApproval?: boolean }
   let llmOk = true
   try {
     logger.warn(`[subagent-worker] invoking LLM for role=${role} task=${task.slice(0, 60)}`)
@@ -402,7 +456,9 @@ async function handleOutboxMessage(
       bridge,
       msg.streamId,
       childConversationId,
+      env,
       runtimeStore,
+      childRunId,
     )
     logger.warn(`[subagent-worker] LLM replied: ${result.content.slice(0, 80)}`)
   } catch (err) {
@@ -411,6 +467,26 @@ async function handleOutboxMessage(
     result = {
       content: `（子代理 ${role} 调用失败: ${err instanceof Error ? err.message : String(err)}）`,
     }
+  }
+  const notifyUser =
+    notifySubject || (await resolveWechatUserFromConversation(bridge, msg.streamId)) || ""
+  const inboundProject = notifyUser ? getWechatActiveProjectId(notifyUser, env) : "wechat"
+  let replyBody = result.content
+  try {
+    replyBody = await enrichSubagentDevReply({
+      projectId: inboundProject,
+      fromUserId: notifyUser || "subagent",
+      capabilities,
+      ok: llmOk,
+      baseReply: result.content,
+      env,
+    })
+  } catch (err) {
+    logger.warn(
+      `[subagent-worker] dev verify enrichment failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
   }
   try {
     const replyEvent = {
@@ -421,17 +497,31 @@ async function handleOutboxMessage(
       actor: { kind: "agent" as const, id: `subagent-${role}` },
       event: {
         _tag: "AssistantMessageProduced" as const,
-        content: prefixReply(role, result.content),
+        content: prefixReply(role, replyBody),
       },
     }
     await bridge.appendConversationEvent(replyEvent)
     if (runtimeStore && childRunId) {
       try {
-        await finalizeChildRun(runtimeStore, childRunId, {
-          ok: llmOk,
-          reply: result.content,
-          role,
-        })
+        const childRun = await runtimeStore.getRun(childRunId)
+        const waitingApproval =
+          result.waitingApproval === true || childRun?.status === "waiting_approval"
+        if (!waitingApproval) {
+          await finalizeChildRun(runtimeStore, childRunId, {
+            ok: llmOk,
+            reply: replyBody,
+            role,
+          })
+        }
+        if (notifySubject) {
+          recordChildRunStatus({
+            userId: notifySubject,
+            projectId: getWechatActiveProjectId(notifySubject, env),
+            childRunId,
+            status: waitingApproval ? "running" : llmOk ? "succeeded" : "failed",
+            env,
+          })
+        }
       } catch (err) {
         logger.warn(
           `[subagent-worker] failed to finalize child run ${childRunId}: ${
@@ -451,7 +541,7 @@ async function handleOutboxMessage(
       role,
       task,
       capabilities,
-      replyExcerpt: result.content.slice(0, 200),
+      replyExcerpt: replyBody.slice(0, 200),
     })
     // R8.x.8: push the reply to any WS clients subscribed to the
     // parent conversation. pushEventToSubscribers is a no-op when
@@ -460,6 +550,20 @@ async function handleOutboxMessage(
       eventType: replyEvent.eventType,
       event: replyEvent.event,
       eventId: replyEvent.eventId,
+    })
+    await notifySubagentCompletion({
+      bridge,
+      parentConversationId: msg.streamId,
+      ...(notifySubject ? { notifySubject } : {}),
+      role,
+      task,
+      reply: replyBody,
+      ok: llmOk,
+      env,
+    }).catch((err) => {
+      logger.warn(
+        `[subagent-worker] run notify failed: ${err instanceof Error ? err.message : String(err)}`,
+      )
     })
   } catch (err) {
     logger.error(`[subagent-worker] failed to append reply to parent ${msg.streamId}:`, err)
@@ -520,7 +624,10 @@ export function runSubagentWorker(
   } = {},
 ): SubagentWorkerHandle {
   const logger = opts.logger ?? defaultLogger
-  const intervalMs = opts.intervalMs ?? POLL_INTERVAL_MS
+  const intervalMs =
+    Number(env["BUTLER_V5_SUBAGENT_WORKER_INTERVAL_MS"] ?? "") ||
+    opts.intervalMs ||
+    POLL_INTERVAL_MS
   const runtimeStore = opts.runtimeStore
   let stopped = false
 
@@ -529,7 +636,7 @@ export function runSubagentWorker(
     try {
       const adapter = pickProvider(env)
       const delivered = await bridge.runWorker(async (msg) => {
-        await handleOutboxMessage(bridge, adapter, msg, logger, runtimeStore)
+        await handleOutboxMessage(bridge, adapter, msg, logger, runtimeStore, env)
       })
       if (delivered > 0) {
         logger.warn(`[subagent-worker] delivered ${delivered} outbox message(s)`)

@@ -32,7 +32,7 @@ CLI / iLink Poller / HTTP / WebSocket
 
 P0–P2 迁移已落地；P1.0–P1.4 治理链路已接入生产：`RunEngine` 收口微信入站 Run；`RuntimeStore` 双写关系表；`PolicyGate` + `CapabilityRegistry` 统一工具执行；`waiting_approval` Step + Owner API/CLI + 微信内联「确认/拒绝」；`ScopedGrant` 一次性扣减；`audit_events` 双写子代理审计；`BUTLER_V5_READ_MODEL` 控制读模型（默认 `relational`，0002 messages）；`BUTLER_V5_SANDBOX=bubblewrap` 时 `run_command` fail-closed 走 bubblewrap。
 
-当前生产 Loop 是 `apps/api/src/wechat-inbound-butler.ts` 的 async/await 编排。`packages/application` 与部分 `packages/infrastructure` 是重构期脚手架，只有自身测试，不在生产调用链上。
+当前生产 Loop 是 `apps/api/src/wechat-inbound-butler.ts` 的 async/await 编排。已归档的 `_archive/packages/{application,infrastructure,contracts}` 是重构期脚手架，只有自身测试，不在生产调用链上。
 
 因此：
 
@@ -69,6 +69,7 @@ WeChat phone
   → apps/api ilink-poller
   → POST /v1/wechat/inbound
   → Intake normalizeWechatInbound（conversationId / idempotency / RunTrigger）
+  → (optional) WeChat Intake 意图路由（`wechat-intake.ts`：dev_session / switch / dev_task / chat）
   → (optional) inline approval: 确认/拒绝 → ScopedGrant + RunEngine.resumeRun（同一 runId）
   → EventBridge append ConversationStarted
   → runButlerLoop → RunEngine.executeInbound（若已有 active main Run 则拒绝另开）
@@ -83,6 +84,12 @@ WeChat phone
 
 **Intake（A6）**：`packages/runtime/src/intake/` 负责 conversationId 校验/默认、idempotencyKey、`RunTrigger` 构造；Slack/Telegram 协议解析与 channel allowlist 仍在 `apps/api`。
 
+**WeChat 产品 Intake（2026-08，方案 B）**：`apps/api/src/wechat-intake.ts` 在 slash 命令与 inline 审批之后、`runButlerLoop` 之前做意图分类（规则优先；`BUTLER_V5_INTAKE_LLM=1` 时 Flash 补充分类）。**dev_task / continue_dev** 主 Loop 工具面 = plan + `delegate_to_subagent`（**不含** `write_file` / `run_command`）；exec 仅在 Child Run（subagent worker + `MODEL_EXEC`）内执行。Legacy 直调：`BUTLER_V5_DEV_DIRECT_EXEC=1`。Dev Session Grant 经 `dev-session-grant.ts` → `issuePreconfiguredGrants` 写入 `scoped_grants`（合成 Run anchor，与审批/委派 Grant 同表）。
+
+**Model Router**：`packages/adapters/src/model-router.ts` — 主 Loop 用 `plan`（DeepSeek Flash），子代理 worker 用 `exec`（MiniMax M3，需 `MINIMAX_API_KEY`）。
+
+**Dev 验收（P4）**：`dev-quality-gate.ts` — dev_task / exec 子代理结束后可选自动跑 `BUTLER_V5_DEV_VERIFY_CMD`（默认 `pnpm test`），微信回复结构化摘要；项目 dev 状态 JSON 见 `project-state.ts`（`/状态` 展示）。
+
 ### 3.1 Loop
 
 Execution 多轮循环在 `packages/runtime/src/execution/conversation-loop.ts`（`runConversationLoop`）。`apps/api/wechat-inbound-butler` 负责：
@@ -96,7 +103,7 @@ Execution 多轮循环在 `packages/runtime/src/execution/conversation-loop.ts`�
 
 - 支持原生 tool calls 与 JSON Decision fallback；
 - 需确认副作用写入 `waiting_approval` Step，Run 暂停；用户可回复「确认/拒绝」，或 Owner 调 `/v1/owner/approvals/*` / `butler approve`；
-- 审批通过后经 `RunEngine.resumeRun` **恢复同一 Run**：执行挂起 capability、写入 capability Step，再跑完整多轮 `runConversationLoop`（可再调工具）；不 `createRun`；
+- 审批通过后经 `RunEngine.resumeRun` **恢复同一 Run**：执行挂起 capability、写入 capability Step；`run_command` / `write_file` 默认直接返回结果（不再二次 Ask）；其他 capability 可继续只读工具 Loop；
 - 对话已有 active main Run（`queued`/`running`/`waiting_approval`）时，普通入站不再另开主 Run（`ActiveMainRunConflict` → 友好提示）；
 - `waiting_external` + trusted/owner 入站：自动 resume 同 Run 并继续 Loop；
 - 无 LLM、解码失败或工具异常时仍返回非空回复。
@@ -161,14 +168,7 @@ delegate_to_subagent
 
 ### 5.2 禁止第二套 schema
 
-`packages/infrastructure/src/persistence/` 的 `events` 等表属于未接线脚手架，与生产 `event_store` 不兼容。它不得被接入生产，也不得继续作为架构事实。
-
-后续处置：
-
-1. 确认没有生产 import；
-2. 将仍有价值的测试或纯 helper 迁移到 `packages/persistence`；
-3. 删除或归档重复 adapter/schema；
-4. 添加 architecture test，阻止 apps 导入该旧 persistence 实现。
+`packages/infrastructure/src/persistence/` 的 `events` 等表属未接线脚手架，与生产 `event_store` 不兼容。该包已归档至 `_archive/packages/infrastructure/`，不得被接入生产，也不得作为架构事实。
 
 ---
 
@@ -339,18 +339,18 @@ butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh
 ### 保留并继续演进
 
 - `apps/api`：生产 delivery 与当前编排；
-- `packages/runtime`：AgentKernel、EventBridge、RunEngine、PolicyGate、approval-runtime、Tool Runtime、Delegate Runtime；
+- `packages/runtime`：Core 应用层（AgentKernel、RunEngine、PolicyGate、approval-runtime、Tool Runtime、Delegate Runtime），仅依赖 domain 抽象接口注入；
 - `packages/adapters`：LLM、WeChat 与外部协议；
-- `packages/persistence`：唯一数据实现；
-- `packages/domain`：被生产需求采用的纯策略与类型。
+- `packages/persistence`：唯一数据实现；**并承载 EventBridge**（driven adapter，实现 domain `EventStorePort`）；
+- `packages/domain`：被生产需求采用的纯策略与类型（含 `RuntimeStore`、`EventStorePort` 等抽象契约）。
 
-### 审核后归档或收敛
+### 已归档（2026-08-27，根 `_archive/packages/`）
 
-- `packages/application`：未接线的 runLoop/delegateTask/runWorkflow/dream；
-- `packages/infrastructure`：未接线 Layer、重复 persistence 和 MCP mock 骨架；
-- 未被生产 import 的 ports/contracts/config 原型。
+- `_archive/packages/application`：未接线的 runLoop/delegateTask/runWorkflow/dream；
+- `_archive/packages/infrastructure`：未接线 Layer、重复 persistence 和 MCP mock 骨架；
+- `_archive/packages/contracts`：未被生产 import 的契约原型。
 
-处置不是一次性删除：先用依赖扫描证明无生产引用，再迁移仍有价值的契约与测试，最后删除重复路径。
+处置已完成：依赖扫描证明无生产引用后，三包整体迁至根 `_archive/`，从编译/测试/覆盖率白名单剔除；有价值的测试由 `pnpm test:archived`（`vitest.archived.config.ts`）保留运行。
 
 ---
 

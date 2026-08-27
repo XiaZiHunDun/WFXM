@@ -1,24 +1,98 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-25 17:10_
-_handoff: docs/plans/active/v5-project-knowledge-handoff-2026-08.md_
-_commit: ffcc172b_
+_last_synced: 2026-08-27 17:03_
+_handoff: .blackboard/shifts/2026-08-26-cursor-scheme-b-p1-p2.md_
 
 ## 主线
 
-**PK 运营 Done** — WFXM 24 条 / LingWen 15 条；inbound map 三线；smoke PASS（含 LingWen1→LingWen）。
+**方案 B + P1/P2 本线已绿** — slirp resume 已修（fallback）；MiniMax CN OK；`smoke:prod-tune` / `smoke:allowlist-owner` PASS（resume/exec 无 WARN）。
+
+**架构优化（2026-08-26 下午）**：`butler-v5/DESIGN.md` 已按**六边形（端口-适配器）模块化单体**重写——内核 Domain→Application→Ports 三层，Driving/Driven 适配器两条带，目标架构从"三模块五实体"收敛为"端口化 + 单一依赖方向"。新增 §7 Ports、§17 monorepo 包归属/并行开发边界/脚手架修剪，不变量扩到 16 条。目标架构 ≠ 生产事实；生产文档仍如实描述现状。
+
+**架构收敛执行（2026-08-26 晚）**：Core 已全端口化。关键动作——`EventBridge` 自 `packages/runtime/src/bridge.ts` 迁入 `packages/persistence/src/event-bridge.ts`（driven adapter），新增 `EventStorePort`（**承载于 `packages/ports/src/core/event-store.ts`**，对齐 DESIGN §7/§17，未动受保护 index.ts）；`agent-kernel`/`delegate-runtime` 改依赖抽象端口；apps/migration/adapters import 改指 persistence；运行时不再 import 具体适配器。S1.4 收敛评估：config/contracts/shared 无生产消费（保留），migration 收敛为 persistence/migrations 单一 schema + packages/migration 独立工具。`dependency-direction.test.ts` 已加 runtime Core 不得 import persistence/adapters/config/infrastructure/application 锁。
+
+**monorepo 收敛整改完成（2026-08-27）**：按 `docs/plans/decisions/v5-monorepo-convergence-2026-08.md` 计划，把三个「未接线脚手架」包 `application`/`infrastructure`/`contracts` 整体从 `butler-v5/packages/` 迁至**根级 `_archive/packages/`**，消除 `src` 反 re-export 中间态，实现 DESIGN §17「不在编译/测试白名单」终态。白名单已同步：vitest（coverage.include 只留 `packages/domain`）、`vitest.archived.config.ts`（保留 `_archive` 资产）、tsconfig/eslint/turbo/`run-test-layer.sh`/架构守卫测试。验证结果：domain/persistence/api typecheck 全过、lint 0 警告、架构+guard 30/30 通过、`pnpm test:archived` 19 文件 83 测试全绿、主测试集 987 通过（仅 2 个环境相关 slirp 失败，与收敛无关）。文档同步：production-architecture 更新包状态，butler-v5/AGENTS.md 更新路径引用，计划归档 `docs/plans/decisions/v5-monorepo-convergence-2026-08.md`。**遗留项已由 operator 授权补齐（2026-08-27）**：根 `AGENTS.md` L24、`.cursorrules`、`scripts/v5_ai_guard/apply_agents_md_v5.py`、`docs/architecture/v5-r10-handoff.md` 四处的 `packages/{application,infrastructure}` 引用已统一改指根 `_archive/packages/`；`butler-v5/hooks/{pre,post-tool-use}.js` 经复核已引用 `_archive/packages/`，无需再改。
+
+**P1 idempotency 收口（2026-08-26 深夜）**：P1 核心（统一 Policy/ActionRequest、waiting_approval 持久审批、ScopedGrant 最小字段、loopback 审批 API/微信内联/恢复、Child Run 不发父 Grant）本就已实现。补的唯一实质验收 gap：`approveWaitingStep`/`denyWaitingStep` **幂等化**——已终态/re 过期的审批 Step 返回 `alreadyProcessed` ack（不发新 Grant、不重跑 Run、不重复审计），替代原先抛 50x。返回类型改为 union（`ApproveOutcome` approved | alreadyProcessed；`DenyOutcome.alreadyProcessed`），API/微信侧幂等 ack。新增 4 条 P1 idempotency 测试。
+
+**P2 凭证宿主注入（2026-08-26 深夜）**：模型/审计/context artifact 只见**凭证名**、值只由宿主在执行边界注入。新增端口 `CredentialProvider`（`@butler/ports/core/credential-provider.js`）+ `isValidCredentialName`；宿主适配器 `createHostCredentialProvider`（读 `BUTLER_V5_CREDENTIALS` JSON name→value）+ `injectRunCommandCredentials` 门禁（fail-closed，`BUTLER_V5_RUN_COMMAND_CREDENTIALS` allowlist 授权），`@butler/adapters/credentials/host-credentials.js`。`executeArgvInSandbox` 增 `injectEnv` 并入 3 处 childEnv；run_command 支持 `credentials: [names]` → `normalizeCredentialNames` 校验 + allowlist 授权后注入子进程 env（沙箱 + disabled spawnCaptured），值不进 args/context/audit。8 条测试（provider 列名不泄值、fail-closed、注入到子 env）。typecheck 0 错；测试 935 pass（仅 postgres 实连 + bubblewrap slirp 两个环境耦合失败，同基线）。`BUTLER_V5_CREDENTIALS` + `BUTLER_V5_RUN_COMMAND_CREDENTIALS` 已同步 .env.example。
+
+**P2 kill switch + 磁盘配额（2026-08-26 深夜）**：`PolicyGate` 增全局硬停——`BUTLER_V5_KILL_SWITCH=1` 时副作用类（write/command/outbound/delegate）无论有无 Grant 一律 Deny（`SIDE_EFFECT_KINDS` 常量 + `readKillSwitch`），只读/模型不受影响；`tool-boundary.ts` 生产 gate 装配 env。bubblewrap 磁盘配额——`resolveSandboxFileQuotaBytes`（`BUTLER_V5_SANDBOX_MAX_FILE_BYTES`）+ `wrapWithFileSizeLimit`（`prlimit --fsize=N:N --` 前缀，经 exec 继承进沙箱）；/tmp 本为 tmpfs 内存态，RLIMIT 封顶沙箱内单文件写。主 spawn 与 slirp 路径均应用。8 条新测试（kill switch fail-closed + 只读放行、quota 解析/包装/argv 注入）；typecheck 0 错；全套 943 pass / 2 环境耦合失败（同基线）。`BUTLER_V5_KILL_SWITCH` + `BUTLER_V5_SANDBOX_MAX_FILE_BYTES` 已同步 .env.example。
+
+**P2 secret 扫描收口（2026-08-26 深夜）**：按用户决策「持久层始终脱敏」。`runtime-store.ts` 增 `redactStoredContent`（复用 domain `redactTraceValue`），`createConversationWithUserMessage` 与 `appendMessage` 两处落库前统一对消息 content 扫描+脱敏，secret 永不进持久 transcript。live loop 的模型可见面（prompt/tool result/working-set）仍为 opt-in（`BUTLER_V5_REDACT_TOOL_RESULTS=1`，默认关）；audit/trace 已全量脱敏。工作集重建读已脱敏持久消息 → context artifact 覆盖达成。新增 1 落库脱敏测试；typecheck 0 错；全套 944 pass / 2 环境耦合失败（同基线，无回归）。
+
+**P3-1 Trigger Adapter 归一化入口（2026-08-26）**：审计确认`RunTrigger`契约已完整——`buildWechat/Cli/Api/Task/ScheduleRunTrigger` + `validateRunTrigger`（`@butler/domain/runtime`），微信/CLI/API/task/approval/schedule 入口均已 build+validate 后经 `runEngine.executeInbound`，无第二条运行入口。**唯一缺口**：引擎咽喉不校验传入 trigger。本轮在 `executeInbound` 顶部对 provided trigger 强制 `validateRunTrigger`（fail-closed），新增 `InvalidRunTriggerError`；杜绝任何新入口以 malformed/未知 RunTrigger 绕过接缝。新增 2 条引擎校验测试（合法 trigger 接受 / 畸形 trigger 拒绝且不落库）。typecheck 0 错；入口适配器集成 50 条全过；run-trigger+run-engine 16 条全过。无新 env 变量。
+
+**P3-2 Capability Provider 统一契约（2026-08-26）**：在 P2 副作用 Provider 骨架（`CapabilityDefinition`/`CapabilityProvider`/`CapabilityRegistry`，`policy-gate.ts`）上扩展，不重建接口。①**注册契约富化**——`CapabilityDefinition` 增可选 `declared`（`CapabilityProviderMetadata`：input/outputSchema、sandboxProfile、timeoutMs、idempotent、auditPolicy`full|summary|none`），全可选故现有工具仅 name/kind/risk 不破坏；registry 增 `declared`/`isRegistered`/`unregister`。②**卸载后 Grant 失效**——store 增 `revokeScopedGrantsForCapability(capability, now)`（scope.capabilities 命中即清 remainingUses=0，对称 MCP 版）；`capability-boundary.ts` 增 `unregisterCapability({registry,name,store})` 一次完成 卸载+存量 Grant 撤销，返回 `{removed, revokedGrants}` 供 audit。新增 6 条测试（注册元数据、unregister→Blocked、capability 撤销、卸载接线）。typecheck 0 错；全量 950 pass / 2 环境耦合失败（同基线，无回归）。无新 env 变量。
+
+**P3-3 MCP 首个适配（2026-08-26）**：在既有 MCP 基建（manifest 解析/lockfile、per-server consent、per-tool MCP ScopedGrant + grant-lifecycle、stdio/http/sse transport + client）上补验收缺口。①**安装前扫描**——`manifest.ts` 增 `preScanMcpServer/preScanMcpManifest`（纯结构检查，无网络/exec）：拒绝 stdio 空命令或启动 shell（sh/bash/…）或含 `&&`/`;`/`|` 元字符；拒绝远程非 loopback 非 https；拒绝 url+command 双写歧义。②**具名 server→tool registry + 工具描述不可信**——`mcp-tool-capability.ts` 增 `McpServerDescriptor`/`McpServerToolRegistration`/`mcpToolsFromServer`（server 归一化后按 `toolName→capability` 展平）；`resolveMcpToolRisk` 以 **server defaultRisk 为权威，忽略工具自报 risk**（描述不可信，缺失则 fail-closed=high）。③**远程 OAuth audience 绑定/禁 token 透传**——manifest 增 `oauthAudience` 字段；`resolveMcpOAuthAudience` + `rejectMcpTokenPassthrough`（远程 server 未声明 audience 时，拒绝 `authorization/token/api_key/password/secret…` 型参数透传）。④**Child Run 默认无 MCP**——`mcpAllowedForRunSubject(subject,owner)`（仅 owner 有 MCP）；`mcpCapabilityProvidersFromTools` 增 `mcpEnabled` 选项，tool-boundary 装配处 `mcpEnabled: mcpAllowedForRunSubject(args.subject, args.ownerSubject)`。新增 13 条测试；typecheck 0 错；全量 963 pass / 2 环境耦合失败（同基线，无回归）。无新 env 变量（manifest 段落字段扩展）。
+
+**P3 架构守卫收口（2026-08-26）**：新增 `tests/architecture/p3-seam-guard.test.ts`，把 P3 验收固化为静态守卫：①**入口归一化**——apps/cli 生产源凡含 `executeInbound(` 必同文件含 `build\w*RunTrigger`/`validateRunTrigger`；凡含 `resumeRun(` 必引 `RunTrigger` 契约（杜绝"第三条扩展接缝"）。②**无第二数据源**——apps/cli 生产源禁止直接 `@butler/persistence/schema`（防第二套状态机/DB schema）。③**行为守卫**——引擎咽喉对畸形 RunTrigger fail-closed。审计确认全部入口（wechat/cli/task/schedule/owner-approval）均已 build+validate 后进引擎，守卫当下零违规。新增文件首跑触发 `architecture-typed-rules` 零警告门禁失败（`Array<T>`→`T[]`），已修复。架构守卫 5 文件 16 条全过；全量 966 pass / 2 环境耦合失败（bubblewrap slirp `/proc/uid_map` + postgres 实连，同基线，无回归）。
+
+**P4 Schedule 触发收口（2026-08-26）**：审计确认 Schedule MVP 已完整——domain `schedule.ts`（`evaluateScheduleTick` 纯数学：cooldown + per-window 幂等 `schedule:{id}:{windowStart}` + conversation/schedule-in-flight defer + deadline + quietSuccess；`buildScheduleRunTrigger` source=schedule subject=`system:scheduler` trustLevel=trusted），worker 三态 skip/defer/fire，命中 `BUTLER_V5_SCHEDULE_ENABLED` 且不拥有第二套 Policy/Engine。schedule-run 传只读 `SCHEDULE_SAFE_TOOL_NAMES`（recall_history/durable_memory/document/get_current_time/greet_with_time/summarize_today/read_file，无任何 exec/write/command/delegate/outbound/mcp 副作用）→ **结构上不扩权**。本轮补 3 条 worker 级保障测试：①注入 `isMainQueueBusy` 信号真触发 defer（可注入接缝验证，生产默认未接线——无主队列 tracker 可复用，需对接才有意义，非缺陷）；②schedule-in-flight 同进程 defer；③allowlist 只读断言（编码"无 ScopedGrant 副作用仍停在审批、不扩权"验收）。schedule-run 全量 10 条（含 domain 5 条）全过；api typecheck 0 错。无新 env 变量（`BUTLER_V5_SCHEDULE_DEFER_WHEN_BUSY` 已在 .env.example L180）。
+
+**P4 Durable Memory 收口（2026-08-26）**：审计确认 MVP 主体已完整——迁移 0004；store `durable-memory-store.ts`（CRUD + `deleteBySourceMessageId`/`deleteBySourceDocumentId` 软级联，provenance/confidence/expiresAt/confirmedAt/status candidate|confirmed|rejected）；domain `durable-memory.ts`（`createDurableMemoryRecord` owner 默认 confirmed、message 需 messageId 默认 candidate、`isDurableMemoryActive` 校验 confirmed+过期、`matchDurableMemoryQuery` 大小写不敏感子串（content+provenance.note）、`selectDurableMemoriesForWorkingSet` 过滤 active+query 后按 updatedAt 降序截断、`confirmDurableMemory` 置信度升 0.8、`rejectDurableMemory`）→ 满足"三类知识"分离（Transcript/Durable/Project Knowledge），压缩产物不自动升级为持久记忆。recall 侧：`recall_durable_memory` 工具子串检索仅 confirmed、`BUTLER_V5_DURABLE_MEMORY` opt-in 注入、（文档删除时 owner-routes 已接线 `deleteBySourceDocumentId`）。**本轮补 9 条测试**（共 4→13 条全过）：domain 5（reject 转 inactive、过期排除、子串大小写/note/空串、新-先+limit 截断）+ store 3（documentId 级联、confirm/reject 持久化 + status 过滤 recall）+ recall 工具 3（confirmed-only 子串含排除 candidate/过期、无 store 拒动 fail-closed、无匹配文案）。typecheck 0 错；全量 978 pass / 2 环境耦合失败（同基线，无回归）。无新 env 变量。
+
+**P4 文档 ingest 收口（2026-08-26）**：审计确认 MVP 已端到端落地——domain `document-ingest.ts`（subject/title/format 校验、`maxInputChars`/`maxExtractedChars` 截断带 `…[truncated]`、`byteSize` 有限非负 guard、`matchDocumentQuery` 子串含 title+extracted+note、`selectDocumentsForRecall` 仅 ready 按 updatedAt 降序截断、`formatDocumentSnippet` maxChars 截断）；store `document-store.ts`（CRUD + listBySubject 降序 + limit）；路由在 `owner-routes.ts` `/v1/owner/documents`：POST ingest、POST `{id}/promote-memory`（produce candidate、sourceKind=document）、DELETE（返回 cascadedMemories，删除时级联 durable memory + project knowledge `deleteBySourceDocumentId`）；`recall_document` 工具子串 recall。**本轮补 5 条测试**（共 6→10 条全过）：domain 3（`maxInputChars` 超限拒绝 + provenance 保留、仅 ready 排除 failed + snippet 截断）、store 2（get 往返 + 缺失返回 null/delete 缺失 false、listBySubject 新-先+limit）；删除负例改用合法 UUID 但缺失主键（暴露 store 对非法 uuid 字符串触发 postgres 22P02——路由恒传合法 UUID，非契约问题，测试值修正即可）。typecheck 0 错。无新 env 变量。
+
+**P4 tracing-OTEL 收口（2026-08-27）**：审计确认本地 tracing MVP 已完整落地上线——domain `local-trace.ts`（`parseTraceConfig`：`BUTLER_V5_TRACE` 默认开 `=0` 停用、`BUTLER_V5_TRACE_REDACT` 默认开、`BUTLER_V5_OTEL_EXPORTER=stdout` opt-in；六类 kind run/step/capability/policy/grant/approval；`redactTraceText` 六规则 + `redactTraceValue` 深度/数组/敏感键；`formatOtelStdoutLine` 确定性 traceId/spanId/status/duration 映射；`filterTraceEvents` runId/conversationId/kind/limit）；runtime 环形缓冲 `local-tracer.ts`（record/list/size/clear、getSharedLocalTracer、stdout 导出）；运行时记录点——run-engine 记 run start/finish(ok|error)+approval waiting，capability-boundary 记 policy(Allow/Ask/Deny)+capability+approval requested，均带 grantId/runId/脱敏 detail（**模型调用不走副作用咽喉，无真 APM 依赖**）；owner 查询路由 `/v1/owner/traces`（runId/conversationId/kind/limit 过滤 + enabled/exporter/size）。**本轮补 9 条测试**（domain 6 + runtime 4，共 3→11 条全过）：OTEL 行确定性/嵌套脱敏数组截断/六类过滤+limit/环形缓冲 size+list 新-先/clear/config/name+capability 脱敏/路由 executeInbound 后列表。**修复 1 边界**：`filterTraceEvents({limit:0})` 原 `slice(-Math.max(0,0))`≡`slice(0)` 返回全部，改为 `limit<=0` 显式返回 `[]`。typecheck 0 错。无新 env 变量（`BUTLER_V5_TRACE/BUTLER_V5_TRACE_REDACT/BUTLER_V5_TRACE_MAX_EVENTS/BUTLER_V5_OTEL_EXPORTER` 均已在 .env.example）。
+
+**P4 一期闭环 + 文档收尾（2026-08-27）**：P4 五项条件能力（Schedule / Durable Memory / Document ingest / Task-Procedure / tracing-OTEL）全部收口完成。roadmap `v5-post-boundary-roadmap-2026-08.md` 五小节各补 `**MVP 完成 ✅ 2026-08-27**` 标记（沿用 Project Knowledge 风格，指向 state.md 收口记录）；.env.example / reference.md / 生产架构文档核对已覆盖 P4 全部 env，同步义务达成。**验收自动化通过**：`pnpm test:p4-acceptance` 3 文件 9 条全绿；全量 `pnpm test` 993 pass / 2 环境耦合失败（bubblewrap slirp `/proc/uid_map` + postgres 实连，**同基线无回归**）。修复收口引入的 1 处 lint：`local-trace.test.ts` 第 93 行 3 处 `!` 非空断言违反 `@typescript-eslint/no-non-null-assertion`（`--max-warnings 0` 导致全量门禁红）——改增 `expectDefined` helper 收窄 `noUncheckedIndexedAccess`，`architecture-typed-rules` 转绿；domain typecheck 0 错。
+
+**P4 专项 smoke 全 PASS（2026-08-27）**：三条 loopback 专项全绿——`smoke:schedule`（tick 统计 fired:0/deferred:1，defer 路径正确）、`smoke:durable-memory`（owner create/list/delete）、`smoke:document-ingest`（ingest/promote/delete 全链）。`smoke:regression:quick` 的 verify（迁移 0004–0010 清单打印）+ commands/surface 段绿；唯一失败为 product-contract async-outbox 推送超时——文档定义的推送分工需 `--mock-outbox` 模式，quick 默认未 mock（BUTLER_V5_LLM_FIXTURE_DIR 未设即 WARN），**非 P4 缺陷**。task/procedure 与 traces 整合已由 p4-acceptance harness + owner-routes 单测覆盖。
+
+**P4 真进程冒烟 PASS（2026-08-27）**：起独立临时 gateway（`butler start`，PORT=3099、`BUTLER_V5_DB=pglite`+`BUTLER_V5_PGLITE_DATA_DIR=memory` 完全隔离、迁移 0001–0010 真实 apply、owner loopback 授权），全程不污染现有库。对照全绿——`verify --api`（10 迁移文件 + healthz 200）；`/v1/owner/documents` ingest（byteSize 25/ready）→ list → promote-memory（candidate/sourceKind=document/级联 documentId）；`/v1/owner/procedures` create（version 1）×2 → list；`/v1/owner/tasks` create → list(open) → run（advance:false，goal 不变）→ done（status→done）；`/v1/owner/traces` 随 task run 产生 2 条 run start/finish 事件（triggerSource=task、conversationId=task-\<id\>、durationMs 14）。真进程 wiring/路由/迁移/授权均可用；P4 一期在真实 HTTP 层验证通过。
+
+**Scheme B 全链稳定测（2026-08-27）**：起独立完整 gateway（live LLM + subagent worker + bubblewrap+allowlist + mock outbox；pglite 内存隔离；iLink/iMC/schedule 关闭防连真微信/真推送；`BUTLER_V5_PROJECT_STATE_STORE` override /tmp 规避 config 共享写 EACCES）。跑 `smoke:scheme-b-allowlist` 共 8 轮。**结论：delegate 链路稳定**——healthz/dev-session/子代理 delegate 8/8 全过（修复 1 处 config 权限后不再 500）。**run_command pending 未触发**＝live LLM 行为：chat（MiniMax-M3 默认 exec）与 deepseek-chat 均稳定把 `run_command argv=[python3,-c,print(888)]` 当文本直接回答、不发起 `CallTool run_command`——这是脚本注释第 5–6 行明确定义的 live-variance WARN+PASS 分支，非缺陷。sandbox 执行能力已由 `smoke:sandbox-allowlist`（allow=true blocked=false，slirp 未挂起）+ dev-delegate 单测「full chain delegate→exec→verify→mock outbox」单独覆盖。**发现 1 环境项**：`BUTLER_V5_MODEL_EXEC=deepseek-chat` 时子代理 LLM 调用 400（`openai api error`，deepseek 通道对该请求体不接受；默认 MiniMax-M3 正常）。备查：主 loop 偶发 `decodeDecision invalid JSON` 兜底为 Respond（非能力受损）。
+
+**Scheme B 全链确定性化（fixture 模式，2026-08-27）**：为消除 live LLM 方差，新增 fixture `config/llm-fixtures/scheme-b-run-command/{plan,exec}.json`（plan=Delegate/Respond 成对 ×4、exec=tool_use run_command/应答成对 ×5，按 run 顺序消费）；`smoke-scheme-b-delegate-allowlist.mjs` 增加 fixture 分支——先经 `/v1/owner/traces` 断言 `capability=run_command status=ok`（dev-session anchor grant 下执行、无 pending），无 stepId 时跳过 approve 防 null。`BUTLER_V5_LLM_FIXTURE_DIR=config/llm-fixtures/scheme-b-run-command` 起 fixture 网关（PORT=3092）跑 `smoke:scheme-b-allowlist` 3 轮：**3/3 确定性 PASS**——healthz/dev-session/delegate/child run_command executed under anchor grant 全绿。Scheme B 稳定测已从「live-variance WARN+PASS」升级为「确定性断言子代理确实发起并执行 run_command」。pending→approve 分支（无 anchor 覆盖的网络命令）仍为 live/手测路径，fixture 不覆盖。
+
+**P2d slirp 挂起根因定位（2026-08-27）**：`sandbox-p2d-preflight` 全绿（bwrap 0.6.1 / slirp4netns 1.0.1 / unshare util-linux 2.37.2 / iptables nf_tables / cap_net_admin in bounding set），但 `sandbox-probe-allowlist-slirp` 报 `rawBlocked=false proxyPath=false`。**根因＝受限执行沙箱拒 `unshare -U -r` 写 `/proc/<pid>/uid_map(gid_map)`**（实测 `unshare: cannot open /proc/self/uid_map: Permission denied`）——内核 cap 在，但执行上下文 sandbox 拦 `/proc/*/uid_map` 打开，rootless userns 建不起来 → slirp4netns 无法 attach → raw 探测未跑即断言 fail-open。**这是环境耦合，非代码缺陷**：slirp-egress 7/7 + p2d-preflight + bubblewrap-runner 16 条单测全过；生产已有 `BUTLER_V5_SANDBOX_SLIRP_FALLBACK=1` fail-closed 降级 P2c proxy，resume 不受影响。**本轮写 1 处诊断质量修复**：`probeSandboxAllowlistSlirpIsolation` 原逻辑把「slirp sandbox 未能启动（stdout 无 raw-open/raw-blocked 落笔）」误判为 `rawSocketBlocked=false` → 假报「raw socket reached non-allowlisted host (P2d fail-open)」。改为 sandbox 未启动视作 `rawBlocked=true`（无命令运行即无 egress，安全）且 reason 报 fail-closed（`P2d slirp isolation requires rootless unshare -U -r -n (fail-closed)`），不再误报 fail-open。adapter/sandbox 全 28 条测试 + typecheck 0 错。验证受限需在**非 AI 沙箱的 operator 终端**跑 `pnpm smoke:allowlist-slirp`/`sandbox-probe-allowlist-slirp`；P2d 为 opt-in，P2c proxy 为默认。
+
+**P2d operator 纵烟复核（2026-08-27）**：按用户指示在 operator 侧跑 `pnpm smoke:allowlist-slirp`。环境提示 operator env 已 `BUTLER_V5_SANDBOX_EGRESS_ISOLATION=slirp`+`SLIRP_FALLBACK=1`；结果——`healthz`✓、`sandbox-network`（denyBlocked=true allowReached=true）✓、`sandbox-allowlist`（allowed=true blocked=false，**P2c proxy 实通**）✓、`p2d-preflight`（bwrap/slirp4netns/unshare/iptables/cap_net_admin 全绿）✓、`sandbox-probe-allowlist-slirp`（`rawBlocked=true proxyPath=false` → fail-closed）✗。底部仍 `TRAE Sandbox Error: hit restricted /proc/*/uid_map`——**复核终端仍在 AI 执行沙箱内**，slirp 的 rootless userns 仍因 `/proc/uid_map` 写被拦而无法实通。证实：沙箱本体/P2c proxy/P2d 前置全部可用，唯一不通的 slirp 是沙箱层拦 userns，代码与诊断正确。**host 上 slirp 实通需在脱离 AI 沙箱的生产主机（如 systemd user service 直起）复核**；P2d 为 opt-in，生产默认 P2c proxy + fallback 无缝兜底，不阻塞主线。
+
+**P4 Task/Procedure 基线收口（2026-08-26）**：审计确认 MVP 已完整——domain `task-procedure.ts`（`createProcedureRecord` 线性只读模板：非空 steps、每步 key/title/goal、key 去重、version≥1；`createTaskRecord`：subject/title/goal、status enum、procedureStepIndex≥0、conversationId 可选；`resolveTaskRunGoal` 仅 open、procedure 匹配、step 越界 fail-closed、非绑定任务用 task.goal + stepKey null；`advanceTaskAfterStep` 推进 stepIndex 或越过末步置 done，`defaultTaskConversationId`）；store `task-procedure-store.ts`（Procedure create/get/list 新-先、Task create/get/update/listBySubject status+limit）；路由 `/v1/owner/procedures`、`/v1/owner/tasks`、`/v1/owner/tasks/:id/run`、`/v1/owner/tasks/:id/done`。**runTaskGoal 语义正确**：build+validate Task RunTrigger 后经单一 `runButlerLoop`（P3 入口归一化 + P1 幂等 `task:{id}:{ts}`）；推进仅当 `advance !== false` 且 `finalDecision !== "AskApproval"`（审批中不推进；`advance:false` 手动档不自动推进），无第二套 Run Engine。**本轮补 8 条测试**（共 2→11 条全过）：domain 5（重复 key / version<1 / 字段校验 / resolve 各负例 + 自由任务 / 末步置 done）、store 1（advance 持久化 + status 过滤 + 缺失 null）、task-run e2e 1（`advance:false` 不推进 stepIndex/goal 不变）；store 负例暴露 `tasks.procedureId` 为 uuid 列——非法 uuid 插入触发 postgres 22P02（路由恒传合法 uuid，测试值修正）。typecheck 0 错。无新 env 变量。
+
+## 本班完成（续）
+
+1. **开发模式（用户已发微信）**
+   - DB：`scoped_grants` 活跃 `run_command`/`write_file` 各 50 次（dev-session anchor）
+   - `smoke:prod-tune` dev-session PASS；子代理 MiniMax CN 写文件成功
+
+2. **slirp resume exit 1 → 已修**
+   - 根因：host slirp 不稳定；monorepo bind 亦会挂起
+   - 修复：`BUTLER_V5_SANDBOX_SLIRP_FALLBACK=1`（slirp 失败自动降级 P2c proxy allowlist）
+   - `BUTLER_V5_SANDBOX_WORKSPACE_ROOT=…/butler-v5`；`run_command` slirp 超时 120s
+   - **`smoke:allowlist-owner` resume/exec：python print 123 OK**（无 fallback WARN）
+
+3. **Scheme B 网络审批**
+   - `subagent-worker` 改用 `toolTimeoutMs`（slirp 120s）
+   - 新增 `pnpm smoke:scheme-b-allowlist`（委派 OK；子代理 run_command pending 依赖 LLM，可能 WARN）
+
+4. **MiniMax CN** — `MINIMAX_CN_API_KEY` + `api.minimaxi.com`；子代理 exec 正常
+
+## 已就绪
+
+- prod env：CN MiniMax、`SANDBOX_WORKSPACE_ROOT`、`SLIRP_FALLBACK=1`
+- smoke：`prod-tune` / `allowlist-owner` / `scheme-b-allowlist`
 
 ## 下一步
 
-- 按需：post-boundary roadmap P1+ 余量
-- Todoist MCP 502/503：查 `~/.config/butler-v5/env` token
-- 真机：微信切换灵文后 PK（ilink 仍 `projectId=wechat`，切换未接线）
+1. ~~Scheme B 全链：若需稳定测子 Run `run_command` pending，加 fixture 或更强 prompt（live LLM 方差）~~ → fixture 已加，确定性 PASS（anchor-grant 执行路径）。pending→approve 分支留手测
+2. ~~slirp P2d：host 上 slirp4netns 挂起根因~~ → **host 实通已收口**：宿主分层验证 unshare→`unshare -U -r -n` ok；slirp `--configure` netns 配好；iptables（带 `XTABLES_LOCKFILE`）`rc=0`；`bwrap --share-net` 输出 999 → 下层工具链全通、不死锁。宿主重跑 `pnpm smoke:allowlist-slirp` 完整等它结束 → **`smoke PASS [allowlist-production]`，`slirp probe rawBlocked=true proxyPath=true`（fail-closed 生效）**。早期 AIsandbox 失败＝拒写 `/proc/*/uid_map`（环境耦合）；「卡住」实为 probe timeout 被放大到 120s + 跑两遍，等超时兜底返回 fail-closed，非死锁。P2d host 实通，opt-in，默认 P2c proxy
+3. ~~真机微信 dev_task → 子代理 run_command → Owner approve 手测一次~~ → 真机全链已 PASS；pending→approve 分支以自动化单测闭合（见下「真机 + pending→approve 收口」）
+
+## 真机 + pending→approve 收口（2026-08-27）
+
+**真机全链 PASS**：真实 iLink Bot（token `034f83be...`）上发「帮我运行命令 print(888)」→ intake `dev_task` → 主 Loop `delegate_to_subagent`（2 个子代理）→ 各自沙箱执行 `run_command python3 -c "print(888)"` → child/parent run 均 `succeeded`，回复含 `888`。run 46249c6b 及两个 child（11d96128/32069389）落库齐全。真实 postgres/`a2dc83d1` dev-session anchor 下 run_command 直接执行（`workspace-write-network-deny`），最终状态 OK。
+
+**pending→approve 分支（关键收口）**：真机 dev_task 天然被 dev-session anchor grant 预授权，不触发 pending——`wechat-intake.ts` L245 dev_task（requiresDevSession）每次 `ensureDevSessionGrants` 自动补签 30min run_command/write_file，删 DB 行无效（会被下一条 dev_task 刷回）。pending→approve 是「非授权场景」落点。**本轮修 1 处真 bug**：子代理 run_command 的 waiting_approval step 原本带 `parentConversationId`，而 child run 用 `childConversationId` → owner approve 时 `resumeRun` 400「belongs to child-..., not ...」。改 `subagent-worker` 子代理由 `childConversationId`（工具读流仍用 parent）；对应测试 `child run_command → persistAskApproval → /v1/owner/approvals/{id}/approve(networkAllowlist) → resume` 返回 200 + grant.sandboxProfile=`workspace-write-network-allowlist` + 输出 888。delegation/approval/owner-routes 相关 57 条测试无回归。**用户决策 B**：pending→approve 用自动化单测闭合，不强行真机制造（dev_task 语义本就 anchor 直行）。
 
 ## 不要做
 
-- PK K2 / embedding / RAG Studio
-- 删备份 tgz / `~/.config/butler-v5/`
+- 改 `wechat-inbound-butler.ts`
+- live smoke 升格 PR 硬门槛
 
 ## 上一班
 
-- PK sources 扩展 + 灵文 inbound map + sync + smoke；MCP hardened 见 `59d2274c`。
+- CN MiniMax 切换；slirp ProcessRunner 抽取；Scheme B delegation allowlist 策略。

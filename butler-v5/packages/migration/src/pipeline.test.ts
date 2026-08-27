@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import { runMigration, type MigrationConfig } from "./pipeline.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
-import { EventBridge } from "@butler/runtime"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 
 describe("Migration pipeline", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>

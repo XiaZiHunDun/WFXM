@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest"
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { makeWiring } from "./wiring.js"
 import { tryWechatInlineApproval } from "./wechat-inline-approval.js"
@@ -11,11 +11,16 @@ describe("tryWechatInlineApproval", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
 
   beforeEach(async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "")
+    vi.stubEnv("DEEPSEEK_API_KEY", "")
+    vi.stubEnv("MINIMAX_API_KEY", "")
+    vi.stubEnv("DASHSCOPE_API_KEY", "")
     db = await makeTestDb()
     process.env["BUTLER_OWNER_WECHAT_ID"] = "owner-1"
   })
 
   afterEach(async () => {
+    vi.unstubAllEnvs()
     await db.close()
   })
 

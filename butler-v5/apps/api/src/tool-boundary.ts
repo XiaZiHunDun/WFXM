@@ -1,5 +1,6 @@
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
+import { resolveSandboxEgressIsolation } from "@butler/domain/governance/network-allowlist.js"
 import {
   capabilityDefinitionFromTool,
   createProductionCapabilityRegistry,
@@ -10,20 +11,75 @@ import {
   type ToolExecutionOutcome,
 } from "@butler/runtime/capability-boundary.js"
 import { mcpServerIdForCapability } from "@butler/runtime/mcp-consent.js"
+import { mcpAllowedForRunSubject } from "@butler/domain/governance/mcp-tool-capability.js"
 import {
   PolicyGate,
   productionPermissionPolicy,
   actionRequestFromTool,
+  readKillSwitch,
   type CapabilityRegistry,
 } from "@butler/runtime/policy-gate.js"
 import { markGrantConsumed } from "./approval-resume.js"
+import { isMcpReadonlyAutoAllowEnabled } from "./mcp-readonly-policy.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { devSessionRunId } from "./dev-session-grant.js"
 
 export const DEFAULT_TOOL_TIMEOUT_MS = 5_000
 export const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
+/** Slirp allowlist (unshare + slirp4netns + iptables) needs well above the default 5s tool budget. */
+export const RUN_COMMAND_SLIRP_TIMEOUT_MS = 120_000
+
+function mcpToolTimeoutMs(): number {
+  const timeoutMs = Number(process.env["BUTLER_V5_MCP_TIMEOUT_MS"] ?? 30_000)
+  return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000
+}
+
+export function runCommandTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"]?.trim()
+  if (raw) {
+    const parsed = Number(raw)
+    if (Number.isFinite(parsed) && parsed > 0) return parsed
+  }
+  if (
+    (env["BUTLER_V5_SANDBOX"] ?? "").trim() === "bubblewrap" &&
+    resolveSandboxEgressIsolation(env) === "slirp"
+  ) {
+    return RUN_COMMAND_SLIRP_TIMEOUT_MS
+  }
+  return DEFAULT_TOOL_TIMEOUT_MS
+}
 
 export function toolTimeoutMs(toolName: string): number {
-  return toolName === "send_wechat_file" ? SEND_WECHAT_FILE_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS
+  if (toolName === "send_wechat_file") return SEND_WECHAT_FILE_TIMEOUT_MS
+  if (toolName.startsWith("mcp_")) return mcpToolTimeoutMs()
+  if (toolName === "run_command") return runCommandTimeoutMs()
+  return DEFAULT_TOOL_TIMEOUT_MS
+}
+
+async function lookupActiveGrant(args: {
+  readonly store: RuntimeStore
+  readonly runId: string
+  readonly subject: string
+  readonly capability: string
+  readonly resource: string
+  readonly digest: string
+}): Promise<ScopedGrantRecord | null> {
+  const now = new Date()
+  const probe = {
+    runId: args.runId,
+    subject: args.subject,
+    capability: args.capability,
+    resource: args.resource,
+    digest: args.digest,
+    now,
+  }
+  const primary = await args.store.findActiveGrant(probe)
+  if (primary) return primary
+  const sessionRunId = devSessionRunId(args.subject)
+  return args.store.findActiveGrant({
+    ...probe,
+    runId: sessionRunId,
+  })
 }
 
 export function resolveOwnerSubject(env: NodeJS.ProcessEnv, fallback: string): string {
@@ -67,9 +123,17 @@ export function makeToolExecutor(args: {
     timeoutMsFor: args.timeoutMsFor,
     extraProviders: mcpCapabilityProvidersFromTools(mcp, {
       timeoutMsFor: args.timeoutMsFor,
+      // P3-3: child/delegated (non-owner) runs get no MCP by default.
+      mcpEnabled: mcpAllowedForRunSubject(args.subject, args.ownerSubject),
     }),
   })
-  const gate = new PolicyGate(productionPermissionPolicy(args.ownerSubject), args.nowMs ?? Date.now)
+  const gate = new PolicyGate(
+    productionPermissionPolicy(args.ownerSubject, {
+      mcpReadonlyAutoAllow: isMcpReadonlyAutoAllowEnabled(process.env),
+    }),
+    args.nowMs ?? Date.now,
+    { killSwitch: readKillSwitch(process.env) },
+  )
   const approval =
     args.store && args.runId
       ? {
@@ -97,13 +161,13 @@ export function makeToolExecutor(args: {
       const grant =
         explicitGrant ??
         (args.store && args.runId
-          ? await args.store.findActiveGrant({
+          ? await lookupActiveGrant({
+              store: args.store,
               runId: args.runId,
               subject: args.subject,
               capability: def.name as string,
               resource,
               digest: request.digest,
-              now: new Date(),
             })
           : null)
       const outcome = await executeToolThroughBoundary(

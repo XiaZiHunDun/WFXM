@@ -4,7 +4,7 @@ import { makePostgresEventStoreAdapter } from "./postgres-event-store.js"
 import { makePostgresOutboxAdapter } from "./postgres-outbox.js"
 import { makePostgresSnapshotAdapter } from "./postgres-snapshot.js"
 import { makePostgresProjectionAdapter } from "./postgres-projection.js"
-import { EventBridge } from "@butler/runtime"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 
 interface PostgresAdapterInput {
   readonly db: ButlerDb

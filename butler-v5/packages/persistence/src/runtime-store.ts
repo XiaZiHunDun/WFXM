@@ -17,6 +17,18 @@ import {
 } from "@butler/domain/runtime.js"
 import type { ButlerDb } from "./db.js"
 import { auditEvents, conversations, messages, runs, scopedGrants, steps } from "./schema.js"
+import { redactTraceValue } from "@butler/domain/observability/local-trace.js"
+
+/**
+ * Durable context artifact (transcript) — P2 secret scan.
+ * Message content is always scanned+redacted before persisting so secrets never
+ * land in the durable transcript; the live loop still reads raw in-memory output.
+ */
+function redactStoredContent(
+  content: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  return redactTraceValue(content, 0) as Readonly<Record<string, unknown>>
+}
 
 export class RuntimeVersionConflictError extends Error {
   constructor(
@@ -145,7 +157,7 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         messageId: input.messageId,
         conversationId: input.conversationId,
         role: "user",
-        content: input.content,
+        content: redactStoredContent(input.content),
         triggerSource: input.triggerSource,
         idempotencyKey: input.idempotencyKey,
         createdAt: input.createdAt,
@@ -263,7 +275,7 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         messageId: input.messageId,
         conversationId: input.conversationId,
         role: input.role,
-        content: input.content,
+        content: redactStoredContent(input.content),
         triggerSource: input.triggerSource,
         idempotencyKey: input.idempotencyKey,
         createdAt: input.createdAt,
@@ -413,7 +425,7 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         conversationId: input.conversationId,
         action: input.action,
         subject: input.subject,
-        detail: input.detail,
+        detail: redactTraceValue(input.detail, 0),
         createdAt: input.createdAt,
       })
     },
@@ -464,6 +476,29 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         }
       }
       return count
+    },
+
+    async revokeScopedGrantsForCapability(capability, now) {
+      const rows = await db
+        .select()
+        .from(scopedGrants)
+        .where(gt(scopedGrants.expiresAt, now))
+      let revoked = 0
+      for (const row of rows) {
+        const grant = toScopedGrant(row)
+        if (grant.remainingUses !== null && grant.remainingUses <= 0) {
+          continue
+        }
+        if (!grant.scope.capabilities.includes(capability)) {
+          continue
+        }
+        await db
+          .update(scopedGrants)
+          .set({ remainingUses: 0 })
+          .where(eq(scopedGrants.grantId, row.grantId))
+        revoked += 1
+      }
+      return revoked
     },
 
     async listRunsPastDeadline(now) {

@@ -10,7 +10,7 @@ import {
 
 const policy: PermissionPolicy = {
   ownerSubject: "owner-1",
-  alwaysConfirm: ["send_wechat_file"],
+  alwaysConfirm: ["send_wechat_file", "run_command", "write_file"],
   denyByDefault: ["write", "command", "outbound"],
 }
 
@@ -83,12 +83,28 @@ describe("decidePolicy", () => {
     expect(decision).toEqual({ _tag: "Allow" })
   })
 
-  it("denies high-risk actions without grant", () => {
+  it("asks for run_command without grant", () => {
     const decision = decidePolicy(
       {
         ...baseRequest,
         kind: "command",
         capability: "run_command",
+        resource: "ls -la",
+        risk: "high",
+      },
+      policy,
+      1000,
+      null,
+    )
+    expect(decision._tag).toBe("Ask")
+  })
+
+  it("denies high-risk write actions without grant when not alwaysConfirm", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "write",
+        capability: "delete_repo",
         risk: "high",
       },
       policy,
@@ -179,6 +195,39 @@ describe("decidePolicy", () => {
           digest: "d-send",
         },
       }),
+    )
+    expect(decision._tag).toBe("Ask")
+  })
+
+  it("allows low-risk owner mcp when mcpReadonlyAutoAllow is set", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "command",
+        capability: "mcp_todoist_lst_projects",
+        risk: "low",
+        digest: "mcp-lst",
+      },
+      { ...policy, mcpReadonlyAutoAllow: true },
+      1000,
+      null,
+    )
+    expect(decision).toEqual({ _tag: "Allow" })
+  })
+
+  it("asks for low-risk mcp from non-owner even with mcpReadonlyAutoAllow", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "command",
+        capability: "mcp_todoist_lst_projects",
+        subject: "other-user",
+        risk: "low",
+        digest: "mcp-lst",
+      },
+      { ...policy, mcpReadonlyAutoAllow: true },
+      1000,
+      null,
     )
     expect(decision._tag).toBe("Ask")
   })

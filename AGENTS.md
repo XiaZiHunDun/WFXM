@@ -21,7 +21,7 @@
 
 - 生产路径是 `butler-v5/cli + apps/api → packages/runtime → adapters/persistence`。
 - 目标架构与当前实现必须分开描述：目标看 `DESIGN.md`，事实看 production architecture。
-- `packages/application` 与部分 `packages/infrastructure` 当前未接入生产；不得用其单测声称能力已交付。
+- `_archive/packages/application` 与部分 `_archive/packages/infrastructure` 当前未接入生产；不得用其单测声称能力已交付。
 - 生产数据库 schema 只认 `packages/persistence/src/migrations/0001_initial.sql`。
 - 新入口归一化为 Run Trigger；新副作用必须经过 Policy →（Ask 时 waiting_approval）→（需要时 ScopedGrant）→ Provider Boundary → Audit。模型调用不走副作用咽喉。
 - MCP、浏览器、UI、多 Channel、调度是**条件准入**，不是默认能力，也不是整类否决。

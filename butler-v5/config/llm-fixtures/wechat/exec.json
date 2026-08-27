@@ -1,0 +1,23 @@
+{
+  "responses": [
+    {
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "fixture-write-1",
+          "name": "write_file",
+          "args": {
+            "path": "butler-v5/tmp-product-contract.txt",
+            "content": "contract-ok"
+          }
+        }
+      ],
+      "stopReason": "tool_use"
+    },
+    {
+      "content": "文件已写入 tmp-product-contract.txt",
+      "toolCalls": [],
+      "stopReason": "end_turn"
+    }
+  ]
+}

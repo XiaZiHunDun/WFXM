@@ -8,6 +8,7 @@ export const WECHAT_CORE_TOOL_NAMES: readonly string[] = [
   "greet_with_time",
   "summarize_today",
   "read_file",
+  "write_file",
   "run_command",
   "send_wechat_file",
 ]

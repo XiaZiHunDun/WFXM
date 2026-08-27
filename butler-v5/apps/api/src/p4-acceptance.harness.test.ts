@@ -2,10 +2,10 @@
  * P4 real-path acceptance (no iLink, no Web UI).
  * Simulates WeChat HTTP inbound + Schedule fire + Task/Procedure + Owner traces.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { resetSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import {
@@ -28,6 +28,10 @@ describe("P4 acceptance harness", () => {
   let app: Hono
 
   beforeEach(async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "")
+    vi.stubEnv("DEEPSEEK_API_KEY", "")
+    vi.stubEnv("MINIMAX_API_KEY", "")
+    vi.stubEnv("DASHSCOPE_API_KEY", "")
     resetSharedLocalTracer({
       BUTLER_V5_TRACE: "1",
       BUTLER_V5_TRACE_REDACT: "1",
@@ -52,6 +56,7 @@ describe("P4 acceptance harness", () => {
   })
 
   afterEach(async () => {
+    vi.unstubAllEnvs()
     await db.close()
   })
 

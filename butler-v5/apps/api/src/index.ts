@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { createRoutes } from "./routes.js"
 import { createOwnerRoutes } from "./owner-routes.js"
 import { createProductionWiring } from "./bootstrap-wiring.js"
-import { pickLLMProvider } from "@butler/adapters"
+import { pickLLMForRole } from "@butler/adapters"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer, type WsServerHandle } from "./ws-routes.js"
 import { startScheduleWorkerIfEnabled } from "./schedule-worker.js"
@@ -38,9 +38,14 @@ if (subagentEnabled) {
   const wsPort = Number(process.env["WS_PORT"] ?? (vitest ? 0 : 3001))
   const wsHost = process.env["WS_HOST"] ?? "127.0.0.1"
   wsHandle = await startWsServer({ port: wsPort, host: wsHost })
-  stopSubagent = runSubagentWorker(wiring.eventBridge, pickLLMProvider, process.env, {
-    runtimeStore: wiring.runtimeStore,
-  }).stop
+  stopSubagent = runSubagentWorker(
+    wiring.eventBridge,
+    (env) => pickLLMForRole(env, "exec"),
+    process.env,
+    {
+      runtimeStore: wiring.runtimeStore,
+    },
+  ).stop
   if (!vitest) {
     // eslint-disable-next-line no-console -- operator log when no logger injected
     console.error("[butler-v5] subagent worker + WS enabled")

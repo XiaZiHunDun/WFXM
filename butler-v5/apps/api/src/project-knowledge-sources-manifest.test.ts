@@ -14,8 +14,11 @@ describe("project-knowledge-sources.json (production manifest)", () => {
     if (!parsed.ok) return
     const globs = parsed.manifest.projects["WFXM"]?.globs ?? []
     expect(globs).toContain("docs/plans/active/v5-d1-execution-handoff-2026-08-25.md")
+    expect(globs).toContain("docs/plans/active/v5-architecture-alignment-handoff-2026-08.md")
+    expect(globs).toContain("docs/plans/active/v5-p3-mcp-contract-issue-draft-2026-08.md")
     expect(globs).toContain(".blackboard/state.md")
     expect(globs).toContain("AGENTS.md")
+    expect(globs.length).toBeGreaterThanOrEqual(20)
   })
 
   it("includes expanded LingWen novel-factory references", () => {
@@ -25,7 +28,9 @@ describe("project-knowledge-sources.json (production manifest)", () => {
     if (!parsed.ok) return
     const globs = parsed.manifest.projects["LingWen"]?.globs ?? []
     expect(globs).toContain("projects/LingWen1/novel-factory/references/03-plot-timeline-foreshadowing.md")
+    expect(globs).toContain("projects/LingWen1/novel-factory/references/06-locations-atlas-vol1.md")
+    expect(globs).toContain("projects/LingWen1/novel-factory/references/09-character-relationships-timeline.md")
     expect(globs).toContain("projects/LingWen1/docs/pilot-setup.md")
-    expect(globs.length).toBeGreaterThanOrEqual(15)
+    expect(globs.length).toBeGreaterThanOrEqual(20)
   })
 })

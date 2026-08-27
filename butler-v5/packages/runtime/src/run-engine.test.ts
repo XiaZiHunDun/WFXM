@@ -6,7 +6,7 @@ import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { runs } from "@butler/persistence/schema.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { createWaitingApprovalStep } from "./approval-runtime.js"
-import { ActiveMainRunConflict, RunEngine } from "./run-engine.js"
+import { ActiveMainRunConflict, InvalidRunTriggerError, RunEngine } from "./run-engine.js"
 
 describe("RunEngine", () => {
   it("creates a bounded main Run and builds a working set", async () => {
@@ -29,6 +29,148 @@ describe("RunEngine", () => {
       expect(result.resumed).toBe(false)
       const messages = await store.listMessages(result.conversationId)
       expect(messages).toHaveLength(1)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("P3-1: accepts a valid normalized RunTrigger", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const engine = new RunEngine(store)
+    try {
+      const trigger = buildWechatRunTrigger({
+        userId: "owner-1",
+        conversationId: crypto.randomUUID(),
+        content: "hi",
+        messageId: "msg-p3-1",
+      })
+      const result = await engine.executeInbound(
+        {
+          conversationId: "ignore",
+          messageId: crypto.randomUUID(),
+          subject: "owner-1",
+          content: "hi",
+          trigger,
+        },
+        async (ctx) => ctx,
+      )
+      expect(result.workingSet.messages.at(-1)).toEqual({ role: "user", content: "hi" })
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("P3-1: fails closed when an inbound RunTrigger is malformed", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const engine = new RunEngine(store)
+    try {
+      const trigger = buildWechatRunTrigger({
+        userId: "owner-1",
+        conversationId: crypto.randomUUID(),
+        content: "hi",
+        messageId: "msg-p3-1-bad",
+      })
+      await expect(
+        engine.executeInbound(
+          {
+            conversationId: "ignore",
+            messageId: crypto.randomUUID(),
+            subject: "owner-1",
+            content: "hi",
+            trigger: {
+              ...trigger,
+              idempotencyKey: "",
+              source: "channel",
+              conversationRef: "",
+            },
+          },
+          async (ctx) => ctx,
+        ),
+      ).rejects.toBeInstanceOf(InvalidRunTriggerError)
+      // No message/run persisted for the malformed trigger (fail-closed).
+      const messages = await store.listMessages(crypto.randomUUID())
+      expect(messages).toHaveLength(0)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("applies dev working-set budget and filters chat noise", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const engine = new RunEngine(store)
+    const conversationId = crypto.randomUUID()
+    const createdAt = new Date()
+    try {
+      await store.createConversationWithUserMessage({
+        conversationId,
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "ping" },
+        triggerSource: "channel",
+        idempotencyKey: "noise-1",
+        createdAt,
+      })
+      await store.appendMessage({
+        messageId: crypto.randomUUID(),
+        conversationId,
+        role: "assistant",
+        content: { text: "pong" },
+        triggerSource: "channel",
+        idempotencyKey: "noise-2",
+        createdAt,
+      })
+      await store.appendMessage({
+        messageId: crypto.randomUUID(),
+        conversationId,
+        role: "user",
+        content: { text: "pwd" },
+        triggerSource: "channel",
+        idempotencyKey: "noise-3",
+        createdAt,
+      })
+      await store.appendMessage({
+        messageId: crypto.randomUUID(),
+        conversationId,
+        role: "assistant",
+        content: { text: "/home/ailearn" },
+        triggerSource: "channel",
+        idempotencyKey: "noise-4",
+        createdAt,
+      })
+      await store.appendMessage({
+        messageId: crypto.randomUUID(),
+        conversationId,
+        role: "user",
+        content: { text: "帮我实现模块" },
+        triggerSource: "channel",
+        idempotencyKey: "dev-1",
+        createdAt,
+      })
+
+      const trigger = buildWechatRunTrigger({
+        userId: "owner-1",
+        conversationId,
+        content: "继续开发",
+        extraPayload: { workingSetMode: "dev" },
+      })
+      const result = await engine.executeInbound(
+        {
+          conversationId,
+          messageId: crypto.randomUUID(),
+          subject: "owner-1",
+          content: "继续开发",
+          idempotencyKey: "inbound-dev-ws",
+          trigger,
+        },
+        async (ctx) => ctx,
+      )
+
+      expect(result.workingSet.compacted).toBe(false)
+      expect(result.workingSet.messages.some((m) => m.content === "ping")).toBe(false)
+      expect(result.workingSet.messages.some((m) => m.content.includes("帮我实现模块"))).toBe(true)
     } finally {
       await db.close()
     }

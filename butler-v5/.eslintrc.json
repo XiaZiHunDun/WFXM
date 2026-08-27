@@ -10,7 +10,6 @@
       "./apps/api/tsconfig.json",
       "./tests/**/tsconfig.json",
       "./tests/tsconfig.json",
-      "./packages/contracts/tsconfig.json",
       "./packages/persistence/tsconfig.json",
       "./packages/runtime/tsconfig.json",
       "./packages/adapters/tsconfig.json",
@@ -42,5 +41,5 @@
     "@typescript-eslint/array-type": ["warn", { "default": "array" }],
     "@typescript-eslint/prefer-readonly": "warn"
   },
-  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "*.tsbuildinfo", "hooks/", "packages/**/_archive/**"]
+  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "*.tsbuildinfo", "hooks/", "**/_archive/**"]
 }

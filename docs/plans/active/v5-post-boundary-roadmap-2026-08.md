@@ -184,6 +184,8 @@ P3 只建立安全扩展面，不默认安装具体能力。
 
 > **Owner 2026-08-21：已立项 MVP。** 默认关闭；`BUTLER_V5_SCHEDULE_ENABLED=1` + `config/schedule-jobs.json`（或 `BUTLER_V5_SCHEDULE_JOBS`）。
 
+> **MVP 完成 ✅ 2026-08-27**（收口见 state.md）：worker 三态 skip/defer/fire；cooldown + per-window 幂等 + 对话/in-flight defer + deadline + quietSuccess；只读 allowlist 结构上不扩权、无 ScopedGrant 副作用仍停在审批。
+
 - 只读巡检、提醒、摘要优先（默认 `SCHEDULE_SAFE_TOOL_NAMES`）；
 - 产生隔离 Run Trigger（`source=schedule`，subject=`system:scheduler`）；
 - 预算、冷却、幂等键、截止时间、quiet success；
@@ -193,6 +195,8 @@ P3 只建立安全扩展面，不默认安装具体能力。
 ### 本地 tracing / 可选 OTEL
 
 > **Owner 2026-08-21：已立项 MVP。** 默认本地；OTEL 仅 stdout JSON lines，无 SDK。
+
+> **MVP 完成 ✅ 2026-08-27**（收口见 state.md）：domain 事件/脱敏/OTEL 行 + runtime 环形缓冲 + owner `/v1/owner/traces` 查询；run-engine/capability-boundary 记录 run/policy/capability/approval 事件。
 
 - run/step/capability/policy/grant/approval 事件（审批等待记为 `approval`）；
 - 默认本地环形缓冲（`BUTLER_V5_TRACE` 默认开，`=0` 一键停用）；
@@ -204,6 +208,8 @@ P3 只建立安全扩展面，不默认安装具体能力。
 
 > **Owner 2026-08-21：已立项 MVP（文本类具名格式）。** 不做 RAG Studio / 默认全盘索引 / 内嵌 PDF 解析 / OCR。
 
+> **MVP 完成 ✅ 2026-08-27**（收口见 state.md）：domain 校验/截断/byteSize + `document-store` + owner `/v1/owner/documents`（ingest/promote-memory/delete 级联）+ 工具 `recall_document`；图片 OCR / 向量索引保持延后。
+
 - 按 provider/格式具名接入：`plaintext`、`markdown`、`pdf`（预提取文本）；
 - provenance、大小、截断上限与删除级联（→ Durable Memory by documentId）；
 - 工具 `recall_document`；`promote-memory` 生成 candidate；
@@ -212,6 +218,8 @@ P3 只建立安全扩展面，不默认安装具体能力。
 ### Durable Memory 基线
 
 > **Owner 2026-08-21：已立项 MVP。** 迁移 `0004_durable_memory.sql`；注入默认关。
+
+> **MVP 完成 ✅ 2026-08-27**（收口见 state.md）：store CRUD + source 级联删除 + `durable-memory-store`；domain 状态机 candidate/confirmed/rejected、子串检索、selection 顺序；工具 `recall_durable_memory` confirmed-only；embedding 保持延后。
 
 - 只区分 Transcript、Durable Memory 和 Project Knowledge（**Project Knowledge MVP ✅ 2026-08-24**，见 [`v5-project-knowledge-proposal-2026-08.md`](v5-project-knowledge-proposal-2026-08.md)）；
 - Run 内部压缩产物和滚动摘要不是知识层，也不自动升级为持久记忆；
@@ -222,6 +230,8 @@ P3 只建立安全扩展面，不默认安装具体能力。
 ### Task / Procedure 基线
 
 > **Owner 2026-08-21：已立项 MVP。** 场景：跨对话待办板 + 可复用线性 runbook；无 DAG。
+
+> **MVP 完成 ✅ 2026-08-27**（收口见 state.md）：`task-procedure` domain + store + owner routes（procedures/tasks/run/done）；`runTaskGoal` 经单一 Run Engine + P1 幂等，`advance:false` 不自动推进；无第二套状态机。
 
 - Task 是 Owner 可见的持久待办；`POST .../tasks/:id/run` 经 `source=task` Trigger 产生 Run；
 - Procedure 是不可变、带版本的线性步骤模板（`when` 仅作标签，MVP 不求值）；无独立运行状态；

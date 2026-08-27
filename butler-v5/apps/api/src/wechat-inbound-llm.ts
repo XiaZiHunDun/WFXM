@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { pickLLMProvider, type LLMMessage } from "@butler/adapters"
-import { isSubagentEnabled } from "./subagent-config.js"
+import { shouldAdvertiseDelegate } from "./wechat-tool-profile.js"
 
 /**
  * How long to wait for a real LLM response before falling back to the
@@ -38,11 +38,14 @@ const defaultLogger: LLMReplyLogger = {
 export function buildWechatInboundMessages(
   content: string,
   env: NodeJS.ProcessEnv = process.env,
+  opts: { readonly includeExecTools?: boolean } = {},
 ): readonly LLMMessage[] {
+  const includeExecTools = opts.includeExecTools ?? false
+  const advertiseDelegate = shouldAdvertiseDelegate({ includeExecTools, env })
   const decisionShapes = [
     '- {"_tag":"Respond","content":"<your reply text>"}  — final answer to the user',
     '- {"_tag":"CallTool","toolName":"<tool>","args":{...}}  — request a tool call (loop will run it and feed the result back)',
-    ...(isSubagentEnabled(env)
+    ...(advertiseDelegate
       ? [
           '- {"_tag":"Delegate","role":"<role>","task":"<task>"}  — hand the task off to a subagent (runs in background; you may then Respond or CallTool again)',
         ]
@@ -57,18 +60,29 @@ export function buildWechatInboundMessages(
     "- greet_with_time(): a Chinese greeting based on the current time of day",
     "- summarize_today(): 24-hour activity summary for this conversation, broken down by event type",
     "- read_file(path): read a UTF-8 text file inside the workspace (max 64KiB; path cannot escape the root)",
-    "- run_command(argv): run an allowlisted command with no shell (cat/date/echo/git/grep/head/ls/node/pnpm/pwd/python3/rg/wc); args cannot contain '..' or start with '/'",
-    "- send_wechat_file(path, caption?): send a workspace image or file to the current WeChat user",
-    ...(isSubagentEnabled(env)
+    ...(includeExecTools
       ? [
-          "- delegate_to_subagent(task, role?, capabilities?): delegate a task to a subagent (runs in background, returns later). Use when the user's request requires capabilities you don't have. Optional `capabilities` is an array of strings from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, run_command); defaults to ['general'] if unspecified.",
+          "- write_file(path, content): write UTF-8 text to a workspace file (max 64KiB; requires owner confirmation)",
+          "- run_command(argv): run an allowlisted command with no shell (cat/date/echo/git/grep/head/ls/node/pnpm/pwd/python3/rg/wc); args cannot contain '..' or start with '/'",
+        ]
+      : []),
+    "- send_wechat_file(path, caption?): send a workspace image or file to the current WeChat user",
+    ...(advertiseDelegate
+      ? [
+          includeExecTools
+            ? "- delegate_to_subagent(task, role?, capabilities?): delegate a task to a subagent (runs in background, returns later). Use when the user's request requires capabilities you don't have. Optional `capabilities` is an array of strings from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, write_file, run_command); defaults to ['general'] if unspecified."
+            : "- delegate_to_subagent(task, role?, capabilities?): delegate coding or shell work to a subagent (async). Prefer Delegate over direct write/run when the user asks to implement or change code.",
         ]
       : []),
   ]
 
-  const closing = isSubagentEnabled(env)
-    ? "If the user just wants a reply, use Respond. If you need data the tools provide, use CallTool and wait for the tool result. Use Delegate when the work should happen asynchronously in a child agent and you want to keep replying to the user."
-    : "If the user just wants a reply, use Respond. If you need data the tools provide, use CallTool and wait for the tool result."
+  const closing = advertiseDelegate
+    ? includeExecTools
+      ? "If the user just wants a reply, use Respond. If you need data the tools provide, use CallTool and wait for the tool result. Use Delegate when the work should happen asynchronously in a child agent and you want to keep replying to the user."
+      : "If the user just wants a reply, use Respond. For development tasks (write files, run commands), use Delegate to hand off to the exec subagent instead of CallTool for run_command/write_file."
+    : includeExecTools
+      ? "If the user just wants a reply, use Respond. For write_file or run_command, use CallTool directly (dev session is active — no need to delegate)."
+      : "If the user just wants a reply, use Respond. Read-only tools are available; development writes/commands require dev session or explicit approval."
 
   return [
     {

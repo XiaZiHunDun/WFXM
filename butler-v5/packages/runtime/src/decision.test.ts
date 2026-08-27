@@ -58,4 +58,17 @@ describe("decodeDecision", () => {
     const out = decodeDecision('{"_tag":"Respond","content":"x","future":42}')
     expect(out.ok).toBe(true)
   })
+
+  it("extracts embedded JSON from prose + decision object", () => {
+    const mixed = [
+      "I'll write that file for you.",
+      "",
+      '{"_tag":"CallTool","toolName":"write_file","args":{"path":"a.txt","content":"hi"}}',
+    ].join("\n")
+    const out = decodeDecision(mixed)
+    expect(out.ok).toBe(true)
+    if (out.ok && out.value._tag === "CallTool") {
+      expect(out.value.toolName).toBe("write_file")
+    }
+  })
 })

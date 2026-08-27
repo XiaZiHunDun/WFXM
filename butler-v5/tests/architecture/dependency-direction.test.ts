@@ -29,6 +29,17 @@ describe("dependency direction", () => {
       expect(findPkgImports(src, "adapters")).toEqual([])
     }
   })
+  it("runtime (core) must not depend on concrete adapters/persistence/config", () => {
+    const files = listTs(join(process.cwd(), "packages/runtime/src"))
+    for (const file of files) {
+      const src = readFileSync(file, "utf8")
+      expect(findPkgImports(src, "persistence")).toEqual([])
+      expect(findPkgImports(src, "adapters")).toEqual([])
+      expect(findPkgImports(src, "config")).toEqual([])
+      expect(findPkgImports(src, "infrastructure")).toEqual([])
+      expect(findPkgImports(src, "application")).toEqual([])
+    }
+  })
   it("ports may import only domain types", () => {
     const files = listTs(join(process.cwd(), "packages/ports/src"))
     for (const file of files) {
@@ -38,15 +49,15 @@ describe("dependency direction", () => {
       expect(findPkgImports(src, "adapters")).toEqual([])
     }
   })
-  it("application must not import adapters", () => {
-    const files = listTs(join(process.cwd(), "packages/application/src"))
+  it("archived application must not import adapters", () => {
+    const files = listTs(join(process.cwd(), "_archive/packages/application/src"))
     for (const file of files) {
       const src = readFileSync(file, "utf8")
       expect(findPkgImports(src, "adapters")).toEqual([])
     }
   })
-  it("contracts may import domain only", () => {
-    const files = listTs(join(process.cwd(), "packages/contracts/src"))
+  it("archived contracts may import domain only", () => {
+    const files = listTs(join(process.cwd(), "_archive/packages/contracts/src"))
     for (const file of files) {
       const src = readFileSync(file, "utf8")
       expect(findPkgImports(src, "application")).toEqual([])

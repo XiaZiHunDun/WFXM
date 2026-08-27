@@ -24,7 +24,7 @@ PROTECTED_FILES=(
     "butler-v5/apps/api/src/wechat-inbound-butler.ts"
     "butler-v5/packages/runtime/src/agent-kernel.ts"
     "butler-v5/packages/runtime/src/run-engine.ts"
-    "butler-v5/packages/runtime/src/bridge.ts"
+    "butler-v5/packages/persistence/src/event-bridge.ts"
     "butler-v5/packages/runtime/src/capability-boundary.ts"
     "butler-v5/apps/api/src/tool-boundary.ts"
     "butler-v5/apps/api/src/capability-guard.ts"

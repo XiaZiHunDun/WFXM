@@ -26,12 +26,17 @@ export function buildWechatRunTrigger(input: {
   readonly content: string
   readonly messageId?: string
   readonly trustLevel?: TrustLevel
+  readonly extraPayload?: Readonly<Record<string, unknown>>
 }): RunTrigger {
   return buildRunTrigger({
     subject: input.userId,
     source: "channel",
     conversationRef: input.conversationId,
-    payload: { channelId: "wechat", content: input.content },
+    payload: {
+      channelId: "wechat",
+      content: input.content,
+      ...(input.extraPayload ?? {}),
+    },
     trustLevel: input.trustLevel ?? "trusted",
     idempotencyKey: input.messageId ?? `wechat-${input.conversationId}-${Date.now()}`,
   })

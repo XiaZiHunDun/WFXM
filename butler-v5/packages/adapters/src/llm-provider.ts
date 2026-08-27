@@ -1,6 +1,7 @@
 import type { Effect } from "effect"
 import { makeAnthropicAdapter } from "./llm/anthropic.js"
 import { makeOpenAICompatibleAdapter } from "./llm/openai-compatible.js"
+import { buildDeepSeekRequestExtras } from "./llm/deepseek-request.js"
 
 /**
  * Minimal LLM message shape shared by all adapters.
@@ -128,10 +129,13 @@ export function pickLLMProvider(env: NodeJS.ProcessEnv = process.env): LLMAdapte
   }
   const deepseekKey = env["DEEPSEEK_API_KEY"]
   if (deepseekKey) {
+    const model = env["DEEPSEEK_MODEL"] ?? "deepseek-chat"
+    const requestExtras = buildDeepSeekRequestExtras(env, model)
     return makeOpenAICompatibleAdapter({
       apiKey: deepseekKey,
       baseUrl: "https://api.deepseek.com",
-      model: env["DEEPSEEK_MODEL"] ?? "deepseek-chat",
+      model,
+      ...(requestExtras !== undefined ? { requestExtras } : {}),
     })
   }
   const dashscopeKey = env["DASHSCOPE_API_KEY"]

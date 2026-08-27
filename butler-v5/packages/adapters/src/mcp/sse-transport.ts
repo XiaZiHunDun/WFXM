@@ -111,7 +111,7 @@ export function makeMcpSseTransport(config: McpSseTransportConfig): McpTransport
       }
     },
     close: async () => {
-      session.id = undefined
+      delete session.id
     },
   }
 }

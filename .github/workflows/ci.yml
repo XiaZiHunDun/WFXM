@@ -489,6 +489,11 @@ jobs:
         working-directory: butler-v5
         run: pnpm test
 
+      - name: Butler-v5 loopback smoke regression (quick, no iLink)
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        working-directory: butler-v5
+        run: bash scripts/cutover/ci-smoke-regression.sh
+
       - name: Upload butler-v5 test log on failure
         if: failure()
         uses: actions/upload-artifact@v4

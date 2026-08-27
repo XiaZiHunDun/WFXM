@@ -114,7 +114,7 @@ export async function sendSlackOutboundFile(config: {
   const form = new FormData()
   form.append("channels", config.channel)
   form.append("filename", config.fileName)
-  form.append("file", new Blob([config.bytes]), config.fileName)
+  form.append("file", new Blob([new Uint8Array(config.bytes)]), config.fileName)
   if (config.comment?.trim()) form.append("initial_comment", config.comment.trim())
   if (config.threadTs) form.append("thread_ts", config.threadTs)
 
@@ -159,7 +159,7 @@ export async function sendTelegramOutboundMedia(config: {
   const url = `https://api.telegram.org/bot${token}/${method}`
   const form = new FormData()
   form.append("chat_id", config.chatId)
-  form.append(field, new Blob([config.bytes]), config.attachment.name)
+  form.append(field, new Blob([new Uint8Array(config.bytes)]), config.attachment.name)
   if (config.caption?.trim()) form.append("caption", config.caption.trim().slice(0, 1024))
 
   const controller = new AbortController()

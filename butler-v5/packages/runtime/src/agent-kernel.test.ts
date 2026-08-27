@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest"
-import { EventBridge } from "./bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { AgentKernel } from "./agent-kernel.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 

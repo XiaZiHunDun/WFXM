@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { runTool } from "@butler/runtime/tool-runtime.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import {
@@ -8,10 +8,12 @@ import {
   makeDelegateToSubagentTool,
   makeGetCurrentTimeTool,
   makeGreetWithTimeTool,
+  makeRecallDurableMemoryTool,
   makeRecallHistoryTool,
   makeSummarizeTodayTool,
   makeWeibutlerTools,
 } from "./tools.js"
+import type { DurableMemoryStore } from "@butler/persistence"
 
 describe("weibutler tools", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
@@ -27,8 +29,8 @@ describe("weibutler tools", () => {
     await db.close()
   })
 
-  it("WEIBUTLER_LLM_TOOLS exposes 11 provider-agnostic tool descriptors", () => {
-    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(11)
+  it("WEIBUTLER_LLM_TOOLS exposes 12 provider-agnostic tool descriptors", () => {
+    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(12)
     const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
       "delegate_to_subagent",
@@ -42,6 +44,7 @@ describe("weibutler tools", () => {
       "run_command",
       "send_wechat_file",
       "summarize_today",
+      "write_file",
     ])
     for (const t of WEIBUTLER_LLM_TOOLS) {
       expect(t.description.length).toBeGreaterThan(0)
@@ -49,9 +52,17 @@ describe("weibutler tools", () => {
     }
   })
 
-  it("makeWeibutlerTools returns 10 runtime ToolDefinitions by default (no subagent)", () => {
-    const tools = makeWeibutlerTools({ bridge, conversationId })
-    expect(tools).toHaveLength(10)
+  it("makeWeibutlerTools returns 11 runtime ToolDefinitions by default (no subagent, no MCP)", () => {
+    const tools = makeWeibutlerTools({
+      bridge,
+      conversationId,
+      env: {
+        ...process.env,
+        BUTLER_V5_MCP_ENABLED: "0",
+        BUTLER_V5_SUBAGENT_ENABLED: "0",
+      },
+    })
+    expect(tools).toHaveLength(11)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
       "get_current_time",
       "greet_with_time",
@@ -63,6 +74,7 @@ describe("weibutler tools", () => {
       "run_command",
       "send_wechat_file",
       "summarize_today",
+      "write_file",
     ])
     for (const t of tools) {
       expect(typeof t.run).toBe("function")
@@ -75,7 +87,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
     })
-    expect(tools).toHaveLength(11)
+    expect(tools).toHaveLength(12)
     const delegate = tools.find((t) => (t.name as string) === "delegate_to_subagent")
     expect(delegate?.risk).toBe("medium")
   })
@@ -86,7 +98,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_MCP_ENABLED: "1", BUTLER_V5_MCP_TOOL_NAMES: "search" },
     })
-    expect(tools).toHaveLength(11)
+    expect(tools).toHaveLength(12)
     expect(tools.some((t) => (t.name as string) === "mcp_search")).toBe(true)
   })
 
@@ -452,6 +464,96 @@ describe("weibutler tools", () => {
       const payload = child?.payload as { capabilities?: { tool: string }[] }
       expect(payload?.capabilities?.length).toBe(1)
       expect(payload?.capabilities?.[0]?.tool).toBe("general")
+    }
+  })
+
+  it("developer role without capabilities gets exec caps (scheme B)", async () => {
+    const tool = makeDelegateToSubagentTool({ bridge, conversationId })
+    const result = await runTool(
+      tool,
+      { task: "implement feature", role: "developer" },
+      { timeoutMs: 1000 },
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const events = await bridge.loadStream(conversationId)
+      const child = events.find((e) => e.eventType === "ChildRunCreated")
+      const payload = child?.payload as { capabilities?: { tool: string }[] }
+      const caps = (payload?.capabilities ?? []).map((c) => c.tool)
+      expect(caps).toContain("write_file")
+      expect(caps).toContain("run_command")
+    }
+  })
+
+  it("recall_durable_memory returns 'no matches' when nothing confirmed matches", async () => {
+    const store: DurableMemoryStore = {
+      create: async (r) => r,
+      get: async () => null,
+      update: async (r) => r,
+      delete: async () => false,
+      listBySubject: async () => [],
+      deleteBySourceMessageId: async () => 0,
+      deleteBySourceDocumentId: async () => 0,
+    }
+    const tool = makeRecallDurableMemoryTool({
+      durableMemoryStore: store,
+      memorySubject: "owner",
+    })
+    const result = await runTool(tool, { query: "时区" }, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(String(result.output)).toContain("无匹配")
+  })
+
+  it("recall_durable_memory refuses without a store (fail-closed)", async () => {
+    const tool = makeRecallDurableMemoryTool({})
+    const result = await runTool(tool, { query: "x" }, { timeoutMs: 1000 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toContain("store unavailable")
+  })
+
+  it("recall_durable_memory recalls only active confirmed records by substring", async () => {
+    const now = Date.now()
+    const rec = (
+      id: string,
+      status: "candidate" | "confirmed" | "rejected",
+      content: string,
+      opts: { expiresAt?: number | null; updatedAt?: number } = {},
+    ) => ({
+      id,
+      subject: "owner",
+      content,
+      sourceKind: "message" as const,
+      status,
+      confidence: 0.9,
+      provenance: { messageId: `m-${id}`, note: "" },
+      expiresAt: opts.expiresAt ?? null,
+      createdAt: 1,
+      updatedAt: opts.updatedAt ?? now,
+      confirmedAt: status === "confirmed" ? now : null,
+    })
+    const store: DurableMemoryStore = {
+      create: async (r) => r,
+      get: async () => null,
+      update: async (r) => r,
+      delete: async () => false,
+      listBySubject: async ({ status }) =>
+        [rec("c1", "confirmed", "时区 Asia/Shanghai"), rec("c2", "confirmed", "过期口令 secret", { expiresAt: now - 10 }), rec("can", "candidate", "时区候选项")].filter(
+          (r) => (status ? r.status === status : true),
+        ),
+      deleteBySourceMessageId: async () => 0,
+      deleteBySourceDocumentId: async () => 0,
+    }
+    const tool = makeRecallDurableMemoryTool({
+      durableMemoryStore: store,
+      memorySubject: "owner",
+    })
+    const result = await runTool(tool, { query: "时区" }, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const output = String(result.output)
+      expect(output).toContain("时区 Asia/Shanghai") // confirmed + active
+      expect(output).not.toContain("候选项") // candidate excluded
+      expect(output).not.toContain("过期口令") // expired excluded
     }
   })
 })

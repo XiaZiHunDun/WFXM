@@ -1,3 +1,5 @@
 export * from "./port-helpers.js"
 export * from "./llm-provider.js"
+export * from "./model-router.js"
+export * from "./llm-fixture.js"
 export * from "./wechat/index.js"

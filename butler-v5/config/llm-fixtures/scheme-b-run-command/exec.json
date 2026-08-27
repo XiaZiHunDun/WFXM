@@ -1,0 +1,14 @@
+{
+  "responses": [
+    { "content": "", "toolCalls": [{ "id": "fixture-run-cmd-1", "name": "run_command", "args": { "argv": ["python3", "-c", "print(888)"] } }], "stopReason": "tool_use" },
+    { "content": "已执行 run_command，输出 888", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "", "toolCalls": [{ "id": "fixture-run-cmd-2", "name": "run_command", "args": { "argv": ["python3", "-c", "print(888)"] } }], "stopReason": "tool_use" },
+    { "content": "已执行 run_command，输出 888", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "", "toolCalls": [{ "id": "fixture-run-cmd-3", "name": "run_command", "args": { "argv": ["python3", "-c", "print(888)"] } }], "stopReason": "tool_use" },
+    { "content": "已执行 run_command，输出 888", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "", "toolCalls": [{ "id": "fixture-run-cmd-4", "name": "run_command", "args": { "argv": ["python3", "-c", "print(888)"] } }], "stopReason": "tool_use" },
+    { "content": "已执行 run_command，输出 888", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "", "toolCalls": [{ "id": "fixture-run-cmd-5", "name": "run_command", "args": { "argv": ["python3", "-c", "print(888)"] } }], "stopReason": "tool_use" },
+    { "content": "已执行 run_command，输出 888", "toolCalls": [], "stopReason": "end_turn" }
+  ]
+}

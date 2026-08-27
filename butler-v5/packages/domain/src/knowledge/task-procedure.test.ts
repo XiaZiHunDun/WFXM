@@ -43,4 +43,114 @@ describe("task / procedure", () => {
   it("rejects empty procedure steps", () => {
     expect(createProcedureRecord({ name: "x", steps: [] }).ok).toBe(false)
   })
+
+  it("rejects duplicate step keys and version < 1", () => {
+    expect(
+      createProcedureRecord({
+        name: "x",
+        steps: [
+          { key: "a", title: "A", goal: "ga" },
+          { key: "a", title: "A2", goal: "ga2" },
+        ],
+      }).ok,
+    ).toBe(false)
+    expect(
+      createProcedureRecord({
+        name: "x",
+        version: 0,
+        steps: [{ key: "a", title: "A", goal: "ga" }],
+      }).ok,
+    ).toBe(false)
+  })
+
+  it("validates task fields (goal/status/index)", () => {
+    expect(
+      createTaskRecord({ subject: "owner", title: "t", goal: " ", nowMs: 1 }).ok,
+    ).toBe(false)
+    expect(
+      createTaskRecord({
+        subject: "owner",
+        title: "t",
+        goal: "g",
+        status: "bogus",
+        nowMs: 1,
+      }).ok,
+    ).toBe(false)
+    expect(
+      createTaskRecord({
+        subject: "owner",
+        title: "t",
+        goal: "g",
+        procedureStepIndex: -1,
+        nowMs: 1,
+      }).ok,
+    ).toBe(false)
+  })
+
+  it("resolves free-form task goal and fails on not-open / mismatch / out-of-range", () => {
+    const proc = createProcedureRecord({
+      id: "p1",
+      name: "巡检",
+      steps: [{ key: "s0", title: "S0", goal: "干 S0" }],
+      nowMs: 1,
+    })
+    const task = createTaskRecord({
+      id: "t1",
+      subject: "owner",
+      title: "t",
+      goal: "自由目标",
+      procedureId: "p1",
+      procedureStepIndex: 0,
+      nowMs: 2,
+    })
+    expect(proc.ok && task.ok).toBe(true)
+    if (!proc.ok || !task.ok) return
+
+    expect(resolveTaskRunGoal(task.value, proc.value)).toEqual({
+      ok: true,
+      goal: "干 S0",
+      stepKey: "s0",
+    })
+
+    const freeForm = { ...task.value, procedureId: null, procedureStepIndex: null }
+    expect(resolveTaskRunGoal(freeForm, proc.value)).toEqual({
+      ok: true,
+      goal: "自由目标",
+      stepKey: null,
+    })
+
+    const done = { ...task.value, status: "done" }
+    expect(resolveTaskRunGoal(done, proc.value)).toEqual({ ok: false, reason: "task is done" })
+
+    expect(resolveTaskRunGoal(task.value, { ...proc.value, id: "other" })).toMatchObject({
+      ok: false,
+    })
+
+    expect(
+      resolveTaskRunGoal({ ...task.value, procedureStepIndex: 5 }, proc.value),
+    ).toMatchObject({ ok: false })
+  })
+
+  it("advance marks task done when past last step", () => {
+    const proc = createProcedureRecord({
+      id: "p2",
+      name: "单步",
+      steps: [{ key: "only", title: "Only", goal: "只做一次" }],
+      nowMs: 1,
+    })
+    const task = createTaskRecord({
+      id: "t2",
+      subject: "owner",
+      title: "t",
+      goal: "g",
+      procedureId: "p2",
+      procedureStepIndex: 0,
+      nowMs: 2,
+    })
+    expect(proc.ok && task.ok).toBe(true)
+    if (!proc.ok || !task.ok) return
+    const advanced = advanceTaskAfterStep(task.value, proc.value, 3)
+    expect(advanced.status).toBe("done")
+    expect(advanced.procedureStepIndex).toBe(0)
+  })
 })

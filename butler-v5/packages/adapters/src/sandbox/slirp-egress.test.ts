@@ -28,6 +28,8 @@ describe("slirp egress", () => {
       commandTimeoutSec: 5,
     })
     expect(script).toContain("slirp4netns --configure")
+    expect(script).toContain("trap cleanup EXIT INT TERM HUP")
+    expect(script).toContain("wait \"$SLIRP_PID\"")
     expect(script).toContain("$IPTABLES -w 5 -P OUTPUT DROP")
     expect(script).toContain("--share-net")
     expect(script).toContain("echo")
@@ -40,5 +42,10 @@ describe("slirp egress", () => {
   it("resolveAllowlistDestinations resolves literal IPs", async () => {
     const dests = await resolveAllowlistDestinations(["127.0.0.1:443"])
     expect(dests).toEqual([{ ip: "127.0.0.1", port: 443 }])
+  })
+
+  it("cleanupOrphanSlirp4netns is safe on this host", async () => {
+    const { cleanupOrphanSlirp4netns } = await import("./slirp-egress.js")
+    expect(() => cleanupOrphanSlirp4netns()).not.toThrow()
   })
 })

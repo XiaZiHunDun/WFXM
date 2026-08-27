@@ -37,7 +37,8 @@ import { runScheduleTick } from "./schedule-worker.js"
 import { revokeScopedGrantsForMcpServer } from "@butler/runtime/mcp-grant-lifecycle.js"
 import { mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
-import { defaultMcpProviderMetadata } from "@butler/domain/governance/mcp-tool-capability.js"
+import { defaultMcpProviderMetadata, mcpProviderMetadataFromManifest } from "@butler/domain/governance/mcp-tool-capability.js"
+import { loadMcpManifestFromEnv, resolveMcpManifestServer } from "./mcp-manifest.js"
 import { readFileSync } from "node:fs"
 import { resolveUnderWorkspace, workspaceRootFrom } from "./workspace-tools.js"
 import {
@@ -100,7 +101,27 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/approvals", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const rows = await wiring.runtimeStore.listWaitingApprovalSteps()
-    return c.json({ items: rows })
+    // P1 acceptance: sensitive parameters are not surfaced to the Owner-facing
+    // approvals list. The pending tool `args` are needed only for resume and stay
+    // inside the Step; the list exposes capability/resource/question/digest etc.
+    const items = rows.map((step) => {
+      const base = { id: step.id, runId: step.runId, status: step.status, createdAt: step.createdAt }
+      const pending = parsePendingCapabilityInput(step.input)
+      if (!pending) return base
+      return {
+        ...base,
+        capability: pending.capability,
+        resource: pending.resource,
+        question: pending.question,
+        expiresAtMs: pending.expiresAtMs,
+        subject: pending.subject,
+        digest: pending.digest,
+        kind: pending.kind,
+        risk: pending.risk,
+        ...(pending.wechatUserId ? { wechatUserId: pending.wechatUserId } : {}),
+      }
+    })
+    return c.json({ items })
   })
 
   app.post("/v1/owner/approvals/:stepId/approve", async (c) => {
@@ -130,6 +151,9 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
       const pending = parsePendingCapabilityInput(decision.step.input)
       if (!pending) {
         return c.json({ ok: false, reason: "invalid pending capability step" }, 400)
+      }
+      if (decision._tag === "alreadyProcessed") {
+        return c.json({ ok: true, stepId, alreadyProcessed: true, reason: decision.reason })
       }
       const ownerSubject = body.subject ?? "owner"
       const trigger = buildOwnerApprovalRunTrigger({
@@ -174,8 +198,8 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const stepId = c.req.param("stepId")
     try {
-      await denyWaitingStep(wiring.runtimeStore, stepId, "owner")
-      return c.json({ ok: true, stepId })
+      const deny = await denyWaitingStep(wiring.runtimeStore, stepId, "owner")
+      return c.json({ ok: true, stepId, ...(deny.alreadyProcessed ? { alreadyProcessed: true } : {}) })
     } catch (err) {
       return c.json(
         {
@@ -801,21 +825,38 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
         activeGrants += count
       }
     }
+    const manifestLoaded = loadMcpManifestFromEnv(env)
     return c.json({
       enabled,
       mode: bundle.mode,
       tools: bundle.runtimeTools.map((t) => t.name),
       discovered: bundle.discovered.map((t) => t.name),
-      servers: servers.map((server) => ({
-        serverId: server.serverId,
-        mode: server.mode,
-        tools: bundle.runtimeTools
-          .filter((tool) => bundle.serverIdByCapability[tool.name as string] === server.serverId)
-          .map((tool) => tool.name),
-        discovered: server.discovered.map((tool) => tool.name),
-        activeGrants: activeGrantsByServer[server.serverId] ?? 0,
-        provider: defaultMcpProviderMetadata(server.serverId),
-      })),
+      servers: servers.map((server) => {
+        const manifestServer =
+          manifestLoaded.kind === "loaded"
+            ? resolveMcpManifestServer(manifestLoaded.manifest, server.serverId)
+            : null
+        const provider = manifestServer
+          ? mcpProviderMetadataFromManifest({
+              serverId: server.serverId,
+              ...(manifestServer.defaultRisk ? { defaultRisk: manifestServer.defaultRisk } : {}),
+              ...(manifestServer.defaultSandboxProfile
+                ? { defaultSandboxProfile: manifestServer.defaultSandboxProfile }
+                : {}),
+              ...(manifestServer.auditPolicy ? { auditPolicy: manifestServer.auditPolicy } : {}),
+            })
+          : defaultMcpProviderMetadata(server.serverId)
+        return {
+          serverId: server.serverId,
+          mode: server.mode,
+          tools: bundle.runtimeTools
+            .filter((tool) => bundle.serverIdByCapability[tool.name as string] === server.serverId)
+            .map((tool) => tool.name),
+          discovered: server.discovered.map((tool) => tool.name),
+          activeGrants: activeGrantsByServer[server.serverId] ?? 0,
+          provider,
+        }
+      }),
       activeGrants,
     })
   })

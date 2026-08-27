@@ -88,7 +88,7 @@ export function makeMcpHttpTransport(config: McpHttpTransportConfig): McpTranspo
       }
     },
     close: async () => {
-      session.id = undefined
+      delete session.id
     },
   }
 }

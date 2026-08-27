@@ -143,7 +143,7 @@ export function projectKnowledgeFromDocument(input: {
         : {}),
       note: `promoted from document ${input.document.title}`,
     },
-    nowMs: input.nowMs,
+    ...(input.nowMs !== undefined ? { nowMs: input.nowMs } : {}),
   })
 }
 
@@ -175,7 +175,7 @@ export function selectProjectKnowledgeForWorkingSet(input: {
   const limit = input.limit ?? 6
   const matched = selectProjectKnowledgeForRecall({
     records: input.records,
-    query: input.query,
+    ...(input.query !== undefined ? { query: input.query } : {}),
     limit,
   })
   if (matched.length > 0) return matched

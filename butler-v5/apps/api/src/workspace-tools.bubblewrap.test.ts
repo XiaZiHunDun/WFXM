@@ -54,6 +54,8 @@ describe.skipIf(!bwrapAvailable)("makeRunCommandTool under bubblewrap", () => {
     if (root) rmSync(root, { recursive: true, force: true })
     if (prevSandbox === undefined) delete process.env["BUTLER_V5_SANDBOX"]
     else process.env["BUTLER_V5_SANDBOX"] = prevSandbox
+    delete process.env["BUTLER_V5_SANDBOX_NETWORK_MODE"]
+    delete process.env["BUTLER_V5_SANDBOX_EGRESS_ISOLATION"]
   })
 
   it("runs echo and pwd inside bwrap with network-deny profile", async () => {
@@ -76,6 +78,34 @@ describe.skipIf(!bwrapAvailable)("makeRunCommandTool under bubblewrap", () => {
       },
     )
   })
+
+  it(
+    "runs python3 under allowlist+slirp Grant profile (resume path)",
+    async () => {
+      process.env["BUTLER_V5_SANDBOX_NETWORK_MODE"] = "allowlist"
+      process.env["BUTLER_V5_SANDBOX_EGRESS_ISOLATION"] = "slirp"
+      const tool = makeRunCommandTool({ workspaceRoot: root })
+      await runWithSideEffectContext(
+        {
+          sandboxProfile: "workspace-write-network-allowlist",
+          networkAllowlist: ["registry.npmjs.org:443"],
+          grantId: "g-test",
+          capability: "run_command",
+        },
+        async () => {
+          const py = await runTool(
+            tool,
+            { argv: ["python3", "-c", "print(123)"] },
+            { timeoutMs: 60_000 },
+          )
+          expect(py.ok).toBe(true)
+          if (py.ok) expect(String(py.output).trim()).toBe("123")
+        },
+      )
+    },
+    120_000,
+  )
+
 
   it("runs python3 inside bwrap (distro python via ro-bind /etc/alternatives)", async () => {
     writeFileSync(join(root, "x.txt"), "1")

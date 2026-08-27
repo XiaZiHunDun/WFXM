@@ -7,13 +7,36 @@ import {
   mcpCapabilityProvidersFromTools,
   resourceForTool,
   splitCoreAndMcpTools,
+  unregisterCapability,
 } from "./capability-boundary.js"
-import { defaultPermissionPolicy, PolicyGate } from "./policy-gate.js"
+import { defaultPermissionPolicy, PolicyGate, productionPermissionPolicy } from "./policy-gate.js"
 import type { ToolDefinition } from "./tool-runtime.js"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 
 describe("capability-boundary", () => {
+  it("unregisters a capability and revokes its grants through the store", async () => {
+    const def: ToolDefinition = {
+      name: "read_file" as ToolDefinition["name"],
+      risk: "low",
+      run: vi.fn(async () => ({ ok: true, output: "x" })),
+    }
+    const registry = buildCapabilityRegistryFromTools([def])
+    const store = {
+      revokeScopedGrantsForCapability: vi.fn(async () => 2),
+    } as unknown as RuntimeStore
+    expect(registry.isRegistered("read_file")).toBe(true)
+    const first = await unregisterCapability({ registry, name: "read_file", store })
+    expect(first).toEqual({ removed: true, revokedGrants: 2 })
+    expect(store.revokeScopedGrantsForCapability).toHaveBeenCalledWith("read_file", expect.any(Date))
+    expect(registry.isRegistered("read_file")).toBe(false)
+    // No provider -> no store call on a second attempt.
+    const second = await unregisterCapability({ registry, name: "read_file", store })
+    expect(second).toEqual({ removed: false, revokedGrants: 0 })
+  })
+
   it("maps tool names to action kinds", () => {
     expect(actionKindForTool("run_command")).toBe("command")
+    expect(actionKindForTool("write_file")).toBe("write")
     expect(actionKindForTool("send_wechat_file")).toBe("outbound")
     expect(actionKindForTool("delegate_to_subagent")).toBe("delegate")
     expect(actionKindForTool("read_file")).toBe("read")
@@ -44,6 +67,28 @@ describe("capability-boundary", () => {
     if (!outcome.ok) {
       expect(outcome.reason).toContain("policy denied")
     }
+  })
+
+  it("returns Ask envelope for run_command", async () => {
+    const def: ToolDefinition = {
+      name: "run_command" as ToolDefinition["name"],
+      risk: "high",
+      run: vi.fn(async () => ({ ok: true, output: "ok" })),
+    }
+    const registry = buildCapabilityRegistryFromTools([def])
+    const gate = new PolicyGate(productionPermissionPolicy("owner-1"), () => 1000)
+    const outcome = await executeToolThroughBoundary(
+      registry,
+      gate,
+      def,
+      { argv: ["pwd"] },
+      { subject: "owner-1", resource: "pwd", grant: null },
+    )
+    expect(outcome.ok).toBe(false)
+    if (!outcome.ok) {
+      expect(outcome.reason).toContain("[需要确认]")
+    }
+    expect(def.run).not.toHaveBeenCalled()
   })
 
   it("returns Ask envelope for alwaysConfirm capabilities", async () => {

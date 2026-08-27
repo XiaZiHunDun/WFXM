@@ -1,8 +1,11 @@
 import {
+  createDefaultProcessRunner,
   executeArgvInSandbox,
   type BubblewrapRunResult,
   type ProcessRunner,
 } from "./bubblewrap-runner.js"
+
+export { createDefaultProcessRunner } from "./bubblewrap-runner.js"
 import { createServer } from "node:http"
 
 const DEFAULT_PROBE_URL = "http://127.0.0.1:3000/healthz"
@@ -97,72 +100,6 @@ export async function probeSandboxNetworkIsolation(args: {
             : "network-allow profile could not reach probe URL",
         }
       : {}),
-  }
-}
-
-export function createDefaultProcessRunner(): ProcessRunner {
-  return {
-    spawn: async (command, args, opts) => {
-      const { spawn } = await import("node:child_process")
-      const spawnEnv = {
-        PATH: process.env["PATH"] ?? "/usr/bin:/bin",
-        ...(opts.env ?? {}),
-      }
-      return await new Promise((resolvePromise) => {
-        let child: ReturnType<typeof spawn>
-        let settled = false
-        const finish = (result: { code: number; stdout: string; stderr: string }) => {
-          if (settled) return
-          settled = true
-          clearTimeout(timer)
-          resolvePromise(result)
-        }
-        try {
-          child = spawn(command, [...args], {
-            cwd: opts.cwd,
-            env: spawnEnv,
-            stdio: ["ignore", "pipe", "pipe"],
-            detached: true,
-          })
-        } catch (err) {
-          finish({
-            code: 1,
-            stdout: "",
-            stderr: err instanceof Error ? err.message : String(err),
-          })
-          return
-        }
-        const chunks: Buffer[] = []
-        let total = 0
-        const take = (buf: Buffer) => {
-          total += buf.length
-          if (total <= opts.maxOutputBytes) chunks.push(buf)
-        }
-        child.stdout?.on("data", (b: Buffer) => take(b))
-        child.stderr?.on("data", (b: Buffer) => take(b))
-        const timer = setTimeout(() => {
-          if (child.pid !== undefined) {
-            try {
-              process.kill(-child.pid, "SIGKILL")
-            } catch {
-              child.kill("SIGKILL")
-            }
-          } else {
-            child.kill("SIGKILL")
-          }
-        }, opts.timeoutMs)
-        child.on("close", (code) => {
-          finish({ code: code ?? 1, stdout: Buffer.concat(chunks).toString("utf8"), stderr: "" })
-        })
-        child.on("error", (err) => {
-          finish({
-            code: 1,
-            stdout: Buffer.concat(chunks).toString("utf8"),
-            stderr: err.message,
-          })
-        })
-      })
-    },
   }
 }
 
@@ -294,7 +231,7 @@ export async function probeAllowlistPnpmRegistry(args: {
     runner,
   })
 
-  if ("mode" in result && result.mode === "disabled") {
+  if (isDisabled(result)) {
     return { ok: false, reason: "sandbox disabled" }
   }
   if (!result.ok) {
@@ -376,8 +313,15 @@ export async function probeSandboxAllowlistSlirpIsolation(args: {
     runner: args.runner,
   })
 
-  const rawOut = "mode" in rawResult ? "" : (rawResult.stdout ?? "")
-  const rawSocketBlocked = rawOut.includes("raw-blocked") && !rawOut.includes("raw-open")
+  const rawDisabled = "mode" in rawResult
+  const rawOut = rawDisabled ? "" : (rawResult.stdout ?? "")
+  const rawProbeRan = rawOut.includes("raw-open") || rawOut.includes("raw-blocked")
+  // Sandbox failed to launch (no "raw-open"/"raw-blocked" scribble in stdout, e.g.
+  // rootless unshare denied on /proc/*/uid_map): no command executed, hence no
+  // egress possible → treated as blocked (safe), NOT as a raw-socket fail-open.
+  const slirpUnavailable = !rawDisabled && !rawProbeRan
+  const rawSocketBlocked =
+    slirpUnavailable || (rawOut.includes("raw-blocked") && !rawOut.includes("raw-open"))
   const proxyPathReachable =
     localResult.ok &&
     !("mode" in localResult) &&
@@ -390,9 +334,11 @@ export async function probeSandboxAllowlistSlirpIsolation(args: {
     proxyPathReachable,
     ...(!ok
       ? {
-          reason: !rawSocketBlocked
-            ? "raw socket reached non-allowlisted host (P2d fail-open)"
-            : "allowlisted loopback unreachable inside slirp netns",
+          reason: slirpUnavailable
+            ? rawResult.reason || "slirp sandbox failed to launch (fail-closed, no egress)"
+            : !rawSocketBlocked
+              ? "raw socket reached non-allowlisted host (P2d fail-open)"
+              : "allowlisted loopback unreachable inside slirp netns",
         }
       : {}),
   }

@@ -124,6 +124,22 @@ export interface ApprovalDecision {
   readonly runId: string
 }
 
+/**
+ * Idempotent outcome for `approveWaitingStep`.
+ * - `approved`: a ScopedGrant was freshly issued and the Run resumed (terminal action).
+ * - `alreadyProcessed`: the approval Step was not in `waiting` (or had expired), so NO
+ *   new Grant is issued and no Run is resumed. Repeated replies / timeouts therefore
+ *   acknowledge idempotently instead of double-granting (P1 acceptance).
+ */
+export type ApproveOutcome =
+  | (ApprovalDecision & { readonly _tag: "approved" })
+  | {
+      readonly _tag: "alreadyProcessed"
+      readonly step: StoredStep
+      readonly runId: string
+      readonly reason: string
+    }
+
 export async function approveWaitingStep(
   store: RuntimeStore,
   stepId: string,
@@ -137,10 +153,18 @@ export async function approveWaitingStep(
     readonly networkAllowlist?: readonly string[]
     readonly env?: NodeJS.ProcessEnv
   } = {},
-): Promise<ApprovalDecision> {
+): Promise<ApproveOutcome> {
   const step = await store.getStep(stepId)
-  if (!step || step.kind !== "approval" || step.status !== "waiting") {
-    throw new Error(`approval step not waiting: ${stepId}`)
+  if (!step || step.kind !== "approval") {
+    throw new Error(`approval step not found: ${stepId}`)
+  }
+  if (step.status !== "waiting") {
+    return {
+      _tag: "alreadyProcessed",
+      step,
+      runId: step.runId,
+      reason: `step already terminal (${step.status})`,
+    }
   }
   const pending = parsePendingCapabilityInput(step.input)
   if (!pending) {
@@ -148,7 +172,7 @@ export async function approveWaitingStep(
   }
   if (Date.now() > pending.expiresAtMs) {
     await denyWaitingStep(store, stepId, ownerSubject, "expired")
-    throw new Error(`approval step expired: ${stepId}`)
+    return { _tag: "alreadyProcessed", step, runId: step.runId, reason: "expired" }
   }
   const run = await store.getRun(step.runId)
   if (!run) {
@@ -188,6 +212,9 @@ export async function approveWaitingStep(
       ? [...new Set([...(outboundHosts ?? []), ...allowlistHosts])]
       : outboundHosts
   const now = new Date()
+  const mcpServerId = isMcpCapability(pending.capability)
+    ? mcpServerIdForCapability(pending.capability, env)
+    : undefined
   const grant = await store.createScopedGrant({
     grantId: crypto.randomUUID(),
     runId: step.runId,
@@ -196,11 +223,9 @@ export async function approveWaitingStep(
       capability: pending.capability,
       resource: pending.resource,
       digest: pending.digest,
-      networkHosts,
+      ...(networkHosts !== undefined ? { networkHosts } : {}),
       forceNetworkAllow: normalizedAllowlist !== null,
-      ...(isMcpCapability(pending.capability)
-        ? { mcpServerId: mcpServerIdForCapability(pending.capability, env) }
-        : {}),
+      ...(mcpServerId !== undefined ? { mcpServerId } : {}),
     }),
     remainingUses: 1,
     expiresAt: new Date(pending.expiresAtMs),
@@ -237,18 +262,31 @@ export async function approveWaitingStep(
     },
     createdAt: now,
   })
-  return { step, grant, runId: step.runId }
+  return { _tag: "approved", step, grant, runId: step.runId }
 }
+
+/**
+ * Idempotent outcome for `denyWaitingStep`.
+ * - `false`: the Step was freshly denied (waiting → failed).
+ * - `true`: the Step was already terminal; nothing was re-written or re-audited.
+ */
+export type DenyOutcome = { readonly alreadyProcessed: boolean }
 
 export async function denyWaitingStep(
   store: RuntimeStore,
   stepId: string,
   ownerSubject: string,
   reason = "denied",
-): Promise<void> {
+): Promise<DenyOutcome> {
   const step = await store.getStep(stepId)
   if (!step) {
     throw new Error(`step not found: ${stepId}`)
+  }
+  if (step.kind !== "approval") {
+    throw new Error(`step is not an approval step: ${stepId}`)
+  }
+  if (step.status !== "waiting") {
+    return { alreadyProcessed: true }
   }
   const pending = parsePendingCapabilityInput(step.input)
   const now = new Date()
@@ -271,4 +309,5 @@ export async function denyWaitingStep(
     detail: { stepId, reason },
     createdAt: now,
   })
+  return { alreadyProcessed: false }
 }

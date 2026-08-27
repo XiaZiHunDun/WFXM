@@ -74,4 +74,49 @@ describe("document ingest", () => {
     if (!first) return
     expect(formatDocumentSnippet(first)).toContain("手册")
   })
+
+  it("rejects text exceeding maxInputChars and keeps provenance", () => {
+    const tooBig = ingestDocumentRecord({
+      subject: "owner",
+      title: "huge",
+      format: "markdown",
+      text: "z".repeat(51),
+      maxInputChars: 50,
+      nowMs: 1,
+    })
+    expect(tooBig.ok).toBe(false)
+    if (!tooBig.ok) expect(tooBig.reason).toContain("maxInputChars")
+
+    const kept = ingestDocumentRecord({
+      subject: "owner",
+      title: "p",
+      format: "plaintext",
+      text: "body",
+      provenance: { sourceFile: "docs/a.md", note: "imported 2026" },
+      nowMs: 2,
+    })
+    expect(kept.ok).toBe(true)
+    if (!kept.ok) return
+    expect(kept.value.provenance).toEqual({ sourceFile: "docs/a.md", note: "imported 2026" })
+  })
+
+  it("select only ready documents and truncates snippet", () => {
+    const a = ingestDocumentRecord({
+      id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      subject: "owner",
+      title: "长文",
+      format: "markdown",
+      text: String("x").repeat(1200),
+      nowMs: 1,
+    })
+    expect(a.ok).toBe(true)
+    if (!a.ok) return
+    const failed = { ...a.value, status: "failed", failureReason: "boom" }
+    const selected = selectDocumentsForRecall({ records: [a.value, failed], query: "", limit: 5 })
+    expect(selected).toHaveLength(1)
+    expect(selected[0]?.status).toBe("ready")
+    const snippet = formatDocumentSnippet(a.value, 30)
+    expect(snippet.length).toBeLessThan(a.value.extractedText.length)
+    expect(snippet.endsWith("...")).toBe(true)
+  })
 })

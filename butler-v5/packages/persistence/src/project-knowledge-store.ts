@@ -83,7 +83,7 @@ export function createProjectKnowledgeStore(db: ButlerDb): ProjectKnowledgeStore
       const deleted = await db
         .delete(projectKnowledgeItems)
         .where(eq(projectKnowledgeItems.itemId, itemId))
-        .returning({ id: projectKnowledgeItems.itemId })
+        .returning()
       return deleted.length > 0
     },
 
@@ -118,7 +118,7 @@ export function createProjectKnowledgeStore(db: ButlerDb): ProjectKnowledgeStore
       const deleted = await db
         .delete(projectKnowledgeItems)
         .where(sql`${projectKnowledgeItems.provenance}->>'documentId' = ${documentId}`)
-        .returning({ id: projectKnowledgeItems.itemId })
+        .returning()
       return deleted.length
     },
   }

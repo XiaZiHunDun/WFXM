@@ -89,7 +89,7 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
       const deleted = await db
         .delete(durableMemories)
         .where(eq(durableMemories.memoryId, memoryId))
-        .returning({ id: durableMemories.memoryId })
+        .returning()
       return deleted.length > 0
     },
 
@@ -120,7 +120,7 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
       const deleted = await db
         .delete(durableMemories)
         .where(sql`${durableMemories.provenance}->>'messageId' = ${messageId}`)
-        .returning({ id: durableMemories.memoryId })
+        .returning()
       return deleted.length
     },
 
@@ -128,7 +128,7 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
       const deleted = await db
         .delete(durableMemories)
         .where(sql`${durableMemories.provenance}->>'documentId' = ${documentId}`)
-        .returning({ id: durableMemories.memoryId })
+        .returning()
       return deleted.length
     },
   }

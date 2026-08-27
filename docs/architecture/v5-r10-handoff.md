@@ -200,7 +200,7 @@ node scripts/cutover/ws-routes-e2e.mjs
 | Dockerfile / postgres schema                      | `butler-v5/docker-compose.yml` + `butler-v5/packages/persistence/src/migrations/0001_initial.sql` |
 | ADR-0001 v4→v5 supersession + R10.x status        | `docs/adr/2026-08-08-v4-to-v5-supersession.md`                                                    |
 
-`packages/application` and parts of `packages/infrastructure` are not imported by this production path. They are migration scaffolding, not delivered runtime capability. See the production architecture SSOT for their planned disposition.
+The `_archive/packages/application` and parts of `_archive/packages/infrastructure` are not imported by this production path. They were archived to the root `_archive/` as migration scaffolding, not delivered runtime capability. See the production architecture SSOT for their disposition.
 
 ---
 

@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "description": "Golden utterances for WeChat Intake (T1). Rules must match; LLM must not downgrade locked intents.",
+  "cases": [
+    {
+      "id": "chat-ping",
+      "utterance": "ping",
+      "expect": { "intent": "chat", "locked": true, "toolSurface": "plan", "execVia": "none" }
+    },
+    {
+      "id": "chat-time",
+      "utterance": "现在几点",
+      "expect": { "intent": "chat", "locked": true, "toolSurface": "plan", "execVia": "none" }
+    },
+    {
+      "id": "chat-pwd-cmd",
+      "utterance": "运行 pwd 命令",
+      "expect": { "intent": "chat", "locked": true, "toolSurface": "plan", "execVia": "none" }
+    },
+    {
+      "id": "chat-fuzzy-progress",
+      "utterance": "帮我看看项目进度",
+      "expect": { "intent": "chat", "locked": false, "toolSurface": "plan", "execVia": "none" }
+    },
+    {
+      "id": "dev-session",
+      "utterance": "开发模式",
+      "expect": { "intent": "dev_session", "locked": true, "toolSurface": "plan", "execVia": "none" }
+    },
+    {
+      "id": "switch-nl",
+      "utterance": "切到 WFXM",
+      "expect": { "intent": "switch_project", "locked": true, "toolSurface": "plan", "execVia": "none" }
+    },
+    {
+      "id": "dev-natural-write",
+      "utterance": "帮我写入 butler-v5/tmp.txt 内容 hello",
+      "expect": {
+        "intent": "dev_task",
+        "locked": true,
+        "toolSurface": "plan+delegate",
+        "execVia": "child_run"
+      }
+    },
+    {
+      "id": "dev-natural-fix",
+      "utterance": "帮我改一下登录逻辑",
+      "expect": {
+        "intent": "dev_task",
+        "locked": false,
+        "toolSurface": "plan+delegate",
+        "execVia": "child_run"
+      }
+    },
+    {
+      "id": "dev-literal-write_file",
+      "utterance": "write_file 写入 a.txt 内容 ok",
+      "expect": {
+        "intent": "dev_task",
+        "locked": true,
+        "toolSurface": "plan+delegate",
+        "execVia": "child_run"
+      }
+    },
+    {
+      "id": "continue-dev",
+      "utterance": "继续刚才的开发",
+      "expect": {
+        "intent": "continue_dev",
+        "locked": true,
+        "toolSurface": "plan+delegate",
+        "execVia": "child_run"
+      }
+    },
+    {
+      "id": "dev-fuzzy-cache",
+      "utterance": "能不能加个缓存",
+      "expect": {
+        "intent": "dev_task",
+        "locked": false,
+        "toolSurface": "plan+delegate",
+        "execVia": "child_run"
+      }
+    },
+    {
+      "id": "dev-fuzzy-bugfix",
+      "utterance": "把这个 bug 修一下",
+      "expect": {
+        "intent": "dev_task",
+        "locked": false,
+        "toolSurface": "plan+delegate",
+        "execVia": "child_run"
+      }
+    },
+    {
+      "id": "dev-fuzzy-hello",
+      "utterance": "写个 hello world 工具",
+      "expect": {
+        "intent": "dev_task",
+        "locked": false,
+        "toolSurface": "plan+delegate",
+        "execVia": "child_run"
+      }
+    }
+  ]
+}

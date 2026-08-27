@@ -1,5 +1,5 @@
 import { makeV4Source, type V4AssetKind, type V4Record } from "./v4-source.js"
-import type { EventBridge } from "@butler/runtime"
+import type { EventBridge } from "@butler/persistence/event-bridge.js"
 
 export interface MigrationConfig {
   readonly v4Root: string

@@ -433,6 +433,28 @@ describe("LLM adapters", () => {
     })
   })
 
+  it("openai complete merges requestExtras into body", async () => {
+    let capturedBody: Record<string, unknown> = {}
+    const fetchMock = vi.fn(async (_url: unknown, init: unknown) => {
+      capturedBody = JSON.parse((init as { body: string }).body) as Record<string, unknown>
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+        }),
+        { status: 200 },
+      )
+    })
+    const adapter = makeOpenAICompatibleAdapter({
+      apiKey: "k",
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-v4-flash",
+      requestExtras: { thinking: { type: "disabled" } },
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    await Effect.runPromise(adapter.complete([{ role: "user", content: "hi" }]))
+    expect(capturedBody["thinking"]).toEqual({ type: "disabled" })
+  })
+
   it("openai complete omits tools field when none provided", async () => {
     const fetchMock = vi.fn(
       async () =>

@@ -1,9 +1,13 @@
 /**
- * EventBridge wraps the R3 persistence public API for AgentKernel use.
- * Runtime has no direct knowledge of pglite/postgres; it interacts only
- * via this bridge.
+ * EventBridge — persistence 侧的 driven adapter，实现 Core 的
+ * `@butler/ports` EventStorePort 及其它事件存储操作。
+ *
+ * 自 R-hex 起由 `packages/runtime/src/bridge.ts` 迁移至此：Core 只依赖
+ * 抽象端口（`packages/ports/src/core/event-store.ts`），不再 import 具体
+ * persistence。Composition Root（apps/api）构造本类并注入到
+ * agent-kernel / delegate-runtime / tools。
  */
-import type { ButlerDb } from "@butler/persistence"
+import type { ButlerDb } from "./db.js"
 import {
   appendEventAndEnqueueOutbox,
   appendEventsWithRetry,
@@ -11,15 +15,16 @@ import {
   subscribeStream,
   type ActorRef,
   type EventStoreRow,
-} from "@butler/persistence/event-store.js"
-import { enqueueOutbox } from "@butler/persistence/outbox.js"
+} from "./event-store.js"
+import { enqueueOutbox } from "./outbox.js"
 import {
   applyProjection,
   registerProjection,
   rebuildProjection,
-} from "@butler/persistence/projections.js"
-import { loadSnapshot, saveSnapshot } from "@butler/persistence/snapshot.js"
-import { runWorkerOnce } from "@butler/persistence/worker.js"
+} from "./projections.js"
+import { loadSnapshot, saveSnapshot } from "./snapshot.js"
+import { runWorkerOnce } from "./worker.js"
+import type { EventStorePort } from "@butler/ports/core/event-store.js"
 
 export interface EventBridgeConfig {
   readonly db: ButlerDb
@@ -27,7 +32,7 @@ export interface EventBridgeConfig {
   readonly leaseMs?: number
 }
 
-export class EventBridge {
+export class EventBridge implements EventStorePort {
   constructor(private readonly config: EventBridgeConfig) {}
 
   async appendConversationEvent(input: {

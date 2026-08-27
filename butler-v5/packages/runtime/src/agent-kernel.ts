@@ -1,4 +1,4 @@
-import type { EventBridge } from "./bridge.js"
+import type { EventStorePort } from "@butler/ports/core/event-store.js"
 import type { ModelDecision } from "./decision.js"
 
 export type KernelState =
@@ -12,7 +12,7 @@ export type KernelState =
   | "failed"
 
 export interface AgentKernelConfig {
-  readonly bridge: EventBridge
+  readonly bridge: EventStorePort
   readonly conversationId: string
   readonly projectId: string
   readonly actor: { readonly kind: "owner" | "agent" | "system"; readonly id: string }

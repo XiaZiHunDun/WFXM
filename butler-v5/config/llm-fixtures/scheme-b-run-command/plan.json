@@ -1,0 +1,12 @@
+{
+  "responses": [
+    { "content": "{\"_tag\":\"Delegate\",\"role\":\"developer\",\"task\":\"必须 CallTool run_command argv=[\\\"python3\\\",\\\"-c\\\",\\\"print(888)\\\"]\"}", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "{\"_tag\":\"Respond\",\"content\":\"已委派开发子代理执行 run_command\"}", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "{\"_tag\":\"Delegate\",\"role\":\"developer\",\"task\":\"必须 CallTool run_command argv=[\\\"python3\\\",\\\"-c\\\",\\\"print(888)\\\"]\"}", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "{\"_tag\":\"Respond\",\"content\":\"已委派开发子代理执行 run_command\"}", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "{\"_tag\":\"Delegate\",\"role\":\"developer\",\"task\":\"必须 CallTool run_command argv=[\\\"python3\\\",\\\"-c\\\",\\\"print(888)\\\"]\"}", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "{\"_tag\":\"Respond\",\"content\":\"已委派开发子代理执行 run_command\"}", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "{\"_tag\":\"Delegate\",\"role\":\"developer\",\"task\":\"必须 CallTool run_command argv=[\\\"python3\\\",\\\"-c\\\",\\\"print(888)\\\"]\"}", "toolCalls": [], "stopReason": "end_turn" },
+    { "content": "{\"_tag\":\"Respond\",\"content\":\"已委派开发子代理执行 run_command\"}", "toolCalls": [], "stopReason": "end_turn" }
+  ]
+}

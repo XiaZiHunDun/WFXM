@@ -75,9 +75,11 @@ export async function tryWechatInlineApproval(args: {
   }
 
   if (intent === "deny") {
-    await denyWaitingStep(args.wiring.runtimeStore, step.id, args.fromUserId)
+    const deny = await denyWaitingStep(args.wiring.runtimeStore, step.id, args.fromUserId)
     return {
-      reply: `已拒绝待审批操作（${pending.capability}）。`,
+      reply: deny.alreadyProcessed
+        ? "该操作已处理，无需重复操作。"
+        : `已拒绝待审批操作（${pending.capability}）。`,
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",
@@ -91,6 +93,15 @@ export async function tryWechatInlineApproval(args: {
       step.id,
       args.fromUserId,
     )
+    if (decision._tag === "alreadyProcessed") {
+      return {
+        reply: "该操作已处理，无需重复审批。",
+        iterations: 0,
+        toolCalls: 0,
+        finalDecision: "Finish",
+        traces: [`inline-approval: already processed ${step.id}`],
+      }
+    }
     const resumed = await resumeApprovedCapability(args.wiring, decision, { env })
     if (resumed.ok) {
       return {

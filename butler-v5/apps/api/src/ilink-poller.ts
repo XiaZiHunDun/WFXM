@@ -24,6 +24,7 @@ import {
   type IlinkPollerConfig,
 } from "./ilink-config.js"
 import { loadSyncBuf, saveSyncBuf } from "./ilink-sync.js"
+import { resolveWechatInboundProjectId } from "./wechat-active-project.js"
 
 export type IlinkPollerLogger = {
   readonly warn: (msg: string, ...args: unknown[]) => void
@@ -194,7 +195,7 @@ async function postInboundHttp(
         fromUserId: input.fromUserId,
         content: input.content,
         messageId: input.messageId,
-        projectId: "wechat",
+        projectId: resolveWechatInboundProjectId(input.fromUserId, undefined, process.env),
       }),
       signal: ctrl.signal,
     })

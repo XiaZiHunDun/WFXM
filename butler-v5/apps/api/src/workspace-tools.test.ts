@@ -6,12 +6,26 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import { runTool } from "@butler/runtime/tool-runtime.js"
+import type { CredentialProvider } from "@butler/ports/core/credential-provider.js"
 import {
   ALLOWED_RUN_COMMANDS,
   makeReadFileTool,
   makeRunCommandTool,
+  makeWriteFileTool,
   resolveUnderWorkspace,
 } from "./workspace-tools.js"
+
+const fakeProvider = (values: Readonly<Record<string, string>>): CredentialProvider => ({
+  availableCredentials: async () => Object.keys(values),
+  resolveCredentials: async (names) => {
+    const out: Record<string, string> = {}
+    for (const n of names) {
+      if (!(n in values)) throw new Error(`credential not resolvable: ${n}`)
+      out[n] = values[n]
+    }
+    return out
+  },
+})
 
 describe("resolveUnderWorkspace", () => {
   let root: string
@@ -76,6 +90,34 @@ describe("makeReadFileTool", () => {
   })
 })
 
+describe("makeWriteFileTool", () => {
+  let root: string
+
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true })
+  })
+
+  it("writes utf-8 text under the workspace root", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
+    const tool = makeWriteFileTool({ workspaceRoot: root })
+    const result = await runTool(
+      tool,
+      { path: "notes/hello.txt", content: "你好 butler" },
+      { timeoutMs: 1000 },
+    )
+    expect(result.ok).toBe(true)
+    const { readFileSync } = await import("node:fs")
+    expect(readFileSync(join(root, "notes/hello.txt"), "utf8")).toBe("你好 butler")
+  })
+
+  it("rejects path traversal", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
+    const tool = makeWriteFileTool({ workspaceRoot: root })
+    const result = await runTool(tool, { path: "../escape.txt", content: "x" }, { timeoutMs: 1000 })
+    expect(result.ok).toBe(false)
+  })
+})
+
 describe("makeRunCommandTool", () => {
   let root: string
   let prevSandbox: string | undefined
@@ -137,6 +179,42 @@ describe("makeRunCommandTool", () => {
     expect(ALLOWED_RUN_COMMANDS).not.toContain("sh")
     expect(ALLOWED_RUN_COMMANDS).not.toContain("curl")
     expect(ALLOWED_RUN_COMMANDS).not.toContain("sudo")
+  })
+
+  it("P2: run_command fails closed when a requested credential is not host-authorized", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
+    const tool = makeRunCommandTool({
+      workspaceRoot: root,
+      credentialProvider: fakeProvider({ REGISTRY_TOKEN: "secret" }),
+      credentialAllowlist: ["OTHER_TOKEN"],
+    })
+    const result = await runTool(
+      tool,
+      { argv: ["pwd"], credentials: ["REGISTRY_TOKEN"] },
+      { timeoutMs: 2000 },
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toMatch(/not authorized/)
+  })
+
+  it("P2: authorized credential value reaches the child command env (not in args)", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
+    const provider = fakeProvider({ REGISTRY_TOKEN: "sec-value-123" })
+    const tool = makeRunCommandTool({
+      workspaceRoot: root,
+      credentialProvider: provider,
+      credentialAllowlist: ["REGISTRY_TOKEN"],
+    })
+    const result = await runTool(
+      tool,
+      {
+        argv: ["node", "-e", "console.log(process.env.REGISTRY_TOKEN || 'unset')"],
+        credentials: ["REGISTRY_TOKEN"],
+      },
+      { timeoutMs: 5000 },
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(String(result.output).trim()).toBe("sec-value-123")
   })
 
   it("runs python3, node, pnpm, and grep inside the workspace", async () => {

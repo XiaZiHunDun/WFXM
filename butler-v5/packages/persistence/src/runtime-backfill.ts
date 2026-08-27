@@ -36,7 +36,13 @@ async function relationalHasUserText(
     .select({ content: messages.content, role: messages.role })
     .from(messages)
     .where(eq(messages.conversationId, conversationId))
-  return rows.some((row) => row.role === "user" && messageText(row.content) === text)
+  return rows.some(
+    (row) =>
+      row.role === "user" &&
+      typeof row.content === "object" &&
+      row.content !== null &&
+      messageText(row.content as Readonly<Record<string, unknown>>) === text,
+  )
 }
 
 function eventsToStoredMessages(

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect } from "effect"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { createProjectKnowledgeStore, createRuntimeStore } from "@butler/persistence"
 import { createProjectKnowledgeRecord } from "@butler/domain/knowledge/project-knowledge.js"
@@ -279,6 +279,7 @@ describe("runButlerLoop", () => {
       "run_command",
       "send_wechat_file",
       "summarize_today",
+      "write_file",
     ])
   })
 

@@ -123,12 +123,17 @@ function filterDiscoveredByManifest(
   discovered: readonly McpDiscoveredTool[],
   manifestServer: McpManifestServer | null,
 ): readonly McpDiscoveredTool[] {
-  const allowed = manifestServer?.tools?.map((tool) => tool.name.trim()) ?? []
-  if (allowed.length === 0) {
-    return discovered
-  }
-  const allowSet = new Set(allowed)
-  return discovered.filter((tool) => allowSet.has(tool.name))
+  const manifestTools = manifestServer?.tools ?? []
+  const allowed = manifestTools.map((tool) => tool.name.trim())
+  const riskByName = new Map(
+    manifestTools.map((tool) => [tool.name.trim(), tool.risk ?? "high"] as const),
+  )
+  const filtered =
+    allowed.length === 0 ? discovered : discovered.filter((tool) => allowed.includes(tool.name))
+  return filtered.map((tool) => ({
+    ...tool,
+    ...(riskByName.has(tool.name) ? { risk: riskByName.get(tool.name) } : {}),
+  }))
 }
 
 function mergeBundles(partials: readonly McpToolBundle[]): McpToolBundle {

@@ -1,5 +1,5 @@
 import { Effect } from "effect"
-import type { EventBridge } from "@butler/runtime/bridge.js"
+import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { WorkingSetResult } from "@butler/runtime/working-set.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import type { ModelDecision } from "@butler/runtime/decision.js"
@@ -22,11 +22,13 @@ import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-bou
 import { isPendingApprovalOutcome, toRunResult } from "./approval-resume.js"
 import { ActiveMainRunConflict, RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import {
-  pickLLMProvider,
+  pickLLMForRole,
   type LLMAdapter,
   type LLMMessage,
+  type LLMTool,
 } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
+import { isExecCapability } from "./wechat-tool-profile.js"
 import {
   compactConversationHistoryWithLlm,
   eventsToHistoryMessages,
@@ -219,7 +221,11 @@ async function runButlerLoopBody(args: {
     }
   }
 
-  const base = buildWechatInboundMessages(args.content, env)
+  const allow = args.allowedToolNames ? new Set(args.allowedToolNames) : null
+  const includeExecTools =
+    allow !== null && [...allow].some((name) => isExecCapability(name))
+
+  const base = buildWechatInboundMessages(args.content, env, { includeExecTools })
   const systemMsg = base[0]
   const userMsg = base[1]
   let historyTurns: LLMMessage[] = []
@@ -233,7 +239,6 @@ async function runButlerLoopBody(args: {
     )
   }
 
-  const allow = args.allowedToolNames ? new Set(args.allowedToolNames) : null
   const memorySubject = resolveOwnerSubject(env, args.fromUserId)
   const tools: readonly ToolDefinition[] = makeWeibutlerTools({
     bridge,
@@ -266,7 +271,7 @@ async function runButlerLoopBody(args: {
     mcpServerIdByCapability: args.wiring.mcp.serverIdByCapability,
   })
 
-  const adapter = args.adapter ?? pickLLMProvider(env)
+  const adapter = args.adapter ?? pickLLMForRole(env, "plan")
   if (!adapter) {
     try {
       await kernel.applyDecision({ _tag: "Finish", reason: "no LLM configured" })
@@ -372,7 +377,7 @@ async function runButlerLoopBody(args: {
       complete: async (msgs, toolsForLlm) => {
         const llmMessages = msgs as unknown as LLMMessage[]
         return Effect.runPromise(
-          adapter.complete(llmMessages, { tools: toolsForLlm }).pipe(
+          adapter.complete(llmMessages, { tools: toolsForLlm as unknown as readonly LLMTool[] }).pipe(
             Effect.match({
               onFailure: (err) => ({
                 ok: false as const,

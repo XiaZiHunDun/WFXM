@@ -11,6 +11,7 @@ export interface McpDiscoveredTool {
   readonly name: string
   readonly description?: string
   readonly inputSchema?: Readonly<Record<string, unknown>>
+  readonly risk?: "low" | "medium" | "high"
 }
 
 export type McpInvokeFn = (
@@ -51,7 +52,7 @@ export function makeMcpToolDefinition(
   }
   return {
     name: capability as ToolDefinition["name"],
-    risk: "high",
+    risk: discovered.risk ?? "high",
     async run(args: Record<string, unknown>) {
       return invoke(discovered.name, args)
     },
@@ -74,7 +75,10 @@ export function mcpLlmToolDescriptor(
     description:
       discovered.description?.trim() ||
       `MCP tool (${discovered.name}). Requires owner approval before execution.`,
-    parameters: discovered.inputSchema ?? { type: "object", properties: {} },
+    parameters: {
+      type: "object",
+      ...(discovered.inputSchema ?? {}),
+    } as LLMTool["parameters"],
   }
 }
 

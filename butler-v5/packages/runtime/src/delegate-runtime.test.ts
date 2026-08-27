@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { delegate, type Capability } from "./delegate-runtime.js"
-import type { EventBridge } from "./bridge.js"
+import type { EventBridge } from "@butler/persistence/event-bridge.js"
 
 describe("delegate", () => {
   const caps: Capability[] = [

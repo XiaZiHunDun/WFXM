@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { Hono } from "hono"
-import { EventBridge } from "@butler/runtime/bridge.js"
+import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { createDurableMemoryRecord } from "@butler/domain/knowledge/durable-memory.js"
 import { createDurableMemoryStore, createRuntimeStore } from "@butler/persistence"

@@ -25,6 +25,9 @@ import {
 } from "./channel-outbound.js"
 import { resolveTelegramInboundContent } from "./channel-media.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
+import { isWechatIntakeEnabled, routeWechatIntake } from "./wechat-intake.js"
+import { resolveWechatInboundProjectId } from "./wechat-active-project.js"
+import { tryWechatInboundCommand } from "./wechat-inbound-commands.js"
 import { issueSubscribeToken } from "./ws-subscribe.js"
 
 export function createRoutes(app: Hono, wiring: Wiring) {
@@ -71,12 +74,55 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     ) {
       return c.text("invalid body", 400)
     }
+    const env = process.env
+    const projectSwitch = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: body.fromUserId,
+      content: body.content,
+      env,
+      mcpBundle: wiring.mcp,
+    })
+    if (projectSwitch) {
+      const inboundProjectId = resolveWechatInboundProjectId(
+        body.fromUserId,
+        body.projectId,
+        env,
+      )
+      const normalized = normalizeWechatInbound({
+        fromUserId: body.fromUserId,
+        content: body.content,
+        ...(body.messageId ? { messageId: body.messageId } : {}),
+        projectId: inboundProjectId,
+        conversationId: body.conversationId,
+      })
+      if (!normalized.ok) {
+        if (normalized.error.kind === "invalid_conversation_id") {
+          return c.text(`invalid conversationId: ${normalized.error.reason}`, 400)
+        }
+        return c.text(normalized.error.reason, 400)
+      }
+      return c.json(
+        {
+          conversationId: normalized.value.conversationId,
+          turnId: normalized.value.turnId,
+          reply: projectSwitch.reply,
+          meta: {
+            iterations: projectSwitch.iterations,
+            toolCalls: projectSwitch.toolCalls,
+            finalDecision: projectSwitch.finalDecision,
+            traces: projectSwitch.traces,
+          },
+        },
+        201,
+      )
+    }
+    const inboundProjectId = resolveWechatInboundProjectId(body.fromUserId, body.projectId, env)
     // R8.x.3 / R8.x.11 / R8.x.13: Intake normalize → Execution (butler loop).
     const normalized = normalizeWechatInbound({
       fromUserId: body.fromUserId,
       content: body.content,
       ...(body.messageId ? { messageId: body.messageId } : {}),
-      ...(body.projectId ? { projectId: body.projectId } : {}),
+      projectId: inboundProjectId,
       conversationId: body.conversationId,
     })
     if (!normalized.ok) {
@@ -99,15 +145,27 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         fromUserId: value.subject,
       },
     })
-    const loopResult = await runButlerLoop({
-      wiring,
-      conversationId: value.conversationId,
-      content: value.content,
-      fromUserId: value.subject,
-      projectId: value.projectId,
-      idempotencyKey: value.idempotencyKey,
-      runTrigger: value.runTrigger,
-    })
+    const loopResult = isWechatIntakeEnabled(env)
+      ? await routeWechatIntake({
+          wiring,
+          conversationId: value.conversationId,
+          content: value.content,
+          fromUserId: value.subject,
+          projectId: value.projectId,
+          idempotencyKey: value.idempotencyKey,
+          runTrigger: value.runTrigger,
+          env,
+          mcpBundle: wiring.mcp,
+        })
+      : await runButlerLoop({
+          wiring,
+          conversationId: value.conversationId,
+          content: value.content,
+          fromUserId: value.subject,
+          projectId: value.projectId,
+          idempotencyKey: value.idempotencyKey,
+          runTrigger: value.runTrigger,
+        })
     return c.json(
       {
         conversationId: value.conversationId,

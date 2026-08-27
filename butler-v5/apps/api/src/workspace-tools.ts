@@ -1,5 +1,5 @@
 /**
- * R8.x.12 — sandboxed `read_file` and `run_command` for the wechat butler.
+ * R8.x.12 — sandboxed `read_file`, `write_file`, and `run_command` for the wechat butler.
  *
  * Both tools stay inside a workspace root (ctx.workspaceRoot, else
  * `run_command` never uses a shell: argv[0] must be on a closed
@@ -9,9 +9,16 @@
  * Failures return `{ ok: false, reason }` — no throw.
  */
 import { spawn } from "node:child_process"
-import { readFileSync, realpathSync, statSync } from "node:fs"
+import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
+import { dirname } from "node:path"
 import { isAbsolute, relative, resolve } from "node:path"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import type { CredentialProvider } from "@butler/ports/core/credential-provider.js"
+import { isValidCredentialName } from "@butler/ports/core/credential-provider.js"
+import {
+  createHostCredentialProvider,
+  injectRunCommandCredentials,
+} from "@butler/adapters/credentials/host-credentials.js"
 
 export const ALLOWED_RUN_COMMANDS = [
   "cat",
@@ -30,10 +37,25 @@ export const ALLOWED_RUN_COMMANDS = [
 ] as const
 
 const MAX_READ_BYTES = 64 * 1024
+const MAX_WRITE_BYTES = 64 * 1024
 const MAX_COMMAND_OUTPUT_BYTES = 32 * 1024
 
 export interface WorkspaceToolContext {
   readonly workspaceRoot?: string
+  /** P2 host-injected credentials (defaults to env-backed host provider). */
+  readonly credentialProvider?: CredentialProvider
+  /** Names a run_command may inject (defaults to `BUTLER_V5_RUN_COMMAND_CREDENTIALS`). */
+  readonly credentialAllowlist?: readonly string[]
+}
+
+/** Normalize `credentials`/`argv`-style name lists from tool args to valid names. */
+export function normalizeCredentialNames(raw: unknown): readonly string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const entry of raw) {
+    if (typeof entry === "string" && isValidCredentialName(entry)) out.push(entry)
+  }
+  return out
 }
 
 export type ResolvePathResult =
@@ -45,6 +67,13 @@ export function workspaceRootFrom(ctx?: WorkspaceToolContext): string {
   const fromEnv = process.env["BUTLER_V5_WORKSPACE_ROOT"]?.trim()
   if (fromEnv) return fromEnv
   return process.cwd()
+}
+
+/** Narrow workspace for bubblewrap+slirp runs (monorepo root bind can hang/fail). */
+export function sandboxWorkspaceRootFrom(ctx?: WorkspaceToolContext): string {
+  const dedicated = process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"]?.trim()
+  if (dedicated) return dedicated
+  return workspaceRootFrom(ctx)
 }
 
 /**
@@ -113,6 +142,42 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
   }
 }
 
+export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
+  return {
+    name: "write_file" as ToolDefinition["name"],
+    risk: "high",
+    async run(
+      args: Record<string, unknown>,
+    ): Promise<
+      | { readonly ok: true; readonly output: unknown }
+      | { readonly ok: false; readonly reason: string }
+    > {
+      const rawPath = args["path"]
+      const rawContent = args["content"]
+      if (typeof rawPath !== "string") return { ok: false, reason: "path is required" }
+      if (typeof rawContent !== "string") return { ok: false, reason: "content is required" }
+      if (Buffer.byteLength(rawContent, "utf8") > MAX_WRITE_BYTES) {
+        return { ok: false, reason: `content exceeds ${MAX_WRITE_BYTES} bytes` }
+      }
+      if (rawContent.includes("\0")) {
+        return { ok: false, reason: "refusing binary content" }
+      }
+      const resolved = resolveUnderWorkspace(workspaceRootFrom(ctx), rawPath)
+      if (!resolved.ok) return resolved
+      try {
+        mkdirSync(dirname(resolved.path), { recursive: true })
+        writeFileSync(resolved.path, rawContent, "utf8")
+        return {
+          ok: true,
+          output: `wrote ${rawPath.trim()} (${rawContent.length} chars)`,
+        }
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  }
+}
+
 export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
   return {
     name: "run_command" as ToolDefinition["name"],
@@ -151,63 +216,52 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
           return { ok: false, reason: `arg is outside the workspace: ${a}` }
         }
       }
-      const cwd = workspaceRootFrom(ctx)
-      const { executeArgvInSandbox } = await import(
+      if (signal?.aborted) {
+        return { ok: false, reason: "aborted" }
+      }
+      const cwd = sandboxWorkspaceRootFrom(ctx)
+      const { executeArgvInSandbox, createDefaultProcessRunner } = await import(
         "@butler/adapters/sandbox/bubblewrap-runner.js"
       )
       const { currentNetworkAllowlist, currentSandboxProfileName } = await import(
         "@butler/runtime/sandbox/index.js"
       )
+      const sandboxRunner = createDefaultProcessRunner()
+      // P2 credential host-injection: resolve + merge allowed named credentials.
+      const requestedCred = normalizeCredentialNames(args["credentials"])
+      let injectedEnv: Readonly<Record<string, string>> = {}
+      if (requestedCred.length > 0) {
+        const provider =
+          ctx.credentialProvider ?? createHostCredentialProvider(process.env)
+        const allowlist =
+          ctx.credentialAllowlist ??
+          (process.env["BUTLER_V5_RUN_COMMAND_CREDENTIALS"] ?? "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+        const injected = await injectRunCommandCredentials({
+          provider,
+          requestedNames: requestedCred,
+          allowlist,
+          baseEnv: {},
+        })
+        if (!injected.ok) return { ok: false, reason: injected.reason }
+        injectedEnv = injected.env
+      }
       const sandboxed = await executeArgvInSandbox({
         argv,
         workspaceRoot: cwd,
         profileName: currentSandboxProfileName(),
         networkAllowlist: currentNetworkAllowlist(),
         env: process.env,
-        runner: {
-          spawn: async (command, bwrapArgs, opts) =>
-            new Promise((resolvePromise) => {
-              let child: ReturnType<typeof spawn>
-              const spawnEnv = {
-                PATH: process.env["PATH"] ?? "/usr/bin:/bin",
-                ...(opts.env ?? {}),
-              }
-              try {
-                child = spawn(command, bwrapArgs, {
-                  cwd: opts.cwd,
-                  env: spawnEnv,
-                  stdio: ["ignore", "pipe", "pipe"],
-                })
-              } catch (err) {
-                resolvePromise({
-                  code: 1,
-                  stdout: "",
-                  stderr: err instanceof Error ? err.message : String(err),
-                })
-                return
-              }
-              const chunks: Buffer[] = []
-              let total = 0
-              const take = (buf: Buffer) => {
-                total += buf.length
-                if (total <= opts.maxOutputBytes) chunks.push(buf)
-              }
-              child.stdout?.on("data", (b: Buffer) => take(b))
-              child.stderr?.on("data", (b: Buffer) => take(b))
-              const timer = setTimeout(() => child.kill("SIGKILL"), opts.timeoutMs)
-              child.on("close", (code) => {
-                clearTimeout(timer)
-                const text = Buffer.concat(chunks).toString("utf8")
-                resolvePromise({ code: code ?? 1, stdout: text, stderr: "" })
-              })
-            }),
-        },
+        injectEnv: injectedEnv,
+        runner: sandboxRunner,
       })
       if ("mode" in sandboxed && sandboxed.mode === "disabled") {
-        return await spawnCaptured(argv, cwd, signal)
+        return await spawnCaptured(argv, cwd, signal, injectedEnv)
       }
       if (!sandboxed.ok) return { ok: false, reason: sandboxed.reason ?? "sandbox failed" }
-      return { ok: true, output: sandboxed.stdout ?? "" }
+      return { ok: true, output: "stdout" in sandboxed ? sandboxed.stdout ?? "" : "sandboxed run returned no output" }
     },
   }
 }
@@ -216,6 +270,7 @@ function spawnCaptured(
   argv: readonly string[],
   cwd: string,
   signal?: AbortSignal,
+  injectedEnv: Readonly<Record<string, string>> = {},
 ): Promise<
   { readonly ok: true; readonly output: unknown } | { readonly ok: false; readonly reason: string }
 > {
@@ -230,7 +285,7 @@ function spawnCaptured(
     try {
       child = spawn(program, argv.slice(1), {
         cwd,
-        env: { PATH: process.env["PATH"] ?? "/usr/bin:/bin" },
+        env: { PATH: process.env["PATH"] ?? "/usr/bin:/bin", ...injectedEnv },
         stdio: ["ignore", "pipe", "pipe"],
       })
     } catch (err) {

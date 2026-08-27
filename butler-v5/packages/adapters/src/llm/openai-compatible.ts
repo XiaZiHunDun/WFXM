@@ -12,6 +12,8 @@ interface OpenAICompatibleConfig {
   readonly baseUrl: string
   readonly model?: string
   readonly fetch?: typeof fetch
+  /** Merged into chat/completions JSON body (e.g. DeepSeek thinking toggle). */
+  readonly requestExtras?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -204,6 +206,7 @@ function mapStopReason(reason: string): LLMStopReason {
 export function makeOpenAICompatibleAdapter(config: OpenAICompatibleConfig) {
   const model = config.model ?? "gpt-4o"
   const fetchImpl = config.fetch ?? fetch
+  const requestExtras = config.requestExtras
 
   async function call(
     messages: readonly LLMMessage[],
@@ -212,6 +215,7 @@ export function makeOpenAICompatibleAdapter(config: OpenAICompatibleConfig) {
     const body: Record<string, unknown> = {
       model,
       messages: toOpenAIMessages(messages),
+      ...(requestExtras ?? {}),
     }
     const tools = opts?.tools
     if (tools && tools.length > 0) {

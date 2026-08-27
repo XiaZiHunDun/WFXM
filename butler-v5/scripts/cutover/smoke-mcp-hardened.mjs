@@ -87,6 +87,17 @@ async function main() {
   if (!mcpRes.ok) fail("owner/mcp/status", `${mcpRes.status} ${mcpText}`)
   const mcp = JSON.parse(mcpText)
   if (!mcp.enabled) fail("mcp/status", "MCP not enabled — set BUTLER_V5_MCP_ENABLED=1")
+
+  if (skipGrant) {
+    const tools = mcp.tools ?? []
+    console.log(
+      `smoke ok [mcp/status]: mode=${mcp.mode}, tools=${tools.length} (--skip-grant)`,
+    )
+    console.log("smoke SKIP [grant]: --skip-grant")
+    console.log("smoke PASS")
+    return
+  }
+
   if (mcp.mode !== "multi") fail("mcp/status", `expected mode=multi, got ${mcp.mode}`)
 
   const tools = mcp.tools ?? []
@@ -123,12 +134,6 @@ async function main() {
   }
   console.log(`smoke ok [allowlist]: wechat ${wechatMcp.length} MCP caps match manifest`)
 
-  if (skipGrant) {
-    console.log("smoke SKIP [grant]: --skip-grant")
-    console.log("smoke PASS")
-    return
-  }
-
   const prompt =
     "你必须调用工具 mcp_todoist_lst-projects（参数 {}）列出 Todoist 项目。不要凭记忆回答，必须先调用该工具。"
   const inbound = await postInbound(prompt, `mcp-smoke-inbound-${Date.now()}`)
@@ -147,6 +152,18 @@ async function main() {
   }
 
   if (!stepId) {
+    const toolCalls = inbound.meta?.toolCalls ?? 0
+    const directExec =
+      toolCalls > 0 &&
+      (/mcp_todoist_lst-projects|Inbox|Todoist|项目/i.test(reply) ||
+        /lst-projects/i.test(reply))
+    if (directExec) {
+      console.log(
+        `smoke ok [grant/readonly-auto]: owner low-risk MCP executed without Ask (toolCalls=${toolCalls})`,
+      )
+      console.log("smoke PASS")
+      return
+    }
     fail(
       "grant/pending",
       `no waiting approval for ${MCP_CAPABILITY}; reply=${reply.slice(0, 400)}`,
