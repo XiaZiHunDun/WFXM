@@ -17,7 +17,7 @@
 2. **AI 守卫 v5 迁移**（commit `3b8fc61d`）：PostToolUse vitest、PreToolUse v5 受保护文件、`.cursorrules` banner、`butler-v5/AGENTS.md` §0、分步脚本 `scripts/v5_ai_guard/`。
 3. **架构差距盘点**：对照 DESIGN vs 生产实现，形成下文 §4–§6。
 4. **A1 Run 恢复语义**：`RunEngine.resumeRun`；审批同 Run + capability Step；`executeInbound` 拒抢 active main。
-5. **A2 读模型默认**：`BUTLER_V5_READ_MODEL` 默认 `hybrid`；`recall_history` / `summarize_today` 优先 0002。
+5. **A2 读模型默认**：`BUTLER_V5_READ_MODEL` 默认 `relational`（D2.1 production flip，2026-08-28 已覆盖早期 hybrid 默认）；`recall_history` / `summarize_today` 读 0002。
 6. **A3 Grant schema**：`0003` 增 `delegable` / `approval_id` / `sandbox_profile`；审批签发写入 approvalId。
 7. **A4 Run 状态闭环**：cancel/expire Owner API+CLI；`waiting_external` enter/resume 最小 runtime。
 8. **A5 Child Run relational**：delegate 创建 `parentRunId` Run；worker 终态写 Step。
@@ -127,8 +127,7 @@ CLI / iLink / HTTP / WebSocket / Channel webhooks
 ### 5.7 读模型双轨
 
 - **设计**：当前状态表（0002）为业务事实；Message 不可变 append-only。
-- **已对齐（A2）**：默认 `BUTLER_V5_READ_MODEL=hybrid`；`recall_history` / `summarize_today` 经 `loadToolConversationHistory` 优先读 0002；空则回退 event_store；入站非 event_store 时 backfill。
-- **仍可收敛**：生产可再切 `relational`（无回退）；event_store 保留作 audit/compat，非默认读路径。
+- **已对齐（D2.1 production flip，2026-08-28）**：默认 `BUTLER_V5_READ_MODEL=relational`（覆盖原 A2 hybrid 默认；代码 `packages/domain/src/runtime/store-contract.ts` `DEFAULT_READ_MODEL_SOURCE = "relational"` + 测试 `store-contract.test.ts:9-22` 锁定）；`recall_history` / `summarize_today` 仅读 0002；`event_store` 保留作 audit / outbox / 兼容；入站时 `backfillConversation` 可将 legacy 事件流一次性投影到 relational；`hybrid` opt-in 仅迁移期需要 event 回退。
 
 ### 5.8 Channel / Trigger
 
@@ -177,7 +176,7 @@ CLI / iLink / HTTP / WebSocket / Channel webhooks
 | 序 | 主题 | 目标 | 主要触点 |
 | --- | --- | --- | --- |
 | **A1** | Run 恢复语义 | ✅ 审批后 `resumeRun` 同一 Run + capability Step；`executeInbound` 拒抢 active main | `run-engine.ts`, `approval-resume.ts`, `wechat-inbound-butler.ts` |
-| **A2** | 读模型默认 | ✅ 默认 `hybrid`；history 工具优先 0002 | `store-contract.ts`, `tools.ts`, `.env.example`, docs |
+| **A2** | 读模型默认 | ✅ 默认 `relational`（D2.1 production flip 2026-08-28 覆盖原 hybrid 默认） | `store-contract.ts`, `tools.ts`, `.env.example`, docs |
 | **A3** | Grant schema 扩展 | ✅ `delegable` / `approval_id` / `sandbox_profile`（0003） | `0003_scoped_grant_fields.sql`, `schema.ts`, `approval-runtime.ts` |
 | **A4** | Run 状态闭环 | ✅ cancel/expire API+CLI；waiting_external 最小 lifecycle | `run-lifecycle.ts`, `owner-routes.ts`, `cli` |
 | **A5** | Child Run relational | ✅ `parentRunId` Run + worker 写 Run/Step | `delegate-runtime.ts`, `subagent-worker.ts`, `tools.ts` |
