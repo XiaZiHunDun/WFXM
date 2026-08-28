@@ -61,6 +61,15 @@ Butler v5 采用**六边形（端口-适配器）的模块化单体**，内核�
 - 端口只用于**真正可替换或不可信的边界**（模型、数据库、文件、Channel、MCP、浏览器、时钟）；内部纯函数不为"架构完整"而创建接口；
 - 模型调用走**独立 Model Port**，不与副作用 Capability 混为同一咽喉。
 
+### 1.1 实施缝隙：delivery shell
+
+`apps/api` 是 **driving adapter（HTTP / WebSocket / iLink / CLI 入口）+ Core 薄编排层** 的 delivery shell，本身**不是 Core**。因此：
+
+- Core 仅指 `packages/domain` + `packages/runtime` + `packages/ports` 三件；它们严格守 §3 端口依赖硬规则。
+- delivery shell 可在 boundary 之内直接引用 driven adapters（`@butler/adapters` 内的 llm-provider / wechat / mcp / bubblewrap 等），但所有副作用须经 `packages/runtime/src/policy-gate.ts` + `capability-boundary.ts` 收口；arch tests（`tests/architecture/*`）锁定 apps/api 不允许 `runTool*` 旁路。
+
+这是**实施缝隙（implementation seam），不是 Core 漂移**。重构为完整 Effect Tag DI 仅在权限 / 数据一致性 / 可测试性出现真实需要时进行；不为兑现架构图而重写已工作的 Loop。权威生产事实见 [`../docs/architecture/v5-production-architecture-2026-08.md`](../docs/architecture/v5-production-architecture-2026-08.md) §1。
+
 ---
 
 ## 2. 产品身份与非目标
@@ -102,6 +111,7 @@ Persistence → 单一 repository schema
 - 模型调用只经 Model Port；模型不能签发/延长/转移 Grant，不能访问凭证、数据库、文件系统或 Channel，不能绕过 Policy Gate；
 - Governance 不依赖具体 Channel、工具或 Provider SDK；Provider 不能绕过 Policy Gate 回调核心状态；
 - 两个外层（driving/driven）都要通过端口与核心交换，**不存在绕过 Port 的第三类接缝**。
+- Delivery shell（`apps/api`，见 §1.1）是 driving adapter + Core 薄编排层的复合体；boundary 之内可直连 driven adapters，所有副作用须经 PolicyGate + CapabilityRegistry 收口（arch tests 锁定边界完整性）。
 
 ---
 
