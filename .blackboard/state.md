@@ -115,5 +115,6 @@ typecheck 10/11 全过、lint 0 警告、`test:archived` 19 文件 83 测试全�
 
 ## 上一班
 
+- 2026-08-28（本班收口）：v5 target alignment shift（commit `4fed4e02`；含 R11 hook fix `8084fcc8` 由 operator `[MANUAL-OVERRIDE]` 应用）。B-soft 路径——`packages/ports/src/index.ts` 加 @deprecated 块 + `core/*` re-export；新增 `packages/ports/port-catalog.md` 与 `tests/architecture/package-membership.test.ts`（invariant 16 守卫，4 项）；DESIGN §7.1 加实施 Port 状态表。验证 180 files 1004 pass / 1 skip / 0 failed（基线 999/1/1，+5 net）。
 - CN MiniMax 切换；slirp ProcessRunner 抽取；Scheme B delegation allowlist 策略。
 - 本班：P0–P4 + monorepo 收敛交付并推送；提交后基线复核全绿（仅 2 环境耦合红）。
