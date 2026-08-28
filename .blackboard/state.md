@@ -1,7 +1,9 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-28 (alignment shift — 顶部段为本班 align 同步记录)_
-_handoff: .blackboard/shifts/2026-08-26-cursor-scheme-b-p1-p2.md_
+_last_synced: 2026-08-28 (R16 sandbox bwrap 扩面 part-1 闭环 + part-2 待 operator manual override)_
+_handoff: .blackboard/shifts/2026-08-28-r16-sandbox-bwrap-extend-handoff.md_
+
+**R16 Sandbox bwrap 扩面（2026-08-28 part-1 闭环）**：兑现 handoff `2026-08-28-r11-r12-handoff.md` §5.5 缺口。3 commits + 1 docs：(1) `2a2ea2cc` sandbox(bwrap): add readOnly + executeWriteInSandbox + DENY ceiling for read/write —— profiles.ts:54 加 read_file/write_file → SANDBOX_PROFILE_NETWORK_DENY；bubblewrap-runner.ts 扩 buildBubblewrapArgs.readOnly + executeWriteInSandbox (inline spawn stdin pipe)。(2) `5cd5e660` sandbox(mcp): gate MCP stdio spawn behind BUTLER_V5_SANDBOX=bubblewrap —— apps/api/src/mcp-spawn.ts:128 isSandboxEnabled gate；host-side 读 globalThis.process.env（不读 options.env，避免 caller 传空 env bypass）。(3) `f7477386` test(arch): guard MCP bwrap gate + workspace-tools sandbox wiring —— 静态 grep 守卫锁 mcp-spawn.ts + workspace-tools.ts。**R16.3 卡 v5 AI guard PROTECTED_FILES**（scripts/ai_guard/pre_tool_use_hook.py:52 列 `butler-v5/apps/api/src/workspace-tools.ts` 为禁改文件），须 operator 走 `[MANUAL-OVERRIDE]` 流程（GitHub issue + 人工改 + 完整门禁）；本班移交：arch guard `workspace-sandbox-arch.test.ts` 当前 1/3 pass（2 fail 是 R16.3 待办的具体路径 import + stdinContent + executeArgvInSandbox），operator 改完自动 3/3。教训 → `feedback-v5-ai-guard-protected-files.md`：AI 不能动承重文件，拆 commit + 留 arch guard 是标准流程。验证 typecheck 0 错 / lint 0 警告 / 主测试 1106 pass / 1 skip / 0 fail（基线 1096，+10 net）/ archived 83 / 0。
 
 **R13 Channel Port Trigger ADR 收口（2026-08-28）**：兑现 handoff `2026-08-28-r11-r12-handoff.md` 下一步候选 #1。新增 ADR `docs/plans/active/v5-channel-port-trigger-2026-08.md`（commit `a740ecae`）锁定四件事——① Trigger 信号 = Owner 自报（控制面 / shift card / dialog 任一处一句话）② Per-channel 独立（Slack / Telegram 各一份事件，任一完成即闭环）③ Production-ready bar = 最小完成（adapter + 单测 + 入/出站跑通 + Owner 端到端一条真实对话）④ Channel Port 维持隐性承载，不升 first-class Core Port。trigger 记录复用 shift card（DESIGN §19 + `feedback-handoff-discipline`），不开新 artifact / code path。新增 `docs/plans/templates/channel-integration-prd.md` 模板（commit `62c2ae1d`）供未来 channel 触发时克隆。**未触发任何 channel** —— Slack / Telegram / 未来 channel 接生产仍需 Owner 自报后另立 per-channel PRD。
 
