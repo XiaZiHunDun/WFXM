@@ -53,7 +53,7 @@
 | 契约入口 | `butler/contracts/__init__.py`   | 人工 + 契约测试    |
 | 项目配置 | `pyproject.toml`                 | 人工 + mypy strict |
 | AI 配置  | `.claude/settings.json`          | 人工（防自我解除） |
-| AI 守卫  | `scripts/ai_guard/*.py`          | 人工（防自我解除） |
+| AI 守卫  | **R17 退役**（DESIGN §19 工程治理） | n/a — 改由 commit review + 5 gate 兜底 |
 | 交接规约 | `.blackboard/README.md`          | 人工               |
 
 ### 保护层

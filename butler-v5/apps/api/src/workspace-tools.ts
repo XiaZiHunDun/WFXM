@@ -126,17 +126,42 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
       if (typeof raw !== "string") return { ok: false, reason: "path is required" }
       const resolved = resolveUnderWorkspace(workspaceRootFrom(ctx), raw)
       if (!resolved.ok) return resolved
-      try {
-        const st = statSync(resolved.path)
-        if (!st.isFile()) return { ok: false, reason: "path is not a file" }
-        if (st.size > MAX_READ_BYTES) {
-          return { ok: false, reason: `file exceeds ${MAX_READ_BYTES} bytes` }
+
+      // R16 sandbox 扩面：当 BUTLER_V5_SANDBOX=bubblewrap 时，read_file 走
+      // bwrap cat-equivalent（readOnly=true → workspace --ro-bind）。否则
+      // fall back 到进程内 path-escape 约束（保持现状，避免 bwrap 不在的环境回退破坏）。
+      const { executeArgvInSandbox, createDefaultProcessRunner } = await import(
+        "@butler/adapters/sandbox/bubblewrap-runner.js"
+      )
+      const { currentNetworkAllowlist, currentSandboxProfileName } = await import(
+        "@butler/runtime/sandbox/index.js"
+      )
+      const sandboxed = await executeArgvInSandbox({
+        argv: ["cat", "--", resolved.path],
+        workspaceRoot: sandboxWorkspaceRootFrom(ctx),
+        readOnly: true,
+        profileName: currentSandboxProfileName(),
+        networkAllowlist: currentNetworkAllowlist(),
+        env: process.env,
+        runner: createDefaultProcessRunner(),
+      })
+      if ("mode" in sandboxed && sandboxed.mode === "disabled") {
+        try {
+          const st = statSync(resolved.path)
+          if (!st.isFile()) return { ok: false, reason: "path is not a file" }
+          if (st.size > MAX_READ_BYTES) {
+            return { ok: false, reason: `file exceeds ${MAX_READ_BYTES} bytes` }
+          }
+          const buf = readFileSync(resolved.path)
+          if (buf.includes(0)) return { ok: false, reason: "refusing binary file" }
+          return { ok: true, output: buf.toString("utf8") }
+        } catch (err) {
+          return { ok: false, reason: err instanceof Error ? err.message : String(err) }
         }
-        const buf = readFileSync(resolved.path)
-        if (buf.includes(0)) return { ok: false, reason: "refusing binary file" }
-        return { ok: true, output: buf.toString("utf8") }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+      } else {
+        const result = sandboxed as { readonly ok: boolean; readonly stdout?: string; readonly stderr?: string; readonly reason?: string }
+        if (!result.ok) return { ok: false, reason: result.reason ?? "sandbox failed" }
+        return { ok: true, output: result.stdout ?? "" }
       }
     },
   }
@@ -164,15 +189,41 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
       }
       const resolved = resolveUnderWorkspace(workspaceRootFrom(ctx), rawPath)
       if (!resolved.ok) return resolved
-      try {
-        mkdirSync(dirname(resolved.path), { recursive: true })
-        writeFileSync(resolved.path, rawContent, "utf8")
+
+      // R16 sandbox 扩面：write_file 走 bwrap tee-equivalent（stdin 透传 +
+      // workspace --bind RW）。disabled 模式 fall back 到进程内 fs writeFileSync。
+      const { executeArgvInSandbox } = await import(
+        "@butler/adapters/sandbox/bubblewrap-runner.js"
+      )
+      const { currentNetworkAllowlist, currentSandboxProfileName } = await import(
+        "@butler/runtime/sandbox/index.js"
+      )
+      const sandboxed = await executeArgvInSandbox({
+        argv: ["tee", resolved.path],
+        workspaceRoot: sandboxWorkspaceRootFrom(ctx),
+        profileName: currentSandboxProfileName(),
+        networkAllowlist: currentNetworkAllowlist(),
+        env: process.env,
+        stdinContent: rawContent,
+      })
+      if ("mode" in sandboxed && sandboxed.mode === "disabled") {
+        try {
+          mkdirSync(dirname(resolved.path), { recursive: true })
+          writeFileSync(resolved.path, rawContent, "utf8")
+          return {
+            ok: true,
+            output: `wrote ${rawPath.trim()} (${rawContent.length} chars)`,
+          }
+        } catch (err) {
+          return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+        }
+      } else {
+        const result = sandboxed as { readonly ok: boolean; readonly stdout?: string; readonly stderr?: string; readonly reason?: string }
+        if (!result.ok) return { ok: false, reason: result.reason ?? "sandbox failed" }
         return {
           ok: true,
           output: `wrote ${rawPath.trim()} (${rawContent.length} chars)`,
         }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
       }
     },
   }
