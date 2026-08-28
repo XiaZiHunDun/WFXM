@@ -1,9 +1,11 @@
 // config/index.ts
 // 单 Schema 配置 — @effect/schema 定义 + 环境变量加载
+//
+// 从 R2 Effect Tag（`Config` of `@butler/ports`，at R11.2 归档至
+// `_archive/packages/ports-effect-tag-scaffold/`）改为纯函数 + `process.env`
+// 直读（DESIGN §10 + R12 PRD §5 CP-2）。已无 Effect Layer 依赖。
 
 import { Schema } from "@effect/schema"
-import { Effect, Layer } from "effect"
-import { Config } from "@butler/ports"
 
 // ─── Schema 定义 ────────────────────────────────────────
 export const ConfigSchema = Schema.Struct({
@@ -57,47 +59,50 @@ export const defaultConfig: AppConfig = {
   },
 }
 
-// ─── Config Layer（从环境变量加载，回退默认值） ──────────
-export const ConfigLive = Layer.effect(
-  Config,
-  Effect.sync(() => {
-    const env =
-      (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
-        ?.env ?? {}
-    return Config.of({
-      loop: {
-        maxIterations: env.LOOP_MAX_ITERATIONS
-          ? parseInt(env.LOOP_MAX_ITERATIONS, 10)
-          : defaultConfig.loop.maxIterations,
-        timeoutMs: env.LOOP_TIMEOUT_MS
-          ? parseInt(env.LOOP_TIMEOUT_MS, 10)
-          : defaultConfig.loop.timeoutMs,
-      },
-      guards: {
-        ownerOfflineThresholdMs: env.GUARDS_OWNER_OFFLINE_THRESHOLD_MS
-          ? parseInt(env.GUARDS_OWNER_OFFLINE_THRESHOLD_MS, 10)
-          : defaultConfig.guards.ownerOfflineThresholdMs,
-        chaosEnabled: env.GUARDS_CHAOS_ENABLED === "true",
-      },
-      llm: {
-        primary: env.LLM_PRIMARY ?? defaultConfig.llm.primary,
-        fallback: env.LLM_FALLBACK ?? defaultConfig.llm.fallback,
-      },
-      db: {
-        url: env.DATABASE_URL ?? defaultConfig.db.url,
-        maxConnections: env.DB_MAX_CONNECTIONS
-          ? parseInt(env.DB_MAX_CONNECTIONS, 10)
-          : defaultConfig.db.maxConnections,
-      },
-      wechat: {
-        token: env.WECHAT_TOKEN ?? defaultConfig.wechat.token,
-        appId: env.WECHAT_APP_ID ?? defaultConfig.wechat.appId,
-        appSecret: env.WECHAT_APP_SECRET ?? defaultConfig.wechat.appSecret,
-      },
-    })
-  }),
-)
+// ─── Env 加载 ──────────────────────────────────────────
+const parseInt10 = (v: string | undefined, fallback: number): number => {
+  if (!v) return fallback
+  const n = parseInt(v, 10)
+  return Number.isFinite(n) ? n : fallback
+}
 
-// ─── 测试用 Layer（可覆盖默认值） ────────────────────────
-export const makeTestConfig = (overrides: Partial<AppConfig> = {}) =>
-  Layer.succeed(Config, Config.of({ ...defaultConfig, ...overrides }))
+/** 从 process.env（或传入的 env map）加载 AppConfig，应用 defaultConfig 作为兜底。 */
+export function loadConfig(
+  env: Readonly<Record<string, string | undefined>> = (globalThis as unknown as {
+    process?: { env?: Record<string, string | undefined> }
+  }).process?.env ?? {},
+): AppConfig {
+  const merged = env as Record<string, string | undefined>
+  return {
+    loop: {
+      maxIterations: parseInt10(merged.LOOP_MAX_ITERATIONS, defaultConfig.loop.maxIterations),
+      timeoutMs: parseInt10(merged.LOOP_TIMEOUT_MS, defaultConfig.loop.timeoutMs),
+    },
+    guards: {
+      ownerOfflineThresholdMs: parseInt10(
+        merged.GUARDS_OWNER_OFFLINE_THRESHOLD_MS,
+        defaultConfig.guards.ownerOfflineThresholdMs,
+      ),
+      chaosEnabled: merged.GUARDS_CHAOS_ENABLED === "true",
+    },
+    llm: {
+      primary: merged.LLM_PRIMARY ?? defaultConfig.llm.primary,
+      fallback: merged.LLM_FALLBACK ?? defaultConfig.llm.fallback,
+    },
+    db: {
+      url: merged.DATABASE_URL ?? defaultConfig.db.url,
+      maxConnections: parseInt10(merged.DB_MAX_CONNECTIONS, defaultConfig.db.maxConnections),
+    },
+    wechat: {
+      token: merged.WECHAT_TOKEN ?? defaultConfig.wechat.token,
+      appId: merged.WECHAT_APP_ID ?? defaultConfig.wechat.appId,
+      appSecret: merged.WECHAT_APP_SECRET ?? defaultConfig.wechat.appSecret,
+    },
+  }
+}
+
+/** 测试用 Config 对象（不再是 Effect Layer）。 */
+export const makeTestConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
+  ...defaultConfig,
+  ...overrides,
+})

@@ -115,19 +115,19 @@ describe("package-membership (DESIGN invariant 16)", () => {
     // no _archive in file → trivially OK
   })
 
-  it("(4) ports/src/index.ts Effect Tag 总线保留（待 postgres adapter 迁移）", () => {
+  it("(4) ports/src/index.ts thin barrel — R2 Effect Tag classes 已经归档（R12, 2026-08-28）", () => {
     const ix = readFileSync(
       join(BUTLER_V5, "packages/ports/src/index.ts"),
       "utf8",
     )
-    // reminder：postgres adapter 仍在引用这些类；完整迁移完成后此测试改写/移除
-    expect(ix, "EventStoreService must remain until postgres-event-store migrates").toMatch(
+    // R12: 全部 14 R2 Effect Tag 类与 postgres 适配器一并清理；本测试断言反例。
+    expect(ix, "EventStoreService must NOT be present (R12 archived to _archive)").not.toMatch(
       /export class EventStoreService/,
     )
-    expect(ix, "OutboxService must remain until postgres-outbox migrates").toMatch(
+    expect(ix, "OutboxService must NOT be present (R12 archived to _archive)").not.toMatch(
       /export class OutboxService/,
     )
-    expect(ix, "SnapshotService must remain until postgres-snapshot migrates").toMatch(
+    expect(ix, "SnapshotService must NOT be present (R12 archived to _archive)").not.toMatch(
       /export class SnapshotService/,
     )
   })
