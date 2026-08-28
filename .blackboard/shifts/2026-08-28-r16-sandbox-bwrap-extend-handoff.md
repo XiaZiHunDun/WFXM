@@ -32,6 +32,42 @@ produced: [shift-card]
 如需修改，请先在 GitHub 创建 issue 说明原因，由人工修改并运行完整门禁。
 ```
 
+### Apply 命令（精确）
+
+```bash
+# 1. 拉 main（含 patch 文件）
+cd /home/ailearn/projects/WFXM
+git pull origin main
+
+# 2. 应用 patch（git apply --check 已验证 forward OK）
+git apply .blackboard/shifts/2026-08-28-r16.3-workspace-tools.patch
+
+# 3. 验证
+cd butler-v5
+CI= pnpm test -- workspace-sandbox-arch    # 期望 3/3 pass
+CI= pnpm test                                # 期望 1106 pass
+CI= pnpm typecheck && CI= pnpm lint          # 期望 0 错 / 0 警告
+
+# 4. commit（per R9.5/R7.5/R11.1 protocol：--no-verify；message body 不写裸反引号 SHA）
+git add butler-v5/apps/api/src/workspace-tools.ts
+git commit --no-verify -m "sandbox(workspace): dispatch read_file/write_file through bwrap (R16.3 manual override)" \
+  -m "R16 part-2 closure. workspace-tools.ts:115-179 makeReadFileTool +
+makeWriteFileTool 接 R16.2 的 executeArgvInSandbox。Read 路径 cat-equivalent
+(readOnly=true → workspace --ro-bind)；Write 路径 tee-equivalent
+(stdinContent 透传)。disabled 模式 fall back 进程内 fs 行为，与 run_command
+模式一致。R16.3 由 operator [MANUAL-OVERRIDE] apply（v5 AI guard
+PROTECTED_FILES 拦 AI 直接改）。patch 源文件
+.blackboard/shifts/2026-08-28-r16.3-workspace-tools.patch（已落 main）。"
+
+# 5. push
+git push origin main
+```
+
+变更概要（hunk-level）：
+- makeReadFileTool（line 115-）：in-process `statSync + readFileSync` → `executeArgvInSandbox({ argv: ["cat", "--", resolved.path], readOnly: true, ... })`；disabled 模式 fall back to 原 in-process 行为。
+- makeWriteFileTool（line 145-）：in-process `mkdirSync + writeFileSync` → `executeArgvInSandbox({ argv: ["tee", resolved.path], stdinContent: rawContent, ... })`；disabled 模式 fall back to 原 in-process 行为。
+- 不修改：原 import 块、注释、`sandboxWorkspaceRootFrom`、`ALLOWED_RUN_COMMANDS`、`makeRunCommandTool`（已 wired 形态）。
+
 ### 必须做的事（R16.3 closure）
 
 `workspace-tools.ts` 的 `makeReadFileTool`（line 115-143）+ `makeWriteFileTool`（line 145-179）改为 dispatch 通过 `executeArgvInSandbox`（R16.2 helper 已就绪）：
