@@ -401,7 +401,7 @@ async function runButlerLoopBody(args: {
             reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}\n回复「确认」批准，或「拒绝」取消。`,
             iterations: 0,
             toolCalls: 0,
-            finalDecision: "AskApproval" as ModelDecision["_tag"],
+            finalDecision: "WaitForApproval" as ModelDecision["_tag"],
             traces: [
               `waiting approval ${outcome.pendingApproval.stepId} for ${String(def.name)}`,
             ],

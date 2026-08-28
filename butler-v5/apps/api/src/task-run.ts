@@ -62,7 +62,7 @@ export async function runTaskGoal(args: {
   })
 
   let nextTask = task
-  if (args.advance !== false && procedure && loop.finalDecision !== "AskApproval") {
+  if (args.advance !== false && procedure && loop.finalDecision !== "WaitForApproval") {
     nextTask = advanceTaskAfterStep(task, procedure, Date.now())
     await tasks.update(nextTask)
   }

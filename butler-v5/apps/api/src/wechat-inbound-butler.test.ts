@@ -375,9 +375,11 @@ describe("runButlerLoop", () => {
     expect(result.iterations).toBe(2)
   })
 
-  it("runs legacy JSON-decision CallTool as a fallback when no native tool_calls", async () => {
+  it("runs legacy JSON-decision CallCapability as a fallback when no native tool_calls", async () => {
     const adapter = makeMockAdapter([
-      textResponse(JSON.stringify({ _tag: "CallTool", toolName: "get_current_time", args: {} })),
+      textResponse(
+        JSON.stringify({ _tag: "CallCapability", name: "get_current_time", arguments: {} }),
+      ),
       textResponse(JSON.stringify({ _tag: "Respond", content: "now is the time" })),
     ])
     const result = await runButlerLoop({
@@ -415,9 +417,9 @@ describe("runButlerLoop", () => {
     expect(result.finalDecision).toBe("Finish")
   })
 
-  it("echoes AskApproval question back as reply", async () => {
+  it("echoes WaitForApproval question back as reply", async () => {
     const adapter = makeMockAdapter([
-      textResponse(JSON.stringify({ _tag: "AskApproval", question: "delete?" })),
+      textResponse(JSON.stringify({ _tag: "WaitForApproval", question: "delete?" })),
     ])
     const result = await runButlerLoop({
       wiring,
@@ -431,7 +433,7 @@ describe("runButlerLoop", () => {
     })
     expect(result.reply).toContain("delete?")
     expect(result.reply).toContain("需要确认")
-    expect(result.finalDecision).toBe("AskApproval")
+    expect(result.finalDecision).toBe("WaitForApproval")
   })
 
   it("falls back to stub when LLM call fails", async () => {
@@ -516,10 +518,14 @@ describe("runButlerLoop", () => {
     expect(types).toContain("AssistantMessageProduced")
   })
 
-  it("handles a Delegate JSON-decision: writes ChildRunCreated, loops back to Respond", async () => {
+  it("handles a StartChildRun JSON-decision: writes ChildRunCreated, loops back to Respond", async () => {
     const adapter = makeMockAdapter([
       textResponse(
-        JSON.stringify({ _tag: "Delegate", role: "researcher", task: "find docs about Foo" }),
+        JSON.stringify({
+          _tag: "StartChildRun",
+          role: "researcher",
+          objective: "find docs about Foo",
+        }),
       ),
       textResponse(JSON.stringify({ _tag: "Respond", content: "已委派给 researcher 子代理" })),
     ])
@@ -543,10 +549,12 @@ describe("runButlerLoop", () => {
     expect(childEvents.length).toBe(1)
   })
 
-  it("handles a Delegate JSON-decision and falls back to stub when follow-up fails", async () => {
-    // Delegate then empty text response — loop continues, then stub.
+  it("handles a StartChildRun JSON-decision and falls back to stub when follow-up fails", async () => {
+    // StartChildRun then empty text response — loop continues, then stub.
     const adapter = makeMockAdapter([
-      textResponse(JSON.stringify({ _tag: "Delegate", role: "general", task: "do thing" })),
+      textResponse(
+        JSON.stringify({ _tag: "StartChildRun", role: "general", objective: "do thing" }),
+      ),
       textResponse(""),
     ])
     const result = await runButlerLoop({

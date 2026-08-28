@@ -265,7 +265,7 @@ async function continueLoopAfterCapability(args: {
             reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}\n回复「确认」批准，或「拒绝」取消。`,
             iterations: 0,
             toolCalls: 0,
-            finalDecision: "AskApproval",
+            finalDecision: "WaitForApproval",
             traces: [`post-approval waiting ${outcome.pendingApproval.stepId}`],
           } satisfies ConversationLoopResult)
         }

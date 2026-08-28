@@ -1,13 +1,15 @@
-export type ModelDecision =
-  | { readonly _tag: "Respond"; readonly content: string }
-  | { readonly _tag: "CallTool"; readonly toolName: string; readonly args: Record<string, unknown> }
-  | { readonly _tag: "Delegate"; readonly role: string; readonly task: string }
-  | { readonly _tag: "AskApproval"; readonly question: string }
-  | { readonly _tag: "Finish"; readonly reason: string }
+/**
+ * LLM JSON decoder — Application-layer bridge from model protocol output to the
+ * Domain ModelDecision ADT (DESIGN §6.2). Robust to common LLM JSON deviations
+ * (markdown fences, trailing commas, single quotes, embedded objects).
+ */
+import type { DecodeResult, ModelDecision } from "@butler/domain/runtime.js"
 
-export type DecodeResult =
-  | { readonly ok: true; readonly value: ModelDecision }
-  | { readonly ok: false; readonly reason: string }
+export type { DecodeResult, ModelDecision } from "@butler/domain/runtime.js"
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
 
 function parseModelDecisionObject(obj: Record<string, unknown>): DecodeResult {
   const tag = obj["_tag"]
@@ -18,31 +20,44 @@ function parseModelDecisionObject(obj: Record<string, unknown>): DecodeResult {
         return { ok: false, reason: "Respond.content must be string" }
       return { ok: true, value: { _tag: "Respond", content } }
     }
-    case "CallTool": {
-      const toolName = obj["toolName"]
-      const args = obj["args"]
-      if (typeof toolName !== "string")
-        return { ok: false, reason: "CallTool.toolName must be string" }
+    case "CallCapability": {
+      const name = obj["name"]
+      const args = obj["arguments"]
+      if (typeof name !== "string")
+        return { ok: false, reason: "CallCapability.name must be string" }
       if (!args || typeof args !== "object" || Array.isArray(args)) {
-        return { ok: false, reason: "CallTool.args must be object" }
+        return { ok: false, reason: "CallCapability.arguments must be object" }
       }
-      return {
-        ok: true,
-        value: { _tag: "CallTool", toolName, args: args as Record<string, unknown> },
-      }
+      const callId = obj["callId"]
+      const decision: ModelDecision =
+        typeof callId === "string"
+          ? { _tag: "CallCapability", name, arguments: args as Record<string, unknown>, callId }
+          : { _tag: "CallCapability", name, arguments: args as Record<string, unknown> }
+      return { ok: true, value: decision }
     }
-    case "Delegate": {
+    case "StartChildRun": {
       const role = obj["role"]
-      const task = obj["task"]
-      if (typeof role !== "string") return { ok: false, reason: "Delegate.role must be string" }
-      if (typeof task !== "string") return { ok: false, reason: "Delegate.task must be string" }
-      return { ok: true, value: { _tag: "Delegate", role, task } }
+      const objective = obj["objective"]
+      if (typeof role !== "string")
+        return { ok: false, reason: "StartChildRun.role must be string" }
+      if (typeof objective !== "string")
+        return { ok: false, reason: "StartChildRun.objective must be string" }
+      const grantsRaw = obj["grants"]
+      const grants =
+        Array.isArray(grantsRaw) && grantsRaw.every((g) => typeof g === "string")
+          ? (grantsRaw as readonly string[])
+          : undefined
+      const decision: ModelDecision =
+        grants !== undefined
+          ? { _tag: "StartChildRun", role, objective, grants }
+          : { _tag: "StartChildRun", role, objective }
+      return { ok: true, value: decision }
     }
-    case "AskApproval": {
+    case "WaitForApproval": {
       const question = obj["question"]
       if (typeof question !== "string")
-        return { ok: false, reason: "AskApproval.question must be string" }
-      return { ok: true, value: { _tag: "AskApproval", question } }
+        return { ok: false, reason: "WaitForApproval.question must be string" }
+      return { ok: true, value: { _tag: "WaitForApproval", question } }
     }
     case "Finish": {
       const reason = obj["reason"]
@@ -61,10 +76,10 @@ function decodeDecisionJson(text: string): DecodeResult {
   } catch {
     return { ok: false, reason: "invalid JSON" }
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+  if (!isRecord(parsed)) {
     return { ok: false, reason: "not an object" }
   }
-  return parseModelDecisionObject(parsed as Record<string, unknown>)
+  return parseModelDecisionObject(parsed)
 }
 
 /** Extract `{...}` objects that look like ModelDecision payloads from mixed LLM text. */
@@ -107,10 +122,6 @@ export function extractEmbeddedDecisionJson(raw: string): readonly string[] {
   return found
 }
 
-/**
- * 尝试解码直接 JSON；失败再尝试从文本中抽取嵌入的 `{...}` 决策对象。
- * 返回 null 表示两者都未解出。
- */
 function tryDecode(text: string): DecodeResult | null {
   const direct = decodeDecisionJson(text)
   if (direct.ok) return direct
@@ -124,7 +135,6 @@ function tryDecode(text: string): DecodeResult | null {
   return null
 }
 
-/** 剥离 markdown 代码围栏（```json ... ```），返回围栏内内容；无围栏返回 null。 */
 function unwrapMarkdownFence(text: string): string | null {
   const m = text.match(/```(?:json|JSON)?[ \t]*\r?\n?([\s\S]*?)(?:```|$)/)
   if (!m) return null
@@ -132,7 +142,6 @@ function unwrapMarkdownFence(text: string): string | null {
   return inner.length === 0 || inner === text ? null : inner
 }
 
-/** 字符串感知地移除对象/数组末尾的尾逗号（LLM 常见输出偏差）。 */
 function stripTrailingCommas(text: string): string {
   let out = ""
   let inString = false
@@ -155,7 +164,7 @@ function stripTrailingCommas(text: string): string {
       let j = i + 1
       while (j < text.length && /\s/.test(text.charAt(j))) j++
       if (j < text.length && (text.charAt(j) === "}" || text.charAt(j) === "]")) {
-        continue // 丢弃尾逗号
+        continue
       }
     }
     out += ch
@@ -163,10 +172,6 @@ function stripTrailingCommas(text: string): string {
   return out
 }
 
-/**
- * 单引号 JSON → 双引号（保守：仅在调用方确认全文不含双引号时使用，避免混合引号误判）。
- * 字符串内的 `\'` 还原为 `'`（双引号串内无需转义），字面换行转义为 `\n`。
- */
 function repairSingleQuotes(text: string): string {
   let out = ""
   let inString = false
@@ -198,7 +203,6 @@ function repairSingleQuotes(text: string): string {
   return out
 }
 
-/** 生成容错修复候选（原始 → 围栏剥离 → 尾逗号 → 单引号），与原文本不同才保留。 */
 function repairCandidates(text: string): readonly string[] {
   const base = [text]
   const fenced = unwrapMarkdownFence(text)
@@ -208,7 +212,6 @@ function repairCandidates(text: string): readonly string[] {
     const commaFixed = stripTrailingCommas(v)
     if (commaFixed !== v) out.push(commaFixed)
   }
-  // 单引号修复仅当全文不含双引号时尝试（避免混合引号产生误判）。
   if (!text.includes('"')) {
     const singleFixed = repairSingleQuotes(text)
     if (singleFixed !== text) out.push(singleFixed)
@@ -221,12 +224,10 @@ export function decodeDecision(raw: string): DecodeResult {
   const direct = tryDecode(trimmed)
   if (direct) return direct
 
-  // 容错修复阶梯：markdown 围栏 / 尾逗号 / 单引号，逐个尝试解码。
   for (const repaired of repairCandidates(trimmed)) {
     const decoded = tryDecode(repaired)
     if (decoded) return decoded
   }
 
-  // 全部失败：保底返回最初解析的错误原因（如 unknown tag / invalid JSON）。
   return decodeDecisionJson(trimmed)
 }

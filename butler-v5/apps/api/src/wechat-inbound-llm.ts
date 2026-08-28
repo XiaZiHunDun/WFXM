@@ -29,11 +29,11 @@ const defaultLogger: LLMReplyLogger = {
  * Build the minimal messages array for a wechat inbound turn.
  * R8.x.3: the butler loop runs an AgentKernel + decodeDecision over
  * the model output, so the system prompt now instructs the model to
- * emit one of the `ModelDecision` JSON shapes (Respond / CallTool /
- * Finish / AskApproval / Delegate) instead of free-form text. Tools
- * are passed for the LLM's awareness but the loop drives tool
- * execution itself; this keeps the contract simple and lets the
- * loop log every decision for the operator trace.
+ * emit one of the `ModelDecision` JSON shapes (DESIGN §6.2: Respond /
+ * CallCapability / StartChildRun / WaitForApproval / Finish) instead of
+ * free-form text. Tools are passed for the LLM's awareness but the loop
+ * drives tool execution itself; this keeps the contract simple and lets
+ * the loop log every decision for the operator trace.
  */
 export function buildWechatInboundMessages(
   content: string,
@@ -44,14 +44,14 @@ export function buildWechatInboundMessages(
   const advertiseDelegate = shouldAdvertiseDelegate({ includeExecTools, env })
   const decisionShapes = [
     '- {"_tag":"Respond","content":"<your reply text>"}  — final answer to the user',
-    '- {"_tag":"CallTool","toolName":"<tool>","args":{...}}  — request a tool call (loop will run it and feed the result back)',
+    '- {"_tag":"CallCapability","name":"<capability>","arguments":{...},"callId":"<optional>"}  — request a Capability invocation (loop will run it and feed the result back)',
     ...(advertiseDelegate
       ? [
-          '- {"_tag":"Delegate","role":"<role>","task":"<task>"}  — hand the task off to a subagent (runs in background; you may then Respond or CallTool again)',
+          '- {"_tag":"StartChildRun","role":"<role>","objective":"<objective>","grants":[]}  — hand the task off to a subagent (runs in background; you may then Respond or CallCapability again)',
         ]
       : []),
     '- {"_tag":"Finish","reason":"<short reason>"}  — task done, no reply needed',
-    '- {"_tag":"AskApproval","question":"<the question>"}  — need user confirmation',
+    '- {"_tag":"WaitForApproval","question":"<the question>"}  — need user confirmation',
   ]
 
   const toolLines = [

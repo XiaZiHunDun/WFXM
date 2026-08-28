@@ -62,7 +62,7 @@ describe("dev-quality-gate", () => {
     expect(
       shouldAutoDevVerify({
         includeExecTools: true,
-        loop: { finalDecision: "AskApproval", toolCalls: 1, traces: ["run_command@0: x"] },
+        loop: { finalDecision: "WaitForApproval", toolCalls: 1, traces: ["run_command@0: x"] },
         env,
       }),
     ).toBe(false)

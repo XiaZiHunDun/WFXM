@@ -262,7 +262,7 @@ export function shouldAutoDevVerify(args: {
   const env = args.env ?? process.env
   if (!isDevVerifyAutoEnabled(env)) return false
   if (!args.includeExecTools) return false
-  if (args.loop.finalDecision === "AskApproval") return false
+  if (args.loop.finalDecision === "WaitForApproval") return false
   if (args.loop.toolCalls <= 0) return false
   return loopUsedDirectExecTools(args.loop)
 }

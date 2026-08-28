@@ -102,9 +102,9 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
           Effect.succeed(
             textResponse(
               JSON.stringify({
-                _tag: "Delegate",
+                _tag: "StartChildRun",
                 role: "developer",
-                task: "write tmp-dev-delegate-v1.txt",
+                objective: "write tmp-dev-delegate-v1.txt",
               }),
             ),
           ),
@@ -147,9 +147,9 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
           Effect.succeed(
             textResponse(
               JSON.stringify({
-                _tag: "Delegate",
+                _tag: "StartChildRun",
                 role: "developer",
-                task: `write ${targetFile} content scheme-b-ok`,
+                objective: `write ${targetFile} content scheme-b-ok`,
               }),
             ),
           ),
@@ -268,9 +268,9 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
           Effect.succeed(
             textResponse(
               JSON.stringify({
-                _tag: "Delegate",
+                _tag: "StartChildRun",
                 role: "developer",
-                task: '必须 CallTool run_command argv=["python3","-c","print(888)"]',
+                objective: '必须 CallTool run_command argv=["python3","-c","print(888)"]',
               }),
             ),
           ),

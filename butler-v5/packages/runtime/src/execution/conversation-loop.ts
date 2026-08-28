@@ -132,7 +132,7 @@ async function executeToolInLoop(args: {
       reply: typeof base.reply === "string" ? base.reply : "需要审批后才能继续。",
       iterations: args.iteration + 1,
       toolCalls: args.toolCalls,
-      finalDecision: base.finalDecision ?? "AskApproval",
+      finalDecision: base.finalDecision ?? "WaitForApproval",
       traces: [
         ...args.traces,
         ...(Array.isArray(base.traces) ? base.traces : []),
@@ -280,17 +280,17 @@ export async function runConversationLoop(input: {
           traces,
         }
       }
-      case "AskApproval": {
+      case "WaitForApproval": {
         await safeApplyDecision(input.kernel, decision, logger)
         return {
           reply: `[需要确认] ${decision.question}`,
           iterations: iteration + 1,
           toolCalls,
-          finalDecision: "AskApproval",
-          traces: [...traces, `AskApproval echoed: ${decision.question}`],
+          finalDecision: "WaitForApproval",
+          traces: [...traces, `WaitForApproval echoed: ${decision.question}`],
         }
       }
-      case "Delegate": {
+      case "StartChildRun": {
         await safeApplyDecision(input.kernel, decision, logger)
         const def = input.ports.findTool("delegate_to_subagent")
         if (!def) {
@@ -307,7 +307,7 @@ export async function runConversationLoop(input: {
             reply: input.ports.stubReply(),
             iterations: iteration + 1,
             toolCalls,
-            finalDecision: "Delegate",
+            finalDecision: "StartChildRun",
             traces,
           }
         }
@@ -315,7 +315,7 @@ export async function runConversationLoop(input: {
         const toolResult = await executeToolInLoop({
           ports: input.ports,
           def,
-          toolArgs: { task: decision.task, role: decision.role },
+          toolArgs: { task: decision.objective, role: decision.role },
           iteration,
           toolCalls,
           traces,
@@ -336,7 +336,7 @@ export async function runConversationLoop(input: {
             {
               id: toolCallId,
               name: "delegate_to_subagent",
-              args: { task: decision.task, role: decision.role },
+              args: { task: decision.objective, role: decision.role },
             },
           ],
         })
@@ -348,19 +348,19 @@ export async function runConversationLoop(input: {
         })
         continue
       }
-      case "CallTool": {
+      case "CallCapability": {
         await safeApplyDecision(input.kernel, decision, logger)
-        const def = input.ports.findTool(decision.toolName)
+        const def = input.ports.findTool(decision.name)
         if (!def) {
           logger.warn(
-            `[conversation-loop] Unknown tool '${decision.toolName}' at iteration ${iteration}; treating as Finish`,
+            `[conversation-loop] Unknown tool '${decision.name}' at iteration ${iteration}; treating as Finish`,
           )
-          traces.push(`unknown tool: ${decision.toolName}`)
+          traces.push(`unknown tool: ${decision.name}`)
           return {
             reply: input.ports.stubReply(),
             iterations: iteration + 1,
             toolCalls,
-            finalDecision: "CallTool",
+            finalDecision: "CallCapability",
             traces,
           }
         }
@@ -368,14 +368,14 @@ export async function runConversationLoop(input: {
         const toolResult = await executeToolInLoop({
           ports: input.ports,
           def,
-          toolArgs: decision.args,
+          toolArgs: decision.arguments,
           iteration,
           toolCalls,
           traces,
-          toolName: decision.toolName,
+          toolName: decision.name,
         })
         traces.push(
-          `${decision.toolName}@${iteration}: ${
+          `${decision.name}@${iteration}: ${
             toolResult.ok
               ? summarizeForLog(String(toolResult.output))
               : `error: ${toolResult.reason}`
@@ -386,17 +386,17 @@ export async function runConversationLoop(input: {
           content: JSON.stringify(decision),
           toolCalls: [
             {
-              id: `json-${iteration}-${decision.toolName}`,
-              name: decision.toolName,
-              args: decision.args,
+              id: decision.callId ?? `json-${iteration}-${decision.name}`,
+              name: decision.name,
+              args: { ...decision.arguments },
             },
           ],
         })
         messages.push({
           role: "tool",
           content: toolResult.ok ? formatToolOutput(toolResult.output) : `[error] ${toolResult.reason}`,
-          toolCallId: `json-${iteration}-${decision.toolName}`,
-          toolName: decision.toolName,
+          toolCallId: decision.callId ?? `json-${iteration}-${decision.name}`,
+          toolName: decision.name,
         })
         continue
       }

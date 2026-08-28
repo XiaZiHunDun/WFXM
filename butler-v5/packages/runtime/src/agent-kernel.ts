@@ -66,13 +66,13 @@ export class AgentKernel {
         })
         this.state = "completed"
         return
-      case "CallTool":
+      case "CallCapability":
         this.state = "tooling"
         return
-      case "Delegate":
+      case "StartChildRun":
         this.state = "delegating"
         return
-      case "AskApproval":
+      case "WaitForApproval":
         this.state = "waiting_approval"
         return
       case "Finish":

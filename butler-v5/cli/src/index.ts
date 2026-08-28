@@ -202,7 +202,7 @@ program
         ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
       })
       console.log(result.reply)
-      if (result.finalDecision === "AskApproval") {
+      if (result.finalDecision === "WaitForApproval") {
         process.exit(2)
       }
     } finally {

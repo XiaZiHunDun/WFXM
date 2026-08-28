@@ -117,9 +117,9 @@ describe("wechat dev session chain", () => {
           Effect.succeed(
             textResponse(
               JSON.stringify({
-                _tag: "Delegate",
+                _tag: "StartChildRun",
                 role: "developer",
-                task: "write tmp-dev-session-chain.txt",
+                objective: "write tmp-dev-session-chain.txt",
               }),
             ),
           ),

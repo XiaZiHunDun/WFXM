@@ -36,25 +36,29 @@ describe("AgentKernel", () => {
     expect(events.length).toBeGreaterThan(0)
   })
 
-  it("transitions to tooling for CallTool decisions", async () => {
+  it("transitions to tooling for CallCapability decisions", async () => {
     await kernel.openTurn({ userMessage: { role: "user", content: "x" } })
     await kernel.applyDecision({
-      _tag: "CallTool",
-      toolName: "read_file",
-      args: { path: "/ws" },
+      _tag: "CallCapability",
+      name: "read_file",
+      arguments: { path: "/ws" },
     })
     expect(kernel.state).toBe("tooling")
   })
 
-  it("transitions to waiting_approval for AskApproval decisions", async () => {
+  it("transitions to waiting_approval for WaitForApproval decisions", async () => {
     await kernel.openTurn({ userMessage: { role: "user", content: "x" } })
-    await kernel.applyDecision({ _tag: "AskApproval", question: "ok?" })
+    await kernel.applyDecision({ _tag: "WaitForApproval", question: "ok?" })
     expect(kernel.state).toBe("waiting_approval")
   })
 
-  it("transitions to delegating for Delegate decisions", async () => {
+  it("transitions to delegating for StartChildRun decisions", async () => {
     await kernel.openTurn({ userMessage: { role: "user", content: "x" } })
-    await kernel.applyDecision({ _tag: "Delegate", role: "researcher", task: "find docs" })
+    await kernel.applyDecision({
+      _tag: "StartChildRun",
+      role: "researcher",
+      objective: "find docs",
+    })
     expect(kernel.state).toBe("delegating")
   })
 
