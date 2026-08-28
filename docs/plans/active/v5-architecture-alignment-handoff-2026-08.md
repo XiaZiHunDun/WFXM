@@ -25,6 +25,10 @@
 10. **A7 Loop 收编**：多轮循环迁入 `runtime/execution/conversation-loop`；apps 薄接线。
 11. **A8 Sandbox + Grant profile**：统一 sandbox 入口；审批写/升 `sandboxProfile`。
 12. **审批后多轮 + waiting_external 自动 resume**：post-approval `runConversationLoop`；trusted inbound 恢复原 Run。
+13. **D2.1 读模型 flip**：`BUTLER_V5_READ_MODEL` 默认 `relational`（覆盖原 hybrid 默认）。
+14. **D2.2 capability 第一类列**：`scoped_grants.capability` 升列；`findActiveGrant` + `revokeScopedGrantsForCapability` 用列过滤；`scope.capabilities` JSON 已从 `ScopedGrantScope` 移除。
+15. **D2.3 Decision ADT**：ModelDecision 搬到 `packages/domain/src/runtime/decision.ts`；tags 重命名为 DESIGN §6.2（CallCapability / StartChildRun / WaitForApproval）；decoder break clean 旧 shape。
+16. **D2.4 step 1 Channel Port first-class**：`ChannelPort` 接口在 `packages/ports/src/core/channel.ts`；WeChat iLink impl 在 `packages/adapters/src/wechat/channel-port.ts`；composition root 注入 `wiring.channels`。Slack/Telegram impl 等 §18 触发条件。
 
 **下一会话主线**：对齐缺口与 P4 MVP 已收；**验收**见 [`v5-acceptance-handoff-2026-08.md`](v5-acceptance-handoff-2026-08.md)。**不**重新立项已否决能力。
 
@@ -131,8 +135,9 @@ CLI / iLink / HTTP / WebSocket / Channel webhooks
 
 ### 5.8 Channel / Trigger
 
-- WeChat ✅（`packages/adapters/src/wechat/`）
-- Slack/Telegram/通用 API ⚠️ opt-in，逻辑在 `apps/api`，不在 adapters 包
+- WeChat ✅（`packages/adapters/src/wechat/` + `channel-port.ts`）
+- Channel Port 抽象 ✅ first-class（D2.4 step 1，2026-08-29 commit `a210c96c`）— `packages/ports/src/core/channel.ts` 接口 + WeChat iLink impl + composition root 注入 `wiring.channels`
+- Slack/Telegram/通用 API ⚠️ impl 待 second-channel 真实需求触发（DESIGN §18 "微信被证明是场景瓶颈"前提未成立；不动抽象接口，只等真实场景再添加 impl）
 - Schedule ✅ MVP（opt-in `BUTLER_V5_SCHEDULE_ENABLED`；`buildScheduleRunTrigger` + worker）
 - Webhook Trigger ⚠️ Channel 入口已有；独立 webhook schedule 源未单开
 
@@ -183,6 +188,7 @@ CLI / iLink / HTTP / WebSocket / Channel webhooks
 | **A6** | Intake 抽取 | ✅ `runtime/intake`：normalize + conversationId；apps 只协议/鉴权 | `packages/runtime/src/intake/`, `routes.ts`, `channel-inbound.ts` |
 | **A7** | Loop 收编 | ✅ `runtime/execution/conversation-loop`；apps 仅接线 | `execution/conversation-loop.ts`, `wechat-inbound-butler.ts` |
 | **A8** | Sandbox 扩面 + Grant profile | ✅ 统一 `executeArgvInSandbox`；Grant 写/升 sandboxProfile；ALS 传递 | `sandbox/*`, `bubblewrap-runner.ts`, `approval-runtime.ts`, `workspace-tools.ts` |
+| **D2.4** | Channel Port first-class | ✅ Channel Port 接口 first-class（DESIGN §7）；WeChat iLink impl + composition root 注入；Slack impl 等 §18 触发条件（次 Channel 真瓶颈） | `packages/ports/src/core/channel.ts`, `packages/adapters/src/wechat/channel-port.ts`, `wiring.ts`, `bootstrap-wiring.ts`, `wechat-run-notify.ts` |
 | **按需** | Project Knowledge | 有 Owner 场景再单独立项；**Web UI / 浏览器已不立项**；P4 MVP 链已交付 | P4 roadmap |
 
 **顺序约束**（来自 roadmap）：A3/A8 依赖 P1 稳定；A7 不要早于 A1/A5；新入口仍走 RunTrigger，禁止第三套 Policy/状态机。
