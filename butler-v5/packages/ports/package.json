@@ -9,6 +9,7 @@
     "./core/event-store.js": "./src/core/event-store.ts",
     "./core/credential-provider.js": "./src/core/credential-provider.ts",
     "./core/clock.js": "./src/core/clock.ts",
+    "./core/channel.js": "./src/core/channel.ts",
     "./core/outbox.js": "./src/core/outbox.ts",
     "./core/snapshot.js": "./src/core/snapshot.ts",
     "./core/projection.js": "./src/core/projection.ts"

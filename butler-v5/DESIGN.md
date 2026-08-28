@@ -274,7 +274,7 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 | Capability 契约 | 🟡 实现即接口 | `packages/runtime/src/capability-boundary.ts` | 不另立接口（DESIGN §7 + AGENTS.md §0 三层事实） |
 | Repository | ⚪ 隐性承载（YAGNI） | `runtime-store.ts` 直接函数调用 | 等第二持久化实现或独立 mock 需求 |
 | Model | ⚪ 隐性承载（YAGNI） | `model-router.ts` 直连 `llm-provider.ts` | 等多 Provider 协议/记账统一需求 |
-| Channel | ⚪ 隐性承载（conditions-admit） | `packages/adapters/src/{wechat,slack,telegram}` | 等第二 Channel 真接生产 |
+| Channel | ✅ 已实装（D2.4 step 1） | `packages/ports/src/core/channel.ts` 接口 + `packages/adapters/src/wechat/channel-port.ts` iLink impl；Composition Root 注入 `wiring.channels` | WeChat ChannelPort 上线；Slack impl 等真实 OAuth token（D2.4 step 2）|
 | v5 Ports 总入口 (thin barrel) | ✅ thin barrel（仅 `export * from "./core/*"`）| `packages/ports/src/index.ts` | 260 行 R2 Effect Tag 类全部归档（commit `33af1722`） |
 
 > "ports-stable × real-need driven" 是 §7 实施准则：不预先为"架构完整"造休眠接口。新增 / 迁移 Port 时同步更新本表与 `port-catalog.md`。

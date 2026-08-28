@@ -1,6 +1,7 @@
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { RunEngine } from "@butler/runtime/run-engine.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
+import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 import type {
   ButlerDb,
   DurableMemoryStore,
@@ -24,6 +25,8 @@ export interface WiringConfig {
   readonly projectKnowledgeStore?: ProjectKnowledgeStore
   readonly procedureStore?: ProcedureStore
   readonly taskStore?: TaskStore
+  /** ChannelPort registry, keyed by ChannelKind. Populated by Composition Root. */
+  readonly channels?: ReadonlyMap<ChannelKind, ChannelPort>
 }
 
 export interface Wiring {
@@ -40,6 +43,8 @@ export interface Wiring {
   readonly projectKnowledgeStore: ProjectKnowledgeStore | null
   readonly procedureStore: ProcedureStore | null
   readonly taskStore: TaskStore | null
+  /** ChannelPort registry — empty when Composition Root provides no env. */
+  readonly channels: ReadonlyMap<ChannelKind, ChannelPort>
 }
 
 /**
@@ -69,5 +74,6 @@ export function makeWiring(config: WiringConfig): Wiring {
     projectKnowledgeStore: config.projectKnowledgeStore ?? null,
     procedureStore: config.procedureStore ?? null,
     taskStore: config.taskStore ?? null,
+    channels: config.channels ?? new Map(),
   }
 }

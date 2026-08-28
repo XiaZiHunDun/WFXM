@@ -5,6 +5,7 @@ import {
 } from "@butler/adapters"
 import { appendFileSync } from "node:fs"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
+import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 
 function envTruthy(raw: string | undefined): boolean {
   if (!raw) return false
@@ -84,6 +85,8 @@ export async function sendWechatProactiveNotify(args: {
   readonly to: string
   readonly text: string
   readonly env?: NodeJS.ProcessEnv
+  /** D2.4: prefer the WeChat ChannelPort from wiring when present. */
+  readonly channels?: ReadonlyMap<ChannelKind, ChannelPort>
 }): Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }> {
   const env = args.env ?? process.env
   if (!isRunNotifyEnabled(env)) {
@@ -93,6 +96,27 @@ export async function sendWechatProactiveNotify(args: {
   const text = args.text.trim()
   if (!to || !text) {
     return { ok: false, reason: "empty recipient or message" }
+  }
+  // D2.4 step 1: when Composition Root registers a WeChat ChannelPort, prefer the
+  // port path; fall back to direct ilinkSendMessage when not present so tests /
+  // existing call sites continue to work without DI changes.
+  const port = args.channels?.get("wechat")
+  if (port) {
+    try {
+      const result = await port.sendText({
+        recipient: { address: to, channelKind: "wechat" },
+        content: text,
+      })
+      if (!result.ok) {
+        return { ok: false, reason: result.reason }
+      }
+      return { ok: true }
+    } catch (err) {
+      return {
+        ok: false,
+        reason: err instanceof Error ? err.message : String(err),
+      }
+    }
   }
   const mockOutbox = (env["BUTLER_V5_RUN_NOTIFY_MOCK_OUTBOX"] ?? "").trim()
   if (mockOutbox) {

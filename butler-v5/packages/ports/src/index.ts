@@ -47,6 +47,7 @@
 
 export * from "./core/clock.js"
 export * from "./core/credential-provider.js"
+export * from "./core/channel.js"
 export * from "./core/event-store.js"
 export * from "./core/outbox.js"
 export * from "./core/snapshot.js"
