@@ -6,7 +6,7 @@ produced: [shift-card]
 
 ## 项目当前态
 
-- **HEAD**：origin/main = `ecd421c5`（R14 `9f9923f7` 之上 + R15 commit：`fix(archived-test): wrap makeTestConfig in Layer.succeed(Config, ...) to resolve run-loop rot`）
+- **HEAD**：origin/main = `74e8026f`（R14 `9f9923f7` 之上 + R15 commit：`fix(archived-test): wrap makeTestConfig in Layer.succeed(Config, ...) to resolve run-loop rot`；原 `ecd421c5` 经 amend 含 handoff 卡本身的 SHA 修正 → `74e8026f`）
 - **5 gate**：
   - `pnpm typecheck` ✅（archived 不在 typecheck 覆盖范围——见"失误清单"）
   - `pnpm lint` ✅
