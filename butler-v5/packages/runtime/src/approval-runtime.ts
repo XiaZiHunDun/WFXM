@@ -219,6 +219,7 @@ export async function approveWaitingStep(
     grantId: crypto.randomUUID(),
     runId: step.runId,
     subject: pending.subject,
+    capability: pending.capability,
     scope: buildScopedGrantScopeFromPending({
       capability: pending.capability,
       resource: pending.resource,

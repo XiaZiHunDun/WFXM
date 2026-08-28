@@ -127,6 +127,8 @@ export interface RuntimeStore {
     readonly grantId: string
     readonly runId: string
     readonly subject: string
+    /** D2.2 first-class capability column mirror (DESIGN §10.3). */
+    readonly capability: string
     readonly scope: ScopedGrantScope
     readonly remainingUses: number | null
     readonly expiresAt: Date

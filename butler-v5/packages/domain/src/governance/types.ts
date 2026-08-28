@@ -36,7 +36,6 @@ export type PolicyDecision =
     }
 
 export interface ScopedGrantScope {
-  readonly capabilities: readonly string[]
   readonly paths?: readonly string[]
   readonly network?: "deny" | "allow"
   /** When set with network allow, outbound fetches must target one of these hostnames. */
@@ -52,6 +51,12 @@ export interface ScopedGrantRecord {
   readonly id: string
   readonly runId: string
   readonly subject: string
+  /**
+   * D2.2 first-class column mirror (DESIGN §10.3 minimum field). Source of truth for
+   * capability matching (grantMatchesAction + findActiveGrant SQL + revoke filter).
+   * Pre-migration rows fall back to scope.capabilities[0] during hydrate.
+   */
+  readonly capability: string
   readonly scope: ScopedGrantScope
   readonly remainingUses: number | null
   readonly expiresAtMs: number
@@ -154,7 +159,6 @@ export function buildScopedGrantScopeFromPending(input: {
   readonly mcpServerId?: string
 }): ScopedGrantScope {
   let scope: ScopedGrantScope = {
-    capabilities: [input.capability],
     digest: input.digest,
   }
   if (
@@ -215,7 +219,7 @@ export function grantAllowsNetworkHost(
 }
 
 export function grantMatchesAction(grant: ScopedGrantRecord, request: ActionRequest): boolean {
-  if (!grant.scope.capabilities.includes(request.capability)) {
+  if (grant.capability !== request.capability) {
     return false
   }
   if (isMcpCapability(request.capability)) {

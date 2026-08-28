@@ -90,7 +90,7 @@ describe("approval-runtime", () => {
     const decision = await approveWaitingStep(store, stepId, "owner-1")
     expect(decision._tag).toBe("approved")
     if (decision._tag !== "approved") throw new Error("expected approved")
-    expect(decision.grant.scope.capabilities).toEqual(["send_wechat_file"])
+    expect(decision.grant.capability).toBe("send_wechat_file")
     expect(decision.grant.scope.paths).toEqual(["photo.jpg"])
     expect(decision.grant.scope.digest).toBe("d1")
     expect(decision.grant.scope.network).toBe("allow")

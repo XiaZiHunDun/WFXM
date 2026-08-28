@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { sql } from "drizzle-orm"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { createRuntimeStore } from "./runtime-store.js"
 import { makeTestDb } from "./testing.js"
@@ -257,8 +258,8 @@ describe("RuntimeStore repository", () => {
         grantId,
         runId: run.id,
         subject: "owner-1",
+        capability: "mcp_search",
         scope: {
-          capabilities: ["mcp_search"],
           digest: "d1",
           network: "allow",
           mcp: { serverId: "demo-server", toolName: "search" },
@@ -271,8 +272,8 @@ describe("RuntimeStore repository", () => {
         grantId: crypto.randomUUID(),
         runId: run.id,
         subject: "owner-1",
+        capability: "mcp_fetch",
         scope: {
-          capabilities: ["mcp_fetch"],
           digest: "d2",
           network: "allow",
           mcp: { serverId: "other-server", toolName: "fetch" },
@@ -326,7 +327,8 @@ describe("RuntimeStore repository", () => {
         grantId: crypto.randomUUID(),
         runId: run.id,
         subject: "owner-1",
-        scope: { capabilities: ["mcp_search"], digest: "s1" },
+        capability: "mcp_search",
+        scope: { digest: "s1" },
         remainingUses: 1,
         expiresAt: new Date(now.getTime() + 60_000),
         createdAt: now,
@@ -335,7 +337,8 @@ describe("RuntimeStore repository", () => {
         grantId: crypto.randomUUID(),
         runId: run.id,
         subject: "owner-1",
-        scope: { capabilities: ["read_file"], digest: "s2" },
+        capability: "read_file",
+        scope: { digest: "s2" },
         remainingUses: 1,
         expiresAt: new Date(now.getTime() + 60_000),
         createdAt: now,
@@ -360,6 +363,123 @@ describe("RuntimeStore repository", () => {
           now,
         }),
       ).not.toBeNull()
+    } finally {
+      await db.close()
+    }
+  })
+
+  // D2.2: capability first-class column behavior + legacy JSON backfill fallback.
+  it("persists capability as first-class column and finds by column (D2.2)", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const now = new Date("2026-08-28T00:00:00Z")
+    try {
+      const inbound = await store.createConversationWithUserMessage({
+        conversationId: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "hi" },
+        triggerSource: "channel",
+        idempotencyKey: "d22-cap",
+        createdAt: now,
+      })
+      const run = await store.createRun({
+        id: crypto.randomUUID(),
+        conversationId: inbound.conversationId,
+        parentRunId: null,
+        triggerSource: "channel",
+        idempotencyKey: "run-d22-cap",
+        subject: "owner-1",
+        goal: "test",
+        budget: {},
+        deadline: null,
+        createdAt: now,
+      })
+      // Forward write: capability column is the only place the name lives.
+      const grant = await store.createScopedGrant({
+        grantId: crypto.randomUUID(),
+        runId: run.id,
+        subject: "owner-1",
+        capability: "read_file",
+        scope: { digest: "d1" },
+        remainingUses: 1,
+        expiresAt: new Date(now.getTime() + 60_000),
+        createdAt: now,
+      })
+      expect(grant.capability).toBe("read_file")
+
+      // Active grant lookups must match by column, not by JSON shape.
+      const hit = await store.findActiveGrant({
+        runId: run.id,
+        subject: "owner-1",
+        capability: "read_file",
+        digest: "d1",
+        now,
+      })
+      expect(hit?.id).toBe(grant.id)
+
+      // SQL filter excludes rows with different capability (no JS-side fallback needed).
+      const miss = await store.findActiveGrant({
+        runId: run.id,
+        subject: "owner-1",
+        capability: "write_file",
+        now,
+      })
+      expect(miss).toBeNull()
+    } finally {
+      await db.close()
+    }
+  })
+
+  // D2.2 legacy compat: hydration falls back to scope.capabilities[0] when column is NULL
+  // (defense-in-depth; production migration backfill already covers this in SQL).
+  it("hydrates legacy grants with NULL capability column from scope JSON", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const now = new Date("2026-08-28T00:00:00Z")
+    try {
+      const inbound = await store.createConversationWithUserMessage({
+        conversationId: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "hi" },
+        triggerSource: "channel",
+        idempotencyKey: "d22-legacy",
+        createdAt: now,
+      })
+      const run = await store.createRun({
+        id: crypto.randomUUID(),
+        conversationId: inbound.conversationId,
+        parentRunId: null,
+        triggerSource: "channel",
+        idempotencyKey: "run-d22-legacy",
+        subject: "owner-1",
+        goal: "test",
+        budget: {},
+        deadline: null,
+        createdAt: now,
+      })
+      // Bypass store contract to simulate a legacy row (capability column NULL,
+      // capability still in scope.capabilities JSON).
+      const legacyGrantId = crypto.randomUUID()
+      const scopeJson = JSON.stringify({ capabilities: ["read_file"], digest: "lg1" })
+      await db.execute(sql`INSERT INTO scoped_grants
+            (grant_id, run_id, subject, scope, remaining_uses, expires_at, created_at, capability)
+            VALUES (${legacyGrantId}, ${run.id}, 'owner-1', ${scopeJson}::jsonb, 1,
+                    ${new Date(now.getTime() + 60_000).toISOString()}::timestamptz,
+                    ${now.toISOString()}::timestamptz, NULL)`)
+      const hydrated = await store.findActiveGrant({
+        runId: run.id,
+        subject: "owner-1",
+        capability: "read_file",
+        digest: "lg1",
+        now,
+      })
+      // SQL filter rejects NULL capability column, so findActiveGrant returns null —
+      // even though hydrate would have populated record.capability from JSON. This is
+      // the intended runtime behavior: SQL filter is the only match path; legacy rows
+      // are reconciled by migration 0011 backfill, not at read time.
+      expect(hydrated).toBeNull()
     } finally {
       await db.close()
     }

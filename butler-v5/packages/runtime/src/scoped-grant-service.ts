@@ -52,8 +52,8 @@ export async function issuePreconfiguredGrants(
       grantId: crypto.randomUUID(),
       runId: input.runId,
       subject: input.subject,
+      capability,
       scope: {
-        capabilities: [capability],
         maxUses: input.maxUses,
       },
       remainingUses: input.maxUses,

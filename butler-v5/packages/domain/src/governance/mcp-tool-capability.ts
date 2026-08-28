@@ -142,17 +142,15 @@ export function scopedGrantScopeTargetsMcpServer(
   return normalizeMcpServerId(scope.mcp.serverId) === normalizeMcpServerId(serverId)
 }
 
-/** Grant scope must cover the requested MCP tool; legacy grants without `mcp` use capabilities only. */
+/** Grant scope must cover the requested MCP tool; capability match is enforced separately
+ * via record.capability === request.capability (D2.2 first-class). Legacy non-MCP grants
+ * that omit mcp fall through (legacy compat preserved). */
 export function grantScopeMatchesMcpTool(
   scope: {
-    readonly capabilities: readonly string[]
     readonly mcp?: McpGrantScope
   },
   parsed: McpToolCapability,
 ): boolean {
-  if (!scope.capabilities.includes(parsed.capability)) {
-    return false
-  }
   if (!scope.mcp) {
     return true
   }

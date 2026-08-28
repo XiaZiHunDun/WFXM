@@ -29,6 +29,7 @@ function grant(
 ): ScopedGrantRecord {
   return {
     id: "grant-1",
+    capability: "read_file",
     runId: "run-1",
     subject: "owner-1",
     remainingUses: 1,
@@ -73,8 +74,8 @@ describe("decidePolicy", () => {
       policy,
       1000,
       grant({
+        capability: "send_wechat_file",
         scope: {
-          capabilities: ["send_wechat_file"],
           network: "allow",
           networkHosts: ["novac2c.cdn.weixin.qq.com"],
         },
@@ -283,8 +284,8 @@ describe("decidePolicy", () => {
       policy,
       1000,
       grant({
+        capability: "mcp_search",
         scope: {
-          capabilities: ["mcp_search"],
           digest: "mcp-search",
           network: "allow",
           mcp: { serverId: "demo", toolName: "search" },
@@ -306,7 +307,7 @@ describe("buildScopedGrantScopeFromPending", () => {
     expect(scope.mcp).toEqual({ serverId: "firecrawl", toolName: "firecrawl_scrape" })
     expect(
       grantMatchesAction(
-        grant({ scope: { ...scope, network: "allow" } }),
+        grant({ capability: "mcp_firecrawl_firecrawl_scrape", scope: { ...scope, network: "allow" } }),
         {
           kind: "command",
           capability: "mcp_firecrawl_firecrawl_scrape",

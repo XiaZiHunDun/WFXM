@@ -72,20 +72,27 @@ function toStoredStep(row: typeof steps.$inferSelect): StoredStep {
 
 function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord {
   const scope = row.scope as {
-    readonly capabilities?: readonly string[]
     readonly paths?: readonly string[]
     readonly network?: "deny" | "allow"
     readonly networkHosts?: readonly string[]
     readonly maxUses?: number
     readonly digest?: string
     readonly mcp?: { readonly serverId: string; readonly toolName: string }
+    /** Legacy backfill fallback only; new rows never set this. */
+    readonly capabilities?: readonly string[]
   }
+  // D2.2: capability column is source-of-truth; legacy rows (pre-migration) may still have
+  // scope.capabilities as a string array — fall back to index 0 if column is NULL.
+  const legacyCapability =
+    Array.isArray(scope.capabilities) && scope.capabilities.length > 0
+      ? scope.capabilities[0]
+      : ""
   return {
     id: row.grantId,
+    capability: row.capability ?? legacyCapability,
     runId: row.runId,
     subject: row.subject,
     scope: {
-      capabilities: scope.capabilities ?? [],
       ...(scope.paths ? { paths: scope.paths } : {}),
       ...(scope.network ? { network: scope.network } : {}),
       ...(scope.networkHosts ? { networkHosts: scope.networkHosts } : {}),
@@ -366,6 +373,7 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         grantId: input.grantId,
         runId: input.runId,
         subject: input.subject,
+        capability: input.capability,
         scope: input.scope,
         remainingUses: input.remainingUses,
         expiresAt: input.expiresAt,
@@ -393,6 +401,7 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
           and(
             eq(scopedGrants.runId, input.runId),
             eq(scopedGrants.subject, input.subject),
+            eq(scopedGrants.capability, input.capability),
             gt(scopedGrants.expiresAt, input.now),
           ),
         )
@@ -400,7 +409,6 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       for (const row of rows) {
         const grant = toScopedGrant(row)
         if (grant.remainingUses !== null && grant.remainingUses <= 0) continue
-        if (!grant.scope.capabilities.includes(input.capability)) continue
         if (input.resource !== undefined || input.digest !== undefined) {
           const probe: ActionRequest = {
             kind: "read",
@@ -482,14 +490,15 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       const rows = await db
         .select()
         .from(scopedGrants)
-        .where(gt(scopedGrants.expiresAt, now))
+        .where(
+          and(
+            gt(scopedGrants.expiresAt, now),
+            eq(scopedGrants.capability, capability),
+          ),
+        )
       let revoked = 0
       for (const row of rows) {
-        const grant = toScopedGrant(row)
-        if (grant.remainingUses !== null && grant.remainingUses <= 0) {
-          continue
-        }
-        if (!grant.scope.capabilities.includes(capability)) {
+        if (row.remainingUses !== null && row.remainingUses <= 0) {
           continue
         }
         await db
