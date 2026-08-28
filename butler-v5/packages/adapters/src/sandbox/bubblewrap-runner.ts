@@ -1,4 +1,5 @@
 import { resolveSandboxNetworkMode, resolveSandboxEgressIsolation } from "@butler/domain/governance/network-allowlist.js"
+import type { spawn as ChildProcessSpawn } from "node:child_process"
 import {
   buildSandboxProxyEnv,
   startEgressAllowlistProxy,
@@ -77,6 +78,8 @@ export interface BubblewrapRunInput {
   readonly runner?: ProcessRunner
   readonly bwrapPath?: string
   readonly childEnv?: NodeJS.ProcessEnv
+  /** R16 sandbox 扩面：readOnly → workspace bind 用 --ro-bind（read_file 用） */
+  readonly options?: { readonly readOnly?: boolean; readonly shareNet?: boolean }
 }
 
 export interface BubblewrapRunResult {
@@ -128,6 +131,10 @@ export async function executeArgvInSandbox(input: {
   readonly injectEnv?: Readonly<Record<string, string>>
   readonly runner?: ProcessRunner
   readonly bwrapPath?: string
+  /** R16 sandbox 扩面：read_file → workspace bind 用 --ro-bind */
+  readonly readOnly?: boolean
+  /** R16 sandbox 扩面：write_file → stdin 透传 tee-equivalent；触发时 dispatch 到 executeWriteInSandbox */
+  readonly stdinContent?: string
 }): Promise<
   BubblewrapRunResult | { readonly ok: true; readonly mode: "disabled" }
 > {
@@ -135,6 +142,18 @@ export async function executeArgvInSandbox(input: {
   const injectEnv = input.injectEnv ?? {}
   if ((env["BUTLER_V5_SANDBOX"] ?? "").trim() !== "bubblewrap") {
     return { ok: true, mode: "disabled" }
+  }
+
+  // R16 sandbox 扩面：write_file dispatch — 不走 allowlist/slirp 路径（始终 DENY profile）
+  if (input.stdinContent !== undefined) {
+    return await executeWriteInSandbox({
+      argv: input.argv,
+      workspaceRoot: input.workspaceRoot,
+      ...(input.profileName !== undefined ? { profileName: input.profileName } : {}),
+      stdinContent: input.stdinContent,
+      env,
+      ...(input.bwrapPath ? { bwrapPath: input.bwrapPath } : {}),
+    })
   }
 
   const profileName = (input.profileName ?? "").trim()
@@ -253,6 +272,7 @@ export async function executeArgvInSandbox(input: {
       ...(input.runner ? { runner: input.runner } : {}),
       ...(input.bwrapPath ? { bwrapPath: input.bwrapPath } : {}),
       ...(childEnv ? { childEnv } : {}),
+      ...(input.readOnly !== undefined ? { options: { readOnly: input.readOnly } } : {}),
     })
   } catch (err) {
     return {
@@ -293,7 +313,7 @@ export async function preflightBubblewrap(
 export function buildBubblewrapArgs(
   profile: SandboxProfile,
   argv: readonly string[],
-  options: { readonly shareNet?: boolean } = {},
+  options: { readonly shareNet?: boolean; readonly readOnly?: boolean } = {},
 ): string[] {
   const args = ["--die-with-parent"]
   if (options.shareNet) {
@@ -301,7 +321,9 @@ export function buildBubblewrapArgs(
   } else if (profile.network === "deny") {
     args.push("--unshare-net")
   }
-  args.push("--tmpfs", "/tmp", "--bind", profile.workspaceRoot, profile.workspaceRoot)
+  args.push("--tmpfs", "/tmp")
+  // R16 sandbox 扩面：read_file 用 --ro-bind（readOnly=true）防意外写；write_file 维持 --bind
+  args.push(options.readOnly ? "--ro-bind" : "--bind", profile.workspaceRoot, profile.workspaceRoot)
   for (const path of profile.readOnlySystemPaths) {
     args.push("--ro-bind", path, path)
   }
@@ -405,7 +427,7 @@ export async function runInBubblewrap(input: BubblewrapRunInput): Promise<Bubble
   }
 
   const bwrap = input.bwrapPath ?? "bwrap"
-  const args = buildBubblewrapArgs(input.profile, input.argv)
+  const args = buildBubblewrapArgs(input.profile, input.argv, input.options ?? {})
   const runner = input.runner
 
   if (!runner) {
@@ -439,4 +461,128 @@ export async function runInBubblewrap(input: BubblewrapRunInput): Promise<Bubble
       reason: err instanceof Error ? err.message : String(err),
     }
   }
+}
+
+/**
+ * R16 sandbox 扩面：write_file 走 bwrap tee-equivalent 的入口。
+ *
+ * 与 `runInBubblewrap` 的差异：(1) `stdio: ["pipe", "pipe", "pipe"]` 让 stdin
+ * 透传 host 内容（tee 写文件）；(2) inline `child_process.spawn` 不走
+ * `ProcessRunner` 抽象（`createDefaultProcessRunner:336` 用 stdio:["ignore",...]
+ * 关 stdin）；(3) `argv[0]` 不带 `/` 的 cat/tee-equivalent（`ALLOWED_RUN_COMMANDS`
+ * 类）。
+ *
+ * 注：本 helper 故意不接 slirp/allowlist proxy 路径——write_file 总是 DENY
+ * profile（`profiles.ts:54` ceiling），不走 `executeArgvInSandbox:144-156` 的
+ * allowlist 分支。如未来 write_file 被允许 allowlist，须补走
+ * `executeArgvInSandbox` 的 slirp 路径。
+ */
+export async function executeWriteInSandbox(input: {
+  readonly argv: readonly string[]
+  readonly workspaceRoot: string
+  readonly profileName?: string | null
+  readonly stdinContent: string
+  readonly env?: NodeJS.ProcessEnv
+  readonly bwrapPath?: string
+  /** 测试注入；默认 `node:child_process.spawn`。 */
+  readonly spawnFn?: typeof ChildProcessSpawn
+}): Promise<BubblewrapRunResult> {
+  if (input.argv.length === 0) {
+    return { ok: false, reason: "argv must not be empty" }
+  }
+  if (input.argv[0]?.includes("/")) {
+    return { ok: false, reason: "shell-style command paths are not allowed" }
+  }
+
+  const env = input.env ?? process.env
+  const profile = resolveSandboxProfile({
+    workspaceRoot: input.workspaceRoot,
+    ...(input.profileName !== undefined ? { profileName: input.profileName } : {}),
+  })
+
+  const bwrap = input.bwrapPath ?? "bwrap"
+  const args = buildBubblewrapArgs(profile, input.argv, { readOnly: false })
+  const quotaBytes = resolveSandboxFileQuotaBytes(env)
+  const execArgv = wrapWithFileSizeLimit([bwrap, ...args], quotaBytes)
+  const execProgram = execArgv[0] ?? bwrap
+  const execProgramArgs = execArgv.slice(1)
+
+  const spawnEnv: NodeJS.ProcessEnv = {
+    PATH: env["PATH"] ?? "/usr/bin:/bin",
+  }
+
+  const spawnImpl =
+    input.spawnFn ?? (await import("node:child_process")).spawn
+
+  return await new Promise((resolvePromise) => {
+    let settled = false
+    const outChunks: Buffer[] = []
+    const errChunks: Buffer[] = []
+    let outTotal = 0
+    let errTotal = 0
+    let child: ReturnType<typeof spawnImpl>
+    try {
+      child = spawnImpl(execProgram, [...execProgramArgs], {
+        cwd: profile.workspaceRoot,
+        env: spawnEnv,
+        stdio: ["pipe", "pipe", "pipe"],
+        detached: true,
+      })
+    } catch (err) {
+      resolvePromise({
+        ok: false,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+      return
+    }
+
+    const takeOut = (buf: Buffer) => {
+      outTotal += buf.length
+      if (outTotal <= profile.maxOutputBytes) outChunks.push(buf)
+    }
+    const takeErr = (buf: Buffer) => {
+      errTotal += buf.length
+      if (errTotal <= profile.maxOutputBytes) errChunks.push(buf)
+    }
+    child.stdout?.on("data", (b: Buffer) => takeOut(b))
+    child.stderr?.on("data", (b: Buffer) => takeErr(b))
+    const finish = (code: number) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      const stdout = Buffer.concat(outChunks).toString("utf8")
+      const stderr = Buffer.concat(errChunks).toString("utf8")
+      if (code !== 0) {
+        resolvePromise({ ok: false, stderr, reason: stderr || `exit ${code}` })
+        return
+      }
+      resolvePromise({ ok: true, stdout, stderr })
+    }
+    const timer = setTimeout(() => {
+      if (child.pid !== undefined) {
+        try {
+          process.kill(-child.pid, "SIGKILL")
+        } catch {
+          child.kill("SIGKILL")
+        }
+      } else {
+        child.kill("SIGKILL")
+      }
+    }, profile.timeoutMs)
+    child.on("close", (code) => finish(code ?? 1))
+    child.on("error", (err) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      const stderr = Buffer.concat(errChunks).toString("utf8")
+      resolvePromise({ ok: false, stderr, reason: err.message })
+    })
+
+    try {
+      child.stdin?.write(input.stdinContent)
+      child.stdin?.end()
+    } catch {
+      // error already wired via 'error' event
+    }
+  })
 }

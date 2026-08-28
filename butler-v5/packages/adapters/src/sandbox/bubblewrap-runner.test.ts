@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
+import type { spawn as ChildProcessSpawn } from "node:child_process"
 import {
   buildBubblewrapArgs,
   DEFAULT_SANDBOX_PROFILE,
   executeArgvInSandbox,
+  executeWriteInSandbox,
   preflightBubblewrap,
   resolveSandboxFileQuotaBytes,
   resolveSandboxProfile,
@@ -254,5 +256,110 @@ describe("bubblewrap runner", () => {
     } finally {
       delete process.env["BUTLER_V5_SANDBOX_MAX_FILE_BYTES"]
     }
+  })
+
+  it("buildBubblewrapArgs readOnly=true uses --ro-bind for workspace (R16)", () => {
+    const args = buildBubblewrapArgs(DEFAULT_SANDBOX_PROFILE, ["cat", "--", "x.txt"], {
+      readOnly: true,
+    })
+    // workspaceRoot 后面两个连续出现 --ro-bind 后跟 ws
+    const roIdx = args.indexOf("--ro-bind")
+    expect(roIdx).toBeGreaterThanOrEqual(0)
+    // 紧跟 ro-bind 后是 workspaceRoot（不带 --bind 副作用）
+    expect(args[roIdx + 1]).toBe(DEFAULT_SANDBOX_PROFILE.workspaceRoot)
+    expect(args[roIdx + 2]).toBe(DEFAULT_SANDBOX_PROFILE.workspaceRoot)
+    expect(args).not.toContain("--bind")
+  })
+
+  it("buildBubblewrapArgs readOnly defaults to false (--bind)", () => {
+    const args = buildBubblewrapArgs(DEFAULT_SANDBOX_PROFILE, ["tee", "x.txt"])
+    expect(args).toContain("--bind")
+    // verify workspaceRoot 紧跟 --bind
+    const bindIdx = args.indexOf("--bind")
+    expect(args[bindIdx + 1]).toBe(DEFAULT_SANDBOX_PROFILE.workspaceRoot)
+  })
+
+  it("executeArgvInSandbox readOnly=true passes options to runInBubblewrap (R16)", async () => {
+    const runner: ProcessRunner = {
+      spawn: vi.fn(async (_cmd, args) => {
+        expect(args).toContain("--ro-bind")
+        return { code: 0, stdout: "ok\n", stderr: "" }
+      }),
+    }
+    const result = await executeArgvInSandbox({
+      argv: ["cat", "--", "x.txt"],
+      workspaceRoot: "/tmp/ws",
+      readOnly: true,
+      env: { BUTLER_V5_SANDBOX: "bubblewrap" },
+      runner,
+    })
+    expect(result.ok).toBe(true)
+    expect(runner.spawn).toHaveBeenCalled()
+  })
+
+  it("executeArgvInSandbox with stdinContent routes through executeWriteInSandbox (R16)", async () => {
+    const spawnFn = vi.fn((_cmd: string, _args: readonly string[], _opts: unknown) => {
+      // 模拟 bwrap + tee 写 stdin；返回 exit 0
+      const stdinListeners: ((chunk: Buffer) => void)[] = []
+      const handlers: Record<string, ((...a: unknown[]) => void)[]> = {
+        close: [],
+        error: [],
+      }
+      return {
+        stdout: { on: (_e: string, _h: (b: Buffer) => void) => undefined },
+        stderr: { on: (_e: string, _h: (b: Buffer) => void) => undefined },
+        stdin: {
+          write: (chunk: Buffer | string) => {
+            stdinListeners.forEach((h) => h(typeof chunk === "string" ? Buffer.from(chunk) : chunk))
+          },
+          end: () => undefined,
+        },
+        pid: undefined,
+        kill: () => undefined,
+        on: (e: string, h: (...a: unknown[]) => void) => {
+          if (!handlers[e]) handlers[e] = []
+          handlers[e].push(h)
+          // 同步 close 让 promise 解析
+          if (e === "close") Promise.resolve().then(() => h(0))
+          return undefined
+        },
+      } as unknown as ReturnType<typeof spawnFn>
+    })
+    const result = await executeWriteInSandbox({
+      argv: ["tee", "x.txt"],
+      workspaceRoot: "/tmp/ws",
+      profileName: "workspace-write-network-deny",
+      stdinContent: "hello bwrap\n",
+      env: { BUTLER_V5_SANDBOX: "bubblewrap" },
+      spawnFn: spawnFn as unknown as typeof ChildProcessSpawn,
+    })
+    expect(result.ok).toBe(true)
+    expect(spawnFn).toHaveBeenCalledTimes(1)
+    // 验 program 是 bwrap + argv 是 buildBubblewrapArgs 输出（以 --die-with-parent 起）
+    const call = spawnFn.mock.calls[0] ?? []
+    const args = call[1] as readonly string[]
+    expect(args[0]).toBe("--die-with-parent")
+  })
+
+  it("executeWriteInSandbox fail-closed on empty argv (R16)", async () => {
+    const result = await executeWriteInSandbox({
+      argv: [],
+      workspaceRoot: "/tmp/ws",
+      stdinContent: "x",
+      env: { BUTLER_V5_SANDBOX: "bubblewrap" },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toMatch(/argv/)
+  })
+
+  it("executeWriteInSandbox rejects argv[0] with slash (R16)", async () => {
+    const result = await executeWriteInSandbox({
+      argv: ["/usr/bin/tee", "x.txt"],
+      workspaceRoot: "/tmp/ws",
+      stdinContent: "x",
+      env: { BUTLER_V5_SANDBOX: "bubblewrap" },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toMatch(/shell-style/)
   })
 })

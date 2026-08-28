@@ -29,6 +29,20 @@ describe("sandbox profiles", () => {
     expect(sandboxProfileForApprovedCapability("send_wechat_file")).toBeNull()
   })
 
+  it("binds deny ceiling for read_file / write_file on approve (R16 sandbox 扩面)", () => {
+    expect(sandboxProfileForApprovedCapability("read_file")).toBe(SANDBOX_PROFILE_NETWORK_DENY)
+    expect(sandboxProfileForApprovedCapability("write_file")).toBe(SANDBOX_PROFILE_NETWORK_DENY)
+    // read_file / write_file 仍受 explicit elevation 覆盖（与 run_command 一致）
+    expect(
+      sandboxProfileForApprovedCapability("read_file", { elevateNetwork: true }),
+    ).toBe(SANDBOX_PROFILE_NETWORK_ALLOW)
+    expect(
+      sandboxProfileForApprovedCapability("write_file", {
+        networkAllowlist: ["api.example.com:443"],
+      }),
+    ).toBe(SANDBOX_PROFILE_NETWORK_ALLOWLIST)
+  })
+
   it("elevates to network-allow when requested", () => {
     expect(sandboxProfileForApprovedCapability("run_command", { elevateNetwork: true })).toBe(
       SANDBOX_PROFILE_NETWORK_ALLOW,

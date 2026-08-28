@@ -51,7 +51,12 @@ export function sandboxProfileForApprovedCapability(
     return SANDBOX_PROFILE_NETWORK_ALLOWLIST
   }
   if (options.elevateNetwork) return SANDBOX_PROFILE_NETWORK_ALLOW
-  if (capability === "run_command" || capability.startsWith("mcp_")) {
+  if (
+    capability === "run_command" ||
+    capability === "read_file" ||
+    capability === "write_file" ||
+    capability.startsWith("mcp_")
+  ) {
     return SANDBOX_PROFILE_NETWORK_DENY
   }
   return null
