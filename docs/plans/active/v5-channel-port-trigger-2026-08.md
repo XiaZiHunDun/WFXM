@@ -128,7 +128,7 @@ v5 目前**没有**"channel 选型 / channel portfolio 扩展 / channel 加挂"�
 
 | Channel | 触发日期 | 状态 | 完成日期 | 证据（commit / Run-id） | 备注 |
 | --- | --- | --- | --- | --- | --- |
-| (示例行) | | | | | 表头示例；真实触发后由接班者填 |
+| slack | 2026-08-28 | in-progress | | | Owner dialog 自报；按 ADR §4 bar；代码现状在 apps/api/src/channel-{inbound,outbound,outbound-media,media}.ts，本轮搬到 packages/adapters/src/slack/ 对齐 PRD §2.1 #1 |
 
 ## 8. 不要做（重申）
 
