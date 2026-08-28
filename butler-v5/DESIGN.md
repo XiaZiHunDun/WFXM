@@ -254,6 +254,21 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 - 未设 Port 的内部函数不为"架构完整"创建接口；
 - 新的副作用能力必须实现 Capability 契约；新入口必须实现 Trigger 契约。
 
+### §7.1 已实施 Port 状态（2026-08-28 snapshot）
+
+| Port | 状态 | File | 实装 / 备注 |
+| --- | --- | --- | --- |
+| Clock | ✅ 已实施 | `packages/ports/src/core/clock.ts` | `systemClock`/`fixedClock`；注入 RunEngine（R10 P5） |
+| Credential Provider | ✅ 已实施 | `packages/ports/src/core/credential-provider.ts` | `createHostCredentialProvider`；fail-closed（R10 P2） |
+| Event Store | ✅ 已实施（窄接口） | `packages/ports/src/core/event-store.ts` | `packages/persistence/src/event-bridge.ts` 实装；旧 `EventStoreService`（R2 宽 Tag）尚由 `postgres-event-store` 引用，待迁 |
+| Capability 契约 | 🟡 实现即接口 | `packages/runtime/src/capability-boundary.ts` | 不另立接口（DESIGN §7 + AGENTS.md §0 三层事实） |
+| Repository | ⚪ 隐性承载（YAGNI） | `runtime-store.ts` 直接函数调用 | 等第二持久化实现或独立 mock 需求 |
+| Model | ⚪ 隐性承载（YAGNI） | `model-router.ts` 直连 `llm-provider.ts` | 等多 Provider 协议/记账统一需求 |
+| Channel | ⚪ 隐性承载（conditions-admit） | `packages/adapters/src/{wechat,slack,telegram}` | 等第二 Channel 真接生产 |
+| R2 Effect Tag 总线 | ⚠️ @deprecated since 2026-08-28 | `packages/ports/src/index.ts` | 5 Tag（Outbox/EventStore/Snapshot/Projection/Config）仍被 postgres 适配器引用；B-soft 过渡详见 `packages/ports/port-catalog.md` |
+
+> "ports-stable × real-need driven" 是 §7 实施准则：不预先为"架构完整"造休眠接口。新增 / 迁移 Port 时同步更新本表与 `port-catalog.md`。
+
 ---
 
 ## 8. Driving Adapters（入站/Trigger 接缝）

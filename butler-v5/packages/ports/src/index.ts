@@ -1,3 +1,29 @@
+// ──────────────────────────────────────────────────────────────────────
+//  ⚠️ @deprecated since 2026-08-28 — Effect Tag 端口正逐步迁移至 /core/*
+// ──────────────────────────────────────────────────────────────────────
+//
+// 本文件（packages/ports/src/index.ts）仍提供 R2 时代的 Effect Tag 接口
+// (LLMService / ToolExecutor / EventStoreService / OutboxService /
+//  SnapshotService / ProjectionService / LoopInterrupt / GuardService /
+//  WeChatGateway / MCPDiscovery / ProjectService / MemoryService /
+//  WorkflowService / Config)，因为 `packages/adapters/src/postgres/*`
+// 的 R2 适配器仍在引用（OutboxService / EventStoreService /
+// SnapshotService / ProjectionService / Config）。
+//
+// 新代码请直接 import 下方的物化 Core 端口：
+//
+//   import { ClockPort, systemClock, fixedClock }
+//     from "@butler/ports/core/clock.js"
+//   import type { CredentialProvider, isValidCredentialName }
+//     from "@butler/ports/core/credential-provider.js"
+//   import type { EventStorePort }
+//     from "@butler/ports/core/event-store.js"
+//
+// 等 postgres 适配器迁移到 /core/* 后，本文件 Effect Tag 类可删除并归档
+// 到 _archive/packages/ports-effect-tag-scaffold/。详见
+// packages/ports/port-catalog.md 与 DESIGN §7.1。
+//
+// 旧 header（保留以便历史追溯）：
 // ports/index.ts
 // Effect Tag 接口定义 — 所有副作用通过 Tag 注入，实现见 infrastructure/
 
@@ -258,3 +284,11 @@ export type AppConfig = {
     readonly appSecret: string
   }
 }
+
+// ─── /core/* 物化端口（DESIGN §7 P5 实施，2026-08-28）────────────
+// 新代码请优先使用这些纯 TS 接口（无 Effect 依赖、可独立单测）。
+// 与上文 R2 Effect Tag 类并存；B-soft 路径详见文件顶 deprecation 注释
+// 与 packages/ports/port-catalog.md。
+export * from "./core/clock.js"
+export * from "./core/credential-provider.js"
+export * from "./core/event-store.js"

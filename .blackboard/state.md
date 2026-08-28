@@ -1,7 +1,10 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-27 22:15_
+_last_synced: 2026-08-28 (alignment shift — 顶部段为本班 align 同步记录)_
 _handoff: .blackboard/shifts/2026-08-26-cursor-scheme-b-p1-p2.md_
+
+**目标架构对齐评估（2026-08-28）**：本班静态对齐 DESIGN §0/§3/§7/§17/§20 与生产事实，**实证校正**——`packages/ports/src/index.ts`（Effect Tag 总线、14 Tag）非死代码：`packages/adapters/src/postgres/{outbox,event-store,snapshot,projection}.ts` + `packages/config/src/index.ts` 仍引用其中 5 Tag（`OutboxService` / `EventStoreService` / `SnapshotService` / `ProjectionService` / `Config`）。**B-soft 路径**实施：(a) `index.ts` 顶加 deprecation 块、底 append `core/*` re-export；(b) 新增 `packages/ports/port-catalog.md`（port→consumer→producer 映射 + R2 迁移看板）；(c) 新增 `tests/architecture/package-membership.test.ts`（invariant 16 守卫：生产不得引 `_archive/`，`ports/src/index.ts` 须保留 Effect Tag 到 postgres 适配器迁移完成）；(d) DESIGN §7.1 实施 Port 状态表。Channel/Model/Repository Port 按 P5 **YAGNI 不物化**；Slack/Telegram 仍是 conditions-admit，等真接生产触发。**R11 前置**：`PreToolUse` hook 命令相对路径在非 WFXM 根 CWD 时落 `butler-v5/scripts/.../pre_tool_use_hook.py`（不存在），与 `project-precommit-hook-flakiness.md` R8.3 pre-commit 同款病，operator `8084fcc8` 改绝对路径恢复（commit 含 `[MANUAL-OVERRIDE]`）。
+
 
 **P5 端口化完整性 — Clock Port 已实施（2026-08-27）**：目标架构对齐评估显示唯一真缺口是时钟可注入（runtime 业务时钟分散于多模块、`ports` 仅 2 真 Port）。本轮新增 **`ClockPort`**（`packages/ports/src/core/clock.ts`，含 `systemClock` / `fixedClock`，DESIGN §7），并在 **`RunEngine`** 构造注入（默认 `systemClock`，测试可传假时钟）替换 4 处业务时间戳（createdAt / 状态成功/失败时间）；组合根 `apps/api/src/bootstrap-wiring.ts` 显式注入 `systemClock`。`ports` package.json 增 `./core/clock.js` export。甄别后**未**接入：`agent-kernel`/`delegate-runtime` 的 `Date.now()` 属 eventId/correlationId **ID 生成**（非时钟）；`scoped-grant-service`/`run-lifecycle`/`mcp-grant-lifecycle`/`normalize-inbound` 已用 `now/nowMs/createdAt` 参数注入（不重写）；观测计时（trace durationMs）保留。新增测试：ports clock.test（2 例）+ run-engine 假时钟确定性（1 例）。验证：typecheck 全绿、lint 0 警告、主测试 **990 pass**（较基线 +1）/ 1 skipped / 2 failed（环境耦合 postgres+bubblewrap，同基线无回归）。docs 同步：roadmap P5 段更新为「ClockPort 已实施，Repository/Model/Channel 仅在有替换/隔离真实需求时再物化」。
 
