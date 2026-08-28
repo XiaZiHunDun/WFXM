@@ -115,6 +115,7 @@ typecheck 10/11 全过、lint 0 警告、`test:archived` 19 文件 83 测试全�
 
 ## 上一班
 
+- 2026-08-28 (R12 cont./Phase 2)：port migration Phase 2 落盘——新增 OutboxPort / SnapshotPort / ProjectionPort 3 Core Port（`packages/ports/src/core/{outbox,snapshot,projection}.ts`，DESIGN §7/§17/§11.3）+ memory 实现 + 11 测试（4+4+3）。`ports/package.json` 增 3 exports；`ports/src/index.ts` 增 3 re-export。验证：typecheck 0 错 / lint 0 警告（`--max-warnings 0`）/ `pnpm test packages/ports` 13 通过（含旧 clock 2 例）。Phase 3a-c（postgres-outbox/snapshot/projection.ts 4 处 import 切新接口 + tryPromise 去掉）下批 commit。
 - 2026-08-28 (R12 starter)：v5 port migration PRD `docs/plans/active/v5-postgres-adapter-port-migration-2026-08.md` 写就。Scope：postgres 适配器 5 个 R2 Effect Tag → `/core/*` Port 迁移 + 9 个未消费 Tag 归档。**4 个 owner CP 待 operator 拍板**：(CP-1) EventStorePort 窄 vs 宽；(CP-2) Config 迁移走 `process.env` 直读 + zod；(CP-3) 9 Tag 归档策略（git mv 整文件推荐）；(CP-4) 已默认：Core Port 物化包归属 `packages/ports/src/core/`。本班**仅 PRD 草稿，零代码改动**。
 - 2026-08-28（本班收口）：v5 target alignment shift（commit `4fed4e02`；含 R11 hook fix `8084fcc8` 由 operator `[MANUAL-OVERRIDE]` 应用）。B-soft 路径——`packages/ports/src/index.ts` 加 @deprecated 块 + `core/*` re-export；新增 `packages/ports/port-catalog.md` 与 `tests/architecture/package-membership.test.ts`（invariant 16 守卫，4 项）；DESIGN §7.1 加实施 Port 状态表。验证 180 files 1004 pass / 1 skip / 0 failed（基线 999/1/1，+5 net）。
 - CN MiniMax 切换；slirp ProcessRunner 抽取；Scheme B delegation allowlist 策略。
