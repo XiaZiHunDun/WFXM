@@ -25,3 +25,15 @@ produced: [shift-card]
   4. R14.7 Owner 真实 Slack workspace e2e（Owner 发一条 → Butler 回一条；Run trace 完整）
   5. R14.8 ADR §7 增 slack completed 行 + per-channel PRD §3 勾选 + commit push
 - **完工后**：本卡补"完成态 / commit-sha / Run-id / 不要做 / 失误"段 + commit push
+
+## scope 决议（2026-08-28 dialog 補充，本班段后）
+
+- Owner 后补指示：**当前 dev phase 目标 = target architecture 对齐；WeChat 仍是唯一在生产 channel；不实际启用 Slack 接生产**。
+- 含义：
+  1. 协议级代码搬到 `packages/adapters/src/slack/`（mirror WeChat）作为**target architecture 预留位**——保留 ✓
+  2. adapter 层 81 例单测 + HTTP route guard 7 例——保留 ✓
+  3. **R14.7 Owner 真实 Slack workspace e2e — cancelled**（不再 deferred；不在 scope）
+  4. **`BUTLER_V5_SLACK_ENABLED` 在生产 gateway 启用 — cancelled**
+  5. ADR §7 `<slack>` 行保留 `in-progress`（trigger signal 留下但 real integration 不在 plan），备注改为 "structural alignment done; real integration deferred indefinitely"
+- 同步：per-channel PRD scope 改为"structural alignment scope closed"；`.blackboard/shifts/2026-08-28-r14-slack-channel-handoff.md` 重写下一步段为"无；待 owner 真需求出现另立 per-channel PRD"；commit `docs(slack): scope revised to structural alignment only`
+- 教训（feedback）：[[feedback-channel-trigger-scope]] —— Owner 自报 channel 时先问 scope（real integration vs structural alignment）不要默认前者

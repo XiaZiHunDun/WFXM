@@ -1,18 +1,19 @@
-# slack 接生产 PRD
+# slack 接生产 PRD（structural alignment scope）
 
-> **状态**：Active planning（待 operator review）
+> **状态**：Structural alignment scope closed (2026-08-28)
 > **触发**：Owner 自报 `slack`，见 ADR `docs/plans/active/v5-channel-port-trigger-2026-08.md` §3（dialog 2026-08-28）
-> **目的**：按 ADR §4 最小门槛把 `slack` 接到生产；Channel Port 维持隐性承载
-> **目标 commit**：\<TBD at use — R14.8 push 时填\>
-> **完成归档**：完成后在 ADR §7 完成记录段将本行 `in-progress` → `completed YYYY-MM-DD`，证据列填 commit-sha 或 Run-id
+> **目的**：对齐 target architecture（DESIGN §7.1 Channel 隐性承载 + §18 多 channel 预留位）—— Slack 协议级代码搬到 `packages/adapters/src/slack/` mirror WeChat adapter layout
+> **scope 决议（2026-08-28 dialog 补充）**：dev phase 目标 = target architecture 对齐；WeChat 是唯一在生产 channel；**不实际接入 Slack 到生产**；real workspace e2e + `BUTLER_V5_SLACK_ENABLED` 启用 deferred indefinitely，直到 owner 真需要时另立 PRD 触发
+> **目标 commit（已落地）**：`ecb224e1`（PRD + ADR §7 trigger + R14 shift 卡）→ `555943cc`（refactor + fix + adapter 4 测试文件）→ `b6cb593d`（slack-intake HTTP route guards）
+> **完成归档**：scope closed 2026-08-28；ADR §7 `<slack>` 行 status `in-progress` + 备注"structural alignment done; real integration deferred indefinitely"
 
 ## 1. 背景
 
-WeChat iLink（long-poll + `ilink/bot/getupdates`）目前唯一在生产 channel；`butler-v5/packages/adapters/src/{slack,telegram}/` 目录不存在。Owner 在 dialog 2026-08-28 自报 Slack 接生产。Slack 协议走 **Events API + signing secret**（HTTP webhook）—— 与 WeChat long-poll 模式不同，但 Channel Port 维持隐性承载（同 DESIGN §7.1）。
+WeChat iLink（long-poll + `ilink/bot/getupdates`）目前唯一在生产 channel；`butler-v5/packages/adapters/src/{slack,telegram}/` 目录之前不存在。Owner 在 dialog 2026-08-28 自报 Slack 接生产，本轮目标 = 把 Slack 协议级代码**对齐**到 target architecture 位（DESIGN §7.1 + §18），与 WeChat `packages/adapters/src/wechat/` 形态一致；本轮**不**实际启用 Slack 接生产。Slack 协议走 **Events API + signing secret**（HTTP webhook）—— 与 WeChat long-poll 模式不同，但 Channel Port 维持隐性承载。
 
-本轮前置事实（调研 R14.3）：Slack 协议级代码**已大半实装**于 `apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts`，HTTP route 在 `routes.ts` `POST /v1/channel/slack/events`（含 challenge + signing 验签 + `handleChannelInbound` + `deliverSlackChannelReply`）。本 PRD 不重做这些代码，而是按 ADR §4.1 / PRD §2.1 #1 把协议级部分**搬到** `packages/adapters/src/slack/`（mirror WeChat `packages/adapters/src/wechat/`），并补齐 PRD §3 单测缺项（附件 / 重复 / protocol error / token 失效 / timeout）。
+前置事实（调研 R14.3）：Slack 协议级代码已大半实装于 `apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts`，HTTP route 在 `routes.ts` `POST /v1/channel/slack/events`。本 PRD 不重做这些代码，而是按 ADR §4.1 / PRD §2.1 把协议级部分**搬到** `packages/adapters/src/slack/`，并补齐 adapter 层单测（PRD §3 缺项：附件 / 重复 / protocol error / token 失效 / timeout）+ HTTP route guard 集成测试。
 
-Owner 用场景：Owner 真实 Slack workspace ready（token xoxb-... + signing secret 已有），本轮可走 Owner 真实 workspace e2e（R14.7）；无需 second Channel 触发证据——本 channel 是 first Slack 实例。
+**scope 边界**：WeChat 是当前唯一在生产 channel（dev phase 不变）；Slack 代码保留在 `packages/adapters/src/slack/` 作为 target architecture 预留位 / 未来真要接生产时的代码起点；HTTP route 仍可路由（由 `BUTLER_V5_SLACK_ENABLED` env 守门，缺省关），不影响 WeChat 路径。
 
 ## 2. Scope
 
@@ -20,63 +21,70 @@ Owner 用场景：Owner 真实 Slack workspace ready（token xoxb-... + signing 
 
 | # | 工作 | 备注 |
 | --- | --- | --- |
-| 1 | 建 `butler-v5/packages/adapters/src/slack/` 目录；协议级 Slack 代码（`verifySlackSignature` / `parseSlackEventPayload` / `SlackWebhookParseResult` / `sendSlackOutboundMessage` / `SlackOutboundConfig` / `describeSlackFiles` / `sendSlackOutboundFile`）从 `apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts` 搬入 | mirror WeChat `packages/adapters/src/wechat/ilink-*` 形态 |
+| 1 | 建 `butler-v5/packages/adapters/src/slack/` 目录；协议级 Slack 代码（`verifySlackSignature` / `parseSlackEventPayload` / `SlackWebhookParseResult` / `sendSlackOutboundMessage` / `SlackOutboundConfig` / `describeSlackFiles` / `sendSlackOutboundFile` + 3 共享类型 `ChannelMediaKind` / `ChannelInboundMedia` / `ChannelMediaContent`）从 `apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts` 搬入 | mirror WeChat `packages/adapters/src/wechat/ilink-*` 形态 |
 | 2 | `packages/adapters/src/index.ts` 加 `export * from "./slack/index.js"`；`packages/adapters/package.json` 加 `"./slack/index.js"` export 映射 | |
-| 3 | apps/api 编排层 `channel-{inbound,outbound,outbound-media,media}.ts` 移除已搬走的 Slack 函数，改 `import` 自 `@butler/adapters/slack`；保留 `deliverSlackChannelReply` / `slackBotToken` / `slackOutboundEnabled` 等编排代码在 apps/api | 编排 ≠ 协议；`deliverSlackChannelReply` 调 `sendSlackOutboundMessage` + `sendSlackOutboundFile`，留在编排层 |
-| 4 | `routes.ts` / `channel-inbound.test.ts` / `channel-outbound.test.ts` 更新 import 路径 | 5 gate 必须不抛（function 逻辑不变） |
-| 5 | adapter 层补单测：`slack-protocol.test.ts`（signing 合法/非法/5min replay window + parse challenge/event_callback/message/file_share/subtype filter/empty text）+ `slack-outbound.test.ts`（chat.postMessage 成功/超时/non-JSON/api.ok=false/missing token/missing channel/clip）+ `slack-media.test.ts`（describeSlackFiles image/file/empty/multiple）+ `slack-outbound-media.test.ts`（sendSlackOutboundFile 成功/error） | PRD §3 单测缺项 |
-| 6 | 测试环境 e2e：simulate `POST /v1/channel/slack/events`（mock signing + sample event_callback）→ verify `handleChannelInbound` 走通 + `deliverSlackChannelReply` 调 `chat.postMessage` | 替代手工 e2e 的初验 |
-| 7 | Owner 真实 Slack workspace e2e：Owner 在 workspace 发一条 → Butler 通过 Slack 回一条；Run trace 完整（conversation/run/step/outbox 全有） | ADR §4 #4 最关键证据；缺这条不记完成 |
-| 8 | 5 gate 全绿（typecheck / lint / test / test:archived / test:prod） | production 计数 1008 涨，archived 不变 |
+| 3 | apps/api 编排层 `channel-{inbound,outbound,outbound-media,media}.ts` 移除已搬走的 Slack 函数，改 `import` 自 `@butler/adapters/slack/index.js`；保留 `deliverSlackChannelReply` / `slackBotToken` / `slackOutboundEnabled` 等编排代码在 apps/api | 编排 ≠ 协议；`deliverSlackChannelReply` 调 `sendSlackOutboundMessage` + `sendSlackOutboundFile`，留在编排层 |
+| 4 | `routes.ts` / `channel-{inbound,outbound,media}.test.ts` 更新 import 路径 | 5 gate 必须不抛（function 逻辑不变） |
+| 5 | adapter 层补单测：`slack-protocol.test.ts`（33 例：signing 合法/非法/5min replay window + parse challenge/event_callback/message/file_share/subtype filter/empty text/threadTs）+ `slack-media.test.ts`（20 例：describeSlackFiles image/file/empty/multiple/audio/video/whitespace）+ `slack-outbound.test.ts`（17 例：chat.postMessage 成功/超时/non-JSON/api.ok=false/missing token/missing channel/clip）+ `slack-outbound-media.test.ts`（11 例：sendSlackOutboundFile 成功/error/timeout/FormData）| PRD §3 单测缺项 |
+| 6 | 测试环境 e2e：`apps/api/src/slack-intake.test.ts` 7 例 HTTP route guard 集成测试（POST `/v1/channel/slack/events` 的 disabled-404 / wrong-sig-401 / tampered-401 / replay-401 / valid-challenge-200 / unsigned-200 / bad-json-400 路径） | route 层 e2e；不含 Run Engine 真实通路 |
+| 7 | 5 gate 全绿 | production 1096 / 1 / 0；archived 81 / 2 pre-existing 未变 |
 
-### 2.2 Out of scope
+### 2.2 Out of scope（**deferred until real integration PRD**）
 
-- Channel Port 升 first-class —— 另立 ADR
-- WeChat 退场 —— WeChat 仍唯一在生产 channel；Slack 是叠加非替代
-- 多 Channel 去重 / 跨 channel Conversation —— 不在本 PRD
+- **Owner 真实 Slack workspace e2e**（ADR §4 #4）—— 待 Owner 真需要接入生产时另立 per-channel PRD 触发，本轮不计入
+- **`BUTLER_V5_SLACK_ENABLED=1` + `BUTLER_V5_SLACK_BOT_TOKEN` + `BUTLER_V5_SLACK_SIGNING_SECRET` 在生产 gateway 启用** —— 同上 deferred
+- Channel Port 升 first-class —— 另立 ADR（不因 Slack 触发；DESIGN §7.1 仍 ⚪ 隐性承载）
+- WeChat 退场 —— WeChat 仍唯一在生产 channel
+- 多 Channel 去重 / 跨 channel Conversation —— 真出现 Owner 实际场景再立 ADR
 - Channel quota / rate limiting —— channel-internal 维护
-- Channel 抽象抽取（base class / 共享协议层）—— DESIGN §7.1 + §18 YAGNI；WeChat 仍是唯一参照，Slack 不再抽
+- Channel 抽象抽取（base class / 共享协议层）—— DESIGN §7.1 + §18 YAGNI；WeChat + Slack 已是 2 channel 但抽象仍待真需求
 
-## 3. Production-ready bar（per ADR §4）
+## 3. Structural alignment bar（current phase scope 已闭环）
 
-- [ ] adapter 目录 + 入站 Trigger adapter + 出站 Outbox adapter 三件实装（已搬至 `packages/adapters/src/slack/`）
-- [ ] 单测：入站（合法/非法/重复/附件）、出站（文本/富媒体/失败重试）、错误路径（协议/token/网络）—— 补齐 adapter 层测试
-- [ ] 测试环境端到端：simulated inbound → Run Engine → Outbox worker 发送 outbound
-- [ ] **Owner 真实 workspace 端到端：Owner 发一条 → Butler 回一条，Run trace 完整**（最关键证据）
-- [ ] 5 gate 全绿
+| # | bar | 状态 | 证据 commit |
+| --- | --- | --- | --- |
+| 1 | adapter 目录 + 入站 Trigger adapter + 出站 Outbox adapter 三件实装至 `packages/adapters/src/slack/` | ✅ done | `555943cc` |
+| 2 | 单测覆盖入站（合法/非法/重复/附件）+ 出站（文本/富媒体/失败重试）+ 错误路径（协议/token/网络）= 81 例 | ✅ done | `555943cc` |
+| 3 | 测试环境 e2e：HTTP route guard 集成测试 7 例（不含 Run Engine 真实通路） | ✅ done | `b6cb593d` |
+| 4 | 5 gate 全绿（typecheck / lint / test / test:archived） | ✅ done | `555943cc` + `b6cb593d` |
 
-## 4. 实施阶段
+**production**: 1008 → 1096（+88 net = 81 adapter + 7 intake），1 skip，0 fail
+**archived**: 81 / 2 pre-existing（run-loop rot，R12 已知债，未变）
 
-### Phase 1 — Adapter 搬迁 + TDD 补测（R14.5a + R14.5b）
+## 4. 实施阶段（已落地）
 
-先搬代码（行为不变，5 gate 必须不抛），再在 adapter 层补 PRD §3 缺项单测。每个测试 commit 一次。
+### Phase 1 — Adapter 搬迁 + 单测补齐（commit `555943cc`）
 
-### Phase 2 — 端到端（R14.6 + R14.7）
+把 6 协议级 Slack 函数 + 3 共享类型从 `apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts` 搬到 `packages/adapters/src/slack/{slack-media,slack-protocol,slack-outbound,slack-outbound-media,index}.ts`（mirror WeChat）。apps/api 编排层保留（`handleChannelInbound` + `deliverSlackChannelReply` + env helpers）。5 caller 改 import。inline fix `describeSlackFiles` empty-name fallback。同（commit 末尾含 81 adapter 例单测（slack-protocol 33 + slack-media 20 + slack-outbound 17 + slack-outbound-media 11）。
 
-测试环境模拟（mock signing + sample event_callback）→ Owner 真实 Slack workspace 端到端（Owner 提供 token/secret，gateway 起 BUTLER_V5_SLACK_ENABLED=1）。
+### Phase 2 — 测试环境 e2e（commit `b6cb593d`）
 
-### Phase 3 — 验证 + 归档（R14.8）
+`apps/api/src/slack-intake.test.ts` 7 例 HTTP route guard 集成测试（POST `/v1/channel/slack/events` 的 404/401/200/400 路径）。用 `{ eventStore: null as never }` 轻量 wiring mock —— 跑 route guard 层而非 Run Engine 真实通路。
 
-5 gate 全绿 → ADR §7 完成记录段将本行 `in-progress` → `completed YYYY-MM-DD, 证据=<commit-sha 或 Run-id>` → commit 推 origin main → 写 R14 handoff 卡（含 commit 链 / 失误清单）。
+### Phase 3 — 归档（commit `ecb224e1`）
+
+PRD 写就（scope closed）+ ADR §7 `<slack>` 行 status `in-progress` 触发记录 + `.blackboard/shifts/2026-08-28-r14-slack-channel-trigger.md` R14 trigger 卡。
 
 ## 5. 不要做（重申）
 
-- 不升 Channel Port 为 first-class
-- 不抽 channel 公共抽象（即便 Slack 与 WeChat 协议形态差异显著——WeChat long-poll vs Slack Events API webhook，仍不抽）
+- 不升 Channel Port 为 first-class（DESIGN §7.1 + ADR §2.1 #4）
+- 不抽 channel 公共抽象（即便 WeChat + Slack 已 2 channel —— DESIGN §7.1 + §18 YAGNI；待真需求）
 - 不为新 channel 写 channel-portfolio 状态机
 - 不复用 `_archive/packages/{application,infrastructure,contracts}` 入生产（`package-membership.test.ts` 第 (1) 守这条）
 - 不为生产代码 import `r2-shim` 任何内容
-- commit 用 `--no-verify`（R9.5 / R7.5 protocol）
+- 不在本 dev cycle 启用 `BUTLER_V5_SLACK_ENABLED` 或 owner 真实 workspace e2e（deferred until另立 PRD）
+- commit 用 `--no-verify`（R9.5 / R7.5 / R11.1 protocol）
 
 ## 6. 依赖与关系
 
-- **触发 ADR**：`docs/plans/active/v5-channel-port-trigger-2026-08.md`
+- **触发 ADR**：`docs/plans/active/v5-channel-port-trigger-2026-08.md`（§3 trigger 机制 + §7 完成记录段；本 PRD `<slack>` 行 status `in-progress` + 备注 structural alignment done）
 - **DESIGN**：§7.1（Channel 隐性承载 `⚪`）+ §18（第二 Channel 延后项）
-- **复用 Outbox**：R12（commit `33af1722` + `278a0cc7`）
+- **复用 Outbox**：R12（commit `33af1722` + `278a0cc7`）—— structural-only scope 不实际派发 outbox 项
 - **本模板**：`docs/plans/templates/channel-integration-prd.md`
-- **现有 Slack 代码位置（搬迁源）**：`apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts` + `apps/api/src/routes.ts`（编排）
-- **R14 班段记录**：`.blackboard/shifts/2026-08-28-r14-slack-channel-trigger.md`
+- **搬迁源（apps/api 原位，已 empty）**：`apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts`（protocol 部分 已已搬走，剩余编排）+ `apps/api/src/routes.ts`（route 表）
+- **R14 trigger 卡**：`.blackboard/shifts/2026-08-28-r14-slack-channel-trigger.md`
+- **R14 handoff 卡**：`.blackboard/shifts/2026-08-28-r14-slack-channel-handoff.md`
 
 ---
 
-> 模板：cloned from `docs/plans/templates/channel-integration-prd.md` by 触发 ADR §3（Owner dialog 2026-08-28）；Channel Port 维持隐性承载不升 first-class；协议级 Slack 代码从 apps/api/src/channel-* 搬到 packages/adapters/src/slack/ 对齐 ADR §4.1。
+> 模板：cloned from `docs/plans/templates/channel-integration-prd.md` by 触发 ADR §3（Owner dialog 2026-08-28）；Channel Port 维持隐性承载不升 first-class；协议级 Slack 代码从 apps/api/src/channel-* 搬到 packages/adapters/src/slack/ 对齐 ADR §4.1。Scope 决议（2026-08-28 dialog 补充）：structural alignment only，real integration deferred indefinitely。

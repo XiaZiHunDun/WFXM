@@ -128,7 +128,7 @@ v5 目前**没有**"channel 选型 / channel portfolio 扩展 / channel 加挂"�
 
 | Channel | 触发日期 | 状态 | 完成日期 | 证据（commit / Run-id） | 备注 |
 | --- | --- | --- | --- | --- | --- |
-| slack | 2026-08-28 | in-progress | | | Owner dialog 自报；按 ADR §4 bar；代码现状在 apps/api/src/channel-{inbound,outbound,outbound-media,media}.ts，本轮搬到 packages/adapters/src/slack/ 对齐 PRD §2.1 #1 |
+| slack | 2026-08-28 | in-progress | 2026-08-28 (scope=structural-only) | commit 555943cc + b6cb593d + ecb224e1 | Owner dialog 自报 2026-08-28；按 ADR §4.1 把协议级代码搬到 `packages/adapters/src/slack/` 对齐 PRD §2.1 #1（mirror WeChat），adapter 单测 81 例 + HTTP route guard 7 例，production 1096/1/0。**scope 决议（2026-08-28 dialog 补充）**：dev phase 目标 = target architecture 对齐；WeChat 是唯一在生产 channel；不实际启用 `BUTLER_V5_SLACK_ENABLED` 也不做 owner 真实 workspace e2e（ADR §4 #4）—— real integration deferred indefinitely 待另立 per-channel PRD 触发；本行 `in-progress` 状态保留作为 Channel Port trigger 机制存在证据 |
 
 ## 8. 不要做（重申）
 
