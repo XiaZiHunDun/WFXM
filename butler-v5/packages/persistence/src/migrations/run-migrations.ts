@@ -12,6 +12,7 @@ const MIGRATION_FILES = [
   "0008_conversation_id_text.sql",
   "0009_sandbox_network_allowlist.sql",
   "0010_project_knowledge.sql",
+  "0011_scoped_grant_capability_column.sql",
 ] as const
 
 export type MigrationFileName = (typeof MIGRATION_FILES)[number]

@@ -160,6 +160,9 @@ export const scopedGrants = pgTable(
     sandboxProfile: text("sandbox_profile"),
     /** host:port egress allowlist when sandboxProfile is network-allowlist (P2b). */
     networkAllowlist: jsonb("network_allowlist").$type<readonly string[] | null>(),
+    /** D2.2: first-class capability column (DESIGN §10.3). Source-of-truth mirror of
+     * scope->'capabilities'->0; nullable for legacy rows until backfill is verified. */
+    capability: text("capability"),
   },
   (t) => ({
     runIdx: index("scoped_grants_run_idx").on(t.runId, t.expiresAt),
