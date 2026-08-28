@@ -1,7 +1,9 @@
 # Butler v5 Port Catalog
 
 DESIGN §7 端口契约的当前**实际**消费/实现映射。
-本文件与 `packages/ports/src/index.ts` 顶部 deprecation 注释保持同步。
+本文件与 `packages/ports/src/index.ts`（thin barrel）顶部注释保持同步。
+
+最近更新：2026-08-28 R12 收尾——R2 Effect Tag 体系（14 个 Effect Tag）已整体归档（commit `33af1722`，详见 §2 历史段）。
 
 ---
 
@@ -12,26 +14,25 @@ DESIGN §7 端口契约的当前**实际**消费/实现映射。
 | **Clock** | `packages/ports/src/core/clock.ts` | `packages/runtime/src/run-engine.ts` (`systemClock`, `ClockPort`) | `apps/api/src/bootstrap-wiring.ts` (`systemClock`); tests (`fixedClock`) | RunEngine 构造注入 |
 | **Credential Provider** | `packages/ports/src/core/credential-provider.ts` | `apps/api/src/workspace-tools.ts`, `packages/adapters/src/credentials/host-credentials.ts` | `packages/adapters/src/credentials/host-credentials.ts` (`createHostCredentialProvider`, `injectRunCommandCredentials`) | wiring + run_command 执行前 |
 | **Event Store** | `packages/ports/src/core/event-store.ts` | `packages/runtime/src/agent-kernel.ts`, `packages/runtime/src/delegate-runtime.ts`, `packages/persistence/src/event-bridge.ts` | `packages/persistence/src/event-bridge.ts` | wiring |
+| **Outbox** | `packages/ports/src/core/outbox.ts` | R12 production runtime 直调 `@butler/persistence/outbox.js`；新 Port 为未来替换/隔离触发的接缝 | `memoryOutbox()` (本文件提供)；prod 实现待 R5.x 触发 | wiring |
+| **Snapshot** | `packages/ports/src/core/snapshot.ts` | R12 production runtime 直调 `@butler/persistence/snapshot.js`；同上 | `memorySnapshot()` (本文件)；prod 实现待触发 | wiring |
+| **Projection** | `packages/ports/src/core/projection.ts` | R12 production runtime 直调 `@butler/persistence/projections.js`；同上 | `memoryProjection()` (本文件)；prod 实现待触发 | wiring |
 
 ---
 
-## 2. R2 Effect Tag 端口（`packages/ports/src/index.ts` — @deprecated 2026-08-28）
+## 2. R2 Effect Tag 体系（**已归档 2026-08-28**）
 
-仍由 `packages/adapters/src/postgres/*` 引用；**待 postgres 适配器迁移到 `/core/*` 后归档**。
-本表是迁移看板，并非"已实施"清单。
+R2 时代的 14 个 Effect Tag 接口（`LLMService` / `ToolExecutor` / `EventStoreService` / `OutboxService` / `SnapshotService` / `ProjectionService` / `LoopInterrupt` / `GuardService` / `WeChatGateway` / `MCPDiscovery` / `ProjectService` / `MemoryService` / `WorkflowService` / `Config`）已随 commit `33af1722` 整体归档：
 
-| Tag | 生产 consumer | 状态 |
-| --- | --- | --- |
-| `OutboxService` | `packages/adapters/src/postgres/postgres-outbox.ts` | 待迁移 |
-| `EventStoreService` | `packages/adapters/src/postgres/postgres-event-store.ts` | 与 `/core/event-store.ts` 已并存；postgres 适配器需切到窄接口后归档 |
-| `SnapshotService` | `packages/adapters/src/postgres/postgres-snapshot.ts` | 待迁移 |
-| `ProjectionService` | `packages/adapters/src/postgres/postgres-projection.ts` | 待迁移 |
-| `Config` | `packages/config/src/index.ts` | 待迁（注意：与 `BUTLER_V5_*` env config 不同；本端口是 R2 时代 concept） |
-| `LLMService` / `ToolExecutor` / `LoopInterrupt` / `GuardService` / `WeChatGateway` / `MCPDiscovery` / `ProjectService` / `MemoryService` / `WorkflowService` | **当前生产 delivery shell 不引用** (async/await + capability-boundary 已替代) | 待清理 / 归档 |
+- `packages/ports/src/index.ts` 改写为 thin barrel（`export * from "./core/*"`），全部 Tag 类移除
+- 生产 runtime 不经这些 Tag 注入面（async/await + 直调 `@butler/persistence`）
+- postgres 适配器 4 文件为 R2 adapter skeleton（实测零 caller），`git rm` 一并清理
+- `Config` Tag 被 `loadConfig()` 纯函数取代（`packages/config/src/index.ts`）
 
-> 注：`MemoryService.dream` 对应 DESIGN §12 明文"当前不建设"的 Dream 两阶段巩固；
-> `WorkflowService.start/send/merge` 对应 DESIGN §2 明文"不为未来规模预建通用 Workflow DAG"；
-> `GuardService` 10 项含 `[G-9]`/`[G-10]` 是 AGENTS/butler-v5 §10 开发守卫，**不应进入生产 runtime**（production-architecture §0 / AGENTS §0 已分）。
+完整 14 Tag 原文保留在 git history（commit `33af1722^`）。需参考可用：
+`git show 33af1722^:butler-v5/packages/ports/src/index.ts`。
+
+DESIGN 不变量 [G-4]：原 `GuardService` 10 项（含 `[G-9]` `[G-10]`）属开发仓库守卫，**不应进入生产 runtime**——归档历史已合于此原则（agentry §0 / butler-v5 §0 同分）。
 
 ---
 

@@ -265,7 +265,7 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 | Repository | ⚪ 隐性承载（YAGNI） | `runtime-store.ts` 直接函数调用 | 等第二持久化实现或独立 mock 需求 |
 | Model | ⚪ 隐性承载（YAGNI） | `model-router.ts` 直连 `llm-provider.ts` | 等多 Provider 协议/记账统一需求 |
 | Channel | ⚪ 隐性承载（conditions-admit） | `packages/adapters/src/{wechat,slack,telegram}` | 等第二 Channel 真接生产 |
-| R2 Effect Tag 总线 | ⚠️ @deprecated since 2026-08-28 | `packages/ports/src/index.ts` | 5 Tag（Outbox/EventStore/Snapshot/Projection/Config）仍被 postgres 适配器引用；B-soft 过渡详见 `packages/ports/port-catalog.md` |
+| v5 Ports 总入口 (thin barrel) | ✅ thin barrel（仅 `export * from "./core/*"`）| `packages/ports/src/index.ts` | 260 行 R2 Effect Tag 类全部归档（commit `33af1722`） |
 
 > "ports-stable × real-need driven" 是 §7 实施准则：不预先为"架构完整"造休眠接口。新增 / 迁移 Port 时同步更新本表与 `port-catalog.md`。
 
