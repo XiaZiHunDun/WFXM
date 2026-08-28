@@ -29,12 +29,13 @@
 
 ## AI 保护迁移说明
 
-根 `.cursorrules`、hooks 与下方保护表仍包含 v4 保护项。在等价 v5 保护建立并经人工复核前：
+**v5 保护已建立并经 operator 复核（2026-08-27）**：preflight 9/9、post/pre hook 冒烟 PASS（v5 vitest 映射 + 承重文件 block）、`.cursorrules` v5 banner 与 `butler-v5/AGENTS.md` §0 就位，验收见 [`v5-ai-guard-migration-checklist-2026-08.md`](docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md)。
+
+根 `.cursorrules`、hooks 与下方保护表仍包含 v4 保护项，作为 v4 兼容层保留：
 
 - 继续遵守这些保护，不得擅自移除；
 - 但它们不是 v5 产品架构或能力现状的事实来源；
-- 修改 AI 守卫、`.claude/settings.json` 或受保护文件仍需人工操作；
-- v5 保护迁移按 [`v5-ai-guard-migration-checklist-2026-08.md`](docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md) 由人工执行，不在普通功能变更中顺手修改。
+- 修改 AI 守卫、`.claude/settings.json` 或受保护文件仍需人工操作（含 `[MANUAL-OVERRIDE]` 提交流程）。
 
 ---
 
