@@ -12,10 +12,8 @@ import {
 import {
   ChannelInboundError,
   handleChannelInbound,
-  parseSlackEventPayload,
   parseTelegramUpdate,
   telegramWebhookAuthorized,
-  verifySlackSignature,
 } from "./channel-inbound.js"
 import {
   deliverSlackChannelReply,
@@ -24,6 +22,10 @@ import {
   telegramBotToken,
 } from "./channel-outbound.js"
 import { resolveTelegramInboundContent } from "./channel-media.js"
+import {
+  parseSlackEventPayload,
+  verifySlackSignature,
+} from "@butler/adapters/slack/index.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import { isWechatIntakeEnabled, routeWechatIntake } from "./wechat-intake.js"
 import { resolveWechatInboundProjectId } from "./wechat-active-project.js"

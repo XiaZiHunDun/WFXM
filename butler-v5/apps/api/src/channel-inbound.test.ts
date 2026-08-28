@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { createHmac } from "node:crypto"
-import {
-  parseSlackEventPayload,
-  parseTelegramUpdate,
-  telegramWebhookAuthorized,
-  verifySlackSignature,
-} from "./channel-inbound.js"
+import { parseTelegramUpdate, telegramWebhookAuthorized } from "./channel-inbound.js"
+import { parseSlackEventPayload, verifySlackSignature } from "@butler/adapters/slack/index.js"
 
 describe("slack channel adapter", () => {
   it("returns url_verification challenge", () => {

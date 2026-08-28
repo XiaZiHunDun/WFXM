@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
-import {
-  sendSlackOutboundMessage,
-  sendTelegramOutboundMessage,
-  slackOutboundEnabled,
-} from "./channel-outbound.js"
+import { sendTelegramOutboundMessage, slackOutboundEnabled } from "./channel-outbound.js"
+import { sendSlackOutboundMessage } from "@butler/adapters/slack/index.js"
 
 describe("channel outbound", () => {
   it("posts slack chat.postMessage", async () => {

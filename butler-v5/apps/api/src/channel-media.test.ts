@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
+import { describeSlackFiles } from "@butler/adapters/slack/index.js"
 import {
-  describeSlackFiles,
   describeTelegramMedia,
   downloadTelegramFile,
   enrichTelegramMediaContent,

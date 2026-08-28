@@ -1,22 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import type {
+  ChannelInboundMedia,
+  ChannelMediaContent,
+  ChannelMediaKind,
+} from "@butler/adapters/slack/index.js"
 
-export type ChannelMediaKind = "image" | "file" | "audio" | "video"
-
-export interface ChannelInboundMedia {
-  readonly kind: ChannelMediaKind
-  readonly name?: string
-  readonly mimeType?: string
-  readonly fileId?: string
-  readonly url?: string
-  readonly sizeBytes?: number
-  readonly localPath?: string
-}
-
-export interface ChannelMediaContent {
-  readonly content: string
-  readonly media: readonly ChannelInboundMedia[]
-}
+export type { ChannelInboundMedia, ChannelMediaContent, ChannelMediaKind }
 
 function envTruthy(raw: string | undefined): boolean {
   if (!raw) return false
@@ -32,45 +22,6 @@ export function telegramMediaCacheDir(env: NodeJS.ProcessEnv = process.env): str
   const custom = (env["BUTLER_V5_TELEGRAM_MEDIA_DIR"] ?? "").trim()
   if (custom) return custom
   return join(process.cwd(), ".butler-v5", "telegram-media")
-}
-
-function slackMediaKind(mimeType: string): ChannelMediaKind {
-  if (mimeType.startsWith("image/")) return "image"
-  if (mimeType.startsWith("audio/")) return "audio"
-  if (mimeType.startsWith("video/")) return "video"
-  return "file"
-}
-
-export function describeSlackFiles(
-  files: unknown,
-  textFallback = "",
-): ChannelMediaContent | null {
-  if (!Array.isArray(files) || files.length === 0) return null
-  const media: ChannelInboundMedia[] = []
-  const lines: string[] = []
-  for (const entry of files) {
-    if (!entry || typeof entry !== "object") continue
-    const rec = entry as Record<string, unknown>
-    const name = typeof rec["name"] === "string" ? rec["name"].trim() : "attachment"
-    const mimeType = typeof rec["mimetype"] === "string" ? rec["mimetype"] : "application/octet-stream"
-    const url = typeof rec["url_private"] === "string" ? rec["url_private"] : undefined
-    const sizeBytes = typeof rec["size"] === "number" ? rec["size"] : undefined
-    const kind = slackMediaKind(mimeType)
-    media.push({
-      kind,
-      name,
-      mimeType,
-      ...(url ? { url } : {}),
-      ...(sizeBytes !== undefined ? { sizeBytes } : {}),
-    })
-    lines.push(`[slack ${kind} name=${name} mimetype=${mimeType}]`)
-  }
-  if (media.length === 0) return null
-  const caption = textFallback.trim()
-  const content = caption
-    ? `${caption}\n${lines.join("\n")}`
-    : lines.join("\n")
-  return { content, media }
 }
 
 export function describeTelegramMedia(msg: Record<string, unknown>): ChannelMediaContent | null {
