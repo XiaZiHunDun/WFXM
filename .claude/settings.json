@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 scripts/ai_guard/pre_tool_use_hook.py"
+            "command": "python3 /home/ailearn/projects/WFXM/scripts/ai_guard/pre_tool_use_hook.py"
           }
         ]
       }
