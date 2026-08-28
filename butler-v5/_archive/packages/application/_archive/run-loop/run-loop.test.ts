@@ -8,20 +8,23 @@ import {
   MockLoopInterruptLive,
   MockEventStoreLive,
 } from "./index.js"
-import { LLMService } from "@butler/ports"
+import { Config, LLMService } from "@butler/ports"
 import { makeTestConfig } from "@butler/config"
 import type { ConversationId } from "@butler/domain"
 
 const cid = "conv-test-1" as unknown as ConversationId
 
 // 组合所有 Mock Layer
+// 注意：makeTestConfig() 返回 plain AppConfig 对象（不是 Effect Layer），
+// 必须用 Layer.succeed(Config, ...) 把它包成 Layer 才能进 Layer.mergeAll。
+// 不包会导致 runtime 找不到 Config 服务，Die with "Not a valid effect: undefined"。
 const AllTestLayers = Layer.mergeAll(
   MockLLMLive,
   MockToolExecutorLive,
   MockGuardServiceLive,
   MockLoopInterruptLive,
   MockEventStoreLive,
-  makeTestConfig(),
+  Layer.succeed(Config, makeTestConfig()),
 )
 
 // 永不完成的 Mock LLM（每次回复不含 done/完成）
@@ -72,7 +75,7 @@ describe("run-loop", () => {
       MockGuardServiceLive,
       MockLoopInterruptLive,
       MockEventStoreLive,
-      lowConfig,
+      Layer.succeed(Config, lowConfig),
     )
 
     const program = Effect.provide(
