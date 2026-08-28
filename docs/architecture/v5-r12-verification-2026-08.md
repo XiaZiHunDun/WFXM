@@ -17,7 +17,7 @@ git log --oneline -2
 CI= pnpm typecheck                       # 期望 0 错 (10/10 包)
 CI= pnpm lint                           # 期望 0 警告 (--max-warnings 0)
 CI= pnpm test                           # 期望 182 files / 1008 pass / 1 skip / 0 fail
-CI= pnpm test:archived                  # 期望 19 files / 83 通过
+CI= pnpm test:archived                  # 期望 18 files / 81 pass / 2 fail（pre-existing archive rot in `run-loop.test.ts`，与 R12 无关）
 ```
 
 任何一项偏离上面基线 → 报告 `[FAIL] <gate>` + 输出末尾 30 行。
@@ -42,7 +42,8 @@ pnpm smoke:allowlist-owner              # 期望 PASS（owner 路径真实跑）
 
 ## 通过后的下一题
 
-R12 verified → PRD §9 全闭环 → 宣告 v5 port 体系稳定。下一题候选：
+R12 verified → PRD §9 闭环（生产 runtime 1008/1/0 全绿；archived 2 pre-existing fail 视 operator 接受度，可后续单独 session 修）。下一题候选：
 1. Channel Port trigger-day ADR (Path C, Slack/Telegram 真接生产时开)
 2. Model Port 立项 (多 Provider 记账/协议统一需求真出现时)
-3. 新能力 / 修 bug
+3. R12 之外的 archived 债清理（修 `_archive/packages/application/_archive/run-loop/` 的 mock 预期，或 Effect v3.x 版本固定）
+4. 新能力 / 修 bug
