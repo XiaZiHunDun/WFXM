@@ -1,16 +1,5 @@
 {
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /home/ailearn/projects/WFXM/scripts/ai_guard/post_tool_use_hook.py"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "matcher": "",
@@ -18,17 +7,6 @@
           {
             "type": "command",
             "command": "BLACKBOARD_AGENT=claude-code BLACKBOARD_ROOT=/home/ailearn/projects/WFXM/.blackboard python3 /home/ailearn/projects/WFXM/scripts/claude_session_end_v5.py"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /home/ailearn/projects/WFXM/scripts/ai_guard/pre_tool_use_hook.py"
           }
         ]
       }

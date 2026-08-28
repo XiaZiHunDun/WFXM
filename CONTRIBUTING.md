@@ -58,20 +58,17 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 
 完整矩阵：[`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) §3。
 
-## AI 工具保护机制
+## AI 工具行为规则
 
-本项目已部署多层保护防止 AI 工具错改代码。**所有 AI 编码工具必须遵守 [`/.cursorrules`](/.cursorrules)**。详见 [`AGENTS.md`](AGENTS.md) §"AI 工具保护机制"。
+本项目 AI 编码行为规则见 [`.cursorrules`](/.cursorrules) + [`AGENTS.md`](AGENTS.md)。**承重文件保护已退役 R17 (2026-08-28)** —— 此前由 `scripts/ai_guard/pre_tool_use_hook.py` + `post_tool_use_hook.py` 提供的 PreToolUse/PostToolUse 强制 block 链路已移除（DESIGN §19 工程治理 ≠ 目标架构），改为：
 
-| 保护层 | 文件 | 触发时机 |
-|--------|------|----------|
-| 行为规则 | `.cursorrules` | AI 工具启动 |
-| PreToolUse | `scripts/ai_guard/pre_tool_use_hook.py` | Edit/Write/DeleteFile 前 |
-| PostToolUse | `scripts/ai_guard/post_tool_use_hook.py` | Edit/Write 后 |
-| pre-commit | `scripts/ai_guard/pre_commit_hook.sh` | `git commit` 前 |
-| 契约测试 | `tests/contracts/` | `pytest` 运行时 |
-| Stop hook | `.claude/settings.json` | 会话结束（hard gate） |
+- commit review（operator 每条 commit 复核）
+- 5 gate 兜底（typecheck + lint + test + test:archived + build）
+- architecture tests 兜底（`tests/architecture/*` 共 12 个，含 invariant 12/16 等）
 
-人工覆盖：commit message 包含 `[MANUAL-OVERRIDE]` 标记可绕过受保护文件检查（仍会跑层依赖测试）。
+历史 ADR：`docs/adr/2026-08-08-hook-path-fix-manual-override.md`（记录 hook 退役前的修复历程）。
+
+CI/local gate 仍用 `scripts/ai_guard/file_size_check.py` 与 `scripts/ai_guard/pre_commit_hook.sh`（git pre-commit 机制）；`--no-verify` 仍可用绕过（per R9.5 protocol）。
 
 ## 代码复杂度约定（ENG-1）
 

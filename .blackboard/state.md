@@ -1,7 +1,10 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-08-28 (R16 sandbox bwrap 扩面 part-1 闭环 + part-2 待 operator manual override)_
-_handoff: .blackboard/shifts/2026-08-28-r16-sandbox-bwrap-extend-handoff.md_
+_last_synced: 2026-08-28 (R17 v5 AI guard hook 退役)
+_handoff: .blackboard/shifts/2026-08-28-r17-ai-guard-retire-handoff.md
+
+**R17 v5 AI guard hook 退役（2026-08-28）**：兑现 R16 part-2 hook friction → DESIGN §19 评估。Hook 不属于产品运行时架构（§19 明文"工程治理 ≠ 架构"），仅是工程治理工具（保护承重文件不被 AI 直接改）。R16.3 (workspace-tools.ts dispatch) 被 hook 拦 → 评估 hook 必要性 → 决定去除。变更：`.claude/settings.json` 移除 PreToolUse + PostToolUse 配置（保留 Stop session hook `claude_session_end_v5.py`）；`git rm scripts/ai_guard/{pre,post}_tool_use_hook.py` + `__pycache__`；`scripts/v5_ai_guard/` 整目录删（迁移脚本目标已无）；`docs/plans/active/v5-ai-guard-migration-*.md` → `docs/plans/archive/`（migration checklist obsolete）。保留：`scripts/ai_guard/file_size_check.py`（CI gate `ci.yml:335` 使用）+ `scripts/ai_guard/pre_commit_hook.sh`（git pre-commit 是 git 机制而非 Claude Code hook，R9.5 protocol 用 `--no-verify` 绕过）+ `docs/adr/2026-08-08-hook-path-fix-manual-override.md`（历史 ADR）。后续审查由 commit review + 5 gate + architecture tests 兜底（typecheck + lint + test + test:archived + `tests/architecture/*`）。**重要约束**：CI gate 仍跑（含 `tests/architecture/dependency-direction.test.ts` invariant 12 + `package-membership.test.ts` invariant 16 + `mcp-contract.test.ts` + `side-effect-throat.test.ts` 等）；commit review 仍由 operator（你）把关每条 commit。
+
 
 **R16 Sandbox bwrap 扩面（2026-08-28 part-1 闭环）**：兑现 handoff `2026-08-28-r11-r12-handoff.md` §5.5 缺口。3 commits + 1 docs：(1) `2a2ea2cc` sandbox(bwrap): add readOnly + executeWriteInSandbox + DENY ceiling for read/write —— profiles.ts:54 加 read_file/write_file → SANDBOX_PROFILE_NETWORK_DENY；bubblewrap-runner.ts 扩 buildBubblewrapArgs.readOnly + executeWriteInSandbox (inline spawn stdin pipe)。(2) `5cd5e660` sandbox(mcp): gate MCP stdio spawn behind BUTLER_V5_SANDBOX=bubblewrap —— apps/api/src/mcp-spawn.ts:128 isSandboxEnabled gate；host-side 读 globalThis.process.env（不读 options.env，避免 caller 传空 env bypass）。(3) `f7477386` test(arch): guard MCP bwrap gate + workspace-tools sandbox wiring —— 静态 grep 守卫锁 mcp-spawn.ts + workspace-tools.ts。**R16.3 卡 v5 AI guard PROTECTED_FILES**（scripts/ai_guard/pre_tool_use_hook.py:52 列 `butler-v5/apps/api/src/workspace-tools.ts` 为禁改文件），须 operator 走 `[MANUAL-OVERRIDE]` 流程（GitHub issue + 人工改 + 完整门禁）；本班移交：arch guard `workspace-sandbox-arch.test.ts` 当前 1/3 pass（2 fail 是 R16.3 待办的具体路径 import + stdinContent + executeArgvInSandbox），operator 改完自动 3/3。教训 → `feedback-v5-ai-guard-protected-files.md`：AI 不能动承重文件，拆 commit + 留 arch guard 是标准流程。验证 typecheck 0 错 / lint 0 警告 / 主测试 1106 pass / 1 skip / 0 fail（基线 1096，+10 net）/ archived 83 / 0。
 
@@ -115,7 +118,7 @@ typecheck 10/11 全过、lint 0 警告、`test:archived` 19 文件 83 测试全�
 
 - 改 `wechat-inbound-butler.ts`
 - live smoke 升格 PR 硬门槛
-- 不改受保护 AI 守卫（`scripts/ai_guard/*.py`、AGENTS、.cursorrules）除非 operator 明确授权
+- R17 起 v5 AI guard hook 已退役；承重文件改动走 commit review + 5 gate 兜底（不在工程治理层强制 block）
 
 ## 上一班
 

@@ -63,16 +63,18 @@ Butler v5 是微信编码管家的**模块化单体**，采用 TypeScript，目�
 - 开发仓库：scope-boundaries、pre-tool hooks、§十 GUARD（不混入产品运行时）
 - 用户的明确要求
 
-## 四、受保护文件（BLOCK：绝不允许 AI 直接修改）
+## 四、关键文件（review 后可改；不再 block）
 
-**仓库级 PreToolUse**（`scripts/ai_guard/pre_tool_use_hook.py`）另保护 v5 生产承重文件，完整清单见 [`docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md`](../../docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md)。
+**R17 (2026-08-28) 退役 v5 AI guard hook**（DESIGN §19 工程治理 ≠ 目标架构）后，原"BLOCK：绝不允许 AI 直接修改"链路已移除。下表文件**仍需人工 review**，但不再被强制 block —— AI 工具可改，commit review + 5 gate + architecture tests 兜底。
 
-| 文件                              | 原因                                   |
+| 文件                              | 风险                                   |
 | --------------------------------- | -------------------------------------- |
-| `packages/domain/src/errors.ts`   | 全局错误 ADT，修改需人工 + 契约测试    |
-| `packages/ports/src/index.ts`     | Effect Tag 接口，修改需人工 + 契约测试 |
-| `.cursorrules`                    | AI 守卫自身，防止自我解除              |
-| `AGENTS.md`                       | 本文件，防止行为契约被篡改             |
+| `packages/domain/src/errors.ts`   | 全局错误 ADT，contract test 兜底       |
+| `packages/ports/src/index.ts`     | Effect Tag 接口（thin barrel），package-membership.test 兜底 |
+| `.cursorrules`                    | AI 行为规则，由 .blackboard/state.md 不要做段兜底 |
+| `AGENTS.md`                       | 本文件，由 .blackboard/state.md 顶部班段兜底 |
+
+承重文件保护历史 ADR：`docs/adr/2026-08-08-hook-path-fix-manual-override.md`（R17 退役前最后修复）。
 | `.butler/scope-boundaries.json`   | 安全边界配置                           |
 | `.butler/load-bearing-marks.json` | 承重代码标记                           |
 

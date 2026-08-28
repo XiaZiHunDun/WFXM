@@ -3,8 +3,9 @@
 # 新会话前 30 秒：.blackboard/state.md → butler-v5/AGENTS.md → docs/architecture/v5-production-architecture-2026-08.md
 # 改 butler-v5/ 后：cd butler-v5 && pnpm test
 #
-# 受保护文件 SSOT：scripts/ai_guard/pre_tool_use_hook.py → PROTECTED_FILES / PROTECTED_DIR_PATTERNS
-# v5 守卫清单：docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md
+# R17 (2026-08-28) 起，v5 AI guard hook 已退役（DESIGN §19 工程治理 ≠ 目标架构）。
+# 原 PreToolUse block + PROTECTED_FILES 清单由 commit review + 5 gate + architecture tests 兜底。
+# 历史 ADR：docs/adr/2026-08-08-hook-path-fix-manual-override.md
 #
 # 以下 Legacy v4 规则仍保留，直至 v4 完全只读归档。
 
@@ -16,9 +17,9 @@
 
 以下操作**绝不允许**，无论何种理由：
 
-### 1. 禁止修改受保护文件
+### 1. 禁止修改目标架构承重文件（commit review 兜底）
 
-**SSOT**：`scripts/ai_guard/pre_tool_use_hook.py` 中的 `PROTECTED_FILES`（PreToolUse 自动 block）。
+**R17 (2026-08-28) 后，原 PreToolUse hook block 链路已退役。** 现"承重文件"概念由 commit review + 5 gate + architecture tests 兜底，**不强制 block AI 改**。下表为"高风险 — 提交前必须 review"清单：
 
 #### v5 生产承重文件（Butler v5 主线）
 
@@ -32,22 +33,19 @@
 - `butler-v5/packages/runtime/src/capability-boundary.ts` — 能力边界
 - `butler-v5/packages/persistence/src/migrations/0001_initial.sql` — 生产 schema
 
-受保护目录（warn）：`butler-v5/packages/persistence/src/migrations/`（非 0001 亦需人工 + 迁移测试）
+迁移目录（warn）：`butler-v5/packages/persistence/src/migrations/`（非 0001 亦需迁移测试）。
 
 #### 仓库级 + Legacy v4
 
 - `pyproject.toml` — 项目配置
 - `.claude/settings.json` — AI 工具配置
-- `scripts/ai_guard/*.py` — AI 保护脚本
 - `.blackboard/README.md` — 交接规约
 - `butler/core/agent_loop/loop.py` — v4 核心循环（legacy）
 - `butler/contracts/__init__.py` — v4 契约层入口（legacy）
 
-如需修改，必须：
-1. 在 GitHub 创建 issue 说明原因
-2. 由人工修改
-3. v5 文件：改后 `cd butler-v5 && pnpm test`；v4 文件：`./scripts/butler-pytest-fast-gate.sh`
-4. commit message 含 `[MANUAL-OVERRIDE]`
+修改前必跑（commit review 兜底，5 gate 兜底）：
+1. v5 文件：改后 `cd butler-v5 && pnpm test && pnpm typecheck && pnpm lint`
+2. v4 文件：`./scripts/butler-pytest-fast-gate.sh`
 
 ### 2. 禁止删除 Shim 文件（Legacy v4）
 带 `DeprecationWarning` 的 shim 文件（约 37 个）是向后兼容层。
@@ -75,19 +73,17 @@ v5 Port/Tag 接口：`butler-v5/packages/ports/src/index.ts`、`packages/domain/
 ### 5. 禁止通配符 import（G4）
 - 不要使用 `from X import *` / `import *` — 会污染命名空间、隐藏依赖
 - Python：显式列出所有导入名；TypeScript：显式 named import
-- PreToolUse hook 会自动检测并阻止
+- ESLint `@typescript-eslint/consistent-type-imports` 与 `array-type` rule 强制
 
 ### 6. 禁止删除或注释 `__all__`（G4，Legacy v4 Python）
 - 不要用 `# __all__ = [...]` 注释掉模块的公共接口
 - 不要用 `del __all__` 删除导出列表
 - 修改 `__all__` 时只能**追加**新导出，不能删除已有导出
-- PreToolUse hook 会对注释/删除 `__all__` 发出警告
 
 ### 7. 禁止提交密钥/凭证（G3）
 - 不要在代码中硬编码 API key、JWT、RSA 私钥、AWS 凭证
 - 不要将 `.env`、`secrets.yaml` 加入版本控制
 - pre-commit hook 会扫描 OpenAI (`sk-`)、AWS (`AKIA`)、GitHub (`ghp_`)、JWT、RSA 私钥模式
-- 如需提交测试 fixture，在 commit message 中包含 `[MANUAL-OVERRIDE]`
 
 ## 强制要求（MUST）
 
@@ -103,7 +99,8 @@ v5 Port/Tag 接口：`butler-v5/packages/ports/src/index.ts`、`packages/domain/
 ```bash
 cd butler-v5 && pnpm test
 # 类型检查：cd butler-v5 && pnpm typecheck
-# PostToolUse 会自动映射 vitest 子集（见 v5-ai-guard-migration-checklist）
+# lint：cd butler-v5 && pnpm lint
+# 完整 5 gate：CI= pnpm typecheck && CI= pnpm lint && CI= pnpm test && CI= pnpm test:archived && CI= pnpm build
 ```
 
 **butler/（Legacy v4，仅改 v4 时）**：
