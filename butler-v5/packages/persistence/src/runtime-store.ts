@@ -524,5 +524,17 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         .orderBy(asc(runs.deadline))
       return rows.map(toStoredRun)
     },
+
+    async findChildRuns(parentRunId) {
+      // D4-arch-align: child Runs of `parentRunId` regardless of status. Used by
+      // cancelRun cascade. Returns ordered by createdAt desc (most recent first)
+      // so a downstream caller can process in stable order.
+      const rows = await db
+        .select()
+        .from(runs)
+        .where(eq(runs.parentRunId, parentRunId))
+        .orderBy(desc(runs.createdAt))
+      return rows.map(toStoredRun)
+    },
   }
 }

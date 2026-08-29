@@ -4,7 +4,7 @@ import {
   denyWaitingStep,
   parsePendingCapabilityInput,
 } from "@butler/runtime/approval-runtime.js"
-import { cancelRun, expireOverdueRuns } from "@butler/runtime/run-lifecycle.js"
+import { cancelRunCascade, expireOverdueRuns } from "@butler/runtime/run-lifecycle.js"
 import {
   confirmDurableMemory,
   createDurableMemoryRecord,
@@ -219,11 +219,23 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
       readonly reason?: string
     }
     try {
-      const run = await cancelRun(wiring.runtimeStore, runId, {
+      // D4-arch-align §20 #7: cancel cascades to all descendants so revoked
+      // safety actions actually propagate (children do not outlive parent).
+      const cancelled = await cancelRunCascade(wiring.runtimeStore, runId, {
         subject: body.subject ?? "owner",
         ...(body.reason ? { reason: body.reason } : {}),
       })
-      return c.json({ ok: true, runId: run.id, status: run.status, version: run.version })
+      const head = cancelled[cancelled.length - 1]
+      if (!head) {
+        return c.json({ ok: false, reason: "run not found" }, 404)
+      }
+      return c.json({
+        ok: true,
+        runId: head.id,
+        status: head.status,
+        version: head.version,
+        cascadedCount: Math.max(cancelled.length - 1, 0),
+      })
     } catch (err) {
       return c.json(
         {

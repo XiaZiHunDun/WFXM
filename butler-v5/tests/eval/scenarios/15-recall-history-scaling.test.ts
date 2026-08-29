@@ -16,7 +16,9 @@ import {
 } from "../mock-llm-scripted.js"
 
 describe("eval/15 recall-history-scaling", () => {
-  it("5 sequential turn, each calls recall_history; loopMs ceiling per turn", { timeout: 30_000 }, async () => {
+  // 5 turn × ~30ms loop + DB init; default 10s testTimeout + 30s suite contention
+  // pushes this over the limit; bump to 60s.
+  it("5 sequential turn, each calls recall_history; loopMs ceiling per turn", { timeout: 60_000 }, async () => {
     const conversationId = "c-eval-recall-scale-1"
     const results = []
     for (let i = 0; i < 5; i++) {

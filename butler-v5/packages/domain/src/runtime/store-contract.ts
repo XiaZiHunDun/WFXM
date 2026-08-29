@@ -177,6 +177,9 @@ export interface RuntimeStore {
   ) => Promise<number>
   /** Active main/child Runs whose deadline is strictly before `now`. */
   readonly listRunsPastDeadline: (now: Date) => Promise<readonly StoredRun[]>
+  /** D4-arch-align: child Runs of the given parent (parentRunId == runId).
+   *  Used by cancelRun cascade + UI tree. */
+  readonly findChildRuns: (parentRunId: string) => Promise<readonly StoredRun[]>
 }
 
 export type ReadModelSource = "event_store" | "hybrid" | "relational"

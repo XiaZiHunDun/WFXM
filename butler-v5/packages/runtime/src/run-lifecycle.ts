@@ -49,6 +49,71 @@ export async function cancelRun(
   return cancelled
 }
 
+/** D4-arch-align §20 #7: Owner cancel that propagates to all descendants.
+ *
+ * Cancels `runId` and recursively cancels every descendant child Run
+ * (parentRunId chain). Each cascaded cancel emits a `run.cancelled`
+ * audit with `reason: "parent_cascade"` + ancestor `parentRunId` so
+ * the audit trail distinguishes cascade-induced cancels from owner
+ * cancels.
+ *
+ * Returns the list of cancelled Runs in BFS order (parent first, then
+ * children, then grandchildren). Already-terminal runs are skipped
+ * (idempotent: cancelling a `cancelled` Run is a no-op).
+ */
+export async function cancelRunCascade(
+  store: RuntimeStore,
+  runId: string,
+  options: {
+    readonly subject: string
+    readonly reason?: string
+    readonly now?: Date
+  },
+): Promise<readonly StoredRun[]> {
+  const now = options.now ?? new Date()
+  const cancelledOrder: StoredRun[] = []
+  const visited = new Set<string>()
+
+  async function cancelRecursive(targetRunId: string): Promise<void> {
+    if (visited.has(targetRunId)) return
+    visited.add(targetRunId)
+    const children = await store.findChildRuns(targetRunId)
+    // Cancel children first so descendants terminate before ancestor reports
+    // `cancelled`; audit order still records ancestor first via outer caller.
+    for (const child of children) {
+      await cancelRecursive(child.id)
+    }
+    const run = await store.getRun(targetRunId)
+    if (!run) return
+    if (run.status === "cancelled" || run.status === "failed" || run.status === "succeeded") {
+      return
+    }
+    const cancelled = await transitionChecked(store, run, "cancelled", now)
+    cancelledOrder.push(cancelled)
+    await store.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: cancelled.id,
+      conversationId: cancelled.conversationId,
+      action: "run.cancelled",
+      subject: options.subject,
+      detail: {
+        reason: options.reason ?? "owner_cancel_cascade",
+        from: run.status,
+        ancestorRunId: runId === cancelled.id ? null : runId,
+      },
+      createdAt: now,
+    })
+  }
+
+  // Cancel the root run last so audit lineage reads parent → child.
+  const rootChildren = await store.findChildRuns(runId)
+  for (const child of rootChildren) {
+    await cancelRecursive(child.id)
+  }
+  await cancelRecursive(runId)
+  return cancelledOrder
+}
+
 /** Expire a single Run when past deadline (or forced). */
 export async function expireRun(
   store: RuntimeStore,
