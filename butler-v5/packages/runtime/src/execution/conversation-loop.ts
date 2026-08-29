@@ -38,6 +38,27 @@ function resolveStuckLoopThreshold(env: NodeJS.ProcessEnv = process.env): number
 }
 
 /**
+ * Phase D fix B-08/10: decoder feedback retry. When `decodeDecision`
+ * returns ok=false with a "structured" failure (parseable JSON but
+ * wrong shape — e.g. unknown tag, missing field), push a user-message
+ * into the LLM context and let the loop iterate once more so the LLM
+ * can self-correct. Plain-text replies (reason: "invalid JSON") and
+ * non-object payloads fall through without retry to preserve the
+ * original "plain text → Respond" behavior expected by the bulk of
+ * the existing test suite.
+ *
+ * Tunable via BUTLER_V5_MAX_DECODE_RETRIES env. Default 1.
+ */
+export const DEFAULT_MAX_DECODE_RETRIES = 1
+
+function resolveMaxDecodeRetries(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env["BUTLER_V5_MAX_DECODE_RETRIES"] ?? "").trim()
+  if (!raw) return DEFAULT_MAX_DECODE_RETRIES
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : DEFAULT_MAX_DECODE_RETRIES
+}
+
+/**
  * Per-LLM-call timeout (Phase D eval fix B-09). Each iteration's LLM
  * completion is bounded; a slow / hung provider returns a synthetic
  * `{ ok: false, reason: "LLM timeout after Xms" }` so the loop falls
@@ -227,16 +248,23 @@ export async function runConversationLoop(input: {
   /** Stuck-loop threshold (Phase D fix B-06). Default reads
    *  BUTLER_V5_STUCK_LOOP_THRESHOLD from env (else 3). */
   readonly stuckLoopThreshold?: number
+  /** Max decoder-failure retries before fallback (Phase D fix B-08/10).
+   *  Default reads BUTLER_V5_MAX_DECODE_RETRIES from env (else 1). */
+  readonly maxDecodeRetries?: number
 }): Promise<ConversationLoopResult> {
   const logger = input.ports.logger ?? defaultLogger
   const maxIterations = input.maxIterations ?? DEFAULT_MAX_LOOP_ITERATIONS
   const llmTimeoutMs = input.llmTimeoutMs ?? resolveLLMTimeoutMs()
   const stuckLoopThreshold = input.stuckLoopThreshold ?? resolveStuckLoopThreshold()
+  const maxDecodeRetries = input.maxDecodeRetries ?? resolveMaxDecodeRetries()
   const messages = [...input.messages]
   const traces: string[] = [...(input.initialTraces ?? [])]
   let toolCalls = 0
   let lastDecision: ModelDecision["_tag"] = "Finish"
   const callSignatures = new Map<string, number>()
+  let decodeFailuresThisLoop = 0
+  let firstDecodeFailureReason = ""
+  let lastNonEmptyRaw = ""
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const outcome = await completeWithTimeout(
@@ -334,21 +362,53 @@ export async function runConversationLoop(input: {
     }
 
     const raw = response.content.trim()
+    if (raw) lastNonEmptyRaw = raw
     const decoded = decodeDecision(raw)
     if (!decoded.ok) {
       const preview = raw.length > 120 ? `${raw.slice(0, 120)}…` : raw
       logger.warn(
-        `[conversation-loop] decodeDecision failed at iteration ${iteration}: ${decoded.reason}; treating as Respond; raw=${JSON.stringify(preview)}`,
+        `[conversation-loop] decodeDecision failed at iteration ${iteration}: ${decoded.reason}; raw=${JSON.stringify(preview)}`,
       )
-      const respondDecision: ModelDecision = { _tag: "Respond", content: raw }
+      if (!firstDecodeFailureReason) firstDecodeFailureReason = decoded.reason
+      decodeFailuresThisLoop += 1
+      // B-08/10: only retry when the LLM emitted something structured (parseable
+      // JSON but wrong shape). Plain-text replies (reason "invalid JSON") and
+      // non-object payloads fall through without retry — preserves "plain text →
+      // Respond" path tested by most existing tests.
+      const isStructuredFailure = decoded.reason !== "invalid JSON"
+      if (isStructuredFailure && decodeFailuresThisLoop <= maxDecodeRetries) {
+        // Phase D fix B-08/10: push structured feedback so the LLM gets one
+        // self-correction cycle. main `traces` records the retry attempt;
+        // OWNER still sees nothing until either decode succeeds or we hit the cap.
+        messages.push({
+          role: "user",
+          content: `[system] decision-decode-fail: ${decoded.reason}. If a Decision was intended, retry with valid JSON. Raw reply was: \`\`\`${raw.slice(0, 200)}\`\`\``,
+        })
+        traces.push(
+          `decode failed retry ${decodeFailuresThisLoop}/${maxDecodeRetries}: ${decoded.reason}`,
+        )
+        lastDecision = "Respond"
+        continue
+      }
+      // Max retries exceeded (Phase D fix B-08/10): prefer the last non-empty
+      // LLM content (legitimate plain-text response); fall back to stub reply
+      // when ALL attempts were empty (matches pre-fix behavior for empty raw).
+      const respondContent = raw || lastNonEmptyRaw || input.ports.stubReply()
+      const respondDecision: ModelDecision = {
+        _tag: "Respond",
+        content: respondContent,
+      }
       await safeApplyDecision(input.kernel, respondDecision, logger)
       lastDecision = "Respond"
       return {
-        reply: raw || input.ports.stubReply(),
+        reply: respondContent,
         iterations: iteration + 1,
         toolCalls,
         finalDecision: "Respond",
-        traces: [...traces, `decode failed (${decoded.reason}); plain-text reply`],
+        traces: [
+          ...traces,
+          `decode failed (${decoded.reason}); max retries (${maxDecodeRetries}) exceeded`,
+        ],
       }
     }
 

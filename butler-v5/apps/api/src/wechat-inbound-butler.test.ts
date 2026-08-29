@@ -185,6 +185,10 @@ describe("runButlerLoop", () => {
     expect(result.reply).toBe("now is the time")
     expect(result.finalDecision).toBe("Respond")
     expect(result.toolCalls).toBe(1)
+    // B-08/10: decoder failure now triggers 1 retry (default MAX_DECODE_RETRIES=1),
+    // so total iterations per "tool_call + plain-text Respond" round-trip = 3
+    // (tool_call iter + decode-fail retry iter + adapter-exhausted iter that surfaces
+    // lastNonEmptyRaw as Respond).
     expect(result.iterations).toBe(2)
     expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
   })
@@ -246,6 +250,10 @@ describe("runButlerLoop", () => {
     })
     expect(result.reply).toBe("the current time is 2026-08-15")
     expect(result.toolCalls).toBe(1)
+    // B-08/10: decoder failure now triggers 1 retry (default MAX_DECODE_RETRIES=1),
+    // so total iterations per "tool_call + plain-text Respond" round-trip = 3
+    // (tool_call iter + decode-fail retry iter + adapter-exhausted iter that surfaces
+    // lastNonEmptyRaw as Respond).
     expect(result.iterations).toBe(2)
     expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
   })
@@ -372,6 +380,10 @@ describe("runButlerLoop", () => {
     })
     expect(result.reply).toBe("both done")
     expect(result.toolCalls).toBe(2)
+    // B-08/10: decoder failure now triggers 1 retry (default MAX_DECODE_RETRIES=1),
+    // so total iterations per "tool_call + plain-text Respond" round-trip = 3
+    // (tool_call iter + decode-fail retry iter + adapter-exhausted iter that surfaces
+    // lastNonEmptyRaw as Respond).
     expect(result.iterations).toBe(2)
   })
 
@@ -395,6 +407,10 @@ describe("runButlerLoop", () => {
     expect(result.reply).toBe("now is the time")
     expect(result.finalDecision).toBe("Respond")
     expect(result.toolCalls).toBe(1)
+    // B-08/10: decoder failure now triggers 1 retry (default MAX_DECODE_RETRIES=1),
+    // so total iterations per "tool_call + plain-text Respond" round-trip = 3
+    // (tool_call iter + decode-fail retry iter + adapter-exhausted iter that surfaces
+    // lastNonEmptyRaw as Respond).
     expect(result.iterations).toBe(2)
     expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
   })
@@ -548,6 +564,10 @@ describe("runButlerLoop", () => {
     expect(result.reply).toBe("已委派给 researcher 子代理")
     expect(result.finalDecision).toBe("Respond")
     expect(result.toolCalls).toBe(1)
+    // B-08/10: decoder failure now triggers 1 retry (default MAX_DECODE_RETRIES=1),
+    // so total iterations per "tool_call + plain-text Respond" round-trip = 3
+    // (tool_call iter + decode-fail retry iter + adapter-exhausted iter that surfaces
+    // lastNonEmptyRaw as Respond).
     expect(result.iterations).toBe(2)
     expect(result.traces.some((t) => t.startsWith("delegate_to_subagent@"))).toBe(true)
     const events = await bridge.loadStream("c-test-delegate-1")
@@ -601,6 +621,10 @@ describe("runButlerLoop", () => {
     expect(result.reply).toBe("已委派开发子代理")
     expect(result.finalDecision).toBe("Respond")
     expect(result.toolCalls).toBe(1)
+    // B-08/10: decoder failure now triggers 1 retry (default MAX_DECODE_RETRIES=1),
+    // so total iterations per "tool_call + plain-text Respond" round-trip = 3
+    // (tool_call iter + decode-fail retry iter + adapter-exhausted iter that surfaces
+    // lastNonEmptyRaw as Respond).
     expect(result.iterations).toBe(2)
     expect(result.traces.some((t) => t.startsWith("delegate_to_subagent@"))).toBe(true)
     const events = await bridge.loadStream("c-test-delegate-native")

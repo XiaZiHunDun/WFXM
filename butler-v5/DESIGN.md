@@ -244,6 +244,8 @@ Finish(reason)
 
 Provider 原生 tool call 和文本 JSON 只是 Decoder 输入格式，不构成两套运行模型。
 
+**Decoder 失败的处理（Phase D B-08/10 扩面）**：decoder 仍然 fail-quiet（不抛 throw；契约不变），但当 Decision 解析失败时，conversation-loop 在 message 队列注入一条 `[system] decision-decode-fail: <reason>` user-message 并继续下一轮 LLM 调用，让模型有机会 self-correct。最大重试次数 `BUTLER_V5_MAX_DECODE_RETRIES`（默认 1）；超过上限落到 owner-可见的 `Respond`，内容要么是模型最后一轮的原文，要么是合成说明（包含具体 parse error 与原始 raw 前 200 字符）。这一扩展保留了"decoders 不抛错"的 §6.2 主线，只在 conversation-loop 增加 retry + 反馈窗口。
+
 ---
 
 ## 7. Ports（端口，依赖方向向内的接口）

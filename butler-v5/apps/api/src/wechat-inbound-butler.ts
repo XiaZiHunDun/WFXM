@@ -205,6 +205,9 @@ async function runButlerLoopBody(args: {
   /** Override stuck-loop threshold (Phase D fix B-06). Default reads
    *  BUTLER_V5_STUCK_LOOP_THRESHOLD from env (else 3). */
   readonly stuckLoopThreshold?: number
+  /** Override max-decode-retries (Phase D fix B-08/10). Default reads
+   *  BUTLER_V5_MAX_DECODE_RETRIES from env (else 1). */
+  readonly maxDecodeRetries?: number
 }): Promise<ButlerLoopResult> {
   const env = args.env ?? process.env
   const logger = args.logger ?? defaultLogger
@@ -374,6 +377,7 @@ async function runButlerLoopBody(args: {
     initialTraces,
     ...(args.llmTimeoutMs !== undefined ? { llmTimeoutMs: args.llmTimeoutMs } : {}),
     ...(args.stuckLoopThreshold !== undefined ? { stuckLoopThreshold: args.stuckLoopThreshold } : {}),
+    ...(args.maxDecodeRetries !== undefined ? { maxDecodeRetries: args.maxDecodeRetries } : {}),
     ports: {
       logger,
       stubReply: () => stubReply(args.content, args.fromUserId, args.projectId),

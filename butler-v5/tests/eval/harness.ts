@@ -39,6 +39,8 @@ export interface RunScenarioInput {
   readonly llmTimeoutMs?: number
   /** Override stuck-loop threshold (Phase D fix B-06). */
   readonly stuckLoopThreshold?: number
+  /** Override max-decode-retries (Phase D fix B-08/10). */
+  readonly maxDecodeRetries?: number
 }
 
 const silentLogger: ButlerLoopLogger = {
@@ -212,6 +214,7 @@ export async function runEvalConcurrent(
         ...(input.allowedToolNames ? { allowedToolNames: input.allowedToolNames } : {}),
         ...(input.llmTimeoutMs !== undefined ? { llmTimeoutMs: input.llmTimeoutMs } : {}),
         ...(input.stuckLoopThreshold !== undefined ? { stuckLoopThreshold: input.stuckLoopThreshold } : {}),
+        ...(input.maxDecodeRetries !== undefined ? { maxDecodeRetries: input.maxDecodeRetries } : {}),
       })
       const capabilityCalls = capabilitiesFromTraces(result.traces)
       const capabilitiesByName: Record<string, number> = {}
