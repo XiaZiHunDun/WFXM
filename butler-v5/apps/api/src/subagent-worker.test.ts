@@ -165,6 +165,9 @@ describe("subagent worker", () => {
       runtimeStore,
       parentRunId: parentRun.id,
       subject: "owner-1",
+      // D5-arch-align §20 #5: test parent grants itself the capability before
+      // delegating; delegate() enforces child cap ⊆ parent allowlist.
+      parentAllowlist: [cap],
     })
     expect(out.childRunId).toBeTruthy()
     if (!out.childRunId) throw new Error("expected childRunId")

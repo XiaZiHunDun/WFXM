@@ -35,6 +35,13 @@ export interface ButlerToolContext {
   readonly runtimeStore?: RuntimeStore
   /** Parent Run id for Child Run creation on delegate (A5). */
   readonly runId?: string
+  /**
+   * D5-arch-align §20 #5: tools the parent Run is currently permitted to invoke.
+   * Used to enforce that any child Run delegated from this parent does not
+   * grant capabilities outside the parent's allowlist. Optional; if absent,
+   * the delegate tool cannot enforce subset (no parent knowledge available).
+   */
+  readonly parentAllowedToolNames?: readonly string[]
   /** Sandbox root for read_file / write_file / run_command. Defaults to cwd / env. */
   readonly workspaceRoot?: string
   /** Current inbound WeChat user; required by send_wechat_file. */
@@ -364,6 +371,17 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
           bridge: ctx.bridge,
           ...(ctx.runtimeStore ? { runtimeStore: ctx.runtimeStore } : {}),
           ...(ctx.runId ? { parentRunId: ctx.runId } : {}),
+          // D5-arch-align §20 #5 (opt-in): thread parent tool allowlist into
+          // delegate. Map string-tool-name to Capability brand so type contract
+          // holds. When parentAllowedToolNames is undefined, no subset check
+          // (legacy / CLI / service-to-service paths).
+          ...(ctx.parentAllowedToolNames
+            ? {
+                parentAllowlist: ctx.parentAllowedToolNames.map(
+                  (n) => ({ tool: n }) as unknown as Capability,
+                ),
+              }
+            : {}),
           ...(ctx.wechatUserId ? { subject: ctx.wechatUserId } : {}),
           ...(ctx.wechatUserId ? { notifySubject: ctx.wechatUserId } : {}),
         })

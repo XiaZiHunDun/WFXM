@@ -267,6 +267,13 @@ async function runButlerLoopBody(args: {
     projectKnowledgeStore: args.wiring.projectKnowledgeStore,
     memorySubject,
     projectId: args.projectId,
+    // D5-arch-align §20 #5 (opt-in): ButlerToolContext exposes
+    // `parentAllowedToolNames` so a future commit can derive parent's
+    // capability grant chain and pass it as `parentAllowlist`. We do NOT
+    // auto-pass it from the LLM tool allowlist here: plan-mode parents
+    // delegate to dev-mode children via a separate grant chain
+    // (dev-session-grant.ts), not via the LLM tool set.
+    parentAllowedToolNames: undefined,
   }).filter((t) => (allow ? allow.has(t.name as string) : true))
   const llmTools = llmToolsForButler({ env, mcpBundle: args.wiring.mcp }).filter((t) =>
     allow ? allow.has(t.name) : true,

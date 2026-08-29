@@ -39,6 +39,14 @@ export interface DelegateInput {
   readonly subject?: string
   /** When set, proactive WeChat notify targets this user on child completion. */
   readonly notifySubject?: string
+  /**
+   * D5-arch-align §20 #5 (opt-in): parent Run's tool allowlist. When
+   * provided, `delegate()` enforces `capabilities ⊆ parentAllowlist`. When
+   * omitted, no subset check is performed (legacy / CLI / service-to-service
+   * paths). Route layer can opt in by deriving parentAllowlist from
+   * the parent's ScopedGrant chain.
+   */
+  readonly parentAllowlist?: readonly Capability[]
 }
 
 export interface DelegateOutcome {
@@ -63,6 +71,22 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
   if (input.capabilities.length === 0) {
     throw new Error("delegate: capabilities must not be empty")
   }
+
+  // D5-arch-align §20 #5: opt-in subset check. When the route layer
+  // provides a parentAllowlist (derived from parent's actual ScopedGrant
+  // chain or explicit LLM tool set), enforce child capabilities ⊆ parent.
+  // When parentAllowlist is undefined, no enforcement (legacy / CLI /
+  // service-to-service paths without a parent Run).
+  if (input.parentRunId && input.parentAllowlist !== undefined) {
+    const parentSet = new Set(input.parentAllowlist.map((c) => c.tool))
+    const widened = input.capabilities.find((c) => !parentSet.has(c.tool))
+    if (widened) {
+      throw new Error(
+        `delegate: capability ${widened.tool} not in parent allowlist (DESIGN §20 #5: child must not be wider than parent)`,
+      )
+    }
+  }
+
   const childConversationId = `child-${input.parentConversationId}-${Date.now()}`
   const subject = input.subject ?? input.actor.id
   let childRunId: string | null = null
