@@ -202,6 +202,9 @@ async function runButlerLoopBody(args: {
   /** Override per-LLM-call timeout (ms). Default reads BUTLER_V5_LLM_TIMEOUT_MS
    *  from env (else 30_000). Used by eval scenario 16 to test timeout path. */
   readonly llmTimeoutMs?: number
+  /** Override stuck-loop threshold (Phase D fix B-06). Default reads
+   *  BUTLER_V5_STUCK_LOOP_THRESHOLD from env (else 3). */
+  readonly stuckLoopThreshold?: number
 }): Promise<ButlerLoopResult> {
   const env = args.env ?? process.env
   const logger = args.logger ?? defaultLogger
@@ -370,6 +373,7 @@ async function runButlerLoopBody(args: {
     maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
     initialTraces,
     ...(args.llmTimeoutMs !== undefined ? { llmTimeoutMs: args.llmTimeoutMs } : {}),
+    ...(args.stuckLoopThreshold !== undefined ? { stuckLoopThreshold: args.stuckLoopThreshold } : {}),
     ports: {
       logger,
       stubReply: () => stubReply(args.content, args.fromUserId, args.projectId),

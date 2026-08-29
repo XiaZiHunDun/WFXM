@@ -37,6 +37,8 @@ export interface RunScenarioInput {
   readonly beforeLoop?: (ctx: { readonly wiring: Wiring }) => Promise<void>
   /** Override per-LLM-call timeout in ms (Phase D fix B-09). */
   readonly llmTimeoutMs?: number
+  /** Override stuck-loop threshold (Phase D fix B-06). */
+  readonly stuckLoopThreshold?: number
 }
 
 const silentLogger: ButlerLoopLogger = {
@@ -209,7 +211,7 @@ export async function runEvalConcurrent(
         adapter: input.adapter.adapter,
         ...(input.allowedToolNames ? { allowedToolNames: input.allowedToolNames } : {}),
         ...(input.llmTimeoutMs !== undefined ? { llmTimeoutMs: input.llmTimeoutMs } : {}),
-        ...(input.llmTimeoutMs !== undefined ? { llmTimeoutMs: input.llmTimeoutMs } : {}),
+        ...(input.stuckLoopThreshold !== undefined ? { stuckLoopThreshold: input.stuckLoopThreshold } : {}),
       })
       const capabilityCalls = capabilitiesFromTraces(result.traces)
       const capabilitiesByName: Record<string, number> = {}

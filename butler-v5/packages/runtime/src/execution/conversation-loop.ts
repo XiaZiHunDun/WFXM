@@ -20,6 +20,24 @@ function formatToolOutput(output: unknown): string {
 export const DEFAULT_MAX_LOOP_ITERATIONS = 5
 
 /**
+ * Phase D eval fix B-06: stuck-loop detection. If the LLM invokes the
+ * same capability with the same args `>= STUCK_LOOP_THRESHOLD` times within
+ * one loop run, short-circuit with a Finish + descriptive trace instead
+ * of letting the loop exhaust the iteration cap with a silent stub.
+ *
+ * Tunable via BUTLER_V5_STUCK_LOOP_THRESHOLD env. Default 3 — one legit
+ * retry (transient tool failure) does not trip the detector.
+ */
+export const DEFAULT_STUCK_LOOP_THRESHOLD = 3
+
+function resolveStuckLoopThreshold(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env["BUTLER_V5_STUCK_LOOP_THRESHOLD"] ?? "").trim()
+  if (!raw) return DEFAULT_STUCK_LOOP_THRESHOLD
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : DEFAULT_STUCK_LOOP_THRESHOLD
+}
+
+/**
  * Per-LLM-call timeout (Phase D eval fix B-09). Each iteration's LLM
  * completion is bounded; a slow / hung provider returns a synthetic
  * `{ ok: false, reason: "LLM timeout after Xms" }` so the loop falls
@@ -70,6 +88,11 @@ export interface ConversationLoopResult {
   readonly toolCalls: number
   readonly finalDecision: ModelDecision["_tag"]
   readonly traces: readonly string[]
+}
+
+/** Hash a (capabilityName, args) pair for stuck-loop detection. */
+function capSignature(name: string, args: Readonly<Record<string, unknown>>): string {
+  return `${name}:${JSON.stringify(args)}`
 }
 
 export interface ConversationLoopPorts {
@@ -201,14 +224,19 @@ export async function runConversationLoop(input: {
   readonly initialTraces?: readonly string[]
   /** Per-LLM-call timeout in ms (default: `DEFAULT_LLM_TIMEOUT_MS` = 30_000). */
   readonly llmTimeoutMs?: number
+  /** Stuck-loop threshold (Phase D fix B-06). Default reads
+   *  BUTLER_V5_STUCK_LOOP_THRESHOLD from env (else 3). */
+  readonly stuckLoopThreshold?: number
 }): Promise<ConversationLoopResult> {
   const logger = input.ports.logger ?? defaultLogger
   const maxIterations = input.maxIterations ?? DEFAULT_MAX_LOOP_ITERATIONS
   const llmTimeoutMs = input.llmTimeoutMs ?? resolveLLMTimeoutMs()
+  const stuckLoopThreshold = input.stuckLoopThreshold ?? resolveStuckLoopThreshold()
   const messages = [...input.messages]
   const traces: string[] = [...(input.initialTraces ?? [])]
   let toolCalls = 0
   let lastDecision: ModelDecision["_tag"] = "Finish"
+  const callSignatures = new Map<string, number>()
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const outcome = await completeWithTimeout(
@@ -255,6 +283,27 @@ export async function runConversationLoop(input: {
             toolName: tc.name,
           })
           continue
+        }
+        // Phase D fix B-06: stuck-loop detection. Same (name, args) signature
+        // hits `stuckLoopThreshold` times — short-circuit with descriptive trace.
+        const sig = capSignature(tc.name, tc.args as Readonly<Record<string, unknown>>)
+        const sigCount = (callSignatures.get(sig) ?? 0) + 1
+        callSignatures.set(sig, sigCount)
+        if (sigCount >= stuckLoopThreshold) {
+          const reason = `stuck-loop: ${tc.name} invoked ${sigCount}x with same args; aborting`
+          logger.warn(`[conversation-loop] ${reason}`)
+          await safeApplyDecision(
+            input.kernel,
+            { _tag: "Finish", reason: `stuck-loop: ${tc.name}` },
+            logger,
+          )
+          return {
+            reply: input.ports.stubReply(),
+            iterations: iteration + 1,
+            toolCalls,
+            finalDecision: "Finish",
+            traces: [...traces, reason],
+          }
         }
         toolCalls += 1
         const toolResult = await executeToolInLoop({

@@ -66,6 +66,13 @@ export function detectPainPoints(metrics: EvalMetrics): readonly PainPoint[] {
       message: `Decision decoder failed at least once during loop`,
     })
   }
+  if (metrics.traces.some((t) => /stuck-loop:/i.test(t))) {
+    out.push({
+      severity: "info",
+      category: "stuck-loop",
+      message: `Stuck-loop detector tripped; loop short-circuited`,
+    })
+  }
   if (metrics.loopMs > 2000 && metrics.iterations <= 2) {
     out.push({
       severity: "info",

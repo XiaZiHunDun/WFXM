@@ -455,8 +455,9 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.includes("llm failure"))).toBe(true)
   })
 
-  it("bounds the loop at MAX_LOOP_ITERATIONS and falls back to stub", async () => {
-    // Adapter always asks for a tool call — should hit the iteration cap.
+  it("bounds the loop via stuck-loop detection (B-06): same tool calls 3x with same args triggers Finish", async () => {
+    // Adapter always asks for the same tool with same args — Phase D fix B-06
+    // short-circuits with stuck-loop trace before exhausting the iteration cap.
     const adapter = makeMockAdapter(
       Array.from({ length: 10 }, () =>
         toolCallResponse([{ id: "tc_loop", name: "get_current_time", args: {} }]),
@@ -472,9 +473,14 @@ describe("runButlerLoop", () => {
       logger: silentLogger,
       adapter,
     })
-    expect(result.iterations).toBe(5)
+    // Stuck-loop detector fires at the 3rd invocation of (get_current_time, {}).
+    expect(result.iterations).toBe(3)
     expect(result.reply).toContain("MVP stub reply")
-    expect(result.traces.some((t) => t.includes("loop exhausted"))).toBe(true)
+    expect(
+      result.traces.some((t) => /stuck-loop: get_current_time invoked 3x with same args; aborting/.test(t)),
+    ).toBe(true)
+    // No loop-exhausted trace — we short-circuit earlier.
+    expect(result.traces.some((t) => t.includes("loop exhausted"))).toBe(false)
   })
 
   it("returns stub when the model requests an unknown tool via native tool_calls", async () => {
