@@ -32,6 +32,9 @@ export interface RunScenarioInput {
   readonly env?: Readonly<Record<string, string>>
   readonly adapter: InstrumentedAdapter
   readonly allowedToolNames?: readonly string[]
+  /** Optional hook: runs after wiring setup but before runButlerLoop. Use to
+   *  pre-seed conversation / Run / Grant state for race / conflict scenarios. */
+  readonly beforeLoop?: (ctx: { readonly wiring: Wiring }) => Promise<void>
 }
 
 const silentLogger: ButlerLoopLogger = {
@@ -77,6 +80,9 @@ export async function runEvalScenario(input: RunScenarioInput): Promise<EvalResu
   let successFlag = false
 
   try {
+    if (input.beforeLoop) {
+      await input.beforeLoop({ wiring })
+    }
     const result = await runButlerLoop({
       wiring,
       conversationId:
@@ -145,6 +151,117 @@ export async function runEvalScenario(input: RunScenarioInput): Promise<EvalResu
   const finalMetrics: EvalMetrics = { ...result_metrics, success: successFlag }
   const painPoints = detectPainPoints(finalMetrics)
   return { metrics: finalMetrics, painPoints }
+}
+
+/** Shape returned by `runEvalConcurrent`. */
+export interface ConcurrentEvalResult {
+  readonly results: readonly EvalResult[]
+  readonly wallClockMs: number
+}
+
+/** Run multiple runButlerLoop calls in parallel against ONE wiring — use for
+ *  cross-conversation concurrency tests. Each input must use a distinct
+ *  conversationId (or will hit per-conversation lock serialization). */
+export async function runEvalConcurrent(
+  name: string,
+  inputs: readonly RunScenarioInput[],
+): Promise<ConcurrentEvalResult> {
+  const totalStart = Date.now()
+  const db = await makeTestDb()
+  const bridge = new EventBridge({ db: db.db, workerId: "w-eval-conc" })
+  const runtimeStore = createRuntimeStore(db.db)
+  const runEngine = new RunEngine(runtimeStore)
+  const wiring: Wiring = makeWiring({
+    bridge,
+    workerId: "w-eval-conc",
+    runtimeStore,
+    runEngine,
+    db: db.db,
+    backfillConversation: async () => undefined,
+  })
+
+  const silentLogger: ButlerLoopLogger = {
+    warn: () => undefined,
+    error: () => undefined,
+  }
+
+  const tasks = inputs.map(async (input, idx): Promise<EvalResult> => {
+    const loopStart = Date.now()
+    const errors: string[] = []
+    let metrics: EvalMetrics
+    let successFlag = false
+    try {
+      if (input.beforeLoop) {
+        await input.beforeLoop({ wiring })
+      }
+      const result = await runButlerLoop({
+        wiring,
+        conversationId:
+          input.conversationId ?? `c-eval-conc-${idx}-${Math.random().toString(36).slice(2, 8)}`,
+        content: input.content,
+        fromUserId: input.fromUserId ?? "owner-eval",
+        projectId: input.projectId ?? "p-eval",
+        env: input.env ?? {},
+        logger: silentLogger,
+        adapter: input.adapter.adapter,
+        ...(input.allowedToolNames ? { allowedToolNames: input.allowedToolNames } : {}),
+      })
+      const capabilityCalls = capabilitiesFromTraces(result.traces)
+      const capabilitiesByName: Record<string, number> = {}
+      for (const c of capabilityCalls) {
+        capabilitiesByName[c] = (capabilitiesByName[c] ?? 0) + 1
+      }
+      metrics = {
+        scenario: `${name}:${idx}`,
+        setupMs: 0,
+        loopMs: Date.now() - loopStart,
+        totalMs: Date.now() - totalStart,
+        iterations: result.iterations,
+        llmCalls: input.adapter.callCount(),
+        capabilityCalls,
+        capabilitiesByName,
+        finalDecision: result.finalDecision as ModelDecisionTag | null,
+        reply: result.reply,
+        replyLength: result.reply.length,
+        errors,
+        traces: result.traces,
+        success: false,
+      }
+      successFlag = true
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push(msg)
+      metrics = {
+        scenario: `${name}:${idx}`,
+        setupMs: 0,
+        loopMs: Date.now() - loopStart,
+        totalMs: Date.now() - totalStart,
+        iterations: 0,
+        llmCalls: input.adapter.callCount(),
+        capabilityCalls: [],
+        capabilitiesByName: {},
+        finalDecision: null,
+        reply: "",
+        replyLength: 0,
+        errors,
+        traces: [],
+        success: false,
+      }
+    }
+    return { ...metrics, success: successFlag ? true : false } as unknown as EvalResult
+  })
+
+  const results = await Promise.all(tasks)
+  await db.close()
+
+  const wallClockMs = Date.now() - totalStart
+  const envelope = results.map((m) => ({
+    metrics: m as unknown as EvalMetrics,
+    painPoints: detectPainPoints(m as unknown as EvalMetrics),
+  }))
+  // eslint-disable-next-line no-console -- optional concurrency timing
+  if (process.env["EVAL_DEBUG"]) console.error(`[eval:concurrent:${name}] wall=${wallClockMs}ms`)
+  return { results: envelope, wallClockMs }
 }
 
 /** Format a one-line metric summary for console output during pnpm test runs. */

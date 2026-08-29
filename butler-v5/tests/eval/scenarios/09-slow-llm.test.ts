@@ -14,7 +14,9 @@ import { runEvalScenario, formatMetricLine } from "../harness.js"
 import { makeScriptedAdapter, toolCallResponse, textResponse } from "../mock-llm-scripted.js"
 
 describe("eval/09 slow-llm", () => {
-  it("LLM latencyMs=1500 × 2 iters → loop > 3s → slow-loop info pain", async () => {
+  // latencyMs=1500 × 2 iter + setup; default 10s testTimeout is too tight under
+  // full-suite contention (vitest harness runs many ~1s DB-init scenarios in parallel).
+  it("LLM latencyMs=1500 × 2 iters → loop > 3s → slow-loop info pain", { timeout: 30_000 }, async () => {
     const adapter = makeScriptedAdapter({
       latencyMs: 1500,
       responses: [
