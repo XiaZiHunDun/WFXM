@@ -35,6 +35,8 @@ export interface RunScenarioInput {
   /** Optional hook: runs after wiring setup but before runButlerLoop. Use to
    *  pre-seed conversation / Run / Grant state for race / conflict scenarios. */
   readonly beforeLoop?: (ctx: { readonly wiring: Wiring }) => Promise<void>
+  /** Override per-LLM-call timeout in ms (Phase D fix B-09). */
+  readonly llmTimeoutMs?: number
 }
 
 const silentLogger: ButlerLoopLogger = {
@@ -94,6 +96,7 @@ export async function runEvalScenario(input: RunScenarioInput): Promise<EvalResu
       logger: silentLogger,
       adapter: input.adapter.adapter,
       ...(input.allowedToolNames ? { allowedToolNames: input.allowedToolNames } : {}),
+      ...(input.llmTimeoutMs !== undefined ? { llmTimeoutMs: input.llmTimeoutMs } : {}),
     })
     const capabilityCalls = capabilitiesFromTraces(result.traces)
     const capabilitiesByName: Record<string, number> = {}
@@ -205,6 +208,8 @@ export async function runEvalConcurrent(
         logger: silentLogger,
         adapter: input.adapter.adapter,
         ...(input.allowedToolNames ? { allowedToolNames: input.allowedToolNames } : {}),
+        ...(input.llmTimeoutMs !== undefined ? { llmTimeoutMs: input.llmTimeoutMs } : {}),
+        ...(input.llmTimeoutMs !== undefined ? { llmTimeoutMs: input.llmTimeoutMs } : {}),
       })
       const capabilityCalls = capabilitiesFromTraces(result.traces)
       const capabilitiesByName: Record<string, number> = {}

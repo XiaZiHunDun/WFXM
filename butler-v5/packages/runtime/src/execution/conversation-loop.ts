@@ -19,6 +19,26 @@ function formatToolOutput(output: unknown): string {
 
 export const DEFAULT_MAX_LOOP_ITERATIONS = 5
 
+/**
+ * Per-LLM-call timeout (Phase D eval fix B-09). Each iteration's LLM
+ * completion is bounded; a slow / hung provider returns a synthetic
+ * `{ ok: false, reason: "LLM timeout after Xms" }` so the loop falls
+ * through to the existing "llm failure" Finish + stub reply path
+ * instead of stalling the owner indefinitely.
+ *
+ * Tunable via BUTLER_V5_LLM_TIMEOUT_MS env. Default 30s is generous
+ * for DeepSeek-Flash / Sonnet production but bounds worst-case at
+ * 5 × 30s = 2.5 min per loop max.
+ */
+export const DEFAULT_LLM_TIMEOUT_MS = 30_000
+
+function resolveLLMTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env["BUTLER_V5_LLM_TIMEOUT_MS"] ?? "").trim()
+  if (!raw) return DEFAULT_LLM_TIMEOUT_MS
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LLM_TIMEOUT_MS
+}
+
 export interface ConversationLoopLogger {
   readonly warn: (message: string, extra?: unknown) => void
   readonly error: (message: string, error: unknown) => void
@@ -106,6 +126,32 @@ async function safeApplyDecision(
   }
 }
 
+/**
+ * Race a ports.complete call against a timer; returns either the LLM
+ * response or a `{ ok: false, reason: "LLM timeout after Nms" }` synthetic
+ * failure. Cancels the pending timer when the LLM resolves first (no
+ * leaked setTimeout) to keep the loop GC-clean.
+ */
+async function completeWithTimeout(
+  invoke: () => ReturnType<ConversationLoopPorts["complete"]>,
+  timeoutMs: number,
+): Promise<Awaited<ReturnType<ConversationLoopPorts["complete"]>> | { readonly ok: false; readonly reason: string }> {
+  let timer: NodeJS.Timeout | undefined
+  const timeoutPromise = new Promise<{ readonly ok: false; readonly reason: string }>(
+    (resolve) => {
+      timer = setTimeout(
+        () => resolve({ ok: false, reason: `LLM timeout after ${timeoutMs}ms` }),
+        timeoutMs,
+      )
+    },
+  )
+  try {
+    return await Promise.race([invoke(), timeoutPromise])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 function summarizeForLog(s: string, maxLen = 80): string {
   if (s.length <= maxLen) return s
   return `${s.slice(0, maxLen - 3)}...`
@@ -153,16 +199,22 @@ export async function runConversationLoop(input: {
   readonly ports: ConversationLoopPorts
   readonly maxIterations?: number
   readonly initialTraces?: readonly string[]
+  /** Per-LLM-call timeout in ms (default: `DEFAULT_LLM_TIMEOUT_MS` = 30_000). */
+  readonly llmTimeoutMs?: number
 }): Promise<ConversationLoopResult> {
   const logger = input.ports.logger ?? defaultLogger
   const maxIterations = input.maxIterations ?? DEFAULT_MAX_LOOP_ITERATIONS
+  const llmTimeoutMs = input.llmTimeoutMs ?? resolveLLMTimeoutMs()
   const messages = [...input.messages]
   const traces: string[] = [...(input.initialTraces ?? [])]
   let toolCalls = 0
   let lastDecision: ModelDecision["_tag"] = "Finish"
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    const outcome = await input.ports.complete(messages, input.llmTools)
+    const outcome = await completeWithTimeout(
+      () => input.ports.complete(messages, input.llmTools),
+      llmTimeoutMs,
+    )
 
     if (!outcome.ok) {
       await safeApplyDecision(

@@ -83,6 +83,9 @@ export async function runButlerLoop(args: {
   readonly env?: NodeJS.ProcessEnv
   readonly logger?: ButlerLoopLogger
   readonly adapter?: LLMAdapter
+  /** Override per-LLM-call timeout (ms). Default reads BUTLER_V5_LLM_TIMEOUT_MS
+   *  from env. Used by eval scenario 16 to test the timeout path. */
+  readonly llmTimeoutMs?: number
 }): Promise<ButlerLoopResult> {
   const env = args.env ?? process.env
   const inline = await tryWechatInlineApproval({
@@ -142,6 +145,7 @@ export async function runButlerLoop(args: {
           allowedToolNames,
           runId: ctx.runId,
           workingSet: ctx.workingSet,
+          ...(process.env["EVAL_DEBUG"] ? { llmTimeoutMs: args.llmTimeoutMs ?? "(undefined)" as unknown as number } : {}),
         }),
     )
   } catch (err) {
@@ -195,6 +199,9 @@ async function runButlerLoopBody(args: {
   readonly env?: NodeJS.ProcessEnv
   readonly logger?: ButlerLoopLogger
   readonly adapter?: LLMAdapter
+  /** Override per-LLM-call timeout (ms). Default reads BUTLER_V5_LLM_TIMEOUT_MS
+   *  from env (else 30_000). Used by eval scenario 16 to test timeout path. */
+  readonly llmTimeoutMs?: number
 }): Promise<ButlerLoopResult> {
   const env = args.env ?? process.env
   const logger = args.logger ?? defaultLogger
@@ -362,6 +369,7 @@ async function runButlerLoopBody(args: {
     llmTools,
     maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
     initialTraces,
+    ...(args.llmTimeoutMs !== undefined ? { llmTimeoutMs: args.llmTimeoutMs } : {}),
     ports: {
       logger,
       stubReply: () => stubReply(args.content, args.fromUserId, args.projectId),
