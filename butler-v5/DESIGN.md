@@ -266,7 +266,7 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 - 未设 Port 的内部函数不为"架构完整"创建接口；
 - 新的副作用能力必须实现 Capability 契约；新入口必须实现 Trigger 契约。
 
-### §7.1 已实施 Port 状态（2026-08-28 snapshot）
+### §7.1 已实施 Port 状态（2026-08-29 snapshot）
 
 | Port | 状态 | File | 实装 / 备注 |
 | --- | --- | --- | --- |
@@ -398,13 +398,14 @@ Approval 是 Run 中的等待 Step，不是独立执行引擎，也没有独立�
 最小字段：
 
 - `subject`
-- `capability`
+- `capability`（D2.2 first-class column，与 `scope.capabilities` 镜像；`grantMatchesAction` + `findActiveGrant` SQL 以此为准）
 - `scope`
-- `expiresAt`
-- `usesRemaining`
+- `expiresAt`（实现为 epoch ms；语义描述按字段名）
+- `remainingUses`：null 表示无限次；Always-confirm 每次签发 `remainingUses = 1`
 - `approvalId?`：交互审批生成时指向对应 Step；Owner 预配置 Grant 可为空
 - `delegable`，默认 `false`
 - `sandboxProfile?`：仅在授权提升 Provider 默认隔离等级时填写
+- `networkAllowlist?`（P2b）：`host:port` 列表，仅 workspace write 类 Grant 填充，约束 Provider 跨网络出口
 
 动作摘要、策略版本、预算和决策原因属于 Step、Run 或 Audit 元数据，不重复放入 Grant。
 
@@ -522,7 +523,7 @@ Run 内部的摘要、截断、滚动摘要和工具结果压缩是可重建、�
 
 "自动审查"是 Policy 规则，"无人值守"是带预批准 Grant、预算和截止时间的 Run，不需要单独自治等级。
 
-Policy 返回 `Allow` 时直接执行且不物化 ScopedGrant；Grant-required 和 Always-confirm 动作必须出示 Grant。Always-confirm 每次只签发 `usesRemaining = 1` 的 Grant。
+Policy 返回 `Allow` 时直接执行且不物化 ScopedGrant；Grant-required 和 Always-confirm 动作必须出示 Grant。Always-confirm 每次只签发 `remainingUses = 1` 的 Grant。
 
 ScopedGrant 的 subject 取值限定为：
 
