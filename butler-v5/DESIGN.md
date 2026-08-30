@@ -525,14 +525,15 @@ Run 内部的摘要、截断、滚动摘要和工具结果压缩是可重建、�
 
 Policy 返回 `Allow` 时直接执行且不物化 ScopedGrant；Grant-required 和 Always-confirm 动作必须出示 Grant。Always-confirm 每次只签发 `remainingUses = 1` 的 Grant。
 
-ScopedGrant 的 subject 取值限定为：
+ScopedGrant 的 `subject` 是**不透明 principal 标识符**（"谁在执行"），不是受限词表。代码侧不强制 4-pattern 词表；policy-gate 用 `request.subject === policy.ownerSubject` 直接字符串相等比较，约束由调用方自管理。常见实际值（illustrative，非穷举）：
 
-- `owner`：Owner 本人直接执行的控制面动作；
-- `principal:<id>`：已配对 Channel peer 或本地设备；
-- `system:<id>`：受配置约束的内部 Trigger 来源，例如 `system:scheduler`；
-- `run:<runId>`：普通 Run 或 Child Run。
+- 配置的 owner subject（由 `resolveOwnerSubject(env, conversationId)` 解析；具体字符串由 Owner 配置决定，例如 `"owner-1"`、`"wxid_abc"`）；
+- 内部 Trigger 来源：`system:scheduler`（`packages/domain/src/runtime/schedule.ts:10`）等 `system:*` 前缀；
+- Owner 控制面动作的简单 `"owner"` literal（用于 project-knowledge-sync 等后台路径）。
 
-Schedule 不是长期授权主体；它以 `system:scheduler` 创建 Run，能力仍授予具体 `run:<runId>`。Subagent 是 Child Run 的角色配置，不是独立 subject。
+> **不强制** §13 旧版列的 `owner / principal:<id> / system:<id> / run:<runId>` 4-pattern 词表：impl 用 opaque 字符串语义；`runId` 在 `ScopedGrantRecord` 里有独立字段，不在 subject 前缀里。审计（D18, 2026-08-30）确认所有 ScopedGrant caller 的 subject 实测值都是 opaque principal string。
+
+Schedule 不是长期授权主体；它以 `system:scheduler` 创建 Run，能力授予具体 Run（`ScopedGrant.runId` 字段）。Subagent 是 Child Run 的角色配置，不是独立 subject。
 
 每个 Run 还必须有：
 
