@@ -96,20 +96,29 @@ describe("R8 real-path persistence", () => {
     expect(secondEvents[0]?.streamId).not.toBe(firstEvents[0]?.streamId)
   })
 
-  it("enqueueOutbox writes a row that runWorker can claim and deliver", async () => {
-    // Outbox and event_store are separate tables; this test verifies the
-    // outbox adapter surface (not via HTTP, since routes.ts does not
-    // expose an outbox endpoint yet). The wiring is the integration point.
-    const messageId = await __wiring__.eventBridge.enqueueOutbox({
-      streamId: "outbox-r8-test",
-      aggregateType: "test-aggregate",
-      payload: { kind: "r8-real-persistence", at: new Date().toISOString() },
+  it("appendConversationEventWithOutbox writes event + outbox row that runWorker can claim and deliver", async () => {
+    // D7-arch-align §20 #8: outbox is only written via the tx-composing
+    // EventBridge.appendConversationEventWithOutbox. Direct enqueue is no
+    // longer exposed on EventBridge (it would create orphan outbox rows
+    // outside the state-change transaction).
+    const streamId = "outbox-r8-test"
+    const messageId = await __wiring__.eventBridge.appendConversationEventWithOutbox({
+      streamId,
+      event: { _tag: "TestEvent", at: new Date().toISOString() },
+      eventId: crypto.randomUUID(),
+      eventType: "TestEvent",
+      correlationId: "corr-r8",
+      actor: { kind: "system", id: "e2e" },
+      outbox: {
+        aggregateType: "test-aggregate",
+        payload: { kind: "r8-real-persistence", at: new Date().toISOString() },
+      },
     })
     expect(typeof messageId).toBe("string")
 
     // runWorker wraps runWorkerOnce: it claims pending outbox rows, runs
-    // the handler for each, and marks them delivered. If enqueueOutbox
-    // didn't write, claim returns 0 and the handler never runs.
+    // the handler for each, and marks them delivered. If the outbox row
+    // wasn't written, claim returns 0 and the handler never runs.
     let claimed = 0
     const delivered = await __wiring__.eventBridge.runWorker(async () => {
       claimed += 1

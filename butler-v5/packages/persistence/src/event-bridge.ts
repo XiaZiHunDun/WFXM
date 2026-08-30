@@ -16,7 +16,7 @@ import {
   type ActorRef,
   type EventStoreRow,
 } from "./event-store.js"
-import { enqueueOutbox } from "./outbox.js"
+
 import {
   applyProjection,
   registerProjection,
@@ -25,6 +25,7 @@ import {
 import { loadSnapshot, saveSnapshot } from "./snapshot.js"
 import { runWorkerOnce } from "./worker.js"
 import type { EventStorePort } from "@butler/ports/core/event-store.js"
+
 
 export interface EventBridgeConfig {
   readonly db: ButlerDb
@@ -89,14 +90,6 @@ export class EventBridge implements EventStorePort {
 
   subscribe(streamId: string, handler: (e: EventStoreRow) => void) {
     return subscribeStream(this.config.db, streamId, handler)
-  }
-
-  enqueueOutbox(input: {
-    streamId: string
-    aggregateType: string
-    payload: Record<string, unknown>
-  }) {
-    return enqueueOutbox(this.config.db, input)
   }
 
   runWorker(handler: Parameters<typeof runWorkerOnce>[3]) {
