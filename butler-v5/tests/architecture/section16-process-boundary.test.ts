@@ -2,7 +2,8 @@
  * Arch guard (D17-arch-align §16 process boundary): 进程拆分不改
  * 变模块、端口和权限边界，也不引入第二套 Run Engine。
  *
- * Subprocess runners (bubblewrap, slirp, MCP server, migration shadow)
+ * Subprocess runners (bubblewrap, slirp, MCP server; migration shadow
+ * archived D19)
  * must NOT import Core engine modules. Importing `@butler/runtime/execution`,
  * `decision`, `agent-kernel`, or `run-engine` would mean the subprocess
  * is running its own LLM / policy / loop — a second Run Engine.
@@ -17,8 +18,9 @@
  *   - apps/api/src/mcp-spawn.ts — MCP server spawn (stdio); the spawned
  *     MCP server is a Capability provider, NOT a Run Engine. Per §9
  *     "MCP 是注册远程副作用 Capability 的适配器".
- *   - packages/migration/src/shadow-runner.ts — v4 → v5 migration
- *     shadow comparison; NOT in production runtime path.
+ *   - _archive/packages/migration/src/shadow-runner.ts — v4 → v5
+ *     migration shadow comparison; NOT in production runtime path.
+ *     Archived in D19 (orphan cleanup).
  *
  * Static checks (no runtime):
  *   - Each subprocess runner must NOT import `@butler/runtime/execution`
@@ -47,7 +49,7 @@ const SUBPROCESS_RUNNERS: readonly string[] = [
   ),
   join(__dirname, "../../packages/adapters/src/sandbox/slirp-egress.ts"),
   join(__dirname, "../../apps/api/src/mcp-spawn.ts"),
-  join(__dirname, "../../packages/migration/src/shadow-runner.ts"),
+  join(__dirname, "../../_archive/packages/migration/src/shadow-runner.ts"),
 ]
 
 /** Forbidden imports — each one signals that the subprocess runner
@@ -96,7 +98,7 @@ const ALLOWED_IMPORT_SUBSTRINGS: Readonly<Record<string, readonly RegExp[]>> = {
     /@butler\/adapters\/sandbox\//, // sibling sandbox primitives
     /node:child_process/,
   ],
-  [join(__dirname, "../../packages/migration/src/shadow-runner.ts")]: [
+  [join(__dirname, "../../_archive/packages/migration/src/shadow-runner.ts")]: [
     /\.\/v4-source/, // local sibling
     /node:fs/,
     /node:path/,

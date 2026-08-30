@@ -9,7 +9,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["_archive/packages/**/*.test.ts"],
+    include: ["_archive/packages/**/*.test.ts", "_archive/tests/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.turbo/**", "**/*.tsbuildinfo"],
     testTimeout: 10_000,
     hookTimeout: 10_000,
@@ -20,10 +20,10 @@ export default defineConfig({
       { find: "@butler/runtime", replacement: resolve(__dirname, "packages/runtime/src") },
       { find: "@butler/persistence", replacement: resolve(__dirname, "packages/persistence/src") },
       { find: "@butler/ports", replacement: resolve(__dirname, "packages/ports/src") },
-      { find: "@butler/config", replacement: resolve(__dirname, "packages/config/src") },
-      { find: "@butler/shared", replacement: resolve(__dirname, "packages/shared/src") },
+      { find: "@butler/config", replacement: resolve(__dirname, "_archive/packages/config/src") },
+      { find: "@butler/shared", replacement: resolve(__dirname, "_archive/packages/shared/src") },
       { find: "@butler/adapters", replacement: resolve(__dirname, "packages/adapters/src") },
-      { find: "@butler/migration", replacement: resolve(__dirname, "packages/migration/src") },
+      { find: "@butler/migration", replacement: resolve(__dirname, "_archive/packages/migration/src") },
     ],
   },
 })

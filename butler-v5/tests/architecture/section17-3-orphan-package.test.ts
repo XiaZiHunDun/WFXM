@@ -5,13 +5,8 @@
  *
  * DESIGN §17.3 mandates that scaffolding / archived code must NOT
  * stay in the production workspace. Audit (D18, 2026-08-30) found 3
- * zero-importer packages under `packages/`:
- *   - `packages/migration/` — v4 → v5 migration tooling; 0 production
- *     importer (migration is run via scripts/CLI, not by runtime code).
- *   - `packages/config/` — placeholder package; 0 production importer.
- *   - `packages/shared/` — placeholder package; 0 production importer.
- * This guard LOCKS that future commits cannot leave a third-party
- * scaffolding package in the production workspace without an importer.
+ * zero-importer packages under `packages/`. D19 cleanup (2026-08-30)
+ * moved `migration` / `config` / `shared` to `_archive/packages/`.
  *
  * Static checks (no runtime):
  *   - Every workspace package under `packages/<name>/` (excluding
@@ -25,15 +20,11 @@
  *   3. Wire a real production importer (commit that does so).
  *
  * Runtime behavior is verified by:
- *   - The 3 orphan packages (migration, config, shared) currently
- *     fail this guard. The guard's commit (D18) documents the
- *     remediation as a follow-up; until then, expect `pnpm test` to
- *     surface this guard as a known pending cleanup. The guard file
- *     itself skips those 3 packages via `KNOWN_ORPHANS` so existing
- *     tests stay green while the cleanup is pending.
- *
- * @deprecated after the orphan cleanup batch lands, the
- * `KNOWN_ORPHANS` allowlist must be removed.
+ *   - The post-D19 workspace contains exactly 5 active packages
+ *     (adapters / domain / persistence / ports / runtime) — all
+ *     well-connected. _archive/packages/ holds 6 archived packages
+ *     (application / config / contracts / infrastructure / migration
+ *     / shared).
  */
 
 import { describe, expect, it } from "vitest"
@@ -42,18 +33,6 @@ import { join } from "node:path"
 
 const PACKAGES_ROOT = join(__dirname, "../../packages")
 const APPS_ROOT = join(__dirname, "../../apps")
-
-/**
- * Pending cleanup: these workspace packages have 0 production importers
- * as of 2026-08-30. Until they are archived / deleted / wired, this
- * guard treats them as known orphans so existing tests stay green.
- * Remove this allowlist after the orphan-cleanup batch.
- */
-const KNOWN_ORPHANS: ReadonlySet<string> = new Set([
-  "migration",
-  "config",
-  "shared",
-])
 
 function listPackageNames(root: string): string[] {
   const out: string[] = []
@@ -117,7 +96,6 @@ describe("arch: §17.3 脚手架修剪 (no orphan workspace packages)", () => {
     ]
     const newOrphans: string[] = []
     for (const pkg of pkgs) {
-      if (KNOWN_ORPHANS.has(pkg)) continue // pending cleanup, see guard header
       let importers = 0
       for (const file of prodFiles) {
         const src = readFileSync(file, "utf-8")
@@ -131,35 +109,18 @@ describe("arch: §17.3 脚手架修剪 (no orphan workspace packages)", () => {
     }
     expect(
       newOrphans,
-      `new orphan packages (move to _archive/ or wire a real importer): ${newOrphans.join(", ")}`,
+      `orphan packages (move to _archive/ or wire a real importer): ${newOrphans.join(", ")}`,
     ).toEqual([])
   })
 
-  it("known orphans (migration / config / shared) are still pending cleanup", () => {
-    // This test documents the cleanup backlog. It fails if any known
-    // orphan is removed without the allowlist being updated — i.e.,
-    // catches accidental removal of the cleanup signal.
-    const pkgs = listPackageNames(PACKAGES_ROOT)
-    const stillOrphans: string[] = []
-    const prodFiles = [
-      ...listProductionTsFiles(PACKAGES_ROOT),
-      ...listProductionTsFiles(APPS_ROOT),
-    ]
-    for (const pkg of KNOWN_ORPHANS) {
-      if (!pkgs.includes(pkg)) continue
-      let importers = 0
-      for (const file of prodFiles) {
-        const src = readFileSync(file, "utf-8")
-        const re = new RegExp(`from\\s+["']@butler/${pkg}(?:/|["'])`, "m")
-        if (re.test(src)) importers += 1
-      }
-      if (importers === 0) stillOrphans.push(pkg)
-    }
-    expect(
-      stillOrphans,
-      `known orphans moved out of packages/ without allowlist update: ${stillOrphans.join(", ")}`,
-    ).toEqual(
-      expect.arrayContaining(["migration", "config", "shared"]),
-    )
+  it("post-D19 workspace has exactly the 5 active packages (adapters / domain / persistence / ports / runtime)", () => {
+    const pkgs = listPackageNames(PACKAGES_ROOT).sort()
+    expect(pkgs).toEqual([
+      "adapters",
+      "domain",
+      "persistence",
+      "ports",
+      "runtime",
+    ])
   })
 })
