@@ -438,6 +438,48 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       })
     },
 
+    async appendAuditEventInTx(tx, input) {
+      // tx is a Drizzle tx (Pglite or NodePg). The `tx` parameter type is
+      // `RuntimeTx = unknown` in the contract; we trust callers to pass a
+      // Drizzle-compatible tx and cast locally.
+      const t = tx as unknown as Parameters<typeof db.transaction>[0] extends (
+        tx: infer T,
+      ) => unknown
+        ? T
+        : never
+      await t.insert(auditEvents).values({
+        auditId: input.auditId,
+        runId: input.runId,
+        conversationId: input.conversationId,
+        action: input.action,
+        subject: input.subject,
+        detail: redactTraceValue(input.detail, 0),
+        createdAt: input.createdAt,
+      })
+    },
+
+    async transitionRunStatusInTx(tx, runId, expectedVersion, to, updatedAt) {
+      const t = tx as unknown as Parameters<typeof db.transaction>[0] extends (
+        tx: infer T,
+      ) => unknown
+        ? T
+        : never
+      const updated = await t
+        .update(runs)
+        .set({ status: to, version: expectedVersion + 1, updatedAt })
+        .where(and(eq(runs.runId, runId), eq(runs.version, expectedVersion)))
+        .returning()
+      const row = updated[0]
+      if (!row) {
+        throw new RuntimeVersionConflictError(runId, expectedVersion)
+      }
+      return toStoredRun(row)
+    },
+
+    async withTransaction(fn) {
+      return db.transaction(async (tx) => fn(tx))
+    },
+
     async updateScopedGrantRemainingUses(grantId, remainingUses) {
       await db
         .update(scopedGrants)

@@ -180,7 +180,37 @@ export interface RuntimeStore {
   /** D4-arch-align: child Runs of the given parent (parentRunId == runId).
    *  Used by cancelRun cascade + UI tree. */
   readonly findChildRuns: (parentRunId: string) => Promise<readonly StoredRun[]>
+  /** D6-arch-align §20 #7: tx-aware variants for atomic state-change+audit
+   *  composition. Caller is responsible for opening a transaction
+   *  (e.g. `store.withTransaction(async (tx) => { ... })`) and passing the
+   *  same tx to both state-change and audit write so the row + its audit
+   *  trail are atomic. */
+  readonly appendAuditEventInTx: (
+    tx: RuntimeTx,
+    input: {
+      readonly auditId: string
+      readonly runId: string | null
+      readonly conversationId: string | null
+      readonly action: string
+      readonly subject: string
+      readonly detail: Readonly<Record<string, unknown>>
+      readonly createdAt: Date
+    },
+  ) => Promise<void>
+  readonly transitionRunStatusInTx: (
+    tx: RuntimeTx,
+    runId: string,
+    expectedVersion: number,
+    to: StoredRun["status"],
+    updatedAt: Date,
+  ) => Promise<StoredRun>
+  /** Run a function in a single DB transaction. The callback receives a
+   *  Drizzle tx object that can be passed to any `*InTx` store method. */
+  readonly withTransaction: <T>(fn: (tx: RuntimeTx) => Promise<T>) => Promise<T>
 }
+
+/** Drizzle transaction handle (PgliteDatabase | NodePgDatabase `tx`). */
+export type RuntimeTx = unknown
 
 export type ReadModelSource = "event_store" | "hybrid" | "relational"
 

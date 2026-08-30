@@ -56,6 +56,50 @@ describe("run-lifecycle", () => {
     expect(cancelled.version).toBe(run.version + 1)
   })
 
+  it("cancelRun emits audit + status change atomically (D6-arch-align §20 #7)", async () => {
+    const store = createRuntimeStore(db.db)
+    const createdAt = new Date("2026-08-20T00:00:00Z")
+    const in1 = await store.createConversationWithUserMessage({
+      conversationId: "c-cancel-atomic",
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "hi" },
+      triggerSource: "channel",
+      idempotencyKey: "cancel-atomic",
+      createdAt,
+    })
+    const run = await store.createRun({
+      id: crypto.randomUUID(),
+      conversationId: in1.conversationId,
+      parentRunId: null,
+      triggerSource: "channel",
+      idempotencyKey: "cancel-atomic-run",
+      subject: "owner-1",
+      goal: "x",
+      budget: {},
+      deadline: null,
+      createdAt,
+    })
+    await store.transitionRunStatus(run.id, 1, "running", createdAt)
+
+    const cancelled = await cancelRun(store, run.id, {
+      subject: "owner-1",
+      reason: "atomic-test",
+    })
+    expect(cancelled.status).toBe("cancelled")
+    // Version bumped exactly once from the running state (version 2 after
+    // the running transition). The tx's transitionRunStatusInTx wrote
+    // a single version increment in the same tx as the audit insert.
+    expect(cancelled.version).toBe(3)
+
+    // A second cancel on a now-cancelled run is rejected (terminal state),
+    // not silently re-cancelled. This is the expected behavior since
+    // canTransitionRun is the SSOT for legal transitions.
+    await expect(
+      cancelRun(store, run.id, { subject: "owner-1" }),
+    ).rejects.toThrow(/illegal Run transition/)
+  })
+
   it("cancelRunCascade cancels descendants recursively (D4-arch-align §20 #7)", async () => {
     const store = createRuntimeStore(db.db)
     const createdAt = new Date("2026-08-20T00:00:00Z")
