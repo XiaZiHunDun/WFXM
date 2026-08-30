@@ -32,9 +32,21 @@
 import { Effect } from "effect"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
-import { type LLMAdapter, type LLMAssistantResponse, type LLMMessage } from "@butler/adapters"
+import { type LLMAdapter, type LLMMessage, type LLMTool } from "@butler/adapters"
 import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
+import { AgentKernel } from "@butler/runtime/agent-kernel.js"
+import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
+import type { ModelDecision } from "@butler/runtime/decision.js"
+import {
+  runConversationLoop,
+  type ConversationLoopLlmTool,
+  type ConversationLoopLogger,
+  type ConversationLoopMessage,
+  type ConversationLoopPorts,
+} from "@butler/runtime/execution/index.js"
+import type { EventStorePort } from "@butler/ports/core/event-store.js"
+import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { pushEventToSubscribers } from "./ws-routes.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { notifySubagentCompletion } from "./wechat-run-notify.js"
@@ -52,6 +64,21 @@ import { execModelTrace } from "@butler/adapters"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
 import { recordChildRunStatus } from "./project-state.js"
 import { resolveWechatUserFromConversation } from "./wechat-run-notify.js"
+
+/**
+ * D8-arch-align §20 #11: a no-op EventStorePort used to satisfy
+ * `AgentKernel`'s bridge contract. The canonical subagent reply
+ * (and the per-tool-call audit) is written through the explicit
+ * `bridge.appendConversationEvent(...)` and `writeSubagentAudit(...)`
+ * paths in `handleOutboxMessage` / `executeTool` port — the kernel's
+ * own write is intentionally suppressed because the worker is the
+ * sole writer of the parent's `AssistantMessageProduced` event for
+ * a delegated child turn.
+ */
+const noopEventStorePort: EventStorePort = {
+  appendConversationEvent: async () => undefined,
+  appendConversationEventWithOutbox: async () => "",
+}
 
 /**
  * Aggregate-type string used by `delegate-runtime` when enqueueing
@@ -211,39 +238,57 @@ async function runChildLlm(
     conversationId: childConversationId,
     timeoutMsFor: toolTimeoutMs,
   })
-  const completeOpts = advertised.length > 0 ? { tools: advertised } : undefined
-  let lastText = ""
 
-  for (let iteration = 0; iteration < MAX_CHILD_ITERATIONS; iteration++) {
-    const outcome = await Effect.runPromise(
-      adapter.complete(messages, completeOpts).pipe(
-        Effect.timeout(LLM_TIMEOUT_MS),
-        Effect.match({
-          onFailure: (err) => ({
-            ok: false as const,
-            reason: err instanceof Error ? err.message : String(err),
-          }),
-          onSuccess: (v: LLMAssistantResponse) => ({ ok: true as const, value: v }),
-        }),
-      ),
-    )
-    if (!outcome.ok) {
-      return { content: `（子代理 ${role} 调用失败: ${outcome.reason}）` }
-    }
-    const response = outcome.value
-    lastText = response.content
-    if (response.toolCalls.length === 0) {
-      return { content: response.content }
-    }
-    messages.push({
-      role: "assistant",
-      content: response.content,
-      toolCalls: response.toolCalls,
-    })
-    const toolResultMessages: LLMMessage[] = []
-    for (const tc of response.toolCalls) {
-      if (!isToolCallAllowed(tc.name, capabilities)) {
-        const reason = `capability denied: ${tc.name}`
+  // D8-arch-align §20 #11: reuse the canonical conversation loop instead of
+  // a hand-rolled for-loop. Subagent-specific concerns (capability allowlist,
+  // per-tool-call audit, owner-approval pause) live in the ports below; the
+  // loop body, decoder feedback, stuck-loop detection, and LLM-timeout stay
+  // shared with the main conversation.
+  const loopLogger: ConversationLoopLogger = {
+    warn: (msg, extra) => {
+      // eslint-disable-next-line no-console -- operator log mirror
+      console.warn(`[subagent:loop] ${msg}`, extra ?? "")
+    },
+    error: (msg, err) => {
+      // eslint-disable-next-line no-console -- operator log mirror
+      console.error(`[subagent:loop] ${msg}`, err)
+    },
+  }
+  const ports: ConversationLoopPorts = {
+    logger: loopLogger,
+    complete: async (msgs, tools) => {
+      try {
+        // ConversationLoopLlmTool is structurally a subset of LLMTool
+        // (name required; description + parameters optional on the loop side,
+        // required on the adapter side). The downcast is safe because the
+        // adapter fills any missing description/parameters from its defaults.
+        const opts =
+          tools.length > 0
+            ? { tools: tools as unknown as readonly LLMTool[] }
+            : undefined
+        const resp = await Effect.runPromise(
+          adapter.complete(msgs as unknown as readonly LLMMessage[], opts).pipe(
+            Effect.timeout(LLM_TIMEOUT_MS),
+          ),
+        )
+        return {
+          ok: true as const,
+          response: {
+            content: resp.content,
+            toolCalls: resp.toolCalls,
+          },
+        }
+      } catch (err) {
+        return {
+          ok: false as const,
+          reason: err instanceof Error ? err.message : String(err),
+        }
+      }
+    },
+    findTool: (name: string) => findTool(runtimeTools, name),
+    executeTool: async (def: ToolDefinition, args: Readonly<Record<string, unknown>>) => {
+      if (!isToolCallAllowed(def.name, capabilities)) {
+        const reason = `capability denied: ${def.name}`
         writeSubagentAudit(runtimeStore, {
           ts: new Date().toISOString(),
           kind: "rejection",
@@ -253,33 +298,31 @@ async function runChildLlm(
           task,
           capabilities,
           reason,
-          toolName: tc.name,
+          toolName: def.name,
         })
-        toolResultMessages.push({
-          role: "tool",
-          content: `[error] ${reason}`,
-          toolCallId: tc.id,
-          toolName: tc.name,
-        })
-        continue
+        return { ok: false, reason }
       }
-      const def = findTool(runtimeTools, tc.name)
-      if (!def) {
-        toolResultMessages.push({
-          role: "tool",
-          content: `[error] unknown tool: ${tc.name}`,
-          toolCallId: tc.id,
-          toolName: tc.name,
-        })
-        continue
-      }
-      const rawOutcome = await toolExecutor.execute(def, tc.args)
+      const rawOutcome = await toolExecutor.execute(def, args as Record<string, unknown>)
       if (isPendingApprovalOutcome(rawOutcome)) {
         const stepId = rawOutcome.pendingApproval.stepId
-        return {
-          content: `${rawOutcome.reason}\n审批编号: ${stepId}\n需出网命令请 Owner 执行：butler approve ${stepId} --network-allowlist registry.npmjs.org:443`,
-          waitingApproval: true,
-        }
+        writeSubagentAudit(runtimeStore, {
+          ts: new Date().toISOString(),
+          kind: "tool_call",
+          parentConversationId,
+          childConversationId,
+          role,
+          task,
+          capabilities,
+          toolName: def.name,
+          reason: rawOutcome.reason,
+        })
+        throw new RunPauseForApproval({
+          reply: `${rawOutcome.reason}\n审批编号: ${stepId}\n需出网命令请 Owner 执行：butler approve ${stepId} --network-allowlist registry.npmjs.org:443`,
+          iterations: 0,
+          toolCalls: 0,
+          finalDecision: "WaitForApproval" as ModelDecision["_tag"],
+          traces: [`waiting approval ${stepId} for ${def.name}`],
+        })
       }
       const toolResult = toRunResult(rawOutcome)
       writeSubagentAudit(runtimeStore, {
@@ -290,22 +333,46 @@ async function runChildLlm(
         role,
         task,
         capabilities,
-        toolName: tc.name,
+        toolName: def.name,
         reason: toolResult.ok ? "ok" : toolResult.reason,
       })
-      toolResultMessages.push({
-        role: "tool",
-        content: toolResult.ok ? String(toolResult.output) : `[error] ${toolResult.reason}`,
-        toolCallId: tc.id,
-        toolName: tc.name,
-      })
-    }
-    messages.push(...toolResultMessages)
+      return toolResult
+    },
+    stubReply: () => `（子代理 ${role} 调用失败）`,
   }
-  return {
-    content: lastText.trim()
-      ? lastText
-      : `（子代理 ${role} 工具循环已达上限 ${MAX_CHILD_ITERATIONS}）`,
+  // Kernel is required by runConversationLoop but its bridge writes are
+  // intentionally suppressed: subagent owns the parent-stream AssistantMessage
+  // Produced write itself (see handleOutboxMessage below).
+  const kernel = new AgentKernel({
+    bridge: noopEventStorePort,
+    conversationId: childConversationId,
+    projectId: "subagent",
+    actor: { kind: "agent", id: `subagent-${role}` },
+  })
+
+  try {
+    const loopResult = await runConversationLoop({
+      kernel,
+      messages: messages as unknown as ConversationLoopMessage[],
+      llmTools: advertised as unknown as readonly ConversationLoopLlmTool[],
+      ports,
+      maxIterations: MAX_CHILD_ITERATIONS,
+      llmTimeoutMs: LLM_TIMEOUT_MS,
+    })
+    return { content: loopResult.reply }
+  } catch (err) {
+    if (err instanceof RunPauseForApproval) {
+      const payload =
+        typeof err.payload === "object" && err.payload !== null
+          ? (err.payload as { reply?: unknown })
+          : null
+      const reply =
+        payload && typeof payload.reply === "string"
+          ? payload.reply
+          : `（子代理 ${role} 需要审批）`
+      return { content: reply, waitingApproval: true }
+    }
+    throw err
   }
 }
 
