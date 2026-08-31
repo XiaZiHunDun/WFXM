@@ -14,6 +14,11 @@ import {
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import type { ToolExecutionOutcome } from "@butler/runtime/capability-boundary.js"
+import {
+  computeCostUsd,
+  parseLlmPricing,
+  resolveCurrentLlmModel,
+} from "./llm-pricing.js"
 import type { RunResult } from "@butler/runtime/tool-runtime.js"
 import { Effect } from "effect"
 import { pickLLMForRole, type LLMMessage, type LLMTool } from "@butler/adapters"
@@ -242,6 +247,10 @@ async function continueLoopAfterCapability(args: {
       complete: async (msgs, toolsForLlm) => {
         const llmMessages = msgs as unknown as LLMMessage[]
         const llmStartedAt = Date.now()
+        // D24: pricing lookup is best-effort; missing pricing leaves
+        // costUsd as null (aligned with the field's "unknown" semantics).
+        const pricing = parseLlmPricing(args.env)
+        const currentModel = resolveCurrentLlmModel(args.env)
         return Effect.runPromise(
           adapter.complete(llmMessages, { tools: toolsForLlm as unknown as readonly LLMTool[] }).pipe(
             Effect.match({
@@ -264,6 +273,11 @@ async function continueLoopAfterCapability(args: {
               },
               onSuccess: (resp) => {
                 // D23: success trace carries first-class `token`.
+                // D24: fills costUsd when env-driven pricing is available.
+                const costUsd =
+                  resp.usage !== undefined && currentModel !== null
+                    ? computeCostUsd(resp.usage, currentModel, pricing)
+                    : null
                 getSharedLocalTracer().record({
                   kind: "step",
                   name: "llm_call",
@@ -273,6 +287,7 @@ async function continueLoopAfterCapability(args: {
                   subject: args.subject,
                   durationMs: Date.now() - llmStartedAt,
                   ...(resp.usage !== undefined ? { token: resp.usage } : {}),
+                  costUsd,
                 })
                 return {
                   ok: true as const,

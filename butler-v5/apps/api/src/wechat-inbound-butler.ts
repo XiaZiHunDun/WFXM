@@ -5,6 +5,11 @@ import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import type { ModelDecision } from "@butler/runtime/decision.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import {
+  computeCostUsd,
+  parseLlmPricing,
+  resolveCurrentLlmModel,
+} from "./llm-pricing.js"
+import {
   DEFAULT_MAX_LOOP_ITERATIONS,
   runConversationLoop,
   type ConversationLoopMessage,
@@ -401,6 +406,10 @@ async function runButlerLoopBody(args: {
       complete: async (msgs, toolsForLlm) => {
         const llmMessages = msgs as unknown as LLMMessage[]
         const llmStartedAt = Date.now()
+        // D24: pricing lookup is best-effort; missing pricing leaves
+        // costUsd as null (aligned with the field's "unknown" semantics).
+        const pricing = parseLlmPricing(env)
+        const currentModel = resolveCurrentLlmModel(env)
         return Effect.runPromise(
           adapter.complete(llmMessages, { tools: toolsForLlm as unknown as readonly LLMTool[] }).pipe(
             Effect.match({
@@ -425,10 +434,13 @@ async function runButlerLoopBody(args: {
               onSuccess: (resp) => {
                 // D23: success trace carries first-class `token` so §14
                 // observability captures input / output / total tokens per
-                // LLM call. `costUsd` stays null until a future pricing
-                // batch lands; the field is declared first-class so trace
-                // shape is ready when that lands.
+                // LLM call. D24: fills `costUsd` when env-driven pricing
+                // for the current model is available; otherwise null.
                 const tracer = getSharedLocalTracer()
+                const costUsd =
+                  resp.usage !== undefined && currentModel !== null
+                    ? computeCostUsd(resp.usage, currentModel, pricing)
+                    : null
                 tracer.record({
                   kind: "step",
                   name: "llm_call",
@@ -438,6 +450,7 @@ async function runButlerLoopBody(args: {
                   subject: memorySubject,
                   durationMs: Date.now() - llmStartedAt,
                   ...(resp.usage !== undefined ? { token: resp.usage } : {}),
+                  costUsd,
                 })
                 return {
                   ok: true as const,

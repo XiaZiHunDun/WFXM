@@ -573,13 +573,22 @@ Schedule 不是长期授权主体；它以 `system:scheduler` 创建 Run，能�
 - `policyDecision`, `grantId`（审批等待时另记 `waitingStepId`）
 - latency、token、cost、retry 和终止原因
 
-> **字段捕获状态**（D21/D23 audit, 2026-08-30 + 2026-08-31）：
+> **字段捕获状态**（D21/D23/D24 audit, 2026-08-30 + 2026-08-31）：
 >
-> - **first-class 顶层捕获**（13/14）：`conversationId` / `runId` / `stepId` / `parentRunId` / `subject` / `triggerSource` / `capability` / `policyDecision` / `grantId` / `waitingStepId` / `durationMs`（=latency）/ `token`（D23）/ `costUsd`（D23 字段预留，pricing batch 之前保持 `null`）。
+> - **first-class 顶层捕获**（13/14）：`conversationId` / `runId` / `stepId` / `parentRunId` / `subject` / `triggerSource` / `capability` / `policyDecision` / `grantId` / `waitingStepId` / `durationMs`（=latency）/ `token`（D23，adapter 暴露 `usage` 后透传）/ `costUsd`（D24，env-driven pricing 实时填写；缺 pricing = `null`，与 `token` 字段"未知"语义对齐）。
 > - **detail Record workaround**（3/14）：`modelProvider` / `retry` / `终止原因`（仅缺 §14 字段在结构上不便单独建模的部分；走 `TraceEvent.detail`）。
-> - **未捕获**（0/14）：D21 标记的 `token` / `cost` 缺口已被 D23 闭环——adapter 暴露 `usage` → ports 透传 → `kind: "step", name: "llm_call"` trace event 携带 `token`。`costUsd` 字段已 first-class，等后续 pricing env-var 批次接入。
+> - **未捕获**（0/14）：D21 标记的 `token` / `cost` 缺口已被 D23（token 路径）+ D24（cost 路径）双双闭环。
 >
-> 锁定方式：`tests/architecture/section14-observability-fields.test.ts`（D21 + D23 更新）+ `tests/architecture/section14-token-cost.test.ts`（D23，9 cases）。
+> **LLM pricing env vars**（D24，`apps/api/src/llm-pricing.ts` 解析）：
+>
+> | Env var | 含义 | 默认 |
+> |---|---|---|
+> | `BUTLER_V5_PRICING_<MODEL>_INPUT_PER_MTOK` | 模型输入价格 USD / 百万 token | 无即 costUsd=null |
+> | `BUTLER_V5_PRICING_<MODEL>_OUTPUT_PER_MTOK` | 模型输出价格 USD / 百万 token | 无即 costUsd=null |
+>
+> `<MODEL>` = 模型标识大写 + `-` 替 `_`（e.g. `claude-sonnet-4-20250514` → `BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_INPUT_PER_MTOK`）。当前模型选择沿用 `packages/adapters/src/llm-provider.ts:pickLLMProvider`：Anthropic / DeepSeek / DashScope 三家；active model 由 `resolveCurrentLlmModel(env)` 解析。缺 env = 缺定价，trace costUsd = `null`（非 0 / 非 throw）。
+>
+> 锁定方式：`tests/architecture/section14-observability-fields.test.ts`（D21 + D23 更新）+ `tests/architecture/section14-token-cost.test.ts`（D23，9 cases）+ `tests/architecture/section14-costusd.test.ts`（D24，7 cases）+ `apps/api/src/llm-pricing.test.ts`（D24，15 单元）。
 
 默认使用结构化日志和本地诊断。OpenTelemetry exporter 是可选适配器，不是运行依赖。
 

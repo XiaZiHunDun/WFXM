@@ -38,6 +38,11 @@ import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
+import {
+  computeCostUsd,
+  parseLlmPricing,
+  resolveCurrentLlmModel,
+} from "./llm-pricing.js"
 import type { ModelDecision } from "@butler/runtime/decision.js"
 import {
   runConversationLoop,
@@ -259,6 +264,10 @@ async function runChildLlm(
     logger: loopLogger,
     complete: async (msgs, tools) => {
       const llmStartedAt = Date.now()
+      // D24: pricing lookup is best-effort; missing pricing leaves
+      // costUsd as null (aligned with the field's "unknown" semantics).
+      const pricing = parseLlmPricing(env)
+      const currentModel = resolveCurrentLlmModel(env)
       try {
         // ConversationLoopLlmTool is structurally a subset of LLMTool
         // (name required; description + parameters optional on the loop side,
@@ -274,6 +283,11 @@ async function runChildLlm(
           ),
         )
         // D23: emit llm_call step trace with token usage.
+        // D24: fills costUsd when env-driven pricing is available.
+        const costUsd =
+          resp.usage !== undefined && currentModel !== null
+            ? computeCostUsd(resp.usage, currentModel, pricing)
+            : null
         getSharedLocalTracer().record({
           kind: "step",
           name: "llm_call",
@@ -283,6 +297,7 @@ async function runChildLlm(
           subject: ownerSubject,
           durationMs: Date.now() - llmStartedAt,
           ...(resp.usage !== undefined ? { token: resp.usage } : {}),
+          costUsd,
         })
         return {
           ok: true as const,
