@@ -434,6 +434,23 @@ Sandbox Profile 默认属于副作用 Capability Provider 的执行配置：
 - 即使 Policy 错误放行，Sandbox 仍限制路径、网络、进程、输出和资源；
 - 即使 Sandbox 允许，高风险业务动作仍可能需要 Approval。
 
+> **§10 实施审计状态**（D27, 2026-08-31）：
+>
+> | §10 字段（设计文字） | 实施字段（TypeScript ADT） | 状态 |
+> |---|---|---|
+> | ActionRequest `actor` | `subject` | 字段重命名（语义对齐 §10.3 ScopedGrant.subject） |
+> | ActionRequest `argumentsDigest` | `digest` | 字段重命名（短化） |
+> | ActionRequest `context` | `payload` | 字段重命名 |
+> | ActionRequest (无 kind/risk) | `kind` (`ActionKind`: read/write/command/delegate/outbound/model) + `risk` (`RiskLevel`: low/medium/high) | 实施扩面（D2.x 引入 kind/risk 用于 capability 路由 + risk-aware Policy） |
+> | ScopedGrant 9 字段（id/runId/createdAtMs 隐式） | ScopedGrantRecord 12 字段 = 9 显式 + 3 DB 必需 (`id` / `runId` / `createdAtMs`) | 实施扩面（D2.2 capability first-class column 独立于 scope.capabilities） |
+> | PolicyDecision `Allow` / `Deny(reason)` / `Ask(actionDigest, prompt)` | `Allow` / `Deny(reason)` / `Ask(question, expiresAtMs)` | `Ask` payload 字段调整：`question` + `expiresAtMs` 替代原 `actionDigest + prompt` |
+> | waiting_approval 是 Step status | `waiting_approval` 是 Step status + run.status（**不是**独立表） | 实施与设计一致 |
+> | ScopedGrant 字段集合 | 12 字段（含 D2.2 first-class `capability` column） | 实施与设计一致 |
+> | Sandbox 解析 | `sandboxProfileForApprovedCapability` (runtime/sandbox/profiles.ts) | 实施与设计一致 |
+> | 模型调用不走 §10 chain | LLMAdapter 不 import PolicyGate，不构造 ActionRequest | 实施与设计一致（§20 #3 配套 lock） |
+>
+> 锁定方式：`tests/architecture/section10-governance-arch-guard.test.ts`（D27, 9 cases）+ §20 #1/#3/#7/#10 既有 lock。
+
 ---
 
 ## 11. 混合数据模型
