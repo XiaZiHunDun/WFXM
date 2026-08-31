@@ -38,6 +38,11 @@
  *   - C12 — 6 v5 物化 Core Port 文件在 `packages/ports/src/core/` 存在:
  *           clock.ts / credential-provider.ts / event-store.ts /
  *           outbox.ts / snapshot.ts / projection.ts.
+ *   - C13 — wechat 是唯一线上 ChannelPort impl (D38 closure):
+ *           packages/adapters/src/wechat/channel-port.ts 存在;
+ *           packages/adapters/src/slack/ 存在但不含 channel-port.ts
+ *           (slack skeleton 不实现 ChannelPort 接口, 等真接生产触发).
+ *           与 port-catalog.md §3 + DESIGN §7.1 🟡 同步.
  *
  * Runtime behavior is verified by:
  *   - D31 §7 main guards (thin barrel + 0 impl + 0 upward imports)
@@ -118,5 +123,17 @@ describe("§7.1 Port snapshot refresh (D37, 2026-08-31)", () => {
     ]
     const missing = required.filter((f) => !existsSync(join(CORE_DIR, f)))
     expect(missing).toEqual([])
+  })
+
+  // C13 — §7.1 + port-catalog.md §3 Channel Port 行 closure（D38）：
+  // wechat 是唯一实现 ChannelPort 接口的线上 adapter；
+  // slack adapter skeleton 就位但不实现 ChannelPort 接口。
+  it("ChannelPort online impl is wechat-only; slack skeleton does not impl ChannelPort (§7.1 + port-catalog §3)", () => {
+    const ADAPTERS_SRC = join(BUTLER_V5, "packages/adapters/src")
+    // wechat 必须实现
+    expect(existsSync(join(ADAPTERS_SRC, "wechat/channel-port.ts"))).toBe(true)
+    // slack skeleton 存在但不实现 channel-port
+    expect(existsSync(join(ADAPTERS_SRC, "slack"))).toBe(true)
+    expect(existsSync(join(ADAPTERS_SRC, "slack/channel-port.ts"))).toBe(false)
   })
 })

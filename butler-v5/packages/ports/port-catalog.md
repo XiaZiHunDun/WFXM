@@ -3,7 +3,7 @@
 DESIGN §7 端口契约的当前**实际**消费/实现映射。
 本文件与 `packages/ports/src/index.ts`（thin barrel）顶部注释保持同步。
 
-最近更新：2026-08-28 R12 收尾——R2 Effect Tag 体系（14 个 Effect Tag）已整体归档（commit `33af1722`，详见 §2 历史段）。
+最近更新：2026-08-31 D37/D38 收尾——§7.1 状态表与 §3 待物化段同步（Channel Port 行与 §7.1 🟡 一致）；6 v5 物化 Core Port 实证（C12）；r2-shim isolation（C11）。R2 Effect Tag 体系（14 个 Effect Tag）已于 2026-08-28 R12 收尾归档（commit `33af1722`，详见 §2 历史段）。
 
 ---
 
@@ -40,7 +40,7 @@ DESIGN 不变量 [G-4]：原 `GuardService` 10 项（含 `[G-9]` `[G-10]`）属�
 
 - **Repository Port** — 当前 `runtime-store.ts` 函数签名耦合；待第二持久化实现或独立 mock 需求出现。
 - **Model Port** — 当前 `model-router.ts` 调具体 adapter；待多 Provider 协议/记账统一需求出现。
-- **Channel Port** — 当前 wechat/slack/telegram 各驱动；待第二 Channel 真接生产。
+- **Channel Port** — 🟡 接口已在 `packages/ports/src/core/channel.ts` 实装（DESIGN §7.1）；wechat adapter 上线（`packages/adapters/src/wechat/channel-port.ts` iLink impl，Composition Root 注入 `wiring.channels`）；slack adapter skeleton 就位（`packages/adapters/src/slack/`，5 文件 + `index.ts`，含 `slack-outbound*.ts` / `slack-protocol.ts` / `slack-media.ts`，**未实现 ChannelPort 接口**）等真接生产触发（DESIGN §18 条件准入）；telegram 未触发（无 adapter 目录）。Channel Port 真接生产触发后会升 ✅。
 - **Capability 契约** — 已在 `capability-boundary.ts` 承载，"实现即接口"原则不重复建设。
 
 ---
