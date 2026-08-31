@@ -328,6 +328,10 @@ Schedule 只负责按时产生 Trigger，不拥有另一套 Workflow、Policy �
 
 **边界**：Driving Adapter 不做意图决策；意图分类（如微信 dev_task / 聊天）属于 Core.Application 的用例编排，Adapter 只完成协议适配与 `RunTrigger` 构造。
 
+> **§8 实施 audit state**（D29, 2026-08-31）：`TriggerSource` union (`packages/domain/src/runtime/types.ts:8`) 覆盖 7 source — `channel` / `cli` / `api` / `webhook` / `schedule` / `parent_run` / `task`（§8 line 313 "至少包括 6 项" superset）。6 个 `build*RunTrigger` builders（wechat/channel/api/cli/task + schedule）按 §8 source literal 配对；`parent_run` 由 `delegate-runtime.ts` 直接 set `triggerSource: "parent_run"` on child Run record（§8 line 327 不反向调 Intake）。Schedule (`apps/api/src/schedule-run.ts`) 仅 build trigger + dispatch runButlerLoop，不另立 Workflow/Policy/engine（§8 line 325）。
+>
+>  锁定方式：`tests/architecture/section8-9-adapters-boundary.test.ts`（D29 §8 段 3 cases）+ D26A §20 #4 RunTrigger 入口归一化 + D26A §20 #1 RunEngine 唯一。
+
 ---
 
 ## 9. Driven Adapters（出站/副作用 Capability 接缝）
@@ -355,6 +359,12 @@ Provider 类型包括：
 - 外部 API。
 
 模型不在此注册表中。MCP 是注册远程副作用 Capability 的适配器，浏览器是一组共享隔离会话的 Capability，出站发送也是 Capability。它们不能形成旁路。
+
+> **§9 实施 audit state**（D29, 2026-08-31）：`CapabilityDefinition` (`packages/runtime/src/policy-gate.ts:11`) 实际 4 顶层字段 — `name` / `kind` / `risk` / `declared?`；§9 text 8 字段重构为 `CapabilityProviderMetadata` (option 子接口) — 含 `inputSchema?` / `outputSchema?` / `sandboxProfile?` (was `defaultSandboxProfile`) / `timeoutMs?` (was `timeout`) / `idempotent?` (was `idempotency`) / `auditPolicy?` (full/summary/none)。**text-vs-impl drift 承认**：riskClass → kind+risk；defaultSandboxProfile → sandboxProfile；timeout → timeoutMs；idempotency → idempotent；8 字段语义保留但分层到顶层 4 + declared 6 optional。
+>
+>  `CapabilityRegistry.register` (`policy-gate.ts:86`) 是 sync void 唯一 register site；`capabilityDefinitionFromTool` (`capability-boundary.ts:57`) 是 ToolDefinition → CapabilityDefinition canonical adapter。LLM + Channel Port 不进 `registry.register(...)`（§9 line 357 模型不在注册表；Channel Port 走 `wiring.channels` composition root，D2.4 step 1 锁）。
+>
+>  锁定方式：`tests/architecture/section8-9-adapters-boundary.test.ts`（D29 §9 段 3 cases）+ D10 §20 #10 register sync + D26A §20 #1 CapabilityRegistry 唯一 + D2.4 §7.1 Channel Port + D23/D24 LLM 边界。
 
 ---
 
