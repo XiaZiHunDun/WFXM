@@ -435,7 +435,14 @@ Butler 不采用全面 Event Sourcing。当前状态表是业务事实；不可�
 - `outbox`
 - `audit_events`
 
-不默认建设：`tasks`、`procedures`、独立 `approvals` 表、`memory_records`、`documents`。审批字段存在 `waiting_approval` Step 上。
+不默认建设（trigger-conditioned，§11.4 line 484 同款："只有出现实测需求时才建"）：`tasks`、`procedures`、独立 `approvals` 表、`memory_records`、`documents`。"不默认"= 默认情况下不建，但有真实触发需求时可建。
+
+> **当前 trigger 状态（D22 audit, 2026-08-31）**：
+>
+> - **已 trigger**（P0-P4 capability 真需求，commit `f60de759` v5 大爆炸引入）：`tasks`、`procedures`、`documents` — schema.ts 各有 pgTable；persistence 层有 `TaskStore` / `ProcedureStore` / `DocumentStore`；`apps/api` 12 个 owner HTTP endpoints（6 documents + 2 procedures + 4 tasks）接 production；wechat slash commands 入口含 tasks。arch guard `tests/architecture/section11-deferred-triggered.test.ts` 锁住。
+> - **未 trigger**：独立 `approvals` 表（审批字段存在 `waiting_approval` Step 上，§6.1 Step status 字段承载）；`memory_records`（Durable Memory 走 §12 `durable_memories` 表已实施，与 §11 list 是不同 surface，不算 §11 deferred）。
+>
+> **撤销 / 收回流程**：若 owner 收回已 trigger 项需求（取消 `/待办` 命令、关闭文档命令等），按 D19 orphan cleanup 模式：删表 / Store / routes + 更新本段 + 改写 arch guard。
 
 ### 11.1 Current State
 
