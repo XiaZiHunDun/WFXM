@@ -304,18 +304,21 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 >
 > 锁定方式：`tests/architecture/section7-ports-main.test.ts`（D31, 5 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18/D19 §17.3 port 路径继承）+ D11 §7.1 port snapshot lock + D26A §20 #2 Core 不 import adapters + D26B §20 #6 Repository 在 persistence 而非 ports + D29 §9 Capability 在 runtime 而非 ports。
 
-### §7.1 已实施 Port 状态（2026-08-29 snapshot）
+### §7.1 已实施 Port 状态（2026-08-31 snapshot）
 
 | Port | 状态 | File | 实装 / 备注 |
 | --- | --- | --- | --- |
 | Clock | ✅ 已实施 | `packages/ports/src/core/clock.ts` | `systemClock`/`fixedClock`；注入 RunEngine（R10 P5） |
 | Credential Provider | ✅ 已实施 | `packages/ports/src/core/credential-provider.ts` | `createHostCredentialProvider`；fail-closed（R10 P2） |
-| Event Store | ✅ 已实施（窄接口） | `packages/ports/src/core/event-store.ts` | `packages/persistence/src/event-bridge.ts` 实装；旧 `EventStoreService`（R2 宽 Tag）尚由 `postgres-event-store` 引用，待迁 |
+| Event Store | ✅ 已实施（窄接口） | `packages/ports/src/core/event-store.ts` | `packages/persistence/src/event-bridge.ts` 实装；旧 `EventStoreService`（R2 宽 Tag）已归档（commit `33af1722` 2026-08-28），prod runtime 不经 Tag 注入面 |
+| Outbox | ✅ 已实施（窄接口） | `packages/ports/src/core/outbox.ts` | prod runtime 直调 `@butler/persistence/outbox.js`；新 Port 为未来替换/隔离触发的接缝（与 `port-catalog.md` §1 同步） |
+| Snapshot | ✅ 已实施（窄接口） | `packages/ports/src/core/snapshot.ts` | prod runtime 直调 `@butler/persistence/snapshot.js`；新 Port 为未来替换/隔离触发的接缝 |
+| Projection | ✅ 已实施（窄接口） | `packages/ports/src/core/projection.ts` | prod runtime 直调 `@butler/persistence/projections.js`；新 Port 为未来替换/隔离触发的接缝 |
+| Channel | 🟡 接口已实装，adapter 待触发出线 | `packages/ports/src/core/channel.ts` 接口；`packages/adapters/src/wechat/channel-port.ts` iLink impl（线上）；Composition Root 注入 `wiring.channels` | WeChat 上线；Slack adapter skeleton 就位（`packages/adapters/src/slack/`，5 文件）等真接生产触发（DESIGN §18 条件准入）；Telegram 未触发 |
 | Capability 契约 | 🟡 实现即接口 | `packages/runtime/src/capability-boundary.ts` | 不另立接口（DESIGN §7 + AGENTS.md §0 三层事实） |
 | Repository | ⚪ 隐性承载（YAGNI） | `runtime-store.ts` 直接函数调用 | 等第二持久化实现或独立 mock 需求 |
 | Model | ⚪ 隐性承载（YAGNI） | `model-router.ts` 直连 `llm-provider.ts` | 等多 Provider 协议/记账统一需求 |
-| Channel | ✅ 已实装（D2.4 step 1） | `packages/ports/src/core/channel.ts` 接口 + `packages/adapters/src/wechat/channel-port.ts` iLink impl；Composition Root 注入 `wiring.channels` | WeChat ChannelPort 上线；Slack impl 等真实 OAuth token（D2.4 step 2）|
-| v5 Ports 总入口 (thin barrel) | ✅ thin barrel（仅 `export * from "./core/*"`）| `packages/ports/src/index.ts` | 260 行 R2 Effect Tag 类全部归档（commit `33af1722`） |
+| v5 Ports 总入口 (thin barrel + R2 shim) | ✅ thin barrel + fixture shim | `packages/ports/src/index.ts`（顶部 deprecation 注释 + thin barrel）；`packages/ports/src/r2-shim.ts`（fixture-only） | `/core/*` 6 个 v5 物化 Core Port + R2 shim（14 个 Tag 类，仅 `pnpm test:archived` 使用，prod v5 code 不得引；invariant 16 由 `package-membership.test.ts` 锁） |
 
 > "ports-stable × real-need driven" 是 §7 实施准则：不预先为"架构完整"造休眠接口。新增 / 迁移 Port 时同步更新本表与 `port-catalog.md`。
 
