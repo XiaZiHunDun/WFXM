@@ -804,8 +804,8 @@ Effect-TS 是可选实现工具，不是架构层级。
 ## 19. 文档与治理边界
 
 - 本文是**目标架构 SSOT**；
-- 产品硬边界由 `v5-product-boundaries-2026-08.md` 裁决；
-- 当前生产事实由 `v5-production-architecture-2026-08.md` 描述；
+- 产品硬边界由 [`../docs/plans/decisions/v5-product-boundaries-2026-08.md`](../docs/plans/decisions/v5-product-boundaries-2026-08.md) 裁决；
+- 当前生产事实由 [`../docs/architecture/v5-production-architecture-2026-08.md`](../docs/architecture/v5-production-architecture-2026-08.md) 描述；
 - 路线和实施顺序由 active roadmap 描述；
 - 旧完整函数式设计只作历史，不再约束新实现。
 
