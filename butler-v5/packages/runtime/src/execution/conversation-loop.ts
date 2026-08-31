@@ -126,6 +126,18 @@ export interface ConversationLoopPorts {
         readonly response: {
           readonly content: string
           readonly toolCalls: readonly ConversationLoopToolCall[]
+          /**
+           * D23: optional provider-agnostic token usage. When the
+           * adapter surfaces `usage` it propagates here so the loop
+           * can attach it to the trace event emitted for the LLM
+           * call. Stays `undefined` for adapters / fixtures that do
+           * not report usage.
+           */
+          readonly usage?: {
+            readonly inputTokens: number
+            readonly outputTokens: number
+            readonly totalTokens: number
+          }
         }
       }
     | { readonly ok: false; readonly reason: string }

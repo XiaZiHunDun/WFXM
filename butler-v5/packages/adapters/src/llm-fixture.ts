@@ -11,6 +11,13 @@ type FixtureEntry = {
     readonly args: Record<string, unknown>
   }[]
   readonly stopReason?: LLMAssistantResponse["stopReason"]
+  /**
+   * D23: optional `usage` so scripted-LLM fixtures and recorded traces
+   * can carry token counts through the boundary and exercise the trace
+   * event first-class field. Most fixtures omit this and the field
+   * stays `undefined`.
+   */
+  readonly usage?: LLMAssistantResponse["usage"]
 }
 
 type FixtureFile = {
@@ -56,6 +63,7 @@ export function makeFixtureLLMAdapter(args: {
         content: entry.content ?? "",
         toolCalls: entry.toolCalls ?? [],
         stopReason: entry.stopReason ?? "end_turn",
+        ...(entry.usage !== undefined ? { usage: entry.usage } : {}),
       })
     },
   }

@@ -54,6 +54,11 @@ interface OpenAIResponse {
     }
     readonly finish_reason: string
   }[]
+  readonly usage?: {
+    readonly prompt_tokens: number
+    readonly completion_tokens: number
+    readonly total_tokens: number
+  }
 }
 
 /**
@@ -150,11 +155,18 @@ function toOpenAIMessages(messages: readonly LLMMessage[]): readonly OpenAIReque
  * `arguments` on each tool_call is a JSON string — we parse it lazily
  * inside `tryParseArgs` so a malformed payload does not blow up the
  * whole response (we drop the call and log via the result instead).
+ * When `data.usage` is present, surface it as `usage` (D23) so the
+ * caller can forward it to trace events.
  */
 function parseOpenAIResponse(data: OpenAIResponse): LLMAssistantResponse {
   const choice = data.choices[0]
   if (!choice) {
-    return { content: "", toolCalls: [], stopReason: "stop" }
+    return {
+      content: "",
+      toolCalls: [],
+      stopReason: "stop",
+      ...(data.usage !== undefined ? { usage: mapOpenAIUsage(data.usage) } : {}),
+    }
   }
   const message = choice.message
   const content = message.content ?? ""
@@ -168,6 +180,30 @@ function parseOpenAIResponse(data: OpenAIResponse): LLMAssistantResponse {
     content,
     toolCalls,
     stopReason: mapStopReason(choice.finish_reason),
+    ...(data.usage !== undefined ? { usage: mapOpenAIUsage(data.usage) } : {}),
+  }
+}
+
+/**
+ * Normalize OpenAI `usage` (`prompt_tokens` / `completion_tokens` /
+ * `total_tokens`) into the provider-agnostic `LLMUsage` shape. We
+ * still pass through `total_tokens` from the provider when present
+ * because some providers compute cache-aware totals that differ from
+ * `prompt + completion`; otherwise we fall back to the sum.
+ */
+function mapOpenAIUsage(raw: {
+  readonly prompt_tokens: number
+  readonly completion_tokens: number
+  readonly total_tokens: number
+}): {
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly totalTokens: number
+} {
+  return {
+    inputTokens: raw.prompt_tokens,
+    outputTokens: raw.completion_tokens,
+    totalTokens: raw.total_tokens,
   }
 }
 

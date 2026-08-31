@@ -12,6 +12,7 @@ import {
   type ConversationLoopResult,
 } from "@butler/runtime/execution/index.js"
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
+import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import type { ToolExecutionOutcome } from "@butler/runtime/capability-boundary.js"
 import type { RunResult } from "@butler/runtime/tool-runtime.js"
 import { Effect } from "effect"
@@ -240,20 +241,48 @@ async function continueLoopAfterCapability(args: {
       },
       complete: async (msgs, toolsForLlm) => {
         const llmMessages = msgs as unknown as LLMMessage[]
+        const llmStartedAt = Date.now()
         return Effect.runPromise(
           adapter.complete(llmMessages, { tools: toolsForLlm as unknown as readonly LLMTool[] }).pipe(
             Effect.match({
-              onFailure: (err) => ({
-                ok: false as const,
-                reason: err instanceof Error ? err.message : String(err),
-              }),
-              onSuccess: (resp) => ({
-                ok: true as const,
-                response: {
-                  content: resp.content,
-                  toolCalls: resp.toolCalls,
-                },
-              }),
+              onFailure: (err) => {
+                // D23: error trace (no usage when the call never reached the model).
+                getSharedLocalTracer().record({
+                  kind: "step",
+                  name: "llm_call",
+                  status: "error",
+                  conversationId: args.conversationId,
+                  runId: args.runId,
+                  subject: args.subject,
+                  durationMs: Date.now() - llmStartedAt,
+                  detail: { reason: err instanceof Error ? err.message : String(err) },
+                })
+                return {
+                  ok: false as const,
+                  reason: err instanceof Error ? err.message : String(err),
+                }
+              },
+              onSuccess: (resp) => {
+                // D23: success trace carries first-class `token`.
+                getSharedLocalTracer().record({
+                  kind: "step",
+                  name: "llm_call",
+                  status: "ok",
+                  conversationId: args.conversationId,
+                  runId: args.runId,
+                  subject: args.subject,
+                  durationMs: Date.now() - llmStartedAt,
+                  ...(resp.usage !== undefined ? { token: resp.usage } : {}),
+                })
+                return {
+                  ok: true as const,
+                  response: {
+                    content: resp.content,
+                    toolCalls: resp.toolCalls,
+                    ...(resp.usage !== undefined ? { usage: resp.usage } : {}),
+                  },
+                }
+              },
             }),
           ),
         )

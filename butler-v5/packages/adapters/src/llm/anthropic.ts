@@ -39,11 +39,18 @@ type AnthropicContentBlock =
  * Anthropic response shape. Content is a list of typed blocks; the
  * adapter parses text blocks into `content` and tool_use blocks into
  * `toolCalls`. Unknown block types are silently dropped (forward
- * compatibility for new Anthropic features).
+ * compatibility for new Anthropic features). `usage` carries token
+ * counts surfaced to the butler loop and forwarded to trace events
+ * (D23); the field is optional because some upstream paths (mocked
+ * fixtures, certain failure modes) may omit it.
  */
 interface AnthropicResponse {
   readonly content: readonly AnthropicContentBlock[]
   readonly stop_reason: string
+  readonly usage?: {
+    readonly input_tokens: number
+    readonly output_tokens: number
+  }
 }
 
 /**
@@ -142,7 +149,9 @@ function toAnthropicMessages(messages: readonly LLMMessage[]): readonly Anthropi
  * Parse Anthropic response content blocks into a provider-agnostic
  * `LLMAssistantResponse`. Text blocks join into `content`; tool_use
  * blocks become `toolCalls`. Other block types are ignored (forward
- * compatibility for new Anthropic content types).
+ * compatibility for new Anthropic content types). When `data.usage`
+ * is present, surface it as `usage` (D23) so the caller can forward
+ * it to trace events.
  */
 function parseAnthropicResponse(data: AnthropicResponse): LLMAssistantResponse {
   const textParts: string[] = []
@@ -166,10 +175,18 @@ function parseAnthropicResponse(data: AnthropicResponse): LLMAssistantResponse {
     }
     // Unknown block types are ignored on purpose.
   }
+  const usage = data.usage
+    ? {
+        inputTokens: data.usage.input_tokens,
+        outputTokens: data.usage.output_tokens,
+        totalTokens: data.usage.input_tokens + data.usage.output_tokens,
+      }
+    : undefined
   return {
     content: textParts.join(""),
     toolCalls,
     stopReason: mapStopReason(data.stop_reason),
+    ...(usage !== undefined ? { usage } : {}),
   }
 }
 

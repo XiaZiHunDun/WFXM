@@ -475,4 +475,92 @@ describe("LLM adapters", () => {
     const body = JSON.parse((call?.[1] as { body: string }).body) as Record<string, unknown>
     expect(body["tools"]).toBeUndefined()
   })
+
+  // ── D23: usage parse for both adapters ──────────────────────
+
+  it("anthropic complete surfaces upstream usage as LLMUsage (inputTokens + outputTokens + totalTokens)", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            content: [{ type: "text", text: "hi" }],
+            stop_reason: "end_turn",
+            usage: { input_tokens: 100, output_tokens: 50 },
+          }),
+          { status: 200 },
+        ),
+    )
+    const adapter = makeAnthropicAdapter({
+      apiKey: "k",
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const result = await Effect.runPromise(adapter.complete([{ role: "user", content: "hi" }]))
+    expect(result.usage).toEqual({
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+    })
+  })
+
+  it("anthropic complete leaves usage undefined when upstream omits it", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            content: [{ type: "text", text: "hi" }],
+            stop_reason: "end_turn",
+          }),
+          { status: 200 },
+        ),
+    )
+    const adapter = makeAnthropicAdapter({
+      apiKey: "k",
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const result = await Effect.runPromise(adapter.complete([{ role: "user", content: "hi" }]))
+    expect(result.usage).toBeUndefined()
+  })
+
+  it("openai-compatible complete surfaces upstream usage as LLMUsage (prompt + completion + total)", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+            usage: { prompt_tokens: 200, completion_tokens: 80, total_tokens: 280 },
+          }),
+          { status: 200 },
+        ),
+    )
+    const adapter = makeOpenAICompatibleAdapter({
+      apiKey: "k",
+      baseUrl: "https://api.example.com",
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const result = await Effect.runPromise(adapter.complete([{ role: "user", content: "hi" }]))
+    expect(result.usage).toEqual({
+      inputTokens: 200,
+      outputTokens: 80,
+      totalTokens: 280,
+    })
+  })
+
+  it("openai-compatible complete leaves usage undefined when upstream omits it", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+          }),
+          { status: 200 },
+        ),
+    )
+    const adapter = makeOpenAICompatibleAdapter({
+      apiKey: "k",
+      baseUrl: "https://api.example.com",
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const result = await Effect.runPromise(adapter.complete([{ role: "user", content: "hi" }]))
+    expect(result.usage).toBeUndefined()
+  })
 })

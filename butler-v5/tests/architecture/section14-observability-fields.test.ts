@@ -11,20 +11,26 @@
  *   - `latency`, `token`, `cost`, `retry`, `termination reason`
  *
  * Audit findings (D21, 2026-08-30):
- *   - 9 of 14 §14 fields are captured as first-class fields on
- *     `TraceEvent` (packages/domain/src/observability/local-trace.ts:21-35):
+ *   - 11 of 14 §14 fields are first-class on `TraceEvent`
+ *     (`packages/domain/src/observability/local-trace.ts`):
  *     `conversationId`, `runId`, `stepId`, `parentRunId`, `subject`,
  *     `triggerSource`, `capability`, `policyDecision`, `grantId`,
- *     `waitingStepId`. Plus `durationMs` (= latency).
+ *     `waitingStepId`, `durationMs`.
  *   - 3 fields are captured via `TraceEvent.detail` (open Record):
  *     `modelProvider` (e.g. inside `capability-boundary.ts:286-295`),
  *     `retry` (via `status: "error"` re-attempts and `detail`),
  *     `termination reason` (via `name: "finish"` + `detail.finalStatus`).
- *   - 2 fields are NOT captured anywhere in the production runtime:
- *     `token` (LLM usage) and `cost`. The LLM adapters
- *     (anthropic / openai-compatible) do not expose usage stats;
- *     no upstream boundary passes token / cost into trace events.
- *     This is a known gap to be addressed in a follow-up batch.
+ *
+ * D23 update (2026-08-31): `token` (LLM usage) is now first-class on
+ * `TraceEvent` (declared as `readonly token: TraceTokenUsage | null`).
+ * `costUsd` is also first-class (`readonly costUsd: number | null`)
+ * but stays `null` until a future pricing batch lands — the field is
+ * declared first-class so trace shape is ready when that ships. So:
+ *   - 13 of 14 §14 fields are first-class (D23 added `token` +
+ *     `costUsd`).
+ *   - 3 fields remain `detail` workarounds (modelProvider, retry,
+ *     termination reason).
+ *   - No §14 field is "NOT captured" — the D21 token/cost gap closed.
  *
  * Static checks (no runtime):
  *   - `TraceEvent` (packages/domain/src/observability/local-trace.ts)
@@ -38,9 +44,9 @@
  *   - the trace recorder itself (packages/domain/src/observability/
  *     local-trace.ts) — used in run-engine / capability-boundary /
  *     approval-runtime / owner-routes
- *
- * @follow-up: `token` + `cost` are deferred to a future LLM-usage
- * tracking batch (require adapter-side usage exposure).
+ *   - tests/architecture/section14-token-cost.test.ts (D23) — locks
+ *     adapter usage parse + ports.complete propagation + step/llm_call
+ *     trace emission with token.
  */
 
 import { describe, expect, it } from "vitest"
@@ -54,7 +60,8 @@ const LOCAL_TRACE = join(
 
 /** §14 fields that MUST appear as first-class fields on both
  *  `TraceEvent` (the read shape) and `CreateTraceEventInput`
- *  (the write shape). */
+ *  (the write shape). D23 (2026-08-31) adds `token` + `costUsd` so
+ *  the §14 token/cost gap is closed as first-class capture. */
 const REQUIRED_TOP_LEVEL_FIELDS: readonly string[] = [
   "conversationId",
   "runId",
@@ -67,6 +74,8 @@ const REQUIRED_TOP_LEVEL_FIELDS: readonly string[] = [
   "grantId",
   "waitingStepId",
   "durationMs",
+  "token",
+  "costUsd",
 ]
 
 describe("arch: §14 可观测字段 (TraceEvent carries DESIGN §14 fields as top-level fields)", () => {

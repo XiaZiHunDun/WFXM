@@ -37,6 +37,7 @@ import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
+import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import type { ModelDecision } from "@butler/runtime/decision.js"
 import {
   runConversationLoop,
@@ -257,6 +258,7 @@ async function runChildLlm(
   const ports: ConversationLoopPorts = {
     logger: loopLogger,
     complete: async (msgs, tools) => {
+      const llmStartedAt = Date.now()
       try {
         // ConversationLoopLlmTool is structurally a subset of LLMTool
         // (name required; description + parameters optional on the loop side,
@@ -271,14 +273,37 @@ async function runChildLlm(
             Effect.timeout(LLM_TIMEOUT_MS),
           ),
         )
+        // D23: emit llm_call step trace with token usage.
+        getSharedLocalTracer().record({
+          kind: "step",
+          name: "llm_call",
+          status: "ok",
+          conversationId: childConversationId,
+          runId: childRunId ?? null,
+          subject: ownerSubject,
+          durationMs: Date.now() - llmStartedAt,
+          ...(resp.usage !== undefined ? { token: resp.usage } : {}),
+        })
         return {
           ok: true as const,
           response: {
             content: resp.content,
             toolCalls: resp.toolCalls,
+            ...(resp.usage !== undefined ? { usage: resp.usage } : {}),
           },
         }
       } catch (err) {
+        // D23: error trace (no usage when the call never reached the model).
+        getSharedLocalTracer().record({
+          kind: "step",
+          name: "llm_call",
+          status: "error",
+          conversationId: childConversationId,
+          runId: childRunId ?? null,
+          subject: ownerSubject,
+          durationMs: Date.now() - llmStartedAt,
+          detail: { reason: err instanceof Error ? err.message : String(err) },
+        })
         return {
           ok: false as const,
           reason: err instanceof Error ? err.message : String(err),

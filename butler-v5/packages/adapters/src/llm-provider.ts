@@ -80,6 +80,23 @@ export interface LLMToolCall {
 export type LLMStopReason = "end_turn" | "tool_use" | "max_tokens" | "stop"
 
 /**
+ * Provider-agnostic token usage. Captured from the upstream API when
+ * the adapter exposes it (Anthropic `usage.input_tokens` /
+ * `usage.output_tokens`; OpenAI-compatible `usage.prompt_tokens` /
+ * `usage.completion_tokens` / `usage.total_tokens`). Optional because
+ * some providers / fixtures may omit it.
+ *
+ * D23: surfaces into `TraceEvent.token` first-class so §14 observability
+ * can record input/output token counts per LLM call. `costUsd` is left
+ * for future pricing-env-var batches and stays undefined here.
+ */
+export interface LLMUsage {
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly totalTokens: number
+}
+
+/**
  * Rich assistant response shape returned by `LLMAdapter.complete`.
  *
  * R8.x.4: replaces the previous plain `LLMMessage` return so adapters
@@ -88,11 +105,17 @@ export type LLMStopReason = "end_turn" | "tool_use" | "max_tokens" | "stop"
  * alongside tool calls (often empty when the model called a tool);
  * `toolCalls` is non-empty only when the model wanted to invoke one or
  * more tools.
+ *
+ * D23: adds `usage?` so adapters that receive usage from the upstream
+ * API can surface it through the boundary into trace events. Existing
+ * callers that do not propagate `usage` keep working because the field
+ * is optional.
  */
 export interface LLMAssistantResponse {
   readonly content: string
   readonly toolCalls: readonly LLMToolCall[]
   readonly stopReason: LLMStopReason
+  readonly usage?: LLMUsage
 }
 
 /**

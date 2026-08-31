@@ -3,6 +3,7 @@ import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { WorkingSetResult } from "@butler/runtime/working-set.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import type { ModelDecision } from "@butler/runtime/decision.js"
+import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import {
   DEFAULT_MAX_LOOP_ITERATIONS,
   runConversationLoop,
@@ -399,20 +400,54 @@ async function runButlerLoopBody(args: {
       },
       complete: async (msgs, toolsForLlm) => {
         const llmMessages = msgs as unknown as LLMMessage[]
+        const llmStartedAt = Date.now()
         return Effect.runPromise(
           adapter.complete(llmMessages, { tools: toolsForLlm as unknown as readonly LLMTool[] }).pipe(
             Effect.match({
-              onFailure: (err) => ({
-                ok: false as const,
-                reason: err instanceof Error ? err.message : String(err),
-              }),
-              onSuccess: (resp) => ({
-                ok: true as const,
-                response: {
-                  content: resp.content,
-                  toolCalls: resp.toolCalls,
-                },
-              }),
+              onFailure: (err) => {
+                // D23: error trace (no usage when the call never reached the model).
+                const tracer = getSharedLocalTracer()
+                tracer.record({
+                  kind: "step",
+                  name: "llm_call",
+                  status: "error",
+                  conversationId: args.conversationId,
+                  runId: args.runId,
+                  subject: memorySubject,
+                  durationMs: Date.now() - llmStartedAt,
+                  detail: { reason: err instanceof Error ? err.message : String(err) },
+                })
+                return {
+                  ok: false as const,
+                  reason: err instanceof Error ? err.message : String(err),
+                }
+              },
+              onSuccess: (resp) => {
+                // D23: success trace carries first-class `token` so §14
+                // observability captures input / output / total tokens per
+                // LLM call. `costUsd` stays null until a future pricing
+                // batch lands; the field is declared first-class so trace
+                // shape is ready when that lands.
+                const tracer = getSharedLocalTracer()
+                tracer.record({
+                  kind: "step",
+                  name: "llm_call",
+                  status: "ok",
+                  conversationId: args.conversationId,
+                  runId: args.runId,
+                  subject: memorySubject,
+                  durationMs: Date.now() - llmStartedAt,
+                  ...(resp.usage !== undefined ? { token: resp.usage } : {}),
+                })
+                return {
+                  ok: true as const,
+                  response: {
+                    content: resp.content,
+                    toolCalls: resp.toolCalls,
+                    ...(resp.usage !== undefined ? { usage: resp.usage } : {}),
+                  },
+                }
+              },
             }),
           ),
         )

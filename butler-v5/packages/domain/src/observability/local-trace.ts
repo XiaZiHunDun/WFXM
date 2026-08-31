@@ -11,6 +11,18 @@ export type TraceKind =
   | "grant"
   | "approval"
 
+/**
+ * D23: provider-agnostic token usage surfaced by `LLMAdapter.complete`.
+ * Mirrors `packages/adapters/src/llm-provider.ts:LLMUsage` so trace
+ * events can carry the same shape across the boundary without an
+ * adapter import (the domain layer stays free of adapter imports).
+ */
+export interface TraceTokenUsage {
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly totalTokens: number
+}
+
 export interface TraceEvent {
   readonly id: string
   readonly kind: TraceKind
@@ -27,6 +39,20 @@ export interface TraceEvent {
   readonly grantId: string | null
   readonly waitingStepId: string | null
   readonly durationMs: number | null
+  /**
+   * D23: LLM token usage (input / output / total). First-class so §14
+   * `token` field is captured by `TraceEvent` rather than smuggled
+   * through `detail`. `null` when no LLM call was made or when the
+   * adapter did not surface usage (legacy fixtures).
+   */
+  readonly token: TraceTokenUsage | null
+  /**
+   * D23: USD cost of the LLM call. Reserved for a future pricing-env-
+   * var batch (`BUTLER_V5_PRICING_<MODEL>_INPUT_PER_MTOK` etc.); stays
+   * `null` until that lands. Declared first-class so §14 `cost` is
+   * covered by the trace shape from the start.
+   */
+  readonly costUsd: number | null
   readonly detail: Readonly<Record<string, unknown>>
   readonly createdAt: number
 }
@@ -46,6 +72,8 @@ export interface CreateTraceEventInput {
   readonly grantId?: string | null
   readonly waitingStepId?: string | null
   readonly durationMs?: number | null
+  readonly token?: TraceTokenUsage | null
+  readonly costUsd?: number | null
   readonly detail?: Readonly<Record<string, unknown>>
   readonly nowMs?: number
   readonly id?: string
@@ -121,6 +149,8 @@ export function createTraceEvent(input: CreateTraceEventInput): TraceEvent {
     grantId: input.grantId ?? null,
     waitingStepId: input.waitingStepId ?? null,
     durationMs: input.durationMs ?? null,
+    token: input.token ?? null,
+    costUsd: input.costUsd ?? null,
     detail: (input.detail ?? {}) as Readonly<Record<string, unknown>>,
     createdAt: input.nowMs ?? Date.now(),
   }
@@ -200,6 +230,30 @@ export function formatOtelStdoutLine(event: TraceEvent): string {
                         {
                           key: "butler.policyDecision",
                           value: { stringValue: event.policyDecision },
+                        },
+                      ]
+                    : []),
+                  ...(event.token
+                    ? [
+                        {
+                          key: "butler.token.inputTokens",
+                          value: { intValue: String(event.token.inputTokens) },
+                        },
+                        {
+                          key: "butler.token.outputTokens",
+                          value: { intValue: String(event.token.outputTokens) },
+                        },
+                        {
+                          key: "butler.token.totalTokens",
+                          value: { intValue: String(event.token.totalTokens) },
+                        },
+                      ]
+                    : []),
+                  ...(event.costUsd !== null
+                    ? [
+                        {
+                          key: "butler.costUsd",
+                          value: { doubleValue: event.costUsd },
                         },
                       ]
                     : []),
