@@ -268,6 +268,12 @@ Provider 原生 tool call 和文本 JSON 只是 Decoder 输入格式，不构成
 
 **Decoder 失败的处理（Phase D B-08/10 扩面）**：decoder 仍然 fail-quiet（不抛 throw；契约不变），但当 Decision 解析失败时，conversation-loop 在 message 队列注入一条 `[system] decision-decode-fail: <reason>` user-message 并继续下一轮 LLM 调用，让模型有机会 self-correct。最大重试次数 `BUTLER_V5_MAX_DECODE_RETRIES`（默认 1）；超过上限落到 owner-可见的 `Respond`，内容要么是模型最后一轮的原文，要么是合成说明（包含具体 parse error 与原始 raw 前 200 字符）。这一扩展保留了"decoders 不抛错"的 §6.2 主线，只在 conversation-loop 增加 retry + 反馈窗口。
 
+> **§6 Application orchestrator 实施 audit state**（D34, 2026-08-31）：
+>
+> - **§6 主体 Application 7 职责**（D34 实施确认）：`packages/runtime/src/run-engine.ts` (RunEngine) 实现 7 职责 — read trigger (executeInbound) / Model Port (conversation-loop) / Decision (kernel.applyDecision) / ActionRequest (capability-boundary actionRequestFromTool) / Policy Gate + Capability (executeThroughBoundary) / Step 持久化 (runtimeStore.createStep) / 预算结束 (runBudgetWithTrigger + transitionRunStatus)。D18 §6 lock 3 cases + D34 case #6 验证 RunEngine class declaration。
+> - **§6.1 工作集**（D34 case #5 lock）：`packages/runtime/src/working-set.ts` 是 pure transform — 0 DB-write (insert/update/delete-from) + 0 message delete/truncate API。D14 §20 #14 re-locked。`listMessages` 由 caller (run-engine.ts) 传入 working-set，不在 working-set 内调。
+> - **§6.2 ModelDecision ADT 5 tag**（D34 case #4 lock）：`packages/domain/src/runtime/decision.ts` 含 5 `_tag` — `Respond` / `CallCapability` / `StartChildRun` / `WaitForApproval` / `Finish`。模型调用只经 Model Port（继承 D26A §20 #3 + D33 §3 #3 lock）。
+
 ---
 
 ## 7. Ports（端口，依赖方向向内的接口）
@@ -463,6 +469,12 @@ Sandbox Profile 默认属于副作用 Capability Provider 的执行配置：
 - 即使 Policy 错误放行，Sandbox 仍限制路径、网络、进程、输出和资源；
 - 即使 Sandbox 允许，高风险业务动作仍可能需要 Approval。
 
+> **§10.4 实施 audit state**（D34, 2026-08-31）：
+>
+> - **Sandbox profile 是 Provider metadata，不是独立 boundary**：text §10.4 暗示"Sandbox Profile 默认属于副作用 Capability Provider 的执行配置" + "Sandbox 决定技术上最多能做什么"（boundary 暗示）；impl 中 sandbox profile 是 `mcpProvider.defaultSandboxProfile` (capability-boundary.ts:283) + `CapabilityProviderMetadata.sandboxProfile?` (policy-gate.ts:24) + `sandboxProfileForApprovedCapability` (sandbox/profiles.ts)。**drift 承认**：text 用 "边界" 语言，impl 把 sandbox 视为 Provider metadata + 工具默认配置。**0 独立 `packages/sandbox/` 目录**（D34 case #1 lock）。
+> - **Grant.sandboxProfile + delegable 字段**（D34 case #2 lock）：`ScopedGrantRecord` (`governance/types.ts:65-69`) 含 `readonly delegable: boolean` + `readonly sandboxProfile: string | null`。**drift 承认**：text §10.3 line 448 "默认 false" 在 impl 层面无 interface default（构造时 default 或 runtime check 处理）；text line 449 `sandboxProfile?` 隐含 optional + non-null，但 impl 是 `string | null`（nullable + optional 同义）。
+> - **CapabilityProviderMetadata 含 sandboxProfile?**（D34 case #3 lock）：`policy-gate.ts:21-28` 6 optional metadata 字段含 `sandboxProfile?: string`。
+
 > **§10 实施审计状态**（D27, 2026-08-31）：
 >
 > | §10 字段（设计文字） | 实施字段（TypeScript ADT） | 状态 |
@@ -628,7 +640,14 @@ Schedule 不是长期授权主体；它以 `system:scheduler` 创建 Run，能�
 - 网络与 workspace 边界；
 - 可解释的终止原因。
 
----
+> **§13 风险与自治 实施 audit state**（D34, 2026-08-31）：
+>
+> - **3 类 trigger text-vs-impl drift 承认**（D34 case #7 lock）：text §13 line 602-606 列 3 类 trigger（自动 / Grant-required / Always-confirm）；impl 用 `PermissionPolicy` (`packages/domain/src/permissions/types.ts:46-53`) 3 列表 — `allowed` / `denied` / `requireApproval`。**drift 承认**：text 描述"3 类"按风险分类，impl 把"Grant-required + Always-confirm"合并到 `requireApproval` 列表（per-tool approver），不再区分两类。`PolicyDecision` ADT (line 55-58) 实际是 `Allow` / `Deny` / `RequireApproval(approver)` — 不是 text §10.1 line 392 的 `Allow` / `Deny` / `Ask`。
+> - **Always-confirm remainingUses = 1**（D34 case #8 lock）：`packages/runtime/src/approval-runtime.ts:231` literal `remainingUses: 1` — Always-confirm 路径签发单次 Grant。text §13 line 610 "Always-confirm 每次只签发 `remainingUses = 1` 的 Grant" 实施一致。
+> - **ScopedGrant.subject opaque principal**（D34 case #9 lock）：`ScopedGrantRecord.subject: string`（无 4-pattern 词汇表 enforced）— 继承 D20 §13 lock + D33 §3 #4 Governance SDK-isolated。
+> - **Schedule `system:scheduler` source**（D34 case #10 lock）：`buildScheduleRunTrigger` (`packages/domain/src/runtime/schedule.ts:76`) 写 `source: "schedule"` — 与 text §13 line 615 `system:scheduler` semantics 对齐。
+
+> **锁定方式**：`tests/architecture/section10-4-6-13-deep-audit.test.ts`（D34, 10 cases）+ `tests/architecture/section13-subject-doc-2026-08-30.md`（D20）+ `tests/architecture/section10-governance-arch-guard.test.ts`（D27）。
 
 ## 14. 可靠性与可观测
 
