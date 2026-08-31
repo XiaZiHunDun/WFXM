@@ -113,7 +113,16 @@ Persistence → 单一 repository schema
 - 两个外层（driving/driven）都要通过端口与核心交换，**不存在绕过 Port 的第三类接缝**。
 - Delivery shell（`apps/api`，见 §1.1）是 driving adapter + Core 薄编排层的复合体；boundary 之内可直连 driven adapters，所有副作用须经 PolicyGate + CapabilityRegistry 收口（arch tests 锁定边界完整性）。
 
----
+> **§3 主体实施 audit state**（D33, 2026-08-31）：
+>
+> - **§3 #1 依赖方向向内核**（D33 case #1 lock）：Core (`packages/domain + packages/runtime`) 0 import `@butler/adapters` / `packages/adapters` / `@butler/persistence` / `packages/persistence`；具体实现由 `apps/api/src/bootstrap-wiring.ts`（composition root）注入。继承 D26A §20 #2 lock。
+> - **§3 #2 Intake 不含 Agent 规划**（D33 case #2 lock）：`apps/api/src/wechat-intake.ts` 0 import `PolicyGate` / `CapabilityRegistry` / `decidePermission` / `decidePolicy` / `ActiveMainRunConflict` / `grantMatchesAction`；Intake 保持 parsing/normalization 单一职责，决策逻辑全在 Core.Application。
+> - **§3 #3 模型调用只经 Model Port**（D33 case #3 lock）：`apps/api/src/**` 0 直接 fetch upstream LLM endpoints (anthropic / openai / deepseek / dashscope)；继承 D26A §20 #3 lock。
+> - **§3 #4 Governance SDK-isolated**（D33 case #4 lock）：`packages/runtime/src/policy-gate.ts` 0 import `@butler/adapters` / `@butler/persistence` / `slack` / `wechat` / `mcp` / `axios` / `node-fetch`；Governance 与 Channel/工具/Provider SDK 完全解耦。
+> - **§3 #5 不存在绕过 Port 的第三类接缝**（D33 case #5 lock）：`apps/api/src/**` (排除 `wechat-inbound-butler.ts` canonical entry) 0 调用 `registry.execute*` / `registry.register` / `gate.decide` / `gate.evaluate`；所有副作用必经 canonical runButlerLoop closure。继承 D26A §20 #4 lock。
+> - **§3 #6 Delivery shell 不另立第二套 Loop/Policy**（D33 case #6 lock）：`apps/api/src/**` 0 定义第二 `class ... Loop/LoopEngine/ConversationEngine/Orchestrator/PolicyGate/Engine`；继承 D8 §20 #11 lock。
+>
+> 锁定方式：`tests/architecture/section3-dependency-rules.test.ts`（D33, 6 cases）+ D26A §20 #2+#4 + D8 §20 #11 既有 lock。
 
 ## 4. 统一概念模型
 
