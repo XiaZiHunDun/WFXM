@@ -735,6 +735,17 @@ Effect-TS 是可选实现工具，不是架构层级。
 - schema 变更被 Repository/DAO 端口隔在 core 之外；
 - 任何新入口必须实现 Trigger 契约，任何新副作用必须实现 Capability 契约，否则无法接入（架构测试锁定）。
 
+> **§17.1+§17.2 实施 audit state**（D32, 2026-08-31）：
+>
+> - **workspace 3 glob**（D32 case #1 lock）：`pnpm-workspace.yaml` 列出 3 glob — `packages/*` / `apps/*` / `cli`（driving CLI 在根目录；D19 §17.3 后精简 5 active packages）。
+> - **5 active packages**（D32 case #3 lock）：`packages/{adapters,domain,persistence,ports,runtime}/` 完全对应 §17.1 表的 5 条带（Core 内核 `runtime + domain` / Ports `ports` / Driven `adapters + persistence`）；Driving `apps/* + cli` 在 workspace glob；配置/共享 0 active（D19 已 archive）。
+> - **turbo.json**（D32 case #2 lock）：workspace root 存在；build/test pipeline orchestrator。
+> - **Core 不 import adapters**（D32 case #4 lock）：`runtime + domain` 0 import `@butler/adapters` / `packages/adapters`（§17.1 依赖方向 + §17.2 "Core 不被反向依赖" — 与 D26A §20 #2 互补）。
+> - **并行开发 3 条带**（§17.2）：driving (apps/api + cli) 只动 RunTrigger/Channel 端口（apps/api 6 entry points 都 import runButlerLoop，D26A #4 lock）；driven (adapters + persistence) 只动 Port 实现（D26A §20 #1 lock 三唯一 + D19 §17.3 lock workspace = 5 active）；Core (runtime + domain) 只动 RunEngine/策略/布会（D26A §20 #16 lock 单一 schema）。
+> - **§17.3 _archive 隔离**（D32 case #5 lock）：`vitest.config.ts`（prod test runner）显式 exclude `_archive/**`；archived tests 走 `vitest.archived.config.ts` 独立 runner（22 files / 101 tests，D19 baseline）。
+>
+> 锁定方式：`tests/architecture/section17-1-2-monorepo-management.test.ts`（D32, 5 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18/D19）+ D26A §20 #2 + §20 #16 + D31 §7 5 cases 既有 lock。
+
 ### 17.3 脚手架修剪与卫生
 
 - 未接入生产调用链的 `package`（脚手架/归档）移入 `_archive/` 或删除，不在编译与测试白名单中；
