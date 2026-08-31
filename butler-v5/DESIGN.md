@@ -182,6 +182,19 @@ Domain 只做**纯判断与状态迁移**，零 I/O、零时钟、零随机，�
 
 Domain 不访问网络、文件、数据库、Channel，也不直接调用 LLM。它只产出**被 Application 消费的纯结果**。
 
+> **Pure-with-impure-fallback pattern**（D25 audit, 2026-08-31）：Domain pure 函数对外暴露的 input 接受 `nowMs?` / `id?` 字段，函数体 `input.nowMs ?? Date.now()` / `input.id ?? crypto.randomUUID()` 提供默认值。这是 §5 "零时钟、零随机" 文字与"caller 注入时钟做 deterministic 单测"实际模式之间的边界豁免：测试 caller 传固定 `nowMs` / `id` 时函数 100% pure；不传 caller 走 fallback 是 single-process 内的 deterministic-but-impure 调用（非 I/O，不打破 §5 line 183 限制）。
+>
+> **§5 范围路径 audit 状态**（D25）：
+>
+> | 范围 | 实际路径 | 状态 |
+> |---|---|---|
+> | 聚合类型与状态机 | `packages/domain/src/{knowledge,conversation,projects}/` | ✅ |
+> | 工作集预算与截断策略 | `packages/runtime/src/working-set.ts`（runtime 层调用，§5 业务规则归属 Domain） | ✅ |
+> | ActionRequest 构造与参数摘要（digest） | `packages/runtime/src/capability-boundary.ts`（digest 计算） | ✅ |
+> | 可重放的确定性决策（Policy 规则） | `packages/domain/src/{permissions,guards,memory,tools,projects}/pure.ts` | ✅ |
+>
+> 锁定方式：`tests/architecture/section5-domain-pure.test.ts`（D25，8 cases）+ `tests/architecture/domain-zero-io.test.ts`（D17 pre-existing）。
+
 ---
 
 ## 6. Application（编排层）
