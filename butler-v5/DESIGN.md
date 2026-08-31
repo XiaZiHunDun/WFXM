@@ -506,6 +506,14 @@ Outbox 保留，因为它解决状态提交与异步副作用之间的一致性�
 - Child Run 派发；
 - 必须在事务提交后执行的外部通知。
 
+> **§11.1/§11.2/§11.3 实施审计状态**（D28, 2026-08-31）：
+>
+> - **§11.1 Current State**：schema.ts 实现 5 表 `messages` / `runs` / `steps` / `scoped_grants` / `audit_events` 都直接保存；`messages.idempotencyKey` + `runs.idempotencyKey` 唯一约束（text 说 `(triggerSource, idempotencyKey)` 联合 key；impl 用 `idempotencyKey` 单独 — D28 承认 drift，narrow key 仍防 duplicate-inbound，多 channel 扩展时再补联合 key）；`runs.version: integer().default(1)` 版本号并发控制（`transitionRunStatus(runId, version, ...)` 模式）；`store.withTransaction(fn)` canonical 事务包装（runtime-store.ts:479 + run-lifecycle.ts ≥ 4 处使用）。`普通查询不依赖事件重放` 由 D26B §20 #6 lock。
+> - **§11.2 Append-only Records**：`messages` 表 0 update API（runtime-store 仅暴露 `appendMessage`）；`audit_events` 表 + `appendEventAndEnqueueOutbox` 函数（event-store.ts:146）提供 immutable audit log；capability 成功路径只写 Step tracer.record，**不双写 audit_events**（§11.2 line 497 audit 用于解释追责不重建业务状态）。
+> - **§11.3 Outbox**：`outbox` pgTable + `appendEventAndEnqueueOutbox` 单点入队（§20 #8 D7 已 lock 事务原子性）。
+>
+> 锁定方式：`tests/architecture/section11-1-2-3-current-state-immutable.test.ts`（D28, 7 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18 + D19 表存在性）+ §20 #6/#7/#8/#16 既有 lock。
+
 Outbox 不作为通用领域事件总线。系统内部默认直接函数调用。
 
 同步 Capability Provider 调用使用 ActionRequest idempotency key 与 Step 结果记录防止重复；只有事务后异步外发使用 Outbox。
