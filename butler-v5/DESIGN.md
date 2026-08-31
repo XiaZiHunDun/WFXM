@@ -566,7 +566,17 @@ Run 内部的摘要、截断、滚动摘要和工具结果压缩是可重建、�
 - 无来源的"经验沉积"；
 - 独立 RAG Studio。
 
----
+> **§12 实施 audit state**（D30, 2026-08-31）：
+>
+> - **3 层独立**（D9 §20 #9 已 lock cross-import = 0 + D30 延伸）：`messages` 表 (Transcript=原始 Message) / `durable_memories` 表 (Durable Memory) / `project_knowledge_items` 表 (Project Knowledge)。3 个独立 domain 模块 (`packages/domain/src/knowledge/{durable-memory,project-knowledge,document-ingest}.ts`) + 1 个 pure module (`memory/pure.ts`) + `conversation` (transcript)。
+> - **DurableMemoryRecord** (`packages/domain/src/knowledge/durable-memory.ts:23`) 4 字段 = `sourceKind` / `confidence` / `expiresAt` / `status` (candidate/confirmed)。**sourceKind 3 source**：`owner` / `message` / `document`（§12 line 556 可追溯 Message/Document/Owner 明确输入）。
+> - **Project Knowledge ≠ Durable Memory**（D30 case #4 lock）：`ProjectKnowledgeRecord` 不含 `sourceKind` / `confidence` / `expiresAt` 字段（§12 line 549 不等同个人记忆）。
+> - **5 项 not-built 缺席**（D30 case #5 lock）：`DreamPhase` 在 `domain/src/memory/types.ts` 有 type-only 占位（dev stage reservation），但 active runtime / apps/api 0 invoke；`ContextGraph` / `RAG Studio` / `auto-index` 0 调用。符合 §12 trigger-conditioned "默认不建设" stance。
+> - **默认不启用 embedding**（D30 case #6 lock）：`durable_memories` 表无 `embedding` column；`memory/pure.ts` recall 走结构化字段 (`scoreImportance` 等) 不用 `.embedding`。
+>
+> 锁定方式：`tests/architecture/section12-knowledge-memory.test.ts`（D30, 6 cases）+ `tests/architecture/three-memory-separation.test.ts`（D9 §20 #9 cross-import lock）+ `tests/architecture/section11-deferred-triggered.test.ts`（D22, durable_memories 表属 §12 not §11 list）。
+>
+> Run 内部摘要 / 截断 / 工具结果压缩：可重建 / 可过期的执行产物，**不是知识层**（§12 line 551），**不自动升级为 Durable Memory**。`working-set.ts` (D14 §20 #14 lock) + `extractDevHistory` (filterDevHistoryNoise) 是相关 surface，未自动 promote 到 `durable_memories`。
 
 ## 13. 风险与自治
 
