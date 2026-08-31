@@ -279,6 +279,16 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 - 未设 Port 的内部函数不为"架构完整"创建接口；
 - 新的副作用能力必须实现 Capability 契约；新入口必须实现 Trigger 契约。
 
+> **§7 主体实施 audit state**（D31, 2026-08-31）：
+>
+> - **Thin barrel**（D31 case #1 lock）：`packages/ports/src/index.ts` 仅 `export * from "./core/*.js"`（per-file re-export）+ R2 shim re-export；**0 class** / **0 impl** / **0 IO**（无 fetch / drizzle / pgTable / node:fs）。
+> - **Interface-only core/**（D31 case #2 lock）：`packages/ports/src/core/{outbox,channel,clock,projection,event-store,credential-provider,snapshot}.ts` 7 文件全部 interface-only — 0 class impl / 0 fetch / 0 pgTable / 0 drizzle / 0 node:fs / 0 DB connection。
+> - **依赖方向向内**（D31 case #3+5 lock）：`packages/ports/src/**` 0 import `@butler/adapters` / `packages/adapters`；0 import `packages/runtime` / `packages/persistence` / `apps`（仅自身 `./core/*` + archived R2 shim 的 type-only 引用）。
+> - **Port snapshot 完整**（D31 case #4 lock）：`ports/core/` 包含 7 port — `channel.ts` / `clock.ts` / `credential-provider.ts` / `event-store.ts` / `outbox.ts` / `projection.ts` / `snapshot.ts`（Repository + Capability 不在 ports/core，按 §7 line 279 "未设 Port 的内部函数不为架构完整创建接口" 与 D26B §20 #6 / D29 §9 已 lock）。
+> - **R2 Effect Tag shim**：D12 (commit `33af1722`) 归档 14 个 Tag 类（LLMService / ToolExecutor / EventStoreService 等）— `r2-shim.ts` 仅 archived `pnpm test:archived` 引用，生产 delivery shell 走 async/await + 直调 `@butler/persistence`。
+>
+> 锁定方式：`tests/architecture/section7-ports-main.test.ts`（D31, 5 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18/D19 §17.3 port 路径继承）+ D11 §7.1 port snapshot lock + D26A §20 #2 Core 不 import adapters + D26B §20 #6 Repository 在 persistence 而非 ports + D29 §9 Capability 在 runtime 而非 ports。
+
 ### §7.1 已实施 Port 状态（2026-08-29 snapshot）
 
 | Port | 状态 | File | 实装 / 备注 |
