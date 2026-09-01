@@ -9,6 +9,7 @@ import {
   confirmDurableMemory,
   createDurableMemoryRecord,
   rejectDurableMemory,
+  type DurableMemoryStatus,
 } from "@butler/domain/knowledge/durable-memory.js"
 import {
   ingestDocumentRecord,
@@ -278,16 +279,39 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
     const statusRaw = (c.req.query("status") ?? "").trim()
-    const status =
+    const status: DurableMemoryStatus | undefined =
       statusRaw === "candidate" || statusRaw === "confirmed" || statusRaw === "rejected"
         ? statusRaw
         : undefined
+    if (statusRaw && !status) {
+      return c.json({ ok: false, reason: "invalid status (must be candidate|confirmed|rejected)" }, 400)
+    }
+    const limitRaw = c.req.query("limit")
+    const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 20
+    if (!Number.isFinite(limit) || limit < 1 || limit > 100) {
+      return c.json({ ok: false, reason: "invalid limit (1-100, default 20)" }, 400)
+    }
+    const offsetRaw = c.req.query("offset")
+    const offset = offsetRaw ? Number.parseInt(offsetRaw, 10) : 0
+    if (!Number.isFinite(offset) || offset < 0) {
+      return c.json({ ok: false, reason: "invalid offset (>=0, default 0)" }, 400)
+    }
+
     const items = await store.listBySubject({
       subject,
       ...(status ? { status } : {}),
-      limit: 100,
+      limit,
+      offset,
     })
-    return c.json({ items })
+    const total = await store.countBySubject({
+      subject,
+      ...(status ? { status } : {}),
+    })
+    return c.json({
+      items,
+      total,
+      hasMore: offset + items.length < total,
+    })
   })
 
   app.post("/v1/owner/memories", async (c) => {

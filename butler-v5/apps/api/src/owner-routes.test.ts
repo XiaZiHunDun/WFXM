@@ -8,6 +8,8 @@ import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { makeWiring } from "./wiring.js"
 import * as ownerAuth from "./owner-auth.js"
+import { createDurableMemoryStore } from "@butler/persistence/durable-memory-store.js"
+import { createDurableMemoryRecord } from "@butler/domain/knowledge/durable-memory.js"
 
 describe("owner routes", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
@@ -535,5 +537,84 @@ describe("owner routes", () => {
     const revoked = (await revokeRes.json()) as { ok: boolean; revoked: number }
     expect(revoked.ok).toBe(true)
     expect(revoked.revoked).toBe(1)
+  })
+})
+
+describe("GET /v1/owner/memories pagination + total", () => {
+  let db: Awaited<ReturnType<typeof makeTestDb>>
+  let store: ReturnType<typeof createDurableMemoryStore>
+  let app: Hono
+
+  beforeEach(async () => {
+    db = await makeTestDb()
+    store = createDurableMemoryStore(db.db)
+    const runtimeStore = createRuntimeStore(db.db)
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      durableMemoryStore: store,
+    })
+    app = new Hono()
+    createOwnerRoutes(app, wiring)
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    await db.close()
+  })
+
+  async function seedCandidate(content: string): Promise<string> {
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content,
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const saved = await store.create(made.value)
+    return saved.id
+  }
+
+  it("returns items + total + hasMore=false when all fit on one page", async () => {
+    await seedCandidate("a")
+    await seedCandidate("b")
+    const res = await app.request("/v1/owner/memories?status=candidate&limit=20&offset=0")
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { items: unknown[]; total: number; hasMore: boolean }
+    expect(body.items).toHaveLength(2)
+    expect(body.total).toBe(2)
+    expect(body.hasMore).toBe(false)
+  })
+
+  it("returns hasMore=true when more records exist after offset+limit", async () => {
+    await seedCandidate("a")
+    await seedCandidate("b")
+    await seedCandidate("c")
+    const res = await app.request("/v1/owner/memories?status=candidate&limit=2&offset=0")
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { items: unknown[]; total: number; hasMore: boolean }
+    expect(body.items).toHaveLength(2)
+    expect(body.total).toBe(3)
+    expect(body.hasMore).toBe(true)
+  })
+
+  it("rejects invalid status with 400", async () => {
+    const res = await app.request("/v1/owner/memories?status=foo")
+    expect(res.status).toBe(400)
+  })
+
+  it("rejects limit>100 with 400", async () => {
+    const res = await app.request("/v1/owner/memories?limit=200")
+    expect(res.status).toBe(400)
+  })
+
+  it("rejects negative offset with 400", async () => {
+    const res = await app.request("/v1/owner/memories?offset=-1")
+    expect(res.status).toBe(400)
   })
 })
