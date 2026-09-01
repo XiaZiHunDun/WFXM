@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import type {
   DurableMemoryProvenance,
   DurableMemoryRecord,
@@ -32,6 +32,13 @@ export interface DurableMemoryStore {
   readonly markExpired: (
     ids: readonly string[],
   ) => Promise<readonly { id: string; updated: boolean }[]>
+  /** G2: load recent memories for dedup candidate comparison (90d window by default). */
+  readonly findCandidatesForDedup: (input: {
+    readonly subject: string
+    readonly statuses: readonly DurableMemoryStatus[]
+    readonly recentMs: number
+    readonly limit: number
+  }) => Promise<readonly { id: string; content: string; status: DurableMemoryStatus }[]>
   /** Soft cascade helper when a source message is deleted. */
   readonly deleteBySourceMessageId: (messageId: string) => Promise<number>
   /** Cascade when a source document is deleted. */
@@ -186,6 +193,30 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
         results.push({ id, updated: updated.length > 0 })
       }
       return results
+    },
+
+    async findCandidatesForDedup(input) {
+      const rows = await db
+        .select({
+          memoryId: durableMemories.memoryId,
+          content: durableMemories.content,
+          status: durableMemories.status,
+        })
+        .from(durableMemories)
+        .where(
+          and(
+            eq(durableMemories.subject, input.subject),
+            inArray(durableMemories.status, [...input.statuses]),
+            sql`${durableMemories.createdAt} > NOW() - (${input.recentMs} * INTERVAL '1 millisecond')`,
+          ),
+        )
+        .orderBy(desc(durableMemories.createdAt))
+        .limit(input.limit)
+      return rows.map((r) => ({
+        id: r.memoryId,
+        content: r.content,
+        status: r.status as DurableMemoryStatus,
+      }))
     },
 
     async deleteBySourceMessageId(messageId) {

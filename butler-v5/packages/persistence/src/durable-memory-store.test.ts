@@ -279,6 +279,63 @@ describe("durableMemoryStore", () => {
     }
   })
 
+  it("findCandidatesForDedup returns candidates matching subject + statuses within window", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      for (const status of ["candidate", "confirmed", "rejected"] as const) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: `seed-${status}-unique`,
+          sourceKind: "owner",
+          status,
+          nowMs: baseMs,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+      }
+      const result = await store.findCandidatesForDedup({
+        subject: "owner",
+        statuses: ["candidate", "confirmed", "rejected"],
+        recentMs: 90 * 24 * 3_600_000,
+        limit: 50,
+      })
+      expect(result).toHaveLength(3)
+      expect(result.map((r) => r.status).sort()).toEqual(["candidate", "confirmed", "rejected"])
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("findCandidatesForDedup respects limit", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      for (let i = 0; i < 5; i++) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: `seed-${i}`,
+          sourceKind: "owner",
+          status: "candidate",
+          nowMs: baseMs + i * 1000,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+      }
+      const result = await store.findCandidatesForDedup({
+        subject: "owner",
+        statuses: ["candidate"],
+        recentMs: 90 * 24 * 3_600_000,
+        limit: 3,
+      })
+      expect(result).toHaveLength(3)
+    } finally {
+      await db.close()
+    }
+  })
+
   it("markExpired does not affect confirmed or rejected", async () => {
     const db = await makeTestDb()
     try {
