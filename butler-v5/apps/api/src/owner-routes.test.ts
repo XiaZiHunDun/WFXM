@@ -9,7 +9,11 @@ import { createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { makeWiring } from "./wiring.js"
 import * as ownerAuth from "./owner-auth.js"
 import { createDurableMemoryStore } from "@butler/persistence/durable-memory-store.js"
-import { createDurableMemoryRecord } from "@butler/domain/knowledge/durable-memory.js"
+import {
+  confirmDurableMemory,
+  createDurableMemoryRecord,
+  rejectDurableMemory,
+} from "@butler/domain/knowledge/durable-memory.js"
 
 describe("owner routes", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
@@ -669,5 +673,166 @@ describe("GET /v1/owner/memories pagination + total", () => {
     const statuses = new Set(body.items.map((it) => it.status))
     expect(statuses.has("candidate")).toBe(true)
     expect(statuses.has("confirmed")).toBe(true)
+  })
+})
+
+describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
+  let db: Awaited<ReturnType<typeof makeTestDb>>
+  let store: ReturnType<typeof createDurableMemoryStore>
+  let app: Hono
+
+  beforeEach(async () => {
+    db = await makeTestDb()
+    store = createDurableMemoryStore(db.db)
+    const runtimeStore = createRuntimeStore(db.db)
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      durableMemoryStore: store,
+    })
+    app = new Hono()
+    createOwnerRoutes(app, wiring)
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    await db.close()
+  })
+
+  async function seedCandidate(content: string): Promise<string> {
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content,
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const saved = await store.create(made.value)
+    return saved.id
+  }
+
+  async function postJSON(path: string, body: unknown): Promise<Response> {
+    return app.request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it("confirm-batch confirms all valid candidate ids", async () => {
+    const id1 = await seedCandidate("fact-1")
+    const id2 = await seedCandidate("fact-2")
+    const res = await postJSON("/v1/owner/memories/confirm-batch", { ids: [id1, id2] })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      confirmed: string[]
+      failed: { id: string; reason: string }[]
+    }
+    expect([...body.confirmed].sort()).toEqual([id1, id2].sort())
+    expect(body.failed).toEqual([])
+  })
+
+  it("confirm-batch dedups same id in request", async () => {
+    const id1 = await seedCandidate("dup")
+    const res = await postJSON("/v1/owner/memories/confirm-batch", { ids: [id1, id1] })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { confirmed: string[]; failed: unknown[] }
+    expect(body.confirmed).toEqual([id1])
+  })
+
+  it("confirm-batch partial failure returns 200 + failed[]", async () => {
+    const id1 = await seedCandidate("ok")
+    const res = await postJSON("/v1/owner/memories/confirm-batch", {
+      ids: [id1, "missing-id"],
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      confirmed: string[]
+      failed: { id: string; reason: string }[]
+    }
+    expect(body.confirmed).toEqual([id1])
+    expect(body.failed).toEqual([{ id: "missing-id", reason: "not found" }])
+  })
+
+  it("confirm-batch rejects already-confirmed candidate", async () => {
+    const id1 = await seedCandidate("already")
+    const existing = await store.get(id1)
+    if (!existing) throw new Error("seed")
+    await store.update(confirmDurableMemory(existing, Date.now()))
+    const res = await postJSON("/v1/owner/memories/confirm-batch", { ids: [id1] })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      confirmed: unknown[]
+      failed: { id: string; reason: string }[]
+    }
+    expect(body.confirmed).toEqual([])
+    expect(body.failed).toEqual([{ id: id1, reason: "already confirmed" }])
+  })
+
+  it("confirm-batch rejects subject mismatch", async () => {
+    const made = createDurableMemoryRecord({
+      subject: "other-owner",
+      content: "x",
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const saved = await store.create(made.value)
+    const res = await postJSON("/v1/owner/memories/confirm-batch", { ids: [saved.id] })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      confirmed: unknown[]
+      failed: { id: string; reason: string }[]
+    }
+    expect(body.confirmed).toEqual([])
+    expect(body.failed).toEqual([{ id: saved.id, reason: "subject mismatch" }])
+  })
+
+  it("confirm-batch rejects empty ids with 400", async () => {
+    const res = await postJSON("/v1/owner/memories/confirm-batch", { ids: [] })
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { ok: boolean; reason: string }
+    expect(body).toMatchObject({ ok: false, reason: expect.any(String) })
+  })
+
+  it("confirm-batch rejects >50 ids with 400", async () => {
+    const ids = Array.from({ length: 51 }, (_, i) => `id-${i}`)
+    const res = await postJSON("/v1/owner/memories/confirm-batch", { ids })
+    expect(res.status).toBe(400)
+  })
+
+  it("confirm-batch rejects non-string id with 400", async () => {
+    const res = await postJSON("/v1/owner/memories/confirm-batch", {
+      ids: ["ok", 123],
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it("reject-batch rejects candidate", async () => {
+    const id1 = await seedCandidate("to-reject")
+    const res = await postJSON("/v1/owner/memories/reject-batch", { ids: [id1] })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { rejected: string[]; failed: unknown[] }
+    expect(body.rejected).toEqual([id1])
+  })
+
+  it("reject-batch rejects already-rejected candidate", async () => {
+    const id1 = await seedCandidate("rej")
+    const existing = await store.get(id1)
+    if (!existing) throw new Error("seed")
+    await store.update(rejectDurableMemory(existing, Date.now()))
+    const res = await postJSON("/v1/owner/memories/reject-batch", { ids: [id1] })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      rejected: unknown[]
+      failed: { id: string; reason: string }[]
+    }
+    expect(body.rejected).toEqual([])
+    expect(body.failed).toEqual([{ id: id1, reason: "already rejected" }])
   })
 })

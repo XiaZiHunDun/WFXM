@@ -9,6 +9,7 @@ import {
   confirmDurableMemory,
   createDurableMemoryRecord,
   rejectDurableMemory,
+  type DurableMemoryRecord,
   type DurableMemoryStatus,
 } from "@butler/domain/knowledge/durable-memory.js"
 import {
@@ -392,6 +393,114 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     const ok = await store.delete(memoryId)
     if (!ok) return c.json({ ok: false, reason: "not found" }, 404)
     return c.json({ ok: true, memoryId })
+  })
+
+  async function handleBatch(args: {
+    readonly store: import("@butler/persistence").DurableMemoryStore
+    readonly subject: string
+    readonly ids: readonly string[]
+    readonly transform: (record: DurableMemoryRecord, nowMs: number) => DurableMemoryRecord
+  }): Promise<{
+    readonly confirmed: readonly string[]
+    readonly failed: readonly { readonly id: string; readonly reason: string }[]
+  }> {
+    const nowMs = Date.now()
+    const dedupedIds = Array.from(
+      new Set(args.ids.map((s) => s.trim()).filter((s) => s.length > 0)),
+    )
+    const confirmed: string[] = []
+    const failed: { id: string; reason: string }[] = []
+    for (const id of dedupedIds) {
+      try {
+        const record = await args.store.get(id)
+        if (!record) {
+          failed.push({ id, reason: "not found" })
+          continue
+        }
+        if (record.subject !== args.subject) {
+          failed.push({ id, reason: "subject mismatch" })
+          continue
+        }
+        if (record.status === "confirmed") {
+          failed.push({ id, reason: "already confirmed" })
+          continue
+        }
+        if (record.status === "rejected") {
+          failed.push({ id, reason: "already rejected" })
+          continue
+        }
+        const updated = await args.store.update(args.transform(record, nowMs))
+        confirmed.push(updated.id)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "unknown error"
+        // Malformed UUIDs (e.g. "missing-id") surface as PG syntax errors on
+        // the underlying get query; treat those uniformly as "not found" so
+        // callers never see driver-level error text in the failed list.
+        const reason = message.includes("invalid input syntax for type uuid")
+          ? "not found"
+          : message
+        failed.push({ id, reason })
+      }
+    }
+    return { confirmed, failed }
+  }
+
+  app.post("/v1/owner/memories/confirm-batch", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const store = wiring.durableMemoryStore
+    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    const body = (await c.req.json().catch(() => null)) as
+      | { readonly ids?: readonly unknown[] }
+      | null
+    if (!body || !Array.isArray(body.ids)) {
+      return c.json({ ok: false, reason: "ids must be a non-empty array" }, 400)
+    }
+    if (body.ids.length === 0) {
+      return c.json({ ok: false, reason: "ids must be a non-empty array" }, 400)
+    }
+    if (body.ids.length > 50) {
+      return c.json({ ok: false, reason: "batch too large (max 50)" }, 400)
+    }
+    if (!body.ids.every((x) => typeof x === "string" && x.trim().length > 0)) {
+      return c.json({ ok: false, reason: "ids must be non-empty strings" }, 400)
+    }
+    const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
+    const result = await handleBatch({
+      store,
+      subject,
+      ids: body.ids as readonly string[],
+      transform: (record, nowMs) => confirmDurableMemory(record, nowMs),
+    })
+    return c.json(result)
+  })
+
+  app.post("/v1/owner/memories/reject-batch", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const store = wiring.durableMemoryStore
+    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    const body = (await c.req.json().catch(() => null)) as
+      | { readonly ids?: readonly unknown[] }
+      | null
+    if (!body || !Array.isArray(body.ids)) {
+      return c.json({ ok: false, reason: "ids must be a non-empty array" }, 400)
+    }
+    if (body.ids.length === 0) {
+      return c.json({ ok: false, reason: "ids must be a non-empty array" }, 400)
+    }
+    if (body.ids.length > 50) {
+      return c.json({ ok: false, reason: "batch too large (max 50)" }, 400)
+    }
+    if (!body.ids.every((x) => typeof x === "string" && x.trim().length > 0)) {
+      return c.json({ ok: false, reason: "ids must be non-empty strings" }, 400)
+    }
+    const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
+    const result = await handleBatch({
+      store,
+      subject,
+      ids: body.ids as readonly string[],
+      transform: (record, nowMs) => rejectDurableMemory(record, nowMs),
+    })
+    return c.json({ rejected: result.confirmed, failed: result.failed })
   })
 
   app.get("/v1/owner/documents", async (c) => {
