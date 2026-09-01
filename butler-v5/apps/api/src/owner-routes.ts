@@ -374,6 +374,9 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     if (existing.status === "confirmed") {
       return c.json({ ok: false, reason: "already confirmed" }, 409)
     }
+    if (existing.status === "expired") {
+      return c.json({ ok: false, reason: "already expired" }, 409)
+    }
     const updated = await store.update(confirmDurableMemory(existing, Date.now()))
     return c.json({ ok: true, item: updated })
   })
@@ -387,6 +390,9 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     if (!existing) return c.json({ ok: false, reason: "not found" }, 404)
     if (existing.status === "rejected") {
       return c.json({ ok: false, reason: "already rejected" }, 409)
+    }
+    if (existing.status === "expired") {
+      return c.json({ ok: false, reason: "already expired" }, 409)
     }
     const updated = await store.update(rejectDurableMemory(existing, Date.now()))
     return c.json({ ok: true, item: updated })
@@ -455,6 +461,10 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
         }
         if (record.status === "rejected") {
           failed.push({ id, reason: "already rejected" })
+          continue
+        }
+        if (record.status === "expired") {
+          failed.push({ id, reason: "already expired" })
           continue
         }
         const updated = await args.store.update(args.transform(record, nowMs))

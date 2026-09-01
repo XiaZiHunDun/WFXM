@@ -863,4 +863,42 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
     const body = (await second.json()) as { ok: boolean; reason: string }
     expect(body).toEqual({ ok: false, reason: "already rejected" })
   })
+
+  it("single-record confirm returns 409 when status='expired' (G1 terminal guard)", async () => {
+    const id1 = await seedCandidate("expired-confirm")
+    await store.markExpired([id1])
+    const res = await app.request(`/v1/owner/memories/${id1}/confirm`, {
+      method: "POST",
+    })
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { ok: boolean; reason: string }
+    expect(body).toEqual({ ok: false, reason: "already expired" })
+  })
+
+  it("single-record reject returns 409 when status='expired' (G1 terminal guard)", async () => {
+    const id1 = await seedCandidate("expired-reject")
+    await store.markExpired([id1])
+    const res = await app.request(`/v1/owner/memories/${id1}/reject`, {
+      method: "POST",
+    })
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { ok: boolean; reason: string }
+    expect(body).toEqual({ ok: false, reason: "already expired" })
+  })
+
+  it("confirm-batch puts expired ids in failed[] (G1 terminal guard, partial failure)", async () => {
+    const idCandidate = await seedCandidate("still-candidate")
+    const idExpired = await seedCandidate("was-expired")
+    await store.markExpired([idExpired])
+    const res = await postJSON("/v1/owner/memories/confirm-batch", {
+      ids: [idCandidate, idExpired],
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      confirmed: string[]
+      failed: { id: string; reason: string }[]
+    }
+    expect(body.confirmed).toEqual([idCandidate])
+    expect(body.failed).toEqual([{ id: idExpired, reason: "already expired" }])
+  })
 })
