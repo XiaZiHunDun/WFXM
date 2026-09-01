@@ -86,6 +86,7 @@ describe("wechat inbound commands", () => {
   })
 
   it("/记忆候选 lists pending candidates scoped to active project", async () => {
+    // seed 3 candidates: one in active project, one un-noted (always included), one in different project (excluded)
     setWechatActiveProjectId("owner-A", "WFXM", testEnv)
     const c1 = createDurableMemoryRecord({
       subject: "owner-A",
@@ -96,13 +97,21 @@ describe("wechat inbound commands", () => {
     })
     const c2 = createDurableMemoryRecord({
       subject: "owner-A",
-      content: "fact-no-project-note",
+      content: "fact-un-noted",
       sourceKind: "owner",
       status: "candidate",
     })
-    if (!c1.ok || !c2.ok) throw new Error("seed")
+    const c3 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "fact-other-project",
+      sourceKind: "owner",
+      status: "candidate",
+      provenance: { note: "project:OTHER" },
+    })
+    if (!c1.ok || !c2.ok || !c3.ok) throw new Error("seed")
     await wiring.durableMemoryStore!.create(c1.value)
     await wiring.durableMemoryStore!.create(c2.value)
+    await wiring.durableMemoryStore!.create(c3.value)
 
     const result = await tryWechatInboundCommand({
       wiring,
@@ -113,6 +122,10 @@ describe("wechat inbound commands", () => {
     expect(result).not.toBeNull()
     expect(result!.reply).toContain("候选")
     expect(result!.reply).toContain("fact-in-active")
+    // fact-un-noted should also be present (short-circuit inclusion)
+    expect(result!.reply).toContain("fact-un-noted")
+    // proves scope filter narrows
+    expect(result!.reply).not.toContain("fact-other-project")
   })
 
   it("/记忆候选 returns empty message when no candidates", async () => {

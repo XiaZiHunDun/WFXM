@@ -66,6 +66,9 @@ export async function tryWechatMemoryCommand(args: {
       (item) => !item.provenance.note || item.provenance.note.includes(active),
     )
     if (scoped.length === 0) {
+      // Conservative: 不 fallback 到 unscoped（与 /记忆 不同）—— candidate 不应该跨 project 泄露
+      // /记忆 会 fallback 是因为 confirmed 数量通常稳定，unscoped 仍可控；
+      // candidate 是待处理，不应让其他 project 的 pending 污染当前对话上下文。
       return done("暂无 candidate 记忆。", ["wechat-memory: candidates empty"])
     }
     const lines = [`候选 ${scoped.length} 条（${active}）：`]
