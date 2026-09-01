@@ -51,6 +51,20 @@ export interface DurableMemoryStore {
     readonly ids: readonly string[]
     readonly now: Date
   }) => Promise<number>
+  /** G4: rollback auto-promoted record to candidate. Returns null if not sweeper-promoted or not confirmed. */
+  readonly rollbackAutoPromoted: (input: {
+    readonly id: string
+    readonly ownerId: string
+    readonly reason: string | undefined
+    readonly now: Date
+  }) => Promise<{
+    readonly id: string
+    readonly status: 'candidate'
+    readonly updatedAt: number
+    readonly rolledBackBy: string
+    readonly rolledBackAt: number
+    readonly rollbackReason: string | null
+  } | null>
   /** Soft cascade helper when a source message is deleted. */
   readonly deleteBySourceMessageId: (messageId: string) => Promise<number>
   /** Cascade when a source document is deleted. */
@@ -276,6 +290,36 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
         )
         .returning()
       return updated.length
+    },
+
+    async rollbackAutoPromoted(input) {
+      const updated = await db
+        .update(durableMemories)
+        .set({
+          status: "candidate",
+          updatedAt: input.now,
+          rolledBackBy: input.ownerId,
+          rolledBackAt: input.now,
+          rollbackReason: input.reason ?? null,
+        })
+        .where(
+          and(
+            eq(durableMemories.memoryId, input.id),
+            eq(durableMemories.status, "confirmed"),
+            eq(durableMemories.promotedBy, "sweeper"),
+          ),
+        )
+        .returning()
+      const row = updated[0]
+      if (!row) return null
+      return {
+        id: row.memoryId,
+        status: "candidate" as const,
+        updatedAt: row.updatedAt.getTime(),
+        rolledBackBy: row.rolledBackBy ?? input.ownerId,
+        rolledBackAt: row.rolledBackAt?.getTime() ?? input.now.getTime(),
+        rollbackReason: row.rollbackReason,
+      }
     },
 
     async deleteBySourceMessageId(messageId) {

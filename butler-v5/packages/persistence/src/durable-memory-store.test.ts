@@ -474,4 +474,107 @@ describe("durableMemoryStore", () => {
       await db.close()
     }
   })
+
+  it("rollbackAutoPromoted updates status='candidate' + rolled_back_by/at/reason", async () => {
+    const db = await makeTestDb()
+    const store = createDurableMemoryStore(db.db)
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "test",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // Promote first
+    const promoteTime = new Date(baseMs + 10000)
+    await store.markAutoPromoted({ ids: [made.value.id], now: promoteTime })
+    // Then rollback
+    const rollbackTime = new Date(baseMs + 20000)
+    const updated = await store.rollbackAutoPromoted({
+      id: made.value.id,
+      ownerId: "owner-123",
+      reason: "looks wrong",
+      now: rollbackTime,
+    })
+    expect(updated).not.toBeNull()
+    expect(updated?.status).toBe("candidate")
+    expect(updated?.rolledBackBy).toBe("owner-123")
+    expect(updated?.rolledBackAt).toBe(rollbackTime.getTime())
+    expect(updated?.rollbackReason).toBe("looks wrong")
+    await db.close()
+  })
+
+  it("rollbackAutoPromoted returns null when promoted_by='owner' (not sweeper)", async () => {
+    const db = await makeTestDb()
+    const store = createDurableMemoryStore(db.db)
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "test",
+      sourceKind: "owner",
+      status: "confirmed",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // Try to rollback owner-confirmed — should return null
+    const updated = await store.rollbackAutoPromoted({
+      id: made.value.id,
+      ownerId: "owner-123",
+      reason: "test",
+      now: new Date(baseMs + 1000),
+    })
+    expect(updated).toBeNull()
+    await db.close()
+  })
+
+  it("rollbackAutoPromoted returns null when status != 'confirmed'", async () => {
+    const db = await makeTestDb()
+    const store = createDurableMemoryStore(db.db)
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "test",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    const updated = await store.rollbackAutoPromoted({
+      id: made.value.id,
+      ownerId: "owner-123",
+      reason: "test",
+      now: new Date(baseMs + 1000),
+    })
+    expect(updated).toBeNull()
+    await db.close()
+  })
+
+  it("rollbackAutoPromoted allows no reason", async () => {
+    const db = await makeTestDb()
+    const store = createDurableMemoryStore(db.db)
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "test",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    await store.markAutoPromoted({ ids: [made.value.id], now: new Date(baseMs + 1000) })
+    const updated = await store.rollbackAutoPromoted({
+      id: made.value.id,
+      ownerId: "owner-123",
+      reason: undefined,
+      now: new Date(baseMs + 2000),
+    })
+    expect(updated?.rollbackReason).toBeNull()
+    await db.close()
+  })
 })
