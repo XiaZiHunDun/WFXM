@@ -129,7 +129,14 @@ export async function tryWechatMemoryCommand(args: {
     // batch: 逗号分隔 tokenRaw
     // 注：tokens 受 listBySubject limit=20 自然上限约束（按 updatedAt desc），
     //     超出范围 token 进 failed[] with "not found"。owner 想看全量先 /记忆候选。
-    const tokens = tokenRaw.split(",").map((s) => s.trim()).filter((s) => s.length > 0)
+    const tokens = Array.from(
+      new Set(
+        tokenRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0),
+      ),
+    )
     if (tokens.length === 0) {
       // 仅逗号退化（如 `/确认记忆 ,`）：按无参处理，确认最近 1 个
       return legacyConfirm(candidates[0])
@@ -147,6 +154,9 @@ export async function tryWechatMemoryCommand(args: {
     }
 
     const confirmed: string[] = []
+    // 注：不加 per-id try/catch（与 owner-routes handleBatch 不同）——
+    //     wechat 是 owner 直连 channel，store.update 失败意味着 channel 全局
+    //     异常，没必要 partial-success；abort + 让 caller 重试更直接。
     for (const { record } of targets) {
       const updated = await store.update(confirmDurableMemory(record, Date.now()))
       confirmed.push(shortId(updated.id))
@@ -159,7 +169,8 @@ export async function tryWechatMemoryCommand(args: {
         ? `失败 ${failed.length} 条：${failed.map((f) => `${f.token}=${f.reason}`).join(", ")}`
         : null
     const parts = [okLine, failLine].filter((p): p is string => p !== null)
-    const summary = parts.length > 0 ? parts.join("；") : "无操作"
+    // 注：tokens.length===0 已在 line 133 early-return，targets/failed 至少一个非空 ⇒ summary 必非空。
+    const summary = parts.join("；")
     return done(summary, [`wechat-memory: confirm-batch n=${confirmed.length} m=${failed.length}`])
   }
 

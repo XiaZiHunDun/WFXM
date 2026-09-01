@@ -167,6 +167,7 @@ describe("wechat inbound commands", () => {
     expect(result!.reply).toContain("已确认 2 条")
     expect(result!.reply).toContain(s1.id.slice(0, 8))
     expect(result!.reply).toContain(s2.id.slice(0, 8))
+    expect(result!.reply).not.toContain("失败")
   })
 
   it("/确认记忆 id1,missing 报告 partial failure", async () => {
@@ -237,6 +238,34 @@ describe("wechat inbound commands", () => {
     })
     expect(result).not.toBeNull()
     expect(result!.reply).toContain(`已确认记忆 ${s1.id.slice(0, 8)}`)
+  })
+
+  it("/确认记忆 , (only-comma) falls back to no-arg: confirms newest", async () => {
+    const c1 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "only-comma-1",
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    const c2 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "only-comma-2",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: Date.now() + 1000,
+    })
+    if (!c1.ok || !c2.ok) throw new Error("seed")
+    await wiring.durableMemoryStore!.create(c1.value)
+    const s2 = await wiring.durableMemoryStore!.create(c2.value)
+
+    const result = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: "owner-A",
+      content: "/确认记忆 ,",
+      env: testEnv,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.reply).toContain(`已确认记忆 ${s2.id.slice(0, 8)}`)
   })
 
   it("loads quality gate config", () => {
