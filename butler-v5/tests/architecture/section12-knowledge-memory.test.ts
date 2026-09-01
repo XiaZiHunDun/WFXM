@@ -87,6 +87,10 @@ const DURABLE_MEMORY = join(
   __dirname,
   "../../packages/domain/src/knowledge/durable-memory.ts",
 )
+const DEDUP = join(
+  __dirname,
+  "../../packages/domain/src/knowledge/dedup.ts",
+)
 const PROJECT_KNOWLEDGE = join(
   __dirname,
   "../../packages/domain/src/knowledge/project-knowledge.ts",
@@ -347,5 +351,30 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
         `DurableMemoryStatus missing member: ${status} (§12 G1 mandate 4-member union)`,
       ).toMatch(new RegExp(`["']${status}["']`))
     }
+  })
+
+  // ── 9. §12 G2 candidate dedup 实证 (D41, 2026-09-01) ───────────────
+  //
+  // D30 cases above lock the §12 invariant that Durable Memory is the
+  // owner-confirmed long-term store with candidate/confirmed/rejected
+  // (now also "expired" per G1) status states. D41 G2 adds candidate
+  // dedup so the owner doesn't accumulate near-duplicate memories
+  // from repeated confirm attempts. The dedup logic is intentionally
+  // split into a pure function module (no IO inside) that takes a
+  // minimal DedupStore contract — persistence's DurableMemoryStore
+  // satisfies via structural typing. This case locks the 2 key exports
+  // (trigramJaccard + findSimilarMemories) so a future commit that
+  // renames or removes either one trips this guard.
+
+  it("§12 G2: dedup module exists with trigramJaccard + findSimilarMemories exported (candidate dedup, 2026-09-01)", () => {
+    const dedupSrc = readFileSync(DEDUP, "utf-8")
+    expect(
+      dedupSrc,
+      "dedup.ts must export trigramJaccard function (§12 G2)",
+    ).toMatch(/export function trigramJaccard/)
+    expect(
+      dedupSrc,
+      "dedup.ts must export findSimilarMemories function (§12 G2)",
+    ).toMatch(/export (async )?function findSimilarMemories/)
   })
 })
