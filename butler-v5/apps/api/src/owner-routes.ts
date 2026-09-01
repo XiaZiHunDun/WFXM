@@ -12,7 +12,9 @@ import {
   type DurableMemoryRecord,
   type DurableMemoryStatus,
 } from "@butler/domain/knowledge/durable-memory.js"
+import { findSimilarMemories } from "@butler/domain/knowledge/dedup.js"
 import type { DurableMemoryStore } from "@butler/persistence"
+import { parseDedupConfig } from "./dedup-config.js"
 import {
   ingestDocumentRecord,
   parseDocumentFormat,
@@ -328,6 +330,7 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
       readonly confidence?: number
       readonly provenance?: Record<string, unknown>
       readonly expiresAt?: number | null
+      readonly force?: boolean
     }
     const sourceKind =
       body.sourceKind === "message" || body.sourceKind === "document" ? body.sourceKind : "owner"
@@ -360,6 +363,26 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
       ...(body.expiresAt !== undefined ? { expiresAt: body.expiresAt } : {}),
     })
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    // G2 dedup guard (D41 T4): block duplicates above threshold unless force=true.
+    // Fail-open inside helper — DB errors fall through to create.
+    const dedupHit = await checkDedupOrThrow({
+      store,
+      subject: created.value.subject,
+      content: created.value.content,
+      force: body.force === true,
+    })
+    if (dedupHit !== null) {
+      return c.json(
+        {
+          ok: false,
+          reason: "duplicate",
+          existingMemoryId: dedupHit.existingMemoryId,
+          similarity: dedupHit.similarity,
+          status: dedupHit.status,
+        },
+        409,
+      )
+    }
     const saved = await store.create(created.value)
     return c.json({ ok: true, item: saved })
   })
@@ -486,6 +509,57 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
       }
     }
     return { succeeded, failed }
+  }
+
+  // G2 dedup — module-scoped env-driven config (D41 T3 dedup-config).
+  // Defined once at route init so we don't re-read env on every request.
+  const dedupCfg = parseDedupConfig(process.env)
+
+  async function checkDedupOrThrow(opts: {
+    readonly store: DurableMemoryStore
+    readonly subject: string
+    readonly content: string
+    readonly force: boolean | undefined
+  }): Promise<
+    | {
+        readonly existingMemoryId: string
+        readonly similarity: number
+        readonly status: DurableMemoryStatus
+      }
+    | null
+  > {
+    if (!dedupCfg.enabled) return null
+    if (opts.force === true) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(`[memory-dedup] forced duplicate by owner subject=${opts.subject}`)
+      return null
+    }
+    try {
+      const result = await findSimilarMemories({
+        store: opts.store,
+        subject: opts.subject,
+        content: opts.content,
+        threshold: dedupCfg.threshold,
+        statuses: ["candidate", "confirmed", "rejected"],
+        recentMs: dedupCfg.recentMs,
+        limit: dedupCfg.limit,
+      })
+      if (result.best === null) return null
+      return {
+        existingMemoryId: result.best.id,
+        similarity: result.best.similarity,
+        status: result.best.status,
+      }
+    } catch (err) {
+      // Fail-open: dedup DB error must not block owner writes (§20 #11
+      // 守住 owner 自主权). Surface via stderr so operators can diagnose.
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(
+        "[memory-dedup] check failed:",
+        err instanceof Error ? err.message : String(err),
+      )
+      return null
+    }
   }
 
   app.post("/v1/owner/memories/confirm-batch", async (c) => {
@@ -616,6 +690,7 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly content?: string
       readonly status?: string
+      readonly force?: boolean
     }
     const content =
       (typeof body.content === "string" && body.content.trim()
@@ -637,6 +712,27 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
       },
     })
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    // G2 dedup guard (D41 T4): same threshold + force semantics as
+    // POST /v1/owner/memories. Subject is doc.subject (the document owner),
+    // not the calling owner — dedup is per-owner memory.
+    const dedupHit = await checkDedupOrThrow({
+      store: memories,
+      subject: created.value.subject,
+      content: created.value.content,
+      force: body.force === true,
+    })
+    if (dedupHit !== null) {
+      return c.json(
+        {
+          ok: false,
+          reason: "duplicate",
+          existingMemoryId: dedupHit.existingMemoryId,
+          similarity: dedupHit.similarity,
+          status: dedupHit.status,
+        },
+        409,
+      )
+    }
     const saved = await memories.create(created.value)
     return c.json({ ok: true, item: saved })
   })

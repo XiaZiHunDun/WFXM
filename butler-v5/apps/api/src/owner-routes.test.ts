@@ -907,3 +907,118 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
     expect(body.failed).toEqual([{ id: idExpired, reason: "already expired" }])
   })
 })
+
+describe("POST /v1/owner/memories G2 dedup guard", () => {
+  let db: Awaited<ReturnType<typeof makeTestDb>>
+  let store: ReturnType<typeof createDurableMemoryStore>
+  let app: Hono
+
+  beforeEach(async () => {
+    db = await makeTestDb()
+    store = createDurableMemoryStore(db.db)
+    const runtimeStore = createRuntimeStore(db.db)
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      durableMemoryStore: store,
+    })
+    app = new Hono()
+    createOwnerRoutes(app, wiring)
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    await db.close()
+  })
+
+  async function postJSON(path: string, body: unknown): Promise<Response> {
+    return app.request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it("returns 409 when dedup hit on identical content (G2)", async () => {
+    // Seed a confirmed memory with content "owner prefers tea"
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "owner prefers tea",
+      sourceKind: "owner",
+      status: "confirmed",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const seeded = await store.create(made.value)
+    // Attempt to create an identical candidate — should be blocked with 409
+    const res = await postJSON("/v1/owner/memories", {
+      content: "owner prefers tea",
+      subject: "owner",
+    })
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as {
+      ok: boolean
+      reason: string
+      existingMemoryId: string
+      similarity: number
+      status: string
+    }
+    expect(body.ok).toBe(false)
+    expect(body.reason).toBe("duplicate")
+    expect(body.existingMemoryId).toBe(seeded.id)
+    expect(body.status).toBe("confirmed")
+    // Trigram Jaccard on identical content yields 1.0
+    expect(body.similarity).toBeGreaterThanOrEqual(0.85)
+  })
+
+  it("force=true bypasses dedup and creates the duplicate (G2)", async () => {
+    // Seed a confirmed memory
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "owner prefers tea",
+      sourceKind: "owner",
+      status: "confirmed",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // Same content but force=true — should succeed (200, item returned)
+    const res = await postJSON("/v1/owner/memories", {
+      content: "owner prefers tea",
+      subject: "owner",
+      force: true,
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { ok: boolean; item: { content: string } }
+    expect(body.ok).toBe(true)
+    expect(body.item.content).toBe("owner prefers tea")
+    // Verify both records exist now
+    const list = await store.listBySubject({ subject: "owner", limit: 10 })
+    const matching = list.filter((m) => m.content === "owner prefers tea")
+    expect(matching.length).toBe(2)
+  })
+
+  it("below threshold proceeds (similar content but not duplicate) (G2)", async () => {
+    // Seed a confirmed memory "owner prefers tea"
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "owner prefers tea",
+      sourceKind: "owner",
+      status: "confirmed",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // Post sufficiently different content — should proceed (200)
+    const res = await postJSON("/v1/owner/memories", {
+      content: "owner likes coffee",
+      subject: "owner",
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { ok: boolean; item: { content: string } }
+    expect(body.ok).toBe(true)
+    expect(body.item.content).toBe("owner likes coffee")
+  })
+})
