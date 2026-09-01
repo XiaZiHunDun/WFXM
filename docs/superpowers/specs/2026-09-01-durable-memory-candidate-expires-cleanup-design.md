@@ -28,7 +28,7 @@
 | Action | Soft delete：`status='candidate'` → `status='expired'`；row 保留 |
 | Schedule 路径 | 独立同进程 sweeper（`apps/api/src/candidate-expires-sweeper.ts`）；不走 Schedule.RunTrigger（无 LLM）；不复用 schedule-worker job type（避免 refactor LLM-bound `runScheduleJob`） |
 | 默认配置 | opt-in（`BUTLER_V5_CANDIDATE_EXPIRES_ENABLED=1` 才启动）；tickMs=1h；ttlMs=7d |
-| Schema | `DurableMemoryStatus` 加 `'expired'`；repo check 仍只 accept `candidate`/`confirmed` 写路径 |
+| Schema | `DurableMemoryStatus` 加 `'expired'`（成 4 member: `candidate`/`confirmed`/`rejected`/`expired`）；`createDurableMemoryRecord` validation allowlist 仍只 accept `candidate`/`confirmed`/`rejected` 写路径 |
 | First-class event | 0 新增；logger.info 走现有 operator log（与 schedule-worker 同模式） |
 | Arch guard | D30 §12 suite 扩 1 case：`'expired'` 合法 status |
 | 推下轮 | G2 dedup / G4 Layer 1→2 auto-promote / G5 跨 project PK recall |
@@ -41,7 +41,7 @@
 
 - §12 durable_memories 表 + `DurableMemoryRecord` 4 字段（`sourceKind` / `confidence` / `expiresAt` / `status`）— D30 lock case #2
 - G3 batch candidate UI：owner routes confirm-batch / reject-batch + wechat `/记忆候选` + `/确认记忆` 扩面 — D39 ship
-- `DurableMemoryStatus` enum = `'candidate' | 'confirmed'`（D30 lock + D39 owner-route guard）
+- `DurableMemoryStatus` enum = `'candidate' | 'confirmed' | 'rejected'`（D30 lock + D39 owner-route guard；'rejected' 由 `rejectDurableMemory` 写路径使用）
 - §20 #11 lock：schedule 不创建第二套 Loop / Policy
 - §11.4 + §18 #11 不默认建设 — broker / 独立 worker 缺实测触发
 
@@ -320,7 +320,7 @@ startCandidateExpiresSweeperIfEnabled({ wiring, env })
 
 ```ts
 // 修改
-export type DurableMemoryStatus = "candidate" | "confirmed" | "expired"
+export type DurableMemoryStatus = "candidate" | "confirmed" | "rejected" | "expired"
 ```
 
 **影响面**：
