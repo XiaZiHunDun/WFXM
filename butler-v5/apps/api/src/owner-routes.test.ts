@@ -835,4 +835,32 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
     expect(body.rejected).toEqual([])
     expect(body.failed).toEqual([{ id: id1, reason: "already rejected" }])
   })
+
+  it("single-record confirm returns 409 on re-confirm (regression: silent bump)", async () => {
+    const id1 = await seedCandidate("re-confirm")
+    const first = await app.request(`/v1/owner/memories/${id1}/confirm`, {
+      method: "POST",
+    })
+    expect(first.status).toBe(200)
+    const second = await app.request(`/v1/owner/memories/${id1}/confirm`, {
+      method: "POST",
+    })
+    expect(second.status).toBe(409)
+    const body = (await second.json()) as { ok: boolean; reason: string }
+    expect(body).toEqual({ ok: false, reason: "already confirmed" })
+  })
+
+  it("single-record reject returns 409 on re-reject (regression: silent bump)", async () => {
+    const id1 = await seedCandidate("re-reject")
+    const first = await app.request(`/v1/owner/memories/${id1}/reject`, {
+      method: "POST",
+    })
+    expect(first.status).toBe(200)
+    const second = await app.request(`/v1/owner/memories/${id1}/reject`, {
+      method: "POST",
+    })
+    expect(second.status).toBe(409)
+    const body = (await second.json()) as { ok: boolean; reason: string }
+    expect(body).toEqual({ ok: false, reason: "already rejected" })
+  })
 })
