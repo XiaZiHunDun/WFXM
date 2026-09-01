@@ -8,6 +8,8 @@ import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { createDurableMemoryStore } from "@butler/persistence/durable-memory-store.js"
 import { createTaskStore } from "@butler/persistence/task-procedure-store.js"
+import { createDurableMemoryRecord } from "@butler/domain/knowledge/durable-memory.js"
+import { setWechatActiveProjectId } from "./wechat-active-project.js"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { tryWechatInboundCommand } from "./wechat-inbound-commands.js"
 import { loadQualityGateConfig } from "./wechat-quality-gate.js"
@@ -81,6 +83,48 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(list?.reply).toContain("第三卷")
+  })
+
+  it("/记忆候选 lists pending candidates scoped to active project", async () => {
+    setWechatActiveProjectId("owner-A", "WFXM", testEnv)
+    const c1 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "fact-in-active",
+      sourceKind: "owner",
+      status: "candidate",
+      provenance: { note: "project:WFXM" },
+    })
+    const c2 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "fact-no-project-note",
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    if (!c1.ok || !c2.ok) throw new Error("seed")
+    await wiring.durableMemoryStore!.create(c1.value)
+    await wiring.durableMemoryStore!.create(c2.value)
+
+    const result = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: "owner-A",
+      content: "/记忆候选",
+      env: testEnv,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.reply).toContain("候选")
+    expect(result!.reply).toContain("fact-in-active")
+  })
+
+  it("/记忆候选 returns empty message when no candidates", async () => {
+    setWechatActiveProjectId("owner-no-candidates", "WFXM", testEnv)
+    const result = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: "owner-no-candidates",
+      content: "/记忆候选",
+      env: testEnv,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.reply).toContain("暂无 candidate 记忆")
   })
 
   it("loads quality gate config", () => {

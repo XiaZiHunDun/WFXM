@@ -57,6 +57,26 @@ export async function tryWechatMemoryCommand(args: {
     )
   }
 
+  if (trimmed === "/记忆候选" || trimmed === "/memories-pending") {
+    if (!store) {
+      return done("Durable Memory 存储不可用。", ["wechat-memory: no store"])
+    }
+    const candidates = await store.listBySubject({ subject, status: "candidate", limit: 20 })
+    const scoped = candidates.filter(
+      (item) => !item.provenance.note || item.provenance.note.includes(active),
+    )
+    if (scoped.length === 0) {
+      return done("暂无 candidate 记忆。", ["wechat-memory: candidates empty"])
+    }
+    const lines = [`候选 ${scoped.length} 条（${active}）：`]
+    for (const item of scoped) {
+      lines.push(
+        `• ${shortId(item.id)} ${item.content.slice(0, 100)}${item.content.length > 100 ? "…" : ""}`,
+      )
+    }
+    return done(lines.join("\n"), ["wechat-memory: candidates list"])
+  }
+
   if (trimmed === "/记忆" || trimmed === "/memories") {
     if (!store) {
       return done("Durable Memory 存储不可用。", ["wechat-memory: no store"])
