@@ -320,4 +320,32 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
       "wechat-memory-commands must invoke owner confirm-batch route (D39 G3)",
     ).toBe(true)
   })
+
+  // ── 8. §12 G1 candidate expires cleanup 实证 (D40, 2026-09-01) ────
+  //
+  // D30 case 2 locks `DurableMemoryRecord.status` as a string union and
+  // D30 case 3 locks `DurableMemorySourceKind` as a 3-member union.
+  // D40 G1 extends `DurableMemoryStatus` from 3 members
+  // (`"candidate" | "confirmed" | "rejected"`) to 4 members by adding
+  // `"expired"` — the sweeper transitions candidates past their
+  // `expiresAt` into `"expired"` so they leave the working set without
+  // polluting it and remain in owner history for audit. This case
+  // locks the 4-member union so a future commit that narrows the type
+  // back to 3 (e.g. "we don't track expiry in the status field") trips
+  // this guard.
+
+  it("§12 G1: DurableMemoryStatus is a 4-member union including 'expired' (candidate expires cleanup, 2026-09-01)", () => {
+    const src = readFileSync(DURABLE_MEMORY, "utf-8")
+    const match = src.match(
+      /export type DurableMemoryStatus\s*=\s*([\s\S]*?)\n\nexport/,
+    )
+    expect(match, "DurableMemoryStatus type not found").not.toBeNull()
+    const body = match?.[1] ?? ""
+    for (const status of ["candidate", "confirmed", "rejected", "expired"]) {
+      expect(
+        body,
+        `DurableMemoryStatus missing member: ${status} (§12 G1 mandate 4-member union)`,
+      ).toMatch(new RegExp(`["']${status}["']`))
+    }
+  })
 })
