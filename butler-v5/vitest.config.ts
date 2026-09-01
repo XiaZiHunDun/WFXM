@@ -78,6 +78,10 @@ export default defineConfig({
         replacement: resolve(__dirname, "packages/domain/src/knowledge/candidate-expires.ts"),
       },
       {
+        find: "@butler/domain/knowledge/dedup.js",
+        replacement: resolve(__dirname, "packages/domain/src/knowledge/dedup.ts"),
+      },
+      {
         find: "@butler/domain/knowledge/durable-memory.js",
         replacement: resolve(__dirname, "packages/domain/src/knowledge/durable-memory.ts"),
       },
