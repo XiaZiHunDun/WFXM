@@ -514,7 +514,7 @@ Butler 不采用全面 Event Sourcing。当前状态表是业务事实；不可�
 > **当前 trigger 状态（D22 audit, 2026-08-31）**：
 >
 > - **已 trigger**（P0-P4 capability 真需求，commit `f60de759` v5 大爆炸引入）：`tasks`、`procedures`、`documents` — schema.ts 各有 pgTable；persistence 层有 `TaskStore` / `ProcedureStore` / `DocumentStore`；`apps/api` 12 个 owner HTTP endpoints（6 documents + 2 procedures + 4 tasks）接 production；wechat slash commands 入口含 tasks。arch guard `tests/architecture/section11-deferred-triggered.test.ts` 锁住。
-> - **未 trigger**：独立 `approvals` 表（审批字段存在 `waiting_approval` Step 上，§6.1 Step status 字段承载）；`memory_records`（Durable Memory 走 §12 `durable_memories` 表已实施，与 §11 list 是不同 surface，不算 §11 deferred）。
+> - **未 trigger**：独立 `approvals` 表（审批字段存在 `waiting_approval` Step 上，§6.1 Step status 字段承载）；`memory_records` 走 §12 `durable_memories` 路径满足 MVP；独立 `memory_records` 表待 §18 row 3 G3+ 触发（D39 2026-09-01 G3 batch UI 已实证 MVP 通过 §12 路径跑通）。
 >
 > **撤销 / 收回流程**：若 owner 收回已 trigger 项需求（取消 `/待办` 命令、关闭文档命令等），按 D19 orphan cleanup 模式：删表 / Store / routes + 更新本段 + 改写 arch guard。
 
@@ -607,6 +607,14 @@ Run 内部的摘要、截断、滚动摘要和工具结果压缩是可重建、�
 > - **Project Knowledge ≠ Durable Memory**（D30 case #4 lock）：`ProjectKnowledgeRecord` 不含 `sourceKind` / `confidence` / `expiresAt` 字段（§12 line 549 不等同个人记忆）。
 > - **5 项 not-built 缺席**（D30 case #5 lock）：`DreamPhase` 在 `domain/src/memory/types.ts` 有 type-only 占位（dev stage reservation），但 active runtime / apps/api 0 invoke；`ContextGraph` / `RAG Studio` / `auto-index` 0 调用。符合 §12 trigger-conditioned "默认不建设" stance。
 > - **默认不启用 embedding**（D30 case #6 lock）：`durable_memories` 表无 `embedding` column；`memory/pure.ts` recall 走结构化字段 (`scoreImportance` 等) 不用 `.embedding`。
+> - **G3 batch candidate UI**（2026-09-01 D39）：owner 撞 "candidate 多到处理不动" 痛点，本轮实施：
+>   - Owner routes: `GET /v1/owner/memories?status=candidate&limit&offset`（返 `items` + `total` + `hasMore`）+ `POST /v1/owner/memories/confirm-batch` + `POST /v1/owner/memories/reject-batch`
+>   - Wechat: 新增 `/记忆候选` 命令；扩 `/确认记忆` 支持 `id,id,id` 逗号分隔 batch（兼容旧用法）
+>   - 复用 `confirmDurableMemory`/`rejectDurableMemory` 单记录纯函数（domain 0 改）
+>   - Persistence: `listBySubject` 加 `offset`；新 `countBySubject({subject, status?})` 方法
+>   - Subject mismatch / not found / already confirmed / DB error 一律进 `failed[]`（partial-failure 语义，整体仍 200）
+>   - 不引入新 first-class event；不引入新 Core Port；不动 §11.4 不默认建设项
+> - **留待下轮**：G1 expires cleanup / G2 dedup / G4 Layer 1→2 auto-promote / G5 跨 project PK recall
 >
 > 锁定方式：`tests/architecture/section12-knowledge-memory.test.ts`（D30, 6 cases）+ `tests/architecture/three-memory-separation.test.ts`（D9 §20 #9 cross-import lock）+ `tests/architecture/section11-deferred-triggered.test.ts`（D22, durable_memories 表属 §12 not §11 list）。
 >
@@ -790,7 +798,7 @@ Effect-TS 是可选实现工具，不是架构层级。
 
 - **独立 Task 聚合**：Owner 需要跨对话的任务板，且 Conversation/Run 查询无法表达待办生命周期；
 - **Procedure 模板**：至少两个已批准场景无法由普通线性/条件 Step 表达；通用 DAG、并行合并与 Channel reducer 仍更后；
-- **Durable Memory / Project Knowledge 表**：真实召回或资料管理需求出现，且 Transcript 不够；
+- **Durable Memory / Project Knowledge 表**：真实召回或资料管理需求出现，且 Transcript 不够 — 🟡 MVP ship + G3 batch UI（2026-09-01 D39）；留待下轮 G1 expires / G2 dedup / G4 auto-promote / G5 跨 project recall；
 - **并发资源锁**：出现必须独占的 workspace 或设备冲突；
 - **局部 Projection**：具体查询无法在目标延迟内完成；
 - **Snapshot**：运行历史加载 p95 超过预算且无法通过普通索引解决；

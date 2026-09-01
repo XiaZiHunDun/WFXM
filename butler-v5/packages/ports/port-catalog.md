@@ -42,6 +42,7 @@ DESIGN 不变量 [G-4]：原 `GuardService` 10 项（含 `[G-9]` `[G-10]`）属�
 - **Model Port** — 当前 `model-router.ts` 调具体 adapter；待多 Provider 协议/记账统一需求出现。
 - **Channel Port** — 🟡 接口已在 `packages/ports/src/core/channel.ts` 实装（DESIGN §7.1）；wechat adapter 上线（`packages/adapters/src/wechat/channel-port.ts` iLink impl，Composition Root 注入 `wiring.channels`）；slack adapter skeleton 就位（`packages/adapters/src/slack/`，5 文件 + `index.ts`，含 `slack-outbound*.ts` / `slack-protocol.ts` / `slack-media.ts`，**未实现 ChannelPort 接口**）等真接生产触发（DESIGN §18 条件准入）；telegram 未触发（无 adapter 目录）。Channel Port 真接生产触发后会升 ✅。
 - **Capability 契约** — 已在 `capability-boundary.ts` 承载，"实现即接口"原则不重复建设。
+- **MemoryService** — MVP 直调 `@butler/persistence/{durable-memory,document,project-knowledge}-store`，未物化 Core Port；与 Channel Port 类比，待 §7 audit 触发物化。Owner 路径走 `apps/api/src/{durable-memory-inject,project-knowledge-inject,wechat-memory-commands}.ts` + `owner-routes.ts`；Runtime 工具面 `recall_*` 直调 `@butler/persistence`。DESIGN §12 line 605 + §18 row 3（2026-09-01 D39 G3）实证。
 
 ---
 
