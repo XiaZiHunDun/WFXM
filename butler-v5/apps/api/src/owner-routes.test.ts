@@ -614,6 +614,11 @@ describe("GET /v1/owner/memories pagination + total", () => {
     expect(body).toMatchObject({ ok: false, reason: expect.any(String) })
   })
 
+  it("accepts status=expired (G1: owner can query expired history)", async () => {
+    const res = await app.request("/v1/owner/memories?status=expired&limit=20")
+    expect(res.status).toBe(200)
+  })
+
   it("rejects limit>100 with 400", async () => {
     const res = await app.request("/v1/owner/memories?limit=200")
     expect(res.status).toBe(400)

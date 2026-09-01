@@ -282,11 +282,11 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
     const statusRaw = (c.req.query("status") ?? "").trim()
     const status: DurableMemoryStatus | undefined =
-      statusRaw === "candidate" || statusRaw === "confirmed" || statusRaw === "rejected"
+      statusRaw === "candidate" || statusRaw === "confirmed" || statusRaw === "rejected" || statusRaw === "expired"
         ? statusRaw
         : undefined
     if (statusRaw && !status) {
-      return c.json({ ok: false, reason: "invalid status (must be candidate|confirmed|rejected)" }, 400)
+      return c.json({ ok: false, reason: "invalid status (must be candidate|confirmed|rejected|expired)" }, 400)
     }
     const limitRaw = c.req.query("limit")
     const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 20
