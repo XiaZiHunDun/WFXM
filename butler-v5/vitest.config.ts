@@ -74,6 +74,10 @@ export default defineConfig({
         replacement: resolve(__dirname, "packages/domain/src/mcp/manifest.ts"),
       },
       {
+        find: "@butler/domain/knowledge/auto-promote.js",
+        replacement: resolve(__dirname, "packages/domain/src/knowledge/auto-promote.ts"),
+      },
+      {
         find: "@butler/domain/knowledge/candidate-expires.js",
         replacement: resolve(__dirname, "packages/domain/src/knowledge/candidate-expires.ts"),
       },
