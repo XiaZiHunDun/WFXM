@@ -1022,3 +1022,218 @@ describe("POST /v1/owner/memories G2 dedup guard", () => {
     expect(body.item.content).toBe("owner likes coffee")
   })
 })
+
+describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
+  let db: Awaited<ReturnType<typeof makeTestDb>>
+  let store: ReturnType<typeof createDurableMemoryStore>
+  let app: Hono
+
+  beforeEach(async () => {
+    db = await makeTestDb()
+    store = createDurableMemoryStore(db.db)
+    const runtimeStore = createRuntimeStore(db.db)
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      durableMemoryStore: store,
+    })
+    app = new Hono()
+    createOwnerRoutes(app, wiring)
+    // Freeze route's `new Date()` to 1 min past baseMs (Sept 1 2026, 00:01 UTC).
+    // Route constructs records at baseMs (Sept 1 2026 00:00:00 UTC); 1 min
+    // past baseMs keeps `now` inside the 7-day window. Prevents time-coupled
+    // CI failures once wall clock crosses baseMs + 7d (2026-09-08T00:00:10Z).
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-09-01T00:01:00Z"))
+  })
+
+  afterEach(async () => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+    await db.close()
+  })
+
+  async function postJSON(path: string, body: unknown): Promise<Response> {
+    return app.request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it("returns 200 with rolled-back record on valid rollback (sweeper-promoted, within window)", async () => {
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "owner likes tea",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // sweeper promotes at baseMs + 10s
+    await store.markAutoPromoted({ ids: [made.value.id], now: new Date(baseMs + 10_000) })
+
+    const res = await postJSON(
+      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
+      { reason: "looks wrong" },
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      memory: {
+        id: string
+        status: string
+        rolledBackBy: string
+        rollbackReason: string | null
+      }
+    }
+    expect(body.memory.id).toBe(made.value.id)
+    expect(body.memory.status).toBe("candidate")
+    expect(body.memory.rolledBackBy).toBe("owner")
+    expect(body.memory.rollbackReason).toBe("looks wrong")
+
+    // Verify DB state: status='candidate', rolledBackBy='owner', promotedBy preserved as 'sweeper'
+    const after = await store.get(made.value.id)
+    if (!after) throw new Error("record should still exist")
+    expect(after.status).toBe("candidate")
+    expect(after.promotedBy).toBe("sweeper")
+    expect(after.rolledBackBy).toBe("owner")
+    expect(after.rollbackReason).toBe("looks wrong")
+  })
+
+  it("returns 404 when memoryId does not exist", async () => {
+    const res = await postJSON(
+      "/v1/owner/memories/nonexistent/rollback-auto-promote",
+      { reason: "test" },
+    )
+    expect(res.status).toBe(404)
+    const body = (await res.json()) as { ok: boolean; reason: string }
+    expect(body).toEqual({ ok: false, reason: "not found" })
+  })
+
+  it("returns 409 not-confirmed when status is 'candidate' (never promoted)", async () => {
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "still a candidate",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // No markAutoPromoted — status remains 'candidate'
+
+    const res = await postJSON(
+      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
+      { reason: "test" },
+    )
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { ok: boolean; error: string; currentStatus: string }
+    expect(body.ok).toBe(false)
+    expect(body.error).toBe("not-confirmed")
+    expect(body.currentStatus).toBe("candidate")
+  })
+
+  it("returns 409 not-auto-promoted when record was owner-confirmed (promotedBy='owner')", async () => {
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "owner confirmed directly",
+      sourceKind: "owner",
+      status: "confirmed",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // promotedBy is null after createDurableMemoryRecord; owner-confirm path
+    // does not set promotedBy. So this exercises the not-auto-promoted branch
+    // (promotedBy is not 'sweeper', regardless of whether it's null or 'owner').
+
+    const res = await postJSON(
+      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
+      { reason: "test" },
+    )
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { ok: boolean; error: string }
+    expect(body.ok).toBe(false)
+    expect(body.error).toBe("not-auto-promoted")
+  })
+
+  it("returns 409 rollback-window-expired when past 7d post-promote window", async () => {
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "sweeper promoted but stale",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // sweeper promoted 8 days ago (well past default 7d rollback window)
+    await store.markAutoPromoted({ ids: [made.value.id], now: new Date(baseMs) })
+
+    // Override route's `new Date()` to baseMs + 8d (rolls past 7d window).
+    // vi.useFakeTimers() is already set by the describe-level beforeEach.
+    vi.setSystemTime(new Date(baseMs + 8 * 24 * 3_600_000))
+
+    const res = await postJSON(
+      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
+      { reason: "too late" },
+    )
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as {
+      ok: boolean
+      error: string
+      currentStatus: string
+      promotedBy: string | null
+      rollbackDeadline: string | null
+    }
+    expect(body.ok).toBe(false)
+    expect(body.error).toBe("rollback-window-expired")
+    expect(body.currentStatus).toBe("confirmed")
+    expect(body.promotedBy).toBe("sweeper")
+    // promotedAt=baseMs, deadline = baseMs + 7d (in ISO)
+    expect(body.rollbackDeadline).toBe(new Date(baseMs + 7 * 24 * 3_600_000).toISOString())
+  })
+
+  it("returns 409 with concurrent-modification when store.rollbackAutoPromoted returns null", async () => {
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "race condition target",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    await store.create(made.value)
+    // Set up DB state so the validation step passes (status=confirmed,
+    // promotedBy=sweeper). We then stub rollbackAutoPromoted to return null
+    // to simulate the race window: status/promotedBy changed between route's
+    // get and the UPDATE (e.g. another rollback won).
+    await store.markAutoPromoted({
+      ids: [made.value.id],
+      now: new Date(baseMs + 10_000),
+    })
+    // Stub: simulate concurrent modification by returning null from the
+    // persistence adapter's UPDATE.
+    vi.spyOn(store, "rollbackAutoPromoted").mockResolvedValue(null)
+
+    const res = await postJSON(
+      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
+      { reason: "test" },
+    )
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { ok: boolean; error: string }
+    expect(body.ok).toBe(false)
+    expect(body.error).toBe("concurrent-modification")
+  })
+})

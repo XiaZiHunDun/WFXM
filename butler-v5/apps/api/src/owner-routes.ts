@@ -13,8 +13,10 @@ import {
   type DurableMemoryStatus,
 } from "@butler/domain/knowledge/durable-memory.js"
 import { findSimilarMemories } from "@butler/domain/knowledge/dedup.js"
+import { rollbackAutoPromotedCandidate } from "@butler/domain/knowledge/auto-promote.js"
 import type { DurableMemoryStore } from "@butler/persistence"
 import { parseDedupConfig } from "./dedup-config.js"
+import { parseAutoPromoteConfig } from "./auto-promote-config.js"
 import {
   ingestDocumentRecord,
   parseDocumentFormat,
@@ -425,6 +427,108 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     return c.json({ ok: true, item: updated })
   })
 
+  // G4: owner rollback for sweeper-auto-promoted records (§12).
+  // Owner-driven undo path within the 7d post-promote rollback window.
+  // Pure domain validation + audit log on every response (200/404/409).
+  // Concurrent modification between validate and UPDATE is handled explicitly:
+  // store.rollbackAutoPromoted returns null when WHERE status='confirmed'
+  // AND promoted_by='sweeper' no longer matches (e.g. another rollback raced).
+  app.post("/v1/owner/memories/:memoryId/rollback-auto-promote", async (c) => {
+    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    const store = wiring.durableMemoryStore
+    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    const memoryId = c.req.param("memoryId")
+    const body = (await c.req.json().catch(() => ({}))) as {
+      readonly reason?: string
+    }
+    const now = new Date()
+
+    let memory: Awaited<ReturnType<typeof store.get>> = null
+    try {
+      memory = await store.get(memoryId)
+    } catch (err) {
+      // Malformed UUIDs (e.g. "nonexistent") surface as PG syntax errors on
+      // the underlying get query; treat those uniformly as "not found" so
+      // callers never see driver-level error text (mirrors handleBatch in
+      // the batch confirm/reject paths).
+      const message = err instanceof Error ? err.message : "unknown error"
+      if (message.includes("invalid input syntax for type uuid")) {
+        // eslint-disable-next-line no-console -- operator log when no logger injected
+        console.error(`[memory-rollback] not-found owner=owner id=${memoryId}`)
+        return c.json({ ok: false, reason: "not found" }, 404)
+      }
+      throw err
+    }
+    if (memory === null) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(`[memory-rollback] not-found owner=owner id=${memoryId}`)
+      return c.json({ ok: false, reason: "not found" }, 404)
+    }
+
+    // Map store record to domain pure fn input. Type narrow: domain fn requires
+    // status='confirmed' & promotedBy='sweeper' literals, but runtime validation
+    // handles other cases. We force the literal types to satisfy TS.
+    const validation = rollbackAutoPromotedCandidate({
+      memory: {
+        id: memory.id,
+        status: (memory.status === "confirmed" ? "confirmed" : "candidate") as "confirmed",
+        promotedBy:
+          (memory.promotedBy === "sweeper" ? "sweeper" : "owner") as "sweeper",
+        promotedAt:
+          memory.promotedAt !== null ? new Date(memory.promotedAt) : new Date(0),
+      },
+      ownerId: "owner",
+      reason: body.reason,
+      now,
+      rollbackWindowMs: autoPromoteCfg.rollbackWindowMs,
+    })
+
+    if (!validation.ok) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(
+        `[memory-rollback] denied owner=owner id=${memoryId} error=${validation.reason} currentStatus=${memory.status} promotedBy=${memory.promotedBy ?? "null"}`,
+      )
+      return c.json(
+        {
+          ok: false,
+          error: validation.reason,
+          currentStatus: memory.status,
+          promotedBy: memory.promotedBy,
+          promotedAt:
+            memory.promotedAt !== null
+              ? new Date(memory.promotedAt).toISOString()
+              : null,
+          rollbackDeadline:
+            memory.promotedAt !== null
+              ? new Date(memory.promotedAt + autoPromoteCfg.rollbackWindowMs).toISOString()
+              : null,
+        },
+        409,
+      )
+    }
+
+    const updated = await store.rollbackAutoPromoted({
+      id: memoryId,
+      ownerId: "owner",
+      reason: body.reason,
+      now,
+    })
+
+    if (updated === null) {
+      // Concurrent race: between validation and UPDATE, status/promoted_by changed
+      // (e.g. another rollback won, or owner-confirmed path raced).
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(`[memory-rollback] concurrent-modification owner=owner id=${memoryId}`)
+      return c.json({ ok: false, error: "concurrent-modification" }, 409)
+    }
+
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error(
+      `[memory-rollback] ok owner=owner id=${memoryId} reason=${body.reason ?? "none"}`,
+    )
+    return c.json({ memory: updated })
+  })
+
   app.delete("/v1/owner/memories/:memoryId", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const store = wiring.durableMemoryStore
@@ -518,6 +622,10 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   // G2 dedup — module-scoped env-driven config (D41 T3 dedup-config).
   // Defined once at route init so we don't re-read env on every request.
   const dedupCfg = parseDedupConfig(process.env)
+
+  // G4 auto-promote — module-scoped env-driven config (D42 T6 auto-promote-config).
+  // Used by /v1/owner/memories/:memoryId/rollback-auto-promote for rollbackWindowMs.
+  const autoPromoteCfg = parseAutoPromoteConfig(process.env)
 
   async function checkDedup(opts: {
     readonly store: DurableMemoryStore
