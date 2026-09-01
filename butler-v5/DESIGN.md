@@ -615,7 +615,8 @@ Run 内部的摘要、截断、滚动摘要和工具结果压缩是可重建、�
 >   - Subject mismatch / not found / already confirmed / DB error 一律进 `failed[]`（partial-failure 语义，整体仍 200）
 >   - 不引入新 first-class event；不引入新 Core Port；不动 §11.4 不默认建设项
 > - **G1 candidate expires cleanup** (2026-09-XX D40 ship)：owner 撞 "candidate 多到处理不动" 后 stale candidate 7d 自动软删除（status='expired'）。Owner-routes 加 expired 409 guard；`apps/api/src/candidate-expires-sweeper.ts` opt-in 同进程 sweeper（复用 schedule-worker 模式）；不引入新 Core Port / 不引入新 first-class event / 不建独立 worker 进程（§20 #11 + §18 #11 lock 保持）。Persistence 加 `listExpiredCandidates` + `markExpired` 2 能力；domain 加 `expireOldCandidates` 纯函数。
-> - **留待下轮**：G2 dedup / G4 Layer 1→2 auto-promote / G5 跨 project PK recall
+> - **G2 candidate dedup** (2026-09-XX D41 ship)：trigram Jaccard 检测新 candidate vs 已存在记忆 (confirmed + candidate + rejected) 相似度；>= 0.85 返回 409 with existingMemoryId + similarity；owner 可 `force=true` bypass。Domain 加 `trigramJaccard` + `findSimilarMemories` 纯函数；persistence 加 `findCandidatesForDedup` 1 能力；owner-routes + wechat `/记住` 3 调用点集成。Embed-free（§12 line 593 + D30 case #6 lock 保持）；不引入新 Core Port / 不引入新 first-class event / 0 新 LLM 调用。
+> - **留待下轮**：G4 Layer 1→2 auto-promote / G5 跨 project PK recall
 >
 > 锁定方式：`tests/architecture/section12-knowledge-memory.test.ts`（D30, 6 cases）+ `tests/architecture/three-memory-separation.test.ts`（D9 §20 #9 cross-import lock）+ `tests/architecture/section11-deferred-triggered.test.ts`（D22, durable_memories 表属 §12 not §11 list）。
 >
