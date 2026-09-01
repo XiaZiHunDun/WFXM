@@ -606,15 +606,68 @@ describe("GET /v1/owner/memories pagination + total", () => {
   it("rejects invalid status with 400", async () => {
     const res = await app.request("/v1/owner/memories?status=foo")
     expect(res.status).toBe(400)
+    const body = (await res.json()) as { ok: boolean; reason: string }
+    expect(body).toMatchObject({ ok: false, reason: expect.any(String) })
   })
 
   it("rejects limit>100 with 400", async () => {
     const res = await app.request("/v1/owner/memories?limit=200")
     expect(res.status).toBe(400)
+    const body = (await res.json()) as { ok: boolean; reason: string }
+    expect(body).toMatchObject({ ok: false, reason: expect.any(String) })
   })
 
   it("rejects negative offset with 400", async () => {
     const res = await app.request("/v1/owner/memories?offset=-1")
     expect(res.status).toBe(400)
+    const body = (await res.json()) as { ok: boolean; reason: string }
+    expect(body).toMatchObject({ ok: false, reason: expect.any(String) })
+  })
+
+  it("rejects limit=0 with 400 (lower bound)", async () => {
+    const res = await app.request("/v1/owner/memories?limit=0")
+    expect(res.status).toBe(400)
+  })
+
+  it("accepts limit=100 (upper bound) with 200", async () => {
+    await seedCandidate("a")
+    const res = await app.request("/v1/owner/memories?limit=100")
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { items: unknown[]; limit?: number }
+    expect(body.items.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("rejects non-numeric limit (NaN path) with 400", async () => {
+    const res = await app.request("/v1/owner/memories?limit=abc")
+    expect(res.status).toBe(400)
+  })
+
+  it("offset beyond total returns empty items + hasMore=false", async () => {
+    await seedCandidate("a")
+    const res = await app.request("/v1/owner/memories?status=candidate&offset=999999")
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { items: unknown[]; total: number; hasMore: boolean }
+    expect(body.items).toHaveLength(0)
+    expect(body.total).toBe(1)
+    expect(body.hasMore).toBe(false)
+  })
+
+  it("omitting status returns all-status unfiltered list", async () => {
+    await seedCandidate("candidate-only")
+    const conf = createDurableMemoryRecord({
+      subject: "owner",
+      content: "confirmed",
+      sourceKind: "owner",
+      status: "confirmed",
+    })
+    if (!conf.ok) throw new Error(conf.reason)
+    await store.create(conf.value)
+    const res = await app.request("/v1/owner/memories")
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { items: Array<{ status: string }>; total: number }
+    expect(body.total).toBe(2)
+    const statuses = new Set(body.items.map((it) => it.status))
+    expect(statuses.has("candidate")).toBe(true)
+    expect(statuses.has("confirmed")).toBe(true)
   })
 })
