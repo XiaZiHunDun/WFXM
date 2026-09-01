@@ -118,4 +118,19 @@ describe("runCandidateExpiresTick", () => {
     expect(errorCalls[0]).toContain("tick failed")
     expect(errorCalls[0]).toContain("db down")
   })
+
+  it("logs and returns zeros when store not wired", async () => {
+    const wiring = { durableMemoryStore: null }
+    const result = await runCandidateExpiresTick({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub
+      wiring: wiring as any,
+      ttlMs: 1000,
+      logger,
+      now: () => new Date(1000),
+    })
+    expect(result.scanned).toBe(0)
+    expect(result.expired).toBe(0)
+    expect(errorCalls).toHaveLength(1)
+    expect(errorCalls[0]).toContain("not wired")
+  })
 })
