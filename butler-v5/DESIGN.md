@@ -614,7 +614,8 @@ Run 内部的摘要、截断、滚动摘要和工具结果压缩是可重建、�
 >   - Persistence: `listBySubject` 加 `offset`；新 `countBySubject({subject, status?})` 方法
 >   - Subject mismatch / not found / already confirmed / DB error 一律进 `failed[]`（partial-failure 语义，整体仍 200）
 >   - 不引入新 first-class event；不引入新 Core Port；不动 §11.4 不默认建设项
-> - **留待下轮**：G1 expires cleanup / G2 dedup / G4 Layer 1→2 auto-promote / G5 跨 project PK recall
+> - **G1 candidate expires cleanup** (2026-09-XX D40 ship)：owner 撞 "candidate 多到处理不动" 后 stale candidate 7d 自动软删除（status='expired'）。Owner-routes 加 expired 409 guard；`apps/api/src/candidate-expires-sweeper.ts` opt-in 同进程 sweeper（复用 schedule-worker 模式）；不引入新 Core Port / 不引入新 first-class event / 不建独立 worker 进程（§20 #11 + §18 #11 lock 保持）。Persistence 加 `listExpiredCandidates` + `markExpired` 2 能力；domain 加 `expireOldCandidates` 纯函数。
+> - **留待下轮**：G2 dedup / G4 Layer 1→2 auto-promote / G5 跨 project PK recall
 >
 > 锁定方式：`tests/architecture/section12-knowledge-memory.test.ts`（D30, 6 cases）+ `tests/architecture/three-memory-separation.test.ts`（D9 §20 #9 cross-import lock）+ `tests/architecture/section11-deferred-triggered.test.ts`（D22, durable_memories 表属 §12 not §11 list）。
 >
@@ -798,7 +799,7 @@ Effect-TS 是可选实现工具，不是架构层级。
 
 - **独立 Task 聚合**：Owner 需要跨对话的任务板，且 Conversation/Run 查询无法表达待办生命周期；
 - **Procedure 模板**：至少两个已批准场景无法由普通线性/条件 Step 表达；通用 DAG、并行合并与 Channel reducer 仍更后；
-- **Durable Memory / Project Knowledge 表**：真实召回或资料管理需求出现，且 Transcript 不够 — 🟡 MVP ship + G3 batch UI（2026-09-01 D39）；留待下轮 G1 expires / G2 dedup / G4 auto-promote / G5 跨 project recall；
+- **Durable Memory / Project Knowledge 表**：真实召回或资料管理需求出现，且 Transcript 不够 — 🟡 MVP ship + G3 batch UI（2026-09-01 D39）+ G1 expires cleanup（2026-09-XX D40）；留待下轮 G2 dedup / G4 auto-promote / G5 跨 project recall；
 - **并发资源锁**：出现必须独占的 workspace 或设备冲突；
 - **局部 Projection**：具体查询无法在目标延迟内完成；
 - **Snapshot**：运行历史加载 p95 超过预算且无法通过普通索引解决；
