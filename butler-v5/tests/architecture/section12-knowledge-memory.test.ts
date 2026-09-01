@@ -91,6 +91,10 @@ const DEDUP = join(
   __dirname,
   "../../packages/domain/src/knowledge/dedup.ts",
 )
+const AUTO_PROMOTE = join(
+  __dirname,
+  "../../packages/domain/src/knowledge/auto-promote.ts",
+)
 const PROJECT_KNOWLEDGE = join(
   __dirname,
   "../../packages/domain/src/knowledge/project-knowledge.ts",
@@ -376,5 +380,31 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
       dedupSrc,
       "dedup.ts must export findSimilarMemories function (§12 G2)",
     ).toMatch(/export (async )?function findSimilarMemories/)
+  })
+
+  // ── 10. §12 G4 auto-promote 实证 (D42, 2026-09-01) ─────────────────
+  //
+  // D30 cases above lock §12 invariants; D39 G3 + D40 G1 + D41 G2
+  // added candidate lifecycle ops (batch UI + expiry sweeper +
+  // dedup). D42 G4 closes the §7 MEMORY G4 line: confirmed memories
+  // past their `confirmedAt + minAgeMs` window are auto-promoted to
+  // a higher-priority layer (and can be rolled back). The logic is
+  // split into a pure module that takes a minimal PromoteStore
+  // contract — persistence's DurableMemoryStore satisfies via
+  // structural typing. This case locks the 2 key exports
+  // (autoPromoteOldCandidates + rollbackAutoPromotedCandidate) so a
+  // future commit that renames or removes either one trips this
+  // guard.
+
+  it("§12 G4: auto-promote module exists with autoPromoteOldCandidates + rollbackAutoPromotedCandidate exported (auto-promote, 2026-09-01)", () => {
+    const autoPromoteSrc = readFileSync(AUTO_PROMOTE, "utf-8")
+    expect(
+      autoPromoteSrc,
+      "auto-promote.ts must export autoPromoteOldCandidates function (§12 G4)",
+    ).toMatch(/export function autoPromoteOldCandidates/)
+    expect(
+      autoPromoteSrc,
+      "auto-promote.ts must export rollbackAutoPromotedCandidate function (§12 G4)",
+    ).toMatch(/export function rollbackAutoPromotedCandidate/)
   })
 })
