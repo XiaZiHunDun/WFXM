@@ -365,13 +365,17 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     // G2 dedup guard (D41 T4): block duplicates above threshold unless force=true.
     // Fail-open inside helper — DB errors fall through to create.
-    const dedupHit = await checkDedupOrThrow({
+    const dedupHit = await checkDedup({
       store,
       subject: created.value.subject,
       content: created.value.content,
       force: body.force === true,
     })
     if (dedupHit !== null) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(
+        `[memory-dedup] hit subject=${dedupHit.existingMemoryId ? "see-existingMemoryId" : created.value.subject} existingId=${dedupHit.existingMemoryId} similarity=${dedupHit.similarity.toFixed(3)} status=${dedupHit.status}`,
+      )
       return c.json(
         {
           ok: false,
@@ -515,7 +519,7 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   // Defined once at route init so we don't re-read env on every request.
   const dedupCfg = parseDedupConfig(process.env)
 
-  async function checkDedupOrThrow(opts: {
+  async function checkDedup(opts: {
     readonly store: DurableMemoryStore
     readonly subject: string
     readonly content: string
@@ -715,13 +719,17 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
     // G2 dedup guard (D41 T4): same threshold + force semantics as
     // POST /v1/owner/memories. Subject is doc.subject (the document owner),
     // not the calling owner — dedup is per-owner memory.
-    const dedupHit = await checkDedupOrThrow({
+    const dedupHit = await checkDedup({
       store: memories,
       subject: created.value.subject,
       content: created.value.content,
       force: body.force === true,
     })
     if (dedupHit !== null) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(
+        `[memory-dedup] hit (promote-memory) existingId=${dedupHit.existingMemoryId} similarity=${dedupHit.similarity.toFixed(3)} status=${dedupHit.status}`,
+      )
       return c.json(
         {
           ok: false,
