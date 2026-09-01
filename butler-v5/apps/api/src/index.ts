@@ -7,6 +7,7 @@ import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer, type WsServerHandle } from "./ws-routes.js"
 import { startScheduleWorkerIfEnabled } from "./schedule-worker.js"
 import { startProjectKnowledgeWatchWorkerIfEnabled } from "./project-knowledge-watch-worker.js"
+import { startCandidateExpiresSweeperIfEnabled } from "./candidate-expires-sweeper.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 
 const app = new Hono()
@@ -72,9 +73,19 @@ if (projectKnowledgeWatchHandle) {
   console.error("[butler-v5] project-knowledge watch worker started")
 }
 
+const candidateExpiresHandle = startCandidateExpiresSweeperIfEnabled({
+  wiring,
+  env: process.env,
+})
+if (candidateExpiresHandle) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error("[butler-v5] candidate-expires sweeper started")
+}
+
 const shutdown = (): void => {
   scheduleHandle?.stop()
   projectKnowledgeWatchHandle?.stop()
+  candidateExpiresHandle?.stop()
   stopSubagent?.()
   void wsHandle?.close()
   void boot.value.close()
@@ -93,4 +104,9 @@ export {
   startProjectKnowledgeWatchWorkerIfEnabled,
   runProjectKnowledgeWatchTick,
 } from "./project-knowledge-watch-worker.js"
+export {
+  startCandidateExpiresSweeperIfEnabled,
+  runCandidateExpiresTick,
+  parseCandidateExpiresSweeperConfig,
+} from "./candidate-expires-sweeper.js"
 export default app
