@@ -7,7 +7,7 @@ export type DurableMemoryId = string
 
 export type DurableMemorySourceKind = "owner" | "message" | "document"
 
-export type DurableMemoryStatus = "candidate" | "confirmed" | "rejected"
+export type DurableMemoryStatus = "candidate" | "confirmed" | "rejected" | "expired"
 
 export interface DurableMemoryProvenance {
   readonly conversationId?: string
