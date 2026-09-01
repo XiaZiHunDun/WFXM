@@ -74,10 +74,8 @@
  * G2: candidate dedup via trigram Jaccard (§12).
  * Pure function — caller owns store + threshold + status filter.
  */
-import type { ExpireCandidatesStore } from "./candidate-expires.js" // 复用 G1 的 minimal store contract 模式
-
 /** Minimal store contract — persistence's DurableMemoryStore satisfies via structural typing. */
-export interface DedupStore extends ExpireCandidatesStore {
+export interface DedupStore {
   readonly findCandidatesForDedup: (input: {
     readonly subject: string
     readonly statuses: readonly DurableMemoryStatus[]
