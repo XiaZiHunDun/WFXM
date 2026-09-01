@@ -31,3 +31,71 @@ export function autoPromoteOldCandidates(
   )
   return { toPromote }
 }
+
+/**
+ * G4: rollback auto-promoted candidate validation.
+ * Pure function — caller owns DB write.
+ * Validates: status='confirmed' AND promotedBy='sweeper' AND within rollback window.
+ */
+
+export interface RollbackAutoPromotedCandidateMemory {
+  readonly id: string
+  readonly status: 'confirmed'
+  readonly promotedBy: 'sweeper'
+  readonly promotedAt: Date
+}
+
+export interface RollbackAutoPromotedCandidateInput {
+  readonly memory: RollbackAutoPromotedCandidateMemory
+  readonly ownerId: string
+  readonly reason: string | undefined
+  readonly now: Date
+  /** Post-promote owner rollback window. env-derived (T6): BUTLER_V5_AUTO_PROMOTE_ROLLBACK_WINDOW_DAYS. */
+  readonly rollbackWindowMs: number
+}
+
+export interface UpdatedMemory {
+  readonly id: string
+  readonly status: 'candidate'
+  readonly updatedAt: Date
+  readonly rolledBackBy: string
+  readonly rolledBackAt: Date
+  readonly rollbackReason: string | undefined
+}
+
+export type RollbackAutoPromotedCandidateResult =
+  | { readonly ok: true; readonly updated: UpdatedMemory }
+  | {
+      readonly ok: false
+      readonly reason:
+        | 'not-confirmed'
+        | 'not-auto-promoted'
+        | 'rollback-window-expired'
+    }
+
+export function rollbackAutoPromotedCandidate(
+  input: RollbackAutoPromotedCandidateInput,
+): RollbackAutoPromotedCandidateResult {
+  if (input.memory.status !== 'confirmed') {
+    return { ok: false, reason: 'not-confirmed' }
+  }
+  if (input.memory.promotedBy !== 'sweeper') {
+    return { ok: false, reason: 'not-auto-promoted' }
+  }
+  const rollbackDeadlineMs =
+    input.memory.promotedAt.getTime() + input.rollbackWindowMs
+  if (input.now.getTime() > rollbackDeadlineMs) {
+    return { ok: false, reason: 'rollback-window-expired' }
+  }
+  return {
+    ok: true,
+    updated: {
+      id: input.memory.id,
+      status: 'candidate',
+      updatedAt: input.now,
+      rolledBackBy: input.ownerId,
+      rolledBackAt: input.now,
+      rollbackReason: input.reason,
+    },
+  }
+}
