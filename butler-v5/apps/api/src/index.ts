@@ -8,6 +8,8 @@ import { startWsServer, type WsServerHandle } from "./ws-routes.js"
 import { startScheduleWorkerIfEnabled } from "./schedule-worker.js"
 import { startProjectKnowledgeWatchWorkerIfEnabled } from "./project-knowledge-watch-worker.js"
 import { startCandidateExpiresSweeperIfEnabled } from "./candidate-expires-sweeper.js"
+import { startAutoPromoteSweeperIfEnabled } from "./auto-promote-sweeper.js"
+import { parseAutoPromoteConfig } from "./auto-promote-config.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 
 const app = new Hono()
@@ -82,10 +84,22 @@ if (candidateExpiresHandle) {
   console.error("[butler-v5] candidate-expires sweeper started")
 }
 
+// G4: candidate auto-promote sweeper
+const autoPromoteCfg = parseAutoPromoteConfig(process.env)
+const autoPromoteHandle = startAutoPromoteSweeperIfEnabled({
+  wiring,
+  config: autoPromoteCfg,
+})
+if (autoPromoteHandle) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error("[butler-v5] auto-promote sweeper started")
+}
+
 const shutdown = (): void => {
   scheduleHandle?.stop()
   projectKnowledgeWatchHandle?.stop()
   candidateExpiresHandle?.stop()
+  autoPromoteHandle?.stop()
   stopSubagent?.()
   void wsHandle?.close()
   void boot.value.close()
@@ -109,4 +123,9 @@ export {
   runCandidateExpiresTick,
   parseCandidateExpiresSweeperConfig,
 } from "./candidate-expires-sweeper.js"
+export {
+  startAutoPromoteSweeperIfEnabled,
+  runAutoPromoteTick,
+} from "./auto-promote-sweeper.js"
+export { parseAutoPromoteConfig, type AutoPromoteConfig } from "./auto-promote-config.js"
 export default app
