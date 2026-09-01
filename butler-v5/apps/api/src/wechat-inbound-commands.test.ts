@@ -140,6 +140,105 @@ describe("wechat inbound commands", () => {
     expect(result!.reply).toContain("暂无 candidate 记忆")
   })
 
+  it("/确认记忆 id1,id2 批量确认", async () => {
+    const c1 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "batch-A",
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    const c2 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "batch-B",
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    if (!c1.ok || !c2.ok) throw new Error("seed")
+    const s1 = await wiring.durableMemoryStore!.create(c1.value)
+    const s2 = await wiring.durableMemoryStore!.create(c2.value)
+
+    const result = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: "owner-A",
+      content: `/确认记忆 ${s1.id},${s2.id}`,
+      env: testEnv,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.reply).toContain("已确认 2 条")
+    expect(result!.reply).toContain(s1.id.slice(0, 8))
+    expect(result!.reply).toContain(s2.id.slice(0, 8))
+  })
+
+  it("/确认记忆 id1,missing 报告 partial failure", async () => {
+    const c1 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "only",
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    if (!c1.ok) throw new Error("seed")
+    const s1 = await wiring.durableMemoryStore!.create(c1.value)
+
+    const result = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: "owner-A",
+      content: `/确认记忆 ${s1.id},missing-id`,
+      env: testEnv,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.reply).toContain("已确认 1 条")
+    expect(result!.reply).toContain("失败 1 条")
+    expect(result!.reply).toContain("missing-id=not found")
+  })
+
+  it("/确认记忆 无参 regression：确认最近 1 个 candidate", async () => {
+    const c1 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "regression-1",
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    const c2 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "regression-2",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: Date.now() + 1000,
+    })
+    if (!c1.ok || !c2.ok) throw new Error("seed")
+    await wiring.durableMemoryStore!.create(c1.value)
+    const s2 = await wiring.durableMemoryStore!.create(c2.value)
+
+    const result = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: "owner-A",
+      content: "/确认记忆",
+      env: testEnv,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.reply).toContain(`已确认记忆 ${s2.id.slice(0, 8)}`)
+  })
+
+  it("/确认记忆 <single> regression：单 token 兼容旧用法", async () => {
+    const c1 = createDurableMemoryRecord({
+      subject: "owner-A",
+      content: "single",
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    if (!c1.ok) throw new Error("seed")
+    const s1 = await wiring.durableMemoryStore!.create(c1.value)
+
+    const result = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: "owner-A",
+      content: `/确认记忆 ${s1.id.slice(0, 8)}`,
+      env: testEnv,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.reply).toContain(`已确认记忆 ${s1.id.slice(0, 8)}`)
+  })
+
   it("loads quality gate config", () => {
     const cfg = loadQualityGateConfig({
       BUTLER_V5_QUALITY_GATE_CONFIG: join(process.cwd(), "config/quality-gate.json"),

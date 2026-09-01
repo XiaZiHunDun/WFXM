@@ -103,19 +103,64 @@ export async function tryWechatMemoryCommand(args: {
     if (!store) {
       return done("Durable Memory 存储不可用。", ["wechat-memory: no store"])
     }
-    const token = trimmed.slice("/确认记忆".length).trim()
+    const tokenRaw = trimmed.slice("/确认记忆".length).trim()
     const candidates = await store.listBySubject({ subject, status: "candidate", limit: 20 })
-    const target = token
-      ? candidates.find((item) => item.id === token || shortId(item.id) === token)
-      : candidates.at(-1)
-    if (!target) {
-      return done("没有待确认的 candidate 记忆。", ["wechat-memory: confirm none"])
+
+    const legacyConfirm = async (record: (typeof candidates)[number] | undefined) => {
+      if (!record) {
+        return done("没有待确认的 candidate 记忆。", ["wechat-memory: confirm none"])
+      }
+      const updated = await store.update(confirmDurableMemory(record, Date.now()))
+      return done(
+        `已确认记忆 ${shortId(updated.id)}。`,
+        [`wechat-memory: confirm ${updated.id}`],
+      )
     }
-    const updated = await store.update(confirmDurableMemory(target, Date.now()))
-    return done(
-      `已确认记忆 ${shortId(updated.id)}。`,
-      [`wechat-memory: confirm ${updated.id}`],
-    )
+
+    if (!tokenRaw.includes(",")) {
+      // legacy: 无逗号 → 无参（最近 1 个，listBySubject 按 updatedAt desc，[0] 是最新）
+      //                    OR 单 token（兼容旧用法，保留"已确认记忆 <shortId>。"格式）
+      const target = tokenRaw
+        ? candidates.find((c) => c.id === tokenRaw || shortId(c.id) === tokenRaw)
+        : candidates[0]
+      return legacyConfirm(target)
+    }
+
+    // batch: 逗号分隔 tokenRaw
+    // 注：tokens 受 listBySubject limit=20 自然上限约束（按 updatedAt desc），
+    //     超出范围 token 进 failed[] with "not found"。owner 想看全量先 /记忆候选。
+    const tokens = tokenRaw.split(",").map((s) => s.trim()).filter((s) => s.length > 0)
+    if (tokens.length === 0) {
+      // 仅逗号退化（如 `/确认记忆 ,`）：按无参处理，确认最近 1 个
+      return legacyConfirm(candidates[0])
+    }
+
+    const targets: { readonly token: string; readonly record: (typeof candidates)[number] }[] = []
+    const failed: { readonly token: string; readonly reason: string }[] = []
+    for (const token of tokens) {
+      const record = candidates.find((c) => c.id === token || shortId(c.id) === token)
+      if (!record) {
+        failed.push({ token, reason: "not found" })
+        continue
+      }
+      targets.push({ token, record })
+    }
+
+    const confirmed: string[] = []
+    for (const { record } of targets) {
+      const updated = await store.update(confirmDurableMemory(record, Date.now()))
+      confirmed.push(shortId(updated.id))
+    }
+
+    const okLine =
+      confirmed.length > 0 ? `已确认 ${confirmed.length} 条：${confirmed.join(", ")}` : null
+    const failLine =
+      failed.length > 0
+        ? `失败 ${failed.length} 条：${failed.map((f) => `${f.token}=${f.reason}`).join(", ")}`
+        : null
+    const parts = [okLine, failLine].filter((p): p is string => p !== null)
+    const summary = parts.length > 0 ? parts.join("；") : "无操作"
+    return done(summary, [`wechat-memory: confirm-batch n=${confirmed.length} m=${failed.length}`])
   }
 
   return null
