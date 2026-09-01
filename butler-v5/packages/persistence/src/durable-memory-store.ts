@@ -1,5 +1,6 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm"
 import type {
+  DurableMemoryPromotedBy,
   DurableMemoryProvenance,
   DurableMemoryRecord,
   DurableMemorySourceKind,
@@ -39,6 +40,17 @@ export interface DurableMemoryStore {
     readonly recentMs: number
     readonly limit: number
   }) => Promise<readonly { id: string; content: string; status: DurableMemoryStatus }[]>
+  /** G4: list candidates older than threshold for auto-promote sweep. */
+  readonly findAutoPromoteCandidates: (input: {
+    readonly now: Date
+    readonly windowMs: number
+    readonly limit: number
+  }) => Promise<readonly { id: string; subject: string; content: string; createdAt: Date }[]>
+  /** G4: batch mark status='confirmed' + promoted_by='sweeper' + promoted_at=now; idempotent (WHERE status='candidate'). */
+  readonly markAutoPromoted: (input: {
+    readonly ids: readonly string[]
+    readonly now: Date
+  }) => Promise<number>
   /** Soft cascade helper when a source message is deleted. */
   readonly deleteBySourceMessageId: (messageId: string) => Promise<number>
   /** Cascade when a source document is deleted. */
@@ -58,6 +70,11 @@ function toRecord(row: typeof durableMemories.$inferSelect): DurableMemoryRecord
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
     confirmedAt: row.confirmedAt ? row.confirmedAt.getTime() : null,
+    promotedBy: row.promotedBy as DurableMemoryPromotedBy | null,
+    promotedAt: row.promotedAt ? row.promotedAt.getTime() : null,
+    rolledBackBy: row.rolledBackBy,
+    rolledBackAt: row.rolledBackAt ? row.rolledBackAt.getTime() : null,
+    rollbackReason: row.rollbackReason,
   }
 }
 
@@ -217,6 +234,48 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
         content: r.content,
         status: r.status as DurableMemoryStatus,
       }))
+    },
+
+    async findAutoPromoteCandidates(input) {
+      const cutoff = new Date(input.now.getTime() - input.windowMs)
+      const rows = await db
+        .select({
+          id: durableMemories.memoryId,
+          subject: durableMemories.subject,
+          content: durableMemories.content,
+          createdAt: durableMemories.createdAt,
+        })
+        .from(durableMemories)
+        .where(
+          and(
+            eq(durableMemories.status, "candidate"),
+            lt(durableMemories.createdAt, cutoff),
+          ),
+        )
+        .orderBy(asc(durableMemories.createdAt))
+        .limit(input.limit)
+      return rows
+    },
+
+    async markAutoPromoted(input) {
+      if (input.ids.length === 0) return 0
+      const updated = await db
+        .update(durableMemories)
+        .set({
+          status: "confirmed",
+          updatedAt: input.now,
+          promotedBy: "sweeper",
+          promotedAt: input.now,
+          confirmedAt: input.now,
+        })
+        .where(
+          and(
+            inArray(durableMemories.memoryId, input.ids as string[]),
+            eq(durableMemories.status, "candidate"),
+          ),
+        )
+        .returning()
+      return updated.length
     },
 
     async deleteBySourceMessageId(messageId) {

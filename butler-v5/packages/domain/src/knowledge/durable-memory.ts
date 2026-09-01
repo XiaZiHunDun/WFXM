@@ -9,6 +9,8 @@ export type DurableMemorySourceKind = "owner" | "message" | "document"
 
 export type DurableMemoryStatus = "candidate" | "confirmed" | "rejected" | "expired"
 
+export type DurableMemoryPromotedBy = "owner" | "sweeper"
+
 export interface DurableMemoryProvenance {
   readonly conversationId?: string
   readonly messageId?: string
@@ -31,15 +33,15 @@ export interface DurableMemoryRecord {
   readonly confirmedAt: number | null
   // D42 §12 G4 auto-promote (append-only; see migration 0012 + persistence/schema.ts).
   /** Who promoted this record to confirmed. 'owner' for owner-confirmed; 'sweeper' for sweeper-auto-promoted; null for non-confirmed. */
-  readonly promotedBy?: "owner" | "sweeper" | null
+  readonly promotedBy: DurableMemoryPromotedBy | null
   /** When sweeper auto-promoted this record (ms epoch). NULL for owner-confirmed or non-confirmed. */
-  readonly promotedAt?: number | null
+  readonly promotedAt: number | null
   /** Owner who rolled back this auto-promoted record. NULL if never rolled back. */
-  readonly rolledBackBy?: string | null
+  readonly rolledBackBy: string | null
   /** When owner rolled back this auto-promoted record (ms epoch). NULL if never rolled back. */
-  readonly rolledBackAt?: number | null
+  readonly rolledBackAt: number | null
   /** Owner-provided reason for rollback. NULL if no reason provided. */
-  readonly rollbackReason?: string | null
+  readonly rollbackReason: string | null
 }
 
 export interface CreateDurableMemoryInput {
@@ -112,6 +114,11 @@ export function createDurableMemoryRecord(
       createdAt: nowMs,
       updatedAt: nowMs,
       confirmedAt: status === "confirmed" ? nowMs : null,
+      promotedBy: null,
+      promotedAt: null,
+      rolledBackBy: null,
+      rolledBackAt: null,
+      rollbackReason: null,
     },
   }
 }

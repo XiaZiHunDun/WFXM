@@ -365,4 +365,113 @@ describe("durableMemoryStore", () => {
       await db.close()
     }
   })
+
+  it("findAutoPromoteCandidates returns candidates older than threshold", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      for (let i = 0; i < 3; i++) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: `seed-${i}`,
+          sourceKind: "owner",
+          status: "candidate",
+          nowMs: baseMs + i * 1000,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+      }
+      const older = await store.findAutoPromoteCandidates({
+        now: new Date(baseMs + 5000),
+        windowMs: 3000,
+        limit: 100,
+      })
+      expect(older).toHaveLength(2)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("findAutoPromoteCandidates excludes confirmed and rejected", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      for (const status of ["candidate", "confirmed", "rejected"] as const) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: `seed-${status}`,
+          sourceKind: "owner",
+          status,
+          nowMs: baseMs,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+      }
+      const older = await store.findAutoPromoteCandidates({
+        now: new Date(baseMs + 5000),
+        windowMs: 1000,
+        limit: 100,
+      })
+      expect(older).toHaveLength(1)
+      expect(older[0]?.subject).toBe("owner")
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("markAutoPromoted updates status='confirmed' + promoted_by='sweeper' + promoted_at", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      const made = createDurableMemoryRecord({
+        subject: "owner",
+        content: "test",
+        sourceKind: "owner",
+        status: "candidate",
+        nowMs: baseMs,
+      })
+      if (!made.ok) throw new Error(made.reason)
+      await store.create(made.value)
+      const now = new Date(baseMs + 10000)
+      const count = await store.markAutoPromoted({ ids: [made.value.id], now })
+      expect(count).toBe(1)
+      const updated = await store.get(made.value.id)
+      expect(updated?.status).toBe("confirmed")
+      expect(updated?.promotedBy).toBe("sweeper")
+      expect(updated?.promotedAt).toBe(now.getTime())
+      expect(updated?.confirmedAt).toBe(now.getTime())
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("markAutoPromoted is idempotent (skips non-candidate rows)", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      const made = createDurableMemoryRecord({
+        subject: "owner",
+        content: "test",
+        sourceKind: "owner",
+        status: "candidate",
+        nowMs: baseMs,
+      })
+      if (!made.ok) throw new Error(made.reason)
+      await store.create(made.value)
+      const now = new Date(baseMs + 10000)
+      const count1 = await store.markAutoPromoted({ ids: [made.value.id], now })
+      expect(count1).toBe(1)
+      const count2 = await store.markAutoPromoted({
+        ids: [made.value.id],
+        now: new Date(baseMs + 20000),
+      })
+      expect(count2).toBe(0)
+    } finally {
+      await db.close()
+    }
+  })
 })
