@@ -1,10 +1,60 @@
 import {
   confirmDurableMemory,
   createDurableMemoryRecord,
+  type DurableMemoryStatus,
 } from "@butler/domain/knowledge/durable-memory.js"
+import { findSimilarMemories } from "@butler/domain/knowledge/dedup.js"
+import type { DurableMemoryStore } from "@butler/persistence"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
+import { parseDedupConfig } from "./dedup-config.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
+
+// G2 dedup (D41 T5) — module-scoped env-driven config (mirrors owner-routes T4).
+// Wechat is owner-facing, no force bypass (owner cannot override via wechat —
+// by design; wechat is more constrained than the HTTP API).
+const dedupCfg = parseDedupConfig(process.env)
+
+async function checkDedup(opts: {
+  readonly store: DurableMemoryStore
+  readonly subject: string
+  readonly content: string
+}): Promise<
+  | {
+      readonly existingMemoryId: string
+      readonly similarity: number
+      readonly status: DurableMemoryStatus
+    }
+  | null
+> {
+  if (!dedupCfg.enabled) return null
+  try {
+    const result = await findSimilarMemories({
+      store: opts.store,
+      subject: opts.subject,
+      content: opts.content,
+      threshold: dedupCfg.threshold,
+      statuses: ["candidate", "confirmed", "rejected"],
+      recentMs: dedupCfg.recentMs,
+      limit: dedupCfg.limit,
+    })
+    if (result.best === null) return null
+    return {
+      existingMemoryId: result.best.id,
+      similarity: result.best.similarity,
+      status: result.best.status,
+    }
+  } catch (err) {
+    // Fail-open: dedup DB error must not block owner writes (§20 #11
+    // 守住 owner 自主权). Surface via stderr so operators can diagnose.
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error(
+      "[memory-dedup] check failed:",
+      err instanceof Error ? err.message : String(err),
+    )
+    return null
+  }
+}
 
 function done(reply: string, traces: readonly string[]): ButlerLoopResult {
   return {
@@ -49,6 +99,25 @@ export async function tryWechatMemoryCommand(args: {
     })
     if (!created.ok) {
       return done(`无法保存：${created.reason}`, ["wechat-memory: create failed"])
+    }
+    // G2 dedup guard (D41 T5): block /记住 when a near-duplicate memory already
+    // exists for the same subject. Wechat has no force bypass — owner cannot
+    // override via this channel (by design; wechat is more constrained than
+    // HTTP). Fail-open inside helper — DB errors fall through to create.
+    const dedupHit = await checkDedup({
+      store,
+      subject: created.value.subject,
+      content: created.value.content,
+    })
+    if (dedupHit !== null) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(
+        `[memory-dedup] wechat hit existingId=${dedupHit.existingMemoryId} similarity=${dedupHit.similarity.toFixed(3)} status=${dedupHit.status}`,
+      )
+      return done(
+        `这条记忆与已有记忆相似度 ${(dedupHit.similarity * 100).toFixed(0)}%，请先确认是否重复`,
+        ["wechat-memory: dedup hit"],
+      )
     }
     const saved = await store.create(created.value)
     return done(

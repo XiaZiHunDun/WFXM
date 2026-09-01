@@ -85,6 +85,33 @@ describe("wechat inbound commands", () => {
     expect(list?.reply).toContain("第三卷")
   })
 
+  it("/记住 returns dedup message when similar memory exists (G2)", async () => {
+    // seed: insert confirmed memory with identical content (trigram Jaccard = 1.0 ⇒ dedup hits)
+    const seed = createDurableMemoryRecord({
+      subject: "owner-dedup-wechat",
+      content: "第三卷主角名禁止修改",
+      sourceKind: "owner",
+      status: "confirmed",
+    })
+    if (!seed.ok) throw new Error("seed")
+    const store = wiring.durableMemoryStore
+    if (!store) throw new Error("test setup: durableMemoryStore required")
+    await store.create(seed.value)
+
+    // attempt: /记住 with identical content — worst-case duplicate
+    const result = await tryWechatInboundCommand({
+      wiring,
+      fromUserId: "owner-dedup-wechat",
+      content: "/记住 第三卷主角名禁止修改",
+      env: testEnv,
+    })
+    expect(result).not.toBeNull()
+    expect(result?.reply).toContain("相似度")
+    expect(result?.reply).toContain("请先确认是否重复")
+    // dedup blocked the create — reply must NOT contain success marker
+    expect(result?.reply).not.toContain("已记住")
+  })
+
   it("/记忆候选 lists pending candidates scoped to active project", async () => {
     // seed 3 candidates: one in active project, one un-noted (always included), one in different project (excluded)
     setWechatActiveProjectId("owner-A", "WFXM", testEnv)
