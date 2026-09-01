@@ -201,6 +201,12 @@ export const durableMemories = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    // D42 §12 G4 auto-promote (append-only; see migration 0012).
+    promotedBy: text("promoted_by"),     // 'owner' | 'sweeper' | null
+    promotedAt: timestamp("promoted_at", { withTimezone: true }),
+    rolledBackBy: text("rolled_back_by"),
+    rolledBackAt: timestamp("rolled_back_at", { withTimezone: true }),
+    rollbackReason: text("rollback_reason"),
   },
   (t) => ({
     subjectStatusIdx: index("durable_memories_subject_status_idx").on(
