@@ -104,10 +104,22 @@ RETURNING id, (updated_at = created_at) AS updated;
 `butler-v5/packages/domain/src/knowledge/candidate-expires.ts`（新文件）：
 
 ```ts
-import type { DurableMemoryStore } from "@butler/persistence/durable-memory-store.js"
+// 注：domain 不 import persistence（§3 #1 Core 不 import adapters/persistence）。
+// 用本地最小 interface；persistence 的 DurableMemoryStore 经结构化类型自动满足。
+
+/** Minimal store contract — persistence's DurableMemoryStore satisfies via structural typing. */
+export interface ExpireCandidatesStore {
+  readonly listExpiredCandidates: (input: {
+    readonly olderThanMs: number
+    readonly limit?: number
+  }) => Promise<readonly { id: string; createdAt: Date }[]>
+  readonly markExpired: (
+    ids: readonly string[],
+  ) => Promise<readonly { id: string; updated: boolean }[]>
+}
 
 export interface ExpireOldCandidatesInput {
-  readonly store: DurableMemoryStore
+  readonly store: ExpireCandidatesStore
   readonly now: Date
   readonly ttlMs: number            // default 7 * 24 * 3600 * 1000
   readonly batchLimit?: number      // default 1000
@@ -167,6 +179,9 @@ export async function expireOldCandidates(
  */
 import { expireOldCandidates } from "@butler/domain/knowledge/candidate-expires.js"
 import type { Wiring } from "./wiring.js"
+
+// 注：domain 的 package.json `exports` 必须新增 `./knowledge/candidate-expires.js`
+// 才能被 apps/api sweeper import（§4.3 实施前先 patch domain/package.json）。
 
 export type CandidateExpiresLogger = {
   readonly info: (msg: string, ...args: unknown[]) => void
@@ -398,7 +413,8 @@ test("§12 DurableMemoryStatus accepts 'expired' (G1 candidate expires cleanup)"
 | `packages/persistence/src/durable-memory-store.test.ts` | +150/-0 | 6 cases |
 | `packages/domain/src/knowledge/durable-memory.ts` | +3/-2 | enum 加 `'expired'` |
 | `packages/domain/src/knowledge/durable-memory.test.ts` (if exists) | +20/-0 | enum case |
-| `packages/domain/src/knowledge/candidate-expires.ts` (new) | +60/-0 | pure fn |
+| `packages/domain/src/knowledge/candidate-expires.ts` (new) | +60/-0 | pure fn + local `ExpireCandidatesStore` interface |
+| `packages/domain/package.json` | +1/-0 | `exports` 加 `./knowledge/candidate-expires.js` (T4 实施前先 patch) |
 | `packages/domain/src/knowledge/candidate-expires.test.ts` (new) | +120/-0 | 5 cases |
 | `apps/api/src/candidate-expires-sweeper.ts` (new) | +130/-0 | opt-in sweeper |
 | `apps/api/src/candidate-expires-sweeper.test.ts` (new) | +200/-0 | 6 cases |
