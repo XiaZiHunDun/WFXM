@@ -76,6 +76,21 @@ const EVENT_BRIDGE = join(
   "../../packages/persistence/src/event-bridge.ts",
 )
 
+const DURABLE_MEMORY_STORE = join(
+  __dirname,
+  "../../packages/persistence/src/durable-memory-store.ts",
+)
+const API_TOOLS = join(__dirname, "../../apps/api/src/tools.ts")
+const DURABLE_MEMORY_INJECT = join(
+  __dirname,
+  "../../apps/api/src/durable-memory-inject.ts",
+)
+const OWNER_ROUTES = join(__dirname, "../../apps/api/src/owner-routes.ts")
+const WECHAT_MEMORY_COMMANDS = join(
+  __dirname,
+  "../../apps/api/src/wechat-memory-commands.ts",
+)
+
 /** Module path fragments that wrap §18-deferred APIs passively. */
 const PASSIVE_WRAP_FILES: ReadonlySet<string> = new Set([EVENT_BRIDGE])
 
@@ -193,5 +208,87 @@ describe("arch: §18 trigger guard (no premature activation of deferred features
       violations,
       `production files reading .embedding on memory records: ${violations.join(", ")}`,
     ).toEqual([])
+  })
+
+  // ── §18 row 3 Durable Memory / Project Knowledge 表 — D39 lock ────
+  //
+  // Row 3 was originally a §18 deferred item ("Durable Memory /
+  // Project Knowledge 表"). It has since shipped via D30 + Tasks 1-5
+  // (R10 handoff + wechat commands + G3 batch UI). D16's 4 cases above
+  // guard rows that are STILL deferred; this case locks the row-3
+  // MVP-ship evidence so future regressions trip this guard.
+  //
+  // D39 G3 batch candidate UI (2026-09-01) added 3 owner batch routes
+  // (confirm-batch + reject-batch) + wechat /记忆候选 + /确认记忆 batch.
+
+  it("§18 row 3 Durable Memory MVP ship — 5 foundation files exist and are non-empty (D39 lock)", () => {
+    const FILES = [
+      DURABLE_MEMORY_STORE,
+      API_TOOLS,
+      DURABLE_MEMORY_INJECT,
+      OWNER_ROUTES,
+      WECHAT_MEMORY_COMMANDS,
+    ] as const
+    for (const f of FILES) {
+      expect(
+        existsSync(f),
+        `§18 row 3 MVP foundation file missing: ${f}`,
+      ).toBe(true)
+      const text = readFileSync(f, "utf-8")
+      expect(
+        text.length,
+        `§18 row 3 MVP foundation file is empty: ${f}`,
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  it("§18 row 3 recall tools — recall_durable_memory + recall_document + recall_project_knowledge all defined in apps/api/src/tools.ts", () => {
+    const src = readFileSync(API_TOOLS, "utf-8")
+    for (const toolName of [
+      "recall_durable_memory",
+      "recall_document",
+      "recall_project_knowledge",
+    ]) {
+      expect(
+        new RegExp(`name:\\s*["']${toolName}["']`).test(src),
+        `apps/api/src/tools.ts must declare recall tool: ${toolName}`,
+      ).toBe(true)
+    }
+  })
+
+  it("§18 row 3 owner batch routes — confirm-batch + reject-batch + GET hasMore/countBySubject present (D39 G3)", () => {
+    const src = readFileSync(OWNER_ROUTES, "utf-8")
+    expect(
+      /\/v1\/owner\/memories\/confirm-batch/.test(src),
+      "owner-routes must declare POST /v1/owner/memories/confirm-batch",
+    ).toBe(true)
+    expect(
+      /\/v1\/owner\/memories\/reject-batch/.test(src),
+      "owner-routes must declare POST /v1/owner/memories/reject-batch",
+    ).toBe(true)
+    expect(
+      /\bhasMore\b/.test(src),
+      "owner-routes GET /v1/owner/memories must expose hasMore pagination flag",
+    ).toBe(true)
+    expect(
+      /\bcountBySubject\b/.test(src),
+      "owner-routes GET /v1/owner/memories must call countBySubject for total",
+    ).toBe(true)
+  })
+
+  it("§18 row 3 wechat batch commands — /记忆候选 + /确认记忆 batch wired (D39 G3)", () => {
+    const src = readFileSync(WECHAT_MEMORY_COMMANDS, "utf-8")
+    expect(
+      src.includes("/记忆候选"),
+      "wechat-memory-commands must handle /记忆候选 command",
+    ).toBe(true)
+    expect(
+      src.includes("/确认记忆"),
+      "wechat-memory-commands must handle /确认记忆 batch command",
+    ).toBe(true)
+    expect(
+      /confirm-batch/.test(src),
+      "wechat-memory-commands must invoke confirm-batch owner route",
+    ).toBe(true)
   })
 })

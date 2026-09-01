@@ -101,6 +101,11 @@ const MEMORY_PURE = join(
 )
 const RUNTIME_SRC = join(__dirname, "../../packages/runtime/src")
 const APPS_SRC = join(__dirname, "../../apps/api/src")
+const OWNER_ROUTES = join(__dirname, "../../apps/api/src/owner-routes.ts")
+const WECHAT_MEMORY_COMMANDS = join(
+  __dirname,
+  "../../apps/api/src/wechat-memory-commands.ts",
+)
 
 function listProductionTs(root: string): string[] {
   const out: string[] = []
@@ -272,5 +277,47 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
       /\bembedding\b/i.test(body),
       "durable_memories must NOT carry an embedding column — §12 line 558 mandates default-off embedding",
     ).toBe(false)
+  })
+
+  // ── 7. §12 G3 batch candidate UI 实证 (D39, 2026-09-01) ─────────
+  //
+  // D30 lock above covers the schema + domain invariants for the 3
+  // memory layers. D39 G3 batch candidate UI (Tasks 1-5) added the
+  // owner surface + wechat commands for managing candidate memories
+  // in bulk. This case locks that the MVP-ship surface is wired and
+  // cannot regress without tripping this guard.
+
+  it("§12: G3 batch candidate UI 实施 — 3 owner routes + /记忆候选 + /确认记忆 batch all present (D39 lock)", () => {
+    const ownerRoutes = readFileSync(OWNER_ROUTES, "utf-8")
+    expect(
+      /\/v1\/owner\/memories\/confirm-batch/.test(ownerRoutes),
+      "owner-routes must declare POST /v1/owner/memories/confirm-batch (D39 G3)",
+    ).toBe(true)
+    expect(
+      /\/v1\/owner\/memories\/reject-batch/.test(ownerRoutes),
+      "owner-routes must declare POST /v1/owner/memories/reject-batch (D39 G3)",
+    ).toBe(true)
+    expect(
+      /\bhasMore\b/.test(ownerRoutes),
+      "owner-routes GET /v1/owner/memories must expose hasMore pagination flag (D39 G3)",
+    ).toBe(true)
+    expect(
+      /\bcountBySubject\b/.test(ownerRoutes),
+      "owner-routes GET /v1/owner/memories must call countBySubject for total (D39 G3)",
+    ).toBe(true)
+
+    const wechatCommands = readFileSync(WECHAT_MEMORY_COMMANDS, "utf-8")
+    expect(
+      wechatCommands.includes("/记忆候选"),
+      "wechat-memory-commands must handle /记忆候选 listing command (D39 G3)",
+    ).toBe(true)
+    expect(
+      wechatCommands.includes("/确认记忆"),
+      "wechat-memory-commands must handle /确认记忆 batch command (D39 G3)",
+    ).toBe(true)
+    expect(
+      /confirm-batch/.test(wechatCommands),
+      "wechat-memory-commands must invoke owner confirm-batch route (D39 G3)",
+    ).toBe(true)
   })
 })
