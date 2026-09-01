@@ -150,4 +150,162 @@ describe("durableMemoryStore", () => {
       await db.close()
     }
   })
+
+  it("listExpiredCandidates returns candidates older than threshold", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      for (let i = 0; i < 3; i++) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: `seed-${i}`,
+          sourceKind: "owner",
+          status: "candidate",
+          nowMs: baseMs + i * 1000,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+      }
+      const older = await store.listExpiredCandidates({
+        olderThanMs: baseMs + 2000,
+        limit: 100,
+      })
+      expect(older).toHaveLength(2)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("listExpiredCandidates excludes confirmed and rejected", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      const idsByStatus: Record<DurableMemoryStatus, string> = {
+        candidate: "",
+        confirmed: "",
+        rejected: "",
+        expired: "",
+      }
+      for (const status of ["candidate", "confirmed", "rejected"] as const) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: `seed-${status}`,
+          sourceKind: "owner",
+          status,
+          nowMs: baseMs,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+        idsByStatus[status] = made.value.id
+      }
+      const older = await store.listExpiredCandidates({
+        olderThanMs: baseMs + 1000,
+        limit: 100,
+      })
+      expect(older).toHaveLength(1)
+      expect(older[0]?.id).toBe(idsByStatus.candidate)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("listExpiredCandidates respects limit", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const baseMs = Date.parse("2026-09-01T00:00:00Z")
+      for (let i = 0; i < 5; i++) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: `seed-${i}`,
+          sourceKind: "owner",
+          status: "candidate",
+          nowMs: baseMs + i * 1000,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+      }
+      const older = await store.listExpiredCandidates({
+        olderThanMs: baseMs + 10000,
+        limit: 3,
+      })
+      expect(older).toHaveLength(3)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("markExpired updates status to 'expired' for candidates", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const made = createDurableMemoryRecord({
+        subject: "owner",
+        content: "to-expire",
+        sourceKind: "owner",
+        status: "candidate",
+      })
+      if (!made.ok) throw new Error(made.reason)
+      await store.create(made.value)
+      const results = await store.markExpired([made.value.id])
+      expect(results).toHaveLength(1)
+      expect(results[0]?.updated).toBe(true)
+      const after = await store.get(made.value.id)
+      expect(after?.status).toBe("expired")
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("markExpired is idempotent — already expired returns updated=false", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const made = createDurableMemoryRecord({
+        subject: "owner",
+        content: "to-expire-twice",
+        sourceKind: "owner",
+        status: "candidate",
+      })
+      if (!made.ok) throw new Error(made.reason)
+      await store.create(made.value)
+      await store.markExpired([made.value.id])
+      const second = await store.markExpired([made.value.id])
+      expect(second[0]?.updated).toBe(false)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("markExpired does not affect confirmed or rejected", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const confirmed = createDurableMemoryRecord({
+        subject: "owner",
+        content: "c",
+        sourceKind: "owner",
+        status: "confirmed",
+      })
+      const rejected = createDurableMemoryRecord({
+        subject: "owner",
+        content: "r",
+        sourceKind: "owner",
+        status: "rejected",
+      })
+      if (!confirmed.ok || !rejected.ok) throw new Error("seed failed")
+      await store.create(confirmed.value)
+      await store.create(rejected.value)
+      const results = await store.markExpired([confirmed.value.id, rejected.value.id])
+      expect(results.every((r) => !r.updated)).toBe(true)
+      const cAfter = await store.get(confirmed.value.id)
+      const rAfter = await store.get(rejected.value.id)
+      expect(cAfter?.status).toBe("confirmed")
+      expect(rAfter?.status).toBe("rejected")
+    } finally {
+      await db.close()
+    }
+  })
 })
