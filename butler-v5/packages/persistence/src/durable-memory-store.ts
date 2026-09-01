@@ -17,7 +17,12 @@ export interface DurableMemoryStore {
     readonly subject: string
     readonly status?: DurableMemoryStatus
     readonly limit?: number
+    readonly offset?: number
   }) => Promise<readonly DurableMemoryRecord[]>
+  readonly countBySubject: (input: {
+    readonly subject: string
+    readonly status?: DurableMemoryStatus
+  }) => Promise<number>
   /** Soft cascade helper when a source message is deleted. */
   readonly deleteBySourceMessageId: (messageId: string) => Promise<number>
   /** Cascade when a source document is deleted. */
@@ -95,6 +100,7 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
 
     async listBySubject(input) {
       const limit = input.limit ?? 50
+      const offset = input.offset ?? 0
       const rows = input.status
         ? await db
             .select()
@@ -107,13 +113,33 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
             )
             .orderBy(desc(durableMemories.updatedAt))
             .limit(limit)
+            .offset(offset)
         : await db
             .select()
             .from(durableMemories)
             .where(eq(durableMemories.subject, input.subject))
             .orderBy(desc(durableMemories.updatedAt))
             .limit(limit)
+            .offset(offset)
       return rows.map(toRecord)
+    },
+
+    async countBySubject(input) {
+      const rows = input.status
+        ? await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(durableMemories)
+            .where(
+              and(
+                eq(durableMemories.subject, input.subject),
+                eq(durableMemories.status, input.status),
+              ),
+            )
+        : await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(durableMemories)
+            .where(eq(durableMemories.subject, input.subject))
+      return rows[0]?.count ?? 0
     },
 
     async deleteBySourceMessageId(messageId) {

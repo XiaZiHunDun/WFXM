@@ -3,6 +3,7 @@ import {
   confirmDurableMemory,
   createDurableMemoryRecord,
   rejectDurableMemory,
+  type DurableMemoryStatus,
 } from "@butler/domain/knowledge/durable-memory.js"
 import { createDurableMemoryStore } from "./durable-memory-store.js"
 import { makeTestDb } from "./testing.js"
@@ -85,6 +86,66 @@ describe("durableMemoryStore", () => {
       expect(confirmed.map((r) => r.content)).toEqual(["偏好"])
       const rejected = await store.listBySubject({ subject: "owner", status: "rejected" })
       expect(rejected.map((r) => r.content)).toEqual(["被拒"])
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("listBySubject skips records by offset", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      for (let i = 0; i < 6; i++) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: `seed-${i}`,
+          sourceKind: "owner",
+          status: "candidate",
+          nowMs: Date.parse("2026-09-01T00:00:00Z") + i * 1000,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+      }
+      const page1 = await store.listBySubject({ subject: "owner", limit: 3, offset: 0 })
+      const page2 = await store.listBySubject({ subject: "owner", limit: 3, offset: 3 })
+      expect(page1).toHaveLength(3)
+      expect(page2).toHaveLength(3)
+      const page1Ids = new Set(page1.map((r) => r.id))
+      expect(page2.every((r) => !page1Ids.has(r.id))).toBe(true)
+      const noOffset = await store.listBySubject({ subject: "owner", limit: 3 })
+      expect(noOffset.map((r) => r.id)).toEqual(page1.map((r) => r.id))
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("countBySubject returns total / per-status counts", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createDurableMemoryStore(db.db)
+      const all: { content: string; status: DurableMemoryStatus }[] = [
+        { content: "a", status: "candidate" },
+        { content: "b", status: "candidate" },
+        { content: "c", status: "candidate" },
+        { content: "d", status: "confirmed" },
+        { content: "e", status: "confirmed" },
+        { content: "f", status: "rejected" },
+      ]
+      for (const item of all) {
+        const made = createDurableMemoryRecord({
+          subject: "owner",
+          content: item.content,
+          sourceKind: "owner",
+          status: item.status,
+        })
+        if (!made.ok) throw new Error(made.reason)
+        await store.create(made.value)
+      }
+      expect(await store.countBySubject({ subject: "owner" })).toBe(6)
+      expect(await store.countBySubject({ subject: "owner", status: "candidate" })).toBe(3)
+      expect(await store.countBySubject({ subject: "owner", status: "confirmed" })).toBe(2)
+      expect(await store.countBySubject({ subject: "owner", status: "rejected" })).toBe(1)
+      expect(await store.countBySubject({ subject: "other" })).toBe(0)
     } finally {
       await db.close()
     }
