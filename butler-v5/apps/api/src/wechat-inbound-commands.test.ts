@@ -109,9 +109,11 @@ describe("wechat inbound commands", () => {
       provenance: { note: "project:OTHER" },
     })
     if (!c1.ok || !c2.ok || !c3.ok) throw new Error("seed")
-    await wiring.durableMemoryStore!.create(c1.value)
-    await wiring.durableMemoryStore!.create(c2.value)
-    await wiring.durableMemoryStore!.create(c3.value)
+    const store = wiring.durableMemoryStore
+    if (!store) throw new Error("test setup: durableMemoryStore required")
+    await store.create(c1.value)
+    await store.create(c2.value)
+    await store.create(c3.value)
 
     const result = await tryWechatInboundCommand({
       wiring,
@@ -120,12 +122,12 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result!.reply).toContain("候选")
-    expect(result!.reply).toContain("fact-in-active")
+    expect(result?.reply).toContain("候选")
+    expect(result?.reply).toContain("fact-in-active")
     // fact-un-noted should also be present (short-circuit inclusion)
-    expect(result!.reply).toContain("fact-un-noted")
+    expect(result?.reply).toContain("fact-un-noted")
     // proves scope filter narrows
-    expect(result!.reply).not.toContain("fact-other-project")
+    expect(result?.reply).not.toContain("fact-other-project")
   })
 
   it("/记忆候选 returns empty message when no candidates", async () => {
@@ -137,7 +139,7 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result!.reply).toContain("暂无 candidate 记忆")
+    expect(result?.reply).toContain("暂无 candidate 记忆")
   })
 
   it("/确认记忆 id1,id2 批量确认", async () => {
@@ -154,8 +156,10 @@ describe("wechat inbound commands", () => {
       status: "candidate",
     })
     if (!c1.ok || !c2.ok) throw new Error("seed")
-    const s1 = await wiring.durableMemoryStore!.create(c1.value)
-    const s2 = await wiring.durableMemoryStore!.create(c2.value)
+    const store = wiring.durableMemoryStore
+    if (!store) throw new Error("test setup: durableMemoryStore required")
+    const s1 = await store.create(c1.value)
+    const s2 = await store.create(c2.value)
 
     const result = await tryWechatInboundCommand({
       wiring,
@@ -164,10 +168,10 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result!.reply).toContain("已确认 2 条")
-    expect(result!.reply).toContain(s1.id.slice(0, 8))
-    expect(result!.reply).toContain(s2.id.slice(0, 8))
-    expect(result!.reply).not.toContain("失败")
+    expect(result?.reply).toContain("已确认 2 条")
+    expect(result?.reply).toContain(s1.id.slice(0, 8))
+    expect(result?.reply).toContain(s2.id.slice(0, 8))
+    expect(result?.reply).not.toContain("失败")
   })
 
   it("/确认记忆 id1,missing 报告 partial failure", async () => {
@@ -178,7 +182,9 @@ describe("wechat inbound commands", () => {
       status: "candidate",
     })
     if (!c1.ok) throw new Error("seed")
-    const s1 = await wiring.durableMemoryStore!.create(c1.value)
+    const store = wiring.durableMemoryStore
+    if (!store) throw new Error("test setup: durableMemoryStore required")
+    const s1 = await store.create(c1.value)
 
     const result = await tryWechatInboundCommand({
       wiring,
@@ -187,9 +193,9 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result!.reply).toContain("已确认 1 条")
-    expect(result!.reply).toContain("失败 1 条")
-    expect(result!.reply).toContain("missing-id=not found")
+    expect(result?.reply).toContain("已确认 1 条")
+    expect(result?.reply).toContain("失败 1 条")
+    expect(result?.reply).toContain("missing-id=not found")
   })
 
   it("/确认记忆 无参 regression：确认最近 1 个 candidate", async () => {
@@ -207,8 +213,10 @@ describe("wechat inbound commands", () => {
       nowMs: Date.now() + 1000,
     })
     if (!c1.ok || !c2.ok) throw new Error("seed")
-    await wiring.durableMemoryStore!.create(c1.value)
-    const s2 = await wiring.durableMemoryStore!.create(c2.value)
+    const store = wiring.durableMemoryStore
+    if (!store) throw new Error("test setup: durableMemoryStore required")
+    await store.create(c1.value)
+    const s2 = await store.create(c2.value)
 
     const result = await tryWechatInboundCommand({
       wiring,
@@ -217,7 +225,7 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result!.reply).toContain(`已确认记忆 ${s2.id.slice(0, 8)}`)
+    expect(result?.reply).toContain(`已确认记忆 ${s2.id.slice(0, 8)}`)
   })
 
   it("/确认记忆 <single> regression：单 token 兼容旧用法", async () => {
@@ -228,7 +236,9 @@ describe("wechat inbound commands", () => {
       status: "candidate",
     })
     if (!c1.ok) throw new Error("seed")
-    const s1 = await wiring.durableMemoryStore!.create(c1.value)
+    const store = wiring.durableMemoryStore
+    if (!store) throw new Error("test setup: durableMemoryStore required")
+    const s1 = await store.create(c1.value)
 
     const result = await tryWechatInboundCommand({
       wiring,
@@ -237,7 +247,7 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result!.reply).toContain(`已确认记忆 ${s1.id.slice(0, 8)}`)
+    expect(result?.reply).toContain(`已确认记忆 ${s1.id.slice(0, 8)}`)
   })
 
   it("/确认记忆 , (only-comma) falls back to no-arg: confirms newest", async () => {
@@ -255,8 +265,10 @@ describe("wechat inbound commands", () => {
       nowMs: Date.now() + 1000,
     })
     if (!c1.ok || !c2.ok) throw new Error("seed")
-    await wiring.durableMemoryStore!.create(c1.value)
-    const s2 = await wiring.durableMemoryStore!.create(c2.value)
+    const store = wiring.durableMemoryStore
+    if (!store) throw new Error("test setup: durableMemoryStore required")
+    await store.create(c1.value)
+    const s2 = await store.create(c2.value)
 
     const result = await tryWechatInboundCommand({
       wiring,
@@ -265,7 +277,7 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result!.reply).toContain(`已确认记忆 ${s2.id.slice(0, 8)}`)
+    expect(result?.reply).toContain(`已确认记忆 ${s2.id.slice(0, 8)}`)
   })
 
   it("loads quality gate config", () => {

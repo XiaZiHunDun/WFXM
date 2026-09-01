@@ -12,6 +12,7 @@ import {
   type DurableMemoryRecord,
   type DurableMemoryStatus,
 } from "@butler/domain/knowledge/durable-memory.js"
+import type { DurableMemoryStore } from "@butler/persistence"
 import {
   ingestDocumentRecord,
   parseDocumentFormat,
@@ -423,7 +424,7 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   }
 
   async function handleBatch(args: {
-    readonly store: import("@butler/persistence").DurableMemoryStore
+    readonly store: DurableMemoryStore
     readonly subject: string
     readonly ids: readonly string[]
     readonly transform: (record: DurableMemoryRecord, nowMs: number) => DurableMemoryRecord
@@ -469,7 +470,8 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
           failed.push({ id, reason: "not found" })
           continue
         }
-        console.error(`[handleBatch] Unexpected error processing id=${id}:`, err)
+        // Truly unexpected error — surface the raw message in the per-id
+        // failed list (callers can act on it) without polluting stdout.
         failed.push({ id, reason: message })
       }
     }

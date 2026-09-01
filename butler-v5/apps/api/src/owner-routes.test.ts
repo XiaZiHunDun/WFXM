@@ -668,7 +668,7 @@ describe("GET /v1/owner/memories pagination + total", () => {
     await store.create(conf.value)
     const res = await app.request("/v1/owner/memories")
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { items: Array<{ status: string }>; total: number }
+    const body = (await res.json()) as { items: { status: string }[]; total: number }
     expect(body.total).toBe(2)
     const statuses = new Set(body.items.map((it) => it.status))
     expect(statuses.has("candidate")).toBe(true)
