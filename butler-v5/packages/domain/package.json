@@ -15,6 +15,7 @@
     "./governance/network-allowlist.js": "./src/governance/network-allowlist.ts",
     "./governance/mcp-tool-capability.js": "./src/governance/mcp-tool-capability.ts",
     "./mcp/manifest.js": "./src/mcp/manifest.ts",
+    "./knowledge/candidate-expires.js": "./src/knowledge/candidate-expires.ts",
     "./knowledge/durable-memory.js": "./src/knowledge/durable-memory.ts",
     "./knowledge/document-ingest.js": "./src/knowledge/document-ingest.ts",
     "./knowledge/project-knowledge.js": "./src/knowledge/project-knowledge.ts",
