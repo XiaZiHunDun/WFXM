@@ -45,6 +45,7 @@ export async function tryWechatInboundCommand(args: {
         fromUserId: args.fromUserId,
         content: args.content,
         env: args.env,
+        runtimeStore: args.wiring.runtimeStore,
       }),
     () =>
       tryWechatSubagentCommand({

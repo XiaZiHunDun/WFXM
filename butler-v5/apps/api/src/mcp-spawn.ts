@@ -2,6 +2,7 @@ import { spawn } from "node:child_process"
 import type { StdioSpawnFn } from "@butler/adapters/mcp/stdio-transport.js"
 import { isSandboxEnabled, currentSandboxProfileName } from "@butler/runtime/sandbox/index.js"
 import { buildBubblewrapArgs, resolveSandboxProfile } from "@butler/adapters/sandbox/bubblewrap-runner.js"
+import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
 
 /**
  * Production stdio spawn for MCP subprocess servers.
@@ -64,5 +65,26 @@ export const nodeStdioSpawn: StdioSpawnFn = (command, args, options) => {
     kill: () => {
       child.kill("SIGTERM")
     },
+  }
+}
+
+/**
+ * D47 exec audit: MCP stdio server spawn with behavior audit accounting.
+ * Records one `exec.executed` event at spawn time (outcome "spawned";
+ * exit is unknown for a long-lived server). Reuses `nodeStdioSpawn` so
+ * sandbox gating is unchanged. Audit is observation only — it never
+ * blocks the spawn and never issues permissions.
+ */
+export function makeNodeStdioSpawn(audit?: ExecAuditContext): StdioSpawnFn {
+  return (command, args, options) => {
+    void recordExecAudit(audit, {
+      cmd: [command, ...args].join(" "),
+      cwd: process.cwd(),
+      exit: null,
+      durationMs: 0,
+      outcome: "spawned",
+      detail: { kind: "mcp-server" },
+    })
+    return nodeStdioSpawn(command, args, options)
   }
 }

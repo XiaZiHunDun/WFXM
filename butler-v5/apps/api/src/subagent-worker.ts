@@ -587,6 +587,7 @@ async function handleOutboxMessage(
       ok: llmOk,
       baseReply: result.content,
       env,
+      runtimeStore,
     })
   } catch (err) {
     logger.warn(

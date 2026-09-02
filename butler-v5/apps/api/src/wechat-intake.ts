@@ -292,6 +292,7 @@ export async function routeWechatIntake(args: {
     includeExecTools: loopOpts.includeExecTools,
     loop: loopResult,
     env,
+    runtimeStore: args.wiring.runtimeStore,
   })
 
   return {

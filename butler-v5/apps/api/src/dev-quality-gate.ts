@@ -3,10 +3,12 @@
  */
 import { spawn } from "node:child_process"
 import { resolve } from "node:path"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import { loadQualityGateConfig } from "./wechat-quality-gate.js"
 import { updateProjectState } from "./project-state.js"
 import { isRunNotifyEnabled, sendWechatProactiveNotify } from "./wechat-run-notify.js"
+import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
 
 export type DevVerifyResult = {
   readonly ok: boolean
@@ -71,6 +73,7 @@ export async function runArgv(args: {
   readonly cwd: string
   readonly timeoutMs: number
   readonly env?: NodeJS.ProcessEnv
+  readonly audit?: ExecAuditContext
 }): Promise<{ readonly code: number; readonly output: string; readonly durationMs: number }> {
   const command = args.argv[0]
   if (!command) {
@@ -95,22 +98,24 @@ export async function runArgv(args: {
     const timer = setTimeout(() => {
       child.kill("SIGTERM")
     }, args.timeoutMs)
-    child.on("close", (code) => {
+    const finish = async (code: number, output: string, durationMs: number) => {
       clearTimeout(timer)
-      const output = truncate(`${stdout}${stderr}`.trim(), 1200)
-      resolvePromise({
-        code: code ?? 1,
-        output: output || "(no output)",
-        durationMs: Date.now() - started,
+      await recordExecAudit(args.audit, {
+        cmd: args.argv.join(" "),
+        cwd: args.cwd,
+        exit: code,
+        durationMs,
+        outcome: code === 0 ? "ok" : "failed",
+        detail: { kind: "dev-verify" },
       })
+      resolvePromise({ code, output, durationMs })
+    }
+    child.on("close", (code) => {
+      const output = truncate(`${stdout}${stderr}`.trim(), 1200)
+      void finish(code ?? 1, output || "(no output)", Date.now() - started)
     })
     child.on("error", (err) => {
-      clearTimeout(timer)
-      resolvePromise({
-        code: 1,
-        output: err.message,
-        durationMs: Date.now() - started,
-      })
+      void finish(1, err.message, Date.now() - started)
     })
   })
 }
@@ -119,6 +124,7 @@ export async function listGitTouchedPaths(args: {
   readonly cwd: string
   readonly env?: NodeJS.ProcessEnv
   readonly limit?: number
+  readonly audit?: ExecAuditContext
 }): Promise<readonly string[]> {
   const limit = args.limit ?? 12
   const result = await runArgv({
@@ -126,6 +132,7 @@ export async function listGitTouchedPaths(args: {
     cwd: args.cwd,
     timeoutMs: 15_000,
     env: args.env,
+    ...(args.audit ? { audit: args.audit } : {}),
   })
   if (result.code !== 0) {
     const staged = await runArgv({
@@ -133,6 +140,7 @@ export async function listGitTouchedPaths(args: {
       cwd: args.cwd,
       timeoutMs: 15_000,
       env: args.env,
+      ...(args.audit ? { audit: args.audit } : {}),
     })
     if (staged.code !== 0) return []
     return staged.output
@@ -146,6 +154,7 @@ export async function listGitTouchedPaths(args: {
     cwd: args.cwd,
     timeoutMs: 15_000,
     env: args.env,
+    ...(args.audit ? { audit: args.audit } : {}),
   })
   const merged = new Set<string>()
   for (const line of result.output.split(/\r?\n/u)) {
@@ -164,12 +173,14 @@ export async function listGitTouchedPaths(args: {
 export async function resolveGitBranch(args: {
   readonly cwd: string
   readonly env?: NodeJS.ProcessEnv
+  readonly audit?: ExecAuditContext
 }): Promise<string | undefined> {
   const result = await runArgv({
     argv: ["git", "rev-parse", "--abbrev-ref", "HEAD"],
     cwd: args.cwd,
     timeoutMs: 10_000,
     env: args.env,
+    ...(args.audit ? { audit: args.audit } : {}),
   })
   if (result.code !== 0) return undefined
   const branch = result.output.trim()
@@ -179,6 +190,7 @@ export async function resolveGitBranch(args: {
 export async function runDevVerify(args: {
   readonly projectId: string
   readonly env?: NodeJS.ProcessEnv
+  readonly audit?: ExecAuditContext
 }): Promise<DevVerifyResult> {
   const env = args.env ?? process.env
   const argv = resolveDevVerifyArgv(env)
@@ -188,6 +200,7 @@ export async function runDevVerify(args: {
     cwd,
     timeoutMs: devVerifyTimeoutMs(env),
     env,
+    ...(args.audit ? { audit: args.audit } : {}),
   })
   return {
     ok: run.code === 0,
@@ -296,12 +309,16 @@ function scheduleAsyncDevVerify(args: {
   readonly baseReply: string
   readonly cwd: string
   readonly env: NodeJS.ProcessEnv
+  readonly runtimeStore?: RuntimeStore
 }): void {
   void (async () => {
+    const audit: ExecAuditContext | undefined = args.runtimeStore
+      ? { runtimeStore: args.runtimeStore, subject: args.fromUserId }
+      : undefined
     const [verify, touchedPaths, branch] = await Promise.all([
-      runDevVerify({ projectId: args.projectId, env: args.env }),
-      listGitTouchedPaths({ cwd: args.cwd, env: args.env }),
-      resolveGitBranch({ cwd: args.cwd, env: args.env }),
+      runDevVerify({ projectId: args.projectId, env: args.env, ...(audit ? { audit } : {}) }),
+      listGitTouchedPaths({ cwd: args.cwd, env: args.env, ...(audit ? { audit } : {}) }),
+      resolveGitBranch({ cwd: args.cwd, env: args.env, ...(audit ? { audit } : {}) }),
     ])
     updateProjectState({
       userId: args.fromUserId,
@@ -346,16 +363,20 @@ export async function enrichDevRunResult(args: {
   readonly includeExecTools: boolean
   readonly loop: ButlerLoopResult
   readonly env?: NodeJS.ProcessEnv
+  readonly runtimeStore?: RuntimeStore
 }): Promise<ButlerLoopResult> {
   const env = args.env ?? process.env
   if (!shouldAutoDevVerify({ includeExecTools: args.includeExecTools, loop: args.loop, env })) {
     return args.loop
   }
+  const audit: ExecAuditContext | undefined = args.runtimeStore
+    ? { runtimeStore: args.runtimeStore, subject: args.fromUserId }
+    : undefined
   const cwd = resolveDevVerifyCwd(args.projectId, env)
   const commandLabel = resolveDevVerifyArgv(env).join(" ")
   const [touchedPaths, branch] = await Promise.all([
-    listGitTouchedPaths({ cwd, env }),
-    resolveGitBranch({ cwd, env }),
+    listGitTouchedPaths({ cwd, env, ...(audit ? { audit } : {}) }),
+    resolveGitBranch({ cwd, env, ...(audit ? { audit } : {}) }),
   ])
 
   if (!isDevVerifyInlineEnabled(env)) {
@@ -365,6 +386,7 @@ export async function enrichDevRunResult(args: {
       baseReply: args.loop.reply,
       cwd,
       env,
+      ...(args.runtimeStore ? { runtimeStore: args.runtimeStore } : {}),
     })
     updateProjectState({
       userId: args.fromUserId,
@@ -389,9 +411,9 @@ export async function enrichDevRunResult(args: {
   }
 
   const [verify, freshTouchedPaths, freshBranch] = await Promise.all([
-    runDevVerify({ projectId: args.projectId, env }),
-    listGitTouchedPaths({ cwd, env }),
-    resolveGitBranch({ cwd, env }),
+    runDevVerify({ projectId: args.projectId, env, ...(audit ? { audit } : {}) }),
+    listGitTouchedPaths({ cwd, env, ...(audit ? { audit } : {}) }),
+    resolveGitBranch({ cwd, env, ...(audit ? { audit } : {}) }),
   ])
   updateProjectState({
     userId: args.fromUserId,
@@ -424,16 +446,20 @@ export async function enrichSubagentDevReply(args: {
   readonly ok: boolean
   readonly baseReply: string
   readonly env?: NodeJS.ProcessEnv
+  readonly runtimeStore?: RuntimeStore
 }): Promise<string> {
   const env = args.env ?? process.env
   if (!shouldAutoDevVerifySubagent({ capabilities: args.capabilities, ok: args.ok, env })) {
     return args.baseReply
   }
+  const audit: ExecAuditContext | undefined = args.runtimeStore
+    ? { runtimeStore: args.runtimeStore, subject: args.fromUserId }
+    : undefined
   const cwd = resolveDevVerifyCwd(args.projectId, env)
   const [verify, touchedPaths, branch] = await Promise.all([
-    runDevVerify({ projectId: args.projectId, env }),
-    listGitTouchedPaths({ cwd, env }),
-    resolveGitBranch({ cwd, env }),
+    runDevVerify({ projectId: args.projectId, env, ...(audit ? { audit } : {}) }),
+    listGitTouchedPaths({ cwd, env, ...(audit ? { audit } : {}) }),
+    resolveGitBranch({ cwd, env, ...(audit ? { audit } : {}) }),
   ])
   updateProjectState({
     userId: args.fromUserId,

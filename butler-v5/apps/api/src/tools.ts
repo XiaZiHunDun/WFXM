@@ -12,7 +12,7 @@ import type { RunResult, ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { recordChildRunDelegated } from "./project-state.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
-import { makeReadFileTool, makeRunCommandTool, makeWriteFileTool } from "./workspace-tools.js"
+import { makeReadFileTool, makeRunCommandTool, makeWriteFileTool, type WorkspaceToolContext } from "./workspace-tools.js"
 import { loadMcpToolDefinitions, loadMcpLlmTools, type McpToolsOptions } from "./mcp-tools.js"
 import type { McpToolBundle } from "./mcp-bootstrap.js"
 import { isSubagentEnabled } from "./subagent-config.js"
@@ -685,6 +685,26 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
 }
 
 /**
+ * Build the sandboxed-tool context, carrying the runtime-injected audit
+ * context into the read_file / write_file / run_command exec points (D47).
+ * Observation only — the audit context never issues permissions.
+ */
+function workspaceToolCtx(ctx: ButlerToolContext): WorkspaceToolContext {
+  const audit = ctx.runtimeStore
+    ? {
+        runtimeStore: ctx.runtimeStore,
+        conversationId: ctx.conversationId,
+        runId: ctx.runId,
+        subject: ctx.wechatUserId ?? ctx.actor?.id,
+      }
+    : undefined
+  return {
+    ...(ctx.workspaceRoot ? { workspaceRoot: ctx.workspaceRoot } : {}),
+    ...(audit ? { audit } : {}),
+  }
+}
+
+/**
  * Build the runtime ToolDefinition set wired to the current
  * EventBridge + conversationId. The butler loop owns this — tools
  * hold a reference to the bridge, not a global singleton.
@@ -703,9 +723,9 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     makeGetCurrentTimeTool(),
     makeGreetWithTimeTool(),
     makeSummarizeTodayTool(ctx),
-    makeReadFileTool(ctx),
-    makeWriteFileTool(ctx),
-    makeRunCommandTool(ctx),
+    makeReadFileTool(workspaceToolCtx(ctx)),
+    makeWriteFileTool(workspaceToolCtx(ctx)),
+    makeRunCommandTool(workspaceToolCtx(ctx)),
     makeSendWechatFileTool(ctx),
   ]
   if (isSubagentEnabled(env)) {

@@ -19,6 +19,7 @@ import {
   createHostCredentialProvider,
   injectRunCommandCredentials,
 } from "@butler/adapters/credentials/host-credentials.js"
+import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
 
 export const ALLOWED_RUN_COMMANDS = [
   "cat",
@@ -46,6 +47,8 @@ export interface WorkspaceToolContext {
   readonly credentialProvider?: CredentialProvider
   /** Names a run_command may inject (defaults to `BUTLER_V5_RUN_COMMAND_CREDENTIALS`). */
   readonly credentialAllowlist?: readonly string[]
+  /** D47 exec audit context (observation only; injected from wiring). */
+  readonly audit?: ExecAuditContext
 }
 
 /** Normalize `credentials`/`argv`-style name lists from tool args to valid names. */
@@ -136,6 +139,7 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
       const { currentNetworkAllowlist, currentSandboxProfileName } = await import(
         "@butler/runtime/sandbox/index.js"
       )
+      const started = Date.now()
       const sandboxed = await executeArgvInSandbox({
         argv: ["cat", "--", resolved.path],
         workspaceRoot: sandboxWorkspaceRootFrom(ctx),
@@ -160,6 +164,14 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
         }
       } else {
         const result = sandboxed as { readonly ok: boolean; readonly stdout?: string; readonly stderr?: string; readonly reason?: string }
+        await recordExecAudit(ctx.audit, {
+          cmd: ["cat", "--", resolved.path].join(" "),
+          cwd: sandboxWorkspaceRootFrom(ctx),
+          exit: null,
+          durationMs: Date.now() - started,
+          outcome: result.ok ? "ok" : "failed",
+          detail: { tool: "read_file" },
+        })
         if (!result.ok) return { ok: false, reason: result.reason ?? "sandbox failed" }
         return { ok: true, output: result.stdout ?? "" }
       }
@@ -198,6 +210,7 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
       const { currentNetworkAllowlist, currentSandboxProfileName } = await import(
         "@butler/runtime/sandbox/index.js"
       )
+      const started = Date.now()
       const sandboxed = await executeArgvInSandbox({
         argv: ["tee", resolved.path],
         workspaceRoot: sandboxWorkspaceRootFrom(ctx),
@@ -219,6 +232,14 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
         }
       } else {
         const result = sandboxed as { readonly ok: boolean; readonly stdout?: string; readonly stderr?: string; readonly reason?: string }
+        await recordExecAudit(ctx.audit, {
+          cmd: ["tee", resolved.path].join(" "),
+          cwd: sandboxWorkspaceRootFrom(ctx),
+          exit: null,
+          durationMs: Date.now() - started,
+          outcome: result.ok ? "ok" : "failed",
+          detail: { tool: "write_file" },
+        })
         if (!result.ok) return { ok: false, reason: result.reason ?? "sandbox failed" }
         return {
           ok: true,
@@ -299,6 +320,7 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         if (!injected.ok) return { ok: false, reason: injected.reason }
         injectedEnv = injected.env
       }
+      const started = Date.now()
       const sandboxed = await executeArgvInSandbox({
         argv,
         workspaceRoot: cwd,
@@ -309,27 +331,46 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         runner: sandboxRunner,
       })
       if ("mode" in sandboxed && sandboxed.mode === "disabled") {
-        return await spawnCaptured(argv, cwd, signal, injectedEnv)
+        const result = await spawnCaptured(argv, cwd, signal, injectedEnv)
+        await recordExecAudit(ctx.audit, {
+          cmd: argv.join(" "),
+          cwd,
+          exit: result.exitCode,
+          durationMs: Date.now() - started,
+          outcome: result.ok ? "ok" : "failed",
+          detail: { tool: "run_command" },
+        })
+        return result
       }
+      await recordExecAudit(ctx.audit, {
+        cmd: argv.join(" "),
+        cwd,
+        exit: null,
+        durationMs: Date.now() - started,
+        outcome: sandboxed.ok ? "ok" : "failed",
+        detail: { tool: "run_command" },
+      })
       if (!sandboxed.ok) return { ok: false, reason: sandboxed.reason ?? "sandbox failed" }
       return { ok: true, output: "stdout" in sandboxed ? sandboxed.stdout ?? "" : "sandboxed run returned no output" }
     },
   }
 }
 
+type SpawnCapturedResult =
+  | { readonly ok: true; readonly output: unknown; readonly exitCode: number | null }
+  | { readonly ok: false; readonly reason: string; readonly exitCode: number | null }
+
 function spawnCaptured(
   argv: readonly string[],
   cwd: string,
   signal?: AbortSignal,
   injectedEnv: Readonly<Record<string, string>> = {},
-): Promise<
-  { readonly ok: true; readonly output: unknown } | { readonly ok: false; readonly reason: string }
-> {
+): Promise<SpawnCapturedResult> {
   const program = argv[0]
-  if (!program) return Promise.resolve({ ok: false, reason: "argv is required" })
+  if (!program) return Promise.resolve({ ok: false, reason: "argv is required", exitCode: null })
   return new Promise((resolvePromise) => {
     if (signal?.aborted) {
-      resolvePromise({ ok: false, reason: "aborted" })
+      resolvePromise({ ok: false, reason: "aborted", exitCode: null })
       return
     }
     let child: ReturnType<typeof spawn>
@@ -343,6 +384,7 @@ function spawnCaptured(
       resolvePromise({
         ok: false,
         reason: err instanceof Error ? err.message : String(err),
+        exitCode: null,
       })
       return
     }
@@ -360,7 +402,7 @@ function spawnCaptured(
     child.stderr?.on("data", (b: Buffer) => take(b))
     child.on("error", (err) => {
       signal?.removeEventListener("abort", onAbort)
-      resolvePromise({ ok: false, reason: err.message })
+      resolvePromise({ ok: false, reason: err.message, exitCode: null })
     })
     child.on("close", (code) => {
       signal?.removeEventListener("abort", onAbort)
@@ -373,10 +415,11 @@ function spawnCaptured(
         resolvePromise({
           ok: false,
           reason: `exit ${code ?? "null"}: ${clipped.slice(0, 500)}`,
+          exitCode: code,
         })
         return
       }
-      resolvePromise({ ok: true, output: clipped })
+      resolvePromise({ ok: true, output: clipped, exitCode: code })
     })
   })
 }

@@ -34,7 +34,8 @@ import {
   parseMcpConnectionConfig,
   type McpConnectionConfig,
 } from "./mcp-config.js"
-import { nodeStdioSpawn } from "./mcp-spawn.js"
+import { makeNodeStdioSpawn } from "./mcp-spawn.js"
+import type { ExecAuditContext } from "./exec-audit.js"
 
 export type McpBootstrapMode = "off" | "stub" | "multi" | McpConnectionConfig["kind"]
 
@@ -73,6 +74,7 @@ function makeTransport(
   options: {
     readonly fetch?: typeof fetch
     readonly session: McpSessionRef
+    readonly audit?: ExecAuditContext
   },
 ): McpTransport {
   switch (conn.kind) {
@@ -98,7 +100,7 @@ function makeTransport(
         args: conn.args,
         timeoutMs: conn.timeoutMs,
         env: conn.env,
-        spawn: nodeStdioSpawn,
+        spawn: makeNodeStdioSpawn(options.audit),
       })
   }
 }
@@ -252,7 +254,15 @@ async function bootstrapSingleMcpServer(
 
   try {
     const session: McpSessionRef = {}
-    const transport = options.transport ?? makeTransport(connection.value, { ...options, session })
+    const transport =
+      options.transport ??
+      makeTransport(connection.value, {
+        ...options,
+        session,
+        audit: options.runtimeStore
+          ? { runtimeStore: options.runtimeStore, subject: "mcp" }
+          : undefined,
+      })
     const client = makeMcpClientAdapter({ transport })
     const rawDiscovered = options.discover
       ? await options.discover()
