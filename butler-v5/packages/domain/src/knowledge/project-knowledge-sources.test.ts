@@ -4,6 +4,7 @@ import {
   parseProjectKnowledgeSourcesJson,
   resolveManifestSourceFiles,
 } from "./project-knowledge-sources.js"
+import { extensionOf, globPatternToRegExp, isMarkitdownExtension, isTextSnapshotExtension } from "./project-knowledge-sources.js"
 
 describe("project-knowledge-sources", () => {
   it("parses a valid manifest", () => {
@@ -67,5 +68,40 @@ describe("project-knowledge-sources", () => {
     })
     expect(files).toHaveLength(2)
     expect(files.find((f) => f.relativePath === "docs/b.pdf")?.viaMarkitdown).toBe(true)
+  })
+})
+
+describe("project knowledge source helper functions", () => {
+  it("extracts lowercase extension, handling backslashes and dotfiles", () => {
+    expect(extensionOf("docs/report.pdf")).toBe(".pdf")
+    expect(extensionOf("C:\\docs\\file.DOCX")).toBe(".docx")
+    expect(extensionOf("README")).toBe("")
+    expect(extensionOf(".gitignore")).toBe("")
+    expect(extensionOf("archive.tar.gz")).toBe(".gz")
+  })
+
+  it("marks office/doc extensions as markitdown-convertible", () => {
+    expect(isMarkitdownExtension(".pdf")).toBe(true)
+    expect(isMarkitdownExtension(".DOCX")).toBe(true)
+    expect(isMarkitdownExtension(".xlsx")).toBe(true)
+    expect(isMarkitdownExtension(".md")).toBe(false)
+    expect(isMarkitdownExtension("")).toBe(false)
+  })
+
+  it("marks text/source extensions as text snapshots", () => {
+    expect(isTextSnapshotExtension(".md")).toBe(true)
+    expect(isTextSnapshotExtension(".markdown")).toBe(true)
+    expect(isTextSnapshotExtension(".txt")).toBe(true)
+    expect(isTextSnapshotExtension(".pdf")).toBe(false)
+  })
+
+  it("compiles glob patterns to anchored regex", () => {
+    expect(globPatternToRegExp("*.md").test("notes.md")).toBe(true)
+    expect(globPatternToRegExp("*.md").test("a/b.md")).toBe(false)
+    expect(globPatternToRegExp("**/*.ts").test("a/b.ts")).toBe(true)
+    expect(globPatternToRegExp("**/*.ts").test("b.ts")).toBe(true)
+    expect(globPatternToRegExp("?.md").test("a.md")).toBe(true)
+    expect(globPatternToRegExp("?.md").test("ab.md")).toBe(false)
+    expect(globPatternToRegExp("docs\\*.txt").test("docs/readme.txt")).toBe(true)
   })
 })

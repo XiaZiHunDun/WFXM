@@ -5,6 +5,7 @@ import {
   parseGrantNetworkHostsFromEnv,
   resolveGrantNetworkHosts,
 } from "./grant-network-hosts.js"
+import { hostnameFromHttpUrl, mcpCapabilityOutboundHosts } from "./grant-network-hosts.js"
 
 describe("grant network hosts", () => {
   it("parses extra hosts from env", () => {
@@ -64,5 +65,22 @@ describe("grant network hosts", () => {
 
   it("deduplicates merged hosts", () => {
     expect(mergeGrantNetworkHosts(["A.com", "a.com"], ["b.com"])).toEqual(["a.com", "b.com"])
+  })
+})
+
+describe("grant network host helpers", () => {
+  it("extracts a lowercase hostname from an http url", () => {
+    expect(hostnameFromHttpUrl("https://API.Example.COM/path?q=1")).toBe("api.example.com")
+    expect(hostnameFromHttpUrl("http://foo.bar:8080/x")).toBe("foo.bar")
+    expect(hostnameFromHttpUrl("   ")).toBeUndefined()
+    expect(hostnameFromHttpUrl("not a url")).toBeUndefined()
+  })
+
+  it("derives outbound hosts for known mcp capability prefixes", () => {
+    expect(mcpCapabilityOutboundHosts("mcp_github_get_repo")).toEqual(["api.github.com"])
+    expect(mcpCapabilityOutboundHosts("mcp_todoist_list_tasks")).toEqual(["api.todoist.com"])
+    expect(mcpCapabilityOutboundHosts("mcp_firecrawl_crawl")).toEqual(["api.firecrawl.dev"])
+    expect(mcpCapabilityOutboundHosts("mcp_unknown_x")).toBeUndefined()
+    expect(mcpCapabilityOutboundHosts("read_file")).toBeUndefined()
   })
 })

@@ -5,6 +5,7 @@ import {
   parseDocumentFormat,
   selectDocumentsForRecall,
 } from "./document-ingest.js"
+import { defaultMimeForFormat, matchDocumentQuery } from "./document-ingest.js"
 
 describe("document ingest", () => {
   it("parses named formats", () => {
@@ -118,5 +119,30 @@ describe("document ingest", () => {
     const snippet = formatDocumentSnippet(a.value, 30)
     expect(snippet.length).toBeLessThan(a.value.extractedText.length)
     expect(snippet.endsWith("...")).toBe(true)
+  })
+})
+
+type DocFixture = {
+  readonly title: string
+  readonly extractedText: string
+  readonly provenance: { readonly note?: string }
+}
+function doc(overrides: Partial<DocFixture> = {}): DocFixture {
+  return { title: "Title", extractedText: "text", provenance: {}, ...overrides }
+}
+
+describe("document ingest pure helpers", () => {
+  it("maps document format to default mime type", () => {
+    expect(defaultMimeForFormat("markdown")).toBe("text/markdown")
+    expect(defaultMimeForFormat("pdf")).toBe("application/pdf")
+    expect(defaultMimeForFormat("html")).toBe("text/plain")
+  })
+
+  it("matches document by substring query across title/text/note", () => {
+    const d = doc({ title: "README", extractedText: "install via npm", provenance: { note: "guide" } })
+    expect(matchDocumentQuery(d, "npm")).toBe(true)
+    expect(matchDocumentQuery(d, "guide")).toBe(true)
+    expect(matchDocumentQuery(d, "missing")).toBe(false)
+    expect(matchDocumentQuery(d, "")).toBe(true)
   })
 })
