@@ -7,10 +7,15 @@
  * 证明该合同是"可替换单一接缝"（Repository Port），并作为快速单测 /
  * 隔离运行 / 引导期存储的载体。
  *
- * 忠实度说明：实现核心读写语义（乐观版本续程、active-main-run 匹配、
- * 子 Run 级联、授权剩余次数与过期、audit 追加），但对授权 scope 匹配
- * 采取简化字段匹配（capability + subject + runId + digest + 过期 + 未耗尽），
- * 不复刻 `grantMatchesAction` / MCP scope 的全部治理细则。作为测试/隔离
+ * 忠实度说明：实现核心读写语义（乐观版本续程、active-main-run 匹配、子 Run
+ * 级联、授权剩余次数与过期、audit 追加）与生产实现保持一致，含 idempotencyKey
+ * 去重、waiting-approval（kind==='approval' + status==='waiting'）门控、
+ * listRunsPastDeadline 的 ACTIVE_MAIN_RUN_STATUSES 状态门控、findChildRuns 的
+ * createdAt desc 排序、findActiveGrant 的 digest 语义、listMessages 的 createdAt
+ * asc 排序、listConversationsByProject 的 projectId 去空白与 limit 钳制（见
+ * runtime-store.cross-impl.test.ts 契约线束）。对授权 scope 的 paths / MCP /
+ * network 治理细则仍为简化字段匹配，不复刻 `grantMatchesAction` 全部细则；
+ * 消息内容不做落库脱敏（内存非耐久转录，见 cross-impl S-B）。作为测试/隔离
  * 替代品足够，作生产持久化请用 `createRuntimeStore`。
  */
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
@@ -72,6 +77,12 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
 
   return {
     async createConversationWithUserMessage(input) {
+      // S-A parity: production dedups on message idempotencyKey (unique index) — a
+      // re-delivered conversation+message returns the existing record, not a duplicate.
+      const existing = messages.find((m) => m.idempotencyKey === input.idempotencyKey)
+      if (existing) {
+        return { conversationId: existing.conversationId, messageId: existing.id }
+      }
       const now = input.createdAt
       conversations.set(input.conversationId, {
         id: input.conversationId,
@@ -94,6 +105,12 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
     },
 
     async createRun(input) {
+      // S-A parity: production dedups on run idempotencyKey — re-delivery returns the
+      // existing run (same id), not a duplicate.
+      const existing = [...runs.values()].find(
+        (r) => r.idempotencyKey === input.idempotencyKey,
+      )
+      if (existing) return existing
       const run: StoredRun = {
         id: input.id,
         conversationId: input.conversationId,
@@ -133,17 +150,30 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
     },
 
     async listMessages(conversationId) {
-      return messages.filter((m) => m.conversationId === conversationId)
+      // S-G parity: production orders messages by createdAt asc.
+      return messages
+        .filter((m) => m.conversationId === conversationId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
     },
 
     async listConversationsByProject({ projectId, limit }) {
-      const matches = [...conversations.values()]
-        .filter((c) => c.projectId === projectId)
+      // S-H parity: production trims projectId and clamps limit to [1, 200]
+      // (default 50), ordered by updatedAt desc.
+      const trimmed = projectId.trim()
+      const clamped = Math.min(Math.max(limit ?? 50, 1), 200)
+      return [...conversations.values()]
+        .filter((c) => c.projectId === trimmed)
         .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-      return limit === undefined ? matches : matches.slice(0, limit)
+        .slice(0, clamped)
     },
 
     async appendMessage(input) {
+      // S-A parity: production dedups on message idempotencyKey when present — a
+      // re-delivered message returns the existing record, not a duplicate.
+      if (input.idempotencyKey) {
+        const existing = messages.find((m) => m.idempotencyKey === input.idempotencyKey)
+        if (existing) return existing
+      }
       const message: StoredMessage = {
         id: input.messageId,
         conversationId: input.conversationId,
@@ -191,15 +221,23 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
     },
 
     async listWaitingApprovalSteps() {
-      return [...steps.values()].filter((s) => s.status === "waiting")
+      // S-C parity: production only treats kind==='approval' && status==='waiting' steps
+      // as "waiting for approval", ordered by createdAt asc.
+      return [...steps.values()]
+        .filter((s) => s.kind === "approval" && s.status === "waiting")
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
     },
 
     async listWaitingApprovalStepsForConversation(conversationId) {
-      return [...steps.values()].filter(
-        (s) =>
-          s.status === "waiting" &&
-          runs.get(s.runId)?.conversationId === conversationId,
-      )
+      // S-C parity: same kind==='approval' gate + createdAt asc order, scoped to conversation.
+      return [...steps.values()]
+        .filter(
+          (s) =>
+            s.kind === "approval" &&
+            s.status === "waiting" &&
+            runs.get(s.runId)?.conversationId === conversationId,
+        )
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
     },
 
     async createScopedGrant(input) {
@@ -229,7 +267,11 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
           g.capability === capability &&
           g.expiresAtMs > now.getTime() &&
           (g.remainingUses === null || g.remainingUses > 0) &&
-          (digest === undefined || g.scope.digest === digest),
+          // S-F parity: a grant WITHOUT scope.digest accepts any digest (production
+          // grantMatchesAction only gates when the grant itself pins a digest).
+          (digest === undefined ||
+            g.scope.digest === undefined ||
+            g.scope.digest === digest),
       )
       return matches[0] ?? null
     },
@@ -276,13 +318,25 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
 
     async listRunsPastDeadline(now) {
       const t = now.getTime()
-      return [...runs.values()].filter(
-        (r) => r.deadline !== null && r.deadline.getTime() < t,
-      )
+      // S-D parity: production only re-sweeps non-terminal Runs past the deadline
+      // (ACTIVE_MAIN_RUN_STATUSES), ordered by deadline asc. Terminal runs are never
+      // swept back into the deadline path.
+      return [...runs.values()]
+        .filter(
+          (r) =>
+            r.deadline !== null &&
+            r.deadline.getTime() < t &&
+            ACTIVE_MAIN_RUN_STATUSES.includes(r.status),
+        )
+        .sort((a, b) => (a.deadline as Date).getTime() - (b.deadline as Date).getTime())
     },
 
     async findChildRuns(parentRunId) {
-      return [...runs.values()].filter((r) => r.parentRunId === parentRunId)
+      // S-E parity: production returns child Runs by createdAt desc (most recent first)
+      // so downstream (cancelRun cascade) can process in a stable order.
+      return [...runs.values()]
+        .filter((r) => r.parentRunId === parentRunId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     },
 
     async appendAuditEventInTx(_tx, input) {

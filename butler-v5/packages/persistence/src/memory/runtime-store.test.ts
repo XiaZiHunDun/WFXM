@@ -145,9 +145,12 @@ describe("createInMemoryRuntimeStore", () => {
     expect(updated.status).toBe("succeeded")
     expect(updated.output).toEqual({ ok: true })
 
-    // waiting step 再放入一条，验证按 conversation 过滤
+    // waiting + approval → 命中；waiting + kind!=approval → 不命中（S-C 门控）
     await store.createStep({
-      id: "s2", runId: "r1", kind: "model", status: "waiting", input: {}, createdAt: t5(),
+      id: "s2", runId: "r1", kind: "approval", status: "waiting", input: {}, createdAt: t5(),
+    })
+    await store.createStep({
+      id: "s3", runId: "r1", kind: "model", status: "waiting", input: {}, createdAt: t6(),
     })
     expect((await store.listWaitingApprovalSteps()).map((s) => s.id)).toEqual(["s2"])
     // r2 属其他 conversation 的 waiting step 不应命中 c1
@@ -231,5 +234,128 @@ describe("createInMemoryRuntimeStore", () => {
     expect(ran.status).toBe("running")
     // tx 助手不存在于读表面；此处主要验证调用链路不抛错、类型满足 RuntimeStore。
     expect(tx).toBeTypeOf("function")
+  })
+
+  it("idempotency：createRun / createConversationWithUserMessage / appendMessage 按 idempotencyKey 返回既有记录（S-A）", async () => {
+    const store = createInMemoryRuntimeStore()
+    const conv = await store.createConversationWithUserMessage({
+      conversationId: "c1", messageId: "m1", subject: "a",
+      content: {}, triggerSource: "cli", idempotencyKey: "ik-c", createdAt: t0(),
+    })
+    const replay = await store.createConversationWithUserMessage({
+      conversationId: "c1", messageId: "m1b", subject: "a",
+      content: {}, triggerSource: "cli", idempotencyKey: "ik-c", createdAt: t5(),
+    })
+    expect(replay).toEqual({ conversationId: "c1", messageId: "m1" })
+    expect((await store.listMessages("c1")).map((m) => m.id)).toEqual(["m1"])
+
+    const run = await store.createRun({
+      id: "r1", conversationId: "c1", parentRunId: null, triggerSource: "cli",
+      idempotencyKey: "ik-r", subject: "s", goal: "g", budget: {}, deadline: null, createdAt: t0(),
+    })
+    const runReplay = await store.createRun({
+      id: "r2", conversationId: "c1", parentRunId: null, triggerSource: "cli",
+      idempotencyKey: "ik-r", subject: "s", goal: "g", budget: {}, deadline: null, createdAt: t5(),
+    })
+    expect(runReplay.id).toBe("r1")
+    expect(run.version).toBe(1)
+    void conv
+
+    const appended = await store.appendMessage({
+      messageId: "a1", conversationId: "c1", role: "assistant", content: {},
+      triggerSource: null, idempotencyKey: "ik-a", createdAt: t0(),
+    })
+    const appendReplay = await store.appendMessage({
+      messageId: "a2", conversationId: "c1", role: "assistant", content: {},
+      triggerSource: null, idempotencyKey: "ik-a", createdAt: t5(),
+    })
+    expect(appendReplay.id).toBe(appended.id)
+    expect(appended.id).toBe("a1")
+  })
+
+  it("findChildRuns 按 createdAt desc；listRunsPastDeadline 排除终态（S-E/S-D）", async () => {
+    const store = createInMemoryRuntimeStore()
+    await store.createRun({
+      id: "main", conversationId: "c1", parentRunId: null, triggerSource: "cli",
+      idempotencyKey: "m", subject: "m", goal: "g", budget: {}, deadline: null, createdAt: t0(),
+    })
+    await store.createRun({
+      id: "child1", conversationId: "c1", parentRunId: "main", triggerSource: "parent_run",
+      idempotencyKey: "c1k", subject: "c", goal: "g", budget: {}, deadline: t5(), createdAt: t0(),
+    })
+    await store.createRun({
+      id: "child2", conversationId: "c1", parentRunId: "main", triggerSource: "parent_run",
+      idempotencyKey: "c2k", subject: "c", goal: "g", budget: {}, deadline: t6(), createdAt: t5(),
+    })
+    // S-E：createdAt desc → 最近（child2）在先
+    expect((await store.findChildRuns("main")).map((r) => r.id)).toEqual(["child2", "child1"])
+    // S-D：child1 已转终态（failed），即使 deadline 过期也不应被清扫；
+    // child2 的 deadline=t6()，查询 now=t5() 时未过期也应被排除
+    await store.transitionRunStatus("child1", 1, "failed", t5())
+    expect((await store.listRunsPastDeadline(t5())).map((r) => r.id)).toEqual([])
+    expect((await store.listRunsPastDeadline(new Date(t6().getTime() + 1000))).map((r) => r.id)).toEqual(["child2"])
+  })
+
+  it("findActiveGrant：无 scope.digest 的 grant 接受任意 digest（S-F）", async () => {
+    const store = createInMemoryRuntimeStore()
+    await store.createScopedGrant({
+      grantId: "g-open", runId: "r1", subject: "owner", capability: "read_file",
+      scope: {}, remainingUses: 1, expiresAt: t6(), createdAt: t0(),
+    })
+    expect(
+      (await store.findActiveGrant({ runId: "r1", subject: "owner", capability: "read_file", digest: "anything", now: t0() }))?.id,
+    ).toBe("g-open")
+    // 固定 digest 的 grant 仍要求精确匹配
+    await store.createScopedGrant({
+      grantId: "g-pinned", runId: "r1", subject: "owner", capability: "write_file",
+      scope: { digest: "d1" }, remainingUses: 1, expiresAt: t6(), createdAt: t0(),
+    })
+    expect(
+      await store.findActiveGrant({ runId: "r1", subject: "owner", capability: "write_file", digest: "other", now: t0() }),
+    ).toBeNull()
+    expect(
+      (await store.findActiveGrant({ runId: "r1", subject: "owner", capability: "write_file", digest: "d1", now: t0() }))?.id,
+    ).toBe("g-pinned")
+  })
+
+  it("listMessages 按 createdAt asc 排序（S-G）", async () => {
+    const store = createInMemoryRuntimeStore()
+    await store.createConversationWithUserMessage({
+      conversationId: "c1", messageId: "m0", subject: "a",
+      content: {}, triggerSource: "channel", idempotencyKey: "s0", createdAt: t5(),
+    })
+    await store.appendMessage({
+      messageId: "m1", conversationId: "c1", role: "user", content: {},
+      triggerSource: null, idempotencyKey: null, createdAt: new Date("2026-09-02T00:00:03.000Z"),
+    })
+    await store.appendMessage({
+      messageId: "m2", conversationId: "c1", role: "assistant", content: {},
+      triggerSource: null, idempotencyKey: null, createdAt: new Date("2026-09-02T00:00:04.000Z"),
+    })
+    const times = (await store.listMessages("c1")).map((m) => m.createdAt.toISOString())
+    expect(times).toEqual([
+      "2026-09-02T00:00:03.000Z",
+      "2026-09-02T00:00:04.000Z",
+      "2026-09-02T00:00:05.000Z",
+    ])
+  })
+
+  it("listConversationsByProject 按 updatedAt desc + limit 钳制（S-H）", async () => {
+    const store = createInMemoryRuntimeStore()
+    const upsert = (id: string, at: Date, projectId = "WFXM") =>
+      store.createConversationWithUserMessage({
+        conversationId: id, messageId: `${id}-m`, subject: "s",
+        content: {}, triggerSource: "channel", idempotencyKey: `ik-${id}`, createdAt: at, projectId,
+      })
+    await upsert("c1", new Date("2026-09-02T00:00:01.000Z"))
+    await upsert("c2", new Date("2026-09-02T00:00:03.000Z"))
+    await upsert("c3", new Date("2026-09-02T00:00:02.000Z"))
+    const all = await store.listConversationsByProject({ projectId: "WFXM" })
+    expect(all.map((c) => c.id)).toEqual(["c2", "c3", "c1"])
+    expect((await store.listConversationsByProject({ projectId: "WFXM", limit: 2 })).map((c) => c.id)).toEqual(["c2", "c3"])
+    // 查询带空白被 trim，仍命中
+    expect((await store.listConversationsByProject({ projectId: " WFXM " })).map((c) => c.id)).toEqual(["c2", "c3", "c1"])
+    // limit 钳制 [1,200]：0 -> 1
+    expect((await store.listConversationsByProject({ projectId: "WFXM", limit: 0 })).map((c) => c.id)).toEqual(["c2"])
   })
 })
