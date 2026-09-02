@@ -297,9 +297,9 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 > **§7 主体实施 audit state**（D31, 2026-08-31）：
 >
 > - **Thin barrel**（D31 case #1 lock）：`packages/ports/src/index.ts` 仅 `export * from "./core/*.js"`（per-file re-export）+ R2 shim re-export；**0 class** / **0 impl** / **0 IO**（无 fetch / drizzle / pgTable / node:fs）。
-> - **Interface-only core/**（D31 case #2 lock）：`packages/ports/src/core/{outbox,channel,clock,projection,event-store,credential-provider,snapshot}.ts` 7 文件全部 interface-only — 0 class impl / 0 fetch / 0 pgTable / 0 drizzle / 0 node:fs / 0 DB connection。
+> - **Interface-only core/**（D31 case #2 lock）：`packages/ports/src/core/{outbox,channel,clock,model-port,projection,event-store,credential-provider,snapshot}.ts` 8 文件全部 interface-only — 0 class impl / 0 fetch / 0 pgTable / 0 drizzle / 0 node:fs / 0 DB connection。
 > - **依赖方向向内**（D31 case #3+5 lock）：`packages/ports/src/**` 0 import `@butler/adapters` / `packages/adapters`；0 import `packages/runtime` / `packages/persistence` / `apps`（仅自身 `./core/*` + archived R2 shim 的 type-only 引用）。
-> - **Port snapshot 完整**（D31 case #4 lock）：`ports/core/` 包含 7 port — `channel.ts` / `clock.ts` / `credential-provider.ts` / `event-store.ts` / `outbox.ts` / `projection.ts` / `snapshot.ts`（Repository + Capability 不在 ports/core，按 §7 line 279 "未设 Port 的内部函数不为架构完整创建接口" 与 D26B §20 #6 / D29 §9 已 lock）。
+> - **Port snapshot 完整**（D31 case #4 lock + D44 加 Model Port）：`ports/core/` 包含 Model Port `model-port.ts` + 7 port — `channel.ts` / `clock.ts` / `credential-provider.ts` / `event-store.ts` / `outbox.ts` / `projection.ts` / `snapshot.ts`（Repository + Capability 不在 ports/core，按 §7 line 279 "未设 Port 的内部函数不为架构完整创建接口" 与 D26B §20 #6 / D29 §9 已 lock）。
 > - **R2 Effect Tag shim**：D12 (commit `33af1722`) 归档 14 个 Tag 类（LLMService / ToolExecutor / EventStoreService 等）— `r2-shim.ts` 仅 archived `pnpm test:archived` 引用，生产 delivery shell 走 async/await + 直调 `@butler/persistence`。
 >
 > 锁定方式：`tests/architecture/section7-ports-main.test.ts`（D31, 5 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18/D19 §17.3 port 路径继承）+ D11 §7.1 port snapshot lock + D26A §20 #2 Core 不 import adapters + D26B §20 #6 Repository 在 persistence 而非 ports + D29 §9 Capability 在 runtime 而非 ports。
@@ -317,8 +317,8 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 | Channel | 🟡 接口已实装，adapter 待触发出线 | `packages/ports/src/core/channel.ts` 接口；`packages/adapters/src/wechat/channel-port.ts` iLink impl（线上）；Composition Root 注入 `wiring.channels` | WeChat 上线；Slack adapter skeleton 就位（`packages/adapters/src/slack/`，5 文件）等真接生产触发（DESIGN §18 条件准入）；Telegram 未触发 |
 | Capability 契约 | 🟡 实现即接口 | `packages/runtime/src/capability-boundary.ts` | 不另立接口（DESIGN §7 + AGENTS.md §0 三层事实） |
 | Repository | ⚪ 隐性承载（YAGNI） | `runtime-store.ts` 直接函数调用 | 等第二持久化实现或独立 mock 需求 |
-| Model | ⚪ 隐性承载（YAGNI） | `model-router.ts` 直连 `llm-provider.ts` | 等多 Provider 协议/记账统一需求 |
-| v5 Ports 总入口 (thin barrel + R2 shim) | ✅ thin barrel + fixture shim | `packages/ports/src/index.ts`（顶部 deprecation 注释 + thin barrel）；`packages/ports/src/r2-shim.ts`（fixture-only） | `/core/*` 6 个 v5 物化 Core Port + R2 shim（14 个 Tag 类，仅 `pnpm test:archived` 使用，prod v5 code 不得引；invariant 16 由 `package-membership.test.ts` 锁） |
+| Model | ✅ 已实施（D44 P5 Model Port） | `packages/ports/src/core/model-port.ts` | `resolveModelForRole(env, role)` 返回中性 `{provider, model}` 单一真相源；adapters 构建 `LLMAdapter` + apps `llm-pricing` 记账统一消费（§6.2），2 consumers |
+| v5 Ports 总入口 (thin barrel + R2 shim) | ✅ thin barrel + fixture shim | `packages/ports/src/index.ts`（顶部 deprecation 注释 + thin barrel）；`packages/ports/src/r2-shim.ts`（fixture-only） | `/core/*` 7 个 v5 物化 Core Port + R2 shim（14 个 Tag 类，仅 `pnpm test:archived` 使用，prod v5 code 不得引；invariant 16 由 `package-membership.test.ts` 锁） |
 
 > "ports-stable × real-need driven" 是 §7 实施准则：不预先为"架构完整"造休眠接口。新增 / 迁移 Port 时同步更新本表与 `port-catalog.md`。
 
@@ -697,7 +697,7 @@ Schedule 不是长期授权主体；它以 `system:scheduler` 创建 Run，能�
 > | `BUTLER_V5_PRICING_<MODEL>_INPUT_PER_MTOK` | 模型输入价格 USD / 百万 token | 无即 costUsd=null |
 > | `BUTLER_V5_PRICING_<MODEL>_OUTPUT_PER_MTOK` | 模型输出价格 USD / 百万 token | 无即 costUsd=null |
 >
-> `<MODEL>` = 模型标识大写 + `-` 替 `_`（e.g. `claude-sonnet-4-20250514` → `BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_INPUT_PER_MTOK`）。当前模型选择沿用 `packages/adapters/src/llm-provider.ts:pickLLMProvider`：Anthropic / DeepSeek / DashScope 三家；active model 由 `resolveCurrentLlmModel(env)` 解析。缺 env = 缺定价，trace costUsd = `null`（非 0 / 非 throw）。
+> `<MODEL>` = 模型标识大写 + `-` 替 `_`（e.g. `claude-sonnet-4-20250514` → `BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_INPUT_PER_MTOK`）。当前模型选择由 Model Port `packages/ports/src/core/model-port.ts:resolveModelForRole(env, "plan")` 统一解析（D44 P5 Model Port；Anthropic / DeepSeek / DashScope / MiniMax）；active model 由 `resolveCurrentLlmModel(env)` 解析。缺 env = 缺定价，trace costUsd = `null`（非 0 / 非 throw）。
 >
 > 锁定方式：`tests/architecture/section14-observability-fields.test.ts`（D21 + D23 更新）+ `tests/architecture/section14-token-cost.test.ts`（D23，9 cases）+ `tests/architecture/section14-costusd.test.ts`（D24，7 cases）+ `apps/api/src/llm-pricing.test.ts`（D24，15 单元）。
 

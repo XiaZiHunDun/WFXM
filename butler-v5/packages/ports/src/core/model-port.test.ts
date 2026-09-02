@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isDeepSeekModelName, resolveModelForRole, type ModelRole } from "./model-port.js"
+import { isDeepSeekModelName, resolveModelForRole } from "./model-port.js"
 
 const empty: NodeJS.ProcessEnv = {}
 

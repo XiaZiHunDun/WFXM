@@ -109,13 +109,14 @@ describe("§7.1 Port snapshot refresh (D37, 2026-08-31)", () => {
     expect(violations).toEqual([])
   })
 
-  // C12 — §7.1 实证：6 v5 物化 Core Port 文件存在于
-  // `packages/ports/src/core/`（与 `ports/src/index.ts` 头部注释
-  // "v5 物化的 6 个 Core Port" + `port-catalog.md` §1 同步）。
-  it("6 v5 物化 Core Port files exist (§7.1 + ports/src/index.ts header)", () => {
+  // C12 — §7.1 实证：7 v5 物化 Core Port 文件存在于
+  //  `packages/ports/src/core/`（与 `ports/src/index.ts` 头部注释
+  // "v5 物化的 7 个 Core Port" + `port-catalog.md` §1 同步；D44 加 Model Port）。
+  it("7 v5 物化 Core Port files exist (§7.1 + ports/src/index.ts header)", () => {
     const required = [
       "clock.ts",
       "credential-provider.ts",
+      "model-port.ts",
       "event-store.ts",
       "outbox.ts",
       "snapshot.ts",
