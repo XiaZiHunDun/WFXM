@@ -34,7 +34,13 @@ export {
   type ModelDecisionTag,
   type DecodeResult,
 } from "./decision.js"
-export { canTransitionRun, transitionRun, type RunTransitionResult } from "./transitions.js"
+export {
+  canTransitionRun,
+  isTerminalRunStatus,
+  TERMINAL_RUN_STATUSES,
+  transitionRun,
+  type RunTransitionResult,
+} from "./transitions.js"
 export {
   buildApiRunTrigger,
   buildChannelRunTrigger,

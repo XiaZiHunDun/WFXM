@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { canTransitionRun, transitionRun, type Run, type RunStatus } from "./index.js"
+import {
+  canTransitionRun,
+  isTerminalRunStatus,
+  TERMINAL_RUN_STATUSES,
+  transitionRun,
+  type Run,
+  type RunStatus,
+} from "./index.js"
 
 const baseRun: Run = {
   id: "run-1",
@@ -155,6 +162,26 @@ describe("runtime Run transitions", () => {
       for (const to of ALL_STATUSES) {
         expect(canTransitionRun(terminal, to)).toBe(false)
       }
+    }
+  })
+
+  it("exposes exactly the no-out-edge statuses as terminal (SSOT consistency)", () => {
+    const expected = ALL_STATUSES.filter((s) => EXPECTED_LEGAL[s].length === 0)
+    expect([...TERMINAL_RUN_STATUSES].sort()).toEqual([...expected].sort())
+  })
+
+  it.each(TERMINAL_STATUSES)("marks %s as terminal", (status) => {
+    expect(isTerminalRunStatus(status)).toBe(true)
+  })
+
+  it.each(ACTIVE_STATUSES)("marks %s as non-terminal", (status) => {
+    expect(isTerminalRunStatus(status)).toBe(false)
+  })
+
+  it("agrees terminal-ness with the transition matrix", () => {
+    for (const from of ALL_STATUSES) {
+      const noOutgoingEdges = EXPECTED_LEGAL[from].length === 0
+      expect(isTerminalRunStatus(from), from).toBe(noOutgoingEdges)
     }
   })
 })

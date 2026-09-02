@@ -20,6 +20,22 @@ const LEGAL_TRANSITIONS: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
   expired: [],
 }
 
+/**
+ * SSOT for terminal Run statuses: exactly the statuses with **no outgoing
+ * edges** in `LEGAL_TRANSITIONS`. Terminal runs cannot transition to anything,
+ * including themselves. Consumers must derive terminal-ness from these helpers
+ * rather than re-hardcoding the status list.
+ */
+export const TERMINAL_RUN_STATUSES = (
+  Object.entries(LEGAL_TRANSITIONS)
+    .filter(([, targets]) => targets.length === 0)
+    .map(([status]) => status as RunStatus)
+) satisfies readonly RunStatus[]
+
+export function isTerminalRunStatus(status: RunStatus): boolean {
+  return TERMINAL_RUN_STATUSES.includes(status)
+}
+
 // ─── Pure Run state transitions ──────────────────────────
 export function canTransitionRun(from: RunStatus, to: RunStatus): boolean {
   return LEGAL_TRANSITIONS[from].includes(to)
