@@ -7,6 +7,7 @@ import {
   resolveSandboxNetworkMode,
   validateNetworkAllowlist,
 } from "./network-allowlist.js"
+import { destinationKey, envAllowPrivateEgress, hostnamesFromNetworkAllowlist } from "./network-allowlist.js"
 
 describe("network allowlist", () => {
   it("normalizes host:port and default port 443", () => {
@@ -78,5 +79,33 @@ describe("network allowlist", () => {
     expect(resolveSandboxEgressIsolation({ BUTLER_V5_SANDBOX_EGRESS_ISOLATION: "slirp" })).toBe(
       "slirp",
     )
+  })
+})
+
+describe("network allowlist helpers", () => {
+  it("derives unique lowercase hostnames from host:port entries", () => {
+    expect(
+      hostnamesFromNetworkAllowlist([
+        "api.example.com",
+        "registry.npmjs.org:8080",
+        "  PYPI.org:9090 ",
+        "api.example.com:443",
+      ]),
+    ).toEqual(["api.example.com", "registry.npmjs.org", "pypi.org"])
+  })
+
+  it("builds normalized host:port destination keys", () => {
+    expect(destinationKey("api.example.com", 443)).toBe("api.example.com:443")
+    expect(destinationKey("  API.Example.COM  ", 8443)).toBe("api.example.com:8443")
+  })
+
+  it("allows private egress only for explicit truthy env values", () => {
+    for (const v of ["1", "true", "TRUE", "yes", "on"]) {
+      expect(envAllowPrivateEgress({ BUTLER_V5_SANDBOX_ALLOW_PRIVATE_EGRESS: v })).toBe(true)
+    }
+    for (const v of ["0", "false", "no", "off", ""]) {
+      expect(envAllowPrivateEgress({ BUTLER_V5_SANDBOX_ALLOW_PRIVATE_EGRESS: v })).toBe(false)
+    }
+    expect(envAllowPrivateEgress({})).toBe(false)
   })
 })

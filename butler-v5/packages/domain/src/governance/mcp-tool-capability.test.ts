@@ -14,6 +14,7 @@ import {
   toMcpCapabilityName,
   toMcpCapabilityNameForServer,
 } from "./mcp-tool-capability.js"
+import { isMcpCapability, MCP_CAPABILITY_PREFIX, normalizeMcpServerId, normalizeMcpToolName, resolveMcpServerIdFromCapability } from "./mcp-tool-capability.js"
 
 describe("P3-3 named registry / untrusted descriptions", () => {
   it("treats tool descriptions as untrusted: server default risk is authoritative", () => {
@@ -142,5 +143,37 @@ describe("mcp tool capability", () => {
     expect(toMcpCapabilityNameForServer("firecrawl", "firecrawl_scrape")).toBe(
       "mcp_firecrawl_firecrawl_scrape",
     )
+  })
+})
+
+describe("capability normalization (P3 MCP)", () => {
+  it("defines the capability prefix", () => {
+    expect(MCP_CAPABILITY_PREFIX).toBe("mcp_")
+  })
+
+  it("isMcpCapability matches the mcp_ prefix only", () => {
+    expect(isMcpCapability("mcp_git_read_file")).toBe(true)
+    expect(isMcpCapability("mcp_")).toBe(true)
+    expect(isMcpCapability("read_file")).toBe(false)
+    expect(isMcpCapability("")).toBe(false)
+  })
+
+  it("normalizes mcp server id (trim + lowercase)", () => {
+    expect(normalizeMcpServerId("  MyGit  ")).toBe("mygit")
+    expect(normalizeMcpServerId("FS.Server")).toBe("fs.server")
+  })
+
+  it("normalizes mcp tool name (trim only, case preserved)", () => {
+    expect(normalizeMcpToolName("  read_file ")).toBe("read_file")
+  })
+
+  it("resolveMcpServerIdFromCapability resolves the namespaced server id", () => {
+    expect(resolveMcpServerIdFromCapability("mcp_git_read_file", ["git"])).toBe("git")
+    expect(resolveMcpServerIdFromCapability("mcp_git_read_file", ["Other", "git"])).toBe("git")
+  })
+
+  it("returns undefined when no server matches or capability is not mcp_", () => {
+    expect(resolveMcpServerIdFromCapability("mcp_unknown_tool", ["git"])).toBeUndefined()
+    expect(resolveMcpServerIdFromCapability("read_file", ["git"])).toBeUndefined()
   })
 })
