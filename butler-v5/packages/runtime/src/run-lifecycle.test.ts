@@ -1,7 +1,9 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import {
+  IllegalRunTransitionError,
   cancelRun,
   cancelRunCascade,
   enterWaitingExternal,
@@ -21,10 +23,10 @@ describe("run-lifecycle", () => {
     await db.close()
   })
 
-  async function seedRunningRun(opts: { deadline?: Date | null } = {}) {
-    const store = createRuntimeStore(db.db)
+  async function seedRunningRun(opts: { deadline?: Date | null } = {}, store?: RuntimeStore) {
+    const activeStore = store ?? createRuntimeStore(db.db)
     const createdAt = new Date("2026-08-20T00:00:00Z")
-    const inbound = await store.createConversationWithUserMessage({
+    const inbound = await activeStore.createConversationWithUserMessage({
       conversationId: crypto.randomUUID(),
       messageId: crypto.randomUUID(),
       subject: "owner-1",
@@ -33,7 +35,7 @@ describe("run-lifecycle", () => {
       idempotencyKey: crypto.randomUUID(),
       createdAt,
     })
-    const run = await store.createRun({
+    const run = await activeStore.createRun({
       id: crypto.randomUUID(),
       conversationId: inbound.conversationId,
       parentRunId: null,
@@ -45,8 +47,8 @@ describe("run-lifecycle", () => {
       deadline: opts.deadline === undefined ? null : opts.deadline,
       createdAt,
     })
-    const running = await store.transitionRunStatus(run.id, run.version, "running", createdAt)
-    return { store, run: running, conversationId: inbound.conversationId }
+    const running = await activeStore.transitionRunStatus(run.id, run.version, "running", createdAt)
+    return { store: activeStore, run: running, conversationId: inbound.conversationId }
   }
 
   it("cancelRun transitions running -> cancelled", async () => {
@@ -219,5 +221,106 @@ describe("run-lifecycle", () => {
     expect(resumed.status).toBe("running")
     const done = await store.getStep(stepId)
     expect(done?.status).toBe("succeeded")
+  })
+
+  it("expireRun marks past-deadline runs expired and the optimistic version bumps exactly once", async () => {
+    const past = new Date("2026-08-19T00:00:00Z")
+    const { store, run } = await seedRunningRun({ deadline: past })
+    const expired = await expireRun(store, run.id, {
+      now: new Date("2026-08-21T00:00:00Z"),
+      subject: "system",
+    })
+    expect(expired.status).toBe("expired")
+    expect(expired.version).toBe(run.version + 1)
+    expect((await store.getRun(run.id))?.status).toBe("expired")
+  })
+
+  it("expireRun rejects a Run that is already terminal (double-completion guard)", async () => {
+    const past = new Date("2026-08-19T00:00:00Z")
+    const now = new Date("2026-08-21T00:00:00Z")
+    const { store, run } = await seedRunningRun({ deadline: past })
+    await expireRun(store, run.id, { now })
+    // A second expiry of the same Run is a no-op on the state machine and
+    // must be rejected — the Run must never be completed twice.
+    await expect(expireRun(store, run.id, { now })).rejects.toBeInstanceOf(
+      IllegalRunTransitionError,
+    )
+    expect((await store.getRun(run.id))?.status).toBe("expired")
+  })
+
+  it("cancelRun rejects an already-expired Run (double-completion guard)", async () => {
+    const past = new Date("2026-08-19T00:00:00Z")
+    const { store, run } = await seedRunningRun({ deadline: past })
+    await expireRun(store, run.id, { now: new Date("2026-08-21T00:00:00Z") })
+    await expect(cancelRun(store, run.id, { subject: "owner-1" })).rejects.toBeInstanceOf(
+      IllegalRunTransitionError,
+    )
+    expect((await store.getRun(run.id))?.status).toBe("expired")
+  })
+
+  it("expireRun rejects a Run with no deadline (unless forced)", async () => {
+    const { store, run } = await seedRunningRun({ deadline: null })
+    await expect(expireRun(store, run.id, { now: new Date() })).rejects.toThrow(/no deadline/)
+    const forced = await expireRun(store, run.id, { now: new Date(), force: true })
+    expect(forced.status).toBe("expired")
+  })
+
+  it("expireRun rejects a Run whose deadline has not been reached", async () => {
+    const future = new Date("2026-09-01T00:00:00Z")
+    const { store, run } = await seedRunningRun({ deadline: future })
+    await expect(
+      expireRun(store, run.id, { now: new Date("2026-08-21T00:00:00Z") }),
+    ).rejects.toThrow(/deadline not reached/)
+    expect((await store.getRun(run.id))?.status).toBe("running")
+  })
+
+  it("expireOverdueRuns is idempotent across sweeps", async () => {
+    const past = new Date("2026-08-19T00:00:00Z")
+    const now = new Date("2026-08-21T00:00:00Z")
+    const { store, run } = await seedRunningRun({ deadline: past })
+    const first = await expireOverdueRuns(store, { now })
+    expect(first.map((r) => r.id)).toContain(run.id)
+    expect((await store.getRun(run.id))?.status).toBe("expired")
+    const second = await expireOverdueRuns(store, { now })
+    expect(second).toHaveLength(0)
+    expect((await store.getRun(run.id))?.status).toBe("expired")
+  })
+
+  it("expireOverdueRuns skips Runs a concurrent actor already resolved to terminal", async () => {
+    const past = new Date("2026-08-19T00:00:00Z")
+    const now = new Date("2026-08-21T00:00:00Z")
+    const base = createRuntimeStore(db.db)
+    const { run: a } = await seedRunningRun({ deadline: past }, base)
+    const { run: b } = await seedRunningRun({ deadline: past }, base)
+
+    // Simulate a concurrent owner cancel landing between the sweep's
+    // `listRunsPastDeadline` read and its optimistic transition. `expireRun`
+    // reads the Run once (pre-tx) then transitions with the optimistic
+    // version inside a tx; we make the pre-tx read hand back a stale
+    // snapshot while the real row moves to a terminal state, so the sweep's
+    // own transition hits a version conflict. The sweep must skip A (already
+    // terminal) and still expire B.
+    let aStaleHandedOut = false
+    const wrapped: RuntimeStore = {
+      ...base,
+      async getRun(runId) {
+        const fresh = await base.getRun(runId)
+        if (runId === a.id && fresh && fresh.status === "running" && !aStaleHandedOut) {
+          aStaleHandedOut = true
+          // Concurrent owner cancel lands right after the sweep's read:
+          // move the real row to a terminal state outside any transaction.
+          await base.transitionRunStatus(fresh.id, fresh.version, "cancelled", now)
+          // Return the pre-cancel snapshot; the sweep's tx will then find a
+          // version conflict on the real (cancelled) row.
+          return fresh
+        }
+        return fresh
+      },
+    }
+
+    const expired = await expireOverdueRuns(wrapped, { now })
+    expect(expired.map((r) => r.id)).toEqual([b.id])
+    expect((await base.getRun(a.id))?.status).toBe("cancelled")
+    expect((await base.getRun(b.id))?.status).toBe("expired")
   })
 })
