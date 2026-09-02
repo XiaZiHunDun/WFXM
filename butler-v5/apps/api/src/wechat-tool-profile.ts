@@ -23,14 +23,6 @@ export const PLAN_CORE_TOOL_NAMES: readonly string[] = [
   "send_wechat_file",
 ]
 
-export function defaultWechatToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
-  const core = [...PLAN_CORE_TOOL_NAMES]
-  if (isSubagentEnabled(env)) {
-    core.push("delegate_to_subagent")
-  }
-  return core
-}
-
 export function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
   const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name)
   if (isSubagentEnabled(env)) return names

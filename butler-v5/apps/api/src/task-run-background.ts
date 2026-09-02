@@ -19,10 +19,6 @@ export function isTaskRunAsyncEnabled(env: NodeJS.ProcessEnv = process.env): boo
 
 const inFlight = new Set<string>()
 
-export function taskRunInFlight(taskId: string): boolean {
-  return inFlight.has(taskId)
-}
-
 export function scheduleBackgroundTaskRun(args: {
   readonly wiring: Wiring
   readonly taskId: string

@@ -483,13 +483,3 @@ export async function resumeApprovedCapability(
   }
   return out
 }
-
-export function throwIfPendingApproval(
-  outcome: ToolExecutionOutcome,
-  pausePayload: unknown,
-): RunResult {
-  if (isPendingApprovalOutcome(outcome)) {
-    throw new RunPauseForApproval(pausePayload)
-  }
-  return toRunResult(outcome)
-}
