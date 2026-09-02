@@ -75,4 +75,19 @@ describe("AgentKernel", () => {
       /completed/i,
     )
   })
+
+  it("rejects openTurn on a failed conversation", async () => {
+    kernel.state = "failed"
+    await expect(
+      kernel.openTurn({ userMessage: { role: "user", content: "x" } }),
+    ).rejects.toThrow(/cannot openTurn on failed/)
+  })
+
+  it("rejects applyDecision on a completed conversation", async () => {
+    await kernel.openTurn({ userMessage: { role: "user", content: "x" } })
+    await kernel.applyDecision({ _tag: "Respond", content: "done" })
+    await expect(
+      kernel.applyDecision({ _tag: "Respond", content: "again" }),
+    ).rejects.toThrow(/cannot applyDecision on completed/)
+  })
 })

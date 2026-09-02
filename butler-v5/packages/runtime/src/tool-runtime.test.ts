@@ -57,4 +57,31 @@ describe("runTool", () => {
     expect(r2.ok).toBe(false)
     if (!r2.ok) expect(r2.reason).toBe("aborted")
   })
+
+  it("short-circuits when the caller signal is already aborted", async () => {
+    const ctrl = new AbortController()
+    ctrl.abort(new Error("cancelled-before-start"))
+    const def: ToolDefinition = {
+      name: "echo" as ToolDefinition["name"],
+      risk: "low",
+      run: vi.fn(async () => ({ ok: true, output: "never" })),
+    }
+    const r = await runTool(def, {}, { timeoutMs: 1000, signal: ctrl.signal })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toBe("cancelled-before-start")
+    expect(def.run).not.toHaveBeenCalled()
+  })
+
+  it("catches a synchronous handler throw", async () => {
+    const def: ToolDefinition = {
+      name: "boom" as ToolDefinition["name"],
+      risk: "low",
+      run: () => {
+        throw new Error("sync-down")
+      },
+    }
+    const r = await runTool(def, {}, { timeoutMs: 1000 })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toBe("sync-down")
+  })
 })
