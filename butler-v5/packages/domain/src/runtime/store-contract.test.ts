@@ -3,6 +3,7 @@ import {
   DEFAULT_READ_MODEL_SOURCE,
   resolveReadModelSource,
 } from "./store-contract.js"
+import { ACTIVE_MAIN_RUN_STATUSES, isActiveMainRunStatus } from "./store-contract.js"
 
 describe("resolveReadModelSource", () => {
   it("defaults to relational when env is unset", () => {
@@ -20,5 +21,25 @@ describe("resolveReadModelSource", () => {
 
   it("falls back to relational for unknown values", () => {
     expect(resolveReadModelSource({ BUTLER_V5_READ_MODEL: "legacy" })).toBe("relational")
+  })
+})
+
+describe("isActiveMainRunStatus (main-run concurrency lock set)", () => {
+  it("is true for in-flight (non-terminal) statuses", () => {
+    for (const s of ["queued", "running", "waiting_approval", "waiting_external"] as const) {
+      expect(isActiveMainRunStatus(s)).toBe(true)
+    }
+  })
+
+  it("is false for terminal statuses", () => {
+    for (const s of ["succeeded", "failed", "cancelled", "expired"] as const) {
+      expect(isActiveMainRunStatus(s)).toBe(false)
+    }
+  })
+
+  it("exposes exactly the active main-run status set", () => {
+    expect(ACTIVE_MAIN_RUN_STATUSES).toEqual(
+      ["queued", "running", "waiting_approval", "waiting_external"],
+    )
   })
 })
