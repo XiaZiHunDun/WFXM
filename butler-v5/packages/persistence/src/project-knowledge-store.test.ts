@@ -102,4 +102,30 @@ describe("projectKnowledgeStore", () => {
       await db.close()
     }
   })
+
+  it("listByProjects applies the default per-project cap of 50 when perProjectLimit is omitted", async () => {
+    const db = await makeTestDb()
+    try {
+      const store = createProjectKnowledgeStore(db.db)
+      for (let i = 0; i < 51; i++) {
+        const r = createProjectKnowledgeRecord({
+          projectId: "WFXM",
+          title: `t-${i}`,
+          kind: "manual_note",
+          body: "body",
+          nowMs: i,
+        })
+        if (!r.ok) throw new Error(r.reason)
+        await store.create(r.value)
+      }
+      // Omitted perProjectLimit -> default 50 applies per project.
+      const capped = await store.listByProjects({ projectIds: ["WFXM"] })
+      expect(capped).toHaveLength(50)
+      // Explicitly requesting 60 honours the request.
+      const wide = await store.listByProjects({ projectIds: ["WFXM"], perProjectLimit: 60 })
+      expect(wide).toHaveLength(51)
+    } finally {
+      await db.close()
+    }
+  })
 })
