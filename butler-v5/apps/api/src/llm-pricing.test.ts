@@ -149,5 +149,23 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
     it("returns null when no provider env var is set", () => {
       expect(resolveCurrentLlmModel({})).toBeNull()
     })
+
+    it("honors BUTLER_V5_MODEL_PLAN override (D44 Model Port routing)", () => {
+      expect(
+        resolveCurrentLlmModel({ DEEPSEEK_API_KEY: "ds-1234", BUTLER_V5_MODEL_PLAN: "deepseek-v4-x" }),
+      ).toBe("deepseek-v4-x")
+    })
+
+    it("keeps MiniMax config from affecting plan model accounting (D44)", () => {
+      // Exec may run MiniMax; plan accounting stays DeepSeek when the
+      // plan env has DEEPSEEK_API_KEY — Model Port separates roles.
+      expect(
+        resolveCurrentLlmModel({
+          DEEPSEEK_API_KEY: "ds-1234",
+          MINIMAX_API_KEY: "sk-mm",
+          BUTLER_V5_MODEL_EXEC: "MiniMax-M3",
+        }),
+      ).toBe("deepseek-chat")
+    })
   })
 })

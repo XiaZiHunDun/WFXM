@@ -23,6 +23,7 @@
  * costUsd null semantics; downstream distinguishes "unknown" from
  * "known free"). Not 0; not throw; trace emit must never break a run.
  */
+import { resolveModelForRole } from "@butler/ports/core/model-port.js"
 
 export interface ModelPricing {
   readonly inputPriceUsdPerMTok: number
@@ -97,22 +98,16 @@ export function computeCostUsd(
 
 /**
  * Resolve the current LLM model name from env for pricing lookup.
- * Mirrors `pickLLMProvider` (`packages/adapters/src/llm-provider.ts`)
- * but returns the model string instead of an adapter (no API key
- * check, no fetch wiring). Returns `null` when no provider env var
- * is set (caller falls back to costUsd: null).
+ *
+ * D44 (P5 Model Port): the active model comes from the SAME Model Port
+ * resolution the execution path uses (`resolveModelForRole(env, "plan")`),
+ * so accounting keys off the real routing — no more "mirrors
+ * pickLLMProvider" drift (the previous implementation omitted MiniMax
+ * and the `BUTLER_V5_MODEL_*` overrides). Returns `null` when no
+ * provider env var is set (caller falls back to costUsd: null).
  */
 export function resolveCurrentLlmModel(
   env: Readonly<NodeJS.ProcessEnv> = process.env,
 ): string | null {
-  if (env["ANTHROPIC_API_KEY"]) {
-    return env["ANTHROPIC_MODEL"] ?? "claude-sonnet-4-20250514"
-  }
-  if (env["DEEPSEEK_API_KEY"]) {
-    return env["DEEPSEEK_MODEL"] ?? "deepseek-chat"
-  }
-  if (env["DASHSCOPE_API_KEY"]) {
-    return env["DASHSCOPE_MODEL"] ?? "qwen-turbo"
-  }
-  return null
+  return resolveModelForRole(env, "plan")?.model ?? null
 }
