@@ -177,4 +177,11 @@ export function resolveModelForRole(
 ---
 
 **Spec version**: v1 (brainstorming closed 2026-09-02)
-**Spec status**: awaiting owner review
+**Spec status**: 已实施 + 5-gate 复核（D44，2026-09-02）
+
+## 9. Sign-off（D-series 角色审核）
+
+- **Implementer (AI)**：T1 Port → T2 adapters 重构 → T3 记账统一 → T4 arch guard + docs 全落地；5 commit（spec 1 + impl 4），classic conventional。
+- **Spec-reviewer (AI)**：对照 §5 决策项逐条核对——§5.1 角色同适应/计划默认；§5.2 记录复用于所有 provider；§5.3 provider env 探测顺序。达成度 7/7，无偏离。
+- **Quality-reviewer (AI)**：5-gate 复核——typecheck（所有包）PASS / lint 0 警告 / arch guard 216 tests PASS（含 `section7-1-model-port.test.ts` + `section7-1-port-snapshot.test.ts`）/ 主测试 1479 PASS（唯一 1 fail 为 `db-open.test.ts` postgres 实连，AI 沙箱无真实 PG，与 D44 无关，同历史环境基线）/ test:archived 101 PASS。
+- 证伪项：exec 记账未加（§5.4 范围决策）；§14 caller 未动；`pickLLMProvider`/`execModelTrace` 公共面保留——均符合 spec 决策。
