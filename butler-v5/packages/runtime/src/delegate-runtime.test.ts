@@ -13,6 +13,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import { delegate, type Capability } from "./delegate-runtime.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
+import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 
 describe("D5-arch-align: delegate child-cap ⊆ parent-allowlist", () => {
@@ -119,5 +120,66 @@ describe("D5-arch-align: delegate child-cap ⊆ parent-allowlist", () => {
       // parentRunId omitted → no §20 #5 enforcement; legacy behavior.
     })
     expect(result.childConversationId).toMatch(/^child-c-5-/)
+  })
+
+  it("rejects empty capabilities", async () => {
+    await expect(
+      delegate({
+        role: "researcher",
+        task: "t",
+        capabilities: [],
+        parentConversationId: "c-empty",
+        actor: { kind: "owner", id: "owner-1" },
+        bridge,
+      }),
+    ).rejects.toThrow(/capabilities must not be empty/)
+  })
+
+  it("creates a child run, step, and audit when runtimeStore + parentRunId are provided", async () => {
+    const store = createRuntimeStore(db)
+    const appendAudit = vi.spyOn(store, "appendAuditEvent")
+    // The runs.parent_run_id FK requires a real parent run to exist.
+    const parentConv = await store.createConversationWithUserMessage({
+      conversationId: crypto.randomUUID(),
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "parent" },
+      triggerSource: "channel",
+      idempotencyKey: crypto.randomUUID(),
+      createdAt: new Date("2026-08-20T00:00:00Z"),
+    })
+    const parentRun = await store.createRun({
+      id: crypto.randomUUID(),
+      conversationId: parentConv.conversationId,
+      parentRunId: null,
+      triggerSource: "channel",
+      idempotencyKey: crypto.randomUUID(),
+      subject: "owner-1",
+      goal: "parent goal",
+      budget: { maxSteps: 5 },
+      deadline: null,
+      createdAt: new Date("2026-08-20T00:00:00Z"),
+    })
+    const out = await delegate({
+      role: "researcher",
+      task: "write a summary",
+      capabilities: [makeCap("read_file")],
+      parentConversationId: parentConv.conversationId,
+      parentRunId: parentRun.id,
+      runtimeStore: store,
+      bridge,
+      actor: { kind: "owner", id: "owner-1" },
+      subject: "owner-1",
+      notifySubject: "  owner-1  ",
+    })
+    expect(out.childRunId).toBeTruthy()
+    
+    expect(out.childConversationId).toMatch(/^child-/) 
+    const msgs = await store.listMessages(out.childConversationId)
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0]?.content).toEqual({ text: "write a summary" })
+    expect(appendAudit).toHaveBeenCalled()
+    const detail = appendAudit.mock.calls[0]?.[0].detail as { parentRunId?: string }
+    expect(detail.parentRunId).toBe(parentRun.id)
   })
 })

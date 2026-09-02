@@ -12,6 +12,8 @@ import {
 import { defaultPermissionPolicy, PolicyGate, productionPermissionPolicy } from "./policy-gate.js"
 import type { ToolDefinition } from "./tool-runtime.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
+import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
+import { makeTestDb } from "@butler/persistence/testing.js"
 
 describe("capability-boundary", () => {
   it("unregisters a capability and revokes its grants through the store", async () => {
@@ -194,5 +196,86 @@ describe("capability-boundary", () => {
       kind: "command",
       risk: "high",
     })
+  })
+
+  it("persists a waiting-approval step when an Ask occurs with an approval context", async () => {
+    const db = await makeTestDb()
+    try {
+      const store: RuntimeStore = createRuntimeStore(db.db)
+      const createdAt = new Date("2026-08-20T00:00:00Z")
+      const inbound = await store.createConversationWithUserMessage({
+        conversationId: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "run it" },
+        triggerSource: "channel",
+        idempotencyKey: crypto.randomUUID(),
+        createdAt,
+      })
+      const run = await store.createRun({
+        id: crypto.randomUUID(),
+        conversationId: inbound.conversationId,
+        parentRunId: null,
+        triggerSource: "channel",
+        idempotencyKey: crypto.randomUUID(),
+        subject: "owner-1",
+        goal: "run it",
+        budget: {},
+        deadline: null,
+        createdAt,
+      })
+      await store.transitionRunStatus(run.id, run.version, "running", createdAt)
+
+      const def: ToolDefinition = {
+        name: "run_command" as ToolDefinition["name"],
+        risk: "high",
+        run: vi.fn(async () => ({ ok: true, output: "ok" })),
+      }
+      const registry = buildCapabilityRegistryFromTools([def])
+      const gate = new PolicyGate(productionPermissionPolicy("owner-1"), () => 1000)
+      const outcome = await executeToolThroughBoundary(
+        registry,
+        gate,
+        def,
+        { argv: ["pwd"] },
+        { subject: "owner-1", resource: "pwd", grant: null },
+        {
+          store,
+          runId: run.id,
+          conversationId: run.conversationId,
+          subject: "owner-1",
+        },
+      )
+      expect(outcome.ok).toBe(false)
+      if (!outcome.ok && "pendingApproval" in outcome) {
+        expect(outcome.pendingApproval.stepId).toBeTruthy()
+        const steps = await store.listWaitingApprovalSteps()
+        expect(steps.some((s) => s.id === outcome.pendingApproval.stepId)).toBe(true)
+      } else {
+        throw new Error("expected pendingApproval envelope")
+      }
+      expect((await store.getRun(run.id))?.status).toBe("waiting_approval")
+      expect(def.run).not.toHaveBeenCalled()
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("returns capability failed when an allowed tool errors", async () => {
+    const def: ToolDefinition = {
+      name: "get_current_time" as ToolDefinition["name"],
+      risk: "low",
+      run: vi.fn(async () => ({ ok: false, reason: "boom" })),
+    }
+    const registry = buildCapabilityRegistryFromTools([def])
+    const gate = new PolicyGate(defaultPermissionPolicy("owner-1"), () => 1000)
+    const outcome = await executeToolThroughBoundary(
+      registry,
+      gate,
+      def,
+      {},
+      { subject: "owner-1", resource: "conv-1", grant: null },
+    )
+    expect(outcome).toEqual({ ok: false, reason: "boom" })
   })
 })

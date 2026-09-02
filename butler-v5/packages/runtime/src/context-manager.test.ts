@@ -35,4 +35,21 @@ describe("ContextManager", () => {
     const msgs: Message[] = [{ role: "user", content: "x".repeat(40) }]
     expect(estimateTokens(msgs, 5)).toBe(8)
   })
+
+  it("does not compress at the exact budget boundary", () => {
+    const msgs: Message[] = [{ role: "user", content: "x".repeat(400) }]
+    const plan = planCompression(msgs, { budgetTokens: 100 })
+    expect(plan.compress).toBe(false)
+    expect(plan.estimatedTokens).toBe(100)
+    expect(plan.keepFirst).toBe(1)
+  })
+
+  it("degenerates to keep nothing for a single over-budget message", () => {
+    const msgs: Message[] = [{ role: "user", content: "x".repeat(800) }]
+    const plan = planCompression(msgs, { budgetTokens: 100 })
+    expect(plan.compress).toBe(true)
+    expect(plan.keepFirst).toBe(0)
+    expect(plan.keepLast).toBe(0)
+    expect(plan.reason).toMatch(/over budget/i)
+  })
 })

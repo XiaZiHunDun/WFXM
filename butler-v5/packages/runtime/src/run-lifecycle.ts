@@ -87,7 +87,10 @@ export async function cancelRunCascade(
     }
     const run = await store.getRun(targetRunId)
     if (!run) return
-    if (run.status === "cancelled" || run.status === "failed" || run.status === "succeeded") {
+    // SSOT terminal check: succeeded/failed/cancelled/expired are dead-ends.
+    // Skipping expired descendants matters — otherwise a cascaded cancel would
+    // throw IllegalRunTransitionError on an expired Run and abort the cascade.
+    if (isTerminalRunStatus(run.status)) {
       return
     }
     // D6-arch-align §20 #7: state change + audit atomic per child.
