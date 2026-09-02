@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   formatDevQualityReply,
+  isDevVerifyInlineEnabled,
   resolveDevVerifyArgv,
   resolveDevVerifyCwd,
   shouldAutoDevVerify,
@@ -102,5 +103,18 @@ describe("dev-quality-gate", () => {
     expect(text).toContain("foo.ts")
     expect(text).toContain("✓")
     expect(text).toContain("已完成修改")
+  })
+
+  it("isDevVerifyInlineEnabled honours the shared 1/true/yes/on env convention", () => {
+    for (const truthy of ["1", "true", "yes", "on"]) {
+      expect(isDevVerifyInlineEnabled({ BUTLER_V5_DEV_VERIFY_INLINE: truthy })).toBe(true)
+    }
+    for (const falsy of ["0", "false", "off", "", undefined]) {
+      expect(
+        isDevVerifyInlineEnabled(
+          falsy === undefined ? {} : { BUTLER_V5_DEV_VERIFY_INLINE: falsy },
+        ),
+      ).toBe(false)
+    }
   })
 })

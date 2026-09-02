@@ -20,7 +20,7 @@ export function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): re
 /** Opt-in legacy: main Loop direct write/run (scheme B default is Child Run only). */
 export function isDevDirectExecEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = (env["BUTLER_V5_DEV_DIRECT_EXEC"] ?? "").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "on"
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
 }
 
 export function isDevWorkIntent(kind: WechatIntakeIntentKind): boolean {

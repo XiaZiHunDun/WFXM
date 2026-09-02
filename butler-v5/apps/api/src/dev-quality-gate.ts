@@ -26,7 +26,7 @@ export function isDevVerifyAutoEnabled(env: NodeJS.ProcessEnv = process.env): bo
 /** When true, inbound waits for verify to finish (slow). Default async + WeChat push. */
 export function isDevVerifyInlineEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = (env["BUTLER_V5_DEV_VERIFY_INLINE"] ?? "0").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "on"
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
 }
 
 export function workspaceRootFromEnv(env: NodeJS.ProcessEnv = process.env): string {

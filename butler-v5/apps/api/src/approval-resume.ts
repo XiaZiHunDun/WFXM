@@ -111,7 +111,7 @@ function formatPostExecReply(capability: string, toolOutput: string): string {
 
 function postApprovalLoopEnabled(env: NodeJS.ProcessEnv): boolean {
   const raw = (env["BUTLER_V5_POST_APPROVAL_LOOP"] ?? "").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "on"
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
 }
 
 /**
