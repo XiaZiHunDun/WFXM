@@ -306,7 +306,14 @@ export class RunEngine {
         subject: args.run.subject,
         triggerSource: args.run.triggerSource,
         durationMs: Date.now() - startedAt,
-        detail: { finalStatus: finalized?.status ?? "succeeded" },
+        detail: {
+          finalStatus:
+            finalized?.status ??
+            // Double-completion no-op: a concurrent actor already terminalized
+            // this Run. Record its actual status, not a guessed "succeeded".
+            (await this.store.getRun(args.run.id))?.status ??
+            "unknown",
+        },
       })
       return result
     } catch (err) {

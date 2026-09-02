@@ -182,6 +182,70 @@ describe("run-lifecycle", () => {
     expect(second).toHaveLength(0)
   })
 
+  it("cancelRunCascade skips an already-expired descendant instead of aborting", async () => {
+    const store = createRuntimeStore(db.db)
+    const createdAt = new Date("2026-08-20T00:00:00Z")
+    const in1 = await store.createConversationWithUserMessage({
+      conversationId: crypto.randomUUID(),
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "root" },
+      triggerSource: "channel",
+      idempotencyKey: "cascade-expired-msg",
+      createdAt,
+    })
+    const parent = await store.createRun({
+      id: crypto.randomUUID(),
+      conversationId: in1.conversationId,
+      parentRunId: null,
+      triggerSource: "channel",
+      idempotencyKey: "cascade-expired-parent",
+      subject: "owner-1",
+      goal: "parent",
+      budget: {},
+      deadline: null,
+      createdAt,
+    })
+    const expiredChild = await store.createRun({
+      id: crypto.randomUUID(),
+      conversationId: in1.conversationId,
+      parentRunId: parent.id,
+      triggerSource: "parent_run",
+      idempotencyKey: "cascade-expired-child",
+      subject: "owner-1",
+      goal: "child",
+      budget: {},
+      deadline: new Date("2026-08-19T00:00:00Z"),
+      createdAt,
+    })
+    const activeChild = await store.createRun({
+      id: crypto.randomUUID(),
+      conversationId: in1.conversationId,
+      parentRunId: parent.id,
+      triggerSource: "parent_run",
+      idempotencyKey: "cascade-active-child",
+      subject: "owner-1",
+      goal: "child",
+      budget: {},
+      deadline: null,
+      createdAt,
+    })
+    await store.transitionRunStatus(expiredChild.id, 1, "running", createdAt)
+    await store.transitionRunStatus(activeChild.id, 1, "running", createdAt)
+    await expireRun(store, expiredChild.id, { now: new Date("2026-08-21T00:00:00Z") })
+    expect((await store.getRun(expiredChild.id))?.status).toBe("expired")
+
+    // An expired descendant must be skipped, not throw and abort the cascade.
+    const cancelled = await cancelRunCascade(store, parent.id, {
+      subject: "owner-1",
+      reason: "owner_cancel_cascade",
+    })
+    expect(cancelled.map((r) => r.id).sort()).toEqual([parent.id, activeChild.id].sort())
+    expect((await store.getRun(parent.id))?.status).toBe("cancelled")
+    expect((await store.getRun(activeChild.id))?.status).toBe("cancelled")
+    expect((await store.getRun(expiredChild.id))?.status).toBe("expired")
+  })
+
   it("expireRun marks past-deadline runs expired", async () => {
     const past = new Date("2026-08-19T00:00:00Z")
     const { store, run } = await seedRunningRun({ deadline: past })
