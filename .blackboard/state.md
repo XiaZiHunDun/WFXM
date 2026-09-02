@@ -7,9 +7,11 @@ _handoff: .blackboard/shifts/2026-09-02-d44-v5-model-port-handoff.md
 
 **内容**：`model-router.ts` 经 Model Port 构建 LLMAdapter（新增 `resolveLLMModel` 重导出）；`llm-pricing.ts` 记账统一走 `resolveModelForRole(env,"plan")`；arch guard `section7-1-model-port.test.ts` + `section7-1-port-snapshot.test.ts`（C12 扩展）；DESIGN §7.1/§7 audit/line700 同步、`port-catalog.md` §1 Model 行 + §3 升 ✅、`ports/index.ts` 注释 6→7 物化 Core Port。不加 exec 记账（范围决策）。
 
-**5-gate**：typecheck 全包 PASS / lint 0 警 / arch guard 216 PASS / 主测试 1479 PASS（唯一 1 fail = `db-open.test.ts` postgres 实连，AI 沙箱无真实 PG，与 D44 无关，同历史环境基线）/ test:archived 101 PASS。file-size 门禁仍报 `owner-routes.ts`（1262>1200，既有状态非本班引入，不在范围）。
+**5-gate**：typecheck 全包 PASS / lint 0 警 / arch guard 216 PASS / 主测试 **1480 PASS / 1 skip / 0 fail**（`CI= pnpm test`，含 db-open postgres 实连 4/4，已闭环）/ test:archived 101 PASS。file-size 门禁仍报 `owner-routes.ts`（1262>1200，既有状态非本班引入，不在范围）。
 
-**下一步**：push origin/main；验证留给 operator。后续 batch 候选（D45 起）：exec 记账（若 owner 真撞）、Repository Port（等第二持久化实现）、Channel Port（等 Slack/Telegram 真接生产）。
+**5-gate 复核补充（2026-09-02）**：沙箱注 `CI=true` 致 db-open 误走未建库的 CI URL——`CI= pnpm test` 全量 1480 pass / 1 skip / 0 fail 闭环，无待 operator 复核项。
+
+**下一步**：已 push origin/main（`fa6ebd04`）。后续 batch 候选（D45 起）：exec 记账（若 owner 真撞）、Repository Port（等第二持久化实现）、Channel Port（等 Slack/Telegram 真接生产）。
 
 ## 不要做
 

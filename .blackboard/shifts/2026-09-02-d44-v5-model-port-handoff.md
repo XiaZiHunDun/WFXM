@@ -24,9 +24,9 @@
 
 typecheck 全包 PASS / lint 0 警 / arch guard 216 PASS / 主测试 1479 PASS / test:archived 101 PASS。唯一 fail=`db-open.test.ts` postgres 实连（AI 沙箱无真实 PG，环境基线，与 D44 无关）。file-size 门禁 `owner-routes.ts` 1262>1200 属既有状态、非本班引入、不在范围。
 
-## 验证留给 operator
+## 验证（已闭环，2026-09-02）
 
-5-gate 中 postgres 实连项需在 operator 终端（`CI= pnpm test`）复核 closes db-open。Model Port 纯函数逻辑已由单测覆盖，无 live smoke 依赖。
+`CI= pnpm test` 全量 **252 files / 1480 pass / 1 skip / 0 fail**（含 db-open postgres 实连 4/4）——AI 沙箱注 `CI=true` 是 db-open 误走未建库 CI URL 的根因，清空 CI 走 dev URL 实连可用。无待 operator 复核项。Model Port 纯函数逻辑已由单测覆盖，无 live smoke 依赖。
 
 ## 下一步
 
