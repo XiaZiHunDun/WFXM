@@ -7,6 +7,7 @@ import {
   type Run,
   type RunStatus,
 } from "./index.js"
+import { isActiveMainRunStatus } from "./store-contract.js"
 
 const baseRun: Run = {
   id: "run-1",
@@ -182,6 +183,25 @@ describe("runtime Run transitions", () => {
     for (const from of ALL_STATUSES) {
       const noOutgoingEdges = EXPECTED_LEGAL[from].length === 0
       expect(isTerminalRunStatus(from), from).toBe(noOutgoingEdges)
+    }
+  })
+})
+describe("state-machine status partition (SSOT consistency)", () => {
+  const allStatuses: RunStatus[] = [
+    "queued",
+    "running",
+    "waiting_approval",
+    "waiting_external",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "expired",
+  ]
+
+  it("splits every RunStatus into exactly {active-main} or {terminal}", () => {
+    for (const s of allStatuses) {
+      expect(isActiveMainRunStatus(s) || isTerminalRunStatus(s), s).toBe(true)
+      expect(isActiveMainRunStatus(s) && isTerminalRunStatus(s), s).toBe(false)
     }
   })
 })
