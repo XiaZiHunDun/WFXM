@@ -198,19 +198,19 @@ describe("arch: §7 Ports 主体 (D31 — thin barrel + zero impl + zero upward 
       f.split("/").slice(-1)[0],
     )
     // Per D11 §7.1 snapshot, ports/core covers: Channel / Clock /
-    // Projection / EventStore / CredentialProvider / Snapshot /
-    // Outbox (Repository surface is in `packages/persistence` /
-    // domain runtime contract — see D26B #6). Capability is in
-    // runtime (D29 §9 lock). We verify ports/core covers the §7
-    // table's port layer minus the non-ports Core (Repository +
-    // Capability are not in ports/core by design).
+    // Repository / Model / Projection / EventStore / CredentialProvider /
+    // Snapshot / Outbox. Repository materialized in ports/core in D46
+    // (second persistence impl trigger — in-memory runtime-store); Model
+    // materialized in D44. Capability stays in runtime (D29 §9 lock).
     const expected = [
       "channel.ts",
       "clock.ts",
       "credential-provider.ts",
       "event-store.ts",
+      "model-port.ts",
       "outbox.ts",
       "projection.ts",
+      "repository.ts",
       "snapshot.ts",
     ]
     for (const name of expected) {

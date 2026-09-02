@@ -21,8 +21,9 @@
 // 当前 barrel 由两层组成（顺序重要——R2 shim 排在末尾，扩展同名符号
 // 会被后续覆盖）：
 //
-//   1. /core/* — v5 物化的 7 个 Core Port（DESIGN §7：Clock / Credential
-//      Provider / Model / Event Store / Outbox / Snapshot / Projection）
+//   1. /core/* — v5 物化的 8 个 Core Port（DESIGN §7：Clock / Credential
+//      Provider / Model / Repository / Channel / Event Store / Outbox /
+//      Snapshot / Projection）
 //   2. /r2-shim — 14 个 R2 Effect Tag 类 fixture shim（见 `r2-shim.ts`
 //      注释为何保留、为何不算违反 invariant 16）
 //
@@ -48,6 +49,7 @@
 export * from "./core/clock.js"
 export * from "./core/credential-provider.js"
 export * from "./core/model-port.js"
+export * from "./core/repository.js"
 export * from "./core/channel.js"
 export * from "./core/event-store.js"
 export * from "./core/outbox.js"

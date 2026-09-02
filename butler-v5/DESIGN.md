@@ -282,7 +282,7 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 
 | Port | 职责示例 | 典型 adapter 实现 |
 | --- | --- | --- |
-| Repository | Conversation / Run / Step / Grant / Audit / Outbox 的读写 | persistence runtime-store、event-store、outbox |
+| Repository | Conversation / Run / Step / Grant / Audit / Outbox 的读写 | persistence runtime-store（postgres）+ in-memory runtime-store、event-store、outbox |
 | Model Port | 统一模型协议、fallback、记账 | model-router、各 LLM provider |
 | Capability | 副作用能力的注册与执行边界 | 工具 executor、MCP provider、沙箱 runner |
 | Channel | 出站回复与富媒体发送 | WeChat iLink、Slack、Telegram |
@@ -297,12 +297,12 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 > **§7 主体实施 audit state**（D31, 2026-08-31）：
 >
 > - **Thin barrel**（D31 case #1 lock）：`packages/ports/src/index.ts` 仅 `export * from "./core/*.js"`（per-file re-export）+ R2 shim re-export；**0 class** / **0 impl** / **0 IO**（无 fetch / drizzle / pgTable / node:fs）。
-> - **Interface-only core/**（D31 case #2 lock）：`packages/ports/src/core/{outbox,channel,clock,model-port,projection,event-store,credential-provider,snapshot}.ts` 8 文件全部 interface-only — 0 class impl / 0 fetch / 0 pgTable / 0 drizzle / 0 node:fs / 0 DB connection。
+> - **Interface-only core/**（D31 case #2 lock）：`packages/ports/src/core/{outbox,channel,clock,model-port,projection,event-store,credential-provider,snapshot,repository}.ts` 9 文件全部 interface-only — 0 class impl / 0 fetch / 0 pgTable / 0 drizzle / 0 node:fs / 0 DB connection。
 > - **依赖方向向内**（D31 case #3+5 lock）：`packages/ports/src/**` 0 import `@butler/adapters` / `packages/adapters`；0 import `packages/runtime` / `packages/persistence` / `apps`（仅自身 `./core/*` + archived R2 shim 的 type-only 引用）。
-> - **Port snapshot 完整**（D31 case #4 lock + D44 加 Model Port）：`ports/core/` 包含 Model Port `model-port.ts` + 7 port — `channel.ts` / `clock.ts` / `credential-provider.ts` / `event-store.ts` / `outbox.ts` / `projection.ts` / `snapshot.ts`（Repository + Capability 不在 ports/core，按 §7 line 279 "未设 Port 的内部函数不为架构完整创建接口" 与 D26B §20 #6 / D29 §9 已 lock）。
+> - **Port snapshot 完整**（D31 case #4 lock + D44 加 Model Port + D46 加 Repository Port）：`ports/core/` 包含 Model Port `model-port.ts` + Repository Port `repository.ts` + 7 port — `channel.ts` / `clock.ts` / `credential-provider.ts` / `event-store.ts` / `outbox.ts` / `projection.ts` / `snapshot.ts`（Capability 不在 ports/core，按 §7 line 279 与 D29 §9 已 lock；Repository 原按 D26B §20 #6 锁在 persistence 而非 ports，D46 因第二持久化实现出现而物化为 Port —— 该 lock 措辞已推翻，见下文）。
 > - **R2 Effect Tag shim**：D12 (commit `33af1722`) 归档 14 个 Tag 类（LLMService / ToolExecutor / EventStoreService 等）— `r2-shim.ts` 仅 archived `pnpm test:archived` 引用，生产 delivery shell 走 async/await + 直调 `@butler/persistence`。
 >
-> 锁定方式：`tests/architecture/section7-ports-main.test.ts`（D31, 5 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18/D19 §17.3 port 路径继承）+ D11 §7.1 port snapshot lock + D26A §20 #2 Core 不 import adapters + D26B §20 #6 Repository 在 persistence 而非 ports + D29 §9 Capability 在 runtime 而非 ports。
+> 锁定方式：`tests/architecture/section7-ports-main.test.ts`（D31, 5 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18/D19 §17.3 port 路径继承）+ D11 §7.1 port snapshot lock + D26A §20 #2 Core 不 import adapters + D46 §7.1 Repository Port（`repository.ts` + 第二实现 `memory/runtime-store.ts`，`section7-1-repository.test.ts`；推翻 D26B §20 #6 原 lock "Repository 在 persistence 而非 ports"）+ D29 §9 Capability 在 runtime 而非 ports。
 
 ### §7.1 已实施 Port 状态（2026-08-31 snapshot）
 
@@ -316,9 +316,9 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 | Projection | ✅ 已实施（窄接口） | `packages/ports/src/core/projection.ts` | prod runtime 直调 `@butler/persistence/projections.js`；新 Port 为未来替换/隔离触发的接缝 |
 | Channel | 🟡 接口已实装，adapter 待触发出线 | `packages/ports/src/core/channel.ts` 接口；`packages/adapters/src/wechat/channel-port.ts` iLink impl（线上）；Composition Root 注入 `wiring.channels` | WeChat 上线；Slack adapter skeleton 就位（`packages/adapters/src/slack/`，5 文件）等真接生产触发（DESIGN §18 条件准入）；Telegram 未触发 |
 | Capability 契约 | 🟡 实现即接口 | `packages/runtime/src/capability-boundary.ts` | 不另立接口（DESIGN §7 + AGENTS.md §0 三层事实） |
-| Repository | ⚪ 隐性承载（YAGNI） | `runtime-store.ts` 直接函数调用 | 等第二持久化实现或独立 mock 需求 |
+| Repository | ✅ 已实施（D46 Repository Port） | `packages/ports/src/core/repository.ts`（`RepositoryPort = domain RuntimeStore`）；2 adapter：`packages/persistence/src/runtime-store.ts`（Drizzle/postgres）+ `packages/persistence/src/memory/runtime-store.ts`（in-memory） | 第二持久化实现触发物化；推翻 D26B §20 #6 "Repository 在 persistence 而非 ports" 原 lock（见下 `section7-1-repository.test.ts`） |
 | Model | ✅ 已实施（D44 P5 Model Port） | `packages/ports/src/core/model-port.ts` | `resolveModelForRole(env, role)` 返回中性 `{provider, model}` 单一真相源；adapters 构建 `LLMAdapter` + apps `llm-pricing` 记账统一消费（§6.2），2 consumers |
-| v5 Ports 总入口 (thin barrel + R2 shim) | ✅ thin barrel + fixture shim | `packages/ports/src/index.ts`（顶部 deprecation 注释 + thin barrel）；`packages/ports/src/r2-shim.ts`（fixture-only） | `/core/*` 7 个 v5 物化 Core Port + R2 shim（14 个 Tag 类，仅 `pnpm test:archived` 使用，prod v5 code 不得引；invariant 16 由 `package-membership.test.ts` 锁） |
+| v5 Ports 总入口 (thin barrel + R2 shim) | ✅ thin barrel + fixture shim | `packages/ports/src/index.ts`（顶部 deprecation 注释 + thin barrel）；`packages/ports/src/r2-shim.ts`（fixture-only） | `/core/*` 9 个 v5 物化 Core Port + R2 shim（14 个 Tag 类，仅 `pnpm test:archived` 使用，prod v5 code 不得引；invariant 16 由 `package-membership.test.ts` 锁） |
 
 > "ports-stable × real-need driven" 是 §7 实施准则：不预先为"架构完整"造休眠接口。新增 / 迁移 Port 时同步更新本表与 `port-catalog.md`。
 
