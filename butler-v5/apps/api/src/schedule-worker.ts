@@ -102,7 +102,7 @@ export async function runScheduleTick(deps: ScheduleTickDeps): Promise<ScheduleT
         conversationId: decision.conversationId,
         idempotencyKey: decision.idempotencyKey,
         deadline: decision.deadline,
-        env: deps.env,
+        ...(deps.env === undefined ? {} : { env: deps.env }),
       })
       fired += 1
       deps.lastAttemptByJob.set(job.id, deps.nowMs())

@@ -80,7 +80,7 @@ export async function runCandidateExpiresTick(
       store,
       now: deps.now?.() ?? new Date(),
       ttlMs: deps.ttlMs,
-      batchLimit: deps.batchLimit,
+      ...(deps.batchLimit === undefined ? {} : { batchLimit: deps.batchLimit }),
     })
     logger.info(
       `[candidate-expires] scanned=${result.scanned} expired=${result.expired} olderThanMs=${result.olderThanMs}`,
@@ -114,7 +114,7 @@ export function startCandidateExpiresSweeperIfEnabled(args: {
     await runCandidateExpiresTick({
       wiring: args.wiring,
       ttlMs: config.ttlMs,
-      batchLimit: config.batchLimit,
+      ...(config.batchLimit === undefined ? {} : { batchLimit: config.batchLimit }),
       logger,
     })
     if (!stopped) {

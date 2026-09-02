@@ -311,7 +311,11 @@ function switchReply(
   const catalog = parseWechatProjectCatalog(env)
   const label = catalog.find((item) => item.id === projectId)?.label ?? projectId
   const pkStoreId = resolveProjectKnowledgeInboundProjectId(projectId, env)
-  const tools = summarizeWechatToolProfile({ projectId, env, mcpBundle })
+  const tools = summarizeWechatToolProfile({
+    projectId,
+    env,
+    ...(mcpBundle === undefined ? {} : { mcpBundle }),
+  })
   return doneResult(
     [
       `已切换到项目：${projectId}（${label}）`,

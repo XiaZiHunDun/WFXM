@@ -1,7 +1,7 @@
 # v5 Monorepo 并行开发索引（按包边界）
 
-> 决策（2026-09-02，业主确认）：**按包边界长期并行** + **每会话独立分支、由编排会话合 merge** + 本目录承载交接文档。
-> 语言：中文。合并策略 = main 主干，各只读会话开 `par/<area>` topic 分支，S1 负责 rebase/merge 到 main 并跑全量 5-gate。
+> 决策（2026-09-02 立项；2026-09-02 业主确认升级）：**按包边界长期并行** + **会话自治推进、固定里程碑批次汇聚** + 本目录承载交接文档。
+> 语言：中文。合并策略 = main 主干，各会话开 `par/<area>` topic 分支并**自主推进、定期 rebase 自治适配**；S1 仅在**固定汇聚点**（里程碑/发布快照）统一 rebase + 解共享冲突 + 跑全量 5-gate 收口。
 
 ## 会话表（每人/每会话认领一行）
 
@@ -18,9 +18,10 @@
 
 1. **只改自己独占路径**。需要跨会话暴露/消费新符号时：不改对方包，先写 `@` 依赖 note 给 owning 会话或 S1 排队。
 2. **共享/承重文件一律归 S1**：`.blackboard/**`、`DESIGN.md`、`packages/ports/port-catalog.md`、`packages/ports/src/index.ts`（barrel）、`package.json`（各包 exports/依赖别名）、全局 `tests/architecture/*.test.ts`、`AGENTS.md`/`CONTRIBUTING.md`。任何会话不得直接改（含 `[MANUAL-OVERRIDE]` 也须 S1）。
-3. **提交前跑前置门禁**（各卡有最小集）；合并前 S1 跑全量 5-gate。见 [门禁块]
-4. 依赖方向只允许：`domain ← ports/persistence/adapters ← runtime ← apps+cli`。反向跨层是架构违规，arch guard 会红。
-5. `wechat-inbound-butler.ts`、`pyproject.toml`、`.claude/**` 等受保护项不得擅动（见根 AGENTS）。
+3. **会话自治推进、不逐项等合并**：在自己的 `par/*` 上推进**一批自洽 commits** 再 push，各自跑**本包最小门禁**自测。下游定期 `git rebase origin/main` 让上游改动自行流入并**自行适配**（适配责任在会话；共享文件冲突除外 → 标 `@S1` note 等汇聚）。
+4. **固定汇聚点收口**：日常不逐项合 main。只有 S1 定的里程碑/发布快照才统一 rebase 各 `par/*` + 解共享冲突 + 全量 5-gate + 合回 main。
+5. 依赖方向只允许：`domain ← ports/persistence/adapters ← runtime ← apps+cli`。反向跨层是架构违规，arch guard 会红。
+6. `wechat-inbound-butler.ts`、`pyproject.toml`、`.claude/**` 等受保护项不得擅动（见根 AGENTS）。
 
 ## 标准会话开场仪式（每个新会话）
 
@@ -28,9 +29,19 @@
 2. 读 `.blackboard/state.md`（当前主线 + 下一步）与对应会话卡本文件。
 3. `git fetch origin && git checkout -b par/<area> origin/main`（S1 除外，S1 在 main）。
 4. 确认不碰共享文件后再开工。
+5. **推进期定期 `git rebase origin/main`**（下游尤其）：让上游已入 main 的改动自行流入，就地适配，保持分支与 main 近同步。
 
-## 门禁块（提交/合并且 S1 把关前必跑）
+## 门禁块（分两级）
 
+**会话侧（push 前，本包最小门禁）**：
+```bash
+cd butler-v5/<自己包>
+pnpm typecheck && pnpm exec eslint . --ext .ts --max-warnings 0   # 类型 + lint 0 警
+pnpm exec vitest run <本包相关测试> -q                            # 本包回归
+```
+改跨层 import / arch guard：`bash scripts/butler-layer-import-gate.sh` / `CI= pnpm exec vitest run tests/architecture -q`。
+
+**S1 侧（仅批次汇聚时，全量 5-gate）**：
 ```bash
 cd butler-v5
 bash scripts/typecheck-gate.sh        # typecheck + file-size + deadcode
@@ -39,14 +50,12 @@ CI= pnpm test                        # 全量回归（基线参考 nodes）
 bash scripts/butler-layer-import-gate.sh   # 改跨层 import 时
 ```
 
-对改 arch guard / 文档：`CI= pnpm exec vitest run tests/architecture -q`。
+## 合并协议（批次汇聚，S1 执行收口）
 
-## 合并协议（S1 执行，其余会话只发 PR/MR）
-
-1. 会话在 `main` 拉到最新、在自身 `par/*` 完成并自测（本卡最小门禁）。
-2. 向 S1 提交 PR（或会话内标注 ready），S1 rebase `par/*` 到 main + 跑全量 5-gate。
-3. S1 把关通过 → S1 合回 main，并同步 `DESIGN.md`/`port-catalog.md`/`state.md`/交接卡。
-4. 冲突集中发生在共享文件 → S1 作为唯一解开者。
+1. **会话侧（日常）**：在 `par/*` 上推进**一批自洽 commits** → 本包最小门禁 → push 跟踪分支。推进期定期 `git rebase origin/main` 自治适配上游；共享文件冲突不进自己分支，标 `@S1` note 等汇聚。
+2. **汇聚触发（S1 定）**：到里程碑/发布快照时，S1 拉取各 `par/*` → 统一 rebase 到 main → 解共享/承重文件冲突 → 跑全量 5-gate。
+3. **收口**：把关通过 → S1 合回 main，并同步 `DESIGN.md`/`port-catalog.md`/`state.md`/交接卡。
+4. **非汇聚点不逐项合 main**；各会话保持与 main rebase 同步即可，无需等 S1 通知。
 
 ## Wave-1 已并入（2026-09-02，main `2f5068ba`）
 
@@ -65,3 +74,9 @@ bash scripts/butler-layer-import-gate.sh   # 改跨层 import 时
 ## 当前待办候选（按所属会话存放）
 
 见 `.blackboard/state.md`"下一步"。Wave-2：exec 行为审计记账（S6）、各包整理与完善（S2/S4/S5）。Channel Port 已退役；MemoryService（§12）静候第二实现/隔离需求触发。
+
+## 批次汇聚点（固定里程碑/发布快照，S1 定义并推进）
+
+- **触发**：S1 在 state.md 发布**下一个汇聚点**（如 `M1`、`R11` 发布快照），各会话在汇聚点前**自主推进多轮**；无需在每项完成时汇聚。
+- **汇聚点内容**：S1 统一 rebase 各 `par/*` → 解共享冲突 → 全量 5-gate → 合 main → 更新交接卡。
+- **当前计划**：首个汇聚点待 S1 在 `state.md` 宣布。此前各会话在其 `par/*` 上持续推进 + rebase 同步即可。

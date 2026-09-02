@@ -117,7 +117,7 @@ export function recordChildRunDelegated(args: {
       lastChildRunRole: args.role.trim().slice(0, 40) || "developer",
       lastChildRunTask: args.task.trim().slice(0, 120),
     },
-    env: args.env,
+    ...(args.env === undefined ? {} : { env: args.env }),
   })
 }
 
@@ -139,7 +139,7 @@ export function recordChildRunStatus(args: {
       lastChildRunId: args.childRunId,
       lastChildRunStatus: args.status,
     },
-    env: args.env,
+    ...(args.env === undefined ? {} : { env: args.env }),
   })
 }
 
