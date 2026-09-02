@@ -5,6 +5,7 @@ import {
   createTaskRecord,
   resolveTaskRunGoal,
 } from "./task-procedure.js"
+import { defaultTaskConversationId } from "./task-procedure.js"
 
 describe("task / procedure", () => {
   it("creates immutable linear procedure and resolves step goals", () => {
@@ -152,5 +153,12 @@ describe("task / procedure", () => {
     const advanced = advanceTaskAfterStep(task.value, proc.value, 3)
     expect(advanced.status).toBe("done")
     expect(advanced.procedureStepIndex).toBe(0)
+  })
+})
+
+describe("defaultTaskConversationId", () => {
+  it("namespaces conversation id by task id", () => {
+    expect(defaultTaskConversationId("42")).toBe("task-42")
+    expect(defaultTaskConversationId(" task-7 ")).toBe("task- task-7 ")
   })
 })

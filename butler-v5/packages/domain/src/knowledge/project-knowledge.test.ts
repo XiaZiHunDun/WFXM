@@ -8,6 +8,7 @@ import {
   selectProjectKnowledgeForRecall,
   selectProjectKnowledgeForWorkingSet,
 } from "./project-knowledge.js"
+import { formatProjectKnowledgePrefix, formatProjectKnowledgeSnippet, matchProjectKnowledgeQuery, normalizeProjectId } from "./project-knowledge.js"
 import type { DocumentRecord } from "./document-ingest.js"
 
 describe("project knowledge", () => {
@@ -211,5 +212,45 @@ describe("project knowledge", () => {
         byProject: [{ projectId: "WFXM", records: [a.value] }],
       }),
     ).toBeNull()
+  })
+})
+
+type PkFixture = {
+  readonly kind: string
+  readonly title: string
+  readonly body: string
+  readonly provenance: { readonly note?: string; readonly sourcePath?: string }
+}
+function rec(overrides: Partial<PkFixture> = {}): PkFixture {
+  return { kind: "decision", title: "Title", body: "body", provenance: {}, ...overrides }
+}
+
+describe("project knowledge pure helpers", () => {
+  it("normalizes project id by trimming", () => {
+    expect(normalizeProjectId("  proj-a  ")).toBe("proj-a")
+    expect(normalizeProjectId("proj-a")).toBe("proj-a")
+  })
+
+  it("matches knowledge by substring query across title/body/note/path", () => {
+    const r = rec({ title: "Deploy Notes", body: "uses kubectl", provenance: { note: "from ops", sourcePath: "ops/runbook.md" } })
+    expect(matchProjectKnowledgeQuery(r, "kubectl")).toBe(true)
+    expect(matchProjectKnowledgeQuery(r, "runbook")).toBe(true)
+    expect(matchProjectKnowledgeQuery(r, "DEPLOY")).toBe(true)
+    expect(matchProjectKnowledgeQuery(r, "unrelated")).toBe(false)
+    expect(matchProjectKnowledgeQuery(r, "")).toBe(true)
+  })
+
+  it("formats a snippet with body truncation and optional path", () => {
+    expect(formatProjectKnowledgeSnippet(rec({ title: "T", body: "abc" }), 5)).toBe("[decision] T\nabc")
+    expect(formatProjectKnowledgeSnippet(rec({ title: "T", body: "abcdefgh" }), 4)).toBe("[decision] T\nabcd…")
+    expect(formatProjectKnowledgeSnippet(rec({ kind: "fact", title: "T", body: "b", provenance: { sourcePath: "x.md" } }))).toBe("[fact] T path=x.md\nb")
+  })
+
+  it("formats the recall prefix as null for empty and numbered list otherwise", () => {
+    expect(formatProjectKnowledgePrefix([])).toBeNull()
+    expect(formatProjectKnowledgePrefix([rec({ title: "A", body: "a" }), rec({ title: "B", body: "b" })])).toContain("1. [")
+    expect(formatProjectKnowledgePrefix([rec({ kind: "fact", title: "A", body: "a" })])).toBe(
+      "Project Knowledge (confirmed ingest, substring recall):\n1. [fact] A\na",
+    )
   })
 })
