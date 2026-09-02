@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console -- CLI entrypoint: stdout/stderr is the product interface */
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { Command } from "commander"
