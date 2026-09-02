@@ -179,6 +179,9 @@ export function confirmDurableMemory(
     confidence: Math.max(record.confidence, 0.8),
     updatedAt: nowMs,
     confirmedAt: nowMs,
+    // D42 §12 G4 follow-up: owner 显式 confirm 必须标 promotedBy='owner'，
+    // 否则与 sweeper 自动 promote 无法区分（rollback-auto-promote 依赖此判别字段）。
+    promotedBy: "owner",
   }
 }
 

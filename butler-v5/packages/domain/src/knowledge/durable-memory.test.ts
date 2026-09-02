@@ -65,6 +65,8 @@ describe("durable memory", () => {
     expect(a.ok && b.ok).toBe(true)
     if (!a.ok || !b.ok) return
     const confirmed = confirmDurableMemory(b.value, 30)
+    expect(confirmed.promotedBy).toBe("owner")
+    expect(confirmed.promotedAt).toBeNull()
     const selected = selectDurableMemoriesForWorkingSet({
       records: [a.value, confirmed],
       nowMs: 40,
