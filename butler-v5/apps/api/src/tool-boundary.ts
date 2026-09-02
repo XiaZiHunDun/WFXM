@@ -179,9 +179,9 @@ export function makeToolExecutor(args: {
           subject: args.subject,
           resource,
           grant,
-          ...(resolveMcpServerId(def.name as string)
-            ? { mcpServerId: resolveMcpServerId(def.name as string) }
-            : {}),
+          ...(resolveMcpServerId(def.name as string) === undefined
+            ? {}
+            : { mcpServerId: resolveMcpServerId(def.name as string) }),
         },
         approval,
       )

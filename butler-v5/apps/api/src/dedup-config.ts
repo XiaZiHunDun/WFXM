@@ -22,10 +22,7 @@ export function parseDedupConfig(env: NodeJS.ProcessEnv): DedupConfig {
   return {
     enabled: threshold > 0,
     threshold,
-    recentMs: parsePositiveInt(
-      env["BUTLER_V5_MEMORY_DEDUP_RECENT_MS"],
-      90 * 24 * 3_600_000,
-    ),
+    recentMs: parsePositiveInt(env["BUTLER_V5_MEMORY_DEDUP_RECENT_MS"], 90 * 24 * 3_600_000),
     limit: parsePositiveInt(env["BUTLER_V5_MEMORY_DEDUP_LIMIT"], 50),
   }
 }

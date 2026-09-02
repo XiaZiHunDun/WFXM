@@ -26,10 +26,8 @@ export function parseAutoPromoteConfig(env: NodeJS.ProcessEnv): AutoPromoteConfi
       3_600_000,
     sweepLimit: parsePositiveInt(env["BUTLER_V5_AUTO_PROMOTE_SWEEP_LIMIT"], DEFAULT_SWEEP_LIMIT),
     sweepIntervalMs:
-      parsePositiveInt(
-        env["BUTLER_V5_AUTO_PROMOTE_SWEEP_INTERVAL_HOURS"],
-        DEFAULT_INTERVAL_HOURS,
-      ) * 3_600_000,
+      parsePositiveInt(env["BUTLER_V5_AUTO_PROMOTE_SWEEP_INTERVAL_HOURS"], DEFAULT_INTERVAL_HOURS) *
+      3_600_000,
     rollbackWindowMs:
       parsePositiveInt(
         env["BUTLER_V5_AUTO_PROMOTE_ROLLBACK_WINDOW_DAYS"],

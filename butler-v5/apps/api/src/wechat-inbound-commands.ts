@@ -23,28 +23,28 @@ export async function tryWechatInboundCommand(args: {
         wiring: args.wiring,
         fromUserId: args.fromUserId,
         content: args.content,
-        env: args.env,
-        mcpBundle: args.mcpBundle,
+        ...(args.env === undefined ? {} : { env: args.env }),
+        ...(args.mcpBundle === undefined ? {} : { mcpBundle: args.mcpBundle }),
       }),
     () =>
       tryWechatTaskCommand({
         wiring: args.wiring,
         fromUserId: args.fromUserId,
         content: args.content,
-        env: args.env,
+        ...(args.env === undefined ? {} : { env: args.env }),
       }),
     () =>
       tryWechatMemoryCommand({
         wiring: args.wiring,
         fromUserId: args.fromUserId,
         content: args.content,
-        env: args.env,
+        ...(args.env === undefined ? {} : { env: args.env }),
       }),
     () =>
       tryWechatQualityGateCommand({
         fromUserId: args.fromUserId,
         content: args.content,
-        env: args.env,
+        ...(args.env === undefined ? {} : { env: args.env }),
         runtimeStore: args.wiring.runtimeStore,
       }),
     () =>
@@ -52,7 +52,7 @@ export async function tryWechatInboundCommand(args: {
         wiring: args.wiring,
         fromUserId: args.fromUserId,
         content: args.content,
-        env: args.env,
+        ...(args.env === undefined ? {} : { env: args.env }),
       }),
   ]
 

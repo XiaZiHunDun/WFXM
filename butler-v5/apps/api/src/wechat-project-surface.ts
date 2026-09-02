@@ -90,7 +90,7 @@ export function summarizeWechatToolProfile(args: {
     resolveWechatAllowedToolNames({
       projectId: args.projectId,
       env,
-      mcpBundle: args.mcpBundle,
+      ...(args.mcpBundle === undefined ? {} : { mcpBundle: args.mcpBundle }),
     }) ?? []
   const mcp = allowed.filter((name) => name.startsWith("mcp_")).length
   const core = allowed.length - mcp
@@ -143,8 +143,7 @@ function formatProjectListLine(args: {
   readonly tools: string
 }): string {
   const marker = args.active ? "→ " : "  "
-  const pk =
-    args.pkCount === null ? "PK ?" : `PK ${args.pkCount}`
+  const pk = args.pkCount === null ? "PK ?" : `PK ${args.pkCount}`
   return `${marker}${args.item.id}（${args.item.label}）· ${pk} · ${args.tools}`
 }
 
@@ -161,7 +160,7 @@ async function buildProjectListReply(args: {
     const tools = summarizeWechatToolProfile({
       projectId: item.id,
       env: args.env,
-      mcpBundle: args.mcpBundle,
+      ...(args.mcpBundle === undefined ? {} : { mcpBundle: args.mcpBundle }),
     }).label
     lines.push(
       formatProjectListLine({
@@ -187,9 +186,7 @@ type ProjectSurfaceArgs = {
  * Resolve the active project context shared by the status / overview /
  * health replies: active id + label, PK count + store id, and tool profile.
  */
-async function activeProjectContext(
-  args: ProjectSurfaceArgs,
-): Promise<{
+async function activeProjectContext(args: ProjectSurfaceArgs): Promise<{
   readonly active: string
   readonly label: string
   readonly pkCount: number | null
@@ -204,7 +201,7 @@ async function activeProjectContext(
   const tools = summarizeWechatToolProfile({
     projectId: active,
     env: args.env,
-    mcpBundle: args.mcpBundle,
+    ...(args.mcpBundle === undefined ? {} : { mcpBundle: args.mcpBundle }),
   })
   return { active, label, pkCount, pkStoreId, tools }
 }
@@ -254,10 +251,7 @@ async function buildOverviewReply(args: ProjectSurfaceArgs): Promise<string> {
     if (head) lines.push("", head)
   }
 
-  lines.push(
-    "",
-    `知识库 ${pkCount ?? "?"} 条（${pkStoreId}）· 工具 ${tools.label}`,
-  )
+  lines.push("", `知识库 ${pkCount ?? "?"} 条（${pkStoreId}）· 工具 ${tools.label}`)
   const openTasks = await pendingTaskCount(args.wiring, args.fromUserId)
   if (openTasks !== null) {
     lines.push(`待办 ${openTasks} 条 open（/待办）`)
@@ -296,7 +290,7 @@ async function buildHealthReply(args: {
   const tools = summarizeWechatToolProfile({
     projectId: active,
     env: args.env,
-    mcpBundle: args.mcpBundle,
+    ...(args.mcpBundle === undefined ? {} : { mcpBundle: args.mcpBundle }),
   })
   checks.push(`✓ 工具配置：${tools.label}`)
   checks.push("", "（只读检查；执行测试请用 /验）")
@@ -343,10 +337,7 @@ export async function tryWechatProjectCommand(args: {
   const normalized = normalizeWechatSwitchCommand(trimmed) ?? trimmed
 
   if (normalized === "/项目" || normalized === "/switch list" || normalized === "/projects") {
-    return doneResult(
-      await buildProjectListReply(resolvedArgs),
-      ["project-surface: list"],
-    )
+    return doneResult(await buildProjectListReply(resolvedArgs), ["project-surface: list"])
   }
 
   if (
@@ -358,11 +349,7 @@ export async function tryWechatProjectCommand(args: {
     return doneResult(await buildStatusReply(resolvedArgs), ["project-surface: status"])
   }
 
-  if (
-    normalized === "/项目概况" ||
-    normalized === "/概况" ||
-    normalized === "/project overview"
-  ) {
+  if (normalized === "/项目概况" || normalized === "/概况" || normalized === "/project overview") {
     return doneResult(await buildOverviewReply(resolvedArgs), ["project-surface: overview"])
   }
 
@@ -374,10 +361,9 @@ export async function tryWechatProjectCommand(args: {
     const sep = normalized.startsWith("/切换") ? "/切换" : "/switch"
     const name = normalized.slice(sep.length).trim()
     if (!name) {
-      return doneResult(
-        `用法：/切换 <项目名>\n\n${await buildProjectListReply(resolvedArgs)}`,
-        ["project-switch: missing name"],
-      )
+      return doneResult(`用法：/切换 <项目名>\n\n${await buildProjectListReply(resolvedArgs)}`, [
+        "project-switch: missing name",
+      ])
     }
     const projectId = resolveWechatProjectAlias(name, env)
     if (!projectId) {

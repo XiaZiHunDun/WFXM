@@ -38,11 +38,7 @@ import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
-import {
-  computeCostUsd,
-  parseLlmPricing,
-  resolveCurrentLlmModel,
-} from "./llm-pricing.js"
+import { computeCostUsd, parseLlmPricing, resolveCurrentLlmModel } from "./llm-pricing.js"
 import type { ModelDecision } from "@butler/runtime/decision.js"
 import {
   runConversationLoop,
@@ -221,19 +217,20 @@ async function runChildLlm(
     },
     { role: "user", content: task },
   ]
+  const workspaceRoot = (env["BUTLER_V5_WORKSPACE_ROOT"] ?? "").trim() || undefined
   const runtimeTools = makeWeibutlerTools({
     bridge,
     conversationId: parentConversationId,
     actor: { kind: "agent", id: `subagent-${role}` },
     env,
-    runtimeStore,
-    runId: childRunId ?? undefined,
-    workspaceRoot: (env["BUTLER_V5_WORKSPACE_ROOT"] ?? "").trim() || undefined,
+    ...(runtimeStore === undefined ? {} : { runtimeStore }),
+    ...(childRunId == null ? {} : { runId: childRunId }),
+    ...(workspaceRoot === undefined ? {} : { workspaceRoot }),
   })
   const toolExecutor = makeToolExecutor({
     tools: runtimeTools,
-    store: runtimeStore,
-    runId: childRunId ?? undefined,
+    ...(runtimeStore === undefined ? {} : { store: runtimeStore }),
+    ...(childRunId == null ? {} : { runId: childRunId }),
     ownerSubject,
     subject: ownerSubject,
     // The child run record is created with conversationId = childConversationId
@@ -274,13 +271,11 @@ async function runChildLlm(
         // required on the adapter side). The downcast is safe because the
         // adapter fills any missing description/parameters from its defaults.
         const opts =
-          tools.length > 0
-            ? { tools: tools as unknown as readonly LLMTool[] }
-            : undefined
+          tools.length > 0 ? { tools: tools as unknown as readonly LLMTool[] } : undefined
         const resp = await Effect.runPromise(
-          adapter.complete(msgs as unknown as readonly LLMMessage[], opts).pipe(
-            Effect.timeout(LLM_TIMEOUT_MS),
-          ),
+          adapter
+            .complete(msgs as unknown as readonly LLMMessage[], opts)
+            .pipe(Effect.timeout(LLM_TIMEOUT_MS)),
         )
         // D23: emit llm_call step trace with token usage.
         // D24: fills costUsd when env-driven pricing is available.
@@ -407,9 +402,7 @@ async function runChildLlm(
           ? (err.payload as { reply?: unknown })
           : null
       const reply =
-        payload && typeof payload.reply === "string"
-          ? payload.reply
-          : `（子代理 ${role} 需要审批）`
+        payload && typeof payload.reply === "string" ? payload.reply : `（子代理 ${role} 需要审批）`
       return { content: reply, waitingApproval: true }
     }
     throw err
@@ -587,7 +580,7 @@ async function handleOutboxMessage(
       ok: llmOk,
       baseReply: result.content,
       env,
-      runtimeStore,
+      ...(runtimeStore === undefined ? {} : { runtimeStore }),
     })
   } catch (err) {
     logger.warn(
