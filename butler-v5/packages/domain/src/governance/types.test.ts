@@ -321,3 +321,71 @@ describe("buildScopedGrantScopeFromPending", () => {
     ).toBe(true)
   })
 })
+
+describe("grantMatchesAction", () => {
+  const req = (over: Partial<ActionRequest> = {}): ActionRequest => ({
+    kind: "read",
+    capability: "read_file",
+    subject: "owner-1",
+    resource: "a/b.txt",
+    risk: "low",
+    digest: "d1",
+    payload: {},
+    ...over,
+  })
+
+  it("rejects when capability differs", () => {
+    expect(grantMatchesAction(grant({ capability: "read_file", scope: {} }), req({ capability: "write_file" }))).toBe(false)
+  })
+
+  it("rejects when the grant digest pins a different digest", () => {
+    expect(grantMatchesAction(grant({ scope: { digest: "pinned" } }), req({ digest: "other" }))).toBe(false)
+    expect(grantMatchesAction(grant({ scope: { digest: "d1" } }), req())).toBe(true)
+  })
+
+  it("matches resource against a path-scoped grant", () => {
+    expect(grantMatchesAction(grant({ scope: { paths: ["a/b.txt"] } }), req())).toBe(true)
+    expect(grantMatchesAction(grant({ scope: { paths: ["a/b.txt"] } }), req({ resource: "c/d.txt" }))).toBe(false)
+  })
+
+  it("requires network allow when the action needs outbound egress", () => {
+    const outboundReq = () => req({ kind: "outbound", capability: "send_wechat_file" })
+    expect(grantMatchesAction(grant({ capability: "send_wechat_file", scope: {} }), outboundReq())).toBe(false)
+    expect(grantMatchesAction(grant({ capability: "send_wechat_file", scope: { network: "allow" } }), outboundReq())).toBe(true)
+  })
+
+  it("matches an unadorned grant against an identical request", () => {
+    expect(grantMatchesAction(grant({ scope: {} }), req())).toBe(true)
+  })
+})
+
+describe("buildScopedGrantScopeFromPending path/network normalization", () => {
+  it("adds a normalized path for file capabilities and trims resource", () => {
+    expect(buildScopedGrantScopeFromPending({ capability: "read_file", resource: "  a/b.txt  ", digest: "d" })).toEqual({
+      digest: "d",
+      paths: ["a/b.txt"],
+    })
+    expect(buildScopedGrantScopeFromPending({ capability: "read_file", resource: "   ", digest: "d" })).toEqual({ digest: "d" })
+  })
+
+  it("does not bind non-file capabilities to a path", () => {
+    expect(buildScopedGrantScopeFromPending({ capability: "run_command", resource: "x/y.sh", digest: "d" })).toEqual({
+      digest: "d",
+    })
+  })
+
+  it("stamps network allow (+hosts) when forceNetworkAllow or outbound", () => {
+    expect(
+      buildScopedGrantScopeFromPending({
+        capability: "send_wechat_file",
+        resource: "",
+        digest: "d",
+        networkHosts: ["API.Example.COM"],
+      }),
+    ).toEqual({ digest: "d", network: "allow", networkHosts: ["api.example.com"] })
+    expect(
+      buildScopedGrantScopeFromPending({ capability: "read_file", resource: "", digest: "d", forceNetworkAllow: true }),
+    ).toEqual({ digest: "d", network: "allow" })
+    expect(buildScopedGrantScopeFromPending({ capability: "read_file", resource: "", digest: "d" })).toEqual({ digest: "d" })
+  })
+})
