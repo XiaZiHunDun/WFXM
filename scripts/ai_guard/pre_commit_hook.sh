@@ -87,15 +87,20 @@ fi
 
 # G3: Secret scanning（所有文件改动时都检查）
 echo "→ 运行 secret 扫描..."
+# 注意：while 循环的退出码 = 最后一条 body 命令的退出码。set -euo pipefail 下，
+# git check-ignore 对"未被忽略的文件"返回 1，会使该 pipeline 返回非零。
+# 用 if/continue 归一化 + 末尾 || true 兜底，杜绝其把非零退出码带出命令替换。
 SECRET_HITS=$(git diff --cached --name-only | while read f; do
     [ -f "$f" ] || continue
     # 跳过 .gitignore 中的文件
-    git check-ignore "$f" 2>/dev/null && continue
+    if git check-ignore "$f" >/dev/null 2>&1; then
+        continue
+    fi
     # 扫描常见密钥模式
     if grep -nE '(sk-[a-zA-Z0-9]{32,}|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+|-----BEGIN (RSA |EC )?PRIVATE KEY-----)' "$f" 2>/dev/null; then
         echo "$f"
     fi
-done)
+done || true)
 
 if [ -n "$SECRET_HITS" ]; then
     # 检查人工覆盖
