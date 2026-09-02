@@ -48,12 +48,20 @@ bash scripts/butler-layer-import-gate.sh   # 改跨层 import 时
 3. S1 把关通过 → S1 合回 main，并同步 `DESIGN.md`/`port-catalog.md`/`state.md`/交接卡。
 4. 冲突集中发生在共享文件 → S1 作为唯一解开者。
 
-## 当前待办候选（按所属会话存放）
-
-见 `.blackboard/state.md`"下一步"。D47 候选：exec 记账（S6 apps/api）、Channel Port（S3）、MemoryService 物化（横跨 S3/S5/S6，需 S1 领衔清单）。
-
 ## Wave-1 已并入（2026-09-02，main `2f5068ba`）
 
 - S2 domain（状态机全表补测，`1daa740f`）、S4 persistence（cross-impl 契约线束，`3981845c`）、S5 runtime（双重完成守卫/deadline 并发修复，`43f8a645`）。
 - `par/domain` / `par/persistence` / `par/runtime` 已消费，勿在其上续开；新开请 rebase 到新 main。
 - 详见 `.blackboard/shifts/2026-09-02-d47-parallel-wave1-handoff.md`。
+
+## Wave-2 划分（2026-09-02 owner 重定向）
+
+**Channel Port 退役**：owner 确认目前只用微信，S3 不接真 Channel。**Channel Port 从候选移除**，不作硬物化（DESIGN §7 禁造休眠接口）；微信接入维持现状。
+
+新会话分配：
+- **S6 apps/api+cli**：`par/exec-audit` — **exec 行为审计记账**（每次 exec/子进程执行 append `exec.executed` audit 事件）。锚点 `apps/api/src/workspace-tools.ts`、`mcp-spawn.ts`、`wechat/dev-quality-gate.ts`；audit 经 persistence `runtime-store.ts` 追加（注入 wiring）。
+- **S2 domain / S4 persistence / S5 runtime**：各包**整理与完善**（owner 全部勾选：代码规范与技术债、文档与黑板整理、测试补强、依赖与门禁卫生），覆盖到包内。
+
+## 当前待办候选（按所属会话存放）
+
+见 `.blackboard/state.md`"下一步"。Wave-2：exec 行为审计记账（S6）、各包整理与完善（S2/S4/S5）。Channel Port 已退役；MemoryService（§12）静候第二实现/隔离需求触发。

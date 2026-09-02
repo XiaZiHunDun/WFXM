@@ -37,5 +37,6 @@ pnpm exec eslint packages/ports packages/adapters --ext .ts --max-warnings 0
 
 ## 当前相关待办
 
-- **Channel Port**（D47，等 Slack/Telegram 真接生产触发）——本会话主战场。
-- 配合 S1：新增端口后提交 barrel 接入 PR。
+- **Channel Port 已退役（2026-09-02）**：owner 确认目前只用微信，不接真 Slack/Telegram → 不作硬物化（DESIGN §7 禁造休眠接口）。**本会话暂无独占主任务**；可承接的整理类工作：`packages/ports/src/core/**` 与 `packages/adapters/**` 内部代码规范/技术债、测试补强、port-catalog 与 DESIGN §7 一致性（全局文档改动仍归 S1，你提 PR 由 S1 收）。
+- 配合 S1：新增端口后提交 barrel 接入 PR（当前无新增）。
+- MemoryService（§12）若后续触发物化，本会话与 S5/S6 协同（S1 领衔）。
