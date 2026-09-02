@@ -33,7 +33,7 @@ export async function loadProjectKnowledgeSystemPrefix(args: {
   const records = await args.store.listByProject({ projectId, limit: 40 })
   const selected = selectProjectKnowledgeForWorkingSet({
     records,
-    query: args.query,
+    ...(args.query === undefined ? {} : { query: args.query }),
     limit: args.limit ?? 6,
   })
   return formatProjectKnowledgePrefix(selected)

@@ -131,15 +131,15 @@ export async function listGitTouchedPaths(args: {
     argv: ["git", "diff", "--name-only", "HEAD"],
     cwd: args.cwd,
     timeoutMs: 15_000,
-    env: args.env,
+    ...(args.env === undefined ? {} : { env: args.env }),
     ...(args.audit ? { audit: args.audit } : {}),
   })
   if (result.code !== 0) {
     const staged = await runArgv({
       argv: ["git", "diff", "--name-only", "--cached"],
-      cwd: args.cwd,
-      timeoutMs: 15_000,
-      env: args.env,
+    cwd: args.cwd,
+    timeoutMs: 15_000,
+    ...(args.env === undefined ? {} : { env: args.env }),
       ...(args.audit ? { audit: args.audit } : {}),
     })
     if (staged.code !== 0) return []
@@ -153,7 +153,7 @@ export async function listGitTouchedPaths(args: {
     argv: ["git", "ls-files", "--others", "--exclude-standard"],
     cwd: args.cwd,
     timeoutMs: 15_000,
-    env: args.env,
+    ...(args.env === undefined ? {} : { env: args.env }),
     ...(args.audit ? { audit: args.audit } : {}),
   })
   const merged = new Set<string>()
@@ -179,7 +179,7 @@ export async function resolveGitBranch(args: {
     argv: ["git", "rev-parse", "--abbrev-ref", "HEAD"],
     cwd: args.cwd,
     timeoutMs: 10_000,
-    env: args.env,
+    ...(args.env === undefined ? {} : { env: args.env }),
     ...(args.audit ? { audit: args.audit } : {}),
   })
   if (result.code !== 0) return undefined

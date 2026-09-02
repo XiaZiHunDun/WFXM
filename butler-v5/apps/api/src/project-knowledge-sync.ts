@@ -129,7 +129,10 @@ export async function syncProjectKnowledgeFromManifest(args: {
     return { scanned: 0, created: 0, updated: 0, skipped: 0, errors: ["project knowledge store unavailable"] }
   }
 
-  const workspaceRoot = workspaceRootFrom({ workspaceRoot: env["BUTLER_V5_WORKSPACE_ROOT"] })
+  const wsEnv = env["BUTLER_V5_WORKSPACE_ROOT"]
+  const workspaceRoot = workspaceRootFrom({
+    ...(wsEnv === undefined ? {} : { workspaceRoot: wsEnv }),
+  })
   const documentStore = args.wiring.documentStore
   const markitdownTool = args.wiring.mcp.runtimeTools.find((t) => t.name === MARKITDOWN_TOOL) ?? null
 

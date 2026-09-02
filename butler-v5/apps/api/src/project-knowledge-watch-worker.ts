@@ -89,7 +89,7 @@ export function startProjectKnowledgeWatchWorkerIfEnabled(args: {
       await runProjectKnowledgeWatchTick({
         wiring: args.wiring,
         env,
-        cwd: args.cwd,
+        ...(args.cwd === undefined ? {} : { cwd: args.cwd }),
         logger,
       })
     } catch (err) {

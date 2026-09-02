@@ -69,7 +69,10 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
     let text = typeof body.text === "string" ? body.text : ""
     let sourcePath: string | undefined
     if (typeof body.filePath === "string" && body.filePath.trim()) {
-      const root = workspaceRootFrom({ workspaceRoot: process.env["BUTLER_V5_WORKSPACE_ROOT"] })
+      const rootEnv = process.env["BUTLER_V5_WORKSPACE_ROOT"]
+      const root = workspaceRootFrom({
+        ...(rootEnv === undefined ? {} : { workspaceRoot: rootEnv }),
+      })
       const resolved = resolveUnderWorkspace(root, body.filePath.trim())
       if (!resolved.ok) return c.json({ ok: false, reason: resolved.reason }, 400)
       try {

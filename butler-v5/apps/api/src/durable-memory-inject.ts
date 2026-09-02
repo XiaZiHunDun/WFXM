@@ -38,7 +38,7 @@ export async function loadDurableMemorySystemPrefix(args: {
   const selected = selectDurableMemoriesForWorkingSet({
     records,
     nowMs: args.nowMs ?? Date.now(),
-    query: args.query,
+    ...(args.query === undefined ? {} : { query: args.query }),
     limit: args.limit ?? 8,
   })
   return formatDurableMemoryPrefix(selected)
