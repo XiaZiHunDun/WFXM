@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildApiRunTrigger,
   buildChannelRunTrigger,
+  buildRunTrigger,
   buildTaskRunTrigger,
   buildWechatRunTrigger,
   runBudgetWithTrigger,
@@ -101,5 +102,94 @@ describe("RunTrigger builders", () => {
     expect(trigger.trustLevel).toBe("owner")
     expect(trigger.payload).toMatchObject({ taskId: "t1", stepKey: "check" })
     expect(validateRunTrigger(trigger)).toEqual({ ok: true })
+  })
+})
+
+describe("RunTrigger normalization boundaries", () => {
+  it("normalizes whitespace on subject and idempotencyKey in the full run trigger", () => {
+    const trigger = buildRunTrigger({
+      subject: "  owner-1  ",
+      source: "api",
+      idempotencyKey: "  k-1  ",
+    })
+    expect(trigger.subject).toBe("owner-1")
+    expect(trigger.idempotencyKey).toBe("k-1")
+  })
+
+  it("defaults conversationRef to null, payload to {}, trustLevel to untrusted", () => {
+    const trigger = buildRunTrigger({ subject: "owner", source: "api", idempotencyKey: "k" })
+    expect(trigger.conversationRef).toBeNull()
+    expect(trigger.payload).toEqual({})
+    expect(trigger.trustLevel).toBe("untrusted")
+  })
+
+  it("rejects a subject that is empty after normalization", () => {
+    const trigger = buildRunTrigger({ subject: "   ", source: "api", idempotencyKey: "k" })
+    expect(validateRunTrigger(trigger)).toEqual({
+      ok: false,
+      reason: "subject is required",
+    })
+  })
+
+  it("rejects an idempotencyKey that is empty after normalization", () => {
+    const trigger = buildRunTrigger({ subject: "owner", source: "api", idempotencyKey: "  " })
+    expect(validateRunTrigger(trigger)).toEqual({
+      ok: false,
+      reason: "idempotencyKey is required",
+    })
+  })
+
+  it("enforces conversationRef only for channel/webhook full-run entry, not other sources", () => {
+    const noRef = { subject: "u", idempotencyKey: "k" } as const
+    for (const source of ["channel", "webhook"] as const) {
+      expect(
+        validateRunTrigger(buildRunTrigger({ ...noRef, source })),
+        source,
+      ).toEqual({
+        ok: false,
+        reason: "conversationRef is required for channel/webhook triggers",
+      })
+    }
+    // A parent_run (child) trigger — like a full run via api/cli/schedule/task —
+    // does not require conversationRef.
+    for (const source of ["api", "cli", "schedule", "task", "parent_run"] as const) {
+      expect(validateRunTrigger(buildRunTrigger({ ...noRef, source })), source).toEqual({
+        ok: true,
+      })
+    }
+  })
+
+  it("inherits a parent-run budget default of maxSteps 5 without clobbering base overrides", () => {
+    const trigger = buildRunTrigger({ subject: "owner", source: "api", idempotencyKey: "k" })
+    expect(runBudgetWithTrigger(trigger)).toMatchObject({ maxSteps: 5 })
+    expect(runBudgetWithTrigger(trigger, { maxSteps: 9 })).toMatchObject({ maxSteps: 9 })
+  })
+
+  it("normalizes a task (parent-run child) trigger with conditional payload fields", () => {
+    const bare = buildTaskRunTrigger({
+      subject: " owner ",
+      taskId: "t1",
+      goal: "work",
+      conversationId: "c1",
+      idempotencyKey: " k ",
+    })
+    expect(bare.subject).toBe("owner")
+    expect(bare.idempotencyKey).toBe("k")
+    expect(bare.payload).toEqual({ taskId: "t1", goal: "work" })
+    // procedureId/stepKey are omitted entirely unless provided.
+    expect("procedureId" in bare.payload).toBe(false)
+    expect("stepKey" in bare.payload).toBe(false)
+
+    const full = buildTaskRunTrigger({
+      subject: "owner",
+      taskId: "t1",
+      goal: "work",
+      conversationId: "c1",
+      idempotencyKey: "k",
+      procedureId: "p1",
+      stepKey: "check",
+    })
+    expect(full.payload).toMatchObject({ procedureId: "p1", stepKey: "check" })
+    expect(validateRunTrigger(full)).toEqual({ ok: true })
   })
 })

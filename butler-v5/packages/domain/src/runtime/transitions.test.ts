@@ -22,36 +22,92 @@ const baseRun: Run = {
   updatedAt: 1,
 }
 
-describe("runtime Run transitions", () => {
-  it("accepts every transition in the target state machine", () => {
-    const legal: readonly [RunStatus, RunStatus][] = [
-      ["queued", "running"],
-      ["running", "waiting_approval"],
-      ["waiting_approval", "running"],
-      ["waiting_approval", "failed"],
-      ["waiting_approval", "cancelled"],
-      ["waiting_approval", "expired"],
-      ["running", "waiting_external"],
-      ["waiting_external", "running"],
-      ["waiting_external", "cancelled"],
-      ["waiting_external", "expired"],
-      ["queued", "cancelled"],
-      ["queued", "expired"],
-      ["running", "succeeded"],
-      ["running", "failed"],
-      ["running", "cancelled"],
-      ["running", "expired"],
-    ]
+const ALL_STATUSES: readonly RunStatus[] = [
+  "queued",
+  "running",
+  "waiting_approval",
+  "waiting_external",
+  "succeeded",
+  "failed",
+  "cancelled",
+  "expired",
+]
 
-    for (const [from, to] of legal) {
-      expect(canTransitionRun(from, to), `${from} -> ${to}`).toBe(true)
+const ACTIVE_STATUSES: readonly RunStatus[] = [
+  "queued",
+  "running",
+  "waiting_approval",
+  "waiting_external",
+]
+
+const TERMINAL_STATUSES: readonly RunStatus[] = [
+  "succeeded",
+  "failed",
+  "cancelled",
+  "expired",
+]
+
+// Exhaustive from/to rules of the Run state machine (the frozen contract spec).
+// Every entry below must hold; any drift from transitions.ts is an inconsistency.
+const EXPECTED_LEGAL: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
+  queued: ["running", "cancelled", "expired"],
+  running: [
+    "waiting_approval",
+    "waiting_external",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "expired",
+  ],
+  waiting_approval: ["running", "failed", "cancelled", "expired"],
+  waiting_external: ["running", "failed", "cancelled", "expired"],
+  succeeded: [],
+  failed: [],
+  cancelled: [],
+  expired: [],
+}
+
+function makeRun(status: RunStatus): Run {
+  return { ...baseRun, status }
+}
+
+describe("runtime Run transitions", () => {
+  it.each(ALL_STATUSES)(
+    "exposes the exact allowed-target set for %s (accepts legal, rejects everything else)",
+    (from) => {
+      const expected = EXPECTED_LEGAL[from]
+      for (const to of ALL_STATUSES) {
+        expect(canTransitionRun(from, to), `${from} -> ${to}`).toBe(
+          expected.includes(to),
+        )
+      }
+    },
+  )
+
+  it("covers the deadline branch: every active status may expire, terminals may not", () => {
+    for (const from of ACTIVE_STATUSES) {
+      expect(canTransitionRun(from, "expired"), `${from} -> expired`).toBe(true)
+    }
+    for (const from of TERMINAL_STATUSES) {
+      expect(canTransitionRun(from, "expired"), `${from} -> expired`).toBe(false)
     }
   })
 
-  it("rejects transitions out of terminal states", () => {
-    for (const terminal of ["succeeded", "failed", "cancelled", "expired"] as const) {
-      expect(canTransitionRun(terminal, "running")).toBe(false)
+  it("covers the cancelled branch: every active status may cancel, terminals may not", () => {
+    for (const from of ACTIVE_STATUSES) {
+      expect(canTransitionRun(from, "cancelled"), `${from} -> cancelled`).toBe(true)
     }
+    for (const from of TERMINAL_STATUSES) {
+      expect(canTransitionRun(from, "cancelled"), `${from} -> cancelled`).toBe(false)
+    }
+  })
+
+  it("covers the waiting_approval branch (enter, resume, and no short-circuit to success)", () => {
+    expect(canTransitionRun("running", "waiting_approval")).toBe(true)
+    expect(canTransitionRun("waiting_approval", "running")).toBe(true)
+    // approval must resume via running before succeeding/publishing
+    expect(canTransitionRun("waiting_approval", "succeeded")).toBe(false)
+    expect(canTransitionRun("waiting_approval", "waiting_external")).toBe(false)
   })
 
   it("returns a new versioned Run for a legal transition", () => {
@@ -63,14 +119,42 @@ describe("runtime Run transitions", () => {
     })
   })
 
-  it("preserves the Run when a transition is illegal", () => {
-    const result = transitionRun(baseRun, "succeeded", 2)
+  it("preserves the Run (no version bump, no mutation) when a transition is illegal", () => {
+    const result = transitionRun(makeRun("queued"), "succeeded", 2)
 
     expect(result).toEqual({
       _tag: "TransitionRejected",
-      run: baseRun,
+      run: makeRun("queued"),
       from: "queued",
       to: "succeeded",
     })
+    expect(result.run.version).toBe(1)
+    expect(result.run.status).toBe("queued")
+  })
+
+  it("rejects every illegal from/to pair across the full matrix via transitionRun", () => {
+    for (const from of ALL_STATUSES) {
+      for (const to of ALL_STATUSES) {
+        const legal = EXPECTED_LEGAL[from].includes(to)
+        const result = transitionRun(makeRun(from), to, 99)
+        if (legal) {
+          expect(result._tag, `${from} -> ${to}`).toBe("TransitionAccepted")
+          if (result._tag === "TransitionAccepted") {
+            expect(result.run.status).toBe(to)
+            expect(result.run.version).toBe(2) // baseRun.version(1) + 1
+          }
+        } else {
+          expect(result._tag, `${from} -> ${to}`).toBe("TransitionRejected")
+        }
+      }
+    }
+  })
+
+  it("rejects any transition out of terminal states, including self-transitions", () => {
+    for (const terminal of TERMINAL_STATUSES) {
+      for (const to of ALL_STATUSES) {
+        expect(canTransitionRun(terminal, to)).toBe(false)
+      }
+    }
   })
 })
