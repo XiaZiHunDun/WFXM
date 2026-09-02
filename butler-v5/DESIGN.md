@@ -617,7 +617,8 @@ Run 内部的摘要、截断、滚动摘要和工具结果压缩是可重建、�
 > - **G1 candidate expires cleanup** (2026-09-XX D40 ship)：owner 撞 "candidate 多到处理不动" 后 stale candidate 7d 自动软删除（status='expired'）。Owner-routes 加 expired 409 guard；`apps/api/src/candidate-expires-sweeper.ts` opt-in 同进程 sweeper（复用 schedule-worker 模式）；不引入新 Core Port / 不引入新 first-class event / 不建独立 worker 进程（§20 #11 + §18 #11 lock 保持）。Persistence 加 `listExpiredCandidates` + `markExpired` 2 能力；domain 加 `expireOldCandidates` 纯函数。
 > - **G2 candidate dedup** (2026-09-XX D41 ship)：trigram Jaccard 检测新 candidate vs 已存在记忆 (confirmed + candidate + rejected) 相似度；>= 0.85 返回 409 with existingMemoryId + similarity；owner 可 `force=true` bypass。Domain 加 `trigramJaccard` + `findSimilarMemories` 纯函数；persistence 加 `findCandidatesForDedup` 1 能力；owner-routes + wechat `/记住` 3 调用点集成。Embed-free（§12 line 593 + D30 case #6 lock 保持）；不引入新 Core Port / 不引入新 first-class event / 0 新 LLM 调用。
 > - **G4 candidate auto-promote** (2026-09-01 D42 ship)：owner 撞的下一阶段痛点是 "candidate 长期滞留要 owner 逐条 confirm"，G4 闭环 §12 知识层 4 治理链路 (G3 + G1 + G2 + **G4**)。Candidate 3d 自动 promote 到 confirmed；owner 7d 撤销窗口 + POST `/v1/owner/memories/:memoryId/rollback-auto-promote` API + audit log 3 层 safety net。**违反 §12 line 599 默认不建设 + §12 line 589 模型生成默认 candidate**；spec 显式承认。Domain 加 `autoPromoteOldCandidates` + `rollbackAutoPromotedCandidate` 2 纯函数；persistence 加 `findAutoPromoteCandidates` + `markAutoPromoted` + `rollbackAutoPromoted` 3 能力 + 5 column migration (`promoted_by` / `promoted_at` / `rolled_back_by` / `rolled_back_at` / `rollback_reason`) + 1 partial index；apps/api 加 `auto-promote-config.ts` (env parser) + `auto-promote-sweeper.ts` opt-in (与 G1 expiry sweeper 同模式) + owner-routes 1 route。Embed-free (§12 line 593 + D30 case #6 lock 保持); 不引入新 Core Port / 不引入新 first-class event / 0 新 LLM 调用。
-> - **留待下轮**：G5 跨 project PK recall
+> - **G5 跨 project PK recall** (2026-09-02 D43 ship)：owner 真撞 "其它 project 的项目知识 recall 目前只能查当前 project" 痛点，闭环 §12 recall gap。`recall_project_knowledge` 语义从 "deny cross-project" 改为 "默认当前 project + 显式跨 project 召回"——不传 `projectId`/`projects` 时仍只召回当前对话 project（向后兼容）；`projectId` 可指向任意 project；新增 `projects` 参数（逗号分隔列表 / `"*"` 全量），跨 project 结果带 `[projectId]` 标签。Persistence 加 `listAllProjects` + `listByProjects` 2 能力；domain 加 `expandRecallProjectIds` + `formatCrossProjectRecall` 2 纯函数。沿用 substring recall（§12 line 593 + D30 case #6 lock 保持，embed-free）；0 新 Core Port / 0 新 first-class event / 0 migration。
+> - **§12 全部治理链路闭环**：G3 batch UI（D39）+ G1 expires cleanup（D40）+ G2 dedup（D41）+ G4 auto-promote（D42）+ **G5 跨 project recall（D43）** 全 ship，无留待下轮项。
 >
 > 锁定方式：`tests/architecture/section12-knowledge-memory.test.ts`（D30, 6 cases）+ `tests/architecture/three-memory-separation.test.ts`（D9 §20 #9 cross-import lock）+ `tests/architecture/section11-deferred-triggered.test.ts`（D22, durable_memories 表属 §12 not §11 list）。
 >
@@ -801,7 +802,7 @@ Effect-TS 是可选实现工具，不是架构层级。
 
 - **独立 Task 聚合**：Owner 需要跨对话的任务板，且 Conversation/Run 查询无法表达待办生命周期；
 - **Procedure 模板**：至少两个已批准场景无法由普通线性/条件 Step 表达；通用 DAG、并行合并与 Channel reducer 仍更后；
-- **Durable Memory / Project Knowledge 表**：真实召回或资料管理需求出现，且 Transcript 不够 — 🟡 MVP ship + G3 batch UI（2026-09-01 D39）+ G1 expires cleanup（2026-09-01 D40）+ G2 candidate dedup（2026-09-01 D41）+ G4 candidate auto-promote（2026-09-01 D42）；留待下轮 G5 跨 project recall；
+- **Durable Memory / Project Knowledge 表**：真实召回或资料管理需求出现，且 Transcript 不够 — 🟡 ship 全闭环 + G3 batch UI（2026-09-01 D39）+ G1 expires cleanup（2026-09-01 D40）+ G2 candidate dedup（2026-09-01 D41）+ G4 candidate auto-promote（2026-09-01 D42）+ **G5 跨 project recall（2026-09-02 D43）**；
 - **并发资源锁**：出现必须独占的 workspace 或设备冲突；
 - **局部 Projection**：具体查询无法在目标延迟内完成；
 - **Snapshot**：运行历史加载 p95 超过预算且无法通过普通索引解决；

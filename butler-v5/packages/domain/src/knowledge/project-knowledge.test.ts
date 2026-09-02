@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   createProjectKnowledgeRecord,
+  expandRecallProjectIds,
+  formatCrossProjectRecall,
   projectKnowledgeFromDocument,
   resolveProjectKnowledgeInboundProjectId,
   selectProjectKnowledgeForRecall,
@@ -110,5 +112,104 @@ describe("project knowledge", () => {
     })
     expect(selected).toHaveLength(2)
     expect(selected[0]?.title).toBe("newer")
+  })
+
+  it("expandRecallProjectIds defaults to the current project (backward compat)", () => {
+    const r = expandRecallProjectIds({ contextProjectId: "WFXM" })
+    expect(r).toEqual({ ok: true, projectIds: ["WFXM"] })
+  })
+
+  it("expandRecallProjectIds accepts an explicit cross-project projectId", () => {
+    const r = expandRecallProjectIds({
+      contextProjectId: "WFXM",
+      requestedProjectId: "LingWen",
+    })
+    expect(r).toEqual({ ok: true, projectIds: ["LingWen"] })
+  })
+
+  it("expandRecallProjectIds expands a comma-separated projects list with dedup", () => {
+    const r = expandRecallProjectIds({
+      contextProjectId: "WFXM",
+      projects: " WFXM, LingWen , WFXM, ",
+    })
+    expect(r).toEqual({ ok: true, projectIds: ["WFXM", "LingWen"] })
+  })
+
+  it("expandRecallProjectIds resolves * to all known projects", () => {
+    const r = expandRecallProjectIds({
+      contextProjectId: "WFXM",
+      projects: "*",
+      allProjectIds: ["LingWen", "WFXM"],
+    })
+    expect(r).toEqual({ ok: true, projectIds: ["LingWen", "WFXM"] })
+  })
+
+  it("expandRecallProjectIds prioritizes projects over projectId on conflict", () => {
+    const r = expandRecallProjectIds({
+      contextProjectId: "WFXM",
+      requestedProjectId: "WFXM",
+      projects: "LingWen",
+    })
+    expect(r).toEqual({ ok: true, projectIds: ["LingWen"] })
+  })
+
+  it("expandRecallProjectIds errors when neither project nor context is present", () => {
+    const r = expandRecallProjectIds({ contextProjectId: "" })
+    expect(r).toEqual({ ok: false, reason: "projectId is required for project knowledge recall" })
+  })
+
+  it("expandRecallProjectIds errors when * has no known projects", () => {
+    const r = expandRecallProjectIds({ contextProjectId: "WFXM", projects: "*" })
+    expect(r).toEqual({ ok: false, reason: "no projects known" })
+  })
+
+  it("formatCrossProjectRecall keeps single-project output without a prefix", () => {
+    const a = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "Note",
+      kind: "manual_note",
+      body: "alpha",
+      nowMs: 1,
+    })
+    if (!a.ok) throw new Error(a.reason)
+    const out = formatCrossProjectRecall({
+      query: "",
+      limit: 5,
+      byProject: [{ projectId: "WFXM", records: [a.value] }],
+    })
+    expect(out).toContain("[manual_note] Note")
+    expect(out).not.toContain("[WFXM]")
+  })
+
+  it("formatCrossProjectRecall tags multiple projects and honours query + limit", () => {
+    const a = createProjectKnowledgeRecord({ projectId: "WFXM", title: "A", kind: "manual_note", body: "alpha", nowMs: 1 })
+    const b = createProjectKnowledgeRecord({ projectId: "LingWen", title: "B", kind: "manual_note", body: "rules", nowMs: 2 })
+    const c = createProjectKnowledgeRecord({ projectId: "LingWen", title: "C", kind: "manual_note", body: "other", nowMs: 3 })
+    if (!a.ok || !b.ok || !c.ok) throw new Error("setup failed")
+    const out = formatCrossProjectRecall({
+      query: "",
+      limit: 2,
+      byProject: [
+        { projectId: "WFXM", records: [a.value] },
+        { projectId: "LingWen", records: [b.value, c.value] },
+      ],
+    })
+    expect(out).not.toBeNull()
+    expect(out).toContain("[WFXM]")
+    expect(out).toContain("[LingWen]")
+    const matches = (out ?? "").match(/\d+\./g)
+    expect(matches).toHaveLength(2)
+  })
+
+  it("formatCrossProjectRecall returns null on no match", () => {
+    const a = createProjectKnowledgeRecord({ projectId: "WFXM", title: "A", kind: "manual_note", body: "alpha", nowMs: 1 })
+    if (!a.ok) throw new Error(a.reason)
+    expect(
+      formatCrossProjectRecall({
+        query: "no-match-xyz",
+        limit: 5,
+        byProject: [{ projectId: "WFXM", records: [a.value] }],
+      }),
+    ).toBeNull()
   })
 })

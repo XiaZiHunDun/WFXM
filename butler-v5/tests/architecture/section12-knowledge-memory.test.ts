@@ -99,6 +99,11 @@ const PROJECT_KNOWLEDGE = join(
   __dirname,
   "../../packages/domain/src/knowledge/project-knowledge.ts",
 )
+const PK_STORE = join(
+  __dirname,
+  "../../packages/persistence/src/project-knowledge-store.ts",
+)
+const API_TOOLS = join(__dirname, "../../apps/api/src/tools.ts")
 const MEMORY_TYPES = join(
   __dirname,
   "../../packages/domain/src/memory/types.ts",
@@ -406,5 +411,31 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
       autoPromoteSrc,
       "auto-promote.ts must export rollbackAutoPromotedCandidate function (§12 G4)",
     ).toMatch(/export function rollbackAutoPromotedCandidate/)
+  })
+
+  // ── 11. §12 G5 cross-project PK recall 实证 (D43, 2026-09-02) ─────
+  //
+  // D42 closed §18 row 3's G1-G4 deferred lines. G5 changes the
+  // `recall_project_knowledge` tool semantics from "deny cross-project"
+  // to "default current project + explicit cross-project recall".
+  // This case locks: (a) the old deny string is gone from tools.ts,
+  // and (b) the persistence surface that powers it (listByProjects +
+  // listAllProjects) exists.
+
+  it("§12 G5: recall_project_knowledge no longer denies cross-project; listByProjects+listAllProjects exist (cross-project recall, 2026-09-02)", () => {
+    const toolsSrc = readFileSync(API_TOOLS, "utf-8")
+    expect(
+      toolsSrc,
+      "tools.ts must not contain the old cross-project deny string (§12 G5)",
+    ).not.toMatch(/cross-project project knowledge recall denied/)
+    const pkSrc = readFileSync(PK_STORE, "utf-8")
+    expect(
+      pkSrc,
+      "project-knowledge-store.ts must expose listByProjects (§12 G5)",
+    ).toMatch(/listByProjects/)
+    expect(
+      pkSrc,
+      "project-knowledge-store.ts must expose listAllProjects (§12 G5)",
+    ).toMatch(/listAllProjects/)
   })
 })

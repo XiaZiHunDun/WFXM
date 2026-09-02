@@ -467,7 +467,7 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
   {
     name: "recall_project_knowledge",
     description:
-      "Search Project Knowledge for the current project (ingested notes, file snapshots, promoted documents). Optional `query` substring filter and `limit` (default 5). Does not search personal Durable Memory or invent facts.",
+      "Search Project Knowledge (ingested notes, file snapshots, promoted documents). Recalls the current project by default. Pass `projectId` to recall a specific project (including other projects) or `projects` for a comma-separated list / `*` for all projects (results are tagged with their project). Optional `query` substring filter and `limit` (default 5). Does not search personal Durable Memory or invent facts.",
     parameters: {
       type: "object",
       properties: {
@@ -475,7 +475,12 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
         limit: { type: "number", description: "Max items to return (1-20)." },
         projectId: {
           type: "string",
-          description: "Optional project id override (must match current conversation project).",
+          description: "Optional project id override (can be any project).",
+        },
+        projects: {
+          type: "string",
+          description:
+            "Optional comma-separated project id list, or `*` for all projects. Takes precedence over `projectId`.",
         },
       },
     },
@@ -680,7 +685,9 @@ export function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
 
 /**
  * `recall_project_knowledge` — keyword recall over project-scoped ingest.
- * Cross-project reads are denied when projectId arg disagrees with context.
+ * Recalls the current project by default; `projectId` can target any project
+ * and `projects` supports a comma-separated list or `*` for all projects
+ * (G5 cross-project recall).
  */
 export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefinition {
   return {
@@ -694,41 +701,62 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
       if (!store) {
         return { ok: false, reason: "project knowledge store unavailable" }
       }
-      const { resolveProjectKnowledgeInboundProjectId } = await import(
-        "@butler/domain/knowledge/project-knowledge.js"
-      )
+      const {
+        expandRecallProjectIds,
+        formatCrossProjectRecall,
+        formatProjectKnowledgeSnippet,
+        resolveProjectKnowledgeInboundProjectId,
+      } = await import("@butler/domain/knowledge/project-knowledge.js")
       const env = ctx.env ?? process.env
-      const contextProjectId = (ctx.projectId ?? "").trim()
+      const contextProjectId = resolveProjectKnowledgeInboundProjectId(
+        (ctx.projectId ?? "").trim(),
+        env,
+      )
       const requestedRaw =
         typeof args["projectId"] === "string" && args["projectId"].trim()
           ? args["projectId"].trim()
-          : contextProjectId
-      const resolvedContext = resolveProjectKnowledgeInboundProjectId(contextProjectId, env)
-      const requestedProjectId = resolveProjectKnowledgeInboundProjectId(requestedRaw, env)
-      if (!requestedProjectId) {
-        return { ok: false, reason: "projectId is required for project knowledge recall" }
-      }
-      if (resolvedContext && requestedProjectId !== resolvedContext) {
-        return { ok: false, reason: "cross-project project knowledge recall denied" }
+          : ""
+      const requestedProjectId = requestedRaw
+        ? resolveProjectKnowledgeInboundProjectId(requestedRaw, env)
+        : ""
+      const projectsRaw =
+        typeof args["projects"] === "string" && args["projects"].trim()
+          ? args["projects"].trim()
+          : ""
+      const expanded = expandRecallProjectIds({
+        contextProjectId,
+        requestedProjectId,
+        projects: projectsRaw,
+        allProjectIds: projectsRaw === "*" ? await store.listAllProjects() : undefined,
+      })
+      if (!expanded.ok) {
+        return { ok: false, reason: expanded.reason }
       }
       const query = typeof args["query"] === "string" ? args["query"] : ""
       const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5
       const limit = Math.min(20, Math.max(1, Math.floor(limitRaw)))
+      const perProjectLimit = Math.max(1, Math.ceil(limit / expanded.projectIds.length))
       try {
-        const { formatProjectKnowledgeSnippet, selectProjectKnowledgeForRecall } = await import(
-          "@butler/domain/knowledge/project-knowledge.js"
-        )
-        const records = await store.listByProject({ projectId: requestedProjectId, limit: 40 })
-        const selected = selectProjectKnowledgeForRecall({ records, query, limit })
-        if (selected.length === 0) {
+        const records = await store.listByProjects({
+          projectIds: expanded.projectIds,
+          perProjectLimit,
+        })
+        const byProject = expanded.projectIds
+          .map((projectId) => ({
+            projectId,
+            records: records.filter((r) => r.projectId === projectId),
+          }))
+          .filter((g) => g.records.length > 0)
+        const formatted = formatCrossProjectRecall({
+          query,
+          limit,
+          byProject,
+          formatSnippet: formatProjectKnowledgeSnippet,
+        })
+        if (formatted === null) {
           return { ok: true, output: "（无匹配的项目知识条目）" }
         }
-        return {
-          ok: true,
-          output: selected
-            .map((r, i) => `${i + 1}. ${formatProjectKnowledgeSnippet(r)}`)
-            .join("\n\n"),
-        }
+        return { ok: true, output: formatted }
       } catch (err) {
         return { ok: false, reason: err instanceof Error ? err.message : String(err) }
       }

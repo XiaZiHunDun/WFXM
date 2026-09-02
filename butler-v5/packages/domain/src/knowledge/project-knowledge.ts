@@ -198,3 +198,86 @@ export function formatProjectKnowledgePrefix(
   )
   return `Project Knowledge (confirmed ingest, substring recall):\n${lines.join("\n\n")}`
 }
+
+/**
+ * G5: expand the set of project ids to recall over.
+ *
+ * Backward-compatible: when neither `projects` nor an explicit `projectId`
+ * is given, only the current conversation project (`contextProjectId`) is
+ * recalled. Explicit `projectId` may point at any project (cross-project).
+ * `projects` may be a comma-separated list or `"*"` for all known projects.
+ */
+export function expandRecallProjectIds(input: {
+  readonly contextProjectId: string
+  readonly requestedProjectId?: string
+  readonly projects?: string
+  readonly allProjectIds?: readonly string[]
+}):
+  | { readonly ok: true; readonly projectIds: readonly string[] }
+  | { readonly ok: false; readonly reason: string } {
+  const projectsRaw = (input.projects ?? "").trim()
+  if (projectsRaw === "*") {
+    const all = (input.allProjectIds ?? []).filter((id) => id.trim().length > 0)
+    if (all.length === 0) return { ok: false, reason: "no projects known" }
+    return { ok: true, projectIds: all }
+  }
+  if (projectsRaw) {
+    const ids = [
+      ...new Set(
+        projectsRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0),
+      ),
+    ]
+    if (ids.length === 0) return { ok: false, reason: "no valid project ids in projects" }
+    return { ok: true, projectIds: ids }
+  }
+  const id =
+    (input.requestedProjectId ?? "").trim() || (input.contextProjectId ?? "").trim()
+  if (!id) return { ok: false, reason: "projectId is required for project knowledge recall" }
+  return { ok: true, projectIds: [id] }
+}
+
+/**
+ * G5: aggregate cross-project recall into a single snippet string.
+ * Single project keeps the original snippet format (no project prefix);
+ * multiple projects prefix each entry with `[{projectId}]`.
+ * Returns null when nothing matched.
+ */
+export function formatCrossProjectRecall(input: {
+  readonly query: string
+  readonly limit: number
+  readonly byProject: readonly {
+    readonly projectId: string
+    readonly records: readonly ProjectKnowledgeRecord[]
+  }[]
+  readonly formatSnippet?: (r: ProjectKnowledgeRecord) => string
+}): string | null {
+  const multi = input.byProject.length > 1
+  const formatSnippet = input.formatSnippet ?? formatProjectKnowledgeSnippet
+  const groups = input.byProject
+    .map((g) => ({
+      projectId: g.projectId,
+      records: selectProjectKnowledgeForRecall({
+        records: g.records,
+        query: input.query,
+        limit: input.limit,
+      }),
+    }))
+    .filter((g) => g.records.length > 0)
+  if (groups.length === 0) return null
+
+  const lines: string[] = []
+  let n = 0
+  for (const group of groups) {
+    for (const r of group.records) {
+      if (n >= input.limit) break
+      const prefix = multi ? `[${group.projectId}] ` : ""
+      lines.push(`${n + 1}. ${prefix}${formatSnippet(r)}`)
+      n += 1
+    }
+  }
+  if (lines.length === 0) return null
+  return lines.join("\n\n")
+}

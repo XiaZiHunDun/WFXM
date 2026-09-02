@@ -16,6 +16,11 @@ export interface ProjectKnowledgeStore {
     readonly projectId: string
     readonly limit?: number
   }) => Promise<readonly ProjectKnowledgeRecord[]>
+  readonly listAllProjects: () => Promise<readonly string[]>
+  readonly listByProjects: (input: {
+    readonly projectIds: readonly string[]
+    readonly perProjectLimit?: number
+  }) => Promise<readonly ProjectKnowledgeRecord[]>
   readonly findBySourcePath: (input: {
     readonly projectId: string
     readonly sourcePath: string
@@ -96,6 +101,25 @@ export function createProjectKnowledgeStore(db: ButlerDb): ProjectKnowledgeStore
         .orderBy(desc(projectKnowledgeItems.updatedAt))
         .limit(limit)
       return rows.map(toRecord)
+    },
+
+    async listAllProjects() {
+      const rows = await db
+        .selectDistinct({ projectId: projectKnowledgeItems.projectId })
+        .from(projectKnowledgeItems)
+      return rows
+        .map((r) => r.projectId.trim())
+        .filter((id) => id.length > 0)
+        .sort()
+    },
+
+    async listByProjects(input) {
+      const ids = [...new Set(input.projectIds.map((id) => id.trim()).filter((id) => id.length > 0))]
+      const results: ProjectKnowledgeRecord[] = []
+      for (const projectId of ids) {
+        results.push(...(await this.listByProject({ projectId, limit: input.perProjectLimit })))
+      }
+      return results
     },
 
     async findBySourcePath(input) {
