@@ -176,12 +176,26 @@ async function buildProjectListReply(args: {
   return lines.join("\n")
 }
 
-async function buildStatusReply(args: {
+type ProjectSurfaceArgs = {
   readonly wiring: Wiring
   readonly fromUserId: string
   readonly env: NodeJS.ProcessEnv
   readonly mcpBundle?: McpToolBundle
-}): Promise<string> {
+}
+
+/**
+ * Resolve the active project context shared by the status / overview /
+ * health replies: active id + label, PK count + store id, and tool profile.
+ */
+async function activeProjectContext(
+  args: ProjectSurfaceArgs,
+): Promise<{
+  readonly active: string
+  readonly label: string
+  readonly pkCount: number | null
+  readonly pkStoreId: string
+  readonly tools: ReturnType<typeof summarizeWechatToolProfile>
+}> {
   const active = getWechatActiveProjectId(args.fromUserId, args.env)
   const catalog = parseWechatProjectCatalog(args.env)
   const label = catalog.find((item) => item.id === active)?.label ?? active
@@ -192,6 +206,11 @@ async function buildStatusReply(args: {
     env: args.env,
     mcpBundle: args.mcpBundle,
   })
+  return { active, label, pkCount, pkStoreId, tools }
+}
+
+async function buildStatusReply(args: ProjectSurfaceArgs): Promise<string> {
+  const { active, label, pkCount, pkStoreId, tools } = await activeProjectContext(args)
   const openTasks = await pendingTaskCount(args.wiring, args.fromUserId)
   const devState = getProjectState({
     userId: args.fromUserId,
@@ -214,22 +233,8 @@ async function buildStatusReply(args: {
   return lines.join("\n")
 }
 
-async function buildOverviewReply(args: {
-  readonly wiring: Wiring
-  readonly fromUserId: string
-  readonly env: NodeJS.ProcessEnv
-  readonly mcpBundle?: McpToolBundle
-}): Promise<string> {
-  const active = getWechatActiveProjectId(args.fromUserId, args.env)
-  const catalog = parseWechatProjectCatalog(args.env)
-  const label = catalog.find((item) => item.id === active)?.label ?? active
-  const pkStoreId = resolveProjectKnowledgeInboundProjectId(active, args.env)
-  const pkCount = await pkCountForInbound(args.wiring, active, args.env)
-  const tools = summarizeWechatToolProfile({
-    projectId: active,
-    env: args.env,
-    mcpBundle: args.mcpBundle,
-  })
+async function buildOverviewReply(args: ProjectSurfaceArgs): Promise<string> {
+  const { active, label, pkCount, pkStoreId, tools } = await activeProjectContext(args)
   const paths = projectPathEntry(active, args.env)
   const root = workspaceRootFromEnv(args.env)
   const lines = [`【${active}（${label}）概况】`]

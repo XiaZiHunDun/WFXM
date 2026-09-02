@@ -3,7 +3,7 @@ import {
   classifyWechatIntent,
   resolveIntakeLoopOptions,
 } from "./wechat-intake.js"
-import { resolveToolNamesForMode } from "./wechat-tool-profile.js"
+import { resolveToolNamesForIntake } from "./wechat-tool-profile.js"
 
 describe("wechat-intake", () => {
   it("classifies dev session and dev task", () => {
@@ -32,13 +32,13 @@ describe("wechat-intake", () => {
   })
 
   it("plan mode hides exec tools", () => {
-    const plan = resolveToolNamesForMode({ includeExecTools: false })
+    const plan = resolveToolNamesForIntake({ intentKind: "chat" })
     expect(plan).not.toContain("run_command")
     expect(plan).not.toContain("write_file")
     expect(plan).toContain("read_file")
 
-    const legacyDirect = resolveToolNamesForMode({
-      includeExecTools: true,
+    const legacyDirect = resolveToolNamesForIntake({
+      intentKind: "dev_task",
       env: { BUTLER_V5_SUBAGENT_ENABLED: "1", BUTLER_V5_DEV_DIRECT_EXEC: "1" },
     })
     expect(legacyDirect).toContain("run_command")

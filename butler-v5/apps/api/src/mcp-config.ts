@@ -206,19 +206,6 @@ export function parseMcpConnectionConfig(
   }
 }
 
-/** @deprecated use parseMcpConnectionConfig */
-export type McpServerConfig = McpHttpConnection
-
-/** @deprecated use parseMcpConnectionConfig */
-export function parseMcpServerConfig(env: NodeJS.ProcessEnv): ILinkResult<McpHttpConnection> {
-  const parsed = parseMcpConnectionConfig(env)
-  if (!parsed.ok) return parsed
-  if (parsed.value.kind !== "http") {
-    return { ok: false, reason: "BUTLER_V5_MCP_TRANSPORT is not http" }
-  }
-  return { ok: true, value: parsed.value }
-}
-
 export function mcpHasServerEndpoint(
   env: NodeJS.ProcessEnv,
   manifestServer?: McpManifestServer | null,

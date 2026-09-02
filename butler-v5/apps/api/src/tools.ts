@@ -8,7 +8,7 @@ import {
   delegate,
   type Capability,
 } from "@butler/runtime/delegate-runtime.js"
-import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import type { RunResult, ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { recordChildRunDelegated } from "./project-state.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
@@ -94,53 +94,62 @@ export async function loadToolConversationHistory(ctx: ButlerToolContext): Promi
 }
 
 /**
- * `recall_history` — recall recent conversation turns from the configured
- * read model (0002 messages by default). Marked low-risk: it only reads.
+ * Build a tool whose `run` catches any throw and maps it to the
+ * `{ ok: false, reason }` envelope. Removes the repeated try/catch +
+ * envelope boilerplate from each tool handler; behavior-preserving.
  */
-export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
+function makeTool(
+  name: string,
+  risk: ToolDefinition["risk"],
+  run: (args: Record<string, unknown>) => Promise<RunResult>,
+): ToolDefinition {
   return {
-    name: "recall_history" as ToolDefinition["name"],
-    risk: "low",
-    async run(args: Record<string, unknown>): Promise<
-      | {
-          readonly ok: true
-          readonly output: unknown
-        }
-      | { readonly ok: false; readonly reason: string }
-    > {
-      const limitRaw = args["limit"]
-      const limit =
-        typeof limitRaw === "number" && Number.isFinite(limitRaw) && limitRaw > 0
-          ? Math.min(Math.floor(limitRaw), 20)
-          : 5
+    name: name as ToolDefinition["name"],
+    risk,
+    async run(args: Record<string, unknown>): Promise<RunResult> {
       try {
-        const history = await loadToolConversationHistory(ctx)
-        if (history.kind === "messages") {
-          const recent = history.rows.slice(-limit)
-          const lines = recent.map(
-            (m, i) => `${i + 1}. [${m.role}] ${storedMessageText(m.content)}`,
-          )
-          return {
-            ok: true,
-            output: lines.length > 0 ? lines.join("\n") : "(no prior events)",
-          }
-        }
-        const recent = history.rows.slice(-limit)
-        const lines = recent.map((e, i) => {
-          const payload = e.payload as Record<string, unknown>
-          const content =
-            typeof payload["content"] === "string" ? (payload["content"] as string) : ""
-          return `${i + 1}. [${e.eventType}] ${content}`
-        })
-        return {
-          ok: true,
-          output: lines.length > 0 ? lines.join("\n") : "(no prior events)",
-        }
+        return await run(args)
       } catch (err) {
         return { ok: false, reason: err instanceof Error ? err.message : String(err) }
       }
     },
   }
+}
+
+/**
+ * `recall_history` — recall recent conversation turns from the configured
+ * read model (0002 messages by default). Marked low-risk: it only reads.
+ */
+export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
+  return makeTool("recall_history", "low", async (args) => {
+    const limitRaw = args["limit"]
+    const limit =
+      typeof limitRaw === "number" && Number.isFinite(limitRaw) && limitRaw > 0
+        ? Math.min(Math.floor(limitRaw), 20)
+        : 5
+    const history = await loadToolConversationHistory(ctx)
+    if (history.kind === "messages") {
+      const recent = history.rows.slice(-limit)
+      const lines = recent.map(
+        (m, i) => `${i + 1}. [${m.role}] ${storedMessageText(m.content)}`,
+      )
+      return {
+        ok: true,
+        output: lines.length > 0 ? lines.join("\n") : "(no prior events)",
+      }
+    }
+    const recent = history.rows.slice(-limit)
+    const lines = recent.map((e, i) => {
+      const payload = e.payload as Record<string, unknown>
+      const content =
+        typeof payload["content"] === "string" ? (payload["content"] as string) : ""
+      return `${i + 1}. [${e.eventType}] ${content}`
+    })
+    return {
+      ok: true,
+      output: lines.length > 0 ? lines.join("\n") : "(no prior events)",
+    }
+  })
 }
 
 /**
@@ -159,37 +168,23 @@ const SHANGHAI_UTC_OFFSET = "UTC+8" as const
  * zones. Marked low-risk: pure read, no side effects.
  */
 export function makeGetCurrentTimeTool(): ToolDefinition {
-  return {
-    name: "get_current_time" as ToolDefinition["name"],
-    risk: "low",
-    async run(_args: Record<string, unknown>): Promise<
-      | {
-          readonly ok: true
-          readonly output: unknown
-        }
-      | { readonly ok: false; readonly reason: string }
-    > {
-      try {
-        const formatted = new Intl.DateTimeFormat("zh-CN", {
-          timeZone: SHANGHAI_TIMEZONE,
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-          weekday: "long",
-        }).format(new Date())
-        return {
-          ok: true,
-          output: `当前时区: ${SHANGHAI_TIMEZONE} (${SHANGHAI_UTC_OFFSET})\n${formatted}`,
-        }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
-      }
-    },
-  }
+  return makeTool("get_current_time", "low", async () => {
+    const formatted = new Intl.DateTimeFormat("zh-CN", {
+      timeZone: SHANGHAI_TIMEZONE,
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      weekday: "long",
+    }).format(new Date())
+    return {
+      ok: true,
+      output: `当前时区: ${SHANGHAI_TIMEZONE} (${SHANGHAI_UTC_OFFSET})\n${formatted}`,
+    }
+  })
 }
 
 /**
@@ -199,31 +194,17 @@ export function makeGetCurrentTimeTool(): ToolDefinition {
  * to map an hour to a greeting inline. Marked low-risk: pure read.
  */
 export function makeGreetWithTimeTool(): ToolDefinition {
-  return {
-    name: "greet_with_time" as ToolDefinition["name"],
-    risk: "low",
-    async run(_args: Record<string, unknown>): Promise<
-      | {
-          readonly ok: true
-          readonly output: unknown
-        }
-      | { readonly ok: false; readonly reason: string }
-    > {
-      try {
-        const hourRaw = new Intl.DateTimeFormat("en-US", {
-          timeZone: SHANGHAI_TIMEZONE,
-          hour: "numeric",
-          hour12: false,
-        }).format(new Date())
-        const hour = Number.parseInt(hourRaw, 10)
-        const safeHour = Number.isFinite(hour) ? hour : 0
-        const greeting = pickGreeting(safeHour)
-        return { ok: true, output: greeting }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
-      }
-    },
-  }
+  return makeTool("greet_with_time", "low", async () => {
+    const hourRaw = new Intl.DateTimeFormat("en-US", {
+      timeZone: SHANGHAI_TIMEZONE,
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date())
+    const hour = Number.parseInt(hourRaw, 10)
+    const safeHour = Number.isFinite(hour) ? hour : 0
+    const greeting = pickGreeting(safeHour)
+    return { ok: true, output: greeting }
+  })
 }
 
 /**
@@ -247,57 +228,43 @@ function pickGreeting(hour: number): string {
  * low-risk: pure read. Errors return an envelope rather than throwing.
  */
 export function makeSummarizeTodayTool(ctx: ButlerToolContext): ToolDefinition {
-  return {
-    name: "summarize_today" as ToolDefinition["name"],
-    risk: "low",
-    async run(_args: Record<string, unknown>): Promise<
-      | {
-          readonly ok: true
-          readonly output: unknown
-        }
-      | { readonly ok: false; readonly reason: string }
-    > {
-      try {
-        const history = await loadToolConversationHistory(ctx)
-        const cutoff = Date.now() - 24 * 60 * 60 * 1000
-        if (history.kind === "messages") {
-          const recent = history.rows.filter((m) => m.createdAt.getTime() >= cutoff)
-          const counts = new Map<string, number>()
-          for (const m of recent) {
-            counts.set(m.role, (counts.get(m.role) ?? 0) + 1)
-          }
-          const breakdown = Array.from(counts.entries())
-            .sort((a, b) => b[1] - a[1])
-            .map(([role, count]) => `${role}: ${count}`)
-            .join(", ")
-          const summary =
-            recent.length === 0
-              ? "过去 24 小时内没有消息记录。"
-              : `过去 24 小时共 ${recent.length} 条消息。\n按角色: ${breakdown}`
-          return { ok: true, output: summary }
-        }
-        const recent = history.rows.filter((e) => {
-          const ts = e.occurredAt instanceof Date ? e.occurredAt.getTime() : 0
-          return ts >= cutoff
-        })
-        const counts = new Map<string, number>()
-        for (const e of recent) {
-          counts.set(e.eventType, (counts.get(e.eventType) ?? 0) + 1)
-        }
-        const breakdown = Array.from(counts.entries())
-          .sort((a, b) => b[1] - a[1])
-          .map(([type, count]) => `${type}: ${count}`)
-          .join(", ")
-        const summary =
-          recent.length === 0
-            ? "过去 24 小时内没有事件记录。"
-            : `过去 24 小时共 ${recent.length} 条事件。\n按类型: ${breakdown}`
-        return { ok: true, output: summary }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+  return makeTool("summarize_today", "low", async () => {
+    const history = await loadToolConversationHistory(ctx)
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    if (history.kind === "messages") {
+      const recent = history.rows.filter((m) => m.createdAt.getTime() >= cutoff)
+      const counts = new Map<string, number>()
+      for (const m of recent) {
+        counts.set(m.role, (counts.get(m.role) ?? 0) + 1)
       }
-    },
-  }
+      const breakdown = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([role, count]) => `${role}: ${count}`)
+        .join(", ")
+      const summary =
+        recent.length === 0
+          ? "过去 24 小时内没有消息记录。"
+          : `过去 24 小时共 ${recent.length} 条消息。\n按角色: ${breakdown}`
+      return { ok: true, output: summary }
+    }
+    const recent = history.rows.filter((e) => {
+      const ts = e.occurredAt instanceof Date ? e.occurredAt.getTime() : 0
+      return ts >= cutoff
+    })
+    const counts = new Map<string, number>()
+    for (const e of recent) {
+      counts.set(e.eventType, (counts.get(e.eventType) ?? 0) + 1)
+    }
+    const breakdown = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => `${type}: ${count}`)
+      .join(", ")
+    const summary =
+      recent.length === 0
+        ? "过去 24 小时内没有事件记录。"
+        : `过去 24 小时共 ${recent.length} 条事件。\n按类型: ${breakdown}`
+    return { ok: true, output: summary }
+  })
 }
 
 /**
@@ -316,105 +283,91 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
     kind: "agent",
     id: "wechat-butler-v5",
   }
-  return {
-    name: "delegate_to_subagent" as ToolDefinition["name"],
-    risk: "medium",
-    async run(args: Record<string, unknown>): Promise<
-      | {
-          readonly ok: true
-          readonly output: unknown
-        }
-      | { readonly ok: false; readonly reason: string }
-    > {
-      const taskRaw = args["task"]
-      const roleRaw = args["role"]
-      const capsRaw = args["capabilities"]
-      const task = typeof taskRaw === "string" ? taskRaw.trim() : ""
-      if (!task) return { ok: false, reason: "task is required" }
-      const role = typeof roleRaw === "string" && roleRaw.trim() ? roleRaw.trim() : "general"
-      const requestedCaps: readonly string[] = Array.isArray(capsRaw)
-        ? capsRaw.filter((c): c is string => typeof c === "string")
-        : []
-      const effectiveCaps =
-        requestedCaps.length > 0 ? requestedCaps : defaultCapabilitiesForRole(role)
-      const allowedSet = new Set<string>(ALLOWED_CAPABILITIES)
-      const invalid = effectiveCaps.find((c) => !allowedSet.has(c))
-      if (invalid !== undefined) {
-        writeSubagentAudit(ctx.runtimeStore, {
-          ts: new Date().toISOString(),
-          kind: "rejection",
-          parentConversationId: ctx.conversationId,
-          childConversationId: "",
-          role,
-          task,
-          capabilities: effectiveCaps,
-          reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
-        })
-        return {
-          ok: false,
-          reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
-        }
+  return makeTool("delegate_to_subagent", "medium", async (args) => {
+    const taskRaw = args["task"]
+    const roleRaw = args["role"]
+    const capsRaw = args["capabilities"]
+    const task = typeof taskRaw === "string" ? taskRaw.trim() : ""
+    if (!task) return { ok: false, reason: "task is required" }
+    const role = typeof roleRaw === "string" && roleRaw.trim() ? roleRaw.trim() : "general"
+    const requestedCaps: readonly string[] = Array.isArray(capsRaw)
+      ? capsRaw.filter((c): c is string => typeof c === "string")
+      : []
+    const effectiveCaps =
+      requestedCaps.length > 0 ? requestedCaps : defaultCapabilitiesForRole(role)
+    const allowedSet = new Set<string>(ALLOWED_CAPABILITIES)
+    const invalid = effectiveCaps.find((c) => !allowedSet.has(c))
+    if (invalid !== undefined) {
+      writeSubagentAudit(ctx.runtimeStore, {
+        ts: new Date().toISOString(),
+        kind: "rejection",
+        parentConversationId: ctx.conversationId,
+        childConversationId: "",
+        role,
+        task,
+        capabilities: effectiveCaps,
+        reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
+      })
+      return {
+        ok: false,
+        reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
       }
-      try {
-        // Branding via ToolDefinition["name"] keeps us type-compatible
-        // with Capability["tool"] without re-deriving the branded
-        // string elsewhere.
-        const capabilities: Capability[] = effectiveCaps.map(
-          (c) => ({ tool: c }) as unknown as Capability,
-        )
-        const outcome = await delegate({
-          role,
-          task,
-          capabilities,
-          parentConversationId: ctx.conversationId,
-          actor: ctx.actor ?? defaultActor,
-          bridge: ctx.bridge,
-          ...(ctx.runtimeStore ? { runtimeStore: ctx.runtimeStore } : {}),
-          ...(ctx.runId ? { parentRunId: ctx.runId } : {}),
-          // D5-arch-align §20 #5 (opt-in): thread parent tool allowlist into
-          // delegate. Map string-tool-name to Capability brand so type contract
-          // holds. When parentAllowedToolNames is undefined, no subset check
-          // (legacy / CLI / service-to-service paths).
-          ...(ctx.parentAllowedToolNames
-            ? {
-                parentAllowlist: ctx.parentAllowedToolNames.map(
-                  (n) => ({ tool: n }) as unknown as Capability,
-                ),
-              }
-            : {}),
-          ...(ctx.wechatUserId ? { subject: ctx.wechatUserId } : {}),
-          ...(ctx.wechatUserId ? { notifySubject: ctx.wechatUserId } : {}),
-        })
-        writeSubagentAudit(ctx.runtimeStore, {
-          ts: new Date().toISOString(),
-          kind: "delegation",
-          parentConversationId: ctx.conversationId,
-          childConversationId: outcome.childConversationId,
-          role,
-          task,
-          capabilities: effectiveCaps,
-        })
-        if (ctx.wechatUserId) {
-          recordChildRunDelegated({
-            userId: ctx.wechatUserId,
-            projectId: (ctx.projectId ?? "wechat").trim() || "wechat",
-            childRunId: outcome.childRunId,
-            role,
-            task,
-            env: ctx.env,
-          })
-        }
-        return {
-          ok: true,
-          output: outcome.childRunId
-            ? `任务已委派给 ${outcome.role} 子代理（child run: ${outcome.childRunId}, conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`
-            : `任务已委派给 ${outcome.role} 子代理（child conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`,
-        }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
-      }
-    },
-  }
+    }
+    // Branding via ToolDefinition["name"] keeps us type-compatible
+    // with Capability["tool"] without re-deriving the branded
+    // string elsewhere.
+    const capabilities: Capability[] = effectiveCaps.map(
+      (c) => ({ tool: c }) as unknown as Capability,
+    )
+    const outcome = await delegate({
+      role,
+      task,
+      capabilities,
+      parentConversationId: ctx.conversationId,
+      actor: ctx.actor ?? defaultActor,
+      bridge: ctx.bridge,
+      ...(ctx.runtimeStore ? { runtimeStore: ctx.runtimeStore } : {}),
+      ...(ctx.runId ? { parentRunId: ctx.runId } : {}),
+      // D5-arch-align §20 #5 (opt-in): thread parent tool allowlist into
+      // delegate. Map string-tool-name to Capability brand so type contract
+      // holds. When parentAllowedToolNames is undefined, no subset check
+      // (legacy / CLI / service-to-service paths).
+      ...(ctx.parentAllowedToolNames
+        ? {
+            parentAllowlist: ctx.parentAllowedToolNames.map(
+              (n) => ({ tool: n }) as unknown as Capability,
+            ),
+          }
+        : {}),
+      ...(ctx.wechatUserId ? { subject: ctx.wechatUserId } : {}),
+      ...(ctx.wechatUserId ? { notifySubject: ctx.wechatUserId } : {}),
+    })
+    writeSubagentAudit(ctx.runtimeStore, {
+      ts: new Date().toISOString(),
+      kind: "delegation",
+      parentConversationId: ctx.conversationId,
+      childConversationId: outcome.childConversationId,
+      role,
+      task,
+      capabilities: effectiveCaps,
+    })
+    if (ctx.wechatUserId) {
+      recordChildRunDelegated({
+        userId: ctx.wechatUserId,
+        projectId: (ctx.projectId ?? "wechat").trim() || "wechat",
+        childRunId: outcome.childRunId,
+        role,
+        task,
+        env: ctx.env,
+      })
+    }
+    return {
+      ok: true,
+      output: outcome.childRunId
+        ? `任务已委派给 ${outcome.role} 子代理（child run: ${outcome.childRunId}, conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`
+        : `任务已委派给 ${outcome.role} 子代理（child conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`,
+    }
+  })
 }
 
 /**
@@ -603,44 +556,33 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
  * Does not read Transcript; does not invent facts from compaction.
  */
 export function makeRecallDurableMemoryTool(ctx: ButlerToolContext): ToolDefinition {
-  return {
-    name: "recall_durable_memory" as ToolDefinition["name"],
-    risk: "low",
-    async run(args: Record<string, unknown>): Promise<
-      | { readonly ok: true; readonly output: unknown }
-      | { readonly ok: false; readonly reason: string }
-    > {
-      const store = ctx.durableMemoryStore
-      if (!store) {
-        return { ok: false, reason: "durable memory store unavailable" }
-      }
-      const subject = (ctx.memorySubject ?? "").trim() || "owner"
-      const query = typeof args["query"] === "string" ? args["query"] : ""
-      const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5
-      const limit = Math.min(20, Math.max(1, Math.floor(limitRaw)))
-      try {
-        const { selectDurableMemoriesForWorkingSet } = await import(
-          "@butler/domain/knowledge/durable-memory.js"
-        )
-        const records = await store.listBySubject({ subject, status: "confirmed", limit: 40 })
-        const selected = selectDurableMemoriesForWorkingSet({
-          records,
-          nowMs: Date.now(),
-          query,
-          limit,
-        })
-        if (selected.length === 0) {
-          return { ok: true, output: "（无匹配的已确认 Durable Memory）" }
-        }
-        const lines = selected.map(
-          (r, i) => `${i + 1}. [${r.id.slice(0, 8)} conf=${Math.round(r.confidence * 100)}%] ${r.content}`,
-        )
-        return { ok: true, output: lines.join("\n") }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
-      }
-    },
-  }
+  return makeTool("recall_durable_memory", "low", async (args) => {
+    const store = ctx.durableMemoryStore
+    if (!store) {
+      return { ok: false, reason: "durable memory store unavailable" }
+    }
+    const subject = (ctx.memorySubject ?? "").trim() || "owner"
+    const query = typeof args["query"] === "string" ? args["query"] : ""
+    const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5
+    const limit = Math.min(20, Math.max(1, Math.floor(limitRaw)))
+    const { selectDurableMemoriesForWorkingSet } = await import(
+      "@butler/domain/knowledge/durable-memory.js"
+    )
+    const records = await store.listBySubject({ subject, status: "confirmed", limit: 40 })
+    const selected = selectDurableMemoriesForWorkingSet({
+      records,
+      nowMs: Date.now(),
+      query,
+      limit,
+    })
+    if (selected.length === 0) {
+      return { ok: true, output: "（无匹配的已确认 Durable Memory）" }
+    }
+    const lines = selected.map(
+      (r, i) => `${i + 1}. [${r.id.slice(0, 8)} conf=${Math.round(r.confidence * 100)}%] ${r.content}`,
+    )
+    return { ok: true, output: lines.join("\n") }
+  })
 }
 
 /**
@@ -648,39 +590,28 @@ export function makeRecallDurableMemoryTool(ctx: ButlerToolContext): ToolDefinit
  * Not a vector index; does not invent documents.
  */
 export function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
-  return {
-    name: "recall_document" as ToolDefinition["name"],
-    risk: "low",
-    async run(args: Record<string, unknown>): Promise<
-      | { readonly ok: true; readonly output: unknown }
-      | { readonly ok: false; readonly reason: string }
-    > {
-      const store = ctx.documentStore
-      if (!store) {
-        return { ok: false, reason: "document store unavailable" }
-      }
-      const subject = (ctx.memorySubject ?? "").trim() || "owner"
-      const query = typeof args["query"] === "string" ? args["query"] : ""
-      const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 3
-      const limit = Math.min(10, Math.max(1, Math.floor(limitRaw)))
-      try {
-        const { formatDocumentSnippet, selectDocumentsForRecall } = await import(
-          "@butler/domain/knowledge/document-ingest.js"
-        )
-        const records = await store.listBySubject({ subject, limit: 40 })
-        const selected = selectDocumentsForRecall({ records, query, limit })
-        if (selected.length === 0) {
-          return { ok: true, output: "（无匹配的已 ingest 文档）" }
-        }
-        return {
-          ok: true,
-          output: selected.map((r, i) => `${i + 1}. ${formatDocumentSnippet(r)}`).join("\n\n"),
-        }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
-      }
-    },
-  }
+  return makeTool("recall_document", "low", async (args) => {
+    const store = ctx.documentStore
+    if (!store) {
+      return { ok: false, reason: "document store unavailable" }
+    }
+    const subject = (ctx.memorySubject ?? "").trim() || "owner"
+    const query = typeof args["query"] === "string" ? args["query"] : ""
+    const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 3
+    const limit = Math.min(10, Math.max(1, Math.floor(limitRaw)))
+    const { formatDocumentSnippet, selectDocumentsForRecall } = await import(
+      "@butler/domain/knowledge/document-ingest.js"
+    )
+    const records = await store.listBySubject({ subject, limit: 40 })
+    const selected = selectDocumentsForRecall({ records, query, limit })
+    if (selected.length === 0) {
+      return { ok: true, output: "（无匹配的已 ingest 文档）" }
+    }
+    return {
+      ok: true,
+      output: selected.map((r, i) => `${i + 1}. ${formatDocumentSnippet(r)}`).join("\n\n"),
+    }
+  })
 }
 
 /**
@@ -690,78 +621,67 @@ export function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
  * (G5 cross-project recall).
  */
 export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefinition {
-  return {
-    name: "recall_project_knowledge" as ToolDefinition["name"],
-    risk: "low",
-    async run(args: Record<string, unknown>): Promise<
-      | { readonly ok: true; readonly output: unknown }
-      | { readonly ok: false; readonly reason: string }
-    > {
-      const store = ctx.projectKnowledgeStore
-      if (!store) {
-        return { ok: false, reason: "project knowledge store unavailable" }
-      }
-      const {
-        expandRecallProjectIds,
-        formatCrossProjectRecall,
-        formatProjectKnowledgeSnippet,
-        resolveProjectKnowledgeInboundProjectId,
-      } = await import("@butler/domain/knowledge/project-knowledge.js")
-      const env = ctx.env ?? process.env
-      const contextProjectId = resolveProjectKnowledgeInboundProjectId(
-        (ctx.projectId ?? "").trim(),
-        env,
-      )
-      const requestedRaw =
-        typeof args["projectId"] === "string" && args["projectId"].trim()
-          ? args["projectId"].trim()
-          : ""
-      const requestedProjectId = requestedRaw
-        ? resolveProjectKnowledgeInboundProjectId(requestedRaw, env)
+  return makeTool("recall_project_knowledge", "low", async (args) => {
+    const store = ctx.projectKnowledgeStore
+    if (!store) {
+      return { ok: false, reason: "project knowledge store unavailable" }
+    }
+    const {
+      expandRecallProjectIds,
+      formatCrossProjectRecall,
+      formatProjectKnowledgeSnippet,
+      resolveProjectKnowledgeInboundProjectId,
+    } = await import("@butler/domain/knowledge/project-knowledge.js")
+    const env = ctx.env ?? process.env
+    const contextProjectId = resolveProjectKnowledgeInboundProjectId(
+      (ctx.projectId ?? "").trim(),
+      env,
+    )
+    const requestedRaw =
+      typeof args["projectId"] === "string" && args["projectId"].trim()
+        ? args["projectId"].trim()
         : ""
-      const projectsRaw =
-        typeof args["projects"] === "string" && args["projects"].trim()
-          ? args["projects"].trim()
-          : ""
-      const expanded = expandRecallProjectIds({
-        contextProjectId,
-        requestedProjectId,
-        projects: projectsRaw,
-        allProjectIds: projectsRaw === "*" ? await store.listAllProjects() : undefined,
-      })
-      if (!expanded.ok) {
-        return { ok: false, reason: expanded.reason }
-      }
-      const query = typeof args["query"] === "string" ? args["query"] : ""
-      const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5
-      const limit = Math.min(20, Math.max(1, Math.floor(limitRaw)))
-      const perProjectLimit = Math.max(1, Math.ceil(limit / expanded.projectIds.length))
-      try {
-        const records = await store.listByProjects({
-          projectIds: expanded.projectIds,
-          perProjectLimit,
-        })
-        const byProject = expanded.projectIds
-          .map((projectId) => ({
-            projectId,
-            records: records.filter((r) => r.projectId === projectId),
-          }))
-          .filter((g) => g.records.length > 0)
-        const formatted = formatCrossProjectRecall({
-          query,
-          limit,
-          byProject,
-          formatSnippet: formatProjectKnowledgeSnippet,
-        })
-        if (formatted === null) {
-          return { ok: true, output: "（无匹配的项目知识条目）" }
-        }
-        return { ok: true, output: formatted }
-      } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : String(err) }
-      }
-    },
-  }
+    const requestedProjectId = requestedRaw
+      ? resolveProjectKnowledgeInboundProjectId(requestedRaw, env)
+      : ""
+    const projectsRaw =
+      typeof args["projects"] === "string" && args["projects"].trim()
+        ? args["projects"].trim()
+        : ""
+    const expanded = expandRecallProjectIds({
+      contextProjectId,
+      requestedProjectId,
+      projects: projectsRaw,
+      allProjectIds: projectsRaw === "*" ? await store.listAllProjects() : undefined,
+    })
+    if (!expanded.ok) {
+      return { ok: false, reason: expanded.reason }
+    }
+    const query = typeof args["query"] === "string" ? args["query"] : ""
+    const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5
+    const limit = Math.min(20, Math.max(1, Math.floor(limitRaw)))
+    const perProjectLimit = Math.max(1, Math.ceil(limit / expanded.projectIds.length))
+    const records = await store.listByProjects({
+      projectIds: expanded.projectIds,
+      perProjectLimit,
+    })
+    const byProject = expanded.projectIds
+      .map((projectId) => ({
+        projectId,
+        records: records.filter((r) => r.projectId === projectId),
+      }))
+      .filter((g) => g.records.length > 0)
+    const formatted = formatCrossProjectRecall({
+      query,
+      limit,
+      byProject,
+      formatSnippet: formatProjectKnowledgeSnippet,
+    })
+    if (formatted === null) {
+      return { ok: true, output: "（无匹配的项目知识条目）" }
+    }
+    return { ok: true, output: formatted }
+  })
 }
 
 /**

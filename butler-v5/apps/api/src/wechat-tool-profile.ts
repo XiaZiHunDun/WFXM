@@ -43,14 +43,6 @@ export function isDevDirectExecEnabled(env: NodeJS.ProcessEnv = process.env): bo
   return raw === "1" || raw === "true" || raw === "on"
 }
 
-/** @deprecated use isDevDirectExecEnabled — old env name alias */
-export function isDevPreferDelegateEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const legacy = (env["BUTLER_V5_DEV_PREFER_DELEGATE"] ?? "").trim().toLowerCase()
-  if (legacy === "0" || legacy === "false") return false
-  if (legacy === "1" || legacy === "true") return true
-  return !isDevDirectExecEnabled(env)
-}
-
 export function isDevWorkIntent(kind: WechatIntakeIntentKind): boolean {
   return kind === "dev_task" || kind === "continue_dev"
 }
@@ -83,27 +75,6 @@ export function resolveToolNamesForIntake(args: {
     names = [...names, "delegate_to_subagent"]
   }
   return names
-}
-
-/** @deprecated use resolveToolNamesForIntake */
-export function resolveToolNamesForMode(args: {
-  readonly includeExecTools: boolean
-  readonly baseAllowlist?: readonly string[]
-  readonly env?: NodeJS.ProcessEnv
-}): readonly string[] {
-  const env = args.env ?? process.env
-  if (args.includeExecTools) {
-    return resolveToolNamesForIntake({
-      intentKind: "dev_task",
-      baseAllowlist: args.baseAllowlist,
-      env: { ...env, BUTLER_V5_DEV_DIRECT_EXEC: "1" },
-    })
-  }
-  return resolveToolNamesForIntake({
-    intentKind: "chat",
-    baseAllowlist: args.baseAllowlist,
-    env,
-  })
 }
 
 export function shouldAdvertiseDelegate(args: {
