@@ -1,4 +1,4 @@
-import { canTransitionRun } from "@butler/domain/runtime.js"
+import { canTransitionRun, isTerminalRunStatus } from "@butler/domain/runtime.js"
 import type { RuntimeStore, RunStatus, StoredRun } from "@butler/domain/runtime.js"
 
 export class IllegalRunTransitionError extends Error {
@@ -171,19 +171,6 @@ export async function expireRun(
     })
     return expired
   })
-}
-
-/** Terminal Run statuses — a Run in one of these is a dead-end (double
- *  completion is forbidden; the domain state machine has no outgoing edges). */
-const TERMINAL_RUN_STATUSES: readonly RunStatus[] = [
-  "succeeded",
-  "failed",
-  "cancelled",
-  "expired",
-]
-
-function isTerminalRunStatus(status: RunStatus): boolean {
-  return TERMINAL_RUN_STATUSES.includes(status)
 }
 
 /**
