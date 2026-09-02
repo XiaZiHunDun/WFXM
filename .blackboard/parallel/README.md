@@ -51,3 +51,9 @@ bash scripts/butler-layer-import-gate.sh   # 改跨层 import 时
 ## 当前待办候选（按所属会话存放）
 
 见 `.blackboard/state.md`"下一步"。D47 候选：exec 记账（S6 apps/api）、Channel Port（S3）、MemoryService 物化（横跨 S3/S5/S6，需 S1 领衔清单）。
+
+## Wave-1 已并入（2026-09-02，main `2f5068ba`）
+
+- S2 domain（状态机全表补测，`1daa740f`）、S4 persistence（cross-impl 契约线束，`3981845c`）、S5 runtime（双重完成守卫/deadline 并发修复，`43f8a645`）。
+- `par/domain` / `par/persistence` / `par/runtime` 已消费，勿在其上续开；新开请 rebase 到新 main。
+- 详见 `.blackboard/shifts/2026-09-02-d47-parallel-wave1-handoff.md`。
