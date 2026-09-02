@@ -36,9 +36,20 @@ pnpm exec eslint apps cli --ext .ts --max-warnings 0
 ## 当前相关待办
 
 - **exec 记账（D47，面层）**——**已并入 main（D49）**，主战场关闭。
+> ⚠️  **历史待办**：以下 Wave-3 任务已在 M2（main `4a6e628f`）全部收口完成，本段仅作归档留底。
+>  ✅ 实际完成见末尾「M2 收口摘要」。
+
 - **Wave-3 包内整理与完善（S6，2026-09-02 业主确认）**：apps/api + cli 包内自查自净，**只动包内、不碰共享文件**。候选方向（择真实存在者做，勿虚构）：
   - **文件行数**：`subagent-worker.ts` 780 行、`tools.ts` 762 行接近 G6 阈值（800 警 / 1200 阻）——评估合理拆分（**不要为拆而拆**；D45 已示范 owner-routes 拆分模式）。
   - **受保护面**：`wechat-inbound-butler.ts` 485 行**不可动**（受保护），仅读不写。
   - **测试补强**：D49 exec 记账相关覆盖已过；可核对 `exec-audit.ts` 是否有边界测试缺口（如 audit 落库失败路径、audit 内容脱敏）。
   - **组合根核对**：`bootstrap-wiring.ts`（Composition Root）——生产注入 `createRuntimeStore`、隔离/测试走 `createInMemoryRuntimeStore`（D46）的口径是否一致。
 - 与 S5 协同 MemoryService 物化接线端（等 S1 ledger 立项）。
+---
+
+## ✅ M2 收口摘要（已并入 main `4a6e628f` via `par/api-clean3`）
+
+- **包内整理 43 文件 +394/−314**：抽出共享 `env-util.ts`（parsePositiveInt + env-boolean yes/off 统一）、删除 7 个未用导出（`wechat-async-harness` 等）、恢复 cli lint 门。
+- **测试补覆盖**：`exec-audit.test.ts`（边界，原未跟踪残留入库）、`bootstrap-wiring.test.ts`（Composition Root DB-open 失败契约）、`env-util.test.ts`、`wechat-tool-profile.test.ts`、`wechat-intake-llm.test.ts`。
+- **零星修复**：exactOptionalPropertyTypes 剩余点 + prettier 统一；lint 0 警告。
+- **5-gate**：apps/api+cli tsc ✓、lint 0 警、全测试 PASS。

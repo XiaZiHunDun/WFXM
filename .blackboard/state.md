@@ -7,7 +7,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 > **2026-09-02 模型升级（业主确认）**：避免"每完成一项就汇聚 → 其他会话空等"。改为——①会话在自己 `par/*` 上推**一批自洽 commits** 再 push，各自跑**本包最小门禁**；②下游定期 `git rebase origin/main` 让上游改动自行流入并**自治适配**；③S1 只做**固定汇聚点**收口（全量 gate 从"每项一次"降到"每批一次"）。
 
-## ✅ 首个汇聚点 M1（已收口 2026-09-02，合 main `89d2c04f`）
+## ✅ 首个汇聚点 M1（已收口 2026-09-02，合 main `89d2c04f`）　→　✅ M2（已收口 2026-09-03，合 main `4a6e628f`）
 
 - **内容**：收口 `par/exec-audit` 在 main（D49）之上的 2 个未并提交：
   1. `bc704b6a` **exactOptionalPropertyTypes 基线清零**（apps/api 10 文件条件展开：wechat-project-surface / dev-quality-gate / schedule-worker / project-state / candidate-expires-sweeper / durable-memory-inject / project-knowledge-inject-sync-watch-worker）——清掉 main 遗留的 `wechat-project-surface.ts:314`（S1 决策登记中的"未清遗留"）。typecheck 全仓归零、lint 0 警、全量回归 1548（唯一 fail = bubblewrap 沙箱基线）。
@@ -19,12 +19,12 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 | 会话 | 分支 | 工作 | 依赖 |
 | --- | --- | --- | --- |
-| S2 domain | `par/domain-ssot` | **SSOT `isTerminalRunStatus`** — ✅ **已合入 main `006125b9`**（PR #8：运行时由 LEGAL_TRANSITIONS 无出边推导 + barrel + 10 一致性测试，契约冻结） | 完成 |
-| S5 runtime | `par/runtime-ssot` | SSOT 消费侧 — ✅ **已合入 main `22360a67`**（删本地 176-187，导入 domain 版，65/379 全过，行为零漂移） | S2 已合 ✅ |
-| S4 persistence | `par/persistence-clean3` | 包内整理与完善（两实现 6 处差异核对 / db-open 测试基建 / 导出面核对） | 无 |
-| S6 apps+cli | `par/exec-audit` 已消费→新开 | 包内整理与完善（subagent-worker/tools 行数评估 / exec-audit 边界测试 / Composition Root 口径） | 无 |
+| S2 domain | `par/domain-ssot` + cov2/cov3/kcov/refine/status | **SSOT `isTerminalRunStatus`** ✅ **已合入 main `006125b9`**；domain 纯测试补 5 批 — ✅ **M2 合入**（+720 用例/覆盖率） | 完成 |
+| S5 runtime | `par/runtime-ssot` + `par/runtime-hardening` | SSOT 消费侧 ✅ `22360a67`；hardening（double-completion 修复 + SSOT cascade fix + 分支覆盖）— ✅ **M2 合入** | S2 已合 ✅ |
+| S4 persistence | `par/persistence-clean3` | 包内整理 — ✅ **已合入 main**（in-memory/prod 对齐 S-A~S-H + EventBridge tests + db-open PG skip + cross-impl 线束扩） | 无 |
+| S6 apps+cli | `par/api-clean3` | 包内整理 — ✅ **已合入 main M2**（env 去重共享 env-util + 删 7 死导出 + cli lint 门恢复 + exec-audit/CR/tool-profile/test 补覆盖） | 无 |
 
-> 分支名仅建议；各会话也可按自身 `par/<area>` 规约起名。SSOT 是**唯一协调项**：S2 先做 domain 导出（标 `@S1`），S5 等 S2 合入后再 rebase 消费——**勿单会话抢先**。其余两会话完全独立。
+> **Wave-3 全部完成（M2 已收口 main `4a6e628f`）**。S2 纯测试 5 批与 S5 hardening 因完全独立一并在 M2 收口；S4 persistence 对齐 + S6 apps-cli 整理同步完成。
 
 **当前主线（D49 exec 审计记账）**：owner 重定向——Channel Port 退役（只用微信）；S6 开 exec 行为审计记账；S2/S4/S5 各包"整理与完善"。Wave-2 前半（D48）与 S6 exec（D49）均已并入 main。已并入：
 - **D48 / Wave-2 前半（整理类）**：S2 domain `9639d265`（schedule/quiet-reply 边界，vitest 314）、S4 persistence `e7f8a8ed`（修基线 project-knowledge-store.ts:120 exactOptionalPropertyTypes + 边界测试，vitest 108）、S5 runtime `de3da1e2`（终态原子审计 transitionRunToTerminal/withTransaction；denyWaitingStep 走守卫；去 3 处冗余 as；runtime+arch 379）。
@@ -34,7 +34,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 **S1 决策登记**：1. domain `./tools/types.js` 仅 `_archive/contracts` 消费 → **保留**（兼容层，非生产路径）。2. **SSOT isTerminalRunStatus 立项**（Wave-3 协调项，S2+S1 共同提交，勿单会话）。
 
-**下一步**：**SSOT Wave-3 协调项已全部关闭**（S2 `006125b9` + S5 `22360a67`）。S4/S6 包内整理继续独立推进。下一汇聚点 **M2 待 S1 宣布**。可选：MemoryService（§12）物化触发。
+**下一步**：**M2 汇聚点已收口（main `4a6e628f`）**，Wave-3 全部分支完成（S2/S5 SSOT + S4/persistence 对齐 + S6/apps-cli 整理 + S2 domain 测试矩阵补）。下一汇聚点 **M3 待 S1 宣布**。可选：MemoryService（§12）物化触发。
 
 ## 不要做
 
@@ -46,6 +46,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (M2 收口)：S1 收口 8 ahead 分支到 main `4a6e628f`——S2 domain 纯测试 5 批 + S5 runtime-hardening + S4 persistence 对齐（S-A~S-H）+ S6 apps-cli 整理。5-gate：typecheck 全绿 / lint 0 警 / 全量回归 259/263（仅 bubblewrap + eval/scenarios 环境基线）。
 - 2026-09-02 (SSOT 收口)：S1 合 S2 domain 侧 `006125b9` + S5 消费侧 `22360a67`——SSOT isTerminalRunStatus Wave-3 协调项关闭。domain 25/25、runtime+arch 65/379、全仓 typecheck 全绿。
 - 2026-09-02 (M1 收口)：S1 合 `par/exec-audit` 入 main（`89d2c04f`）——exactOptionalPropertyTypes 基线清零 + 并行模型升级黑板。5-gate 全过。Wave-3 分工下发（SSOT S2+S1 / S4 / S6）。
 - 2026-09-02 (M1 宣布)：并行模型升级落盘 + 首个汇聚点宣布。见 .blackboard/parallel/README.md。

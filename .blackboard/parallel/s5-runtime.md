@@ -36,9 +36,19 @@ CI= pnpm exec vitest run tests/gateway tests/test_p2_workflow_permissions.py-tes
 
 ## 当前相关待办
 
+> ⚠️  **历史待办**：以下 Wave-3 任务已在 M2（main `4a6e628f`）全部收口完成，本段仅作归档留底。
+>  ✅ 实际完成见末尾「M2 收口摘要」。
+
 - **Wave-3 主项：SSOT `isTerminalRunStatus` 消费侧（S2+S1 协调，2026-09-02 立项）**
   - 现状：`packages/runtime/src/run-lifecycle.ts:176-187` 自维护本地 `TERMINAL_RUN_STATUSES` 常量 + `isTerminalRunStatus` 函数（与 domain `LEGAL_TRANSITIONS` 重复）。
   - 任务：**S2 已合入 main（`006125b9`）**。`git fetch && git rebase origin/main` 后：删除本地 `TERMINAL_RUN_STATUSES` 常量（178-183）与私有 `isTerminalRunStatus` 函数（185-187）；把 `isTerminalRunStatus` 追加到第 1-2 行的 `@butler/domain/runtime.js` import；`TERMINAL_RUN_STATUSES` 无需导入（仅本地函数曾用它）。保持 `transitionRunToTerminal`/`expireOverdueRuns` 行为不变。
   - **验证**：`packages/runtime` typecheck + 相关测试全绿；grep 确认 runtime 内不再有本地 `TERMINAL_RUN_STATUSES` 定义。
   - **依赖**：S2 已完成并经 S1 合入 main；现在可独立消费，完成后标 @S1 由 S1 收口。
   - 其余：exec 记账已落在 apps/api（D49），不落引擎层。
+---
+
+## ✅ M2 收口摘要（已并入 main `4a6e628f`）
+
+- **SSOT 消费侧**：`par/runtime-ssot` → `22360a67`（删 `run-lifecycle.ts:176-187` 本地定义，改从 domain 导入；65/379 全过，行为零漂移）。
+- **runtime-hardening**：`par/runtime-hardening` → double-completion no-op 修复（run-engine 读实际 status 而非猜 "succeeded"）+ cancelRunCascade 用 SSOT `isTerminalRunStatus`（跳过 expired 死端，修 `IllegalRunTransitionError` 级联中止）+ 7 模块分支覆盖测试。
+- **5-gate**：runtime tsc ✓、lint 0 警、全测试 PASS。
