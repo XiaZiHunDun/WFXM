@@ -1,5 +1,5 @@
 /**
- * RuntimeStore 契约一致性线束（cross-impl，S4 / D47）。
+ * RuntimeStore 契约一致性线束（cross-impl，S4 / D47 + parity 补齐）。
  *
  * 证明 Repository Port（`RuntimeStore` 合同，`@butler/domain/runtime/store-contract.js`）
  * 是"可替换单一接缝"：用同一组断言函数对两个实现同时跑：
@@ -7,19 +7,22 @@
  *   2. 第二实现  ：createInMemoryRuntimeStore()               // D46，纯内存（memory/runtime-store.ts）
  *
  * 断言二者在以下可观察行为上一致：
- *   - 会话 / 消息（写入、追加、按时间序读取、按 projectId 列举）
+ *   - 会话 / 消息（写入、追加、按时间序读取、按 projectId 列举、idempotencyKey 去重）
  *   - Run 状态流转 + 乐观版本冲突（版本递增、过期版本冲突抛错）
- *   - Step CRUD + waiting-approval 列举（采用 approval kind 对齐输入）
- *   - grant 剩余次数与过期（digest 匹配、耗尽、按 capability / MCP server 吊销）
+ *   - Step CRUD + waiting-approval 列举（kind==='approval' + status==='waiting' 门控、createdAt asc）
+ *   - grant 剩余次数与过期（digest 语义、耗尽、按 capability / MCP server 吊销）
  *   - audit 追加 + withTransaction / *InTx 变体的原子组合
- *   - 主 Run 选择（active-main / child / 超 deadline）
+ *   - 主 Run 选择（active-main / child createdAt desc / 超 deadline 的 ACTIVE 状态过滤 + deadline asc）
  *
  * 已知 in-memory 简化点（契约以生产实现为准，不强行在生产 store 上削足适履）：
  * 下文 "documented in-memory simplifications" 逐条标注，并在 PR 中上报 S1。
+ * S-A（idempotency 去重）/ S-C（waiting-approval 门控）/ S-D（deadline 状态门控）/
+ * S-E（child 排序）/ S-F（digest 语义）已由 memory 实现补齐，并在本线束中双向锁定；
+ * 仅剩 S-B（content 落库脱敏）为刻意的内存简化（内存非耐久转录）。
  */
 
 import { describe, expect, it } from "vitest"
-import type { RuntimeStore } from "@butler/domain/runtime.js"
+import type { RuntimeStore, StoredRun } from "@butler/domain/runtime.js"
 import { createRuntimeStore } from "./runtime-store.js"
 import { createInMemoryRuntimeStore } from "./memory/runtime-store.js"
 import { makeTestDb } from "./testing.js"
@@ -301,6 +304,246 @@ function paritySuite(name: string, make: StoreFactory): void {
         expect((await store.getRun(runId))?.version).toBe(2)
       })
     })
+
+    it("idempotency：createRun / createConversationWithUserMessage / appendMessage 按 idempotencyKey 返回既有记录（S-A）", async () => {
+      await using(async (store) => {
+        const { runId } = await seedConversationAndRun(store)
+        const existing = (await store.getRun(runId)) as StoredRun
+        const again = await store.createRun({
+          id: crypto.randomUUID(),
+          conversationId: existing.conversationId,
+          parentRunId: null,
+          triggerSource: "channel",
+          idempotencyKey: existing.idempotencyKey,
+          subject: "owner",
+          goal: "reply",
+          budget: {},
+          deadline: null,
+          createdAt: t(0),
+        })
+        expect(again.id).toBe(runId)
+
+        const cid = crypto.randomUUID()
+        const first = await store.createConversationWithUserMessage({
+          conversationId: cid,
+          messageId: crypto.randomUUID(),
+          subject: "owner",
+          content: { text: "hello" },
+          triggerSource: "channel",
+          idempotencyKey: "replay-conv-1",
+          createdAt: t(0),
+          projectId: "WFXM",
+        })
+        const replay = await store.createConversationWithUserMessage({
+          conversationId: cid,
+          messageId: crypto.randomUUID(),
+          subject: "owner",
+          content: { text: "hello again" },
+          triggerSource: "channel",
+          idempotencyKey: "replay-conv-1",
+          createdAt: t(1000),
+        })
+        expect(replay).toEqual(first)
+        expect(
+          (await store.listConversationsByProject({ projectId: "WFXM" })).filter(
+            (c) => c.id === cid,
+          ),
+        ).toHaveLength(1)
+
+        const appended = await store.appendMessage({
+          messageId: crypto.randomUUID(),
+          conversationId: cid,
+          role: "assistant",
+          content: { text: "reply" },
+          triggerSource: null,
+          idempotencyKey: "replay-append-1",
+          createdAt: t(2000),
+        })
+        const appendedAgain = await store.appendMessage({
+          messageId: crypto.randomUUID(),
+          conversationId: cid,
+          role: "assistant",
+          content: { text: "reply again" },
+          triggerSource: null,
+          idempotencyKey: "replay-append-1",
+          createdAt: t(3000),
+        })
+        expect(appendedAgain.id).toBe(appended.id)
+        expect((await store.listMessages(cid)).map((m) => m.role)).toEqual([
+          "user",
+          "assistant",
+        ])
+      })
+    })
+
+    it("waiting-approval：仅 kind==='approval' 且 status==='waiting' 命中，按 createdAt asc（S-C）", async () => {
+      await using(async (store) => {
+        const { runId, conversationId: cid } = await seedConversationAndRun(store)
+        const approvalEarly = crypto.randomUUID()
+        await store.createStep({
+          id: approvalEarly,
+          runId,
+          kind: "approval",
+          status: "waiting",
+          input: {},
+          createdAt: t(1000),
+        })
+        await store.createStep({
+          id: crypto.randomUUID(),
+          runId,
+          kind: "model",
+          status: "waiting",
+          input: {},
+          createdAt: t(1500),
+        })
+        await store.createStep({
+          id: crypto.randomUUID(),
+          runId,
+          kind: "approval",
+          status: "succeeded",
+          input: {},
+          createdAt: t(2000),
+        })
+        const approvalLate = crypto.randomUUID()
+        await store.createStep({
+          id: approvalLate,
+          runId,
+          kind: "approval",
+          status: "waiting",
+          input: {},
+          createdAt: t(3000),
+        })
+        const expected = [approvalEarly, approvalLate]
+        expect((await store.listWaitingApprovalSteps()).map((s) => s.id)).toEqual(expected)
+        expect(
+          (await store.listWaitingApprovalStepsForConversation(cid)).map((s) => s.id),
+        ).toEqual(expected)
+      })
+    })
+
+    it("listRunsPastDeadline：仅 ACTIVE_MAIN_RUN_STATUSES 的过期 run，按 deadline asc（S-D）", async () => {
+      await using(async (store) => {
+        const { runId, conversationId: cid } = await seedConversationAndRun(store)
+        const terminalId = crypto.randomUUID()
+        await store.createRun({
+          id: terminalId,
+          conversationId: cid,
+          parentRunId: runId,
+          triggerSource: "parent_run",
+          idempotencyKey: `term-${terminalId}`,
+          subject: "owner",
+          goal: "g",
+          budget: {},
+          deadline: t(500),
+          createdAt: t(1000),
+        })
+        await store.transitionRunStatus(terminalId, 1, "failed", t(1500))
+
+        const earlyId = crypto.randomUUID()
+        const lateId = crypto.randomUUID()
+        for (const [id, deadline, createdAt] of [
+          [earlyId, t(1000), t(2000)],
+          [lateId, t(3000), t(3000)],
+        ] as const) {
+          await store.createRun({
+            id,
+            conversationId: cid,
+            parentRunId: runId,
+            triggerSource: "parent_run",
+            idempotencyKey: `act-${id}`,
+            subject: "owner",
+            goal: "g",
+            budget: {},
+            deadline,
+            createdAt,
+          })
+        }
+
+        const listed = await store.listRunsPastDeadline(t(6000))
+        expect(listed.map((r) => r.id)).toEqual([earlyId, lateId])
+        expect(listed.some((r) => r.id === terminalId)).toBe(false)
+      })
+    })
+
+    it("findChildRuns：按 createdAt desc（最近在先）（S-E）", async () => {
+      await using(async (store) => {
+        const { runId, conversationId: cid } = await seedConversationAndRun(store)
+        const early = crypto.randomUUID()
+        const late = crypto.randomUUID()
+        for (const [id, at] of [
+          [early, t(1000)],
+          [late, t(3000)],
+        ] as const) {
+          await store.createRun({
+            id,
+            conversationId: cid,
+            parentRunId: runId,
+            triggerSource: "parent_run",
+            idempotencyKey: `child-${id}`,
+            subject: "owner",
+            goal: "g",
+            budget: {},
+            deadline: null,
+            createdAt: at,
+          })
+        }
+        expect((await store.findChildRuns(runId)).map((r) => r.id)).toEqual([late, early])
+      })
+    })
+
+    it("findActiveGrant digest：无 scope.digest 的 grant 接受任意 digest；固定 digest 须精确匹配（S-F）", async () => {
+      await using(async (store) => {
+        const { runId } = await seedConversationAndRun(store)
+        await store.createScopedGrant({
+          grantId: crypto.randomUUID(),
+          runId,
+          subject: "owner",
+          capability: "read_file",
+          scope: {},
+          remainingUses: 1,
+          expiresAt: t(60_000),
+          createdAt: t(0),
+        })
+        expect(
+          await store.findActiveGrant({
+            runId,
+            subject: "owner",
+            capability: "read_file",
+            digest: "anything",
+            now: t(0),
+          }),
+        ).not.toBeNull()
+
+        await store.createScopedGrant({
+          grantId: crypto.randomUUID(),
+          runId,
+          subject: "owner",
+          capability: "write_file",
+          scope: { digest: "d1" },
+          remainingUses: 1,
+          expiresAt: t(60_000),
+          createdAt: t(0),
+        })
+        expect(
+          await store.findActiveGrant({
+            runId,
+            subject: "owner",
+            capability: "write_file",
+            digest: "other",
+            now: t(0),
+          }),
+        ).toBeNull()
+        expect(
+          await store.findActiveGrant({
+            runId,
+            subject: "owner",
+            capability: "write_file",
+            digest: "d1",
+            now: t(0),
+          }),
+        ).not.toBeNull()
+      })
+    })
   })
 }
 
@@ -313,32 +556,6 @@ paritySuite("in-memory (D46 second implementation)", memoryFactory)
  * 差异点汇总也写入 PR 描述。
  */
 describe("documented in-memory simplifications (契约以生产为准)", () => {
-  it("S-A message/run idempotency：生产按 idempotencyKey 去重返回既有记录；in-memory 不去重", async () => {
-    const db = await makeTestDb()
-    const store = createRuntimeStore(db)
-    try {
-      const { runId } = await seedConversationAndRun(store, "WFXM")
-      const existing = (await store.getRun(runId)) as StoredRun
-      const again = await store.createRun({
-        id: crypto.randomUUID(),
-        conversationId: existing.conversationId,
-        parentRunId: null,
-        triggerSource: "channel",
-        idempotencyKey: existing.idempotencyKey,
-        subject: "owner",
-        goal: "reply",
-        budget: {},
-        deadline: null,
-        createdAt: t(0),
-      })
-      expect(again.id).toBe(runId)
-      // in-memory 简化：createRun / createConversationWithUserMessage / appendMessage
-      // 不做 idempotencyKey 去重，每次写入新记录。
-    } finally {
-      await db.close()
-    }
-  })
-
   it("S-B content redaction：生产在落库前对消息内容脱敏；in-memory 存原始内容", async () => {
     const db = await makeTestDb()
     const store = createRuntimeStore(db)
@@ -358,102 +575,6 @@ describe("documented in-memory simplifications (契约以生产为准)", () => {
         "deadbeef",
       )
       // in-memory 简化：原样存 input.content（脱敏属持久化耐久侧关切，测试/隔离用途可接受）。
-    } finally {
-      await db.close()
-    }
-  })
-
-  it("S-C waiting-approval kind 门控：生产只列 kind==='approval' 的 waiting step；in-memory 列任意 waiting step", async () => {
-    const db = await makeTestDb()
-    const store = createRuntimeStore(db)
-    try {
-      const { runId } = await seedConversationAndRun(store)
-      await store.createStep({
-        id: crypto.randomUUID(),
-        runId,
-        kind: "model",
-        status: "waiting",
-        input: {},
-        createdAt: t(1000),
-      })
-      const listed = await store.listWaitingApprovalSteps()
-      expect(listed.filter((s) => s.kind !== "approval")).toEqual([])
-      // in-memory 简化：listWaitingApprovalSteps / ForConversation 仅按 status==='waiting'
-      // 过滤，无 kind==='approval' 门控。
-    } finally {
-      await db.close()
-    }
-  })
-
-  it("S-D listRunsPastDeadline 状态门控：生产只列 ACTIVE_MAIN_RUN_STATUSES；in-memory 不过滤状态", async () => {
-    const db = await makeTestDb()
-    const store = createRuntimeStore(db)
-    try {
-      const { runId } = await seedConversationAndRun(store)
-      await store.transitionRunStatus(runId, 1, "failed", t(500))
-      const listed = await store.listRunsPastDeadline(t(6000))
-      expect(listed.some((r) => r.id === runId)).toBe(false)
-      // in-memory 简化：仅以 deadline 过滤，终态 run 也会返回。
-    } finally {
-      await db.close()
-    }
-  })
-
-  it("S-E findChildRuns 排序：生产按 createdAt desc（最近在先）；in-memory 按插入序", async () => {
-    const db = await makeTestDb()
-    const store = createRuntimeStore(db)
-    try {
-      const { runId, conversationId: cid } = await seedConversationAndRun(store)
-      const early = crypto.randomUUID()
-      const late = crypto.randomUUID()
-      for (const [id, at] of [
-        [early, t(1000)],
-        [late, t(3000)],
-      ] as const) {
-        await store.createRun({
-          id,
-          conversationId: cid,
-          parentRunId: runId,
-          triggerSource: "parent_run",
-          idempotencyKey: `child-${id}`,
-          subject: "owner",
-          goal: "g",
-          budget: {},
-          deadline: null,
-          createdAt: at,
-        })
-      }
-      expect((await store.findChildRuns(runId)).map((r) => r.id)).toEqual([late, early])
-      // in-memory 简化：返回插入序（[early, late]），不提供稳定 desc 排序。
-    } finally {
-      await db.close()
-    }
-  })
-
-  it("S-F findActiveGrant digest 语义：生产对无 scope.digest 的 grant 接受任意 digest；in-memory 要求 scope.digest===digest", async () => {
-    const db = await makeTestDb()
-    const store = createRuntimeStore(db)
-    try {
-      const { runId } = await seedConversationAndRun(store)
-      await store.createScopedGrant({
-        grantId: crypto.randomUUID(),
-        runId,
-        subject: "owner",
-        capability: "read_file",
-        scope: {},
-        remainingUses: 1,
-        expiresAt: t(60_000),
-        createdAt: t(0),
-      })
-      const hit = await store.findActiveGrant({
-        runId,
-        subject: "owner",
-        capability: "read_file",
-        digest: "anything",
-        now: t(0),
-      })
-      expect(hit).not.toBeNull()
-      // in-memory 简化：g.scope.digest === digest 必须成立，否则返回 null。
     } finally {
       await db.close()
     }
