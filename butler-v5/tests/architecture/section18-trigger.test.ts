@@ -86,6 +86,7 @@ const DURABLE_MEMORY_INJECT = join(
   "../../apps/api/src/durable-memory-inject.ts",
 )
 const OWNER_ROUTES = join(__dirname, "../../apps/api/src/owner-routes.ts")
+import { readOwnerRoutesSource } from "./owner-routes-source.js"
 const WECHAT_MEMORY_COMMANDS = join(
   __dirname,
   "../../apps/api/src/wechat-memory-commands.ts",
@@ -257,7 +258,7 @@ describe("arch: §18 trigger guard (no premature activation of deferred features
   })
 
   it("§18 row 3 owner batch routes — confirm-batch + reject-batch + GET hasMore/countBySubject present (D39 G3)", () => {
-    const src = readFileSync(OWNER_ROUTES, "utf-8")
+    const src = readOwnerRoutesSource()
     expect(
       /\/v1\/owner\/memories\/confirm-batch/.test(src),
       "owner-routes must declare POST /v1/owner/memories/confirm-batch",

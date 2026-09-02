@@ -114,11 +114,11 @@ const MEMORY_PURE = join(
 )
 const RUNTIME_SRC = join(__dirname, "../../packages/runtime/src")
 const APPS_SRC = join(__dirname, "../../apps/api/src")
-const OWNER_ROUTES = join(__dirname, "../../apps/api/src/owner-routes.ts")
 const WECHAT_MEMORY_COMMANDS = join(
   __dirname,
   "../../apps/api/src/wechat-memory-commands.ts",
 )
+import { readOwnerRoutesSource } from "./owner-routes-source.js"
 
 function listProductionTs(root: string): string[] {
   const out: string[] = []
@@ -301,7 +301,7 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
   // cannot regress without tripping this guard.
 
   it("§12: G3 batch candidate UI 实施 — 3 owner routes + /记忆候选 + /确认记忆 batch all present (D39 lock)", () => {
-    const ownerRoutes = readFileSync(OWNER_ROUTES, "utf-8")
+    const ownerRoutes = readOwnerRoutesSource()
     expect(
       /\/v1\/owner\/memories\/confirm-batch/.test(ownerRoutes),
       "owner-routes must declare POST /v1/owner/memories/confirm-batch (D39 G3)",

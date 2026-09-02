@@ -44,7 +44,7 @@ import { join } from "node:path"
 
 const SCHEMA = join(__dirname, "../../packages/persistence/src/schema.ts")
 const BOOTSTRAP_WIRING = join(__dirname, "../../apps/api/src/bootstrap-wiring.ts")
-const OWNER_ROUTES = join(__dirname, "../../apps/api/src/owner-routes.ts")
+import { readOwnerRoutesSource } from "./owner-routes-source.js"
 
 describe("arch: §11 deferred items — D22 trigger state (3 triggered, 2 not)", () => {
   // ─── 已 triggered 项（lock 持续存在 + 接入生产） ──────────────
@@ -83,7 +83,7 @@ describe("arch: §11 deferred items — D22 trigger state (3 triggered, 2 not)",
   })
 
   it("owner-routes.ts exposes 12 owner HTTP endpoint registrations (6 documents + 2 procedures + 4 tasks)", () => {
-    const src = readFileSync(OWNER_ROUTES, "utf-8")
+    const src = readOwnerRoutesSource()
     // Count endpoint registrations: `app.{method}("/v1/owner/<kind>/..."`
     // Method-agnostic — a single path with multiple methods counts per
     // method (e.g. /v1/owner/documents/:documentId has both GET and DELETE).

@@ -26,7 +26,7 @@ const STORE_CONTRACT = join(
   __dirname,
   "../../packages/domain/src/runtime/store-contract.ts",
 )
-const OWNER_ROUTES = join(__dirname, "../../apps/api/src/owner-routes.ts")
+import { readOwnerRoutesSource } from "./owner-routes-source.js"
 
 describe("arch: cancelRun cascade to descendants (§20 #7)", () => {
   it("cancelRunCascade exports from run-lifecycle.ts", () => {
@@ -65,7 +65,7 @@ describe("arch: cancelRun cascade to descendants (§20 #7)", () => {
   })
 
   it("owner-routes cancels via cancelRunCascade (not bare cancelRun)", () => {
-    const src = readFileSync(OWNER_ROUTES, "utf-8")
+    const src = readOwnerRoutesSource()
     // Find cancel-run route handler and verify it uses the cascade variant.
     // Heuristic: look for the cancelRun import and assert cancelRunCascade
     // is also imported + the route's POST handler calls the cascade variant.
