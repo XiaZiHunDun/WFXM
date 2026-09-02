@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { pickExecLLM, pickLLMForRole, pickPlanLLM, execModelTrace } from "./model-router.js"
+import { pickExecLLM, pickLLMForRole, pickPlanLLM, execModelTrace, resolveLLMModel, pickIntakeLLM } from "./model-router.js"
 import type * as OpenAICompatible from "./llm/openai-compatible.js"
 
 vi.mock("./llm/openai-compatible.js", async (importOriginal) => {
@@ -125,5 +125,27 @@ describe("model-router", () => {
         ...emptyEnv,
       }),
     ).toBe("exec:deepseek-chat")
+  })
+
+  it("resolveLLMModel exposes the Model Port resolution (single source of truth)", () => {
+    const model = resolveLLMModel(
+      { DEEPSEEK_API_KEY: "sk-ds", BUTLER_V5_MODEL_PLAN: "deepseek-v4-x", ...emptyEnv },
+      "plan",
+    )
+    expect(model).toEqual({ provider: "deepseek", model: "deepseek-v4-x" })
+    expect(resolveLLMModel(emptyEnv, "plan")).toBeUndefined()
+  })
+
+  it("pickIntakeLLM routes deepseek via DeepSeek provider (openai-compatible baseUrl)", () => {
+    const mock = vi.mocked(makeOpenAICompatibleAdapter)
+    mock.mockClear()
+    const adapter = pickIntakeLLM({
+      DEEPSEEK_API_KEY: "sk-ds",
+      ANTHROPIC_API_KEY: "sk-ant",
+      ...emptyEnv,
+    })
+    expect(adapter).toBeDefined()
+    const lastCall = mock.mock.calls.at(-1)?.[0]
+    expect(lastCall?.baseUrl).toContain("deepseek.com")
   })
 })
