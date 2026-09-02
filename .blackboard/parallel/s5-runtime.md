@@ -38,6 +38,7 @@ CI= pnpm exec vitest run tests/gateway tests/test_p2_workflow_permissions.py-tes
 
 - **Wave-3 主项：SSOT `isTerminalRunStatus` 消费侧（S2+S1 协调，2026-09-02 立项）**
   - 现状：`packages/runtime/src/run-lifecycle.ts:176-187` 自维护本地 `TERMINAL_RUN_STATUSES` 常量 + `isTerminalRunStatus` 函数（与 domain `LEGAL_TRANSITIONS` 重复）。
-  - 任务：**等 S2 在 domain 导出 `isTerminalRunStatus` 后**（S2 交接卡标 `@S1` 时），删除本地 `TERMINAL_RUN_STATUSES` 与私有 `isTerminalRunStatus`，改为从 `@butler/domain/runtime.js` 导入。保持 `transitionRunToTerminal`/`expireOverdueRuns` 行为不变。
-  - **依赖**：本项消费 S2 新导出，属 S2+S1 协调项；**不要抢先**在 domain 未合时改（会架构违规反向）。S2 完成并经 S1 合入后，再 rebase main 消费。
+  - 任务：**S2 已合入 main（`006125b9`）**。`git fetch && git rebase origin/main` 后：删除本地 `TERMINAL_RUN_STATUSES` 常量（178-183）与私有 `isTerminalRunStatus` 函数（185-187）；把 `isTerminalRunStatus` 追加到第 1-2 行的 `@butler/domain/runtime.js` import；`TERMINAL_RUN_STATUSES` 无需导入（仅本地函数曾用它）。保持 `transitionRunToTerminal`/`expireOverdueRuns` 行为不变。
+  - **验证**：`packages/runtime` typecheck + 相关测试全绿；grep 确认 runtime 内不再有本地 `TERMINAL_RUN_STATUSES` 定义。
+  - **依赖**：S2 已完成并经 S1 合入 main；现在可独立消费，完成后标 @S1 由 S1 收口。
   - 其余：exec 记账已落在 apps/api（D49），不落引擎层。

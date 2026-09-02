@@ -19,8 +19,8 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 | 会话 | 分支 | 工作 | 依赖 |
 | --- | --- | --- | --- |
-| S2 domain | `par/domain-ssot` | **SSOT `isTerminalRunStatus`**（transitions.ts 由 LEGAL_TRANSITIONS 无出边导出 + barrel；测试补正反例） | 无，S2+S1 协调 |
-| S5 runtime | `par/runtime-ssot` | SSOT 消费侧（等 S2 合 main 后删本地 `TERMINAL_RUN_STATUSES`） | ⏳ S2 先合 |
+| S2 domain | `par/domain-ssot` | **SSOT `isTerminalRunStatus`** — ✅ **已合入 main `006125b9`**（PR #8：运行时由 LEGAL_TRANSITIONS 无出边推导 + barrel + 10 一致性测试，契约冻结） | 完成 |
+| S5 runtime | `par/runtime-ssot` | SSOT 消费侧（**可执行**：rebase main 后删 `run-lifecycle.ts:176-187` 本地定义，改从 domain 导入） | S2 已合 ✅ |
 | S4 persistence | `par/persistence-clean3` | 包内整理与完善（两实现 6 处差异核对 / db-open 测试基建 / 导出面核对） | 无 |
 | S6 apps+cli | `par/exec-audit` 已消费→新开 | 包内整理与完善（subagent-worker/tools 行数评估 / exec-audit 边界测试 / Composition Root 口径） | 无 |
 
@@ -34,7 +34,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 **S1 决策登记**：1. domain `./tools/types.js` 仅 `_archive/contracts` 消费 → **保留**（兼容层，非生产路径）。2. **SSOT isTerminalRunStatus 立项**（Wave-3 协调项，S2+S1 共同提交，勿单会话）。
 
-**下一步**：**Wave-3 并行推进**（见上表）。SSOT（S2+S1）为协调主项，S5 等 S2 合入后消费；S4/S6 包内整理完全独立。下一汇聚点 **M2 待 S1 宣布**（各会话推进多轮后）。可选：MemoryService（§12）物化触发。
+**下一步**：SSOT 消费侧（S5）——S2 已合 main `006125b9`，S5 可在 `par/runtime-ssot` rebase 消费，完成标 @S1 由 S1 收口。S4/S6 包内整理继续独立推进。下一汇聚点 **M2 待 S1 宣布**。可选：MemoryService（§12）物化触发。
 
 ## 不要做
 
