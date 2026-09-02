@@ -2,7 +2,7 @@
  * G4: auto-promote env config + parser (§12).
  * Opt-in (BUTLER_V5_AUTO_PROMOTE_ENABLED=1); defaults: 3d promote window, 6h interval, 500 batch limit, 7d rollback window.
  */
-import { envTruthy } from "./env-util.js"
+import { envTruthy, parsePositiveInt } from "./env-util.js"
 
 export interface AutoPromoteConfig {
   readonly enabled: boolean
@@ -10,12 +10,6 @@ export interface AutoPromoteConfig {
   readonly sweepLimit: number // per-tick batch limit
   readonly sweepIntervalMs: number // sweeper tick interval
   readonly rollbackWindowMs: number // post-promote owner rollback window
-}
-
-function parsePositiveInt(raw: string | undefined, fallback: number): number {
-  if (!raw) return fallback
-  const n = Number.parseInt(raw, 10)
-  return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
 const DEFAULT_WINDOW_DAYS = 3
