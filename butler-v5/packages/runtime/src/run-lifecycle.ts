@@ -183,7 +183,7 @@ const TERMINAL_RUN_STATUSES: readonly RunStatus[] = [
 ]
 
 function isTerminalRunStatus(status: RunStatus): boolean {
-  return (TERMINAL_RUN_STATUSES as readonly string[]).includes(status)
+  return TERMINAL_RUN_STATUSES.includes(status)
 }
 
 /**
@@ -193,9 +193,11 @@ function isTerminalRunStatus(status: RunStatus): boolean {
  * - Returns `null` (no-op) when the Run is already terminal — the same Run
  *   must never be completed twice (succeeded/failed/cancelled/expired are
  *   dead-ends per the domain state machine).
- * - Uses the optimistic versioned `transitionRunStatus`, so a concurrent
+ * - Uses the optimistic versioned `transitionRunStatusInTx`, so a concurrent
  *   status change between the re-read and the write surfaces as a version
  *   conflict (`RuntimeVersionConflictError`) instead of a silent overwrite.
+ * - D6-arch-align §20 #7: state change + audit atomic — the terminal
+ *   transition emits `run.succeeded` / `run.failed`, matching cancel/expire.
  */
 export async function transitionRunToTerminal(
   store: RuntimeStore,
@@ -204,12 +206,35 @@ export async function transitionRunToTerminal(
     readonly from: readonly RunStatus[]
     readonly to: "succeeded" | "failed"
     readonly now: Date
+    readonly subject?: string
+    readonly reason?: string
   },
 ): Promise<StoredRun | null> {
   const current = await store.getRun(runId)
   if (!current) return null
-  if (!(options.from as readonly string[]).includes(current.status)) return null
-  return store.transitionRunStatus(current.id, current.version, options.to, options.now)
+  if (!options.from.includes(current.status)) return null
+  return store.withTransaction(async (tx) => {
+    const terminal = await store.transitionRunStatusInTx(
+      tx,
+      current.id,
+      current.version,
+      options.to,
+      options.now,
+    )
+    await store.appendAuditEventInTx(tx, {
+      auditId: crypto.randomUUID(),
+      runId: terminal.id,
+      conversationId: terminal.conversationId,
+      action: options.to === "succeeded" ? "run.succeeded" : "run.failed",
+      subject: options.subject ?? "system",
+      detail: {
+        from: current.status,
+        ...(options.reason !== undefined ? { reason: options.reason } : {}),
+      },
+      createdAt: options.now,
+    })
+    return terminal
+  })
 }
 
 /** Sweep active Runs whose deadline is in the past. */
@@ -316,7 +341,6 @@ export async function resumeFromWaitingExternal(
     throw new Error(`run ${runId} is ${run.status}, expected waiting_external`)
   }
   const now = new Date()
-  // D6-arch-align §20 #7: state change + step update + audit atomic.
   // D6-arch-align §20 #7: state change + audit atomic. Step status update
   // is non-critical bookkeeping, so it stays outside the tx (eventual
   // consistency is fine for the step row).

@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
+import { auditEvents } from "@butler/persistence/schema.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import {
   IllegalRunTransitionError,
@@ -10,6 +11,7 @@ import {
   expireOverdueRuns,
   expireRun,
   resumeFromWaitingExternal,
+  transitionRunToTerminal,
 } from "./run-lifecycle.js"
 
 describe("run-lifecycle", () => {
@@ -322,5 +324,78 @@ describe("run-lifecycle", () => {
     expect(expired.map((r) => r.id)).toEqual([b.id])
     expect((await base.getRun(a.id))?.status).toBe("cancelled")
     expect((await base.getRun(b.id))?.status).toBe("expired")
+  })
+
+  it("transitionRunToTerminal succeeds a running Run atomically with a run.succeeded audit", async () => {
+    const { store, run } = await seedRunningRun()
+    const now = new Date("2026-08-21T00:00:00Z")
+    const terminal = await transitionRunToTerminal(store, run.id, {
+      from: ["running"],
+      to: "succeeded",
+      now,
+      subject: "owner-1",
+    })
+    expect(terminal?.status).toBe("succeeded")
+    expect(terminal?.version).toBe(run.version + 1)
+    // D6-arch-align §20 #7: state change + audit atomic.
+    const audits = await db.db.select().from(auditEvents)
+    expect(audits.filter((a) => a.action === "run.succeeded")).toHaveLength(1)
+  })
+
+  it("transitionRunToTerminal fails a running Run atomically with a run.failed audit + reason", async () => {
+    const { store, run } = await seedRunningRun()
+    const now = new Date("2026-08-21T00:00:00Z")
+    const terminal = await transitionRunToTerminal(store, run.id, {
+      from: ["running"],
+      to: "failed",
+      now,
+      subject: "owner-1",
+      reason: "boom",
+    })
+    expect(terminal?.status).toBe("failed")
+    const audits = await db.db.select().from(auditEvents)
+    const failed = audits.find((a) => a.action === "run.failed")
+    expect(failed?.detail).toMatchObject({ reason: "boom", from: "running" })
+  })
+
+  it("transitionRunToTerminal is a no-op for an already-terminal Run (double-completion guard)", async () => {
+    const past = new Date("2026-08-19T00:00:00Z")
+    const now = new Date("2026-08-21T00:00:00Z")
+    const { store, run } = await seedRunningRun({ deadline: past })
+    await expireRun(store, run.id, { now })
+    const result = await transitionRunToTerminal(store, run.id, {
+      from: ["running"],
+      to: "succeeded",
+      now,
+      subject: "owner-1",
+    })
+    expect(result).toBeNull()
+    expect((await store.getRun(run.id))?.status).toBe("expired")
+    // The skipped completion must not write a second audit row.
+    const audits = await db.db.select().from(auditEvents)
+    expect(audits.filter((a) => a.action === "run.succeeded")).toHaveLength(0)
+  })
+
+  it("transitionRunToTerminal is a no-op when the Run is not in the from set", async () => {
+    const { store, run } = await seedRunningRun()
+    const result = await transitionRunToTerminal(store, run.id, {
+      from: ["waiting_approval"],
+      to: "succeeded",
+      now: new Date(),
+      subject: "owner-1",
+    })
+    expect(result).toBeNull()
+    expect((await store.getRun(run.id))?.status).toBe("running")
+  })
+
+  it("transitionRunToTerminal returns null for a missing Run", async () => {
+    const { store } = await seedRunningRun()
+    const result = await transitionRunToTerminal(store, crypto.randomUUID(), {
+      from: ["running"],
+      to: "succeeded",
+      now: new Date(),
+      subject: "owner-1",
+    })
+    expect(result).toBeNull()
   })
 })
