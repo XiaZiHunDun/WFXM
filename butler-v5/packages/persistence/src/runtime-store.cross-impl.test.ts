@@ -491,6 +491,87 @@ function paritySuite(name: string, make: StoreFactory): void {
       })
     })
 
+    it("listMessages 按 createdAt asc 排序（S-G）", async () => {
+      await using(async (store) => {
+        const cid = crypto.randomUUID()
+        await store.createConversationWithUserMessage({
+          conversationId: cid,
+          messageId: crypto.randomUUID(),
+          subject: "owner",
+          content: { text: "m0" },
+          triggerSource: "channel",
+          idempotencyKey: "seq-0",
+          createdAt: t(500),
+        })
+        await store.appendMessage({
+          messageId: crypto.randomUUID(),
+          conversationId: cid,
+          role: "assistant",
+          content: { text: "m1" },
+          triggerSource: null,
+          idempotencyKey: "seq-1",
+          createdAt: t(1000),
+        })
+        await store.appendMessage({
+          messageId: crypto.randomUUID(),
+          conversationId: cid,
+          role: "user",
+          content: { text: "m2" },
+          triggerSource: "channel",
+          idempotencyKey: "seq-2",
+          createdAt: t(300),
+        })
+        expect((await store.listMessages(cid)).map((m) => m.createdAt.getTime())).toEqual([
+          t(300).getTime(),
+          t(500).getTime(),
+          t(1000).getTime(),
+        ])
+      })
+    })
+
+    it("listConversationsByProject 按 updatedAt desc + limit 钳制、projectId 去空白（S-H）", async () => {
+      await using(async (store) => {
+        for (const [cid, at] of [
+          [crypto.randomUUID(), t(1000)],
+          [crypto.randomUUID(), t(3000)],
+          [crypto.randomUUID(), t(2000)],
+        ] as const) {
+          await store.createConversationWithUserMessage({
+            conversationId: cid,
+            messageId: crypto.randomUUID(),
+            subject: "owner",
+            content: { text: "x" },
+            triggerSource: "channel",
+            idempotencyKey: `proj-${cid}`,
+            createdAt: at,
+            projectId: "WFXM",
+          })
+        }
+        // updatedAt desc: middle (t3000) first
+        const all = await store.listConversationsByProject({ projectId: "WFXM" })
+        expect(all.map((c) => c.updatedAt.getTime())).toEqual([
+          t(3000).getTime(),
+          t(2000).getTime(),
+          t(1000).getTime(),
+        ])
+        // limit clamp up to 2
+        expect(
+          (await store.listConversationsByProject({ projectId: "WFXM", limit: 2 })).length,
+        ).toBe(2)
+        // query " WFXM " trimmed matches "WFXM"
+        expect(
+          (await store.listConversationsByProject({ projectId: " WFXM " })).length,
+        ).toBe(3)
+        // limit clamp [1,200]: 0 -> 1, 999 -> 3 (only 3 exist)
+        expect(
+          (await store.listConversationsByProject({ projectId: "WFXM", limit: 0 })).length,
+        ).toBe(1)
+        expect(
+          (await store.listConversationsByProject({ projectId: "WFXM", limit: 999 })).length,
+        ).toBe(3)
+      })
+    })
+
     it("findActiveGrant digest：无 scope.digest 的 grant 接受任意 digest；固定 digest 须精确匹配（S-F）", async () => {
       await using(async (store) => {
         const { runId } = await seedConversationAndRun(store)

@@ -11,7 +11,8 @@
  * 级联、授权剩余次数与过期、audit 追加）与生产实现保持一致，含 idempotencyKey
  * 去重、waiting-approval（kind==='approval' + status==='waiting'）门控、
  * listRunsPastDeadline 的 ACTIVE_MAIN_RUN_STATUSES 状态门控、findChildRuns 的
- * createdAt desc 排序、findActiveGrant 的 digest 语义（见
+ * createdAt desc 排序、findActiveGrant 的 digest 语义、listMessages 的 createdAt
+ * asc 排序、listConversationsByProject 的 projectId 去空白与 limit 钳制（见
  * runtime-store.cross-impl.test.ts 契约线束）。对授权 scope 的 paths / MCP /
  * network 治理细则仍为简化字段匹配，不复刻 `grantMatchesAction` 全部细则；
  * 消息内容不做落库脱敏（内存非耐久转录，见 cross-impl S-B）。作为测试/隔离
@@ -149,14 +150,21 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
     },
 
     async listMessages(conversationId) {
-      return messages.filter((m) => m.conversationId === conversationId)
+      // S-G parity: production orders messages by createdAt asc.
+      return messages
+        .filter((m) => m.conversationId === conversationId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
     },
 
     async listConversationsByProject({ projectId, limit }) {
-      const matches = [...conversations.values()]
-        .filter((c) => c.projectId === projectId)
+      // S-H parity: production trims projectId and clamps limit to [1, 200]
+      // (default 50), ordered by updatedAt desc.
+      const trimmed = projectId.trim()
+      const clamped = Math.min(Math.max(limit ?? 50, 1), 200)
+      return [...conversations.values()]
+        .filter((c) => c.projectId === trimmed)
         .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-      return limit === undefined ? matches : matches.slice(0, limit)
+        .slice(0, clamped)
     },
 
     async appendMessage(input) {

@@ -317,4 +317,45 @@ describe("createInMemoryRuntimeStore", () => {
       (await store.findActiveGrant({ runId: "r1", subject: "owner", capability: "write_file", digest: "d1", now: t0() }))?.id,
     ).toBe("g-pinned")
   })
+
+  it("listMessages 按 createdAt asc 排序（S-G）", async () => {
+    const store = createInMemoryRuntimeStore()
+    await store.createConversationWithUserMessage({
+      conversationId: "c1", messageId: "m0", subject: "a",
+      content: {}, triggerSource: "channel", idempotencyKey: "s0", createdAt: t5(),
+    })
+    await store.appendMessage({
+      messageId: "m1", conversationId: "c1", role: "user", content: {},
+      triggerSource: null, idempotencyKey: null, createdAt: new Date("2026-09-02T00:00:03.000Z"),
+    })
+    await store.appendMessage({
+      messageId: "m2", conversationId: "c1", role: "assistant", content: {},
+      triggerSource: null, idempotencyKey: null, createdAt: new Date("2026-09-02T00:00:04.000Z"),
+    })
+    const times = (await store.listMessages("c1")).map((m) => m.createdAt.toISOString())
+    expect(times).toEqual([
+      "2026-09-02T00:00:03.000Z",
+      "2026-09-02T00:00:04.000Z",
+      "2026-09-02T00:00:05.000Z",
+    ])
+  })
+
+  it("listConversationsByProject 按 updatedAt desc + limit 钳制（S-H）", async () => {
+    const store = createInMemoryRuntimeStore()
+    const upsert = (id: string, at: Date, projectId = "WFXM") =>
+      store.createConversationWithUserMessage({
+        conversationId: id, messageId: `${id}-m`, subject: "s",
+        content: {}, triggerSource: "channel", idempotencyKey: `ik-${id}`, createdAt: at, projectId,
+      })
+    await upsert("c1", new Date("2026-09-02T00:00:01.000Z"))
+    await upsert("c2", new Date("2026-09-02T00:00:03.000Z"))
+    await upsert("c3", new Date("2026-09-02T00:00:02.000Z"))
+    const all = await store.listConversationsByProject({ projectId: "WFXM" })
+    expect(all.map((c) => c.id)).toEqual(["c2", "c3", "c1"])
+    expect((await store.listConversationsByProject({ projectId: "WFXM", limit: 2 })).map((c) => c.id)).toEqual(["c2", "c3"])
+    // 查询带空白被 trim，仍命中
+    expect((await store.listConversationsByProject({ projectId: " WFXM " })).map((c) => c.id)).toEqual(["c2", "c3", "c1"])
+    // limit 钳制 [1,200]：0 -> 1
+    expect((await store.listConversationsByProject({ projectId: "WFXM", limit: 0 })).map((c) => c.id)).toEqual(["c2"])
+  })
 })
