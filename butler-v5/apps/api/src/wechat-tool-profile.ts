@@ -1,5 +1,6 @@
 /** Shared WeChat tool surface: plan (read-only) vs exec (write/command). */
 import { WEIBUTLER_LLM_TOOLS } from "./tools.js"
+import { envTruthy } from "./env-util.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 
 export type WechatIntakeIntentKind =
@@ -19,8 +20,7 @@ export function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): re
 
 /** Opt-in legacy: main Loop direct write/run (scheme B default is Child Run only). */
 export function isDevDirectExecEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = (env["BUTLER_V5_DEV_DIRECT_EXEC"] ?? "").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
+  return envTruthy(env["BUTLER_V5_DEV_DIRECT_EXEC"])
 }
 
 export function isDevWorkIntent(kind: WechatIntakeIntentKind): boolean {

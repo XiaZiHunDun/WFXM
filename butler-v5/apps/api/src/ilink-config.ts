@@ -1,4 +1,5 @@
 import { homedir } from "node:os"
+import { envTruthy } from "./env-util.js"
 import { join } from "node:path"
 import {
   DEFAULT_ILINK_BASE_URL,
@@ -6,11 +7,6 @@ import {
   type ILinkResult,
 } from "@butler/adapters"
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 export type DmPolicy = "open" | "allowlist" | "disabled"
 

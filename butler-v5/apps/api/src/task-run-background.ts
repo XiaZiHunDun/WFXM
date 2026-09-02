@@ -1,4 +1,5 @@
 import { runTaskGoal } from "./task-run.js"
+import { envTruthy } from "./env-util.js"
 import type { Wiring } from "./wiring.js"
 import {
   formatTaskRunCompletionNotify,
@@ -6,11 +7,6 @@ import {
   sendWechatProactiveNotify,
 } from "./wechat-run-notify.js"
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 /** Background /运行 when 1 or when run notify is enabled. */
 export function isTaskRunAsyncEnabled(env: NodeJS.ProcessEnv = process.env): boolean {

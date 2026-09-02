@@ -2,6 +2,7 @@
  * Load project-knowledge-sources.json (K1.1).
  */
 import { readFileSync } from "node:fs"
+import { envTruthy } from "./env-util.js"
 import { resolve } from "node:path"
 import {
   parseProjectKnowledgeSourcesJson,
@@ -49,11 +50,6 @@ export function loadProjectKnowledgeSourcesFromEnv(
   return loadProjectKnowledgeSourcesFromPath(resolve(cwd, path))
 }
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 export interface ProjectKnowledgeWatchConfig {
   readonly enabled: boolean

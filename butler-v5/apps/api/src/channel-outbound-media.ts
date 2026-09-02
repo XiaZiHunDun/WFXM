@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises"
+import { envTruthy } from "./env-util.js"
 import { basename, isAbsolute, resolve } from "node:path"
 import { access } from "node:fs/promises"
 
@@ -20,11 +21,6 @@ export interface ParsedChannelOutbound {
   readonly attachments: readonly ChannelOutboundAttachment[]
 }
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 export function channelOutboundMediaEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_CHANNEL_OUTBOUND_MEDIA"])

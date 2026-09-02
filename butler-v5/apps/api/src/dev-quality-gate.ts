@@ -2,6 +2,7 @@
  * P4: automatic dev verification after exec runs (write/command/subagent).
  */
 import { spawn } from "node:child_process"
+import { envTruthy } from "./env-util.js"
 import { resolve } from "node:path"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
@@ -25,8 +26,7 @@ export function isDevVerifyAutoEnabled(env: NodeJS.ProcessEnv = process.env): bo
 
 /** When true, inbound waits for verify to finish (slow). Default async + WeChat push. */
 export function isDevVerifyInlineEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = (env["BUTLER_V5_DEV_VERIFY_INLINE"] ?? "0").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
+  return envTruthy(env["BUTLER_V5_DEV_VERIFY_INLINE"])
 }
 
 export function workspaceRootFromEnv(env: NodeJS.ProcessEnv = process.env): string {

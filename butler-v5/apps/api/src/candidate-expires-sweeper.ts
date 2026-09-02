@@ -3,6 +3,7 @@
  * Same pattern as schedule-worker: env-gated, setInterval, logger, no second Loop.
  */
 import { expireOldCandidates, DEFAULT_EXPIRE_TTL_MS, DEFAULT_EXPIRE_BATCH_LIMIT } from "@butler/domain/knowledge/candidate-expires.js"
+import { envTruthy } from "./env-util.js"
 import type { Wiring } from "./wiring.js"
 
 export type CandidateExpiresLogger = {
@@ -31,7 +32,7 @@ export function parseCandidateExpiresSweeperConfig(
   env: NodeJS.ProcessEnv,
 ): CandidateExpiresSweeperConfig {
   return {
-    enabled: env["BUTLER_V5_CANDIDATE_EXPIRES_ENABLED"] === "1",
+    enabled: envTruthy(env["BUTLER_V5_CANDIDATE_EXPIRES_ENABLED"]),
     tickMs: parsePositiveIntMs(
       env["BUTLER_V5_CANDIDATE_EXPIRES_INTERVAL_MS"],
       3_600_000,

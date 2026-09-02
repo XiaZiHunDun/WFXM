@@ -2,6 +2,7 @@
  * G4: auto-promote env config + parser (§12).
  * Opt-in (BUTLER_V5_AUTO_PROMOTE_ENABLED=1); defaults: 3d promote window, 6h interval, 500 batch limit, 7d rollback window.
  */
+import { envTruthy } from "./env-util.js"
 
 export interface AutoPromoteConfig {
   readonly enabled: boolean
@@ -24,7 +25,7 @@ const DEFAULT_ROLLBACK_WINDOW_DAYS = 7
 
 export function parseAutoPromoteConfig(env: NodeJS.ProcessEnv): AutoPromoteConfig {
   return {
-    enabled: env["BUTLER_V5_AUTO_PROMOTE_ENABLED"] === "1",
+    enabled: envTruthy(env["BUTLER_V5_AUTO_PROMOTE_ENABLED"]),
     windowMs:
       parsePositiveInt(env["BUTLER_V5_AUTO_PROMOTE_WINDOW_DAYS"], DEFAULT_WINDOW_DAYS) *
       24 *

@@ -3,6 +3,7 @@
  */
 import { Effect } from "effect"
 import { pickIntakeLLM, type LLMMessage } from "@butler/adapters"
+import { envTruthy } from "./env-util.js"
 import type { WechatIntent, WechatIntentKind } from "./wechat-intake.js"
 
 const INTAKE_TIMEOUT = "6 seconds" as const
@@ -43,8 +44,7 @@ function parseIntakeJson(text: string): WechatIntent | null {
 }
 
 export function isWechatIntakeLlmEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = (env["BUTLER_V5_INTAKE_LLM"] ?? "").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "on"
+  return envTruthy(env["BUTLER_V5_INTAKE_LLM"])
 }
 
 /** When rules already picked a non-chat intent, LLM must not downgrade it. */

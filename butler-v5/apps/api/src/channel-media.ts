@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises"
+import { envTruthy } from "./env-util.js"
 import { join } from "node:path"
 import type {
   ChannelInboundMedia,
@@ -8,11 +9,6 @@ import type {
 
 export type { ChannelInboundMedia, ChannelMediaContent, ChannelMediaKind }
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 export function telegramMediaCacheEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_TELEGRAM_MEDIA_CACHE"])
