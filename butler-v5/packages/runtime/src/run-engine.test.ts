@@ -6,6 +6,7 @@ import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { runs } from "@butler/persistence/schema.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { createWaitingApprovalStep } from "./approval-runtime.js"
+import { cancelRun, expireRun } from "./run-lifecycle.js"
 import { fixedClock } from "@butler/ports/core/clock.js"
 import { ActiveMainRunConflict, InvalidRunTriggerError, RunEngine } from "./run-engine.js"
 
@@ -472,6 +473,101 @@ describe("RunEngine", () => {
       expect(new Date(messages[0].createdAt).getTime()).toBe(t0.getTime())
       const run = await store.getRun(result.runId)
       expect(run?.createdAt.getTime()).toBe(t0.getTime())
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("persists the inbound deadline and completes to succeeded", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const engine = new RunEngine(store)
+    const conversationId = crypto.randomUUID()
+    const deadline = new Date("2026-09-01T00:00:00Z")
+    try {
+      const result = await engine.executeInbound(
+        {
+          conversationId,
+          messageId: crypto.randomUUID(),
+          subject: "owner-1",
+          content: "hello",
+          idempotencyKey: "deadline-run-1",
+          deadline,
+        },
+        async (ctx) => ctx,
+      )
+      expect(result.resumed).toBe(false)
+      const run = await store.getRun(result.runId)
+      expect(run?.deadline?.getTime()).toBe(deadline.getTime())
+      expect(run?.status).toBe("succeeded")
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("success path never re-completes an already-terminal Run (double-completion guard)", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const engine = new RunEngine(store)
+    const conversationId = crypto.randomUUID()
+    const past = new Date("2026-08-19T00:00:00Z")
+    try {
+      const result = await engine.executeInbound(
+        {
+          conversationId,
+          messageId: crypto.randomUUID(),
+          subject: "owner-1",
+          content: "hello",
+          idempotencyKey: "dd-success-1",
+          deadline: past,
+        },
+        async (ctx) => {
+          // A concurrent sweeper expires this Run while the body is running.
+          const expired = await expireRun(store, ctx.runId, {
+            now: new Date("2026-08-21T00:00:00Z"),
+            subject: "system",
+            force: true,
+          })
+          expect(expired.status).toBe("expired")
+          return ctx
+        },
+      )
+      // The Run stays expired — the engine's finalize must not overwrite the
+      // terminal state with "succeeded" (double completion is forbidden).
+      const run = await store.getRun(result.runId)
+      expect(run?.status).toBe("expired")
+      expect(run?.version).toBeGreaterThan(1)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("failure path never fails an already-terminal Run (double-completion guard)", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const engine = new RunEngine(store)
+    const conversationId = crypto.randomUUID()
+    try {
+      await expect(
+        engine.executeInbound(
+          {
+            conversationId,
+            messageId: crypto.randomUUID(),
+            subject: "owner-1",
+            content: "hello",
+            idempotencyKey: "dd-fail-1",
+          },
+          async (ctx) => {
+            // An owner cancels the Run before the body blows up; the engine's
+            // failure finalize must not overwrite the terminal state.
+            await cancelRun(store, ctx.runId, { subject: "owner-1", reason: "owner" })
+            throw new Error("body exploded")
+          },
+        ),
+      ).rejects.toThrow("body exploded")
+      const [row] = await db.select().from(runs).where(eq(runs.conversationId, conversationId))
+      expect(row?.status).toBe("cancelled")
+      expect(row?.version).toBeGreaterThan(1)
     } finally {
       await db.close()
     }

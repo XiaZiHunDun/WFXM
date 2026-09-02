@@ -1,7 +1,7 @@
 import type { RunTrigger, RuntimeStore, StoredRun } from "@butler/domain/runtime.js"
 import { isActiveMainRunStatus, runBudgetWithTrigger, validateRunTrigger } from "@butler/domain/runtime.js"
 import { RunCoordinator } from "./run-coordinator.js"
-import { resumeFromWaitingExternal } from "./run-lifecycle.js"
+import { resumeFromWaitingExternal, transitionRunToTerminal } from "./run-lifecycle.js"
 import { buildWorkingSet, type WorkingSetResult } from "./working-set.js"
 import {
   filterDevHistoryNoise,
@@ -289,10 +289,13 @@ export class RunEngine {
         workingSet,
         resumed: args.resumed,
       })
-      const current = await this.store.getRun(args.run.id)
-      if (current?.status === "running") {
-        await this.store.transitionRunStatus(current.id, current.version, "succeeded", this.clock.now())
-      }
+      // Double-completion guard: only an active Run is completed. If a
+      // sweeper / owner already terminalized this Run, this is a no-op.
+      const finalized = await transitionRunToTerminal(this.store, args.run.id, {
+        from: ["running"],
+        to: "succeeded",
+        now: this.clock.now(),
+      })
       tracer.record({
         kind: "run",
         name: "finish",
@@ -302,7 +305,7 @@ export class RunEngine {
         subject: args.run.subject,
         triggerSource: args.run.triggerSource,
         durationMs: Date.now() - startedAt,
-        detail: { finalStatus: current?.status ?? "succeeded" },
+        detail: { finalStatus: finalized?.status ?? "succeeded" },
       })
       return result
     } catch (err) {
@@ -318,10 +321,13 @@ export class RunEngine {
         })
         return err.payload as T
       }
-      const current = await this.store.getRun(args.run.id)
-      if (current && (current.status === "running" || current.status === "waiting_approval")) {
-        await this.store.transitionRunStatus(current.id, current.version, "failed", this.clock.now())
-      }
+      // Double-completion guard: only an active Run is failed. If a
+      // sweeper / owner already terminalized this Run, this is a no-op.
+      await transitionRunToTerminal(this.store, args.run.id, {
+        from: ["running", "waiting_approval"],
+        to: "failed",
+        now: this.clock.now(),
+      })
       tracer.record({
         kind: "run",
         name: "finish",

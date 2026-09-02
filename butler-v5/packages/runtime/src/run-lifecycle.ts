@@ -1,5 +1,5 @@
 import { canTransitionRun } from "@butler/domain/runtime.js"
-import type { RuntimeStore, StoredRun } from "@butler/domain/runtime.js"
+import type { RuntimeStore, RunStatus, StoredRun } from "@butler/domain/runtime.js"
 
 export class IllegalRunTransitionError extends Error {
   constructor(
@@ -173,6 +173,45 @@ export async function expireRun(
   })
 }
 
+/** Terminal Run statuses — a Run in one of these is a dead-end (double
+ *  completion is forbidden; the domain state machine has no outgoing edges). */
+const TERMINAL_RUN_STATUSES: readonly RunStatus[] = [
+  "succeeded",
+  "failed",
+  "cancelled",
+  "expired",
+]
+
+function isTerminalRunStatus(status: RunStatus): boolean {
+  return (TERMINAL_RUN_STATUSES as readonly string[]).includes(status)
+}
+
+/**
+ * Double-completion guard: terminal-transition a Run only while it is still
+ * in one of the given active statuses.
+ *
+ * - Returns `null` (no-op) when the Run is already terminal — the same Run
+ *   must never be completed twice (succeeded/failed/cancelled/expired are
+ *   dead-ends per the domain state machine).
+ * - Uses the optimistic versioned `transitionRunStatus`, so a concurrent
+ *   status change between the re-read and the write surfaces as a version
+ *   conflict (`RuntimeVersionConflictError`) instead of a silent overwrite.
+ */
+export async function transitionRunToTerminal(
+  store: RuntimeStore,
+  runId: string,
+  options: {
+    readonly from: readonly RunStatus[]
+    readonly to: "succeeded" | "failed"
+    readonly now: Date
+  },
+): Promise<StoredRun | null> {
+  const current = await store.getRun(runId)
+  if (!current) return null
+  if (!(options.from as readonly string[]).includes(current.status)) return null
+  return store.transitionRunStatus(current.id, current.version, options.to, options.now)
+}
+
 /** Sweep active Runs whose deadline is in the past. */
 export async function expireOverdueRuns(
   store: RuntimeStore,
@@ -192,6 +231,13 @@ export async function expireOverdueRuns(
       )
     } catch (err) {
       if (err instanceof IllegalRunTransitionError) continue
+      // A concurrent actor (engine completion, owner cancel, an earlier
+      // sweep) may have resolved this Run to a terminal state between the
+      // list and the optimistic transition. Re-read: if it is already
+      // terminal the double-completion guard applies — skip it instead of
+      // aborting the whole sweep over a single racy Run.
+      const fresh = await store.getRun(run.id)
+      if (fresh && isTerminalRunStatus(fresh.status)) continue
       throw err
     }
   }
