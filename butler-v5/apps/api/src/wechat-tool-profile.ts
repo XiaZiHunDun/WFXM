@@ -11,18 +11,6 @@ export type WechatIntakeIntentKind =
 
 export const EXEC_TOOL_NAMES = ["run_command", "write_file"] as const
 
-export const PLAN_CORE_TOOL_NAMES: readonly string[] = [
-  "recall_history",
-  "recall_durable_memory",
-  "recall_document",
-  "recall_project_knowledge",
-  "get_current_time",
-  "greet_with_time",
-  "summarize_today",
-  "read_file",
-  "send_wechat_file",
-]
-
 export function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
   const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name)
   if (isSubagentEnabled(env)) return names
