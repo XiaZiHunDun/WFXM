@@ -1,7 +1,9 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-02 (D46 Repository Port 物化)
+_last_synced: 2026-09-02 (D46 Repository Port 物化；并行开发立项)
 _handoff: .blackboard/shifts/2026-09-02-d46-repository-port-handoff.md
+
+**并行开发（2026-09-02 立项，见 `.blackboard/parallel/`）**：monorepo 按包边界长期并行。各会话开 `par/<area>` topic 分支，唯一在 main 的 **S1 编排会话**负责收口共享文件并合并。会话：S1 orchestration / S2 domain / S3 ports+adapters / S4 persistence / S5 runtime / S6 apps+cli。索引与各会话交接卡在 `.blackboard/parallel/`（README + s1-s6）。共享/承重文件（DESIGN/port-catalog/ports index/arch guard/state）仅 S1 可改。
 
 **当前主线（D46 Repository Port）**：Repository 从"⚪ 隐性承载（YAGNI）"物化为 ports 层 Repository Port。方式 A：先造触发条件（第二持久化实现 `createInMemoryRuntimeStore`，`packages/persistence/src/memory/runtime-store.ts`，纯内存、无 DB/IO，实现同一 domain `RuntimeStore` 合同），证明其是"可替换单一接缝"后物化。ports `core/repository.ts` 以 `RepositoryPort = RuntimeStore` 类型别名复用 domain 合同单一真相源（interface-only），barrel `export *` + exports map；推翻 D26B §20 #6 "Repository 在 persistence 而非 ports" 原 lock。生产 wiring 消费侧未 re-wire 改。
 
