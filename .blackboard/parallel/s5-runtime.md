@@ -36,4 +36,8 @@ CI= pnpm exec vitest run tests/gateway tests/test_p2_workflow_permissions.py-tes
 
 ## 当前相关待办
 
-- D47 候选：exec 记账若落在引擎层，则与 S6 协同；MemoryService 物化（§12）横跨本会话 + S3/S6，由 S1 领衔先排清单再见分晓。
+- **Wave-3 主项：SSOT `isTerminalRunStatus` 消费侧（S2+S1 协调，2026-09-02 立项）**
+  - 现状：`packages/runtime/src/run-lifecycle.ts:176-187` 自维护本地 `TERMINAL_RUN_STATUSES` 常量 + `isTerminalRunStatus` 函数（与 domain `LEGAL_TRANSITIONS` 重复）。
+  - 任务：**等 S2 在 domain 导出 `isTerminalRunStatus` 后**（S2 交接卡标 `@S1` 时），删除本地 `TERMINAL_RUN_STATUSES` 与私有 `isTerminalRunStatus`，改为从 `@butler/domain/runtime.js` 导入。保持 `transitionRunToTerminal`/`expireOverdueRuns` 行为不变。
+  - **依赖**：本项消费 S2 新导出，属 S2+S1 协调项；**不要抢先**在 domain 未合时改（会架构违规反向）。S2 完成并经 S1 合入后，再 rebase main 消费。
+  - 其余：exec 记账已落在 apps/api（D49），不落引擎层。

@@ -34,4 +34,9 @@ pnpm exec eslint packages/persistence --ext .ts --max-warnings 0
 
 ## 当前相关待办
 
+- **Wave-3 包内整理与完善（S4，2026-09-02 业主确认）**：persistence 包内自查自净，**只动包内、不碰共享文件**。候选方向（择真实存在者做，勿虚构）：
+  - **store 一致性核对**：`memory/runtime-store.ts`（in-memory 第二实现）与 production `runtime-store.ts` 的 6 处已知行为差异（D47 记录：idempotencyKey 去重 / content 脱敏 / waiting-approval kind 门控 / listRunsPastDeadline 状态门控 / findChildRuns 排序 / findActiveGrant digest）——逐项确认是"简化"还是"应补齐"；若应补，加注释 + 单测锁行为。
+  - **测试补强**：`db-open.test.ts` 依赖真实 postgres（沙箱 fail）——评估能否用 PGlite 或 in-memory 补一个不依赖外部 DB 的路径测试（不改生产语义，仅测试基建）。
+  - **文件行数**：`runtime-store.ts` 582 行、`durable-memory-store.ts` 341 行——无阻塞，但可评估合理拆分（遵守 G6 >800 才需拆；**不要为拆而拆**）。
+  - **导出面核对**：`packages/persistence/src/index.ts` 是否有未用导出 / 命名不一致（对照 domain 契约消费方）。
 - D47 无两存冲突；如需 backfill / 事件桥适配由本会话排期。改 store 契约前先 @S2/@S1。
