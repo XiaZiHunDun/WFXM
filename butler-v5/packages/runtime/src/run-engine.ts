@@ -295,6 +295,7 @@ export class RunEngine {
         from: ["running"],
         to: "succeeded",
         now: this.clock.now(),
+        subject: args.run.subject,
       })
       tracer.record({
         kind: "run",
@@ -327,6 +328,8 @@ export class RunEngine {
         from: ["running", "waiting_approval"],
         to: "failed",
         now: this.clock.now(),
+        subject: args.run.subject,
+        reason: err instanceof Error ? err.message : String(err),
       })
       tracer.record({
         kind: "run",

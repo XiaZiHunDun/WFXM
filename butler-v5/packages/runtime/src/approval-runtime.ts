@@ -10,6 +10,7 @@ import {
 } from "@butler/domain/governance/network-allowlist.js"
 import { outboundNetworkHostsForCapability } from "./grant-network.js"
 import { mcpServerIdForCapability } from "./mcp-consent.js"
+import { transitionRunToTerminal } from "./run-lifecycle.js"
 import type { RuntimeStore, StoredStep } from "@butler/domain/runtime.js"
 import {
   parseSandboxProfileName,
@@ -297,10 +298,16 @@ export async function denyWaitingStep(
     output: { deniedBy: ownerSubject, reason },
     updatedAt: now,
   })
-  const run = await store.getRun(step.runId)
-  if (run && run.status === "waiting_approval") {
-    await store.transitionRunStatus(run.id, run.version, "failed", now)
-  }
+  // D6-arch-align §20 #7: run terminal transition + audit atomic via the
+  // shared double-completion guard (never complete a Run twice). No-op when
+  // the Run already left `waiting_approval` (approved/expired/terminalized).
+  await transitionRunToTerminal(store, step.runId, {
+    from: ["waiting_approval"],
+    to: "failed",
+    now,
+    subject: ownerSubject,
+    reason,
+  })
   await store.appendAuditEvent({
     auditId: crypto.randomUUID(),
     runId: step.runId,
