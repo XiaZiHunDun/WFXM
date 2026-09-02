@@ -3,15 +3,11 @@ import {
   ilinkSendMessage,
   type ILinkClientConfig,
 } from "@butler/adapters"
+import { envTruthy } from "./env-util.js"
 import { appendFileSync } from "node:fs"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 /** Proactive WeChat push when long runs / subagents finish (BUTLER_V5_RUN_NOTIFY_ENABLED). */
 export function isRunNotifyEnabled(env: NodeJS.ProcessEnv = process.env): boolean {

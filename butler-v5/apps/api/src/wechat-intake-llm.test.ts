@@ -11,6 +11,15 @@ describe("wechat-intake-llm", () => {
     expect(isWechatIntakeLlmEnabled({})).toBe(false)
   })
 
+  it("honours the shared 1/true/yes/on env convention", () => {
+    for (const truthy of ["1", "true", "yes", "on"]) {
+      expect(isWechatIntakeLlmEnabled({ BUTLER_V5_INTAKE_LLM: truthy })).toBe(true)
+    }
+    for (const falsy of ["0", "false", "off", ""]) {
+      expect(isWechatIntakeLlmEnabled({ BUTLER_V5_INTAKE_LLM: falsy })).toBe(false)
+    }
+  })
+
   it("falls back to rules when LLM disabled", async () => {
     const fallback = classifyWechatIntent("你好")
     const out = await classifyWechatIntentWithLlm({

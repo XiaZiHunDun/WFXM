@@ -9,10 +9,7 @@ import type { McpManifestServer } from "@butler/domain/mcp/manifest.js"
 import { mcpServerIds } from "@butler/domain/mcp/manifest.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
-import {
-  assertMcpServerConsented,
-  mcpServerIdFromEnv,
-} from "@butler/runtime/mcp-consent.js"
+import { assertMcpServerConsented, mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
 import { revokeScopedGrantsForMcpServer } from "@butler/runtime/mcp-grant-lifecycle.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import {
@@ -99,7 +96,7 @@ function makeTransport(
         command: conn.command,
         args: conn.args,
         timeoutMs: conn.timeoutMs,
-        env: conn.env,
+        ...(conn.env === undefined ? {} : { env: conn.env }),
         spawn: makeNodeStdioSpawn(options.audit),
       })
   }
@@ -114,8 +111,8 @@ function resolveServersToBootstrap(
     return [explicit]
   }
   if (manifestLoaded.kind === "loaded") {
-    return mcpServerIds(manifestLoaded.manifest).filter((serverId) =>
-      assertMcpServerConsented(serverId, env).ok,
+    return mcpServerIds(manifestLoaded.manifest).filter(
+      (serverId) => assertMcpServerConsented(serverId, env).ok,
     )
   }
   return [mcpServerIdFromEnv(env)]
@@ -132,10 +129,13 @@ function filterDiscoveredByManifest(
   )
   const filtered =
     allowed.length === 0 ? discovered : discovered.filter((tool) => allowed.includes(tool.name))
-  return filtered.map((tool) => ({
-    ...tool,
-    ...(riskByName.has(tool.name) ? { risk: riskByName.get(tool.name) } : {}),
-  }))
+  return filtered.map((tool) => {
+    const risk = riskByName.get(tool.name)
+    return {
+      ...tool,
+      ...(risk === undefined ? {} : { risk }),
+    }
+  })
 }
 
 function mergeBundles(partials: readonly McpToolBundle[]): McpToolBundle {
@@ -156,7 +156,9 @@ function mergeBundles(partials: readonly McpToolBundle[]): McpToolBundle {
   const serverIdByCapability = partials.reduce<Record<string, string>>((acc, part) => {
     return { ...acc, ...part.serverIdByCapability }
   }, {})
-  const closeFns = partials.map((part) => part.close).filter((fn): fn is () => Promise<void> => !!fn)
+  const closeFns = partials
+    .map((part) => part.close)
+    .filter((fn): fn is () => Promise<void> => !!fn)
   return {
     mode: "multi",
     runtimeTools,
@@ -254,14 +256,15 @@ async function bootstrapSingleMcpServer(
 
   try {
     const session: McpSessionRef = {}
+    const audit = options.runtimeStore
+      ? { runtimeStore: options.runtimeStore, subject: "mcp" }
+      : undefined
     const transport =
       options.transport ??
       makeTransport(connection.value, {
         ...options,
         session,
-        audit: options.runtimeStore
-          ? { runtimeStore: options.runtimeStore, subject: "mcp" }
-          : undefined,
+        ...(audit === undefined ? {} : { audit }),
       })
     const client = makeMcpClientAdapter({ transport })
     const rawDiscovered = options.discover

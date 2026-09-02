@@ -12,7 +12,12 @@ import type { RunResult, ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { recordChildRunDelegated } from "./project-state.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
-import { makeReadFileTool, makeRunCommandTool, makeWriteFileTool, type WorkspaceToolContext } from "./workspace-tools.js"
+import {
+  makeReadFileTool,
+  makeRunCommandTool,
+  makeWriteFileTool,
+  type WorkspaceToolContext,
+} from "./workspace-tools.js"
 import { loadMcpToolDefinitions, loadMcpLlmTools, type McpToolsOptions } from "./mcp-tools.js"
 import type { McpToolBundle } from "./mcp-bootstrap.js"
 import { isSubagentEnabled } from "./subagent-config.js"
@@ -130,9 +135,7 @@ export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
     const history = await loadToolConversationHistory(ctx)
     if (history.kind === "messages") {
       const recent = history.rows.slice(-limit)
-      const lines = recent.map(
-        (m, i) => `${i + 1}. [${m.role}] ${storedMessageText(m.content)}`,
-      )
+      const lines = recent.map((m, i) => `${i + 1}. [${m.role}] ${storedMessageText(m.content)}`)
       return {
         ok: true,
         output: lines.length > 0 ? lines.join("\n") : "(no prior events)",
@@ -141,8 +144,7 @@ export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
     const recent = history.rows.slice(-limit)
     const lines = recent.map((e, i) => {
       const payload = e.payload as Record<string, unknown>
-      const content =
-        typeof payload["content"] === "string" ? (payload["content"] as string) : ""
+      const content = typeof payload["content"] === "string" ? (payload["content"] as string) : ""
       return `${i + 1}. [${e.eventType}] ${content}`
     })
     return {
@@ -358,7 +360,7 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
         childRunId: outcome.childRunId,
         role,
         task,
-        env: ctx.env,
+        ...(ctx.env === undefined ? {} : { env: ctx.env }),
       })
     }
     return {
@@ -565,9 +567,8 @@ export function makeRecallDurableMemoryTool(ctx: ButlerToolContext): ToolDefinit
     const query = typeof args["query"] === "string" ? args["query"] : ""
     const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5
     const limit = Math.min(20, Math.max(1, Math.floor(limitRaw)))
-    const { selectDurableMemoriesForWorkingSet } = await import(
-      "@butler/domain/knowledge/durable-memory.js"
-    )
+    const { selectDurableMemoriesForWorkingSet } =
+      await import("@butler/domain/knowledge/durable-memory.js")
     const records = await store.listBySubject({ subject, status: "confirmed", limit: 40 })
     const selected = selectDurableMemoriesForWorkingSet({
       records,
@@ -579,7 +580,8 @@ export function makeRecallDurableMemoryTool(ctx: ButlerToolContext): ToolDefinit
       return { ok: true, output: "（无匹配的已确认 Durable Memory）" }
     }
     const lines = selected.map(
-      (r, i) => `${i + 1}. [${r.id.slice(0, 8)} conf=${Math.round(r.confidence * 100)}%] ${r.content}`,
+      (r, i) =>
+        `${i + 1}. [${r.id.slice(0, 8)} conf=${Math.round(r.confidence * 100)}%] ${r.content}`,
     )
     return { ok: true, output: lines.join("\n") }
   })
@@ -599,9 +601,8 @@ export function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
     const query = typeof args["query"] === "string" ? args["query"] : ""
     const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 3
     const limit = Math.min(10, Math.max(1, Math.floor(limitRaw)))
-    const { formatDocumentSnippet, selectDocumentsForRecall } = await import(
-      "@butler/domain/knowledge/document-ingest.js"
-    )
+    const { formatDocumentSnippet, selectDocumentsForRecall } =
+      await import("@butler/domain/knowledge/document-ingest.js")
     const records = await store.listBySubject({ subject, limit: 40 })
     const selected = selectDocumentsForRecall({ records, query, limit })
     if (selected.length === 0) {
@@ -645,14 +646,13 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
       ? resolveProjectKnowledgeInboundProjectId(requestedRaw, env)
       : ""
     const projectsRaw =
-      typeof args["projects"] === "string" && args["projects"].trim()
-        ? args["projects"].trim()
-        : ""
+      typeof args["projects"] === "string" && args["projects"].trim() ? args["projects"].trim() : ""
+    const allProjectIds = projectsRaw === "*" ? await store.listAllProjects() : undefined
     const expanded = expandRecallProjectIds({
       contextProjectId,
       requestedProjectId,
       projects: projectsRaw,
-      allProjectIds: projectsRaw === "*" ? await store.listAllProjects() : undefined,
+      ...(allProjectIds === undefined ? {} : { allProjectIds }),
     })
     if (!expanded.ok) {
       return { ok: false, reason: expanded.reason }
@@ -690,12 +690,13 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
  * Observation only — the audit context never issues permissions.
  */
 function workspaceToolCtx(ctx: ButlerToolContext): WorkspaceToolContext {
+  const subject = ctx.wechatUserId ?? ctx.actor?.id
   const audit = ctx.runtimeStore
     ? {
         runtimeStore: ctx.runtimeStore,
         conversationId: ctx.conversationId,
-        runId: ctx.runId,
-        subject: ctx.wechatUserId ?? ctx.actor?.id,
+        ...(ctx.runId === undefined ? {} : { runId: ctx.runId }),
+        ...(subject === undefined ? {} : { subject }),
       }
     : undefined
   return {

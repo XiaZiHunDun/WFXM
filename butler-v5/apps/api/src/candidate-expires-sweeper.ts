@@ -2,7 +2,12 @@
  * G1: opt-in in-process candidate expires sweeper.
  * Same pattern as schedule-worker: env-gated, setInterval, logger, no second Loop.
  */
-import { expireOldCandidates, DEFAULT_EXPIRE_TTL_MS, DEFAULT_EXPIRE_BATCH_LIMIT } from "@butler/domain/knowledge/candidate-expires.js"
+import {
+  expireOldCandidates,
+  DEFAULT_EXPIRE_TTL_MS,
+  DEFAULT_EXPIRE_BATCH_LIMIT,
+} from "@butler/domain/knowledge/candidate-expires.js"
+import { envTruthy, parsePositiveInt } from "./env-util.js"
 import type { Wiring } from "./wiring.js"
 
 export type CandidateExpiresLogger = {
@@ -21,26 +26,14 @@ export interface CandidateExpiresSweeperConfig {
   readonly batchLimit?: number
 }
 
-function parsePositiveIntMs(raw: string | undefined, fallback: number): number {
-  if (!raw) return fallback
-  const n = Number.parseInt(raw, 10)
-  return Number.isFinite(n) && n > 0 ? n : fallback
-}
-
 export function parseCandidateExpiresSweeperConfig(
   env: NodeJS.ProcessEnv,
 ): CandidateExpiresSweeperConfig {
   return {
-    enabled: env["BUTLER_V5_CANDIDATE_EXPIRES_ENABLED"] === "1",
-    tickMs: parsePositiveIntMs(
-      env["BUTLER_V5_CANDIDATE_EXPIRES_INTERVAL_MS"],
-      3_600_000,
-    ),
-    ttlMs: parsePositiveIntMs(
-      env["BUTLER_V5_CANDIDATE_EXPIRES_TTL_MS"],
-      DEFAULT_EXPIRE_TTL_MS,
-    ),
-    batchLimit: parsePositiveIntMs(
+    enabled: envTruthy(env["BUTLER_V5_CANDIDATE_EXPIRES_ENABLED"]),
+    tickMs: parsePositiveInt(env["BUTLER_V5_CANDIDATE_EXPIRES_INTERVAL_MS"], 3_600_000),
+    ttlMs: parsePositiveInt(env["BUTLER_V5_CANDIDATE_EXPIRES_TTL_MS"], DEFAULT_EXPIRE_TTL_MS),
+    batchLimit: parsePositiveInt(
       env["BUTLER_V5_CANDIDATE_EXPIRES_BATCH_LIMIT"],
       DEFAULT_EXPIRE_BATCH_LIMIT,
     ),
@@ -124,9 +117,7 @@ export function startCandidateExpiresSweeperIfEnabled(args: {
     }
   }
 
-  logger.info(
-    `[candidate-expires] sweeper started tickMs=${config.tickMs} ttlMs=${config.ttlMs}`,
-  )
+  logger.info(`[candidate-expires] sweeper started tickMs=${config.tickMs} ttlMs=${config.ttlMs}`)
   void tick()
 
   return {

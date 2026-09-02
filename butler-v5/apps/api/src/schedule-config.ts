@@ -7,14 +7,10 @@
  *   or inline JSON: BUTLER_V5_SCHEDULE_JOBS=[...]
  */
 import { readFileSync } from "node:fs"
+import { envTruthy } from "./env-util.js"
 import { resolve } from "node:path"
 import type { ScheduleJobSpec } from "@butler/domain/runtime.js"
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 function asPositiveInt(raw: unknown, fallback: number): number {
   const n = typeof raw === "number" ? raw : Number(raw)

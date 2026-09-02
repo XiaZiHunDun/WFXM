@@ -6,13 +6,9 @@ import {
   resolveProjectKnowledgeInboundProjectId,
   selectProjectKnowledgeForWorkingSet,
 } from "@butler/domain/knowledge/project-knowledge.js"
+import { envTruthy } from "./env-util.js"
 import type { ProjectKnowledgeStore } from "@butler/persistence"
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 export function isProjectKnowledgeInjectEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_PROJECT_KNOWLEDGE"])

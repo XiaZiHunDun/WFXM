@@ -2,6 +2,7 @@
  * P4: automatic dev verification after exec runs (write/command/subagent).
  */
 import { spawn } from "node:child_process"
+import { envTruthy } from "./env-util.js"
 import { resolve } from "node:path"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
@@ -25,15 +26,17 @@ export function isDevVerifyAutoEnabled(env: NodeJS.ProcessEnv = process.env): bo
 
 /** When true, inbound waits for verify to finish (slow). Default async + WeChat push. */
 export function isDevVerifyInlineEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = (env["BUTLER_V5_DEV_VERIFY_INLINE"] ?? "0").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "on"
+  return envTruthy(env["BUTLER_V5_DEV_VERIFY_INLINE"])
 }
 
 export function workspaceRootFromEnv(env: NodeJS.ProcessEnv = process.env): string {
   return (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim() || process.cwd()
 }
 
-export function resolveDevVerifyCwd(projectId: string, env: NodeJS.ProcessEnv = process.env): string {
+export function resolveDevVerifyCwd(
+  projectId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   const root = workspaceRootFromEnv(env)
   const gateProject = loadQualityGateConfig(env)?.projects?.[projectId.trim()]
   const rel = gateProject?.cwd?.trim()
@@ -137,9 +140,9 @@ export async function listGitTouchedPaths(args: {
   if (result.code !== 0) {
     const staged = await runArgv({
       argv: ["git", "diff", "--name-only", "--cached"],
-    cwd: args.cwd,
-    timeoutMs: 15_000,
-    ...(args.env === undefined ? {} : { env: args.env }),
+      cwd: args.cwd,
+      timeoutMs: 15_000,
+      ...(args.env === undefined ? {} : { env: args.env }),
       ...(args.audit ? { audit: args.audit } : {}),
     })
     if (staged.code !== 0) return []
@@ -259,12 +262,8 @@ export function formatDevQualityReply(args: {
   return lines.join("\n")
 }
 
-export function loopUsedDirectExecTools(
-  loop: Pick<ButlerLoopResult, "traces">,
-): boolean {
-  return loop.traces.some(
-    (t) => t.startsWith("write_file@") || t.startsWith("run_command@"),
-  )
+export function loopUsedDirectExecTools(loop: Pick<ButlerLoopResult, "traces">): boolean {
+  return loop.traces.some((t) => t.startsWith("write_file@") || t.startsWith("run_command@"))
 }
 
 export function shouldAutoDevVerify(args: {
@@ -326,7 +325,7 @@ function scheduleAsyncDevVerify(args: {
       patch: projectStateVerifyPatch({
         verify,
         touchedPaths,
-        branch,
+        ...(branch === undefined ? {} : { branch }),
         wipSummary: verify.ok ? "验收通过" : "验收失败",
       }),
       env: args.env,
@@ -421,7 +420,7 @@ export async function enrichDevRunResult(args: {
     patch: projectStateVerifyPatch({
       verify,
       touchedPaths: freshTouchedPaths,
-      branch: freshBranch,
+      ...(freshBranch === undefined ? {} : { branch: freshBranch }),
       wipSummary: verify.ok ? "验收通过" : "验收失败",
     }),
     env,
@@ -467,7 +466,7 @@ export async function enrichSubagentDevReply(args: {
     patch: projectStateVerifyPatch({
       verify,
       touchedPaths,
-      branch,
+      ...(branch === undefined ? {} : { branch }),
       wipSummary: verify.ok ? "子代理验收通过" : "子代理验收失败",
     }),
     env,

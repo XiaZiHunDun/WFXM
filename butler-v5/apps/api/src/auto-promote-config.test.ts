@@ -12,6 +12,20 @@ describe("parseAutoPromoteConfig", () => {
     expect(cfg.enabled).toBe(true)
   })
 
+  it("honours the shared 1/true/yes/on env convention", () => {
+    for (const truthy of ["1", "true", "yes", "on"]) {
+      expect(
+        parseAutoPromoteConfig({ BUTLER_V5_AUTO_PROMOTE_ENABLED: truthy }).enabled,
+      ).toBe(true)
+    }
+    for (const falsy of ["0", "false", "off", ""]) {
+      expect(
+        parseAutoPromoteConfig({ BUTLER_V5_AUTO_PROMOTE_ENABLED: falsy }).enabled,
+      ).toBe(false)
+    }
+    expect(parseAutoPromoteConfig({}).enabled).toBe(false)
+  })
+
   it("uses defaults for windowMs / sweepLimit / sweepIntervalMs / rollbackWindowMs", () => {
     const cfg = parseAutoPromoteConfig({ BUTLER_V5_AUTO_PROMOTE_ENABLED: "1" })
     expect(cfg.windowMs).toBe(3 * 24 * 3_600_000)

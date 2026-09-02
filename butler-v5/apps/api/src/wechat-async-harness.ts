@@ -2,7 +2,6 @@
  * T2/T3 async acceptance helpers — poll mock notify outbox and project state.
  */
 import { readFileSync, existsSync } from "node:fs"
-import { getProjectState } from "./project-state.js"
 
 export async function waitForCondition(
   predicate: () => Promise<boolean>,
@@ -45,19 +44,3 @@ export async function pollMockOutboxForText(args: {
   return last
 }
 
-export function readProjectVerifyState(args: {
-  readonly userId: string
-  readonly projectId: string
-  readonly env: NodeJS.ProcessEnv
-}): { readonly lastVerifyOk?: boolean; readonly wipSummary?: string } | undefined {
-  const state = getProjectState({
-    userId: args.userId,
-    projectId: args.projectId,
-    env: args.env,
-  })
-  if (!state) return undefined
-  return {
-    ...(state.lastVerifyOk !== undefined ? { lastVerifyOk: state.lastVerifyOk } : {}),
-    ...(state.wipSummary !== undefined ? { wipSummary: state.wipSummary } : {}),
-  }
-}

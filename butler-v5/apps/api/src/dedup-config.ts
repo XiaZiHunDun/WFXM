@@ -2,6 +2,7 @@
  * G2: candidate dedup config — env-driven threshold (default 0.85; 0 = off).
  * Mirrors parseCandidateExpiresSweeperConfig pattern (D40).
  */
+import { parsePositiveInt } from "./env-util.js"
 
 export interface DedupConfig {
   readonly enabled: boolean // threshold > 0
@@ -16,21 +17,12 @@ function parseFloatSafe(raw: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
-function parsePositiveIntSafe(raw: string | undefined, fallback: number): number {
-  if (!raw) return fallback
-  const n = Number.parseInt(raw, 10)
-  return Number.isFinite(n) && n > 0 ? n : fallback
-}
-
 export function parseDedupConfig(env: NodeJS.ProcessEnv): DedupConfig {
   const threshold = parseFloatSafe(env["BUTLER_V5_MEMORY_DEDUP_THRESHOLD"], 0.85)
   return {
     enabled: threshold > 0,
     threshold,
-    recentMs: parsePositiveIntSafe(
-      env["BUTLER_V5_MEMORY_DEDUP_RECENT_MS"],
-      90 * 24 * 3_600_000,
-    ),
-    limit: parsePositiveIntSafe(env["BUTLER_V5_MEMORY_DEDUP_LIMIT"], 50),
+    recentMs: parsePositiveInt(env["BUTLER_V5_MEMORY_DEDUP_RECENT_MS"], 90 * 24 * 3_600_000),
+    limit: parsePositiveInt(env["BUTLER_V5_MEMORY_DEDUP_LIMIT"], 50),
   }
 }

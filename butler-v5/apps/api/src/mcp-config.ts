@@ -1,13 +1,9 @@
 import type { ILinkResult } from "@butler/adapters"
+import { envTruthy } from "./env-util.js"
 import type { McpManifestServer } from "@butler/domain/mcp/manifest.js"
 import { resolveManifestStdioArgs } from "@butler/domain/mcp/manifest.js"
 import { isMcpEnabled, mcpStubToolNames } from "@butler/runtime/mcp-gate.js"
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 export type McpTransportKind = "http" | "stdio" | "sse"
 

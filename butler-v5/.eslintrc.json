@@ -13,7 +13,6 @@
       "./packages/persistence/tsconfig.json",
       "./packages/runtime/tsconfig.json",
       "./packages/adapters/tsconfig.json",
-      "./packages/migration/tsconfig.json",
       "./cli/tsconfig.json"
     ],
     "tsconfigRootDir": "."

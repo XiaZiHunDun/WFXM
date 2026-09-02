@@ -1,4 +1,5 @@
 import type { RunTrigger } from "@butler/domain/runtime.js"
+import { envTruthy } from "./env-util.js"
 import {
   parsePendingCapabilityInput,
   type ApprovalDecision,
@@ -110,8 +111,7 @@ function formatPostExecReply(capability: string, toolOutput: string): string {
 }
 
 function postApprovalLoopEnabled(env: NodeJS.ProcessEnv): boolean {
-  const raw = (env["BUTLER_V5_POST_APPROVAL_LOOP"] ?? "").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "on"
+  return envTruthy(env["BUTLER_V5_POST_APPROVAL_LOOP"])
 }
 
 /**
@@ -482,14 +482,4 @@ export async function resumeApprovedCapability(
     return { ok: true, output: out.reply }
   }
   return out
-}
-
-export function throwIfPendingApproval(
-  outcome: ToolExecutionOutcome,
-  pausePayload: unknown,
-): RunResult {
-  if (isPendingApprovalOutcome(outcome)) {
-    throw new RunPauseForApproval(pausePayload)
-  }
-  return toRunResult(outcome)
 }

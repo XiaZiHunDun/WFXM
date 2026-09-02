@@ -19,6 +19,23 @@ describe("parseCandidateExpiresSweeperConfig", () => {
     ).toBe(true)
   })
 
+  it("honours the shared 1/true/yes/on env convention", () => {
+    for (const truthy of ["1", "true", "yes", "on"]) {
+      expect(
+        parseCandidateExpiresSweeperConfig({
+          BUTLER_V5_CANDIDATE_EXPIRES_ENABLED: truthy,
+        }).enabled,
+      ).toBe(true)
+    }
+    for (const falsy of ["0", "false", "off", ""]) {
+      expect(
+        parseCandidateExpiresSweeperConfig({
+          BUTLER_V5_CANDIDATE_EXPIRES_ENABLED: falsy,
+        }).enabled,
+      ).toBe(false)
+    }
+  })
+
   it("uses defaults for tickMs/ttlMs/batchLimit", () => {
     const cfg = parseCandidateExpiresSweeperConfig({
       BUTLER_V5_CANDIDATE_EXPIRES_ENABLED: "1",

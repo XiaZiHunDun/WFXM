@@ -114,23 +114,6 @@ export async function ensureDevSessionGrants(args: {
   return { expiresAt: new Date(now.getTime() + ttlMs), maxUses }
 }
 
-export async function hasActiveDevSession(args: {
-  readonly store: RuntimeStore
-  readonly subject: string
-  readonly env?: NodeJS.ProcessEnv
-}): Promise<boolean> {
-  const env = args.env ?? process.env
-  const ownerSubject = resolveOwnerSubject(env, args.subject)
-  const runId = devSessionRunId(ownerSubject)
-  const grant = await args.store.findActiveGrant({
-    runId,
-    subject: ownerSubject,
-    capability: "run_command",
-    now: new Date(),
-  })
-  return grant !== null
-}
-
 export function formatDevSessionEnabledReply(args: {
   readonly expiresAt: Date
   readonly maxUses: number

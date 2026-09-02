@@ -1,10 +1,6 @@
 import { parseCsvIds } from "./ilink-config.js"
+import { envTruthy } from "./env-util.js"
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || text === "yes" || text === "on"
-}
 
 /** Opt-in generic channel intake (second channel seam). Default off. */
 export function isChannelApiEnabled(env: NodeJS.ProcessEnv = process.env): boolean {

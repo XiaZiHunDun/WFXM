@@ -30,11 +30,7 @@ import type { McpToolBundle } from "./mcp-bootstrap.js"
 import type { Wiring } from "./wiring.js"
 
 export type WechatIntentKind =
-  | "chat"
-  | "dev_task"
-  | "dev_session"
-  | "switch_project"
-  | "continue_dev"
+  "chat" | "dev_task" | "dev_session" | "switch_project" | "continue_dev"
 
 export type WechatIntent = {
   readonly kind: WechatIntentKind
@@ -45,15 +41,13 @@ export type WechatIntent = {
 const DEV_TASK_RE =
   /(?:write_file|run_command|实现|开发|编写|修改|修复|重构|添加|新增|删除|创建|写个|写入|写\s|做个|加个|改一下|帮我改|帮我写|修一下|fix|implement|refactor|add feature|bug)/iu
 
-const CONTINUE_DEV_RE =
-  /(?:继续|接着|刚才|上次|接着做|继续做|continue|resume)/iu
+const CONTINUE_DEV_RE = /(?:继续|接着|刚才|上次|接着做|继续做|continue|resume)/iu
 
 /** Short phrases that must stay chat (no dev_task / tool bias). */
 const CHAT_ONLY_RE =
   /^(?:ping|pong|hi|hello|hey|你好|您好|在吗|在不在|几点了?|现在几点|几点钟|status|pwd|whoami)$/iu
 
-const CHAT_COMMAND_RE =
-  /^(?:运行?\s*)?(?:pwd|whoami|ping)\s*(?:命令|一下)?$/iu
+const CHAT_COMMAND_RE = /^(?:运行?\s*)?(?:pwd|whoami|ping)\s*(?:命令|一下)?$/iu
 
 function trimmed(content: string): string {
   return content.trim()
@@ -102,8 +96,7 @@ function doneResult(
   }
 }
 
-const DELEGATE_ASYNC_NOTICE =
-  "（子代理已在后台执行，完成后将微信推送含【开发验收】的结果）"
+const DELEGATE_ASYNC_NOTICE = "（子代理已在后台执行，完成后将微信推送含【开发验收】的结果）"
 
 function enrichDelegateAsyncNotice(loop: ButlerLoopResult): ButlerLoopResult {
   const delegated = loop.traces.some((t) => t.startsWith("delegate_to_subagent@"))
@@ -225,7 +218,11 @@ export async function routeWechatIntake(args: {
     }
     setWechatActiveProjectId(args.fromUserId, projectId, env)
     return doneResult(
-      switchProjectReply({ projectId, env, mcpBundle: args.mcpBundle }),
+      switchProjectReply({
+        projectId,
+        env,
+        ...(args.mcpBundle === undefined ? {} : { mcpBundle: args.mcpBundle }),
+      }),
       [`intake:switch:${projectId}`],
     )
   }
@@ -234,7 +231,7 @@ export async function routeWechatIntake(args: {
     intent,
     projectId: args.projectId,
     env,
-    mcpBundle: args.mcpBundle,
+    ...(args.mcpBundle === undefined ? {} : { mcpBundle: args.mcpBundle }),
   })
   const intakeTraces = [
     `intake:${intent.kind}`,
@@ -264,9 +261,7 @@ export async function routeWechatIntake(args: {
       conversationId: args.conversationId,
       content: args.content,
       ...(args.idempotencyKey ? { messageId: args.idempotencyKey } : {}),
-      ...(loopOpts.requiresDevSession
-        ? { extraPayload: { workingSetMode: "dev" as const } }
-        : {}),
+      ...(loopOpts.requiresDevSession ? { extraPayload: { workingSetMode: "dev" as const } } : {}),
     })
   if (loopOpts.requiresDevSession) {
     intakeTraces.push("working-set:dev")

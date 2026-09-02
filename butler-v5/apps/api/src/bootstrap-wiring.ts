@@ -1,4 +1,5 @@
 import { EventBridge } from "@butler/persistence/event-bridge.js"
+import { envTruthy } from "./env-util.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import {
   openButlerDatabase,
@@ -17,11 +18,6 @@ import { createWechatChannelPort } from "@butler/adapters"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { bootstrapMcpTools, type McpToolBundle } from "./mcp-bootstrap.js"
 
-function envTruthy(raw: string | undefined): boolean {
-  if (!raw) return false
-  const text = raw.trim().toLowerCase()
-  return text === "1" || text === "true" || "yes" === text || "on" === text
-}
 
 /** Build the ChannelPort registry from env. Empty when no channel is enabled. */
 function buildChannelPorts(env: NodeJS.ProcessEnv): ReadonlyMap<ChannelKind, ChannelPort> {

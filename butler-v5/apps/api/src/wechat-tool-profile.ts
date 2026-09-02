@@ -1,5 +1,6 @@
 /** Shared WeChat tool surface: plan (read-only) vs exec (write/command). */
 import { WEIBUTLER_LLM_TOOLS } from "./tools.js"
+import { envTruthy } from "./env-util.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 
 export type WechatIntakeIntentKind =
@@ -11,26 +12,6 @@ export type WechatIntakeIntentKind =
 
 export const EXEC_TOOL_NAMES = ["run_command", "write_file"] as const
 
-export const PLAN_CORE_TOOL_NAMES: readonly string[] = [
-  "recall_history",
-  "recall_durable_memory",
-  "recall_document",
-  "recall_project_knowledge",
-  "get_current_time",
-  "greet_with_time",
-  "summarize_today",
-  "read_file",
-  "send_wechat_file",
-]
-
-export function defaultWechatToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
-  const core = [...PLAN_CORE_TOOL_NAMES]
-  if (isSubagentEnabled(env)) {
-    core.push("delegate_to_subagent")
-  }
-  return core
-}
-
 export function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
   const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name)
   if (isSubagentEnabled(env)) return names
@@ -39,8 +20,7 @@ export function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): re
 
 /** Opt-in legacy: main Loop direct write/run (scheme B default is Child Run only). */
 export function isDevDirectExecEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = (env["BUTLER_V5_DEV_DIRECT_EXEC"] ?? "").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "on"
+  return envTruthy(env["BUTLER_V5_DEV_DIRECT_EXEC"])
 }
 
 export function isDevWorkIntent(kind: WechatIntakeIntentKind): boolean {

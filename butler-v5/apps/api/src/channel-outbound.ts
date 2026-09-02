@@ -222,7 +222,3 @@ export function telegramBotToken(env: NodeJS.ProcessEnv = process.env): string {
 export function slackOutboundEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return slackBotToken(env).length > 0
 }
-
-export function telegramOutboundEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return telegramBotToken(env).length > 0
-}
