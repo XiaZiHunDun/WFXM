@@ -200,6 +200,58 @@ describe("decidePolicy", () => {
     expect(decision._tag).toBe("Ask")
   })
 
+  it("P1: denies always-confirm when grant is expired (TTL mismatch)", () => {
+    const request: ActionRequest = {
+      ...baseRequest,
+      kind: "outbound",
+      capability: "send_wechat_file",
+      resource: "file.png",
+      risk: "medium",
+      digest: "d-ttl",
+    }
+    const decision = decidePolicy(
+      request,
+      policy,
+      2000,
+      grant({
+        capability: "send_wechat_file",
+        expiresAtMs: 1999,
+        scope: {
+          capabilities: ["send_wechat_file"],
+          paths: ["file.png"],
+          digest: "d-ttl",
+        },
+      }),
+    )
+    expect(decision._tag).toBe("Ask")
+  })
+
+  it("P1: denies always-confirm when grant is exhausted (remainingUses 0)", () => {
+    const request: ActionRequest = {
+      ...baseRequest,
+      kind: "outbound",
+      capability: "send_wechat_file",
+      resource: "file.png",
+      risk: "medium",
+      digest: "d-uses",
+    }
+    const decision = decidePolicy(
+      request,
+      policy,
+      1000,
+      grant({
+        capability: "send_wechat_file",
+        remainingUses: 0,
+        scope: {
+          capabilities: ["send_wechat_file"],
+          paths: ["file.png"],
+          digest: "d-uses",
+        },
+      }),
+    )
+    expect(decision._tag).toBe("Ask")
+  })
+
   it("allows low-risk owner mcp when mcpReadonlyAutoAllow is set", () => {
     const decision = decidePolicy(
       {

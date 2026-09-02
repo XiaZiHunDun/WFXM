@@ -28,6 +28,11 @@ function isBwrapAvailable(): boolean {
 }
 
 const bwrapAvailable = isBwrapAvailable()
+// slirp egress integration is slow (cold start can exceed 60s) and requires a
+// full rootless-netns + slirp4netns environment. Skip by default; enable only
+// on a host explicitly provisioned for it via BUTLER_V5_TEST_FULL_SANDBOX=1.
+const slirpReady = process.env["BUTLER_V5_TEST_FULL_SANDBOX"] === "1"
+
 let healthzUp = false
 
 beforeAll(async () => {
@@ -79,7 +84,7 @@ describe.skipIf(!bwrapAvailable)("makeRunCommandTool under bubblewrap", () => {
     )
   })
 
-  it(
+  it.runIf(slirpReady)(
     "runs python3 under allowlist+slirp Grant profile (resume path)",
     async () => {
       process.env["BUTLER_V5_SANDBOX_NETWORK_MODE"] = "allowlist"
@@ -96,14 +101,14 @@ describe.skipIf(!bwrapAvailable)("makeRunCommandTool under bubblewrap", () => {
           const py = await runTool(
             tool,
             { argv: ["python3", "-c", "print(123)"] },
-            { timeoutMs: 60_000 },
+            { timeoutMs: 240_000 },
           )
           expect(py.ok).toBe(true)
           if (py.ok) expect(String(py.output).trim()).toBe("123")
         },
       )
     },
-    120_000,
+    300_000,
   )
 
 

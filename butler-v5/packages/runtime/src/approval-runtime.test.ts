@@ -331,4 +331,76 @@ describe("approval-runtime", () => {
     const step = await store.getStep(stepId)
     expect(step?.status).toBe("failed")
   })
+
+  it("P1 restart: resumes pending approval through a fresh store instance", async () => {
+    const { store: store1, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store1, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "send_wechat_file",
+      resource: "photo.jpg",
+      args: { path: "photo.jpg" },
+      question: "Confirm send?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "d-restart",
+      kind: "outbound",
+      risk: "medium",
+    })
+
+    // Simulate a process restart: a brand-new store instance over the SAME
+    // persisted DB. approval-runtime holds no in-memory state — the waiting
+    // step must be fully recoverable from the store alone (M3 cross-process
+    // recovery).
+    const store2 = createRuntimeStore(db.db)
+    const recovered = await store2.listWaitingApprovalSteps()
+    expect(recovered.some((row) => row.id === stepId)).toBe(true)
+
+    const outcome = await approveWaitingStep(store2, stepId, "owner-1")
+    expect(outcome._tag).toBe("approved")
+    if (outcome._tag !== "approved") throw new Error("expected approved")
+    expect(outcome.grant.approvalId).toBe(stepId)
+
+    const updatedRun = await store2.getRun(run.id)
+    expect(updatedRun?.status).toBe("running")
+    const step = await store2.getStep(stepId)
+    expect(step?.status).toBe("succeeded")
+  })
+
+  it("P1 restart: an approval that expired while down never recovers a grant", async () => {
+    const { store: store1, run, conversationId } = await seedRunningRun()
+    const { stepId } = await createWaitingApprovalStep(store1, {
+      runId: run.id,
+      conversationId,
+      subject: "owner-1",
+      capability: "send_wechat_file",
+      resource: "photo.jpg",
+      args: { path: "photo.jpg" },
+      question: "Confirm send?",
+      // Expires before the simulated restart completes — the process was down
+      // past TTL, so a late reply must NOT mint a grant.
+      expiresAtMs: Date.now() - 1,
+      digest: "d-restart-expired",
+      kind: "outbound",
+      risk: "medium",
+    })
+
+    const store2 = createRuntimeStore(db.db)
+    const recovered = await store2.listWaitingApprovalSteps()
+    expect(recovered.some((row) => row.id === stepId)).toBe(true)
+
+    const outcome = await approveWaitingStep(store2, stepId, "owner-1")
+    expect(outcome._tag).toBe("alreadyProcessed")
+    expect(outcome.reason).toBe("expired")
+
+    const grants = await db.db
+      .select()
+      .from(scopedGrants)
+      .where(eq(scopedGrants.approvalId, stepId))
+    expect(grants).toHaveLength(0)
+    const step = await store2.getStep(stepId)
+    expect(step?.status).toBe("failed")
+    const updatedRun = await store2.getRun(run.id)
+    expect(updatedRun?.status).toBe("failed")
+  })
 })

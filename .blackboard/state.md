@@ -1,7 +1,16 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-02 (M1 已收口合 main 89d2c04f；Wave-3 并行分工已下发)
+_last_synced: 2026-09-03 (M3 approval-runtime hardening merged)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
+
+## M3 approval-runtime hardening (merged 2026-09-03)
+
+- Verification: approveWaitingStep idempotent for expired/non-waiting (alreadyProcessed, no double grant); denyWaitingStep via transitionRunToTerminal guard; store stateless -> pending steps fully recoverable.
+- Acceptance tests (+132, 3 files): domain types.test.ts +2 (expired/exhausted grant -> Ask deny); runtime approval-runtime.test.ts +2 (fresh store instance resume; restart-then-expired -> no grant, run terminal).
+- Test env baseline: bubblewrap slirp integration env-gated (BUTLER_V5_TEST_FULL_SANDBOX=1), default skip; baseline green.
+- 5-gate: typecheck green / lint 0 warn / deadcode PASS / file-size PASS / full 262/263 files, 1696/1700 (only eval/14 timeout under overload; 6.9s solo).
+- Noted (untouched): domain/workflows/ unwired but maps to deferred roadmap (DAG/parallel); keep.
+
 
 **并行开发（2026-09-02 立项；2026-09-02 升级，见 `.blackboard/parallel/README.md`）**：monorepo 按包边界长期并行。各会话开 `par/<area>` topic 分支**自主推进、定期 rebase 自治适配**；**S1 仅在固定汇聚点（里程碑/发布快照）统一 rebase + 解共享冲突 + 全量 5-gate + 合 main**，日常不逐项合。会话：S1 / S2 domain / S3 ports+adapters（已退役主任务）/ S4 persistence / S5 runtime / S6 apps+cli。共享/承重文件（DESIGN/port-catalog/ports index/arch guard/state）仅 S1 可改。
 
@@ -34,7 +43,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 **S1 决策登记**：1. domain `./tools/types.js` 仅 `_archive/contracts` 消费 → **保留**（兼容层，非生产路径）。2. **SSOT isTerminalRunStatus 立项**（Wave-3 协调项，S2+S1 共同提交，勿单会话）。
 
-**下一步**：**M2 汇聚点已收口（main `4a6e628f`）**，Wave-3 全部分支完成（S2/S5 SSOT + S4/persistence 对齐 + S6/apps-cli 整理 + S2 domain 测试矩阵补）。下一汇聚点 **M3 待 S1 宣布**。可选：MemoryService（§12）物化触发。
+**下一步**：**M3 已收口（见顶部 M3 段）**。可选候选：① eval 场景测试在并行过载下的超时韧性（非代码问题，可加 `--testTimeout` 或分片）；② MemoryService（§12）物化触发；③ `domain/workflows/` 死模块是否随 DAG 立项复用或归档。
 
 ## 不要做
 
@@ -46,6 +55,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (M3 收口)：审批恢复硬化验收——grant 过期/耗尽决策测试 + 跨重启恢复/重启后过期不恢复测试；bubblewrap slirp env 门控基线归零。5-gate 全过（全量 262/263，仅 eval/14 并行过载超时，单独跑通过）。
 - 2026-09-03 (M2 收口)：S1 收口 8 ahead 分支到 main `4a6e628f`——S2 domain 纯测试 5 批 + S5 runtime-hardening + S4 persistence 对齐（S-A~S-H）+ S6 apps-cli 整理。5-gate：typecheck 全绿 / lint 0 警 / 全量回归 259/263（仅 bubblewrap + eval/scenarios 环境基线）。
 - 2026-09-02 (SSOT 收口)：S1 合 S2 domain 侧 `006125b9` + S5 消费侧 `22360a67`——SSOT isTerminalRunStatus Wave-3 协调项关闭。domain 25/25、runtime+arch 65/379、全仓 typecheck 全绿。
 - 2026-09-02 (M1 收口)：S1 合 `par/exec-audit` 入 main（`89d2c04f`）——exactOptionalPropertyTypes 基线清零 + 并行模型升级黑板。5-gate 全过。Wave-3 分工下发（SSOT S2+S1 / S4 / S6）。
