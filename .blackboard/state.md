@@ -1,7 +1,19 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (M3 approval + eval timeout resilience + port-catalog docs aligned)
+_last_synced: 2026-09-03 (P3-2 capability metadata + M3 approval + eval timeout resilience + port-catalog docs aligned)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
+
+## ✅ P3-2 Capability Provider 申报元数据实装（已收口 2026-09-03，`90e4661d`）
+
+- **需求**：P3.2 Capability Provider 申报元数据实装（含本地工具重写），为每项能力申报 input/output schema、risk class、sandbox profile、timeout、idempotency、audit policy。
+- **改动**（8 文件 +190/−10）：
+  - `runtime/tool-runtime.ts` — `ToolDefinition` 新增 `readonly declared?: CapabilityProviderMetadata`（类型于 `policy-gate.ts` 定义）。
+  - `runtime/capability-boundary.ts` — 新增 `resolveDeclaredMetadata`，按 kind 填充默认：side-effect kind → auditPolicy `full`/idempotent `false`；`command|write` → sandboxProfile `workspace-write-network-deny`；timeoutMs 传播。`capabilityDefinitionFromTool`/`mcpCapabilityProvidersFromTools` 接入。
+  - `apps/api/tools.ts` — `enrichDeclaredSchemas` 从 `WEIBUTLER_LLM_TOOLS.parameters` 富化本地核心工具 inputSchema。
+  - `apps/api/mcp-tools.ts` — 发现到 inputSchema 时随 declared 申报（auditPolicy `summary`）。
+  - 测试：capability-boundary +declared 断言扩 95 行；tools/mcp-tools/tool-boundary 各补 inputSchema / resolved-declared 断言。
+- **门禁**：typecheck 全绿；4 个受影响测试文件 60 用例通过；全量 262 文件 / 1685 通过 / 3 skip 无回归。
+- **说明**：inputSchema 仅在有真实来源时报（无来源不发虚 schema）。
 
 ## M3 approval-runtime hardening (merged 2026-09-03)
 
@@ -66,7 +78,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **修复**：`port-catalog.md` 两处消费路径文档漂移对齐（Repository 行明确"未直接 import、由 domain 合同承载"；Channel 行补充 wechat 已接入、slack 直连绕过的事实）。纯文档，零运行时风险。
 - **门禁**：无代码变更，typecheck/lint/测试不受影响。
 
-**下一步**：主循环已收口（M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐），全量 **263/263 files / 1700 pass / 3 skip** 稳定通过。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。可选项（S1 决策）：domain/tools 4 个仅 barrel+测试引用的域内 API 是否归档。
+**下一步**：主循环已收口（P3-2 申报元数据 + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐），全量 **262 files / 1685 pass / 3 skip** 稳定通过。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。P3-2 可选续做：outputSchema 仍有真实来源（MCP 已能取）可接着申报；可选项（S1 决策）：domain/tools 4 个仅 barrel+测试引用的域内 API 是否归档。
 
 ## 不要做
 
@@ -78,6 +90,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (P3-2 收口 `90e4661d`)：Capability Provider 申报元数据实装——ToolDefinition.declared + resolveDeclaredMetadata 按 kind 填默认；本地核心工具 inputSchema 自 WEIBUTLER_LLM_TOOLS、MCP 申报 discovered inputSchema。typecheck 全绿，全量 262/1685/3skip。
 - 2026-09-03 (收尾三连)：eval 超时韧性（共享 harness，eval/14 6.9→2s）+ workflows 死模块归档（`_archive/packages/domain/workflows`）+ 端口物化文档对齐（port-catalog Repository/Channel 消费路径）。全量 262/1679/3skipped 稳定通过。
 - 2026-09-03 (M3 收口)：审批恢复硬化验收——grant 过期/耗尽决策测试 + 跨重启恢复/重启后过期不恢复测试；bubblewrap slirp env 门控基线归零。5-gate 全过（全量 262/263，仅 eval/14 并行过载超时，单独跑通过）。
 - 2026-09-03 (M2 收口)：S1 收口 8 ahead 分支到 main `4a6e628f`——S2 domain 纯测试 5 批 + S5 runtime-hardening + S4 persistence 对齐（S-A~S-H）+ S6 apps-cli 整理。5-gate：typecheck 全绿 / lint 0 警 / 全量回归 259/263（仅 bubblewrap + eval/scenarios 环境基线）。
