@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (M3 approval + eval timeout resilience merged)
+_last_synced: 2026-09-03 (M3 approval + eval timeout resilience + port-catalog docs aligned)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## M3 approval-runtime hardening (merged 2026-09-03)
@@ -64,6 +64,15 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **门禁**：typecheck 全绿 / deadcode 不再报 workflows / domain+arch 74 文件 580 用例全过 / lint 0 警。
 - **遗留观察（未动）**：`packages/domain/src/tools/index.ts` 的 `isToolTimeout/sortToolsByPriority/validateToolDefinition/describeCommandSpec` 仅被自身 barrel+测试引用（ts-prune 报死），但属于 domain/tools 域内 API，需进一步核实后决定归档或保留——本次控制范围未动。
 
+## 🎯 端口物化收尾：文档对齐（已收口 2026-09-03）
+
+- 逐包扫描 9 个 Core Port 生产消费路径后确认：**端口物化现状自洽，无代码缺口**。
+  - **Repository Port**：`type RepositoryPort = RuntimeStore`（单一真相源），功能接缝真实（postgres + in-memory 双 impl 过 cross-impl harness），生产经 domain `RuntimeStore` 注入，非休眠接口。
+  - **Channel Port**：条件接入符合边界——wechat 被 `wechat-run-notify.ts` 消费（优先 ChannelPort、回退直连 ilink，渐进路径）；slack 经 `channel-outbound.ts`/`routes.ts` 直连绕过 Port。
+  - **MemoryService**：trigger-conditioned，MVP 直调 persistence，未物化 = DESIGN §7 正确。
+- **修复**：`port-catalog.md` 两处消费路径文档漂移对齐（Repository 行明确"未直接 import、由 domain 合同承载"；Channel 行补充 wechat 已接入、slack 直连绕过的事实）。纯文档，零运行时风险。
+- **门禁**：无代码变更，typecheck/lint/测试不受影响。
+
 ## 不要做
 
 - 改 `wechat-inbound-butler.ts`
@@ -74,6 +83,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (收尾三连)：eval 超时韧性（共享 harness，eval/14 6.9→2s）+ workflows 死模块归档（`_archive/packages/domain/workflows`）+ 端口物化文档对齐（port-catalog Repository/Channel 消费路径）。全量 262/1679/3skipped 稳定通过。
 - 2026-09-03 (M3 收口)：审批恢复硬化验收——grant 过期/耗尽决策测试 + 跨重启恢复/重启后过期不恢复测试；bubblewrap slirp env 门控基线归零。5-gate 全过（全量 262/263，仅 eval/14 并行过载超时，单独跑通过）。
 - 2026-09-03 (M2 收口)：S1 收口 8 ahead 分支到 main `4a6e628f`——S2 domain 纯测试 5 批 + S5 runtime-hardening + S4 persistence 对齐（S-A~S-H）+ S6 apps-cli 整理。5-gate：typecheck 全绿 / lint 0 警 / 全量回归 259/263（仅 bubblewrap + eval/scenarios 环境基线）。
 - 2026-09-02 (SSOT 收口)：S1 合 S2 domain 侧 `006125b9` + S5 消费侧 `22360a67`——SSOT isTerminalRunStatus Wave-3 协调项关闭。domain 25/25、runtime+arch 65/379、全仓 typecheck 全绿。
