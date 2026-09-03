@@ -134,3 +134,12 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **S2/S4 实测**：domain/persistence 无 <90% stmts、无 <75% branch 文件，确认真净，未强造改动。
 - **S6 其余**：低覆盖均为 glue/worker/wiring/route/LLM 接线（wechat-inbound-butler 受保护、subagent/module-worker、owner-routes、approval-resume 等），单测价值低，不做。
 - **✅ 全量 5-gate 复核（收尾 2026-09-03，`0779f807` 黑板记录）**：typecheck 全包绿 / lint 0 警 / 全量 **262 files / 1698 pass / 3 skip** / deadcode PASS（domain/tools 死引用为已裁决保留项）/ file-size+受保护文件 PASS / layer-import ENG-15 1458 PASS。无回归、无新欠账，`main` 干净。
+
+## 🧾 换角度验收补遗（2026-09-03，补盲区发现）
+
+> 初轮 4 维全绿之后，从**新角度**（真实运行/供应链/测试质量/安全细节/运营）复核发现 3 个此前未覆盖的项，已对齐处置：
+
+- **① 集成测试被环境门控跳过（运行验收缺口，非代码缺陷）**：bwrap 沙箱逃逸防护（`workspace-tools.bubblewrap.test.ts` 的 `skipIf(!bwrapAvailable)`/`skipIf(!healthzUp)`）与真实 Postgres 持久化（`db-open.test.ts` 的 `postgresRoundTrip` 探针门控）在本机/CI 从不真跑——policy/boundary/approval 的单元负路径扎实，但**沙箱真能挡逃逸、Postgres 真能持久化，未在真实环境验证**。→ 需在配好 bwrap+postgres 的环境跑专项，另立验收项。
+- **② 元入站异常不隔离 → 瞬时失败丢消息（已修复 `f9a93a99`）**：`runButlerLoop` 原只捕获 `ActiveMainRunConflict`，其他异常（工具抛错/store 失败/backfill 失败）外抛 → Hono 500 → 用户无回复、消息丢。修复：catch 非冲突异常 → logger.error + 返回可用降级 reply（`loop-error` 痕量，原始信息不泄露给用户）。LLM 失败本由 loop 内 `completeWithTimeout` 优雅降级（已确认），此修复兜住剩余传播异常。apps/api 75/474/2skip 无回归。
+- **③ run_command 只可操作工作区相对路径（已知权衡，不改）**：`program` 禁 `/` + `ALLOWED_RUN_COMMANDS` 白名单 + 参数禁含 `..`/绝对路径（`workspace-tools.ts`）——安全正确但能力边界窄（`ls /tmp` 等绝对路径被拒）。作为已知限制记入，不改代码。
+- **库存修正**：早前误报"无锁文件"——实际 `pnpm-lock.yaml` 存在，供应链锁定健全（`npm audit` ENOLOCK 仅 npm 不读 pnpm 锁）。
