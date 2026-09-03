@@ -79,7 +79,8 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **修复**：`port-catalog.md` 两处消费路径文档漂移对齐（Repository 行明确"未直接 import、由 domain 合同承载"；Channel 行补充 wechat 已接入、slack 直连绕过的事实）。纯文档，零运行时风险。
 - **门禁**：无代码变更，typecheck/lint/测试不受影响。
 
-**下一步**：主循环已收口（P3-2 申报元数据含 outputSchema + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐），全量 **262 files / 1685 pass / 3 skip** 稳定通过。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。可选项（S1 决策）：domain/tools 4 个仅 barrel+测试引用的域内 API 是否归档。
+**下一步**：主循环已收口（P3-2 申报元数据含 outputSchema + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐），全量 **262 files / 1685 pass / 3 skip** 稳定通过。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。
+- **✅ 已决策（2026-09-03）**：domain/tools 4 个纯函数（isToolTimeout/sortToolsByPriority/validateToolDefinition/describeCommandSpec 等）核实后**保留不归档**——整模块被两条约束锁住：① `tests/architecture/section5-domain-pure.test.ts` §5 把 `domain/src/tools/pure.ts` 列为 Policy 纯规则层范围（承重 arch guard）；② `ports/src/r2-shim.ts`（archived contracts compat 层）从 `@butler/domain` 消费 `Tool/ToolCall/ToolResult/DiscoveredTool` types。测试中尝试归档触发 arch guard fail，已完整回退。此决策取代原"是否归档"候选项。
 
 ## 不要做
 
@@ -91,6 +92,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (domain/tools 归档核实)：核实 6 个 domain/tools 纯函数均无运行消费者，但整模块被 §5 arch guard（`section5-domain-pure` 锁 `tools/pure.ts`）与 compat 层（`ports/r2-shim` 消费 types）锁住 → **保留，不归档**。尝试归档触发 arch guard fail，已完整回退（源码零净改动）。决策记入"下一步"。
 - 2026-09-03 (P3-2 收口 `90e4661d` + `49b14613`)：Capability Provider 申报元数据实装——ToolDefinition.declared + resolveDeclaredMetadata 按 kind 填默认；本地核心工具 inputSchema 自 WEIBUTLER_LLM_TOOLS、MCP 申报 input/outputSchema（outputSchema 续做，MCP 唯一来源）。typecheck 全绿，全量 262/1685/3skip。
 - 2026-09-03 (收尾三连)：eval 超时韧性（共享 harness，eval/14 6.9→2s）+ workflows 死模块归档（`_archive/packages/domain/workflows`）+ 端口物化文档对齐（port-catalog Repository/Channel 消费路径）。全量 262/1679/3skipped 稳定通过。
 - 2026-09-03 (M3 收口)：审批恢复硬化验收——grant 过期/耗尽决策测试 + 跨重启恢复/重启后过期不恢复测试；bubblewrap slirp env 门控基线归零。5-gate 全过（全量 262/263，仅 eval/14 并行过载超时，单独跑通过）。
