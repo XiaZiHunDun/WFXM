@@ -47,4 +47,18 @@ describe("mcp-tools opt-in", () => {
     // MCP opts into summary audit; resolved by capability-boundary against command kind.
     expect(tool?.declared?.auditPolicy).toBe("summary")
   })
+
+  it("P3-2: discovered MCP tool declares its outputSchema when present", async () => {
+    const invoke = vi.fn(async () => ({ ok: true as const, output: "done" }))
+    const tools = loadMcpToolDefinitions(
+      { BUTLER_V5_MCP_ENABLED: "1" },
+      {
+        discovered: [{ name: "weather", inputSchema: { type: "object" }, outputSchema: { type: "object" } }],
+        invoke,
+      },
+    )
+    const tool = tools[0]
+    expect(tool?.declared?.inputSchema).toEqual({ type: "object" })
+    expect(tool?.declared?.outputSchema).toEqual({ type: "object" })
+  })
 })

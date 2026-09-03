@@ -11,6 +11,7 @@ export interface McpDiscoveredTool {
   readonly name: string
   readonly description?: string
   readonly inputSchema?: Readonly<Record<string, unknown>>
+  readonly outputSchema?: Readonly<Record<string, unknown>>
   readonly risk?: "low" | "medium" | "high"
 }
 
@@ -50,12 +51,16 @@ export function makeMcpToolDefinition(
   if (!capability) {
     throw new Error(`invalid MCP tool name: ${discovered.name}`)
   }
+  const hasSchema = discovered.inputSchema !== undefined || discovered.outputSchema !== undefined
+  const declared = {
+    auditPolicy: "summary" as const,
+    ...(discovered.inputSchema !== undefined ? { inputSchema: discovered.inputSchema } : {}),
+    ...(discovered.outputSchema !== undefined ? { outputSchema: discovered.outputSchema } : {}),
+  }
   return {
     name: capability as ToolDefinition["name"],
     risk: discovered.risk ?? "high",
-    ...(discovered.inputSchema !== undefined
-      ? { declared: { inputSchema: discovered.inputSchema, auditPolicy: "summary" as const } }
-      : {}),
+    ...(hasSchema ? { declared } : {}),
     async run(args: Record<string, unknown>) {
       return invoke(discovered.name, args)
     },
