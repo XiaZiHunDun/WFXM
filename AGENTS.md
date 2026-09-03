@@ -29,7 +29,7 @@
 
 ## AI 保护迁移说明
 
-**v5 保护已建立并经 operator 复核（2026-08-27）**：preflight 9/9、post/pre hook 冒烟 PASS（v5 vitest 映射 + 承重文件 block）、`.cursorrules` v5 banner 与 `butler-v5/AGENTS.md` §0 就位，验收见 [`v5-ai-guard-migration-checklist-2026-08.md`](docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md)。
+**v5 保护已建立并经 operator 复核（2026-08-27）**：preflight 9/9、post/pre hook 冒烟 PASS（v5 vitest 映射 + 承重文件 block）、`.cursorrules` v5 banner 与 `butler-v5/AGENTS.md` §0 就位，验收见 [`v5-ai-guard-migration-checklist-2026-08.md`](docs/plans/archive/v5-ai-guard-migration-checklist-2026-08.md)。
 
 根 `.cursorrules`、hooks 与下方保护表仍包含 v4 保护项，作为 v4 兼容层保留：
 

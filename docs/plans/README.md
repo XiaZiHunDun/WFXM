@@ -23,7 +23,7 @@
 |------|------|
 | [`decisions/v5-product-boundaries-2026-08.md`](decisions/v5-product-boundaries-2026-08.md) | v5 硬边界、条件准入、按需立项 |
 | [`active/v5-post-boundary-roadmap-2026-08.md`](active/v5-post-boundary-roadmap-2026-08.md) | v5 P0–P4 后续路线 |
-| [`active/v5-ai-guard-migration-checklist-2026-08.md`](active/v5-ai-guard-migration-checklist-2026-08.md) | 受保护规则的人工作业清单 |
+| [`archive/v5-ai-guard-migration-checklist-2026-08.md`](archive/v5-ai-guard-migration-checklist-2026-08.md) | 受保护规则的人工作业清单（已归档） |
 | [`decisions/roadmap-backlog-and-boundaries-2026-05.md`](decisions/roadmap-backlog-and-boundaries-2026-05.md) | **SUPERSEDED**：v4 历史边界 |
 | [`active/v5-followon-projects-2026-08-20.md`](active/v5-followon-projects-2026-08-20.md) | **v5 跟进立项** R8.x.20–22 |
 | [`decisions/v5-followons-2026-08-20.md`](decisions/v5-followons-2026-08-20.md) | 四项跟进要/不要 |

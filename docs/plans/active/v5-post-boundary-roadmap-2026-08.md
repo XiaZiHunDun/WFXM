@@ -26,7 +26,7 @@
 - 生产调用链与未接线包清单；
 - `packages/persistence` 成为唯一 schema；
 - 未接线 `packages/application` / `packages/infrastructure` 形成迁移、归档或删除清单；
-- v5 保护规则按 [`v5-ai-guard-migration-checklist-2026-08.md`](v5-ai-guard-migration-checklist-2026-08.md) 由人工迁移，再调整 `.cursorrules`。
+- v5 保护规则按 [`v5-ai-guard-migration-checklist-2026-08.md`](../archive/v5-ai-guard-migration-checklist-2026-08.md) 由人工迁移，再调整 `.cursorrules`。
 
 ### 验收
 

@@ -4,7 +4,7 @@
 > **目的**：把仍在生产的 postgres 适配器对 R2 Effect Tag 的依赖收口到 DESIGN §7 物化的 `/core/*` 端口，再归档整文件
 > **依赖**：R11.2 alignment shift（commit `4fed4e02`，B-soft 路径落地 port-catalog + package-membership 守卫）已就位
 > **驱动**：DESIGN §7 "ports-stable × real-need driven" 准则 + invariant 16（monorepo 卫生）+ 长期可演进
-> **路线图出处**：[`v5-post-boundary-roadmap-2026-08.md`](../decisions/v5-post-boundary-roadmap-2026-08.md) 的 "P5 端口化完整性" 已收口 ClockPort；本 PRD 把 P5 余项从"隐性承载"推到"物化"
+> **路线图出处**：[`v5-post-boundary-roadmap-2026-08.md`](v5-post-boundary-roadmap-2026-08.md) 的 "P5 端口化完整性" 已收口 ClockPort；本 PRD 把 P5 余项从"隐性承载"推到"物化"
 
 ## 1. 背景
 

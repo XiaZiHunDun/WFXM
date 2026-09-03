@@ -1,7 +1,7 @@
 # Claude Code settings.json — Owner 人工动作（2026-08-24）
 
 > **状态**：✅ Done（2026-08-24）  
-> **关联**：[`v5-engineering-handoff-2026-08.md`](../decisions/v5-engineering-handoff-2026-08.md) · [`v5-ai-guard-migration-checklist-2026-08.md`](v5-ai-guard-migration-checklist-2026-08.md)
+> **关联**：[`v5-engineering-handoff-2026-08.md`](../decisions/v5-engineering-handoff-2026-08.md) · [`v5-ai-guard-migration-checklist-2026-08.md`](../archive/v5-ai-guard-migration-checklist-2026-08.md)
 
 ---
 

@@ -1,8 +1,8 @@
 # Butler Tests — 测试模块
 
 > **层级**：测试 / 验证  
-> **父文档**：[`../../AGENTS.md`](../../AGENTS.md)  
-> **架构参考**：[`../../docs/architecture/v4-architecture.md`](../../docs/architecture/v4-architecture.md) §7
+> **父文档**：[`../AGENTS.md`](../AGENTS.md)  
+> **架构参考**：[`../docs/architecture/v4-architecture.md`](../docs/architecture/v4-architecture.md) §7
 
 ## 目录结构
 
