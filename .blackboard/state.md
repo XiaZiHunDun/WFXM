@@ -117,3 +117,10 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - 2026-09-02 (D47)：见 .blackboard/shifts/2026-09-02-d47-parallel-wave1-handoff.md。
 - 2026-09-02 (D46)：Repository Port 物化（in-memory RuntimeStore + ports RepositoryPort；推 D26B §20 #6 原 lock）。
 - 2026-09-02 (D45)：owner-routes 按域拆分 7 子模块。
+
+## 🛠 完善 wave（2026-09-03，实测驱动）
+
+- **S5 runtime** `cd70a911`：policy-gate 补 grant sandbox/network 上下文 + mcpReadonlyAutoAllow 分支，分支 87.9→96.8%。
+- **S6 apps/api** `08bfde9f`：project-knowledge-glob 补 7 用例（空/traversal/plain/** 双星/scoped/fallback/maxFiles/skip 目录），覆盖 56→96.8% stmts、55→83.3% branch。
+- **S2/S4 实测**：domain/persistence 无 <90% stmts、无 <75% branch 文件，确认真净，未强造改动。
+- **S6 其余**：低覆盖均为 glue/worker/wiring/route/LLM 接线（wechat-inbound-butler 受保护、subagent/module-worker、owner-routes、approval-resume 等），单测价值低，不做。
