@@ -41,6 +41,36 @@ export interface RunScenarioInput {
   readonly stuckLoopThreshold?: number
   /** Override max-decode-retries (Phase D fix B-08/10). */
   readonly maxDecodeRetries?: number
+  /** Reuse an existing DB + wiring across turns in the same test (avoids a
+   *  fresh PGlite migrate per turn — the main cost in multi-turn scenarios). */
+  readonly harness?: EvalHarness
+}
+
+export interface EvalHarness {
+  readonly wiring: Wiring
+  readonly db: Awaited<ReturnType<typeof makeTestDb>>
+}
+
+/** Build a shared DB + wiring once and reuse it across turns in a multi-turn
+ *  eval scenario. The caller is responsible for `closeEvalHarness` in afterEach. */
+export async function makeEvalHarness(): Promise<EvalHarness> {
+  const db = await makeTestDb()
+  const bridge = new EventBridge({ db: db.db, workerId: "w-eval" })
+  const runtimeStore = createRuntimeStore(db.db)
+  const runEngine = new RunEngine(runtimeStore)
+  const wiring: Wiring = makeWiring({
+    bridge,
+    workerId: "w-eval",
+    runtimeStore,
+    runEngine,
+    db: db.db,
+    backfillConversation: async () => undefined,
+  })
+  return { wiring, db }
+}
+
+export async function closeEvalHarness(harness: EvalHarness): Promise<void> {
+  await harness.db.close()
 }
 
 const silentLogger: ButlerLoopLogger = {
@@ -64,20 +94,46 @@ function capabilitiesFromTraces(traces: readonly string[]): readonly string[] {
   return out
 }
 
+export interface RunScenarioInput {
+  readonly name: string
+  readonly content: string
+  readonly fromUserId?: string
+  readonly projectId?: string
+  readonly conversationId?: string
+  readonly env?: Readonly<Record<string, string>>
+  readonly adapter: InstrumentedAdapter
+  readonly allowedToolNames?: readonly string[]
+  /** Optional hook: runs after wiring setup but before runButlerLoop. Use to
+   *  pre-seed conversation / Run / Grant state for race / conflict scenarios. */
+  readonly beforeLoop?: (ctx: { readonly wiring: Wiring }) => Promise<void>
+  /** Override per-LLM-call timeout in ms (Phase D fix B-09). */
+  readonly llmTimeoutMs?: number
+  /** Override stuck-loop threshold (Phase D fix B-06). */
+  readonly stuckLoopThreshold?: number
+  /** Override max-decode-retries (Phase D fix B-08/10). */
+  readonly maxDecodeRetries?: number
+  /** Reuse an existing DB + wiring across turns in the same test (avoids a
+   *  fresh PGlite migrate per turn — the main cost in multi-turn scenarios). */
+  readonly harness?: EvalHarness
+}
+
 export async function runEvalScenario(input: RunScenarioInput): Promise<EvalResult> {
   const totalStart = Date.now()
-  const db = await makeTestDb()
-  const bridge = new EventBridge({ db: db.db, workerId: "w-eval" })
-  const runtimeStore = createRuntimeStore(db.db)
-  const runEngine = new RunEngine(runtimeStore)
-  const wiring: Wiring = makeWiring({
-    bridge,
-    workerId: "w-eval",
-    runtimeStore,
-    runEngine,
-    db: db.db,
-    backfillConversation: async () => undefined,
-  })
+  const harness = input.harness
+  const db = harness ? harness.db : await makeTestDb()
+  const bridge = harness?.wiring.eventBridge ?? new EventBridge({ db: db.db, workerId: "w-eval" })
+  const runtimeStore = harness?.wiring.runtimeStore ?? createRuntimeStore(db.db)
+  const runEngine = harness?.wiring.runEngine ?? new RunEngine(runtimeStore)
+  const wiring: Wiring =
+    harness?.wiring ??
+    makeWiring({
+      bridge,
+      workerId: "w-eval",
+      runtimeStore,
+      runEngine,
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
   const setupMs = Date.now() - totalStart
 
   const loopStart = Date.now()
@@ -152,8 +208,6 @@ export async function runEvalScenario(input: RunScenarioInput): Promise<EvalResu
       success: false,
     }
   }
-
-  await db.close()
 
   const finalMetrics: EvalMetrics = { ...result_metrics, success: successFlag }
   const painPoints = detectPainPoints(finalMetrics)

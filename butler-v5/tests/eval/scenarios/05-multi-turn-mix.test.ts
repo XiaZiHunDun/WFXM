@@ -10,7 +10,7 @@
  *   turn 4: summarize today                → expect call summarize_today + Respond
  */
 import { describe, expect, it } from "vitest"
-import { runEvalScenario, formatMetricLine } from "../harness.js"
+import { runEvalScenario, makeEvalHarness, closeEvalHarness, formatMetricLine } from "../harness.js"
 import {
   decisionResponse,
   makeScriptedAdapter,
@@ -22,6 +22,9 @@ describe("eval/05 multi-turn-mix (heterogeneous capabilities)", () => {
   // full-suite load; bump to 30s for headroom.
   it("4 turns across greet / history / read / summarize", { timeout: 30_000 }, async () => {
     const conversationId = "c-eval-mix-1"
+    // 4 turns share one harness so the PGlite migrate runs once; keeps the
+    // turn cost (~30ms loop) well within the suite contention budget.
+    const harness = await makeEvalHarness()
     const turns = [
       {
         content: "现在几点了",
@@ -88,11 +91,13 @@ describe("eval/05 multi-turn-mix (heterogeneous capabilities)", () => {
         projectId: "p-1",
         conversationId,
         adapter,
+        harness,
       })
       // eslint-disable-next-line no-console -- eval scenarios log metrics to stdout
       console.log(formatMetricLine(result.metrics))
       expect(result.metrics.success).toBe(true)
       expect(result.metrics.errors).toHaveLength(0)
     }
+    await closeEvalHarness(harness)
   })
 })

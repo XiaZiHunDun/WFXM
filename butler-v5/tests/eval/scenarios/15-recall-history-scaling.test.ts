@@ -8,7 +8,7 @@
  * ceiling for each turn; any >1500ms turn surfaces a scaling pain point.
  */
 import { describe, expect, it } from "vitest"
-import { runEvalScenario, formatMetricLine } from "../harness.js"
+import { runEvalScenario, makeEvalHarness, closeEvalHarness, formatMetricLine } from "../harness.js"
 import {
   decisionResponse,
   makeScriptedAdapter,
@@ -16,10 +16,11 @@ import {
 } from "../mock-llm-scripted.js"
 
 describe("eval/15 recall-history-scaling", () => {
-  // 5 turn × ~30ms loop + DB init; default 10s testTimeout + 30s suite contention
-  // pushes this over the limit; bump to 60s.
+  // 5 turns; reuse one harness so the PGlite migrate runs once instead of
+  // per turn (keeps suite contention well within the timeout budget).
   it("5 sequential turn, each calls recall_history; loopMs ceiling per turn", { timeout: 60_000 }, async () => {
     const conversationId = "c-eval-recall-scale-1"
+    const harness = await makeEvalHarness()
     const results = []
     for (let i = 0; i < 5; i++) {
       const adapter = makeScriptedAdapter({
@@ -38,11 +39,13 @@ describe("eval/15 recall-history-scaling", () => {
         projectId: "p-1",
         conversationId,
         adapter,
+        harness,
       })
       // eslint-disable-next-line no-console -- eval scenarios log metrics to stdout
       console.log(formatMetricLine(result.metrics))
       results.push(result)
     }
+    await closeEvalHarness(harness)
 
     expect(results).toHaveLength(5)
     for (const r of results) {
