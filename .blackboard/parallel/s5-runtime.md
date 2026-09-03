@@ -52,3 +52,16 @@ CI= pnpm exec vitest run tests/gateway tests/test_p2_workflow_permissions.py-tes
 - **SSOT 消费侧**：`par/runtime-ssot` → `22360a67`（删 `run-lifecycle.ts:176-187` 本地定义，改从 domain 导入；65/379 全过，行为零漂移）。
 - **runtime-hardening**：`par/runtime-hardening` → double-completion no-op 修复（run-engine 读实际 status 而非猜 "succeeded"）+ cancelRunCascade 用 SSOT `isTerminalRunStatus`（跳过 expired 死端，修 `IllegalRunTransitionError` 级联中止）+ 7 模块分支覆盖测试。
 - **5-gate**：runtime tsc ✓、lint 0 警、全测试 PASS。
+
+## 🛠 完善 charter（Wave 2026-09-03）
+
+> 性质：**有界完善**。run-engine/capability/approval 主流程已收口（M2/M3）。本 charter 只授权**审计 + 补小缺口**，不新增架构、不改 Policy→Approval→Grant→Boundary→Audit 链语义（DESIGN §3）。
+
+**着力面（自查 + 关闭小缺口）**：
+1. `capability-boundary` / `policy-gate` / `approval-runtime` 边缘与错误路径测试：非法 transition、重复审批、已过期/已处理 step、idempotency、并发。
+2. fail-closed 顺序核实：未知 capability 拒绝、sandbox/network grant 上下文、kill switch。
+3. MCP provider 边界（`mcpCapabilityProvidersFromTools`）与 grant 语义一致性。
+4. 收敛 `as any`/`unknown` cast；就地裁决 TODO/FIXME。
+5. 消费 domain SSOT（`isTerminalRunStatus` 等），不重复定义。
+
+**不做**：不改 Run Trigger 归一/副作用咽喉结构、不新增强力 side-effect 绕过（必须走守卫）、不碰 `tests/architecture`（归 S1）。

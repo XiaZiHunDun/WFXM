@@ -50,3 +50,16 @@ pnpm exec eslint packages/persistence --ext .ts --max-warnings 0
 - **in-memory/production RuntimeStore 对齐**：S-A~S-H（idempotencyKey 去重、kind==='approval' 门控、ACTIVE_MAIN_RUN_STATUSES 死端门控、排序、findActiveGrant digest 语义等 8 项补齐）。
 - **测试基建扩**：新增 `event-bridge.test.ts`；`db-open.test.ts` PG server 不可达时 skip；`runtime-store.cross-impl.test.ts` 契约线束扩 +460 行。
 - **5-gate**：persistence tsc ✓、lint 0 警、全测试 PASS。
+
+## 🛠 完善 charter（Wave 2026-09-03）
+
+> 性质：**有界完善**。in-memory/production 已对齐（M2），production schema 只认 `0001_initial.sql`。本 charter 只授权**审计 + 补小缺口**，不改 schema、不新增 store。
+
+**着力面（自查 + 关闭小缺口）**：
+1. `runtime-store` cross-impl parity 线束（`runtime-store.cross-impl.test.ts`）——补齐边缘对齐断言（idempotencyKey 去重、kind==='approval' 门控、dead-end 状态门控、排序、findActiveGrant digest）。
+2. `event-bridge` / durable-outbox / idempotency 分支覆盖。
+3. migration/backfill 边界与错误/回滚路径测试。
+4. 收敛 `as any`/`unknown` cast；就地裁决 TODO/FIXME。
+5. **守 arch guard**：persistence 只 import domain，禁止 import ports/runtime/apps；不改任何 store 契约签名（波及 S5/S6；要改先标 `@S2/@S1` 而不擅动）。
+
+**不做**：不改 schema、不新增迁移、不物化 MemoryService（等触发）。

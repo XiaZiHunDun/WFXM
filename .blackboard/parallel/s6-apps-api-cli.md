@@ -53,3 +53,16 @@ pnpm exec eslint apps cli --ext .ts --max-warnings 0
 - **测试补覆盖**：`exec-audit.test.ts`（边界，原未跟踪残留入库）、`bootstrap-wiring.test.ts`（Composition Root DB-open 失败契约）、`env-util.test.ts`、`wechat-tool-profile.test.ts`、`wechat-intake-llm.test.ts`。
 - **零星修复**：exactOptionalPropertyTypes 剩余点 + prettier 统一；lint 0 警告。
 - **5-gate**：apps/api+cli tsc ✓、lint 0 警、全测试 PASS。
+
+## 🛠 完善 charter（Wave 2026-09-03）
+
+> 性质：**有界完善**。exec 记账（D49）/owner 路由/wiring 已就绪。本 charter 只授权**审计 + 补小缺口**，不新增入口、不绕过 Capability 接缝。
+
+**着力面（自查 + 关闭小缺口）**：
+1. `exec-audit` / child-process 记账审计事件覆盖（成功/失败/超时/退出码路径）。
+2. owner-route 校验与错误响应覆盖；`wechat-inbound-butler.ts`（受保护）若有改动只走人工。
+3. wiring orphan 核查：注册了 provider 但未过 capability-boundary 的工具、未接 run-trigger 的副作用。
+4. 收敛 `as any`/`unknown` cast；就地裁决 TODO/FIXME。
+5. 复用 `env-util.ts`（parsePositiveInt / env-boolean），不重复解析逻辑。
+
+**不做**：不新增强力调用的隐蔽 bypass；不碰 `.blackboard/**`、`DESIGN.md`、`pyproject.toml`、`.claude/**`（归 S1/保护）。

@@ -49,3 +49,16 @@ pnpm exec eslint packages/domain --ext .ts --max-warnings 0
 - **SSOT isTerminalRunStatus（主项）**：`par/domain-ssot` → 合入 main `006125b9`（`LEGAL_TRANSITIONS` 无出边推导 + barrel + 10 一致性测试，契约冻结）。
 - **纯测试补覆盖 5 批**：`par/domain-cov2`（grant/buildScopedGrantScopeFromPending 分支）、`cov3`（wechat-tools allowlist 边缘，分支 100%）、`kcov`（project-knowledge + task-procedure + toFixSuggestion + knowledge/network 纯辅助）、`refine`（grant-path 纯辅助 + network-allowlist + store-contract）、`status`（SSOT status partition active-main vs terminal）。
 - **5-gate**：domain tsc ✓、lint 0 警、全测试 PASS。
+
+## 🛠 完善 charter（Wave 2026-09-03）
+
+> 性质：**有界完善**。各包主流程已收口（M3/P3 系列），无大功能缺口。本 charter 只授权**审计 + 补小缺口**，禁止立项新能力（DESIGN §7：不主动立项、禁造休眠接口）。
+
+**着力面（自查 + 关闭小缺口）**：
+1. `permissions/types|pure` 的 `decidePermission` 两处签名不一致（barrel 注释已声明差异）——核对是否仅是导出别名、有无隐患，补分支覆盖。
+2. `memory/pure` 导出完整性 vs 测试覆盖一一对齐。
+3. `runtime/index`（状态机/trigger/微信工具白名单）分支覆盖核查：状态转移非法路径、空输入、name/id 歧义。
+4. 收敛 `as any`/`unknown` cast（能收紧到判别的收敛），不新落 cast。
+5. 就地裁决 TODO/FIXME/XXX（补测试或删）。
+
+**不做**：不新增 domain 概念、不改契约 Port 签名、不碰 `tests/architecture/*.test.ts`（归 S1）。改共享文件 → 提 PR 标 `@S1`。
