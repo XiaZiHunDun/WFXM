@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (全面梳理+验收：架构/env/代码健康/全量门禁 4 维全绿；262/1698/3skip)
+_last_synced: 2026-09-03 (换角度验收执行：②入站降级修复 f9a93a99 + ①沙箱/Postgres 实证全通过；262/1699/2skip)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 🧾 全面梳理+验收（2026-09-03，4 维全绿）
@@ -143,3 +143,4 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **② 元入站异常不隔离 → 瞬时失败丢消息（已修复 `f9a93a99`）**：`runButlerLoop` 原只捕获 `ActiveMainRunConflict`，其他异常（工具抛错/store 失败/backfill 失败）外抛 → Hono 500 → 用户无回复、消息丢。修复：catch 非冲突异常 → logger.error + 返回可用降级 reply（`loop-error` 痕量，原始信息不泄露给用户）。LLM 失败本由 loop 内 `completeWithTimeout` 优雅降级（已确认），此修复兜住剩余传播异常。apps/api 75/474/2skip 无回归。
 - **③ run_command 只可操作工作区相对路径（已知权衡，不改）**：`program` 禁 `/` + `ALLOWED_RUN_COMMANDS` 白名单 + 参数禁含 `..`/绝对路径（`workspace-tools.ts`）——安全正确但能力边界窄（`ls /tmp` 等绝对路径被拒）。作为已知限制记入，不改代码。
 - **库存修正**：早前误报"无锁文件"——实际 `pnpm-lock.yaml` 存在，供应链锁定健全（`npm audit` ENOLOCK 仅 npm 不读 pnpm 锁）。
+- **①追补实证（2026-09-03）**：真实 Postgres 持久化经 `docker run postgres:16-alpine`（宿主 55432，`BUTLER_V5_TEST_DATABASE_URL` 指向）使 `db-open.test.ts` 的 `postgresRoundTrip` **由 skip → PASS（4/4，open→write→close→reopen→read 存活性）**；容器已清理、端口释放。至此 ① 的沙箱（bwrap+slirp egress）与真实 PG 持久化**本机全部实际验证通过**，仅剩 `healthzUp`（需 `:3000` 跑应用）属部署级集成。全量基线从 262/1698/3skip → **262/1699/2skip**（PG roundtrip 计入）。`main` 干净，无代码待提交。
