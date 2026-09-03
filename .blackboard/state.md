@@ -1,7 +1,38 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (① 全部实证清零：healthzUp 测试设计缺陷修复 + 双向网络守卫通过；262/1699/2skip)
-_handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
+_last_synced: 2026-09-03 (微信端到端模拟验收 harness 收口：4 acceptance 文件 / 11 用例 + harness 配套；全量 266/1712/1skip)
+_handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
+
+## ✅ 微信端到端模拟验收 harness（已收口 2026-09-03）
+
+- **动机**：既有验收以单元/集成 fixture 调包接口为主，**没有端到端**走真实链路（HTTP → run loop → 工具调用 → 审批 → 恢复 → 落库）。缺的正是"真实开发场景"。本批按 `docs/plans/active/v5-wechat-simulated-acceptance-2026-09.md` 落地一个**脚本化 LLM fixture 注入生产 wiring** 的确定性验收 harness：不调真模型、不开真微信、不起活服务，多次结果一致。
+- **新增文件（uncommitted）**：
+  - `butler-v5/tests/acceptance/harness.ts` — 共享 harness（`makeAcceptanceApp`/`sendWechatMessage`/`toolCallEntry`/`textEntry`/`decisionEntry`）；wiring 镜像生产（PGlite + 完整 stores + RunEngine + MCP off）；额外暴露 `db` / `workspaceRoot` / `fixtureDir`。
+  - `butler-v5/tests/acceptance/commands-approval.test.ts`（3 用例，handoff 前已实跑通）：
+    - `/记住` 命令捷径 LLM-free 返回「已记住」
+    - 脚本化 LLM 文本 Respond 普通答复
+    - write_file 触发审批（policy Ask → waiting_approval → 微信「确认」→ run 终态 succeeded）
+  - `butler-v5/tests/acceptance/fault-tolerance.test.ts`（3 用例）：
+    - 入站缺 `apiVersion` 返回 400 文本（非 500/丢消息）
+    - 同 conversationId 上 run `waiting_approval` 时再入站 → 触发 `ActiveMainRunConflict`，runButlerLoop catch 降级 reply（"未完成/进行中/稍后"），run 仍 active
+    - fixture 列表空 → LLM 兜底 `[fixture exhausted: plan#N]`，状态 201 不抛 500
+  - `butler-v5/tests/acceptance/subagent-multiturn.test.ts`（2 用例）：
+    - 同 conversationId 第二轮沿用 history（convId 不变、两次都生成新 run + 终态 succeeded）
+    - 跨 turn 工具调用：turn1 write_file paused → turn2「确认」恢复 → run 终态 succeeded
+  - `butler-v5/tests/acceptance/audit-state.test.ts`（3 用例）：
+    - 入站 → `event_store` 至少一条 `ConversationStarted` 行 + schema 不变量（correlationId/actor）
+    - write_file 审批通过 → `scoped_grants` 表写入至少 1 条 grant 行
+    - **跨「重启」恢复**：close appA → 共享 `BUTLER_V5_PGLITE_DATA_DIR` 重开 appB → 同一 conversationId 发「确认」→ pending approval 仍可恢复执行
+- **关键改造（仅 harness 配套）**：
+  - `butler-v5/apps/api/src/acceptance-app.ts`（harness 配套薄封装）：Hono `app.request` 签名 `Response | Promise<Response>` 统一收敛 `Promise<Response>` 匹配 harness 类型；fix typecheck。
+  - `butler-v5/tests/acceptance/harness.ts`：
+    - 新增 `opts.pgliteDataDir`（仅跨重启用例使用）；当指定时，给 `openButlerDatabase` 单独传 `dbEnv`（去掉 `VITEST`/`NODE_ENV=test`），避开 `resolvePgliteDataDir` 的"测试 in-memory"强制（生产代码未改），让 PGlite 走文件持久化
+    - 暴露 `fixtureDir` 便于后续用例
+- **每个用例独立 conversationId**（避免 `defaultWechatConversationId("wechat","u-owner")` 稳定 → 跨用例撞 `ActiveMainRunConflict`）——一处 plan drift 教训。
+- **测试结果**：`pnpm vitest run tests/acceptance --pool=forks` → **4 files / 11 passed**（含原 3 个 commands-approval 用例），耗时 ~6.6s。
+- **门禁**：typecheck 全包绿（含 acceptance-app.ts 修复）/ lint 0 警（修复 acceptance 9 处 `non-null assertion` + 1 处 unused import；commands-approval 也顺手清零）/ 全量回归 **266 files / 1712 passed / 1 skipped**（较上一班 +4 文件/+12 pass/-1 skip），无回归。
+- **约束遵守**：未改 harness 之外的任何生产代码；`BUTLER_V5_INTAKE_ENABLED=0` 保持（走 `runButlerLoop` 真实回退路径，含 write_file + 审批链路）。`acceptance-app.ts` 按 handoff §2/§7 明确属 harness 配套封装，typecheck 修复属该范围。
+- **后续**：CI 纳入与否按 owner 决定（harness §7 标注测试较慢，CI timeout 需放宽）。
 
 ## 🧾 全面梳理+验收（2026-09-03，4 维全绿）
 
@@ -110,6 +141,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (全量复检)：整体检查再跑一遍，门禁全绿无漂移——typecheck 全包绿 / lint 0 警 / 全量 **262 files / 1700 pass / 2 skip** / deadcode 仅 used-in-module 注记 / file-size 1490 文件 PASS / 受保护文件仅既有 AGENTS.md 文档链接调整（active→archive，非守卫篡改）/ architecture+guard 25 tests PASS / contracts 7 PASS / p3j-env-audit OK。基线未变，`main` 干净。
 - 2026-09-03 (①清零·healthzUp)：修复 `workspace-tools.bubblewrap.test.ts` 集成测试设计缺陷——`it.skipIf(!healthzUp)` 在收集期求值但探测在异步 beforeAll（恒 false），网络放行用例从未真跑。改同步收集期探测 `probeHealthz`，实测 network-deny 阻断 / network-allow 放行 loopback 双向守卫全过（4 pass/1 skip）。至此 ① 沙箱+真实 PG+healthzUp 全实证清零。typecheck/lint 绿。`main` 干净。
 - 2026-09-03 (全面梳理+验收)：架构（无依赖违规、副作用咽喉一致、Repository/Model 已物化、Channel 缝隙为已记录）/ env-文档（p3j-env-audit OK、roadmap 落点对齐）/ 代码健康（无新死代码、无超行文件、无危险 cast）/ 全量门禁（typecheck/lint/262·1698·3skip/deadcode/file-size/contracts 44/layer 1458 全绿）4 维通过。`main` 干净，无安全/架构硬欠账。
 - 2026-09-03 (完善 wave 收尾)：实测驱动补齐 policy-gate（`cd70a911`，分支 87.9→96.8%）+ project-knowledge-glob（`08bfde9f`，覆盖 56→96.8%）真实缺口；S2/S4 确认真净、S6 glue 低值不做；**全量 5-gate 复核全绿**（262/1698/3skip，layer ENG-15 1458）。`main` 干净。
