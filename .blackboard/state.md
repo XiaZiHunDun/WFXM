@@ -1,7 +1,14 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (P3-3/P3-2/M3/eval/workflows/ports + 完善 wave + 全量 5-gate 复核收尾)
+_last_synced: 2026-09-03 (全面梳理+验收：架构/env/代码健康/全量门禁 4 维全绿；262/1698/3skip)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
+
+## 🧾 全面梳理+验收（2026-09-03，4 维全绿）
+
+- **架构对齐**：无依赖方向违规；副作用咽喉一致（run_command/write_file/send_wechat_file/delegate_to_subagent 均过 capability-boundary+policy-gate）；Model 调用不走策略（预期）；Repository/Model Port 已真实物化（接口+注入点+消费者）；Channel Port 仅 Slack/Telegram 直连 adapter 属已记录实施缝隙，微信走 Port。无新增漂移。
+- **env/文档卫生**：p3j-env-audit OK（code/reference/example 对齐）；roadmap P3-2/P3-3/M3 标完成项均有代码+测试落点；port-catalog 与 ports/src 一致；check-dead-env.sh 为 v4 口径脚本报 v5 变量 dead 属工具作用域差异，非回归。
+- **代码健康**：无新死代码 / 无超 800 行生产文件 / 无危险非边界 cast（approval-runtime as unknown 为 LLM/JSON 边界正当转换）/ 仅 1 处文档 TODO（tools.ts L498 示例文本）；policy-gate 分支 96.8%、approval ~100%。
+- **全量门禁**：typecheck 全包绿 / lint 0 警 / 全量 **262 files / 1698 pass / 3 skip** / deadcode PASS（仅既有 used-in-module 注记）/ file-size+受保护 PASS / contracts 44 PASS / layer-import ENG-15 1458 PASS / p3j-env-audit OK。`main` 干净，无安全/架构硬欠账。
 
 ## ✅ P3-3 MCP 首个适配（收口 2026-09-03）
 
@@ -90,7 +97,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **修复**：`port-catalog.md` 两处消费路径文档漂移对齐（Repository 行明确"未直接 import、由 domain 合同承载"；Channel 行补充 wechat 已接入、slack 直连绕过的事实）。纯文档，零运行时风险。
 - **门禁**：无代码变更，typecheck/lint/测试不受影响。
 
-**下一步**：主循环已全部收口（P3-3 MCP 加固 + P3-2 申报元数据含 outputSchema + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐 + 完善 wave），全量 **262 files / 1698 pass / 3 skip** 稳定通过，**全量 5-gate 复核全绿（typecheck/lint/deadcode/file-size/layer-import ENG-15 1458）**。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。
+**下一步**：主循环已全部收口（P3-3 MCP 加固 + P3-2 申报元数据含 outputSchema + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐 + 完善 wave + **全面验收**），全量 **262 files / 1698 pass / 3 skip** 稳定通过，**全量 5-gate 复核全绿 + 全面验收 4 维全绿**。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。
 - **✅ 已决策（2026-09-03）**：domain/tools 4 个纯函数（isToolTimeout/sortToolsByPriority/validateToolDefinition/describeCommandSpec 等）核实后**保留不归档**——整模块被两条约束锁住：① `tests/architecture/section5-domain-pure.test.ts` §5 把 `domain/src/tools/pure.ts` 列为 Policy 纯规则层范围（承重 arch guard）；② `ports/src/r2-shim.ts`（archived contracts compat 层）从 `@butler/domain` 消费 `Tool/ToolCall/ToolResult/DiscoveredTool` types。测试中尝试归档触发 arch guard fail，已完整回退。此决策取代原"是否归档"候选项。
 
 ## 不要做
@@ -103,6 +110,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (全面梳理+验收)：架构（无依赖违规、副作用咽喉一致、Repository/Model 已物化、Channel 缝隙为已记录）/ env-文档（p3j-env-audit OK、roadmap 落点对齐）/ 代码健康（无新死代码、无超行文件、无危险 cast）/ 全量门禁（typecheck/lint/262·1698·3skip/deadcode/file-size/contracts 44/layer 1458 全绿）4 维通过。`main` 干净，无安全/架构硬欠账。
 - 2026-09-03 (完善 wave 收尾)：实测驱动补齐 policy-gate（`cd70a911`，分支 87.9→96.8%）+ project-knowledge-glob（`08bfde9f`，覆盖 56→96.8%）真实缺口；S2/S4 确认真净、S6 glue 低值不做；**全量 5-gate 复核全绿**（262/1698/3skip，layer ENG-15 1458）。`main` 干净。
 - 2026-09-03 (P3-3 收口)：MCP token-passthrough guard 接入真实 invoke 咽喉（`rejectMcpTokenPassthrough` + 新 `mcpServerDescriptorForInvoke`）；远程 http/sse 无 manifest `oauthAudience` → 拒绝凭据类参数 fail-closed；mcp-bootstrap +8 / tool-boundary +1 验收；roadmap P3.3 标完成。全量 262/1689/3skip，typecheck/lint 绿。
 - 2026-09-03 (domain/tools 归档核实)：核实 6 个 domain/tools 纯函数均无运行消费者，但整模块被 §5 arch guard（`section5-domain-pure` 锁 `tools/pure.ts`）与 compat 层（`ports/r2-shim` 消费 types）锁住 → **保留，不归档**。尝试归档触发 arch guard fail，已完整回退（源码零净改动）。决策记入"下一步"。
