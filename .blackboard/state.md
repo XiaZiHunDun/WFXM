@@ -8,7 +8,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - Verification: approveWaitingStep idempotent for expired/non-waiting (alreadyProcessed, no double grant); denyWaitingStep via transitionRunToTerminal guard; store stateless -> pending steps fully recoverable.
 - Acceptance tests (+132, 3 files): domain types.test.ts +2 (expired/exhausted grant -> Ask deny); runtime approval-runtime.test.ts +2 (fresh store instance resume; restart-then-expired -> no grant, run terminal).
 - Test env baseline: bubblewrap slirp integration env-gated (BUTLER_V5_TEST_FULL_SANDBOX=1), default skip; baseline green.
-- 5-gate: typecheck green / lint 0 warn / deadcode PASS / file-size PASS / full 262/263 files, 1696/1700 (only eval/14 timeout under overload; 6.9s solo).
+- 5-gate: typecheck green / lint 0 warn / deadcode PASS / file-size PASS / full **263/263 files, 1700 pass, 3 skip**（eval 超时韧性修复后稳定；见下方 eval 段）。
 - Noted (untouched): domain/workflows/ unwired but maps to deferred roadmap (DAG/parallel); keep.
 
 ## 🎯 eval 场景超时韧性（已收口 2026-09-03）
@@ -50,13 +50,6 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 **S1 决策登记**：1. domain `./tools/types.js` 仅 `_archive/contracts` 消费 → **保留**（兼容层，非生产路径）。2. **SSOT isTerminalRunStatus 立项**（Wave-3 协调项，S2+S1 共同提交，勿单会话）。
 
-## 🎯 eval 场景超时韧性（已收口 2026-09-03）
-
-- **根因**：多轮 eval 场景（05/14/15）每轮重建 PGlite+wiring（migrate ~700ms/轮），全量并行 CPU 争抢下超时；eval/14 是全量唯一不稳定 fail。
-- **修复**：eval harness 新增 `makeEvalHarness`/`closeEvalHarness` + `RunScenarioInput.harness`，DB+wiring 建一次跨轮复用；`runEvalScenario` 仅在自有 DB 时 close。
-- **效果**：eval/14 6.9s→~2.0s，setup 755ms/轮→0；eval/05 1.18s、eval/15 1.95s；所有 22 个 eval 场景 standalone PASS，typecheck+lint 绿。
-- commit `e90609dd`（4 文件 +88/−20）。
-
 ## 🗑️ domain/workflows 死模块归档（已收口 2026-09-03）
 
 - **处置**：`packages/domain/src/workflows/`（WorkflowState/WorkflowRun/workflowTransition/Channel 抽象）**无生产消费者**（仅 domain barrel 转发），DESIGN/Roadmap 明确 **WorkflowRun 不存在**、Task/Procedure MVP 以 task/procedure 表落地、渠道仅微信（无需多 Channel 抽象）。归档至 [`_archive/packages/domain/workflows/`]（ellet 现有 `_archive/packages/application/_archive/run-workflow` 同惯例）。
@@ -72,6 +65,8 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
   - **MemoryService**：trigger-conditioned，MVP 直调 persistence，未物化 = DESIGN §7 正确。
 - **修复**：`port-catalog.md` 两处消费路径文档漂移对齐（Repository 行明确"未直接 import、由 domain 合同承载"；Channel 行补充 wechat 已接入、slack 直连绕过的事实）。纯文档，零运行时风险。
 - **门禁**：无代码变更，typecheck/lint/测试不受影响。
+
+**下一步**：主循环已收口（M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐），全量 **263/263 files / 1700 pass / 3 skip** 稳定通过。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。可选项（S1 决策）：domain/tools 4 个仅 barrel+测试引用的域内 API 是否归档。
 
 ## 不要做
 
