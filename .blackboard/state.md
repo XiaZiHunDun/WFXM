@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (换角度验收执行：②入站降级修复 f9a93a99 + ①沙箱/Postgres 实证全通过；262/1699/2skip)
+_last_synced: 2026-09-03 (① 全部实证清零：healthzUp 测试设计缺陷修复 + 双向网络守卫通过；262/1699/2skip)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 🧾 全面梳理+验收（2026-09-03，4 维全绿）
@@ -110,6 +110,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (①清零·healthzUp)：修复 `workspace-tools.bubblewrap.test.ts` 集成测试设计缺陷——`it.skipIf(!healthzUp)` 在收集期求值但探测在异步 beforeAll（恒 false），网络放行用例从未真跑。改同步收集期探测 `probeHealthz`，实测 network-deny 阻断 / network-allow 放行 loopback 双向守卫全过（4 pass/1 skip）。至此 ① 沙箱+真实 PG+healthzUp 全实证清零。typecheck/lint 绿。`main` 干净。
 - 2026-09-03 (全面梳理+验收)：架构（无依赖违规、副作用咽喉一致、Repository/Model 已物化、Channel 缝隙为已记录）/ env-文档（p3j-env-audit OK、roadmap 落点对齐）/ 代码健康（无新死代码、无超行文件、无危险 cast）/ 全量门禁（typecheck/lint/262·1698·3skip/deadcode/file-size/contracts 44/layer 1458 全绿）4 维通过。`main` 干净，无安全/架构硬欠账。
 - 2026-09-03 (完善 wave 收尾)：实测驱动补齐 policy-gate（`cd70a911`，分支 87.9→96.8%）+ project-knowledge-glob（`08bfde9f`，覆盖 56→96.8%）真实缺口；S2/S4 确认真净、S6 glue 低值不做；**全量 5-gate 复核全绿**（262/1698/3skip，layer ENG-15 1458）。`main` 干净。
 - 2026-09-03 (P3-3 收口)：MCP token-passthrough guard 接入真实 invoke 咽喉（`rejectMcpTokenPassthrough` + 新 `mcpServerDescriptorForInvoke`）；远程 http/sse 无 manifest `oauthAudience` → 拒绝凭据类参数 fail-closed；mcp-bootstrap +8 / tool-boundary +1 验收；roadmap P3.3 标完成。全量 262/1689/3skip，typecheck/lint 绿。
@@ -143,4 +144,6 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **② 元入站异常不隔离 → 瞬时失败丢消息（已修复 `f9a93a99`）**：`runButlerLoop` 原只捕获 `ActiveMainRunConflict`，其他异常（工具抛错/store 失败/backfill 失败）外抛 → Hono 500 → 用户无回复、消息丢。修复：catch 非冲突异常 → logger.error + 返回可用降级 reply（`loop-error` 痕量，原始信息不泄露给用户）。LLM 失败本由 loop 内 `completeWithTimeout` 优雅降级（已确认），此修复兜住剩余传播异常。apps/api 75/474/2skip 无回归。
 - **③ run_command 只可操作工作区相对路径（已知权衡，不改）**：`program` 禁 `/` + `ALLOWED_RUN_COMMANDS` 白名单 + 参数禁含 `..`/绝对路径（`workspace-tools.ts`）——安全正确但能力边界窄（`ls /tmp` 等绝对路径被拒）。作为已知限制记入，不改代码。
 - **库存修正**：早前误报"无锁文件"——实际 `pnpm-lock.yaml` 存在，供应链锁定健全（`npm audit` ENOLOCK 仅 npm 不读 pnpm 锁）。
-- **①追补实证（2026-09-03）**：真实 Postgres 持久化经 `docker run postgres:16-alpine`（宿主 55432，`BUTLER_V5_TEST_DATABASE_URL` 指向）使 `db-open.test.ts` 的 `postgresRoundTrip` **由 skip → PASS（4/4，open→write→close→reopen→read 存活性）**；容器已清理、端口释放。至此 ① 的沙箱（bwrap+slirp egress）与真实 PG 持久化**本机全部实际验证通过**，仅剩 `healthzUp`（需 `:3000` 跑应用）属部署级集成。全量基线从 262/1698/3skip → **262/1699/2skip**（PG roundtrip 计入）。`main` 干净，无代码待提交。
+- **①追补实证（2026-09-03）**：真实 Postgres 持久化经 `docker run postgres:16-alpine`（宿主 55432，`BUTLER_V5_TEST_DATABASE_URL` 指向）使 `db-open.test.ts` 的 `postgresRoundTrip` **由 skip → PASS（4/4，open→write→close→reopen→read 存活性）**；容器已清理、端口释放。
+  - **① 全部实证清零 — `healthzUp` 测试设计缺陷修复（2026-09-03）**：复核发现 `reaches loopback HTTP under network-allow Grant profile` 用 `it.skipIf(!healthzUp)`，但 `healthzUp` 在异步 `beforeAll` 里赋值，而 `skipIf` 在用例**收集期**求值 → 恒为 `false`，即使 `:3000` 有真服务**该网络放行用例从未真正执行**。修复：改**同步收集期探测**（`probeHealthz`，spawn `node -e` fetch probeUrl，2s 超时），`const healthzUp = bwrapAvailable && probeHealthz()`。修复后实测：network-deny **阻断** loopback ✓、network-allow **放行** loopback（elevateNetwork 路径）✓，`workspace-tools.bubblewrap.test.ts` 4 passed/1 skip（skip 仅需 FULL_SANDBOX 的 slirp resume 用例）。typecheck 绿 / lint 0 警 / 移除未用 `beforeAll` import。至此 ① 沙箱双向守卫 + 真实 PG 持久化**本机全部实证通过**。
+  - **①回归基线**：全量从 262/1698/3skip → **262/1699/2skip**（PG roundtrip + healthzUp 计入）。`main` 干净，无代码待提交（本批为测试缺陷修复，typecheck/lint 已验）。

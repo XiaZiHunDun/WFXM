@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { runWithSideEffectContext } from "@butler/runtime/sandbox/index.js"
 import { runTool } from "@butler/runtime/tool-runtime.js"
 import { makeRunCommandTool } from "./workspace-tools.js"
@@ -33,17 +33,27 @@ const bwrapAvailable = isBwrapAvailable()
 // on a host explicitly provisioned for it via BUTLER_V5_TEST_FULL_SANDBOX=1.
 const slirpReady = process.env["BUTLER_V5_TEST_FULL_SANDBOX"] === "1"
 
-let healthzUp = false
-
-beforeAll(async () => {
-  if (!bwrapAvailable) return
+/**
+ * Probe the loopback /healthz endpoint SYNCHRONOUSLY at collection time.
+ * `it.skipIf(!healthzUp)` is evaluated when the test case is declared, before
+ * any async `beforeAll` runs; an async probe would therefore always record
+ * `false` and the network-allow loopback test would never execute even when a
+ * real server is up. Spawning a throwaway `node -e` keeps the probe blocking
+ * but bounded (2s timeout) so the skip decision is correct.
+ */
+function probeHealthz(): boolean {
+  const script =
+    `fetch(${JSON.stringify(probeUrl)},{signal:AbortSignal.timeout(2000)})` +
+    `.then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))`
   try {
-    const res = await fetch(probeUrl, { signal: AbortSignal.timeout(2000) })
-    healthzUp = res.ok
+    execFileSync(process.execPath, ["-e", script], { timeout: 5000 })
+    return true
   } catch {
-    healthzUp = false
+    return false
   }
-})
+}
+
+const healthzUp = bwrapAvailable && probeHealthz()
 
 describe.skipIf(!bwrapAvailable)("makeRunCommandTool under bubblewrap", () => {
   let root: string
