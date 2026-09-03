@@ -50,7 +50,19 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 **S1 决策登记**：1. domain `./tools/types.js` 仅 `_archive/contracts` 消费 → **保留**（兼容层，非生产路径）。2. **SSOT isTerminalRunStatus 立项**（Wave-3 协调项，S2+S1 共同提交，勿单会话）。
 
-**下一步**：**M3 已收口（见顶部 M3 段）**。可选候选：① eval 场景测试在并行过载下的超时韧性（非代码问题，可加 `--testTimeout` 或分片）；② MemoryService（§12）物化触发；③ `domain/workflows/` 死模块是否随 DAG 立项复用或归档。
+## 🎯 eval 场景超时韧性（已收口 2026-09-03）
+
+- **根因**：多轮 eval 场景（05/14/15）每轮重建 PGlite+wiring（migrate ~700ms/轮），全量并行 CPU 争抢下超时；eval/14 是全量唯一不稳定 fail。
+- **修复**：eval harness 新增 `makeEvalHarness`/`closeEvalHarness` + `RunScenarioInput.harness`，DB+wiring 建一次跨轮复用；`runEvalScenario` 仅在自有 DB 时 close。
+- **效果**：eval/14 6.9s→~2.0s，setup 755ms/轮→0；eval/05 1.18s、eval/15 1.95s；所有 22 个 eval 场景 standalone PASS，typecheck+lint 绿。
+- commit `e90609dd`（4 文件 +88/−20）。
+
+## 🗑️ domain/workflows 死模块归档（已收口 2026-09-03）
+
+- **处置**：`packages/domain/src/workflows/`（WorkflowState/WorkflowRun/workflowTransition/Channel 抽象）**无生产消费者**（仅 domain barrel 转发），DESIGN/Roadmap 明确 **WorkflowRun 不存在**、Task/Procedure MVP 以 task/procedure 表落地、渠道仅微信（无需多 Channel 抽象）。归档至 [`_archive/packages/domain/workflows/`]（ellet 现有 `_archive/packages/application/_archive/run-workflow` 同惯例）。
+- **改动**：git mv → `_archive/packages/domain/workflows/`；`packages/domain/src/index.ts` 删 workflows barrel 转发。tsconfig include 仅 `packages/*/src`，vitest exclude `**/_archive/**` → 归档目录不参与编译/测试收集。
+- **门禁**：typecheck 全绿 / deadcode 不再报 workflows / domain+arch 74 文件 580 用例全过 / lint 0 警。
+- **遗留观察（未动）**：`packages/domain/src/tools/index.ts` 的 `isToolTimeout/sortToolsByPriority/validateToolDefinition/describeCommandSpec` 仅被自身 barrel+测试引用（ts-prune 报死），但属于 domain/tools 域内 API，需进一步核实后决定归档或保留——本次控制范围未动。
 
 ## 不要做
 

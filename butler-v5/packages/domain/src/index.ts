@@ -169,18 +169,6 @@ export {
   checkRoleSeparation,
 } from "./guards/pure.js"
 
-// ─── 工作流域 ────────────────────────────────────────────
-export {
-  type WorkflowId,
-  type Channel,
-  type ChangeType,
-  type SendCommand,
-  type WorkflowState,
-  type WorkflowEvent,
-} from "./workflows/types.js"
-export { workflowTransition } from "./workflows/transitions.js"
-
-// ─── 项目域 ──────────────────────────────────────────────
 export {
   type ProjectId,
   type Project,
