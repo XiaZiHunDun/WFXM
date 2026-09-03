@@ -87,6 +87,24 @@ describe("runButlerLoop", () => {
     expect(result.toolCalls).toBe(0)
   })
 
+  it("degrades to a usable reply (not throw) when executeInbound fails with a non-conflict error", async () => {
+    vi.spyOn(wiring.runEngine, "executeInbound").mockRejectedValue(new Error("engine boom"))
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-test-fail",
+      content: "do something",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+    })
+    expect(result.reply).toContain("没处理成功")
+    expect(result.finalDecision).toBe("Finish")
+    expect(result.iterations).toBe(0)
+    expect(result.traces.some((t) => t.startsWith("loop-error:"))).toBe(true)
+    expect(result.traces.join(" ")).toContain("engine boom")
+  })
+
   it("persists hyphenated projectId for listConversationsByProject", async () => {
     const conversationId = "c-proj-x-smoke-user"
     await runButlerLoop({

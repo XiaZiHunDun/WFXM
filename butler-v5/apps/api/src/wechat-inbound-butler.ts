@@ -168,7 +168,16 @@ export async function runButlerLoop(args: {
         traces: [`active-main-run-conflict: ${err.activeRun.id} ${err.activeRun.status}`],
       }
     }
-    throw err
+    const msg = err instanceof Error ? err.message : String(err)
+    const logger = args.logger ?? defaultLogger
+    logger.error("butler-loop failed; responding with degraded reply", err)
+    return {
+      reply: `这次没处理成功，请稍后再发一次。若反复如此，请联系管理员处理。`,
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Finish",
+      traces: [`loop-error: ${msg}`],
+    }
   }
 }
 
