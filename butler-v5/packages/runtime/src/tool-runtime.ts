@@ -1,7 +1,12 @@
+import type { CapabilityProviderMetadata } from "./policy-gate.js"
+
 export interface ToolDefinition {
   readonly name: string & { readonly __brand: "ToolName" }
   readonly risk: "low" | "medium" | "high"
   readonly run: (args: Record<string, unknown>, signal?: AbortSignal) => Promise<RunResult>
+  /** P3-2: provider-declared metadata (all optional; defaults are applied by kind in
+   * `capabilityDefinitionFromTool` — schema is only present when a real source exists). */
+  readonly declared?: CapabilityProviderMetadata
 }
 
 export type RunResult =

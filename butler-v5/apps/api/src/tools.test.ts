@@ -117,6 +117,16 @@ describe("weibutler tools", () => {
     expect(findTool(tools, "does_not_exist")).toBeUndefined()
   })
 
+  it("P3-2: core tools declare their inputSchema from WEIBUTLER_LLM_TOOLS parameters", () => {
+    const tools = makeWeibutlerTools({ bridge, conversationId })
+    for (const toolName of ["read_file", "write_file", "run_command", "send_wechat_file"]) {
+      const def = findTool(tools, toolName)
+      expect(def).toBeDefined()
+      const llmRow = WEIBUTLER_LLM_TOOLS.find((t) => t.name === toolName)
+      expect(def?.declared?.inputSchema).toEqual(llmRow?.parameters)
+    }
+  })
+
   it("get_current_time returns Asia/Shanghai formatted time in Chinese", async () => {
     const tool = makeGetCurrentTimeTool()
     const result = await runTool(tool, {}, { timeoutMs: 1000 })

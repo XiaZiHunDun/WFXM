@@ -732,7 +732,22 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
   if (isSubagentEnabled(env)) {
     core.push(makeDelegateToSubagentTool(ctx))
   }
-  return [...core, ...mcp]
+  return enrichDeclaredSchemas([...core, ...mcp])
+}
+
+/**
+ * P3-2: attach each core tool's `inputSchema` from the single trusted source
+ * WEIBUTLER_LLM_TOOLS.parameters. MCP tools already carry their schema in
+ * makeMcpToolDefinition; tools without a matching LLM row pass through unchanged.
+ * Never fabricates a schema when there is no real source.
+ */
+function enrichDeclaredSchemas(tools: readonly ToolDefinition[]): readonly ToolDefinition[] {
+  const paramsByName = new Map(WEIBUTLER_LLM_TOOLS.map((t) => [t.name, t.parameters]))
+  return tools.map((t) => {
+    const params = paramsByName.get(t.name as string)
+    if (!params) return t
+    return { ...t, declared: { ...t.declared, inputSchema: params } }
+  })
 }
 
 /** LLM tool list including opt-in MCP and subagent descriptors when enabled. */

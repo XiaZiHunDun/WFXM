@@ -47,6 +47,12 @@ describe("tool-boundary", () => {
       name: "mcp_search",
       kind: "command",
       risk: "high",
+      declared: {
+        auditPolicy: "full",
+        idempotent: false,
+        sandboxProfile: "workspace-write-network-deny",
+        timeoutMs: 1000,
+      },
     })
     const result = await executor.execute(mcpDef, { q: "hello" })
     expect(result.ok).toBe(false)

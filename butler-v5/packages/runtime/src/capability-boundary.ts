@@ -8,6 +8,8 @@ import {
   CapabilityRegistry,
   type CapabilityDefinition,
   type CapabilityProvider,
+  type CapabilityProviderMetadata,
+  SIDE_EFFECT_KINDS,
   type PolicyGate,
 } from "./policy-gate.js"
 import { runTool, type RunResult, type ToolDefinition } from "./tool-runtime.js"
@@ -54,11 +56,45 @@ export function actionKindForTool(toolName: string): ActionKind {
   }
 }
 
-export function capabilityDefinitionFromTool(def: ToolDefinition): CapabilityDefinition {
+/**
+ * P3-2: resolve the the provider-declared metadata for a tool. Explicit declared
+ * values win; otherwise kind-based defaults are applied (read=summary/idempotent,
+ * side-effect=full/not-idempotent, command|write gain a sandbox profile). Schema is
+ * only carried when a real source exists — never fabricated.
+ */
+export function resolveDeclaredMetadata(
+  def: ToolDefinition,
+  kind: ActionKind,
+  timeoutMs?: number,
+): CapabilityProviderMetadata {
+  const explicit = def.declared
+  const isSideEffect = SIDE_EFFECT_KINDS.includes(kind)
+  const auditPolicy = explicit?.auditPolicy ?? (isSideEffect ? "full" : "summary")
+  const idempotent = explicit?.idempotent ?? !isSideEffect
+  const sandboxProfile =
+    explicit?.sandboxProfile ??
+    (kind === "command" || kind === "write" ? "workspace-write-network-deny" : undefined)
   return {
-    name: def.name as string,
-    kind: actionKindForTool(def.name as string),
+    ...(explicit?.inputSchema !== undefined ? { inputSchema: explicit.inputSchema } : {}),
+    ...(explicit?.outputSchema !== undefined ? { outputSchema: explicit.outputSchema } : {}),
+    ...(sandboxProfile !== undefined ? { sandboxProfile } : {}),
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+    idempotent,
+    auditPolicy,
+  }
+}
+
+export function capabilityDefinitionFromTool(
+  def: ToolDefinition,
+  opts: { readonly timeoutMs?: number } = {},
+): CapabilityDefinition {
+  const name = def.name as string
+  const kind = actionKindForTool(name)
+  return {
+    name,
+    kind,
     risk: def.risk,
+    declared: resolveDeclaredMetadata(def, kind, opts.timeoutMs),
   }
 }
 
@@ -89,7 +125,7 @@ export function buildCapabilityRegistryFromTools(
 ): CapabilityRegistry {
   const registry = new CapabilityRegistry()
   for (const def of tools) {
-    const definition = capabilityDefinitionFromTool(def)
+    const definition = capabilityDefinitionFromTool(def, { timeoutMs: timeoutMsFor(def.name as string) })
     registry.register(definition, {
       name: definition.name,
       execute: async (request) => runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
@@ -173,7 +209,7 @@ export function mcpCapabilityProvidersFromTools(
   if (options.mcpEnabled === false) return []
   const timeoutMsFor = options.timeoutMsFor ?? (() => 5_000)
   return tools.map((def) => {
-    const definition = capabilityDefinitionFromTool(def)
+    const definition = capabilityDefinitionFromTool(def, { timeoutMs: timeoutMsFor(def.name as string) })
     return {
       definition,
       provider: {

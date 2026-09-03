@@ -29,4 +29,22 @@ describe("mcp-tools opt-in", () => {
     expect(result).toEqual({ ok: true, output: "done" })
     expect(invoke).toHaveBeenCalledWith("ping", {})
   })
+
+  it("P3-2: discovered MCP tool declares its inputSchema when present", async () => {
+    const invoke = vi.fn(async () => ({ ok: true as const, output: "done" }))
+    const tools = loadMcpToolDefinitions(
+      { BUTLER_V5_MCP_ENABLED: "1" },
+      {
+        discovered: [{ name: "weather", inputSchema: { type: "object", city: { type: "string" } } }],
+        invoke,
+      },
+    )
+    const tool = tools[0]
+    expect(tool?.declared?.inputSchema).toEqual({
+      type: "object",
+      city: { type: "string" },
+    })
+    // MCP opts into summary audit; resolved by capability-boundary against command kind.
+    expect(tool?.declared?.auditPolicy).toBe("summary")
+  })
 })

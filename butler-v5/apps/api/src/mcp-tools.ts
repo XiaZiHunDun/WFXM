@@ -53,6 +53,9 @@ export function makeMcpToolDefinition(
   return {
     name: capability as ToolDefinition["name"],
     risk: discovered.risk ?? "high",
+    ...(discovered.inputSchema !== undefined
+      ? { declared: { inputSchema: discovered.inputSchema, auditPolicy: "summary" as const } }
+      : {}),
     async run(args: Record<string, unknown>) {
       return invoke(discovered.name, args)
     },

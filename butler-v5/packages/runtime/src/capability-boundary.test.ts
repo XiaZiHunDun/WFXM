@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   actionKindForTool,
   buildCapabilityRegistryFromTools,
+  capabilityDefinitionFromTool,
   createProductionCapabilityRegistry,
   executeToolThroughBoundary,
   mcpCapabilityProvidersFromTools,
@@ -191,10 +192,18 @@ describe("capability-boundary", () => {
       extraProviders: mcpCapabilityProvidersFromTools(split.mcp, {}),
     })
     expect(registry.get("get_current_time")).toBeDefined()
-    expect(registry.get("mcp_search")).toEqual({
-      name: "mcp_search",
-      kind: "command",
-      risk: "high",
+    const mcpDef = registry.get("mcp_search")
+    expect(mcpDef).toBeDefined()
+    expect(mcpDef?.name).toBe("mcp_search")
+    expect(mcpDef?.kind).toBe("command")
+    expect(mcpDef?.risk).toBe("high")
+    // P3-2: MCP extra providers now carry kind-defaulted declared metadata
+    // (timeoutMs from the default 5000).
+    expect(mcpDef?.declared).toEqual({
+      sandboxProfile: "workspace-write-network-deny",
+      timeoutMs: 5000,
+      idempotent: false,
+      auditPolicy: "full",
     })
   })
 
@@ -277,5 +286,83 @@ describe("capability-boundary", () => {
       { subject: "owner-1", resource: "conv-1", grant: null },
     )
     expect(outcome).toEqual({ ok: false, reason: "boom" })
+  })
+
+  it("declares P3-2 metadata with explicit inputSchema passthrough for read tools", () => {
+    const def: ToolDefinition = {
+      name: "read_file" as ToolDefinition["name"],
+      risk: "medium",
+      declared: { inputSchema: { type: "object" } },
+      run: vi.fn(async () => ({ ok: true, output: "x" })),
+    }
+    const registry = buildCapabilityRegistryFromTools([def])
+    const d = registry.get("read_file")
+    expect(d?.name).toBe("read_file")
+    expect(d?.kind).toBe("read")
+    // read → summary audit + idempotent; explicit inputSchema preserved; no sandbox.
+    // timeoutMs comes from the registry default (5000).
+    expect(d?.declared).toEqual({
+      inputSchema: { type: "object" },
+      timeoutMs: 5000,
+      idempotent: true,
+      auditPolicy: "summary",
+    })
+  })
+
+  it("applies kind-defaulted declared metadata for side-effect tools", () => {
+    const runCommand: ToolDefinition = {
+      name: "run_command" as ToolDefinition["name"],
+      risk: "high",
+      run: vi.fn(async () => ({ ok: true, output: "ok" })),
+    }
+    const exec = capabilityDefinitionFromTool(runCommand, { timeoutMs: 30_000 })
+    // command → full audit + non-idempotent + sandbox profile + injected timeout.
+    expect(exec.declared).toEqual({
+      sandboxProfile: "workspace-write-network-deny",
+      timeoutMs: 30_000,
+      idempotent: false,
+      auditPolicy: "full",
+    })
+
+    const sendWechat: ToolDefinition = {
+      name: "send_wechat_file" as ToolDefinition["name"],
+      risk: "medium",
+      run: vi.fn(async () => ({ ok: true, output: "sent" })),
+    }
+    const outbound = capabilityDefinitionFromTool(sendWechat)
+    // outbound → full audit + non-idempotent, NO sandbox profile (matches runtime).
+    expect(outbound.declared).toEqual({
+      idempotent: false,
+      auditPolicy: "full",
+    })
+  })
+
+  it("respects explicit declared overrides over kind defaults", () => {
+    const def: ToolDefinition = {
+      name: "run_command" as ToolDefinition["name"],
+      risk: "high",
+      declared: { auditPolicy: "summary", idempotent: true, sandboxProfile: "custom" },
+      run: vi.fn(async () => ({ ok: true, output: "ok" })),
+    }
+    const exec = capabilityDefinitionFromTool(def)
+    expect(exec.declared).toEqual({
+      sandboxProfile: "custom",
+      idempotent: true,
+      auditPolicy: "summary",
+    })
+  })
+
+  it("extra validation: bare tool without declared still gets kind defaults (no throw)", () => {
+    const def: ToolDefinition = {
+      name: "write_file" as ToolDefinition["name"],
+      risk: "high",
+      run: vi.fn(async () => ({ ok: true, output: "w" })),
+    }
+    const d = capabilityDefinitionFromTool(def)
+    expect(d.declared).toEqual({
+      sandboxProfile: "workspace-write-network-deny",
+      idempotent: false,
+      auditPolicy: "full",
+    })
   })
 })
