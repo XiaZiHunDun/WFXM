@@ -141,6 +141,8 @@ P3 只建立安全扩展面，不默认安装具体能力。
 
 ### 3. MCP 首个适配
 
+> **完成 ✅ 2026-09-03**（收口见 state.md）：具名 server/tool registry、manifest 安装前扫描、per-server consent + per-tool ScopedGrant、远程 OAuth audience 绑定与 invoke 时 token-passthrough 拒绝（无 `oauthAudience` 的远程 server fail-closed）、不可信工具描述（server 默认 risk 权威）、Child Run 默认无 MCP，均已代码落地 + 验收测试锁定。
+
 - 具名 server/tool registry；
 - manifest/lockfile 与安装前扫描；
 - per-server consent 与 per-tool ScopedGrant；

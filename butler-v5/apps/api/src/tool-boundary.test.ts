@@ -62,6 +62,22 @@ describe("tool-boundary", () => {
     }
   })
 
+  it("P3-3: denies MCP to child (non-owner) subject", async () => {
+    const mcpDef = makeMcpToolDefinition(
+      { name: "search", description: "search" },
+      async () => ({ ok: true, output: "mcp-hit" }),
+    )
+    const executor = makeToolExecutor({
+      tools: [mcpDef],
+      ownerSubject: "owner-1",
+      subject: "delegate-sub",
+      conversationId: "conv-1",
+      timeoutMsFor: () => 1000,
+    })
+    // Child/delegated runs get no MCP by default: the registry has no provider.
+    expect(executor.registry.get("mcp_search")).toBeUndefined()
+  })
+
   it("uses MCP timeout for mcp_* tools", () => {
     const prev = process.env["BUTLER_V5_MCP_TIMEOUT_MS"]
     process.env["BUTLER_V5_MCP_TIMEOUT_MS"] = "90000"

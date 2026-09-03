@@ -9,6 +9,10 @@ import type { McpManifestServer } from "@butler/domain/mcp/manifest.js"
 import { mcpServerIds } from "@butler/domain/mcp/manifest.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
+import {
+  mcpServerDescriptorForInvoke,
+  rejectMcpTokenPassthrough,
+} from "@butler/domain/governance/mcp-tool-capability.js"
 import { assertMcpServerConsented, mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
 import { revokeScopedGrantsForMcpServer } from "@butler/runtime/mcp-grant-lifecycle.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
@@ -278,6 +282,18 @@ async function bootstrapSingleMcpServer(
     const invoke: McpInvokeFn =
       options.invoke ??
       (async (toolName, args) => {
+        const kind = connection.value.kind
+        if (kind === "http" || kind === "sse") {
+          const guard = rejectMcpTokenPassthrough(
+            mcpServerDescriptorForInvoke({
+              id: serverId,
+              transport: kind,
+              oauthAudience: manifestServer?.oauthAudience,
+            }),
+            args,
+          )
+          if (!guard.ok) return { ok: false, reason: guard.reason }
+        }
         const result = await client.invoke(toolName, args)
         if (!result.ok) {
           return { ok: false, reason: result.reason ?? "MCP invoke failed" }

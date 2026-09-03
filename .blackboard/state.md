@@ -1,7 +1,18 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (P3-2 capability metadata + outputSchema + M3 approval + eval timeout resilience + port-catalog docs aligned)
+_last_synced: 2026-09-03 (P3-3 MCP hardening + P3-2 capability metadata + M3 approval + eval resilience + docs aligned)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
+
+## ✅ P3-3 MCP 首个适配（收口 2026-09-03）
+
+- **核心缺口（本次修复）**：`rejectMcpTokenPassthrough` 此前仅单测引用、未接入任何真实执行路径。真实网络调用唯一咽喉是 `apps/api/src/mcp-bootstrap.ts` 的 `invoke` 闭包。
+- **改动**：
+  - `domain/governance/mcp-tool-capability.ts` — 新增 `mcpServerDescriptorForInvoke`（构建 invoke 时 guard 所需最小 descriptor）。
+  - `apps/api/src/mcp-bootstrap.ts` — `invoke` 闭包对远程 http/sse server 前置 `rejectMcpTokenPassthrough`：服务器未声明 manifest `oauthAudience` 时，拒绝模型提供的凭据类参数（authorization/api_key/bearer/credential/token/password/secret/access_token），fail-closed；stdio 跳过。
+  - `apps/api/src/mcp-bootstrap.test.ts` +8（远程无 audience 阻塞 / 带 audience 放行并到 `tools/call`）；`apps/api/src/tool-boundary.test.ts` +1（Child non-owner 无 MCP）。
+  - 文档：`docs/config/reference.md` 补 `BUTLER_V5_MCP_MANIFEST_PATH` oauthAudience fail-closed 说明；roadmap `P3.3 MCP 首个适配` 标完成 ✅。
+- **P3.3 此前已就绪并本次复核**：具名 registry（`mcpToolsFromServer`/`toMcpCapabilityNameForServer`）、manifest 安装前扫描（`manifest.ts`）、per-server consent（`mcp-consent.ts`）、per-tool ScopedGrant + 卸载吊销（`mcp-grant-lifecycle`）、不可信工具描述（server 默认 risk 权威 `resolveMcpToolRisk`）、Child Run 默认无 MCP（`mcpAllowedForRunSubject`→tool-boundary）。`butler-v5/DESIGN.md` 未动（承重）。
+- **门禁**：typecheck 全绿 / lint 0 警 / deadcode PASS（仅既有 used-in-module 注记）/ 全量 **262 files / 1689 pass / 3 skip**（较基线 +4 用例）。
 
 ## ✅ P3-2 Capability Provider 申报元数据实装（已收口 2026-09-03，`90e4661d` + `49b14613`）
 
@@ -79,7 +90,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **修复**：`port-catalog.md` 两处消费路径文档漂移对齐（Repository 行明确"未直接 import、由 domain 合同承载"；Channel 行补充 wechat 已接入、slack 直连绕过的事实）。纯文档，零运行时风险。
 - **门禁**：无代码变更，typecheck/lint/测试不受影响。
 
-**下一步**：主循环已收口（P3-2 申报元数据含 outputSchema + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐），全量 **262 files / 1685 pass / 3 skip** 稳定通过。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。
+**下一步**：主循环已全部收口（P3-3 MCP 加固 + P3-2 申报元数据含 outputSchema + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐），全量 **262 files / 1689 pass / 3 skip** 稳定通过。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。
 - **✅ 已决策（2026-09-03）**：domain/tools 4 个纯函数（isToolTimeout/sortToolsByPriority/validateToolDefinition/describeCommandSpec 等）核实后**保留不归档**——整模块被两条约束锁住：① `tests/architecture/section5-domain-pure.test.ts` §5 把 `domain/src/tools/pure.ts` 列为 Policy 纯规则层范围（承重 arch guard）；② `ports/src/r2-shim.ts`（archived contracts compat 层）从 `@butler/domain` 消费 `Tool/ToolCall/ToolResult/DiscoveredTool` types。测试中尝试归档触发 arch guard fail，已完整回退。此决策取代原"是否归档"候选项。
 
 ## 不要做
@@ -92,6 +103,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (P3-3 收口)：MCP token-passthrough guard 接入真实 invoke 咽喉（`rejectMcpTokenPassthrough` + 新 `mcpServerDescriptorForInvoke`）；远程 http/sse 无 manifest `oauthAudience` → 拒绝凭据类参数 fail-closed；mcp-bootstrap +8 / tool-boundary +1 验收；roadmap P3.3 标完成。全量 262/1689/3skip，typecheck/lint 绿。
 - 2026-09-03 (domain/tools 归档核实)：核实 6 个 domain/tools 纯函数均无运行消费者，但整模块被 §5 arch guard（`section5-domain-pure` 锁 `tools/pure.ts`）与 compat 层（`ports/r2-shim` 消费 types）锁住 → **保留，不归档**。尝试归档触发 arch guard fail，已完整回退（源码零净改动）。决策记入"下一步"。
 - 2026-09-03 (P3-2 收口 `90e4661d` + `49b14613`)：Capability Provider 申报元数据实装——ToolDefinition.declared + resolveDeclaredMetadata 按 kind 填默认；本地核心工具 inputSchema 自 WEIBUTLER_LLM_TOOLS、MCP 申报 input/outputSchema（outputSchema 续做，MCP 唯一来源）。typecheck 全绿，全量 262/1685/3skip。
 - 2026-09-03 (收尾三连)：eval 超时韧性（共享 harness，eval/14 6.9→2s）+ workflows 死模块归档（`_archive/packages/domain/workflows`）+ 端口物化文档对齐（port-catalog Repository/Channel 消费路径）。全量 262/1679/3skipped 稳定通过。

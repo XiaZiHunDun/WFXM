@@ -208,6 +208,20 @@ export function mcpToolsFromServer(server: McpServerDescriptor): readonly McpSer
     .filter((reg): reg is McpServerToolRegistration => reg !== null)
 }
 
+/** Build the minimal descriptor the token-passthrough guard needs at invoke time. */
+export function mcpServerDescriptorForInvoke(input: {
+  readonly id: string
+  readonly transport?: string
+  readonly oauthAudience?: string
+}): McpServerDescriptor {
+  return {
+    id: input.id,
+    ...(input.transport ? { transport: input.transport } : {}),
+    ...(input.oauthAudience ? { oauthAudience: input.oauthAudience } : {}),
+    tools: [],
+  }
+}
+
 /**
  * Remote OAuth audience binding: a remote (http/sse) MCP server must declare the
  * expected OAuth `audience` the host will present. A remote server WITHOUT a

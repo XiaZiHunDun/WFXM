@@ -220,4 +220,106 @@ describe("bootstrapMcpTools", () => {
     expect(bundle.mode).toBe("stdio")
     expect(bundle.runtimeTools.map((t) => t.name)).toEqual(["mcp_stdio-tool"])
   })
+
+  function httpEchoFetch() {
+    return vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { method: string; id?: number }
+      if (body.method === "initialize") {
+        return Response.json({
+          jsonrpc: "2.0",
+          id: body.id,
+          result: { protocolVersion: "2024-11-05", capabilities: {} },
+        })
+      }
+      if (body.method === "notifications/initialized") {
+        return new Response("", { status: 202 })
+      }
+      if (body.method === "tools/list") {
+        return Response.json({
+          jsonrpc: "2.0",
+          id: body.id,
+          result: {
+            tools: [{ name: "echo", description: "echo", inputSchema: { type: "object" } }],
+          },
+        })
+      }
+      return Response.json({
+        jsonrpc: "2.0",
+        id: body.id,
+        result: { content: [{ type: "text", text: "pong" }] },
+      })
+    })
+  }
+
+  it("P3-3: rejects tokenish args to remote http server without oauthAudience at invoke", async () => {
+    const fetchMock = httpEchoFetch()
+    const bundle = await bootstrapMcpTools(
+      {
+        BUTLER_V5_MCP_ENABLED: "1",
+        BUTLER_V5_MCP_URL: "http://127.0.0.1:7777/mcp",
+      },
+      { fetch: fetchMock as typeof fetch },
+    )
+    const echo = bundle.runtimeTools[0]
+    expect(echo).toBeDefined()
+    if (!echo) return
+    const out = await echo.run({ token: "sekrit" })
+    expect(out.ok).toBe(false)
+    if (!out.ok) {
+      expect(out.reason).toContain("no token passthrough")
+    }
+    // client.invoke must NOT have been reached (no tools/call JSON-RPC).
+    const callSent = fetchMock.mock.calls.some(([, init]) => {
+      try {
+        const body = JSON.parse(String(init?.body)) as { method: string }
+        return body.method === "tools/call"
+      } catch {
+        return false
+      }
+    })
+    expect(callSent).toBe(false)
+  })
+
+  it("P3-3: allows tokenish args to remote http server WITH manifest oauthAudience", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "butler-mcp-bootstrap-"))
+    const manifestPath = join(dir, "mcp.json")
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        version: 1,
+        servers: [
+          {
+            id: "secure.example.com",
+            transport: "http",
+            url: "http://127.0.0.1:7777/mcp",
+            oauthAudience: "api.example.com",
+          },
+        ],
+      }),
+    )
+    const fetchMock = httpEchoFetch()
+    const bundle = await bootstrapMcpTools(
+      {
+        BUTLER_V5_MCP_ENABLED: "1",
+        BUTLER_V5_MCP_SERVER_ID: "secure.example.com",
+        BUTLER_V5_MCP_MANIFEST_PATH: manifestPath,
+      },
+      { fetch: fetchMock as typeof fetch },
+    )
+    const echo = bundle.runtimeTools[0]
+    expect(echo).toBeDefined()
+    if (!echo) return
+    const out = await echo.run({ token: "aud-bound" })
+    expect(out.ok).toBe(true)
+    // invoke reaches client.invoke (tools/call)
+    const callSent = fetchMock.mock.calls.some(([, init]) => {
+      try {
+        const body = JSON.parse(String(init?.body)) as { method: string }
+        return body.method === "tools/call"
+      } catch {
+        return false
+      }
+    })
+    expect(callSent).toBe(true)
+  })
 })
