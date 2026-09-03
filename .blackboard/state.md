@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (微信端到端模拟验收 harness 收口：4 acceptance 文件 / 11 用例 + harness 配套；全量 266/1712/1skip)
+_last_synced: 2026-09-03 (acceptance harness 后续 5 commits 闭环：doc 链接/.trae/specs placeholder/CI 纳入/pre-commit hook sync；HEAD `c4a0bcb8`)
 _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
 
 ## ✅ 微信端到端模拟验收 harness（已收口 2026-09-03）
@@ -32,7 +32,22 @@ _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
 - **测试结果**：`pnpm vitest run tests/acceptance --pool=forks` → **4 files / 11 passed**（含原 3 个 commands-approval 用例），耗时 ~6.6s。
 - **门禁**：typecheck 全包绿（含 acceptance-app.ts 修复）/ lint 0 警（修复 acceptance 9 处 `non-null assertion` + 1 处 unused import；commands-approval 也顺手清零）/ 全量回归 **266 files / 1712 passed / 1 skipped**（较上一班 +4 文件/+12 pass/-1 skip），无回归。
 - **约束遵守**：未改 harness 之外的任何生产代码；`BUTLER_V5_INTAKE_ENABLED=0` 保持（走 `runButlerLoop` 真实回退路径，含 write_file + 审批链路）。`acceptance-app.ts` 按 handoff §2/§7 明确属 harness 配套封装，typecheck 修复属该范围。
-- **后续**：CI 纳入与否按 owner 决定（harness §7 标注测试较慢，CI timeout 需放宽）。
+- **后续**：CI 纳入与否按 owner 决定（harness §7 标注测试较慢，CI timeout 需放宽）。**已由本会话下游 5 commits 闭环**（见下节）。
+
+## ✅ Acceptance harness 后续 5 commits 闭环（2026-09-03，HEAD `c4a0bcb8`）
+
+- **动机**：acceptance harness `4972ed94` 入版后，下游 5 项 follow-up（handoff §7 标记的既有未提交改动 + D42 已知 placeholder 日期 + handoff §5 step 5 CI 纳入 + memory 标的 pre-commit hook line 113 silent-exit）一次性扫清。
+- **改动（5 commits / +91 -16）**：
+  - `09a48d28` **docs(plans): fix broken doc links** — `v5-ai-guard-migration-checklist-2026-08.md` 已 active→archive（6 处）+ `v5-post-boundary-roadmap-2026-08.md` decisions→active（1 处）+ `tests/AGENTS.md` 父 doc 路径多一级 `../../`→`../`（1 处）。8 inserts / 8 deletes 全部 surgical 链接修复，无内容改写。
+  - `0f1ef949` **chore: gitignore .trae/** — Trae IDE 元数据入 `.gitignore`（与 `.vscode/`/`.idea/`/`.cursor/*` 同类）。1 insert。
+  - `f3716d5f` **docs(superpowers): fill 2026-09-XX placeholders** — 3 个 spec 文件 7 处 `2026-09-XX` placeholder → `2026-09-01`（D40/D41/D42 实际 ship 日）。闭环 D42 follow-up（DESIGN L617/L618 已由 D43.1 清，specs/ 余项本批闭环）。
+  - `013d1095` **ci(butler-v5): explicit acceptance step** — `butler-v5-gate` job 加 `Butler-v5 acceptance (deterministic wechat end-to-end harness)` step，紧跟 `pnpm test` 之后，loopback smoke 之前。`pnpm test` 原本隐式跑 acceptance（vitest.config include `tests/**/*.test.ts`），本步仅为 CI 日志分离 + `--pool=forks` 稳定 pool + 注释说明 deterministic harness 覆盖范围。+13 / 0。
+  - `c4a0bcb8` **chore(ai-guard): idempotent pre-commit hook install + CI drift check** — 新增 `scripts/ai_guard/install-pre-commit-hook.sh`（幂等 copy + chmod；CI sandbox 安全，缺/不可写则 skip+exit 0）；`butler-v5/package.json` 加 `postinstall` 触发；CI 加 `Pre-commit hook sync check` step（drift 则 fail + diff + 提示运行 install 脚本）。闭环 pre-commit hook line 113 silent-exit 已知 issue：源脚本 `scripts/ai_guard/pre_commit_hook.sh` 早含修复（`if/then/fi` + `done || true` + 10 v5 protected files + v5 migration 警告），但本地安装副本 `.git/hooks/pre-commit` 一直陈旧，commit 时实际跑的是旧版。现在 install-time（postinstall）+ CI-time（drift check）双保险。
+- **关键验证**：
+  - 5 commits AI Guard pre-commit 均通过（本 commit 自身跑的就是 postinstall-installed hook，端到端闭环）
+  - `c4a0bcb8` 含 YAML 校验 + 本地 drift 模拟（in-sync ✅ / drift ❌ + diff 输出）
+- **门禁**：typecheck 全包绿 / lint 0 警 / 全量回归 266/1712/1skip 无变化。
+- **未做（按 memory "等业主真撞问题"）**：dead code / refactor-clean / 20 §18·§11·§11.4 延后项。
 
 ## 🧾 全面梳理+验收（2026-09-03，4 维全绿）
 
@@ -141,6 +156,8 @@ _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (Acceptance harness 后续 5 commits `09a48d28..c4a0bcb8`)：doc 链接修复（active→archive / decisions→active / tests/AGENTS 父 doc 路径）+ `.trae/` gitignore + D40/D41/D42 specs/`2026-09-XX` placeholder→`2026-09-01`（闭环 D42 follow-up 余项）+ CI `butler-v5-gate` 显式 acceptance step（pool=forks 稳定）+ pre-commit hook 同步闭环（新增 `install-pre-commit-hook.sh` + `postinstall` + CI drift check，源脚本早已含 `if/then/fi`+`|| true`+10 v5 protected files+v5 migration warning 修复；本地 `.git/hooks/pre-commit` 一直陈旧，现双保险闭环）。本 commit 自身跑的就是 postinstall-installed hook，端到端实证。`main` 干净。
+- 2026-09-03 (微信端到端模拟验收 harness 收口 `4972ed94`)：4 acceptance 文件 / 11 用例（commands-approval 3 + fault-tolerance 3 + subagent-multiturn 2 + audit-state 3）；脚本化 LLM fixture 注入生产 wiring（无真模型/真微信/真服务，多次结果一致）；harness 加 `opts.pgliteDataDir` + dbEnv 去测试标记 → 跨重启 PGlite 文件持久化；每用例独立 conversationId 避免 `defaultWechatConversationId` 稳定导致跨用例 `ActiveMainRunConflict` 污染（plan drift 教训）。typecheck/lint 0 警，全量 266/1712/1skip。
 - 2026-09-03 (全量复检)：整体检查再跑一遍，门禁全绿无漂移——typecheck 全包绿 / lint 0 警 / 全量 **262 files / 1700 pass / 2 skip** / deadcode 仅 used-in-module 注记 / file-size 1490 文件 PASS / 受保护文件仅既有 AGENTS.md 文档链接调整（active→archive，非守卫篡改）/ architecture+guard 25 tests PASS / contracts 7 PASS / p3j-env-audit OK。基线未变，`main` 干净。
 - 2026-09-03 (①清零·healthzUp)：修复 `workspace-tools.bubblewrap.test.ts` 集成测试设计缺陷——`it.skipIf(!healthzUp)` 在收集期求值但探测在异步 beforeAll（恒 false），网络放行用例从未真跑。改同步收集期探测 `probeHealthz`，实测 network-deny 阻断 / network-allow 放行 loopback 双向守卫全过（4 pass/1 skip）。至此 ① 沙箱+真实 PG+healthzUp 全实证清零。typecheck/lint 绿。`main` 干净。
 - 2026-09-03 (全面梳理+验收)：架构（无依赖违规、副作用咽喉一致、Repository/Model 已物化、Channel 缝隙为已记录）/ env-文档（p3j-env-audit OK、roadmap 落点对齐）/ 代码健康（无新死代码、无超行文件、无危险 cast）/ 全量门禁（typecheck/lint/262·1698·3skip/deadcode/file-size/contracts 44/layer 1458 全绿）4 维通过。`main` 干净，无安全/架构硬欠账。
