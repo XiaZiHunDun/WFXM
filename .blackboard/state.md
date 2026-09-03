@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (P3-3 MCP hardening + P3-2 capability metadata + M3 approval + eval resilience + docs aligned)
+_last_synced: 2026-09-03 (P3-3/P3-2/M3/eval/workflows/ports + 完善 wave + 全量 5-gate 复核收尾)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## ✅ P3-3 MCP 首个适配（收口 2026-09-03）
@@ -90,7 +90,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **修复**：`port-catalog.md` 两处消费路径文档漂移对齐（Repository 行明确"未直接 import、由 domain 合同承载"；Channel 行补充 wechat 已接入、slack 直连绕过的事实）。纯文档，零运行时风险。
 - **门禁**：无代码变更，typecheck/lint/测试不受影响。
 
-**下一步**：主循环已全部收口（P3-3 MCP 加固 + P3-2 申报元数据含 outputSchema + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐），全量 **262 files / 1689 pass / 3 skip** 稳定通过。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。
+**下一步**：主循环已全部收口（P3-3 MCP 加固 + P3-2 申报元数据含 outputSchema + M3 审批硬化 + eval 超时韧性 + workflows 归档 + 端口文档对齐 + 完善 wave），全量 **262 files / 1698 pass / 3 skip** 稳定通过，**全量 5-gate 复核全绿（typecheck/lint/deadcode/file-size/layer-import ENG-15 1458）**。**无安全/架构硬欠账**。剩余均为延后能力（OCR/embedding/DAG/隔离浏览器/完整审批 UI）或 trigger-conditioned（MemoryService/Channel 统一出站），按 DESIGN §7 与边界规则**不主动立项，等真实触发**。
 - **✅ 已决策（2026-09-03）**：domain/tools 4 个纯函数（isToolTimeout/sortToolsByPriority/validateToolDefinition/describeCommandSpec 等）核实后**保留不归档**——整模块被两条约束锁住：① `tests/architecture/section5-domain-pure.test.ts` §5 把 `domain/src/tools/pure.ts` 列为 Policy 纯规则层范围（承重 arch guard）；② `ports/src/r2-shim.ts`（archived contracts compat 层）从 `@butler/domain` 消费 `Tool/ToolCall/ToolResult/DiscoveredTool` types。测试中尝试归档触发 arch guard fail，已完整回退。此决策取代原"是否归档"候选项。
 
 ## 不要做
@@ -103,6 +103,7 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## 上一班
 
+- 2026-09-03 (完善 wave 收尾)：实测驱动补齐 policy-gate（`cd70a911`，分支 87.9→96.8%）+ project-knowledge-glob（`08bfde9f`，覆盖 56→96.8%）真实缺口；S2/S4 确认真净、S6 glue 低值不做；**全量 5-gate 复核全绿**（262/1698/3skip，layer ENG-15 1458）。`main` 干净。
 - 2026-09-03 (P3-3 收口)：MCP token-passthrough guard 接入真实 invoke 咽喉（`rejectMcpTokenPassthrough` + 新 `mcpServerDescriptorForInvoke`）；远程 http/sse 无 manifest `oauthAudience` → 拒绝凭据类参数 fail-closed；mcp-bootstrap +8 / tool-boundary +1 验收；roadmap P3.3 标完成。全量 262/1689/3skip，typecheck/lint 绿。
 - 2026-09-03 (domain/tools 归档核实)：核实 6 个 domain/tools 纯函数均无运行消费者，但整模块被 §5 arch guard（`section5-domain-pure` 锁 `tools/pure.ts`）与 compat 层（`ports/r2-shim` 消费 types）锁住 → **保留，不归档**。尝试归档触发 arch guard fail，已完整回退（源码零净改动）。决策记入"下一步"。
 - 2026-09-03 (P3-2 收口 `90e4661d` + `49b14613`)：Capability Provider 申报元数据实装——ToolDefinition.declared + resolveDeclaredMetadata 按 kind 填默认；本地核心工具 inputSchema 自 WEIBUTLER_LLM_TOOLS、MCP 申报 input/outputSchema（outputSchema 续做，MCP 唯一来源）。typecheck 全绿，全量 262/1685/3skip。
@@ -124,3 +125,4 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - **S6 apps/api** `08bfde9f`：project-knowledge-glob 补 7 用例（空/traversal/plain/** 双星/scoped/fallback/maxFiles/skip 目录），覆盖 56→96.8% stmts、55→83.3% branch。
 - **S2/S4 实测**：domain/persistence 无 <90% stmts、无 <75% branch 文件，确认真净，未强造改动。
 - **S6 其余**：低覆盖均为 glue/worker/wiring/route/LLM 接线（wechat-inbound-butler 受保护、subagent/module-worker、owner-routes、approval-resume 等），单测价值低，不做。
+- **✅ 全量 5-gate 复核（收尾 2026-09-03，`0779f807` 黑板记录）**：typecheck 全包绿 / lint 0 警 / 全量 **262 files / 1698 pass / 3 skip** / deadcode PASS（domain/tools 死引用为已裁决保留项）/ file-size+受保护文件 PASS / layer-import ENG-15 1458 PASS。无回归、无新欠账，`main` 干净。
