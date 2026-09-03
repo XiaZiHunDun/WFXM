@@ -489,6 +489,19 @@ jobs:
         working-directory: butler-v5
         run: pnpm test
 
+      - name: Butler-v5 acceptance (deterministic wechat end-to-end harness)
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        working-directory: butler-v5
+        run: pnpm vitest run tests/acceptance --pool=forks
+        # Scripted-LLM fixture injects production wiring, drives the real
+        # /v1/wechat/inbound path (no real model, no live WeChat, no live
+        # service). Covers commands/approval, fault-tolerance (4xx /
+        # ActiveMainRunConflict / fixture-exhausted), subagent-multiturn,
+        # audit-state (eventStore + scoped_grants + cross-restart
+        # PGlite pending-approval recovery). Runs in ~10s; --pool=forks
+        # isolates per-file PGlite tmpdir state from other vitest files
+        # sharing the worker.
+
       - name: Butler-v5 loopback smoke regression (quick, no iLink)
         if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: butler-v5
