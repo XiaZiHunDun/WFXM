@@ -546,9 +546,9 @@ day 14: G1 重复 sweep (idempotent: status != candidate 跳过)
 1. **写 plan**: `docs/superpowers/plans/2026-09-01-durable-memory-auto-promote.md`（plan 阶段产出）
 2. **实施**: 9 tasks (T1 migration + T2/T3 domain + T4/T5 persistence + T6 sweeper + T7 owner-routes + T8 arch guard + T9 DESIGN sync)
 3. **验证**: typecheck + lint（每 commit 后跑）+ test (production) + test:archived + arch guard pass (10/10 cases)
-4. **记忆**: 写 `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D42-section12-g4-auto-promote-2026-09-XX.md`（仿 D40/D41 格式）
+4. **记忆**: 写 `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D42-section12-g4-auto-promote-2026-09-01.md`（仿 D40/D41 格式）
 5. **commit**: 10 commits (1 spec + 9 impl) with conventional commit format
-6. **Handoff**: `.blackboard/shifts/2026-09-XX-d42-g4-auto-promote-handoff.md`（冷启卡）
+6. **Handoff**: `.blackboard/shifts/2026-09-01-d42-g4-auto-promote-handoff.md`（冷启卡）
 7. **后续 batch 候选**（按 owner 真撞顺序）:
    - D43: G5 跨 project PK recall（如 owner 真撞）
    - D44+: 工程治理 (pre-commit hook line 113 silent-exit / dead code / refactor-clean)

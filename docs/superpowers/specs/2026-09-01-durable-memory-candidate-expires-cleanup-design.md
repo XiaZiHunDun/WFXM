@@ -357,7 +357,7 @@ test("§12 DurableMemoryStatus accepts 'expired' (G1 candidate expires cleanup)"
 
 ### 4.7 文档同步（3 文件 + 2 行）
 
-- `butler-v5/DESIGN.md` §12 audit state 加 G1 行（"candidate expires cleanup 2026-09-XX D40 ship；status='expired' soft delete"）
+- `butler-v5/DESIGN.md` §12 audit state 加 G1 行（"candidate expires cleanup 2026-09-01 D40 ship；status='expired' soft delete"）
 - `butler-v5/DESIGN.md` §18 row 3 保留 "🟡 MVP ship + G3 batch UI" — 加 1 行 "G1 expires 已 ship（如实施）"
 - `butler-v5/packages/ports/port-catalog.md` 不改（0 新 Core Port）
 
@@ -452,9 +452,9 @@ test("§12 DurableMemoryStatus accepts 'expired' (G1 candidate expires cleanup)"
 1. **写 plan**: `docs/superpowers/plans/2026-09-01-durable-memory-candidate-expires-cleanup.md`（plan 阶段产出）
 2. **实施**: 扩 persistence + 新 candidate-expires.ts + 新 candidate-expires-sweeper.ts + server.ts 接入 + owner-routes 409 guard + DESIGN 同步 + arch guard 1 case
 3. **验证**: typecheck + lint（每 commit 后跑）+ test (production) + test:archived + arch guard pass
-4. **记忆**: 写 `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D40-section12-g1-expires-cleanup-2026-09-XX.md`（仿 D39 / D38 格式）
+4. **记忆**: 写 `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D40-section12-g1-expires-cleanup-2026-09-01.md`（仿 D39 / D38 格式）
 5. **commit**: `feat(arch): D40 §12 G1 candidate expires cleanup + 'expired' status`
-6. **Handoff**: `.blackboard/shifts/2026-09-XX-d40-g1-expires-cleanup-handoff.md`（冷启卡）
+6. **Handoff**: `.blackboard/shifts/2026-09-01-d40-g1-expires-cleanup-handoff.md`（冷启卡）
 7. **后续 batch 候选**（按 owner 真撞顺序）:
    - D41: G2 dedup + G5 跨 project recall（如 owner 真撞）
    - D42+: G4 auto-promote（仅当 owner 改变 §12 设计原则时）

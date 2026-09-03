@@ -327,9 +327,9 @@ async function checkDedupOrThrow(opts: {
 1. **写 plan**: `docs/superpowers/plans/2026-09-01-durable-memory-dedup.md`（plan 阶段产出）
 2. **实施**: 加 dedup.ts + persistence 方法 + dedup-config + 3 调用点 + tests + DESIGN + arch guard 1 case
 3. **验证**: typecheck + lint（每 commit 后跑）+ test (production) + test:archived + arch guard pass
-4. **记忆**: 写 `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D41-section12-g2-dedup-2026-09-XX.md`（仿 D40 / D39 格式）
+4. **记忆**: 写 `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D41-section12-g2-dedup-2026-09-01.md`（仿 D40 / D39 格式）
 5. **commit**: `feat(arch): D41 §12 G2 candidate dedup + trigram Jaccard`
-6. **Handoff**: `.blackboard/shifts/2026-09-XX-d41-g2-dedup-handoff.md`（冷启卡）
+6. **Handoff**: `.blackboard/shifts/2026-09-01-d41-g2-dedup-handoff.md`（冷启卡）
 7. **后续 batch 候选**（按 owner 真撞顺序）:
    - D42: G5 跨 project PK recall（如 owner 真撞）
    - D43+: G4 auto-promote（仅当 owner 改变 §12 设计原则时）
