@@ -479,6 +479,26 @@ jobs:
         working-directory: butler-v5
         run: pnpm lint
 
+      - name: Pre-commit hook sync check
+        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          SOURCE="scripts/ai_guard/pre_commit_hook.sh"
+          TARGET=".git/hooks/pre-commit"
+          if [ ! -f "$SOURCE" ]; then
+            echo "⚠️  source missing: $SOURCE" && exit 0
+          fi
+          if [ ! -f "$TARGET" ]; then
+            echo "ℹ️  installed hook absent (CI sandbox?) — skip"
+            exit 0
+          fi
+          if ! diff -q "$SOURCE" "$TARGET" > /dev/null; then
+            echo "❌ installed pre-commit hook drifted from source"
+            echo "   Run: bash scripts/ai_guard/install-pre-commit-hook.sh"
+            diff "$SOURCE" "$TARGET" | head -20
+            exit 1
+          fi
+          echo "✅ pre-commit hook in sync"
+
       - name: Butler-v5 typecheck (full gate)
         if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: butler-v5

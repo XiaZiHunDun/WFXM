@@ -45,7 +45,8 @@
     "format:check": "pnpm exec prettier --check .",
     "deadcode": "ts-prune packages/ apps/ --error 2>&1 || true",
     "clean": "rm -rf node_modules packages/*/node_modules apps/*/node_modules dist coverage",
-    "gate": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm test -- --coverage && bash scripts/typecheck-gate.sh"
+    "gate": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm test -- --coverage && bash scripts/typecheck-gate.sh",
+    "postinstall": "bash ../scripts/ai_guard/install-pre-commit-hook.sh"
   },
   "devDependencies": {
     "@ivotoby/openapi-mcp-server": "^1.16.1",
