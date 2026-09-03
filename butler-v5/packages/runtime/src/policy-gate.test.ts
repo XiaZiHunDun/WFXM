@@ -4,11 +4,13 @@ import {
   CapabilityRegistry,
   defaultPermissionPolicy,
   PolicyGate,
+  productionPermissionPolicy,
   readKillSwitch,
   SIDE_EFFECT_KINDS,
   type CapabilityDefinition,
   type CapabilityProvider,
 } from "./policy-gate.js"
+import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 
 describe("CapabilityRegistry P3-2 register/unregister", () => {
   const definition: CapabilityDefinition = {
@@ -97,6 +99,47 @@ describe("PolicyGate and CapabilityRegistry", () => {
       _tag: "Executed",
       result: { ok: true, output: "hello" },
     })
+  })
+
+  it("threads grant sandbox/network context through the boundary", async () => {
+    const gate = new PolicyGate(defaultPermissionPolicy("owner-1"), () => 1000)
+    const registry = new CapabilityRegistry()
+    const definition: CapabilityDefinition = { name: "write_file", kind: "write", risk: "high" }
+    const execute = vi.fn(async () => ({ ok: true, output: "wrote" }))
+    registry.register(definition, { name: "write_file", execute })
+    const request = actionRequestFromTool("write_file", "owner-1", "a.txt", { path: "a.txt" }, definition)
+    const grant = {
+      id: "g1",
+      runId: "r1",
+      subject: "owner-1",
+      capability: "write_file",
+      scope: { paths: [] },
+      remainingUses: 1,
+      expiresAtMs: 9999,
+      createdAtMs: 0,
+      delegable: false,
+      approvalId: null,
+      sandboxProfile: "workspace-write-network-deny",
+      networkAllowlist: ["*.example.com"],
+    } satisfies ScopedGrantRecord
+    const outcome = await registry.executeThroughBoundary(gate, request, { path: "a.txt" }, grant)
+    expect(outcome._tag).toBe("Executed")
+    expect(execute).toHaveBeenCalledWith({
+      capability: "write_file",
+      args: { path: "a.txt" },
+      grant: expect.objectContaining({
+        sandboxProfile: "workspace-write-network-deny",
+        networkAllowlist: ["*.example.com"],
+      }),
+    })
+  })
+
+  it("productionPermissionPolicy opts into mcpReadonlyAutoAllow only when requested", () => {
+    const withOptIn = productionPermissionPolicy("owner-1", { mcpReadonlyAutoAllow: true })
+    expect(withOptIn.mcpReadonlyAutoAllow).toBe(true)
+    const defaultPolicy = productionPermissionPolicy("owner-1")
+    expect(defaultPolicy.mcpReadonlyAutoAllow).toBeUndefined()
+    expect(defaultPolicy.alwaysConfirm).toEqual(["send_wechat_file", "run_command", "write_file"])
   })
 })
 
