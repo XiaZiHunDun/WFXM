@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (M3 approval-runtime hardening merged)
+_last_synced: 2026-09-03 (M3 approval + eval timeout resilience merged)
 _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 
 ## M3 approval-runtime hardening (merged 2026-09-03)
@@ -10,6 +10,13 @@ _handoff: .blackboard/shifts/2026-09-02-d49-exec-audit-handoff.md
 - Test env baseline: bubblewrap slirp integration env-gated (BUTLER_V5_TEST_FULL_SANDBOX=1), default skip; baseline green.
 - 5-gate: typecheck green / lint 0 warn / deadcode PASS / file-size PASS / full 262/263 files, 1696/1700 (only eval/14 timeout under overload; 6.9s solo).
 - Noted (untouched): domain/workflows/ unwired but maps to deferred roadmap (DAG/parallel); keep.
+
+## 🎯 eval 场景超时韧性（已收口 2026-09-03）
+
+- **根因**：多轮 eval 场景（05/14/15）每轮重建 PGlite+wiring（migrate ~700ms/轮），全量并行 CPU 争抢下超时；eval/14 是全量唯一不稳定 fail。
+- **修复**：eval harness 新增 `makeEvalHarness`/`closeEvalHarness` + `RunScenarioInput.harness`，DB+wiring 建一次跨轮复用；`runEvalScenario` 仅在自有 DB 时 close。
+- **效果**：eval/14 6.9s→~2.0s，setup 755ms/轮→0；eval/05 1.18s、eval/15 1.95s；所有 22 个 eval 场景 standalone PASS，typecheck+lint 绿。
+- commit `e90609dd`（4 文件 +88/−20）。
 
 
 **并行开发（2026-09-02 立项；2026-09-02 升级，见 `.blackboard/parallel/README.md`）**：monorepo 按包边界长期并行。各会话开 `par/<area>` topic 分支**自主推进、定期 rebase 自治适配**；**S1 仅在固定汇聚点（里程碑/发布快照）统一 rebase + 解共享冲突 + 全量 5-gate + 合 main**，日常不逐项合。会话：S1 / S2 domain / S3 ports+adapters（已退役主任务）/ S4 persistence / S5 runtime / S6 apps+cli。共享/承重文件（DESIGN/port-catalog/ports index/arch guard/state）仅 S1 可改。
