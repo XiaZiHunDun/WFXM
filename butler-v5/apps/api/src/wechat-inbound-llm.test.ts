@@ -72,4 +72,11 @@ describe("wechat-inbound-llm", () => {
     expect(errorSpy).toHaveBeenCalledTimes(1)
     expect(errorSpy.mock.calls[0]?.[0]).toContain("u-2")
   })
+
+  it("system prompt prefers read_file over run_command for file discovery", () => {
+    const msgs = buildWechatInboundMessages("hi", {}, { fromUserId: "u-1" })
+    const sys = msgs[0]?.content ?? ""
+    expect(sys).toMatch(/prefer read_file|read_file.*(优先|first|before).*run_command/i)
+    expect(sys).toMatch(/run_command/i)
+  })
 })
