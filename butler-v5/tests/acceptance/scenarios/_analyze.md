@@ -7,8 +7,8 @@
 - 场景数：35
 - 通过：35 / 失败：0
 - 触发 approval：9 次
-- 工具调用总数：29
-- reply 字符总数：4909
+- 工具调用总数：28
+- reply 字符总数：4903
 
 ## 按类别汇总
 
@@ -49,7 +49,7 @@
 | C1 | y 当确认 | 0 | 0 | ✅ |
 | C2 | 好的 当确认 | 0 | 0 | ✅ |
 | C3 | 👌 当确认 | 0 | 0 | ✅ |
-| C4 | 长消息 | 1 | 0 | ✅ |
+| C4 | 长消息 spam | 0 | 0 | ✅ |
 | C5 | 模糊 优化 | 0 | 0 | ✅ |
 | C6 | 跨天 上次聊到哪 | 0 | 0 | ✅ |
 | C7 | 两个 task 一起 | 1 | 0 | ✅ |
@@ -88,7 +88,7 @@ _decision=Respond | toolCalls=1 | replyLen=69_
 > in: 帮我改 user 路由支持手机号登录
 
 < [待审批] Confirm write_file on apps/api/src/routes/user.ts?
-审批编号: c48fc1ff-cf5a-4c32-af23-0509186c593d
+审批编号: bc9f3de6-192e-40e0-b7da-7dc4c2d7a56f
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=117_
@@ -127,7 +127,7 @@ _decision=Respond | toolCalls=0 | replyLen=296_
 > in: 把 packages/domain/src/foo.ts 里没人用的 import 删掉
 
 < [待审批] Confirm write_file on packages/domain/src/foo.ts?
-审批编号: 5a4bf0fb-b4ce-44f4-9260-1a38f9f4b6c7
+审批编号: d969a508-c417-4846-adb7-c805c74249fd
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=116_
@@ -139,7 +139,7 @@ _decision=WaitForApproval | toolCalls=2 | replyLen=116_
 > in: 把 utils.ts 的 timeout 改成可配的
 
 < [待审批] Confirm write_file on apps/api/src/utils.ts?
-审批编号: e2539ce6-a42a-4770-ac07-a3f80d9ca175
+审批编号: 3421ff16-455a-4e85-bcfc-8771412cf836
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=111_
@@ -394,15 +394,15 @@ _decision=Respond | toolCalls=0 | replyLen=13_
 
 _decision=Respond | toolCalls=0 | replyLen=13_
 
-### C4 — 长消息（C-edge）
+### C4 — 长消息 spam（C-edge）
 
 **turn 1**
 
 > in: 请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请帮我请...
 
-< 已读 acceptance handoff plan 文档。
+< 检测到字符「请」重复 200 次。请发具体需求。
 
-_decision=Respond | toolCalls=1 | replyLen=30_
+_decision=Respond | toolCalls=0 | replyLen=24_
 
 ### C5 — 模糊 优化（C-edge）
 
@@ -452,7 +452,7 @@ _decision=Respond | toolCalls=1 | replyLen=23_
 > in: 帮我写个东西
 
 < [待审批] Confirm write_file on foo.txt?
-审批编号: df5974ad-9b14-4201-9199-913c91ae4fe0
+审批编号: 1092db83-abda-4f76-b2bb-06210e149e93
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=97_
@@ -501,7 +501,7 @@ _decision=Respond | toolCalls=1 | replyLen=82_
 > in: 加个 helper 跑下测试
 
 < [待审批] Confirm write_file on packages/runtime/src/helper.ts?
-审批编号: 67d01542-9db0-4ba2-b8cc-d4355b0d81de
+审批编号: 3d4b5b60-71f5-4b62-9567-5935a8f24f0b
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=120_
@@ -520,7 +520,7 @@ _decision=Respond | toolCalls=1 | replyLen=55_
 > in: 跑 test
 
 < [待审批] Confirm write_file on packages/runtime/src/helper.ts?
-审批编号: 46c54dde-ad4f-488e-bec4-6765af6558d4
+审批编号: 3bb79036-2af3-46df-abb4-d7205f205c95
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=120_
@@ -550,7 +550,7 @@ _decision=Respond | toolCalls=1 | replyLen=42_
 > in: 把 user.ts 的 password validator 换成 zod schema
 
 < [待审批] Confirm write_file on apps/api/src/user.ts?
-审批编号: 46b63a3e-b4e1-43e0-8aea-0a7ca25c9048
+审批编号: fa2fcf4b-3456-451a-90af-d89bff5fac57
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=110_
@@ -580,7 +580,7 @@ _decision=Respond | toolCalls=1 | replyLen=29_
 > in: 加个 /debug 命令
 
 < [待审批] Confirm write_file on apps/api/src/wechat-inbound-commands.ts?
-审批编号: e2450e89-9be6-4a55-8df9-341a673db3d0
+审批编号: 85c9a41d-a040-4e75-bddf-48fcc7eaeb8c
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=129_
@@ -599,7 +599,7 @@ _decision=Respond | toolCalls=1 | replyLen=64_
 > in: 它安全吗
 
 < [待审批] Confirm write_file on apps/api/src/wechat-inbound-commands.ts?
-审批编号: ae011cb0-ed90-4b3c-87fe-5152898cbd8b
+审批编号: 030bca41-51a2-4585-9b7a-d87d81e594dd
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=129_

@@ -103,6 +103,23 @@ export async function runButlerLoop(args: {
   })
   if (inline) return inline
 
+  // P2 fix 2026-09-04: spam guard before LLM call. Catches:
+  //   - very long messages (> MAX_SPAM_CHARS)
+  //   - heavily repeated tokens (> REPEAT_TOKEN_THRESHOLD occurrences of one token)
+  //   - high emoji ratio (> EMOJI_RATIO_MAX of chars are emoji)
+  // Returns a short stub reply with no LLM call. Owner can reply with a
+  // concrete request to retry.
+  const spam = detectSpam(args.content)
+  if (spam) {
+    return {
+      reply: spam,
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Respond",
+      traces: ["spam-guard: short-circuited LLM call"],
+    }
+  }
+
   const readModel = resolveReadModelSource(env)
   if (readModel !== "event_store") {
     const existing = await args.wiring.runtimeStore.listMessages(args.conversationId)
@@ -491,4 +508,56 @@ async function runButlerLoopBody(args: {
       },
     },
   })
+}
+
+// ============================================================================
+// Spam guard (P2 fix 2026-09-04)
+// ============================================================================
+
+const MAX_SPAM_CHARS = 2000
+const REPEAT_TOKEN_THRESHOLD = 30
+const EMOJI_RATIO_MAX = 0.6
+
+/**
+ * Cheap heuristic spam detection before invoking the LLM. Returns a short
+ * user-facing reply when the input is suspicious, or null when it looks
+ * normal. False positives are acceptable: the owner can re-send a concrete
+ * request. False negatives are acceptable too: LLM still has the existing
+ * fixture-exhausted / decode-fail safety nets downstream.
+ */
+function detectSpam(content: string): string | null {
+  if (content.length === 0) return null
+  if (content.length > MAX_SPAM_CHARS) {
+    return `消息过长（${content.length} 字符，上限 ${MAX_SPAM_CHARS}）。请发具体需求。`
+  }
+  // Repeated character: CJK content has no whitespace, so per-token
+  // counting is unreliable. Count per-character frequency and flag if
+  // any single char appears > REPEAT_TOKEN_THRESHOLD times AND dominates
+  // (>= 30% of total length). Catches "请帮我请帮我请帮我..." style spam
+  // while not flagging legitimate long Chinese messages.
+  if (content.length >= 50) {
+    const charCounts = new Map<string, number>()
+    for (const ch of content) charCounts.set(ch, (charCounts.get(ch) ?? 0) + 1)
+    let maxChar = ""
+    let maxCount = 0
+    for (const [c, n] of charCounts) {
+      if (n > maxCount) {
+        maxCount = n
+        maxChar = c
+      }
+    }
+    if (maxCount > REPEAT_TOKEN_THRESHOLD && maxCount / content.length >= 0.3) {
+      return `检测到字符「${maxChar}」重复 ${maxCount} 次。请发具体需求。`
+    }
+  }
+  // Emoji ratio: count chars in emoji/symbol ranges.
+  let emojiCount = 0
+  for (const ch of content) {
+    const code = ch.codePointAt(0) ?? 0
+    if (code >= 0x1f000 && code <= 0x1ffff) emojiCount += 1
+  }
+  if (content.length >= 20 && emojiCount / content.length > EMOJI_RATIO_MAX) {
+    return `检测到 emoji 占比 ${Math.round((emojiCount / content.length) * 100)}%。请发具体需求。`
+  }
+  return null
 }

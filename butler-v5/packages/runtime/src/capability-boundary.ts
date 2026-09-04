@@ -329,7 +329,50 @@ export async function executeToolThroughBoundary(
     },
   })
   if (!result.ok) {
+    if (approval) {
+      // Telemetry (P1 fix 2026-09-04): emit capability.executed audit on
+      // every execution (success or failure) so owner can query
+      // "which features I used" via SELECT distinct capability FROM
+      // audit_events WHERE action='capability.executed' AND subject=?.
+      await approval.store
+        .appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: approval.runId,
+          conversationId: approval.conversationId,
+          action: "capability.executed",
+          subject: ctx.subject,
+          detail: {
+            capability: definition.name,
+            ok: false,
+            durationMs: Date.now() - started,
+            reason: result.reason ?? "failed",
+          },
+          createdAt: new Date(),
+        })
+        .catch(() => {
+          // Telemetry is best-effort; never break the request path
+        })
+    }
     return { ok: false, reason: result.reason ?? "capability failed" }
+  }
+  if (approval) {
+    await approval.store
+      .appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: approval.runId,
+        conversationId: approval.conversationId,
+        action: "capability.executed",
+        subject: ctx.subject,
+        detail: {
+          capability: definition.name,
+          ok: true,
+          durationMs: Date.now() - started,
+        },
+        createdAt: new Date(),
+      })
+      .catch(() => {
+        // Telemetry best-effort
+      })
   }
   return { ok: true, output: result.output }
 }

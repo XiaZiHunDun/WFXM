@@ -4,6 +4,7 @@ import { tryWechatProjectCommand } from "./wechat-project-surface.js"
 import { tryWechatQualityGateCommand } from "./wechat-quality-gate.js"
 import { tryWechatSubagentCommand } from "./wechat-subagent-commands.js"
 import { tryWechatTaskCommand } from "./wechat-task-commands.js"
+import { tryWechatUndoCommand } from "./wechat-undo-command.js"
 import type { McpToolBundle } from "./mcp-bootstrap.js"
 import type { Wiring } from "./wiring.js"
 
@@ -18,6 +19,13 @@ export async function tryWechatInboundCommand(args: {
   readonly mcpBundle?: McpToolBundle
 }): Promise<ButlerLoopResult | null> {
   const handlers = [
+    () =>
+      tryWechatUndoCommand({
+        wiring: args.wiring,
+        fromUserId: args.fromUserId,
+        content: args.content,
+        ...(args.env === undefined ? {} : { env: args.env }),
+      }),
     () =>
       tryWechatProjectCommand({
         wiring: args.wiring,

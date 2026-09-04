@@ -202,6 +202,20 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
       const resolved = resolveUnderWorkspace(workspaceRootFrom(ctx), rawPath)
       if (!resolved.ok) return resolved
 
+      // P2 fix 2026-09-04: capture pre-write content for /undo command.
+      // null = file was new (no previous content). Push BEFORE writing.
+      const beforeContent = (() => {
+        try {
+          return readFileSync(resolved.path, "utf8")
+        } catch {
+          return null
+        }
+      })()
+      const undoStack = UNDO_STACK.get(resolved.path) ?? []
+      undoStack.push(beforeContent)
+      if (undoStack.length > UNDO_CAP) undoStack.shift()
+      UNDO_STACK.set(resolved.path, undoStack)
+
       // R16 sandbox 扩面：write_file 走 bwrap tee-equivalent（stdin 透传 +
       // workspace --bind RW）。disabled 模式 fall back 到进程内 fs writeFileSync。
       const { executeArgvInSandbox } = await import(
@@ -248,6 +262,29 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
       }
     },
   }
+}
+
+// In-memory write undo stack (P2 fix 2026-09-04). Module-level so it
+// survives across tool calls in the same process; per-process only (no
+// cross-restart persistence, owner can `git diff` to see pending changes
+// after restart). Keyed by absolute path; each write_file pushes the
+// pre-write content (or `null` for new files). undoLastWrite pops and
+// restores. Capped at 16 entries per path to bound memory.
+const UNDO_STACK = new Map<string, (string | null)[]>()
+const UNDO_CAP = 16
+
+/** Pop the most recent before-content for `path` (returns undefined if empty). */
+export function undoLastWrite(workspaceRoot: string, path: string): string | null | undefined {
+  const resolved = resolve(workspaceRoot, path)
+  const stack = UNDO_STACK.get(resolved)
+  if (!stack || stack.length === 0) return undefined
+  return stack.pop() ?? null
+}
+
+/** Number of pending undo entries for `path` (for diagnostics). */
+export function pendingUndoCount(workspaceRoot: string, path: string): number {
+  const resolved = resolve(workspaceRoot, path)
+  return UNDO_STACK.get(resolved)?.length ?? 0
 }
 
 export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefinition {

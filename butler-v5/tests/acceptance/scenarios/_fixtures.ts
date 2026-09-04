@@ -443,15 +443,20 @@ export const scenariosC: readonly Scenario[] = [
   {
     id: "C4",
     category: "C-edge",
-    title: "长消息",
+    title: "长消息 spam",
     input: "请帮我".repeat(200) + "看一下 README 里关于 acceptance harness 那段",
+    // P2 fix 2026-09-04: spam-guard 截 — 「请」字符重复 200+ 次 → 30% 阈值触发
     fixtures: {
       plan: [
         tool("read_file", { path: "docs/plans/active/v5-wechat-simulated-acceptance-2026-09.md" }),
         text("已读 acceptance handoff plan 文档。"),
       ],
     },
-    expect: { finalDecision: "Respond", minToolCalls: 1, replyPattern: /acceptance/ },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0, // spam-guard 短路 LLM
+      replyPattern: /重复|请发具体/,
+    },
   },
   {
     id: "C5",
