@@ -85,6 +85,19 @@ export function decidePolicy(
   nowMs: number,
   grant: ScopedGrantRecord | null,
 ): PolicyDecision {
+  // Read-only `run_command` short-circuit Allow for owner (P1 fix 2026-09-04):
+  // `git log` / `pnpm test` / `cat foo.txt` etc. don't mutate host/workspace, so
+  // per realistic-scenario approval friction (~30% of all approvals) outweighs
+  // marginal safety benefit. Strict whitelist; default to "not read-only" on
+  // uncertainty. Non-owner subject still falls through to high-risk Deny below
+  // (defense in depth — read-only doesn't grant non-owners access).
+  if (
+    request.capability === "run_command" &&
+    request.subject === policy.ownerSubject &&
+    isReadOnlyCommand(request)
+  ) {
+    return { _tag: "Allow" }
+  }
   const mcpNeedsConfirm =
     isMcpCapability(request.capability) &&
     !(
@@ -127,6 +140,56 @@ export function decidePolicy(
   }
 
   return { _tag: "Allow" }
+}
+
+/**
+ * Read-only `run_command` detection. Returns true only for explicit
+ * safe argv combinations; default to false (i.e. still requires approval)
+ * on any uncertainty. Conservative whitelist:
+ *
+ *  - Always read-only programs: cat, head, wc, grep, rg, ls, pwd, date, echo
+ *  - git subcommand: log / diff / status / show (no flag / path mutation)
+ *  - pnpm subcommand: typecheck / test (no source modification)
+ *
+ * This list is intentionally tight; new entries require explicit review
+ * (test file: types.test.ts `isReadOnlyCommand`).
+ */
+export function isReadOnlyCommand(request: ActionRequest): boolean {
+  if (request.capability !== "run_command") return false
+  const argvRaw = request.payload["argv"]
+  if (!Array.isArray(argvRaw)) return false
+  const argv = argvRaw.filter((x): x is string => typeof x === "string")
+  if (argv.length === 0) return false
+  const program = argv[0]
+  if (!program) return false
+
+  // Always read-only programs (no subcommand semantics)
+  const ALWAYS_READONLY = new Set([
+    "cat",
+    "head",
+    "wc",
+    "grep",
+    "rg",
+    "ls",
+    "pwd",
+    "date",
+    "echo",
+  ])
+  if (ALWAYS_READONLY.has(program)) return true
+
+  // git subcommand-level check (argv[1] is subcommand)
+  if (program === "git") {
+    const sub = argv[1]
+    return sub === "log" || sub === "diff" || sub === "status" || sub === "show"
+  }
+
+  // pnpm subcommand-level check
+  if (program === "pnpm") {
+    const sub = argv[1]
+    return sub === "typecheck" || sub === "test"
+  }
+
+  return false
 }
 
 export function consumeGrantUse(grant: ScopedGrantRecord): ScopedGrantRecord {

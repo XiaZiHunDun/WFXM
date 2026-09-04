@@ -3,6 +3,7 @@ import {
   buildScopedGrantScopeFromPending,
   decidePolicy,
   grantMatchesAction,
+  isReadOnlyCommand,
   type ActionRequest,
   type PermissionPolicy,
   type ScopedGrantRecord,
@@ -345,6 +346,77 @@ describe("decidePolicy", () => {
       }),
     )
     expect(decision._tag).toBe("Allow")
+  })
+})
+
+describe("isReadOnlyCommand + read-only run_command bypass (P1 fix 2026-09-04)", () => {
+  const roRequest = (argv: readonly string[]): ActionRequest => ({
+    ...baseRequest,
+    kind: "command",
+    capability: "run_command",
+    resource: argv.join(" "),
+    risk: "high",
+    payload: { argv: [...argv] },
+  })
+
+  it("recognizes always-readonly programs", () => {
+    for (const prog of ["cat", "head", "wc", "grep", "rg", "ls", "pwd", "date", "echo"]) {
+      expect(isReadOnlyCommand(roRequest([prog, "foo"]))).toBe(true)
+    }
+  })
+
+  it("recognizes git read-only subcommands", () => {
+    expect(isReadOnlyCommand(roRequest(["git", "log"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["git", "log", "--oneline", "-5"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["git", "diff"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["git", "status"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["git", "show", "HEAD"]))).toBe(true)
+  })
+
+  it("recognizes pnpm read-only subcommands", () => {
+    expect(isReadOnlyCommand(roRequest(["pnpm", "typecheck"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "test"]))).toBe(true)
+  })
+
+  it("rejects git mutating subcommands", () => {
+    expect(isReadOnlyCommand(roRequest(["git", "push"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["git", "commit", "-m", "x"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["git", "checkout", "main"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["git", "reset", "--hard"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["git", "branch", "-d", "x"]))).toBe(false)
+  })
+
+  it("rejects pnpm mutating subcommands", () => {
+    expect(isReadOnlyCommand(roRequest(["pnpm", "install"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "build"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "add", "x"]))).toBe(false)
+  })
+
+  it("rejects unknown programs (default to not read-only)", () => {
+    expect(isReadOnlyCommand(roRequest(["python3", "-c", "open('/etc/passwd')"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["node", "-e", "process.exit(1)"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["curl", "https://x"]))).toBe(false)
+  })
+
+  it("rejects non-run_command capabilities", () => {
+    expect(isReadOnlyCommand({ ...baseRequest, capability: "read_file" })).toBe(false)
+    expect(isReadOnlyCommand({ ...baseRequest, capability: "write_file" })).toBe(false)
+  })
+
+  it("rejects empty / malformed argv", () => {
+    expect(isReadOnlyCommand(roRequest([]))).toBe(false)
+    expect(isReadOnlyCommand({ ...roRequest([]), payload: {} })).toBe(false)
+    expect(isReadOnlyCommand({ ...roRequest([]), payload: { argv: "ls" } })).toBe(false)
+  })
+
+  it("decidePolicy allows read-only run_command without grant (P1 bypass)", () => {
+    const decision = decidePolicy(roRequest(["git", "log", "--oneline", "-5"]), policy, 1000, null)
+    expect(decision._tag).toBe("Allow")
+  })
+
+  it("decidePolicy still asks for mutating run_command (safety preserved)", () => {
+    const decision = decidePolicy(roRequest(["git", "push"]), policy, 1000, null)
+    expect(decision._tag).toBe("Ask")
   })
 })
 

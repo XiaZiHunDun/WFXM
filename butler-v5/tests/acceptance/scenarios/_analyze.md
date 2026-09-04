@@ -6,9 +6,9 @@
 
 - 场景数：35
 - 通过：35 / 失败：0
-- 触发 approval：13 次
-- 工具调用总数：33
-- reply 字符总数：5179
+- 触发 approval：9 次
+- 工具调用总数：29
+- reply 字符总数：4909
 
 ## 按类别汇总
 
@@ -18,13 +18,13 @@
 |---|---|---|---|---|
 | A1 | 读 README | 1 | 0 | ✅ |
 | A2 | 改 user 路由支持手机号登录 | 2 | 1 | ✅ |
-| A3 | 跑 pnpm test | 2 | 1 | ✅ |
+| A3 | 跑 pnpm test | 1 | 0 | ✅ |
 | A4 | 昨天我们改了什么 | 0 | 0 | ✅ |
 | A5 | 删 dead import | 2 | 1 | ✅ |
 | A6 | timeout 可配 | 2 | 1 | ✅ |
-| A7 | git log -5 | 2 | 1 | ✅ |
-| A8 | 生成 PR 描述 | 2 | 1 | ✅ |
-| A9 | 跑 typecheck | 2 | 1 | ✅ |
+| A7 | git log -5 | 1 | 0 | ✅ |
+| A8 | 生成 PR 描述 | 1 | 0 | ✅ |
+| A9 | 跑 typecheck | 1 | 0 | ✅ |
 | A10 | 加 unit test | 1 | 0 | ✅ |
 
 ### B-open（10 场景，10 通过）
@@ -88,7 +88,7 @@ _decision=Respond | toolCalls=1 | replyLen=69_
 > in: 帮我改 user 路由支持手机号登录
 
 < [待审批] Confirm write_file on apps/api/src/routes/user.ts?
-审批编号: 211c30f9-cdd0-4268-af6d-c84905117245
+审批编号: c48fc1ff-cf5a-4c32-af23-0509186c593d
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=117_
@@ -99,19 +99,9 @@ _decision=WaitForApproval | toolCalls=2 | replyLen=117_
 
 > in: 跑 pnpm test 看有没有 fail
 
-< [待审批] Confirm run_command on c-realistic-A3?
-审批编号: cd5cc5b3-f644-4f62-9a14-b6ec28c75964
-回复「确认」批准，或「拒绝」取消。
+< 已跑完。266 files / 1712 passed / 1 skipped，0 fail。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=105_
-
-**turn 2**
-
-> in: 确认
-
-< [审批后执行失败] [待审批] Confirm run_command on c-realistic-A3?
-
-_decision=Finish | toolCalls=1 | replyLen=54_
+_decision=Respond | toolCalls=1 | replyLen=47_
 
 ### A4 — 昨天我们改了什么（A-concrete）
 
@@ -137,7 +127,7 @@ _decision=Respond | toolCalls=0 | replyLen=296_
 > in: 把 packages/domain/src/foo.ts 里没人用的 import 删掉
 
 < [待审批] Confirm write_file on packages/domain/src/foo.ts?
-审批编号: 2d618076-0cb9-4f03-a027-95d221a8fed5
+审批编号: 5a4bf0fb-b4ce-44f4-9260-1a38f9f4b6c7
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=116_
@@ -149,7 +139,7 @@ _decision=WaitForApproval | toolCalls=2 | replyLen=116_
 > in: 把 utils.ts 的 timeout 改成可配的
 
 < [待审批] Confirm write_file on apps/api/src/utils.ts?
-审批编号: ede793c7-1e68-44cb-9a68-06f117d51f10
+审批编号: e2539ce6-a42a-4770-ac07-a3f80d9ca175
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=111_
@@ -160,19 +150,14 @@ _decision=WaitForApproval | toolCalls=2 | replyLen=111_
 
 > in: git log -5 给我看
 
-< [待审批] Confirm run_command on c-realistic-A7?
-审批编号: 9f5cf5a1-d9d9-40a0-9993-0d13f645a66e
-回复「确认」批准，或「拒绝」取消。
+< 最近 5 个 commit：
+09e0cdfb chore(blackboard)
+c4a0bcb8 chore(ai-guard)
+013d1095 ci(butler-v5)
+f3716d5f docs(superpowers)
+0f1ef949 chore
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=105_
-
-**turn 2**
-
-> in: 确认
-
-< [审批后执行失败] [待审批] Confirm run_command on c-realistic-A7?
-
-_decision=Finish | toolCalls=1 | replyLen=54_
+_decision=Respond | toolCalls=1 | replyLen=131_
 
 ### A8 — 生成 PR 描述（A-concrete）
 
@@ -180,19 +165,17 @@ _decision=Finish | toolCalls=1 | replyLen=54_
 
 > in: 帮我写个 PR 描述，把最近 7 个 commit 整理出来
 
-< [待审批] Confirm run_command on c-realistic-A8?
-审批编号: 7d4fc6a6-1759-46b0-a1ce-1d11283d3282
-回复「确认」批准，或「拒绝」取消。
+< PR 描述草稿：
+## 摘要
+- 新增微信端到端模拟验收 harness（4 acceptance 文件 / 11 用例）
+- 修复 doc 链接 + 清理 spec placeholder
+- CI 纳入 acceptance + pre-commit hook 同步闭环
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=105_
+## 测试
+- 全量回归 266/1712/1skip pass
+- typecheck/lint 0 警
 
-**turn 2**
-
-> in: 确认
-
-< [审批后执行失败] [待审批] Confirm run_command on c-realistic-A8?
-
-_decision=Finish | toolCalls=1 | replyLen=54_
+_decision=Respond | toolCalls=1 | replyLen=192_
 
 ### A9 — 跑 typecheck（A-concrete）
 
@@ -200,19 +183,9 @@ _decision=Finish | toolCalls=1 | replyLen=54_
 
 > in: 跑下 typecheck
 
-< [待审批] Confirm run_command on c-realistic-A9?
-审批编号: 45c07191-9aac-4a1f-890a-0770bbe058dd
-回复「确认」批准，或「拒绝」取消。
+< typecheck 7 packages 全绿。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=105_
-
-**turn 2**
-
-> in: 确认
-
-< [审批后执行失败] [待审批] Confirm run_command on c-realistic-A9?
-
-_decision=Finish | toolCalls=1 | replyLen=54_
+_decision=Respond | toolCalls=1 | replyLen=24_
 
 ### A10 — 加 unit test（A-concrete）
 
@@ -397,9 +370,9 @@ _decision=Respond | toolCalls=0 | replyLen=159_
 
 > in: y
 
-< [fixture exhausted: plan#0]
+< 当前对话没有待审批的操作。
 
-_decision=Respond | toolCalls=0 | replyLen=27_
+_decision=Respond | toolCalls=0 | replyLen=13_
 
 ### C2 — 好的 当确认（C-edge）
 
@@ -417,9 +390,9 @@ _decision=Respond | toolCalls=0 | replyLen=13_
 
 > in: 👌
 
-< [fixture exhausted: plan#0]
+< 当前对话没有待审批的操作。
 
-_decision=Respond | toolCalls=0 | replyLen=27_
+_decision=Respond | toolCalls=0 | replyLen=13_
 
 ### C4 — 长消息（C-edge）
 
@@ -479,7 +452,7 @@ _decision=Respond | toolCalls=1 | replyLen=23_
 > in: 帮我写个东西
 
 < [待审批] Confirm write_file on foo.txt?
-审批编号: 3e22077e-cd5b-4dc4-b80b-69cd453dac48
+审批编号: df5974ad-9b14-4201-9199-913c91ae4fe0
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=97_
@@ -528,7 +501,7 @@ _decision=Respond | toolCalls=1 | replyLen=82_
 > in: 加个 helper 跑下测试
 
 < [待审批] Confirm write_file on packages/runtime/src/helper.ts?
-审批编号: 8e49643d-a147-40cc-9cb2-1514a240c308
+审批编号: 67d01542-9db0-4ba2-b8cc-d4355b0d81de
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=120_
@@ -547,7 +520,7 @@ _decision=Respond | toolCalls=1 | replyLen=55_
 > in: 跑 test
 
 < [待审批] Confirm write_file on packages/runtime/src/helper.ts?
-审批编号: fa5bce9b-4910-4907-8d1f-673ba10de628
+审批编号: 46c54dde-ad4f-488e-bec4-6765af6558d4
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=120_
@@ -577,7 +550,7 @@ _decision=Respond | toolCalls=1 | replyLen=42_
 > in: 把 user.ts 的 password validator 换成 zod schema
 
 < [待审批] Confirm write_file on apps/api/src/user.ts?
-审批编号: e910cbe3-b8db-404d-9943-e7b526236c47
+审批编号: 46b63a3e-b4e1-43e0-8aea-0a7ca25c9048
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=110_
@@ -607,7 +580,7 @@ _decision=Respond | toolCalls=1 | replyLen=29_
 > in: 加个 /debug 命令
 
 < [待审批] Confirm write_file on apps/api/src/wechat-inbound-commands.ts?
-审批编号: 2842b8a6-b353-4900-adbd-13c05de442af
+审批编号: e2450e89-9be6-4a55-8df9-341a673db3d0
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=129_
@@ -626,7 +599,7 @@ _decision=Respond | toolCalls=1 | replyLen=64_
 > in: 它安全吗
 
 < [待审批] Confirm write_file on apps/api/src/wechat-inbound-commands.ts?
-审批编号: 437b9ade-2da0-4b97-869a-fbf24ef3420e
+审批编号: ae011cb0-ed90-4b3c-87fe-5152898cbd8b
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=129_

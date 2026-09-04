@@ -63,8 +63,8 @@ describe("capability-boundary", () => {
       registry,
       gate,
       def,
-      { argv: ["pwd"] },
-      { subject: "guest-1", resource: "pwd", grant: null },
+      { argv: ["git", "push"] },
+      { subject: "guest-1", resource: "git push", grant: null },
     )
     expect(outcome.ok).toBe(false)
     if (!outcome.ok) {
@@ -84,8 +84,8 @@ describe("capability-boundary", () => {
       registry,
       gate,
       def,
-      { argv: ["pwd"] },
-      { subject: "owner-1", resource: "pwd", grant: null },
+      { argv: ["git", "push"] },
+      { subject: "owner-1", resource: "git push", grant: null },
     )
     expect(outcome.ok).toBe(false)
     if (!outcome.ok) {
@@ -246,8 +246,8 @@ describe("capability-boundary", () => {
         registry,
         gate,
         def,
-        { argv: ["pwd"] },
-        { subject: "owner-1", resource: "pwd", grant: null },
+        { argv: ["git", "push"] },
+        { subject: "owner-1", resource: "git push", grant: null },
         {
           store,
           runId: run.id,

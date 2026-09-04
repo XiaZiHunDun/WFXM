@@ -119,19 +119,16 @@ export const scenariosA: readonly Scenario[] = [
     input: "跑 pnpm test 看有没有 fail",
     fixtures: {
       plan: [
-        tool("run_command", { program: "pnpm", args: ["test"] }),
-        // run_command 也走 policy-gate，触发 approval
+        tool("run_command", { argv: ["pnpm", "test"] }),
+        // P1 fix 2026-09-04: read-only run_command bypass approval
         text("已跑完。266 files / 1712 passed / 1 skipped，0 fail。"),
       ],
     },
     expect: {
-      finalDecision: "WaitForApproval",
+      finalDecision: "Respond",
       minToolCalls: 1,
-      replyPattern: /审批|确认/,
-      requireApproval: true,
+      replyPattern: /266|1712|pass/,
     },
-    followUps: [{ content: "确认" }],
-    followUpPatterns: [/266|1712|pass/],
   },
   {
     id: "A4",
@@ -190,19 +187,17 @@ export const scenariosA: readonly Scenario[] = [
     input: "git log -5 给我看",
     fixtures: {
       plan: [
-        tool("run_command", { program: "git", args: ["log", "--oneline", "-5"] }),
+        tool("run_command", { argv: ["git", "log", "--oneline", "-5"] }),
         text(
           "最近 5 个 commit：\n09e0cdfb chore(blackboard)\nc4a0bcb8 chore(ai-guard)\n013d1095 ci(butler-v5)\nf3716d5f docs(superpowers)\n0f1ef949 chore",
         ),
       ],
     },
     expect: {
-      finalDecision: "WaitForApproval",
+      finalDecision: "Respond",
       minToolCalls: 1,
-      replyPattern: /审批|确认/,
+      replyPattern: /commit/,
     },
-    followUps: [{ content: "确认" }],
-    followUpPatterns: [/commit/],
   },
   {
     id: "A8",
@@ -211,19 +206,17 @@ export const scenariosA: readonly Scenario[] = [
     input: "帮我写个 PR 描述，把最近 7 个 commit 整理出来",
     fixtures: {
       plan: [
-        tool("run_command", { program: "git", args: ["log", "--oneline", "-7"] }),
+        tool("run_command", { argv: ["git", "log", "--oneline", "-7"] }),
         text(
           "PR 描述草稿：\n## 摘要\n- 新增微信端到端模拟验收 harness（4 acceptance 文件 / 11 用例）\n- 修复 doc 链接 + 清理 spec placeholder\n- CI 纳入 acceptance + pre-commit hook 同步闭环\n\n## 测试\n- 全量回归 266/1712/1skip pass\n- typecheck/lint 0 警",
         ),
       ],
     },
     expect: {
-      finalDecision: "WaitForApproval",
+      finalDecision: "Respond",
       minToolCalls: 1,
-      replyPattern: /审批|确认/,
+      replyPattern: /PR|摘要/,
     },
-    followUps: [{ content: "确认" }],
-    followUpPatterns: [/PR|摘要/],
   },
   {
     id: "A9",
@@ -232,17 +225,15 @@ export const scenariosA: readonly Scenario[] = [
     input: "跑下 typecheck",
     fixtures: {
       plan: [
-        tool("run_command", { program: "pnpm", args: ["typecheck"] }),
+        tool("run_command", { argv: ["pnpm", "typecheck"] }),
         text("typecheck 7 packages 全绿。"),
       ],
     },
     expect: {
-      finalDecision: "WaitForApproval",
+      finalDecision: "Respond",
       minToolCalls: 1,
-      replyPattern: /审批|确认/,
+      replyPattern: /typecheck|绿/,
     },
-    followUps: [{ content: "确认" }],
-    followUpPatterns: [/typecheck|绿/],
   },
   {
     id: "A10",
