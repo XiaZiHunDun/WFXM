@@ -148,7 +148,14 @@
 
 ## 6. 完成记录
 
-<!-- 落地后增 -->
+| Pri | Status | Commit | 验证 |
+| --- | --- | --- | --- |
+| **P1** | ✅ | `eb49a443 fix(runtime): explicit clarification reply on loop exhaustion` | RED→GREEN→REFACTOR TDD; 14/14 unit + 35/35 acceptance + lint 0 |
+| P2 | ⬜ | — | 待启 |
+| P3 | ⬜ | — | 待启 |
+| P4 | ⬜ | — | 待启 |
+| P5 | ⬜ | — | 待启 |
+| P6 | ⬜ | — | 待启 |
 
 ## 7. Claude Code 接手步骤
 
