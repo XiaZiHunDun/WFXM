@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-04 (35 realistic owner-task scenarios ship：acceptance harness 真正用作产品层行为分析；HEAD `aadf23ce`)
+_last_synced: 2026-09-04 (P0 + P1 闭环：inline-approval 识别 y/n/emoji + read-only run_command bypass approval；HEAD `d226f33f`)
 _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
 
 ## ✅ 微信端到端模拟验收 harness（已收口 2026-09-03）
@@ -68,8 +68,17 @@ _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
   - 37% 场景触发 approval（高频）→ 真危险操作警觉被冲淡
   - B 类（开放性）0 工具 0 审批 — 纯 LLM 文本，真实 LLM 质量未量化（这正是验收基建要补的下一环）
   - 验收 harness 第一次跑就抓到 inline-approval 覆盖度 bug — **harness 真实价值正在于此**（不是 wiring 而是产品行为）
-- **推荐优先级**（per `_analysis.md` §D）：① C1/C3 修（30 min）→ ② read-only run_command（2-3h）→ ③ 使用率埋点（1-2h）→ ④ 撤销 + spam（各 1h）→ ⑤ 真实 LLM 回放（½ 天，需 secrets）
-- **门禁**：typecheck 全包绿 / lint 0 警（顺手清 4 处 non-null + 1 处 unused + 1 处 prefer-const）/ 全量回归 266+1/1712+35/1skip 无退化。
+- **推荐优先级**（per `_analysis.md` §D）：① C1/C3 修（30 min）→ ② read-only run_command（2-3h）→ ③ 使用率埋点（1-2h）→ ④ 撤销 + spam（各 1h）→ ⑤ 真实 LLM 回放（½ 天，需 secrets）**P0+P1 闭环；剩 3 项待选**
+- **门禁**：typecheck 全包绿 / lint 0 警（顺手清 4 处 non-null + 1 处 unused + 1 处 prefer-const）/ 全量回归 266+1/1712+35/1skip 无退化。**267 files / 1759 passed / 1 skipped**（+1 file / +47 tests / same skip count 较 _analysis.md 阶段）
+
+## ✅ P0 + P1 闭环（2026-09-04，HEAD `d226f33f`）
+
+- **🔴 P0 — C1/C3 修（commit `69dc924c`）**：inline-approval-intent.ts 加 `y` / `n` / `👌` / `✅` / `👍` / `❌` / `👎` 到 APPROVE_PHRASES/DENY_PHRASES Sets。`parseInlineApprovalIntent` owner 手快 emoji 也能识别。+2 测试 5/5 pass；realistic C1/C3 端到端从 `[fixture exhausted]` → `当前对话没有待审批的操作。`
+- **🟠 P1 — read-only run_command bypass（commit `d226f33f`）**：`packages/domain/src/governance/types.ts` 加 `isReadOnlyCommand(request)` 白名单 + `decidePolicy` 短路 Allow (owner subject only)。白名单：`cat/head/wc/grep/rg/ls/pwd/date/echo` 永远 read-only；`git log/diff/status/show`；`pnpm typecheck/test`。默认 false（任何不确定包括未知 program/missing argv/变异 subcommand `git push` `pnpm install` 都走原 approval）。
+  - 安全保留：非 owner subject 仍走 high-risk Deny；mutating command approval 不变；send_wechat_file/write_file 不受影响
+  - +8 类型测试；2 capability-boundary 旧测试从 `["pwd"]` 改 `["git", "push"]` 保留 Ask 断言；realistic A3/A7/A8/A9 fixture 从 `program+args` 改 `argv` 形态
+  - **端到端：approval 触发 13 → 9 (-31%)**；A3/A7/A8/A9 全部 Respond；A2/A5/A6 (write_file) 仍 WaitForApproval 正确
+- **门禁**：typecheck 全包绿 / lint 0 警 / 全量回归 **267 files / 1759 passed / 1 skipped**（+1 file / +47 tests）
 
 ## 🧾 全面梳理+验收（2026-09-03，4 维全绿）
 
