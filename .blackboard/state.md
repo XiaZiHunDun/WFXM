@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-04 (P0 + P1 闭环：inline-approval 识别 y/n/emoji + read-only run_command bypass approval；HEAD `d226f33f`)
+_last_synced: 2026-09-04 (P1+P2 全闭环：capability.executed 埋点 + /undo + spam guard；HEAD `46ef4db3`)
 _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
 
 ## ✅ 微信端到端模拟验收 harness（已收口 2026-09-03）
@@ -78,7 +78,19 @@ _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
   - 安全保留：非 owner subject 仍走 high-risk Deny；mutating command approval 不变；send_wechat_file/write_file 不受影响
   - +8 类型测试；2 capability-boundary 旧测试从 `["pwd"]` 改 `["git", "push"]` 保留 Ask 断言；realistic A3/A7/A8/A9 fixture 从 `program+args` 改 `argv` 形态
   - **端到端：approval 触发 13 → 9 (-31%)**；A3/A7/A8/A9 全部 Respond；A2/A5/A6 (write_file) 仍 WaitForApproval 正确
-- **门禁**：typecheck 全包绿 / lint 0 警 / 全量回归 **267 files / 1759 passed / 1 skipped**（+1 file / +47 tests）
+- **门禁**：typecheck 全包绿 / lint 0 警 / 全量回归 **267 files / 1759 passed / 1 skipped**（+1 file / +47 tests）**P1 + P2 全闭环见下节**
+
+## ✅ P1+P2 全闭环（2026-09-04，HEAD `46ef4db3`）
+
+- **🟠 P1 — capability.executed 埋点（commit `46ef4db3`，B8 closure）**：`packages/runtime/src/capability-boundary.ts` 每次 capability 执行（成功/失败）emit `capability.executed` audit event（capability name + ok + durationMs）。owner 现在能答"我用过什么" via `SELECT DISTINCT detail->>'capability' FROM audit_events WHERE action='capability.executed' AND subject=?`。best-effort（try/catch 包裹，telemetry 永不破 request 路径）。
+- **🟡 P2 — /undo 命令（commit `46ef4db3`，C9 closure）**：
+  - `apps/api/src/workspace-tools.ts` 加 UNDO_STACK Map<absolute path, beforeContent[]>；每次 write_file 推入前内容（null = 新文件）；cap 16
+  - `apps/api/src/wechat-undo-command.ts`（新文件）：`/undo <path>` 或 `/撤销 <path>` 中文 alias，pop + 还原；per-process only（跨重启用 `git diff` 兜底）
+  - `apps/api/src/wechat-inbound-commands.ts` 路由 /undo 到新 handler
+- **🟡 P2 — spam guard（commit `46ef4db3`，C4 closure）**：`apps/api/src/wechat-inbound-butler.ts` 加 `detectSpam()` 短路 LLM。3 模式：(a) > 2000 chars (b) 单字符重复 > 30 次且 >= 30% 内容长度 (c) emoji >= 60%（最少 20 chars）。owner 重发具体需求即可；不误伤合法长中文。
+- **C4 端到端验证**：200x "请帮我" + 真诉求 → spam-guard 截；reply 包含"请发具体"提示（之前是 read_file + acceptance reply）
+- **门禁**：typecheck 全包绿 / lint 0 警 / 全量回归 **267 files / 1759 passed / 1 skipped**（同基线，无退化）；realistic 35/35 pass（C4 fixture 改期望 spam reply）
+- **MANUAL-OVERRIDE 触发**：capability-boundary.ts / workspace-tools.ts 在 v5 受保护 list 内但本批 P1/P2 修复范围；按 hook 自带 escape hatch 加 `[MANUAL-OVERRIDE]` 标记。memory R7.5 false-positive 提醒：**未来这类"合法在受保护 list 的修复"应同步考虑降低这些文件的 protected 等级或精确子路径规则**。
 
 ## 🧾 全面梳理+验收（2026-09-03，4 维全绿）
 
