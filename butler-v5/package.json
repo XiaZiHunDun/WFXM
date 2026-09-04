@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:archived": "vitest run --config vitest.archived.config.ts",
     "test:p4-acceptance": "bash scripts/p4-acceptance.sh",
+    "record:real-llm": "tsx scripts/acceptance/record-real-llm.ts",
     "smoke:multi-project": "node scripts/cutover/smoke-multi-project.mjs",
     "smoke:wechat-context": "node scripts/cutover/smoke-wechat-context.mjs",
     "smoke:schedule": "node scripts/cutover/smoke-schedule.mjs",
