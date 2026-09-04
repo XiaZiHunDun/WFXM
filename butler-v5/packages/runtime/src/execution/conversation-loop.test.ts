@@ -315,7 +315,7 @@ describe("runConversationLoop", () => {
     expect(result.traces.some((t) => t.includes("stuck-loop"))).toBe(true)
   })
 
-  it("falls back to stub when the loop is exhausted", async () => {
+  it("returns clarification reply when the loop is exhausted", async () => {
     const kernel = makeKernel()
     await kernel.openTurn({ userMessage: { role: "user", content: "loop" } })
     const tool: ToolDefinition = {
@@ -342,8 +342,10 @@ describe("runConversationLoop", () => {
         logger: { warn: () => undefined, error: () => undefined },
       },
     })
-    expect(result.reply).toBe("stub")
+    expect(result.reply).not.toBe("stub")
+    expect(result.reply).toMatch(/需要澄清|loop exhausted|未在.*轮内收敛/)
     expect(result.iterations).toBe(1)
+    expect(result.finalDecision).toBe("Finish")
     expect(result.traces.some((t) => t.includes("loop exhausted"))).toBe(true)
   })
 
@@ -401,5 +403,50 @@ describe("runConversationLoop", () => {
     expect(result.finalDecision).toBe("Respond")
     expect(result.reply).toBe("{ not json")
     expect(result.traces.some((t) => t.includes("decode failed"))).toBe(true)
+  })
+
+  it("returns explicit clarification reply when loop exhausts", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "?" } })
+    // LLM always emits a new tool call (different args) so the loop never converges.
+    let callIndex = 0
+    const tool: ToolDefinition = {
+      name: "noop" as ToolDefinition["name"],
+      description: "",
+      inputSchema: { type: "object" },
+      execute: async () => ({ ok: true, output: { ok: true } }),
+    }
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "?" }],
+      llmTools: [tool],
+      maxIterations: 3,
+      ports: {
+        complete: async () => {
+          callIndex++
+          return {
+            ok: true,
+            response: {
+              content: "",
+              toolCalls: [
+                {
+                  id: `tc-${callIndex}`,
+                  name: "noop",
+                  args: { i: callIndex },
+                },
+              ],
+            },
+          }
+        },
+        findTool: () => tool,
+        executeTool: async () => ({ ok: true, output: { ok: true } }),
+        stubReply: () => "stub-fallback",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(result.finalDecision).toBe("Finish")
+    expect(result.reply).not.toBe("stub-fallback")
+    expect(result.reply).toMatch(/需要澄清|loop exhausted|未在.*轮内收敛|补充信息/i)
+    expect(result.traces.some((t) => t.startsWith("loop exhausted"))).toBe(true)
   })
 })

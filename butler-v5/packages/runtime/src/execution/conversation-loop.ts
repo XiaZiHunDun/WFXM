@@ -272,7 +272,6 @@ export async function runConversationLoop(input: {
   const messages = [...input.messages]
   const traces: string[] = [...(input.initialTraces ?? [])]
   let toolCalls = 0
-  let lastDecision: ModelDecision["_tag"] = "Finish"
   const callSignatures = new Map<string, number>()
   let decodeFailuresThisLoop = 0
   let firstDecodeFailureReason = ""
@@ -399,7 +398,6 @@ export async function runConversationLoop(input: {
         traces.push(
           `decode failed retry ${decodeFailuresThisLoop}/${maxDecodeRetries}: ${decoded.reason}`,
         )
-        lastDecision = "Respond"
         continue
       }
       // Max retries exceeded (Phase D fix B-08/10): prefer the last non-empty
@@ -411,7 +409,6 @@ export async function runConversationLoop(input: {
         content: respondContent,
       }
       await safeApplyDecision(input.kernel, respondDecision, logger)
-      lastDecision = "Respond"
       return {
         reply: respondContent,
         iterations: iteration + 1,
@@ -425,7 +422,6 @@ export async function runConversationLoop(input: {
     }
 
     const decision = decoded.value
-    lastDecision = decision._tag
 
     switch (decision._tag) {
       case "Respond": {
@@ -588,14 +584,14 @@ export async function runConversationLoop(input: {
   }
 
   logger.warn(
-    `[conversation-loop] Loop exhausted after ${maxIterations} iterations; falling back to stub`,
+    `[conversation-loop] Loop exhausted after ${maxIterations} iterations; falling back to clarification`,
   )
   await safeApplyDecision(input.kernel, { _tag: "Finish", reason: "loop exhausted" }, logger)
   return {
-    reply: input.ports.stubReply(),
+    reply: `[需要澄清] 模型未在 ${maxIterations} 轮内收敛，请补充信息或缩小范围。`,
     iterations: maxIterations,
     toolCalls,
-    finalDecision: lastDecision,
+    finalDecision: "Finish",
     traces: [...traces, `loop exhausted (max=${maxIterations})`],
   }
 }
