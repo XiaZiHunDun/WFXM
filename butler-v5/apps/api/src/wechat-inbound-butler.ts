@@ -270,7 +270,10 @@ async function runButlerLoopBody(args: {
   const includeExecTools =
     allow !== null && [...allow].some((name) => isExecCapability(name))
 
-  const base = buildWechatInboundMessages(args.content, env, { includeExecTools })
+  const base = buildWechatInboundMessages(args.content, env, {
+    includeExecTools,
+    fromUserId: args.fromUserId,
+  })
   const systemMsg = base[0]
   const userMsg = base[1]
   let historyTurns: LLMMessage[] = []

@@ -38,9 +38,10 @@ const defaultLogger: LLMReplyLogger = {
 export function buildWechatInboundMessages(
   content: string,
   env: NodeJS.ProcessEnv = process.env,
-  opts: { readonly includeExecTools?: boolean } = {},
+  opts: { readonly includeExecTools?: boolean; readonly fromUserId?: string } = {},
 ): readonly LLMMessage[] {
   const includeExecTools = opts.includeExecTools ?? false
+  const fromUserId = opts.fromUserId
   const advertiseDelegate = shouldAdvertiseDelegate({ includeExecTools, env })
   const decisionShapes = [
     '- {"_tag":"Respond","content":"<your reply text>"}  — final answer to the user',
@@ -84,10 +85,29 @@ export function buildWechatInboundMessages(
       ? "If the user just wants a reply, use Respond. For write_file or run_command, use CallTool directly (dev session is active — no need to delegate)."
       : "If the user just wants a reply, use Respond. Read-only tools are available; development writes/commands require dev session or explicit approval."
 
+  // P2 fix 2026-09-04: inject owner / project context so the model
+  // answers "v5 有什么问题" with v5-specific context rather than asking
+  // "v5 是什么" (B1 gap surfaced in real-LLM recording 5ef5ab19).
+  const workspaceRoot = (env["BUTLER_V5_WORKSPACE_ROOT"] ?? "").trim()
+  const contextLines: string[] = [
+    "You are v5 — the butler-v5 wechat coding assistant (Effect-TS, functional arch).",
+    "When the user references 'v5' or this project, it means butler-v5 (the v5 line of the wechat coding butler). Do not ask what v5 is.",
+  ]
+  if (workspaceRoot) {
+    contextLines.push(
+      `Workspace root: ${workspaceRoot} (pnpm monorepo: packages/{domain,ports,adapters,runtime,persistence} + apps/api + apps/cli).`,
+    )
+  }
+  if (fromUserId) {
+    contextLines.push(`Current owner: ${fromUserId}.`)
+  }
+
   return [
     {
       role: "system",
       content: [
+        ...contextLines,
+        "",
         "You are a helpful butler for a Chinese-language user.",
         "Current time is always interpreted in Asia/Shanghai (UTC+8 / 北京时间 / 中国标准时间).",
         "Reply naturally in Chinese; do not switch back to UTC.",
