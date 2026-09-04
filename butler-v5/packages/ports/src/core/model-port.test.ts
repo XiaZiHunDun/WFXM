@@ -42,6 +42,23 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
       })
     })
 
+    it("P2 2026-09-04: returns MiniMax when only MINIMAX_API_KEY set", () => {
+      expect(resolveModelForRole({ MINIMAX_API_KEY: "sk-mm", ...empty })).toEqual({
+        provider: "minimax",
+        model: "MiniMax-M3",
+      })
+    })
+
+    it("P2 2026-09-04: honors BUTLER_V5_MODEL_PLAN / MINIMAX_MODEL for plan", () => {
+      expect(
+        resolveModelForRole({
+          MINIMAX_API_KEY: "sk-mm",
+          BUTLER_V5_MODEL_PLAN: "abab6.5",
+          ...empty,
+        }),
+      ).toEqual({ provider: "minimax", model: "abab6.5" })
+    })
+
     it("returns undefined when no provider configured", () => {
       expect(resolveModelForRole(empty)).toBeUndefined()
     })

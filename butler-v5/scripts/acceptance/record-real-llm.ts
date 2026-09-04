@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   delete process.env["BUTLER_V5_LLM_FIXTURE_DIR"]
 
   mkdirSync(OUT_DIR, { recursive: true })
-  const app: AcceptanceApp = await makeAcceptanceApp()
+  const app: AcceptanceApp = await makeAcceptanceApp({ noFixture: true })
   const masked = `***${apiKey.slice(-4)}`
   const recordedAt = new Date().toISOString()
   const summary: Array<{ id: string; turns: number; totalLatencyMs: number }> = []

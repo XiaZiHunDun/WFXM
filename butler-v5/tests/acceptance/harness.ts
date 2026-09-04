@@ -91,10 +91,19 @@ export async function makeAcceptanceApp(opts?: {
    * 数据库。仅 audit-state 跨重启用例需要；不传则 mkdtempSync 新建一个。
    */
   readonly pgliteDataDir?: string
+  /**
+   * 可选：跳过 fixture 模式（不设 BUTLER_V5_LLM_FIXTURE_DIR）。让 pickLLMForRole
+   * 走真实 LLM（需 MINIMAX_API_KEY 等 env）。仅 record-real-llm.ts 用。
+   */
+  readonly noFixture?: boolean
 }): Promise<AcceptanceApp> {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "wb-accept-fixture-"))
+  const fixtureDir = opts?.noFixture ? "" : mkdtempSync(join(tmpdir(), "wb-accept-fixture-"))
   const workspaceRoot = mkdtempSync(join(tmpdir(), "wb-accept-ws-"))
-  process.env["BUTLER_V5_LLM_FIXTURE_DIR"] = fixtureDir
+  if (!opts?.noFixture) {
+    process.env["BUTLER_V5_LLM_FIXTURE_DIR"] = fixtureDir
+  } else {
+    delete process.env["BUTLER_V5_LLM_FIXTURE_DIR"]
+  }
   process.env["BUTLER_V5_WORKSPACE_ROOT"] = workspaceRoot
   // 路由以 process.env 判 isWechatIntakeEnabled（默认 1 → routeWechatIntake）。
   // 统一关掉，走 runButlerLoop 真实回退路径（含完整微信工具集 + 审批链路）。
@@ -177,7 +186,7 @@ export async function makeAcceptanceApp(opts?: {
     await opened.value.close()
     delete process.env["BUTLER_V5_LLM_FIXTURE_DIR"]
     delete process.env["BUTLER_V5_WORKSPACE_ROOT"]
-    rmSync(fixtureDir, { recursive: true, force: true })
+    if (fixtureDir) rmSync(fixtureDir, { recursive: true, force: true })
     rmSync(workspaceRoot, { recursive: true, force: true })
   }
 

@@ -41,6 +41,18 @@ function resolvePlan(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefine
       model: envTrim(env, "ANTHROPIC_MODEL") || "claude-sonnet-4-20250514",
     }
   }
+  if (envTrim(env, "MINIMAX_API_KEY") || envTrim(env, "MINIMAX_CN_API_KEY")) {
+    // P2 fix 2026-09-04: plan role now accepts minimax (previously only
+    // exec/intake did). Default model "MiniMax-M3" matches exec default
+    // so a single key covers both roles. Owners using minimax for the
+    // wechat butler loop no longer need to provision a second provider
+    // key for plan.
+    const model =
+      envTrim(env, "BUTLER_V5_MODEL_PLAN") ||
+      envTrim(env, "MINIMAX_MODEL") ||
+      "MiniMax-M3"
+    return { provider: "minimax", model }
+  }
   const model =
     envTrim(env, "BUTLER_V5_MODEL_PLAN") ||
     envTrim(env, "DEEPSEEK_MODEL") ||
