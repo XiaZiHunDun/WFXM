@@ -1,6 +1,6 @@
 # WFXM BlackBoard State
 
-_last_synced: 2026-09-03 (acceptance harness 后续 5 commits 闭环：doc 链接/.trae/specs placeholder/CI 纳入/pre-commit hook sync；HEAD `c4a0bcb8`)
+_last_synced: 2026-09-04 (35 realistic owner-task scenarios ship：acceptance harness 真正用作产品层行为分析；HEAD `aadf23ce`)
 _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
 
 ## ✅ 微信端到端模拟验收 harness（已收口 2026-09-03）
@@ -47,7 +47,29 @@ _handoff: .blackboard/shifts/2026-09-03-wechat-simulated-acceptance-handoff.md
   - 5 commits AI Guard pre-commit 均通过（本 commit 自身跑的就是 postinstall-installed hook，端到端闭环）
   - `c4a0bcb8` 含 YAML 校验 + 本地 drift 模拟（in-sync ✅ / drift ❌ + diff 输出）
 - **门禁**：typecheck 全包绿 / lint 0 警 / 全量回归 266/1712/1skip 无变化。
-- **未做（按 memory "等业主真撞问题"）**：dead code / refactor-clean / 20 §18·§11·§11.4 延后项。
+- **未做（按 memory "等业主真撞问题"）**：dead code / refactor-clean / 20 §18·§11·§11.4 延后项。**acceptance harness 真正用作产品层行为分析见 `aadf23ce` 下节**。
+
+## ✅ 35 realistic owner-task scenarios ship（2026-09-04，HEAD `aadf23ce`）
+
+- **动机**：验收基建不能只验 wiring，要验"承载真实场景"。用 acceptance harness 跑 35 个手工编码的"好 bot" fixture，覆盖 owner 真实开发任务 + 开放性任务 + 边界 + 多 turn 组合。
+- **新增 4 文件（+1623）**：
+  - `butler-v5/tests/acceptance/scenarios/_fixtures.ts` — 35 场景 type-safe 定义（input + fixture + expect）
+  - `butler-v5/tests/acceptance/scenarios/realistic.test.ts` — 35 个 `it()` 跑出 reply + 工具 + 审批 + final state
+  - `butler-v5/tests/acceptance/scenarios/_analyze.md`（auto-generated）— 每场景 reply 抓取 + 工具/审批统计 + 按类汇总表
+  - `butler-v5/tests/acceptance/scenarios/_analysis.md`（人工 curated）— 强弱分析 + gap + 推荐优先级
+- **结果**：35/35 pass in **2.35s**；13 次 approval 触发（37% 场景）；33 次 tool call；5179 字符 reply。
+- **关键发现（按严重度）**：
+  - **🔴 P0 — C1/C3 UX 崩坏点**：`parseInlineApprovalIntent` 不识别 `y` / `👌`（只识别"确认"/"拒绝"）。owner 手快回 `y` 或 emoji → bot 反过来"fixture exhausted"——**第一眼崩坏**。修：扩 inline-approval-intent.ts（y/n/👌/ok/👍/❌）；4-6 个新 case。
+  - **🟠 P1 — read-only run_command 也走 approval**：`pnpm test` / `git log` / `pnpm typecheck` 全都触发 approval，13 次里有 4 次是只读命令。owner 一天 20 次"git log"每次"确认"会养成羊群效应，反削弱真危险操作的警觉。修：policy-gate read-only 分支 / trust-mode。
+  - **🟠 P1 — 没有使用率埋点**：B8 场景 bot 诚实承认"我没法告诉你哪些没用"——产品自反能力差。修：每个 capability 调用埋 audit。
+  - **🟡 P2 — "撤销" 是空承诺**：bot 答"撤销哪个？"但没 undo 机制。修：写前 git snapshot。
+  - **🟡 P2 — 长消息 spam 弱**：200x"请帮我" + 真诉求，bot 真去 read 文档。修：检测重复 token / 超长 / emoji 占比。
+- **结构性观察**：
+  - 37% 场景触发 approval（高频）→ 真危险操作警觉被冲淡
+  - B 类（开放性）0 工具 0 审批 — 纯 LLM 文本，真实 LLM 质量未量化（这正是验收基建要补的下一环）
+  - 验收 harness 第一次跑就抓到 inline-approval 覆盖度 bug — **harness 真实价值正在于此**（不是 wiring 而是产品行为）
+- **推荐优先级**（per `_analysis.md` §D）：① C1/C3 修（30 min）→ ② read-only run_command（2-3h）→ ③ 使用率埋点（1-2h）→ ④ 撤销 + spam（各 1h）→ ⑤ 真实 LLM 回放（½ 天，需 secrets）
+- **门禁**：typecheck 全包绿 / lint 0 警（顺手清 4 处 non-null + 1 处 unused + 1 处 prefer-const）/ 全量回归 266+1/1712+35/1skip 无退化。
 
 ## 🧾 全面梳理+验收（2026-09-03，4 维全绿）
 
