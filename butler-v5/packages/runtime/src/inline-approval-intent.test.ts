@@ -13,6 +13,21 @@ describe("parseInlineApprovalIntent", () => {
     expect(parseInlineApprovalIntent("取消")).toBe("deny")
   })
 
+  it("detects single-char + emoji approve (P0 fix 2026-09-04)", () => {
+    expect(parseInlineApprovalIntent("y")).toBe("approve")
+    expect(parseInlineApprovalIntent("Y")).toBe("approve")
+    expect(parseInlineApprovalIntent("  👌  ")).toBe("approve")
+    expect(parseInlineApprovalIntent("✅")).toBe("approve")
+    expect(parseInlineApprovalIntent("👍")).toBe("approve")
+  })
+
+  it("detects single-char + emoji deny (P0 fix 2026-09-04)", () => {
+    expect(parseInlineApprovalIntent("n")).toBe("deny")
+    expect(parseInlineApprovalIntent("N")).toBe("deny")
+    expect(parseInlineApprovalIntent("❌")).toBe("deny")
+    expect(parseInlineApprovalIntent("👎")).toBe("deny")
+  })
+
   it("returns null for normal chat", () => {
     expect(parseInlineApprovalIntent("请帮我发文件")).toBeNull()
     expect(parseInlineApprovalIntent("确认发送文件")).toBeNull()

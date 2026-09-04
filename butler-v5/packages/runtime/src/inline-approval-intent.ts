@@ -9,9 +9,24 @@ const APPROVE_PHRASES = new Set([
   "ok",
   "好",
   "好的",
+  // Single-char / emoji (P0 fix 2026-09-04: realistic C1/C3 — owner 第一眼崩坏点)
+  "y",
+  "👌",
+  "✅",
+  "👍",
 ])
 
-const DENY_PHRASES = new Set(["拒绝", "取消", "否", "deny", "no"])
+const DENY_PHRASES = new Set([
+  "拒绝",
+  "取消",
+  "否",
+  "deny",
+  "no",
+  // Single-char / emoji (P0 fix 2026-09-04)
+  "n",
+  "❌",
+  "👎",
+])
 
 /**
  * Detect short inline approval/denial replies from WeChat users.
