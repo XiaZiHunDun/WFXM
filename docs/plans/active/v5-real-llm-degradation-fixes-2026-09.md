@@ -13,7 +13,7 @@
 | # | 问题 | 录音证据 |
 | --- | --- | --- |
 | ① | **D1 loop exhausted fallback** | `D1` 5 iter 不收敛 → stub fallback（`_summary.md` D1 latency 21,860ms 3 turns，最终 decision=`Finish`） |
-| ② | **A10/C10 approval over-trigger** | `A10` fixture 期望 Respond 实际 WaitForApproval；`C10` 同 — 模型把 `ls`/`git log` 看得比 fixture 设计更危险 |
+| ② | **A10/C10 approval over-trigger** | `A10` fixture 期望 Respond 实际 WaitForApproval；`C10` 同 — 模型用 `find` 命令找文件触发 approval（**不是 PRD 初判的 `git log`**，见决策 doc `v5-real-llm-over-trigger-decision-2026-09.md`）|
 | ③ | **12 invalid JSON decode** | 模型吐自然语言而非 decision JSON；harness 降级但 user 看到的是 stub reply |
 | ④ | **2 unknown tool `WaitForApproval`/`Respond`** | `A10` 模型杜撰工具名 decoder fail |
 
@@ -58,9 +58,9 @@
 | 1 | A2 | WaitForApproval 立即批 user.ts | read 后 Respond | ✅ 模型更稳 |
 | 2 | A5 | WaitForApproval 批 foo.ts 删 import | "文件不存在" Respond | ✅ 模型更准 |
 | 3 | A6 | WaitForApproval 批 utils.ts timeout | "没找到 utils.ts" Respond | ✅ 模型更准 |
-| 4 | **A10** | Respond（无 approval）| WaitForApproval 批 run_command | ⚠️ **A10 = P2 主因** |
+| 4 | **A10** | Respond（无 approval）| WaitForApproval 批 `find . -maxdepth 3 -name package.json` | ⚠️ **A10 = P2 主因**（模型应用 read_file，误用 find via run_command） |
 | 5 | C8 | WaitForApproval 批写文件 | "你想写什么？" Respond | ✅ 模型更稳 |
-| 6 | **C10** | Respond（ls 无需 approval）| WaitForApproval 批 ls | ⚠️ **C10 = P2 主因** |
+| 6 | **C10** | Respond（无需 approval）| WaitForApproval 批 `find . -maxdepth 2 -iname readme*` | ⚠️ **C10 = P2 主因**（同上，模型应用 read_file） |
 | 7 | **D1** | WaitForApproval | Finish + stub | ❌ **P1**（loop exhausted）|
 | 8 | D3 | WaitForApproval 批 user.ts | "没看到 user.ts" Respond | ✅ 模型更准 |
 | 9 | D5 | WaitForApproval 批 /debug | "目录是空的" Respond | ✅ 模型更稳 |
@@ -151,7 +151,7 @@
 | Pri | Status | Commit | 验证 |
 | --- | --- | --- | --- |
 | **P1** | ✅ | `eb49a443 fix(runtime): explicit clarification reply on loop exhaustion` | RED→GREEN→REFACTOR TDD; 14/14 unit + 35/35 acceptance + lint 0 |
-| P2 | ⬜ | — | 待启 |
+| **P2** | 🟡 待 owner 拍板 | `v5-real-llm-over-trigger-decision-2026-09.md` (决策 doc) | 3 选项协议：扩白名单 / 收紧 policy / 改 prompt。推荐选项 3 (改 prompt)。 |
 | P3 | ⬜ | — | 待启 |
 | P4 | ⬜ | — | 待启 |
 | P5 | ⬜ | — | 待启 |
