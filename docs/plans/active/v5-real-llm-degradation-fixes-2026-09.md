@@ -151,10 +151,10 @@
 | Pri | Status | Commit | 验证 |
 | --- | --- | --- | --- |
 | **P1** | ✅ | `eb49a443 fix(runtime): explicit clarification reply on loop exhaustion` | RED→GREEN→REFACTOR TDD; 14/14 unit + 35/35 acceptance + lint 0 |
-| **P2** | 🟡 待 owner 拍板 | `v5-real-llm-over-trigger-decision-2026-09.md` (决策 doc) | 3 选项协议：扩白名单 / 收紧 policy / 改 prompt。推荐选项 3 (改 prompt)。 |
+| **P2** | ✅ 选项 3 | `9871c417 feat(system-prompt): read_file-first guidance` | 决策 doc `v5-real-llm-over-trigger-decision-2026-09.md`；A10/C10 修；decision match 72→81%；latency -29%；baseline /tmp/recordings-pre-read_file-first-fix |
 | P3 | ⬜ | — | 待启 |
 | P4 | ⬜ | — | 待启 |
-| P5 | ⬜ | — | 待启 |
+| P5 | ⬜ | — | 待启（PRD P5 = 重跑 35 录音，P2 已部分完成此步骤）|
 | P6 | ⬜ | — | 待启 |
 
 ## 7. Claude Code 接手步骤
