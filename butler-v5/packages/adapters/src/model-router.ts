@@ -28,7 +28,15 @@ function openAiCompatibleBaseUrl(raw: string): string {
 function buildAdapter(r: ResolvedModel, env: NodeJS.ProcessEnv): LLMAdapter {
   switch (r.provider) {
     case "anthropic":
-      return makeAnthropicAdapter({ apiKey: envTrim(env, "ANTHROPIC_API_KEY"), model: r.model })
+      // P2 2026-09-04: honor ANTHROPIC_BASE_URL so providers offering
+      // Anthropic-compatible endpoints (e.g. minimax via
+      // https://api.minimax.cn/anthropic) can be used with a single
+      // ANTHROPIC_API_KEY. Falls back to api.anthropic.com default.
+      return makeAnthropicAdapter({
+        apiKey: envTrim(env, "ANTHROPIC_API_KEY"),
+        model: r.model,
+        ...(envTrim(env, "ANTHROPIC_BASE_URL") ? { baseUrl: envTrim(env, "ANTHROPIC_BASE_URL") } : {}),
+      })
     case "deepseek": {
       const requestExtras = buildDeepSeekRequestExtras(env, r.model)
       return makeOpenAICompatibleAdapter({

@@ -48,16 +48,27 @@ interface ScenarioRecord {
 }
 
 async function main(): Promise<void> {
-  // Verify real LLM is reachable
-  const apiKey = process.env["MINIMAX_API_KEY"] ?? process.env["MINIMAX_CN_API_KEY"] ?? ""
+  // Verify real LLM is reachable. Accept any of:
+  //   - ANTHROPIC_API_KEY (Anthropic SDK compat: minimax, etc.; honor
+  //     ANTHROPIC_BASE_URL for non-default endpoints)
+  //   - MINIMAX_API_KEY / MINIMAX_CN_API_KEY (legacy minimax path)
+  const apiKey =
+    process.env["ANTHROPIC_API_KEY"] ??
+    process.env["MINIMAX_API_KEY"] ??
+    process.env["MINIMAX_CN_API_KEY"] ??
+    ""
   if (!apiKey) {
     console.error(
-      "[record-real-llm] MINIMAX_API_KEY (or MINIMAX_CN_API_KEY) is required. " +
-        "Set one in env to record real LLM behavior.",
+      "[record-real-llm] ANTHROPIC_API_KEY (or MINIMAX_API_KEY / " +
+        "MINIMAX_CN_API_KEY) is required. Set one in env to record real LLM behavior.",
     )
     process.exit(1)
   }
-  const modelPlan = process.env["BUTLER_V5_MODEL_PLAN"] ?? process.env["MINIMAX_MODEL"] ?? "MiniMax-M3"
+  const modelPlan =
+    process.env["BUTLER_V5_MODEL_PLAN"] ??
+    process.env["ANTHROPIC_MODEL"] ??
+    process.env["MINIMAX_MODEL"] ??
+    "MiniMax-M3"
   const modelExec = process.env["BUTLER_V5_MODEL_EXEC"] ?? modelPlan
 
   // CRITICAL: do NOT set BUTLER_V5_LLM_FIXTURE_DIR — we want real LLM.
