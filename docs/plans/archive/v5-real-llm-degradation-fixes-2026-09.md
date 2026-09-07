@@ -1,10 +1,10 @@
 # v5 真实 LLM 行为降级修复合规（4 类问题）
 
-> **交接对象**：Claude Code（后续开发）
+> **状态**: ✅ **CLOSED 2026-09-07** — 全部 P1-P6 闭环 + 2 follow-up iteration (A9 + bounded find)
 > **触发**：2026-09-04 真 LLM 录音 (`butler-v5/scripts/acceptance/record-real-llm.ts`) 跑完 35 scenarios + diff baseline (本 PRD §3) 发现 4 类 model-side 退化
 > **主线**：`butler-v5` 唯一活动主线；v4 已退役
 > **录音 baseline**：`butler-v5/tests/acceptance/scenarios/recordings/{A1..D5}.json` + `_summary.md` (gitignore)
-> **完成归档**：完成后在本文 §6 增一行 commit hash + 验证结果
+> **归档目录**：`docs/plans/archive/` (2026-09-07 moved from active)
 
 ## 1. 目标与动机
 
@@ -148,18 +148,21 @@
 
 ## 6. 完成记录
 
-| Pri | Status | Commit | 验证 |
-| --- | --- | --- | --- |
-| **P1** | ✅ | `eb49a443 fix(runtime): explicit clarification reply on loop exhaustion` | RED→GREEN→REFACTOR TDD; 14/14 unit + 35/35 acceptance + lint 0 |
-| **P2** | ✅ 选项 3 | `9871c417 feat(system-prompt): read_file-first guidance` | 决策 doc `v5-real-llm-over-trigger-decision-2026-09.md`；A10/C10 修；decision match 72→81%；latency -29%；baseline /tmp/recordings-pre-read_file-first-fix |
-| **P3** | ✅ **no-op** | — | Phase D fix B-08/10 (commit `e3122680` 等) 已隐式闭环：plain-text decode fail 走 `respondContent = raw \|\| lastNonEmptyRaw \|\| stubReply()` 分支，**`finalDecision: Respond` + reply 含完整原文**。12 个 "invalid JSON" case 实为 warn log noise，user-visible 已正确。**TDD 验证**：尝试扩 retry 到 plain-text 触发 14+ test fail + iter +1 + latency +1 LLM call。无 user-visible 收益，纯 log 优化不写代码。 |
-| **P4** | ✅ **no-op** | — | **P2 prompt fix 顺带修了 2 个杜撰 tool name case** — round 4 录音 grep `Unknown tool` = 0。当前 behavior（推 error result + LLM self-correct）合理且已有 2 test 覆盖（test line 221 + 284）。PRD P4 提议的 "立即 Finish + audit" 是 behavior change，会改 user-visible flow 且 P2 已治本 — 不写代码。 |
-| P5 | ✅ | `9871c417` | P2 提交时已重跑 35 录音 + diff baseline (/tmp/recordings-pre-read_file-first-fix) |
-| **P6** | ✅ | `17f120c0 docs(plans): mark P4 + P5 done` | 5 gate 全绿：lint 0 警 / runtime 221/221 / acceptance harness 46/46 / realistic 35/35 / PRD 闭环 |
-
-## 6. 完成记录
-
 **所有 P1-P6 闭环**：✅ ✅ ✅ ✅ ✅ ✅
+
+### 闭环时序（2026-09-04 → 2026-09-07）
+
+| Date | Commit | 范围 |
+| --- | --- | --- |
+| 2026-09-04 | `eb49a443` | **P1 fix**: loop exhausted → 显式澄清 reply (TDD RED→GREEN→REFACTOR) |
+| 2026-09-04 | `9871c417` | **P2 fix**: read_file-first prompt guidance |
+| 2026-09-04 | `a4a1050b` | P3 no-op doc (Phase D B-08/10 隐式闭环) |
+| 2026-09-04 | `17f120c0` | P4 no-op doc + P5 re-baselined |
+| 2026-09-04 | `adfdbeb2` | P6 5 gate 全绿 |
+| 2026-09-07 | `cb2c52d7` | **Follow-up A9**: pnpm/git firstNonFlagArg (pnpm -r typecheck fix) |
+| 2026-09-07 | `7c65bbea` | **Follow-up D4 turn 2**: bounded find (-maxdepth ≤ 3) + convergence prompt |
+
+### 5-gate 验证（最终）
 
 | 验证维度 | 结果 |
 | --- | --- |
@@ -167,15 +170,62 @@
 | 5-gate runtime unit | **221/221 pass** ✓ |
 | 5-gate acceptance harness | **46/46 pass** ✓ |
 | 5-gate realistic scenarios | **35/35 pass** ✓ |
-| 录音 baseline (round 4) | 35/35 recorded + _summary.md ✓ |
-| decision match | 72% → **81%** (+9pp) |
-| latency | 240s → **171s** (-29%) |
-| unknown tool warnings | 2 → **0** |
-| A10/C10 approval over-trigger | fixed |
-| D1 loop exhausted | fixed (clarification reply) |
-| HEAD | `17f120c0` on origin `main` |
+| 5-gate domain types | **37/37 pass** ✓ |
+| 录音 baseline (round 6) | 35/35 recorded + _summary.md ✓ |
 
-**总结**：4 类 model-side 退化通过 1 个 code fix (P1 loop exhaustion) + 1 个 prompt fix (P2 read_file-first) 全部治本或显式 no-op。P3/P4 通过 P2 顺带治本。
+### Aggregate improvement（round 3 baseline → round 6）
+
+| 维度 | Round 3 | Round 6 | Δ |
+| --- | --- | --- | --- |
+| decision match | 23/32 (72%) | **28/32 (88%)** | **+16pp** |
+| total latency | 240s | **178s** | **-26%** |
+| unknown tool warnings | 2 | **0** | -100% |
+| A10/C10 approval over-trigger | broken | **fixed** | |
+| A9 pnpm -r typecheck | broken | **fixed** | |
+| D4 turn 2 find | broken | **fixed** | |
+| D1 loop exhausted | stub | **clarification** | |
+
+### TDD 纪律实证
+
+| Pri | 路径 | 教训 |
+| --- | --- | --- |
+| P1 | RED→GREEN→REFACTOR | 经典 — 删除 unused lastDecision 让 lint 0 警 |
+| P2 | RED→GREEN + 4 分钟 harness | 录音对比验证 user-visible 修复 |
+| P3 | **no-op by analysis** | 12 invalid JSON 已是 user-visible Respond；TDD 铁律不写 log noise 代码 |
+| P4 | **no-op by analysis** | 2 unknown tool 已被 P2 顺带治本 |
+| Follow-up find-bypass (reverted) | attempt #1 → revert → attempt #2 bounded+convergence | [[feedback-policy-bypass-cost-tradeoff-2026-09-07]]: 扩白名单需双重护栏 |
+
+**总结**：4 类 model-side 退化 + 2 follow-up (A9 + D4 turn 2) 通过 3 个 code fix (P1 loop exhaustion + firstNonFlagArg + bounded find) + 2 个 prompt fix (read_file-first + convergence) 全部治本。2 个 no-op (P3 + P4) 显式记录避免误改。
+
+### Follow-up (2026-09-07)
+
+| ID | Status | 说明 |
+| --- | --- | --- |
+| baseline rotation | ⬜ | /tmp/recordings-* 6 个 snapshot 是临时，需评估是否转 permanent artifact (per-prompt-version) |
+| owner hand-trial | ⬜ | 1 周手试 → 撞产品问题 → 触发下一批 PRD |
+| §11 row 5 / §18 row 3 触发条件 | ⬜ | 继续按 [[project-deferred-trigger-conditions-2026-09-01]] 4 步反查协议等真实触发 |
+
+## 7. Claude Code 接手步骤
+
+```bash
+cd /home/ailearn/projects/WFXM/butler-v5
+git status && git log --oneline -3   # 确认在 main 7c65bbea
+# 主入口：apps/api/src/wechat-inbound-llm.ts (P2 + convergence prompt)
+# 主入口：packages/runtime/src/execution/conversation-loop.ts (P1 fix)
+# 主入口：packages/domain/src/governance/types.ts (A9 + bounded find)
+
+# 重录音基线：
+pnpm exec tsx --env-file=.env.local scripts/acceptance/record-real-llm.ts
+
+# Diff vs fixture：
+pnpm exec tsx /tmp/diff-real-llm.ts
+
+# 5 gate：
+CI=true pnpm test
+pnpm lint
+```
+
+> ⚠️ PRD 已归档至 `docs/plans/archive/`。后续 prompt/policy 改动按 round 7+ 流程：cp current recordings to /tmp/recordings-pre-{change-name}-fix → 改 → 重录 → diff → 仅在 aggregate metrics 改善时 commit。
 
 ## 7. Claude Code 接手步骤
 
