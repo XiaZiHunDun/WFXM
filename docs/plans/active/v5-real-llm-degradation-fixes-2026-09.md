@@ -153,9 +153,9 @@
 | **P1** | ✅ | `eb49a443 fix(runtime): explicit clarification reply on loop exhaustion` | RED→GREEN→REFACTOR TDD; 14/14 unit + 35/35 acceptance + lint 0 |
 | **P2** | ✅ 选项 3 | `9871c417 feat(system-prompt): read_file-first guidance` | 决策 doc `v5-real-llm-over-trigger-decision-2026-09.md`；A10/C10 修；decision match 72→81%；latency -29%；baseline /tmp/recordings-pre-read_file-first-fix |
 | **P3** | ✅ **no-op** | — | Phase D fix B-08/10 (commit `e3122680` 等) 已隐式闭环：plain-text decode fail 走 `respondContent = raw \|\| lastNonEmptyRaw \|\| stubReply()` 分支，**`finalDecision: Respond` + reply 含完整原文**。12 个 "invalid JSON" case 实为 warn log noise，user-visible 已正确。**TDD 验证**：尝试扩 retry 到 plain-text 触发 14+ test fail + iter +1 + latency +1 LLM call。无 user-visible 收益，纯 log 优化不写代码。 |
-| P4 | ⬜ | — | 待启 |
-| P5 | ⬜ | — | 待启（PRD P5 = 重跑 35 录音，P2 已部分完成此步骤）|
-| P6 | ⬜ | — | 待启 |
+| **P4** | ✅ **no-op** | — | **P2 prompt fix 顺带修了 2 个杜撰 tool name case** — round 4 录音 grep `Unknown tool` = 0。当前 behavior（推 error result + LLM self-correct）合理且已有 2 test 覆盖（test line 221 + 284）。PRD P4 提议的 "立即 Finish + audit" 是 behavior change，会改 user-visible flow 且 P2 已治本 — 不写代码。 |
+| P5 | ✅ | `9871c417` | P2 提交时已重跑 35 录音 + diff baseline (/tmp/recordings-pre-read_file-first-fix) |
+| P6 | ⬜ | — | 5 gate + 收口 |
 
 ## 7. Claude Code 接手步骤
 
