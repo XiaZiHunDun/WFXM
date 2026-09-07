@@ -68,7 +68,13 @@ v7-current（HEAD `1252143c`）35 录音 diff fixture：
 **验收**：wsat 不再触发 approval；其他 case 无 regression
 **风险**：无（read-only 单字程序，无 subcommand）
 
-### 候选 D — Owner hand-trial 反馈循环
+**⚠️ 2026-09-07 实证失败（revert）— 改 `tree`**：扩 tree 进 ALWAYS_READONLY 加
+`-L ≤ 3` 双重护栏 → aggregate 退化 (decision match 88%→75%, approval 33→30,
+latency 178s→262s)。**关键**：35 scenario 中 tree 0 次使用 — 改 allowlist 没真
+trigger，model variance 主导 regression。详见 [[feedback-temperature-model-changes-unprovable-2026-09-07]]。
+**结论**：候选 C ⚠️ hypothetical 改 code 不再尝试。
+
+### 候选 D — Owner hand-trial 反馈循环（**唯一剩余可执行路径**）
 
 **改动**：无主动代码改动；等 owner 手试 1 周 → 撞真问题 → 触发下批 PRD
 **范围**：MEMORY.md 持续记录
@@ -76,16 +82,27 @@ v7-current（HEAD `1252143c`）35 录音 diff fixture：
 **验收**：N/A
 **风险**：等待时间未知
 
+**2026-09-07 3/3 candidate revert 后**：A/B/C 都因 temperature model
+variance + 无真实 user trigger 而 unprovable。仅 D（owner hand-trial）是
+下一批可执行路径。
+
 ## 4. 4 步反查协议（沿用 [[project-deferred-trigger-conditions-2026-09-01]]）
 
 | Step | 检查 | v8 candidate |
 | --- | --- | --- |
-| 1. 真问题？ | owner 撞过吗？ | 候选 A 4 fixture stale 是客观事实；B/C/D 是 hypothetical |
-| 2. 真 ROI？ | 改 vs 不改 哪个好 | A ROI 高（fixture 调整无 code 改）；B 中；C 低；D 等待 |
-| 3. 真时机？ | 现在改 还是 等？ | A 可立即做（fixture 校准无 user 风险）；B/C 等下批 |
-| 4. 真 ownership？ | 谁负责？ | A：Claude（owner review）；B：Claude 起草 + owner prompt review；C：Claude；D：owner |
+| 1. 真问题？ | owner 撞过吗？ | A/B/C ⚠️ no trigger (model variance 主导)；D 等手试 |
+| 2. 真 ROI？ | 改 vs 不改 哪个好 | 3/3 revert 实证：均 aggregate 退化 |
+| 3. 真时机？ | 现在改 还是 等？ | 仅 D 等手试时机到了 |
+| 4. 真 ownership？ | 谁负责？ | D：owner |
 
-**推荐顺序**：A 先做（fixture 校准，低风险）→ D 等待 owner feedback → 后续 B/C 视手试反馈决定。
+**3/3 candidate revert 总结**（详见 [[feedback-temperature-model-changes-unprovable-2026-09-07]]）：
+- A fixture 改 D3/D5：88%→78% / 178s→224s
+- B convergence 加 ask：88%→69% / 178s→261s / A2 单 case 11s→54s
+- C tree bypass：88%→75% / 178s→262s / tree 0 次使用
+
+**Temperature model 单 round 验证不可靠**：35 scenario 单一 snapshot 不能
+区分 fix 改对了 vs model variance。需 N round avg metrics 或 owner
+hand-trial 真问题触发。
 
 ## 5. Rotation policy 锚定（v7-current README 引用）
 
