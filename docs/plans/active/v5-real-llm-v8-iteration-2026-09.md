@@ -41,6 +41,11 @@ v7-current（HEAD `1252143c`）35 录音 diff fixture：
 **验收**：decision match ≥ 30/32 (94%) by accepting model quality；不引入新 degrade
 **风险**：fixture 降低严格度 — 与"fixture 是验收 target"原则冲突。仅在 model 行为客观优于 fixture 设计意图时接受。
 
+**⚠️ 2026-09-07 实证失败（revert）**：尝试改 D3/D5 fixture `finalDecision: "Finish"` → aggregate 退化
+(decision match 88%→78%, approval 33→30, latency 178s→224s)。原因：model 跨 round noisy，fixture 改后
+下 round model 行为仍可能 ≠ fixture (whack-a-mole)。详见 [[feedback-fixture-calibration-rounds-noisy-2026-09-07]]。
+**结论**：候选 A ⚠️ 高风险，不推荐。残余 mismatch 应通过 候选 B (prompt fix) 或接受为 "model 超出 fixture 设计意图"。
+
 ### 候选 B — Convergence prompt 加固（中风险, 中 ROI）
 
 **改动**：在 P2 已加的 "Convergence: 1-2 file-discovery → commit plan" 后加 "如 workspace 空 → 主动 ask 1 个澄清问题"
