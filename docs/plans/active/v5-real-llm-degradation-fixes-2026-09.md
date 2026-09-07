@@ -155,7 +155,27 @@
 | **P3** | ✅ **no-op** | — | Phase D fix B-08/10 (commit `e3122680` 等) 已隐式闭环：plain-text decode fail 走 `respondContent = raw \|\| lastNonEmptyRaw \|\| stubReply()` 分支，**`finalDecision: Respond` + reply 含完整原文**。12 个 "invalid JSON" case 实为 warn log noise，user-visible 已正确。**TDD 验证**：尝试扩 retry 到 plain-text 触发 14+ test fail + iter +1 + latency +1 LLM call。无 user-visible 收益，纯 log 优化不写代码。 |
 | **P4** | ✅ **no-op** | — | **P2 prompt fix 顺带修了 2 个杜撰 tool name case** — round 4 录音 grep `Unknown tool` = 0。当前 behavior（推 error result + LLM self-correct）合理且已有 2 test 覆盖（test line 221 + 284）。PRD P4 提议的 "立即 Finish + audit" 是 behavior change，会改 user-visible flow 且 P2 已治本 — 不写代码。 |
 | P5 | ✅ | `9871c417` | P2 提交时已重跑 35 录音 + diff baseline (/tmp/recordings-pre-read_file-first-fix) |
-| P6 | ⬜ | — | 5 gate + 收口 |
+| **P6** | ✅ | `17f120c0 docs(plans): mark P4 + P5 done` | 5 gate 全绿：lint 0 警 / runtime 221/221 / acceptance harness 46/46 / realistic 35/35 / PRD 闭环 |
+
+## 6. 完成记录
+
+**所有 P1-P6 闭环**：✅ ✅ ✅ ✅ ✅ ✅
+
+| 验证维度 | 结果 |
+| --- | --- |
+| 5-gate lint | **0 警** ✓ |
+| 5-gate runtime unit | **221/221 pass** ✓ |
+| 5-gate acceptance harness | **46/46 pass** ✓ |
+| 5-gate realistic scenarios | **35/35 pass** ✓ |
+| 录音 baseline (round 4) | 35/35 recorded + _summary.md ✓ |
+| decision match | 72% → **81%** (+9pp) |
+| latency | 240s → **171s** (-29%) |
+| unknown tool warnings | 2 → **0** |
+| A10/C10 approval over-trigger | fixed |
+| D1 loop exhausted | fixed (clarification reply) |
+| HEAD | `17f120c0` on origin `main` |
+
+**总结**：4 类 model-side 退化通过 1 个 code fix (P1 loop exhaustion) + 1 个 prompt fix (P2 read_file-first) 全部治本或显式 no-op。P3/P4 通过 P2 顺带治本。
 
 ## 7. Claude Code 接手步骤
 
