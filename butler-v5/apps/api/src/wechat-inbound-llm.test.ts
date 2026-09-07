@@ -79,4 +79,10 @@ describe("wechat-inbound-llm", () => {
     expect(sys).toMatch(/prefer read_file|read_file.*(优先|first|before).*run_command/i)
     expect(sys).toMatch(/run_command/i)
   })
+
+  it("system prompt instructs convergence after file discovery", () => {
+    const msgs = buildWechatInboundMessages("hi", {}, { fromUserId: "u-1" })
+    const sys = msgs[0]?.content ?? ""
+    expect(sys).toMatch(/convergence|commit.*plan|forward motion|1-2 file-discovery/i)
+  })
 })

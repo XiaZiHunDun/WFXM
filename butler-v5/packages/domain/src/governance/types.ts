@@ -177,6 +177,36 @@ export function isReadOnlyCommand(request: ActionRequest): boolean {
   ])
   if (ALWAYS_READONLY.has(program)) return true
 
+  // `find` is read-only when (a) it has an explicit `-maxdepth` ≤ 3 (depth
+  // bound prevents model from over-exploring the tree) AND (b) argv has no
+  // mutating flag (-exec / -delete / -fprint* / -ok). Without maxdepth the
+  // model could walk an unbounded subtree and trigger policy fatigue.
+  if (program === "find") {
+    const MUTATING_FLAGS = new Set([
+      "-exec",
+      "-execdir",
+      "-ok",
+      "-okdir",
+      "-delete",
+      "-fprint",
+      "-fprint0",
+      "-fprintf",
+      "-fls",
+    ])
+    let maxDepth: number | undefined
+    for (let i = 1; i < argv.length; i++) {
+      const arg = argv[i] ?? ""
+      if (MUTATING_FLAGS.has(arg)) return false
+      if (arg === "-maxdepth" || arg === "-d") {
+        const v = Number(argv[i + 1])
+        if (Number.isFinite(v) && v >= 0 && v <= 3) maxDepth = v
+        else return false
+        i++
+      }
+    }
+    return maxDepth !== undefined
+  }
+
   // git subcommand-level check — skip leading flags (e.g., `-C <path>`)
   // to find the subcommand. Conservative: any flag string falls into
   // "unknown subcommand" so we don't accidentally approve `git -C <path> push`.

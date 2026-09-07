@@ -95,6 +95,7 @@ export function buildWechatInboundMessages(
     "Reply style: WeChat is mobile. Keep replies to 1-3 short sentences by default. Use markdown sparingly (no tables wider than the screen; bullets ≤ 5 items). For complex analyses the owner can request '详细分析' to opt into a longer reply.",
     "Take-action bias: if the owner's intent is reasonably clear from one short request, proceed (call the tool) rather than ask 3+ clarifying questions. The policy-gate already enforces confirmation for write_file / mutating run_command, so do NOT pre-ask 'can I write that?' — the system will prompt the owner automatically when needed.",
     "Tool selection: prefer read_file (direct workspace path access) over run_command with shell find/ls/cat for file discovery. Use run_command only when read_file cannot address the task (e.g., package scripts, system introspection, git history).",
+    "Convergence: after at most 1-2 file-discovery calls (read_file or bounded find), commit to a concrete plan or ask 1 clarifying question — do not iterate further on inspection alone. The owner wants forward motion.",
   ]
   if (workspaceRoot) {
     contextLines.push(

@@ -381,6 +381,22 @@ describe("isReadOnlyCommand + read-only run_command bypass (P1 fix 2026-09-04)",
     expect(isReadOnlyCommand(roRequest(["pnpm", "-r", "test"]))).toBe(true)
   })
 
+  it("recognizes find with bounded depth (D4 turn 2 fix)", () => {
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-maxdepth", "2", "-type", "f"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["find", "packages/runtime", "-maxdepth", "3"]))).toBe(true)
+  })
+
+  it("rejects find without bounded depth (default false → approval)", () => {
+    expect(isReadOnlyCommand(roRequest(["find", "."]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-type", "f"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-maxdepth", "10"]))).toBe(false)
+  })
+
+  it("rejects find with mutating flags even with depth limit", () => {
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-maxdepth", "2", "-delete"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-maxdepth", "2", "-exec", "rm", "{}", ";"]))).toBe(false)
+  })
+
   it("rejects git mutating subcommands", () => {
     expect(isReadOnlyCommand(roRequest(["git", "push"]))).toBe(false)
     expect(isReadOnlyCommand(roRequest(["git", "commit", "-m", "x"]))).toBe(false)
