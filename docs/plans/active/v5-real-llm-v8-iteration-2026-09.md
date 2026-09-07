@@ -54,6 +54,12 @@ v7-current（HEAD `1252143c`）35 录音 diff fixture：
 **验收**：A5/C8 mismatch → match；D3/D5 仍 Finish（行为不变）；latency 不增 >5%
 **风险**：over-clarification 可能让 model 变得太保守，反削弱 P2 的 take-action bias
 
+**⚠️ 2026-09-07 实证失败（revert）**：加 missing-context ask 触发器 → aggregate 退化
+(decision match 88%→69%, approval 33→27, latency 178s→261s, A2 单 case 11s→54s)。
+原因：与 P2 take-action bias 互斥 — model 把"context 缺失"放大，所有不明确场景都优先 ask。
+详见 [[feedback-over-clarification-prompt-tradeoff-2026-09-07]]。
+**结论**：候选 B ⚠️ 高风险，不推荐。残余 A5/C8 mismatch 接受为 "model 行为超出 fixture 设计意图"。
+
 ### 候选 C — Read-only bypass 扩 wsat (低风险, 低 ROI)
 
 **改动**：`isReadOnlyCommand` 加 `wsat` 进 ALWAYS_READONLY
