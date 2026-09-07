@@ -177,19 +177,29 @@ export function isReadOnlyCommand(request: ActionRequest): boolean {
   ])
   if (ALWAYS_READONLY.has(program)) return true
 
-  // git subcommand-level check (argv[1] is subcommand)
+  // git subcommand-level check — skip leading flags (e.g., `-C <path>`)
+  // to find the subcommand. Conservative: any flag string falls into
+  // "unknown subcommand" so we don't accidentally approve `git -C <path> push`.
   if (program === "git") {
-    const sub = argv[1]
+    const sub = firstNonFlagArg(argv.slice(1))
     return sub === "log" || sub === "diff" || sub === "status" || sub === "show"
   }
 
-  // pnpm subcommand-level check
+  // pnpm subcommand-level check — skip leading flags (e.g., `-r`, `--recursive`)
   if (program === "pnpm") {
-    const sub = argv[1]
+    const sub = firstNonFlagArg(argv.slice(1))
     return sub === "typecheck" || sub === "test"
   }
 
   return false
+}
+
+function firstNonFlagArg(args: readonly string[]): string | undefined {
+  for (const arg of args) {
+    if (arg.startsWith("-")) continue
+    return arg
+  }
+  return undefined
 }
 
 export function consumeGrantUse(grant: ScopedGrantRecord): ScopedGrantRecord {

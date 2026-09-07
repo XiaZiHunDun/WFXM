@@ -376,6 +376,9 @@ describe("isReadOnlyCommand + read-only run_command bypass (P1 fix 2026-09-04)",
   it("recognizes pnpm read-only subcommands", () => {
     expect(isReadOnlyCommand(roRequest(["pnpm", "typecheck"]))).toBe(true)
     expect(isReadOnlyCommand(roRequest(["pnpm", "test"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "-r", "typecheck"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "--recursive", "typecheck"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "-r", "test"]))).toBe(true)
   })
 
   it("rejects git mutating subcommands", () => {
