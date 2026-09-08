@@ -215,6 +215,10 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
       undoStack.push(beforeContent)
       if (undoStack.length > UNDO_CAP) undoStack.shift()
       UNDO_STACK.set(resolved.path, undoStack)
+      // P2 batch v2 (2026-09-08): touch counter so popMostRecentWrite can
+      // find the latest write across all paths.
+      UNDO_TOUCH_COUNTER += 1
+      UNDO_TOUCHED.set(resolved.path, UNDO_TOUCH_COUNTER)
 
       // R16 sandbox 扩面：write_file 走 bwrap tee-equivalent（stdin 透传 +
       // workspace --bind RW）。disabled 模式 fall back 到进程内 fs writeFileSync。
@@ -273,18 +277,61 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
 const UNDO_STACK = new Map<string, (string | null)[]>()
 const UNDO_CAP = 16
 
+// P2 batch v2 (2026-09-08): monotonic touch counter so we can find the
+// most-recent write across all paths. Touched on every push; popMostRecent
+// scans the map for the highest counter and pops that path's stack.
+let UNDO_TOUCH_COUNTER = 0
+const UNDO_TOUCHED = new Map<string, number>()
+
 /** Pop the most recent before-content for `path` (returns undefined if empty). */
 export function undoLastWrite(workspaceRoot: string, path: string): string | null | undefined {
   const resolved = resolve(workspaceRoot, path)
   const stack = UNDO_STACK.get(resolved)
   if (!stack || stack.length === 0) return undefined
-  return stack.pop() ?? null
+  const content = stack.pop() ?? null
+  if (stack.length === 0) {
+    UNDO_STACK.delete(resolved)
+    UNDO_TOUCHED.delete(resolved)
+  }
+  return content
+}
+
+/**
+ * Pop the most recent write across ALL paths. Returns `{ path, content }`
+ * where content is `null` if the file was newly created, or `undefined` if
+ * the undo stack is empty. Used by 中文 NL "撤销刚才" intent.
+ */
+export function popMostRecentWrite(): { path: string; content: string | null } | undefined {
+  let bestPath: string | undefined
+  let bestTouch = 0
+  for (const [path, touch] of UNDO_TOUCHED.entries()) {
+    if (touch > bestTouch) {
+      bestTouch = touch
+      bestPath = path
+    }
+  }
+  if (bestPath === undefined) return undefined
+  const stack = UNDO_STACK.get(bestPath)
+  if (!stack || stack.length === 0) return undefined
+  const content = stack.pop() ?? null
+  if (stack.length === 0) {
+    UNDO_STACK.delete(bestPath)
+    UNDO_TOUCHED.delete(bestPath)
+  }
+  return { path: bestPath, content }
 }
 
 /** Number of pending undo entries for `path` (for diagnostics). */
 export function pendingUndoCount(workspaceRoot: string, path: string): number {
   const resolved = resolve(workspaceRoot, path)
   return UNDO_STACK.get(resolved)?.length ?? 0
+}
+
+/** Reset undo stack (test-only). Clears all paths + touch counters. */
+export function resetUndoStack(): void {
+  UNDO_STACK.clear()
+  UNDO_TOUCHED.clear()
+  UNDO_TOUCH_COUNTER = 0
 }
 
 export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefinition {

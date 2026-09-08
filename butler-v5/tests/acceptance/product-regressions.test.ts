@@ -27,6 +27,7 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { resetSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
+import { resetUndoStack } from "@butler/api/workspace-tools.js"
 import {
   makeAcceptanceApp,
   sendWechatMessage,
@@ -228,5 +229,72 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     })
     expect(res.status).toBe(201)
     expect(res.finalDecision).toBe("WaitForApproval")
+  }, 30_000)
+})
+
+// ============================================================================
+// P2 batch v2 (2026-09-08): 「撤销 空承诺」+「长消息 spam」多信号护栏
+// ============================================================================
+
+describe("acceptance/product-regressions P2 batch (撤销空承诺 + 多信号 spam)", () => {
+  let p2App: AcceptanceApp
+
+  beforeAll(async () => {
+    resetUndoStack()
+    p2App = await makeAcceptanceApp()
+  })
+
+  afterAll(async () => {
+    await p2App.close()
+  })
+
+  it("F1-A 「撤销刚才」无 undoable op：graceful reply", async () => {
+    p2App.setFixtures({
+      plan: [textEntry("SHOULD_NOT_BE_USED fixture reply")],
+    })
+    const res = await sendWechatMessage(p2App, {
+      content: "撤销刚才",
+      conversationId: "c-p2-undo-cn-noop",
+    })
+    expect(res.status).toBe(201)
+    expect(res.reply).toMatch(/没有可撤销|指定.*路径/)
+    expect(res.toolCalls).toBe(0)
+    expect(res.reply).not.toContain("SHOULD_NOT_BE_USED")
+  }, 30_000)
+
+  it("F1-B 「撤销刚才」有 undoable op：3-turn 真还原 write_file", async () => {
+    const undoPath = "undo-cn.txt"
+    const undoFile = join(p2App.workspaceRoot, undoPath)
+    writeFileSync(undoFile, "before", "utf8")
+
+    p2App.setFixtures({
+      plan: [toolCallEntry("write_file", { path: undoPath, content: "after" })],
+    })
+    const convId = "c-p2-undo-cn-regression"
+
+    // turn 1: 写入前
+    const first = await sendWechatMessage(p2App, {
+      content: "帮我把 undo-cn.txt 改成 after",
+      conversationId: convId,
+    })
+    expect(first.status).toBe(201)
+    expect(first.finalDecision).toBe("WaitForApproval")
+
+    // turn 2: 审批 → write_file 真实写入 "after"
+    const approved = await sendWechatMessage(p2App, {
+      content: "确认",
+      conversationId: convId,
+    })
+    expect(approved.status).toBe(201)
+    expect(readFileSync(undoFile, "utf8")).toBe("after")
+
+    // turn 3: 中文 NL 撤销 → tryWechatUndoCommand regex 命中 → 还原
+    const undoRes = await sendWechatMessage(p2App, {
+      content: "撤销刚才",
+      conversationId: convId,
+    })
+    expect(undoRes.status).toBe(201)
+    expect(undoRes.reply).toContain("已还原")
+    expect(readFileSync(undoFile, "utf8")).toBe("before")
   }, 30_000)
 })
