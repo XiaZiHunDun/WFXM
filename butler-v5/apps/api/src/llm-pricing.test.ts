@@ -160,15 +160,16 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
       // P2 fix 2026-09-04: MINIMAX_API_KEY is now accepted for the plan
       // role (previously plan only consulted ANTHROPIC/DEEPSEEK/DASHSCOPE
       // keys). When both DeepSeek and MiniMax keys are present, plan
-      // resolves to MiniMax-M3 so a single MiniMax key covers both exec
-      // and plan — owners no longer need a second provider key for plan.
+      // resolves to its default MiniMax-M3 — independent of any
+      // BUTLER_V5_MODEL_EXEC override (set to the non-default "abab6.5"
+      // here so exec-role bleed would visibly fail the assertion).
       // DeepSeek-only deployments are still covered by the dedicated
       // "returns DeepSeek default when only DEEPSEEK_API_KEY is set" test.
       expect(
         resolveCurrentLlmModel({
           DEEPSEEK_API_KEY: "ds-1234",
           MINIMAX_API_KEY: "sk-mm",
-          BUTLER_V5_MODEL_EXEC: "MiniMax-M3",
+          BUTLER_V5_MODEL_EXEC: "abab6.5",
         }),
       ).toBe("MiniMax-M3")
     })
