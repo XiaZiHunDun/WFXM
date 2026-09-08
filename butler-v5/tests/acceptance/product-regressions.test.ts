@@ -90,7 +90,7 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     })
 
     // "请".repeat(80) = 80 个相同 CJK 字符（maxCount=80 > 30 && 占比=1.0 ≥ 0.3），
-    // 命中 detectSpam 的"重复字符"分支（line 553）：`检测到字符「请」重复 80
+    // 命中 detectSpam 的"重复字符"分支：`检测到字符「请」重复 80
     // 次。请发具体需求。`
     const res = await sendWechatMessage(app, {
       content: "请".repeat(80),
