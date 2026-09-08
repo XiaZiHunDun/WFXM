@@ -193,4 +193,30 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     itOwnsFileWithApproval("✅", "inline-check.txt", "c-inline-approval-check")
     itOwnsFileWithApproval("👍", "inline-thumbs.txt", "c-inline-approval-thumbs")
   })
+
+  it("run_command read-only argv (`ls`): 不触发审批，finish", async () => {
+    // read-only → policy Allow → run actually executes (sandboxed ls is OK)
+    app.setFixtures({
+      plan: [toolCallEntry("run_command", { argv: ["ls"] })],
+    })
+    const res = await sendWechatMessage(app, {
+      content: "列一下当前目录",
+      conversationId: "c-run-command-readonly-ls",
+    })
+    expect(res.status).toBe(201)
+    // 不是 WaitForApproval：read-only argv 跳过 approval
+    expect(res.finalDecision).not.toBe("WaitForApproval")
+  }, 30_000)
+
+  it("run_command write argv (`git status`): 仍触发审批", async () => {
+    app.setFixtures({
+      plan: [toolCallEntry("run_command", { argv: ["git", "status"] })],
+    })
+    const res = await sendWechatMessage(app, {
+      content: "git status",
+      conversationId: "c-run-command-write-git-status",
+    })
+    expect(res.status).toBe(201)
+    expect(res.finalDecision).toBe("WaitForApproval")
+  }, 30_000)
 })

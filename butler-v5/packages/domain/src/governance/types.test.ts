@@ -365,20 +365,23 @@ describe("isReadOnlyCommand + read-only run_command bypass (P1 fix 2026-09-04)",
     }
   })
 
-  it("recognizes git read-only subcommands", () => {
-    expect(isReadOnlyCommand(roRequest(["git", "log"]))).toBe(true)
-    expect(isReadOnlyCommand(roRequest(["git", "log", "--oneline", "-5"]))).toBe(true)
-    expect(isReadOnlyCommand(roRequest(["git", "diff"]))).toBe(true)
-    expect(isReadOnlyCommand(roRequest(["git", "status"]))).toBe(true)
-    expect(isReadOnlyCommand(roRequest(["git", "show", "HEAD"]))).toBe(true)
+  it("rejects git subcommands (Task 2: git stays write-capable)", () => {
+    // Task 2 tightened the whitelist: even "safe" git subcommands
+    // (log/diff/status/show) require approval. Only the ALWAYS_READONLY
+    // programs + bounded `find` are exempted from approval.
+    expect(isReadOnlyCommand(roRequest(["git", "log"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["git", "log", "--oneline", "-5"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["git", "diff"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["git", "status"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["git", "show", "HEAD"]))).toBe(false)
   })
 
-  it("recognizes pnpm read-only subcommands", () => {
-    expect(isReadOnlyCommand(roRequest(["pnpm", "typecheck"]))).toBe(true)
-    expect(isReadOnlyCommand(roRequest(["pnpm", "test"]))).toBe(true)
-    expect(isReadOnlyCommand(roRequest(["pnpm", "-r", "typecheck"]))).toBe(true)
-    expect(isReadOnlyCommand(roRequest(["pnpm", "--recursive", "typecheck"]))).toBe(true)
-    expect(isReadOnlyCommand(roRequest(["pnpm", "-r", "test"]))).toBe(true)
+  it("rejects pnpm subcommands (Task 2: pnpm stays write-capable)", () => {
+    expect(isReadOnlyCommand(roRequest(["pnpm", "typecheck"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "test"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "-r", "typecheck"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "--recursive", "typecheck"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["pnpm", "-r", "test"]))).toBe(false)
   })
 
   it("recognizes find with bounded depth (D4 turn 2 fix)", () => {
@@ -429,8 +432,16 @@ describe("isReadOnlyCommand + read-only run_command bypass (P1 fix 2026-09-04)",
   })
 
   it("decidePolicy allows read-only run_command without grant (P1 bypass)", () => {
-    const decision = decidePolicy(roRequest(["git", "log", "--oneline", "-5"]), policy, 1000, null)
+    // Task 2: only ALWAYS_READONLY programs + bounded `find` bypass approval.
+    // git/pnpm/node/python3 stay write-capable even for "safe" subcommands.
+    const decision = decidePolicy(roRequest(["ls", "-la"]), policy, 1000, null)
     expect(decision._tag).toBe("Allow")
+  })
+
+  it("decidePolicy asks for git subcommands (Task 2: git stays write-capable)", () => {
+    // Even "safe" subcommands like `git log` now require approval.
+    const decision = decidePolicy(roRequest(["git", "log", "--oneline", "-5"]), policy, 1000, null)
+    expect(decision._tag).toBe("Ask")
   })
 
   it("decidePolicy still asks for mutating run_command (safety preserved)", () => {

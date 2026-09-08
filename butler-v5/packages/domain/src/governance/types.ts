@@ -148,8 +148,11 @@ export function decidePolicy(
  * on any uncertainty. Conservative whitelist:
  *
  *  - Always read-only programs: cat, head, wc, grep, rg, ls, pwd, date, echo
- *  - git subcommand: log / diff / status / show (no flag / path mutation)
- *  - pnpm subcommand: typecheck / test (no source modification)
+ *  - find -maxdepth ≤ 3 with no mutating flags (depth-bound prevents
+ *    over-exploration; mutating flags banned)
+ *
+ * Note: git, pnpm, node, python3 stay write-capable per Task 2 spec —
+ * even "safe" subcommands like `git status` require approval now.
  *
  * This list is intentionally tight; new entries require explicit review
  * (test file: types.test.ts `isReadOnlyCommand`).
@@ -207,29 +210,11 @@ export function isReadOnlyCommand(request: ActionRequest): boolean {
     return maxDepth !== undefined
   }
 
-  // git subcommand-level check — skip leading flags (e.g., `-C <path>`)
-  // to find the subcommand. Conservative: any flag string falls into
-  // "unknown subcommand" so we don't accidentally approve `git -C <path> push`.
-  if (program === "git") {
-    const sub = firstNonFlagArg(argv.slice(1))
-    return sub === "log" || sub === "diff" || sub === "status" || sub === "show"
-  }
-
-  // pnpm subcommand-level check — skip leading flags (e.g., `-r`, `--recursive`)
-  if (program === "pnpm") {
-    const sub = firstNonFlagArg(argv.slice(1))
-    return sub === "typecheck" || sub === "test"
-  }
-
+  // Task 2 spec: git / pnpm / node / python3 stay write-capable. Even
+  // "safe" subcommands (git status / pnpm typecheck / pnpm test) require
+  // approval. Read-only detection is intentionally restricted to the
+  // ALWAYS_READONLY set above and bounded `find`.
   return false
-}
-
-function firstNonFlagArg(args: readonly string[]): string | undefined {
-  for (const arg of args) {
-    if (arg.startsWith("-")) continue
-    return arg
-  }
-  return undefined
 }
 
 export function consumeGrantUse(grant: ScopedGrantRecord): ScopedGrantRecord {

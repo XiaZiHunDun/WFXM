@@ -151,6 +151,39 @@ export function defaultPermissionPolicy(ownerSubject: string): PermissionPolicy 
   }
 }
 
+/** Task 2: programs whose argv never mutates sandbox state. */
+const READ_ONLY_RUN_COMMANDS = new Set([
+  "cat",
+  "date",
+  "echo",
+  "grep",
+  "head",
+  "ls",
+  "pwd",
+  "rg",
+  "wc",
+])
+
+/** Defense-in-depth: shell metachars must never reach a read-only program. */
+const SHELL_METACHAR_RE = /[;&|`$<>(){}\\*?\\\n\r]/
+
+/**
+ * Classify a `run_command` argv payload's risk. Read-only programs with no
+ * shell-metachars → "low" (no approval). Anything else → "high" (approval).
+ * Default high: fail-closed when shape is unexpected.
+ */
+export function classifyRunCommandArgvRisk(argv: unknown): "low" | "high" {
+  if (!Array.isArray(argv) || argv.length === 0) return "high"
+  const program = argv[0]
+  if (typeof program !== "string") return "high"
+  if (!READ_ONLY_RUN_COMMANDS.has(program)) return "high"
+  for (const a of argv.slice(1)) {
+    if (typeof a !== "string") return "high"
+    if (SHELL_METACHAR_RE.test(a)) return "high"
+  }
+  return "low"
+}
+
 /** Production loop policy; alwaysConfirm side effects use waiting_approval + Grant. */
 export function productionPermissionPolicy(
   ownerSubject: string,
@@ -171,12 +204,17 @@ export function actionRequestFromTool(
   args: Readonly<Record<string, unknown>>,
   definition: CapabilityDefinition,
 ): ActionRequest {
+  // Task 2: read-only run_command argv bypasses approval.
+  const risk =
+    toolName === "run_command"
+      ? classifyRunCommandArgvRisk(args["argv"])
+      : definition.risk
   return {
     kind: definition.kind,
     capability: toolName,
     subject,
     resource,
-    risk: definition.risk,
+    risk,
     digest: `${toolName}:${resource}:${JSON.stringify(args)}`,
     payload: args,
   }
