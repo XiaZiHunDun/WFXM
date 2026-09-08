@@ -156,16 +156,21 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
       ).toBe("deepseek-v4-x")
     })
 
-    it("keeps MiniMax config from affecting plan model accounting (D44)", () => {
-      // Exec may run MiniMax; plan accounting stays DeepSeek when the
-      // plan env has DEEPSEEK_API_KEY — Model Port separates roles.
+    it("routes plan model to MiniMax when both DEEPSEEK_API_KEY and MINIMAX_API_KEY are set (D44 P2)", () => {
+      // P2 fix 2026-09-04: MINIMAX_API_KEY is now accepted for the plan
+      // role (previously plan only consulted ANTHROPIC/DEEPSEEK/DASHSCOPE
+      // keys). When both DeepSeek and MiniMax keys are present, plan
+      // resolves to MiniMax-M3 so a single MiniMax key covers both exec
+      // and plan — owners no longer need a second provider key for plan.
+      // DeepSeek-only deployments are still covered by the dedicated
+      // "returns DeepSeek default when only DEEPSEEK_API_KEY is set" test.
       expect(
         resolveCurrentLlmModel({
           DEEPSEEK_API_KEY: "ds-1234",
           MINIMAX_API_KEY: "sk-mm",
           BUTLER_V5_MODEL_EXEC: "MiniMax-M3",
         }),
-      ).toBe("deepseek-chat")
+      ).toBe("MiniMax-M3")
     })
   })
 })
