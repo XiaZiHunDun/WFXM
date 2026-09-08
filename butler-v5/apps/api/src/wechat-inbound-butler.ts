@@ -521,6 +521,19 @@ const MAX_SPAM_CHARS = 2000
 const REPEAT_TOKEN_THRESHOLD = 30
 const EMOJI_RATIO_MAX = 0.6
 
+// P2 batch v2 (2026-09-08): 多信号 spam 护栏
+const MIN_LINE_REPEAT_TOTAL = 10
+const LINE_REPEAT_RATIO_MAX = 0.3
+
+const MIN_TOKEN_REPEAT_TOTAL = 10
+const TOKEN_REPEAT_THRESHOLD = 20
+const TOKEN_REPEAT_RATIO_MAX = 0.3
+
+const STRUCTURE_MIN_LEN = 1500
+const STRUCTURE_MAX_LEN = 2000
+const STRUCTURE_PUNCT_RATIO_MAX = 0.005
+const STRUCTURE_PUNCT_REGEX = /[。，！？；：、,.!?;:]/
+
 /**
  * Cheap heuristic spam detection before invoking the LLM. Returns a short
  * user-facing reply when the input is suspicious, or null when it looks
@@ -562,5 +575,52 @@ function detectSpam(content: string): string | null {
   if (content.length >= 20 && emojiCount / content.length > EMOJI_RATIO_MAX) {
     return `检测到 emoji 占比 ${Math.round((emojiCount / content.length) * 100)}%。请发具体需求。`
   }
+
+  // F3: Per-line 重复（多行短行重复）
+  if (content.length >= 100) {
+    const lines = content.split(/\r?\n/).filter((l) => l.length > 0)
+    if (lines.length >= MIN_LINE_REPEAT_TOTAL) {
+      const unique = new Set(lines)
+      if (unique.size / lines.length < LINE_REPEAT_RATIO_MAX) {
+        return `检测到 ${lines.length} 行中只有 ${unique.size} 种，疑似重复内容。请发具体需求。`
+      }
+    }
+  }
+
+  // F4: Whitespace-token 重复（多字 token 间空格/换行重复）
+  if (content.length >= 50) {
+    const tokens = content.split(/\s+/).filter((t) => t.length > 0)
+    if (tokens.length >= MIN_TOKEN_REPEAT_TOTAL) {
+      const counts = new Map<string, number>()
+      for (const t of tokens) counts.set(t, (counts.get(t) ?? 0) + 1)
+      let maxToken = ""
+      let maxCount = 0
+      for (const [t, n] of counts) {
+        if (n > maxCount) {
+          maxCount = n
+          maxToken = t
+        }
+      }
+      if (
+        maxCount > TOKEN_REPEAT_THRESHOLD &&
+        maxCount / tokens.length >= TOKEN_REPEAT_RATIO_MAX
+      ) {
+        const display =
+          maxToken.length > 20 ? `${maxToken.slice(0, 20)}...` : maxToken
+        return `检测到 token「${display}」重复 ${maxCount} 次。请发具体需求。`
+      }
+    }
+  }
+
+  // F5: Length+structure（1500-2000 字符无标点无换行）
+  if (content.length > STRUCTURE_MIN_LEN && content.length <= STRUCTURE_MAX_LEN) {
+    const hasNewline = content.includes("\n")
+    let punctCount = 0
+    for (const ch of content) if (STRUCTURE_PUNCT_REGEX.test(ch)) punctCount += 1
+    if (!hasNewline && punctCount / content.length < STRUCTURE_PUNCT_RATIO_MAX) {
+      return `消息结构异常（${content.length} 字符无标点无换行）。请分批发送或简化需求。`
+    }
+  }
+
   return null
 }

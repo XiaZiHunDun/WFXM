@@ -326,4 +326,63 @@ describe("acceptance/product-regressions P2 batch (撤销空承诺 + 多信号 s
     expect(res.toolCalls).toBe(0)
     expect(res.reply).not.toContain("SHOULD_NOT_BE_USED")
   }, 30_000)
+
+  it("F3 Per-line 重复（多字行）：abcdefghij\\n × 25 命中 per-line flag", async () => {
+    p2App.setFixtures({
+      plan: [textEntry("SHOULD_NOT_BE_USED fixture reply")],
+    })
+    // 275 chars, 25 lines "abcdefghij" (10 distinct chars + \n per line);
+    // each char count = 25 < 30 (existing char repeat threshold) so existing
+    // flag does NOT trigger; per-line unique_ratio = 1/25 = 0.04 < 0.3 →
+    // triggers F3.
+    const res = await sendWechatMessage(p2App, {
+      content: "abcdefghij\n".repeat(25),
+      conversationId: "c-p2-spam-per-line",
+    })
+    expect(res.status).toBe(201)
+    expect(res.reply).toMatch(/行.*种|重复内容/)
+    expect(res.toolCalls).toBe(0)
+    expect(res.reply).not.toContain("SHOULD_NOT_BE_USED")
+  }, 30_000)
+
+  it("F4 Whitespace-token 重复（英文）：hello world × 40 命中 token flag", async () => {
+    p2App.setFixtures({
+      plan: [textEntry("SHOULD_NOT_BE_USED fixture reply")],
+    })
+    // 480 chars, 80 tokens; char 'l' appears 40 times but ratio 40/480=0.083 < 0.3
+    // so existing char repeat does NOT trigger; token 'hello' count = 40 > 20,
+    // ratio 40/80 = 0.5 > 0.3 → triggers F4.
+    const res = await sendWechatMessage(p2App, {
+      content: "hello world ".repeat(40),
+      conversationId: "c-p2-spam-token",
+    })
+    expect(res.status).toBe(201)
+    expect(res.reply).toMatch(/token|重复.*次/)
+    expect(res.toolCalls).toBe(0)
+    expect(res.reply).not.toContain("SHOULD_NOT_BE_USED")
+  }, 30_000)
+
+  it("F5 Length+structure（1500-2000 字符无标点无换行）：命中 structure flag", async () => {
+    p2App.setFixtures({
+      plan: [textEntry("SHOULD_NOT_BE_USED fixture reply")],
+    })
+    // 100 unique CJK chars each repeated 17 times = 1700 chars total.
+    // Each char count = 17 < 30 (existing char repeat threshold) so existing
+    // flag does NOT trigger; length 1700 ∈ (1500, 2000], no \n, no punctuation
+    // → triggers F5.
+    const chars: string[] = []
+    for (let i = 0; i < 100; i++) {
+      chars.push(String.fromCharCode(0x4e00 + i))
+    }
+    const content = chars.map((c) => c.repeat(17)).join("")
+    expect(content.length).toBe(1700)
+    const res = await sendWechatMessage(p2App, {
+      content,
+      conversationId: "c-p2-spam-structure",
+    })
+    expect(res.status).toBe(201)
+    expect(res.reply).toMatch(/结构异常|无标点/)
+    expect(res.toolCalls).toBe(0)
+    expect(res.reply).not.toContain("SHOULD_NOT_BE_USED")
+  }, 30_000)
 })
