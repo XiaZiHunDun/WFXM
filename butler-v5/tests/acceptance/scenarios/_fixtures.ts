@@ -520,8 +520,13 @@ export const scenariosC: readonly Scenario[] = [
     category: "C-edge",
     title: "撤销刚才",
     input: "撤销刚才",
+    // P2 batch v2 (2026-09-08): 中文 NL "撤销刚才" 走 tryWechatUndoCommand。
+    // 在 realistic 套件内 prior scenarios (C8 创建新文件 / A2/A5/A6/D1/D3/D5 写文件)
+    // 污染 UNDO_STACK；popMostRecentWrite 真触发 — 可能还原 (已还原) 或
+    // 新文件置空 (新建文件，已置空)。F1-A 在 product-regressions 独立锁
+    // empty-stack case "没有可撤销的写操作"。
     fixtures: { plan: [text("撤销哪个操作？请说具体文件名。")] },
-    expect: { finalDecision: "Respond", replyPattern: /哪个|具体/ },
+    expect: { finalDecision: "Respond", replyPattern: /已还原|置空|没有可撤销|哪个|具体/ },
   },
   {
     id: "C10",

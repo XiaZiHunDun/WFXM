@@ -14,6 +14,7 @@ import { describe, expect, it, afterAll, beforeAll } from "vitest"
 import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_SCENARIOS } from "./_fixtures.js"
+import { resetUndoStack } from "@butler/api/workspace-tools.js"
 import {
   makeAcceptanceApp,
   sendWechatMessage,
@@ -45,6 +46,7 @@ describe("acceptance/realistic (35 真实场景产品层行为)", () => {
   const metrics: ScenarioMetric[] = []
 
   beforeAll(async () => {
+    resetUndoStack()
     app = await makeAcceptanceApp()
   })
   afterAll(async () => {

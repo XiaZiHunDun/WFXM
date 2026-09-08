@@ -19,7 +19,6 @@ import { dirname, resolve } from "node:path"
 import { mkdirSync } from "node:fs"
 import {
   undoLastWrite,
-  pendingUndoCount,
   popMostRecentWrite,
 } from "./workspace-tools.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
