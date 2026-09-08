@@ -1,21 +1,25 @@
 /**
- * 微信消息模拟验收 — 产品层回归锁（/undo 命令 + 垃圾消息护栏）。
+ * 微信消息模拟验收 — 产品层回归锁（/undo 命令 + 垃圾消息护栏 + LLM 遥测）。
  *
  * 脚本化 LLM(fixture) 驱动真实 `/v1/wechat/inbound`，不调真模型/真微信/真服务。
  *
- * 覆盖两个产品层真实修复的回归锁：
+ * 覆盖三个产品层真实修复的回归锁：
  *   1. `/undo <path>`：真实审批恢复 + undoLastWrite 还原内容。预先在工作区
  *      创建 `undo.txt=before`，fixture write_file 写 `after`，走完审批往返
  *      后 `/undo undo.txt` 必须还原文件内容，并回复 `已还原`。
  *   2. 垃圾消息护栏：发 `"请".repeat(80)`（单字符重复 80 次）必须被
  *      `detectSpam` 短路，回复命中 `消息过长|重复|具体需求`，且不消耗 LLM
  *      fixture（toolCalls=0，不含 fixture marker `SHOULD_NOT_BE_USED`）。
+ *   3. LLM 遥测：跑通一次普通对话后，本地 tracer 必须记录到至少一条
+ *      `kind=step, name=llm_call` 事件，且所有匹配事件的 status 为 `ok`，
+ *      证明 §14 observability 的 llm_call 埋点没有断流。
  *
  * 每个用例独立 conversationId，避免 ActiveMainRunConflict 跨用例污染。
  */
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { resetSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import {
   makeAcceptanceApp,
   sendWechatMessage,
@@ -100,5 +104,40 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     expect(res.reply).toMatch(/消息过长|重复|具体需求/)
     expect(res.toolCalls).toBe(0)
     expect(res.reply).not.toContain("SHOULD_NOT_BE_USED")
+  }, 30_000)
+
+  it("LLM 遥测（llm_call tracer）：普通对话产生 step/llm_call 且 status=ok", async () => {
+    // 独立 conversationId 隔离前两个用例的 waiting_approval / spam short
+    // circuit 状态污染。resetSharedLocalTracer 在用例入口重置 process-wide
+    // tracer，注入 BUTLER_V5_TRACE=1 强制开启（默认已开启，显式更稳）。
+    const convId = "c-product-llm-telemetry-regression"
+    app.setFixtures({
+      plan: [textEntry("telemetry reply")],
+    })
+    const tracer = resetSharedLocalTracer({
+      ...process.env,
+      BUTLER_V5_TRACE: "1",
+    })
+
+    // 普通 inbound → runButlerLoop → executeInbound → plan LLM 调用一次，
+    // wechat-inbound-butler.ts 的 Effect.match onSuccess 分支会
+    // tracer.record({ kind: "step", name: "llm_call", status: "ok", ... })
+    const res = await sendWechatMessage(app, {
+      content: "随便打个招呼测遥测",
+      conversationId: convId,
+    })
+    expect(res.status).toBe(201)
+    expect(res.reply).toContain("telemetry reply")
+    expect(res.conversationId).toBe(convId)
+
+    // 用返回的 conversationId 过滤 tracer：至少一条 step/llm_call 事件，
+    // 且所有匹配事件的 status 都是 ok。fixture 不携带 usage，故不验证
+    // `token` 字段（D23 §14 observability 留口，legacy fixture 可 null）。
+    const events = tracer.list({ conversationId: convId })
+    const llmCalls = events.filter(
+      (event) => event.kind === "step" && event.name === "llm_call",
+    )
+    expect(llmCalls.length).toBeGreaterThan(0)
+    expect(llmCalls.every((event) => event.status === "ok")).toBe(true)
   }, 30_000)
 })
