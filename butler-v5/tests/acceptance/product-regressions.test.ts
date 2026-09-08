@@ -117,6 +117,10 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     const tracer = resetSharedLocalTracer({
       ...process.env,
       BUTLER_V5_TRACE: "1",
+      // 强制关闭 OTEL stdout exporter：若父环境开了 stdout，本用例会向
+      // stderr 喷 OTLP JSON 行污染 acceptance 输出；显式 pin off 保持
+      // 验收日志确定性。
+      BUTLER_V5_OTEL_EXPORTER: "off",
     })
 
     // 普通 inbound → runButlerLoop → executeInbound → plan LLM 调用一次，
