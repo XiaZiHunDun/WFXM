@@ -297,4 +297,33 @@ describe("acceptance/product-regressions P2 batch (撤销空承诺 + 多信号 s
     expect(undoRes.reply).toContain("已还原")
     expect(readFileSync(undoFile, "utf8")).toBe("before")
   }, 30_000)
+
+  it("F2 /undo 无 path：graceful fallback 返路径提示", async () => {
+    // 显式 /undo 无 path 应返 graceful "请用 /undo <path>"，不走 LLM
+    p2App.setFixtures({
+      plan: [textEntry("SHOULD_NOT_BE_USED fixture reply")],
+    })
+    const res = await sendWechatMessage(p2App, {
+      content: "/undo",
+      conversationId: "c-p2-undo-no-path",
+    })
+    expect(res.status).toBe(201)
+    expect(res.reply).toMatch(/指定.*路径/)
+    expect(res.toolCalls).toBe(0)
+    expect(res.reply).not.toContain("SHOULD_NOT_BE_USED")
+  }, 30_000)
+
+  it("F2b /撤销 无 path：graceful fallback 返路径提示", async () => {
+    p2App.setFixtures({
+      plan: [textEntry("SHOULD_NOT_BE_USED fixture reply")],
+    })
+    const res = await sendWechatMessage(p2App, {
+      content: "/撤销",
+      conversationId: "c-p2-chexiao-no-path",
+    })
+    expect(res.status).toBe(201)
+    expect(res.reply).toMatch(/指定.*路径/)
+    expect(res.toolCalls).toBe(0)
+    expect(res.reply).not.toContain("SHOULD_NOT_BE_USED")
+  }, 30_000)
 })
