@@ -56,9 +56,9 @@
 - `/记住` 等命令由 `tryWechatInboundCommand` 命令捷径拦截（`routes.ts:80`），LLM-free 返回「已记住」✓。
 
 > **当前实跑结果（2026-09-07）**：`pnpm vitest run tests/acceptance --pool=forks`
-> → **5 test files passed / 46 tests passed / ~8.6s**；
+> → **5 test files passed / 46 tests passed / ~10.1s**（tests 累计 ~15.9s）；
 > `pnpm vitest run tests/acceptance/scenarios/realistic.test.ts --pool=forks`
-> → **1 test file passed / 35 tests passed / ~5.0s**。
+> → **1 test file passed / 35 tests passed / ~5.7s**（tests 累计 ~3.6s）。
 > 4 acceptance 文件覆盖 11 用例 + realistic 覆盖 35 场景 = **46/46 绿**。
 
 ## 4. 关键机制 / 约定
@@ -76,31 +76,44 @@
 
 ### 5.1 [P1] Regression lock 三件套（与 §18 trigger 设计挂钩 — 等真实 owner 手撞再启用，未撞前不必新增用例）
 
-1. **`/undo` regression lock**：`scenarios/realistic.test.ts` 中 C9「撤销刚才」已用 fixture 跑通正向 reply；待 `/undo` 命令（`d226f33f` 已 ship）在 owner 实测中撞到真问题，再补一条 fixture assertion 锁住 `commands-approval` 入口的撤销链路（与 `tryWechatInboundCommand` 拦截分支对齐）。
-2. **`spam-guard` regression lock**：`scenarios/realistic.test.ts` 中 C4「长消息 spam」已跑通；待 owner 撞到真实长消息 / 多轮刷屏触发降级 reply 时，补一条 fixture assertion 锁住 spam-guard 命中条件（与 `46ef4db3` shipped 的 guard 对齐）。
+1. **`/undo` regression lock**：`scenarios/realistic.test.ts` 中 C9「撤销刚才」已用 fixture 跑通正向 reply；`/undo` 命令已随 `46ef4db3` ship（`46ef4db3` 同 commit 还含 capability telemetry + spam guard）。待 owner 实测中撞到 `/undo` 真问题，再补 fixture assertion 锁住 `commands-approval` 入口的撤销链路（与 `tryWechatInboundCommand` 拦截分支对齐）。
+2. **`spam-guard` regression lock**：`_fixtures.ts` 中 C4「长消息 spam」已有 assertion（`finalDecision: "Respond"` / `minToolCalls: 0` / `replyPattern: /重复|请发具体/`）锁住 `46ef4db3` shipped 的 guard 短路 LLM 行为，无需再补 C4 用例。若 owner 撞到新型 spam 模式（多轮刷屏 / emoji spam / 跨日重发等），按需新增 C-edge 用例扩展覆盖。
 3. **`llm_call` regression lock**：当前 `commands-approval` / `subagent-multiturn` 用例已隐含覆盖 `write_file` → `llm_call` 链路；待 owner 撞到真实 `llm_call` 失败 / 超时 / usage 计费异常（D23 / D24 闭环后），补一条 fixture assertion 显式锁 `step/llm_call` 事件 + usage 字段（与 §14 observability 一致性挂钩）。
 
 ### 5.2 [P1] 最终验证收尾
 
 - typecheck + lint + 单目录测试 + 全量回归无退化；
-- 决定是否纳入 CI（`.github/workflows/ci.yml`，注意测试自身较慢需放宽 timeout；acceptance 已被 `013d1095` 纳入 CI 的现实情况请以当时 CI 配置为准）；
+- 验证 `013d1095` 引入的 CI acceptance step 仍 green（acceptance 已被纳入 CI，注意测试自身较慢需看 CI 是否已放宽 timeout）；
 - 更新 `.blackboard/state.md` 主线记录（如需），同步 MEMORY.md Post-D43 段 acceptance harness 闭环项。
 
 ## 6. Claude Code 接手步骤
 
 ```bash
-cd /home/ailearn/projects/WFXM/butler-v5
-# 1) 先跑通现有用例
-pnpm vitest run tests/acceptance --pool=forks   # 或单文件跑通
-# 2) 通过后补 fault-tolerance / subagent-multiturn / audit-state
-# 3) typecheck + lint + 全量回归
+cd butler-v5
+# 1) 实跑当前已交付 acceptance 用例
+pnpm vitest run tests/acceptance --pool=forks
+# 2) 实跑 realistic 35 场景
+pnpm vitest run tests/acceptance/scenarios/realistic.test.ts --pool=forks
+# 3) 若 owner 手撞触发 §5.1 三件套，新增对应 fixture assertion（不改生产代码）
+# 4) 最终验证
 pnpm typecheck && pnpm lint
 pnpm test   # 或项目惯例的全量测试入口
 ```
 
 ## 7. 风险与注意点
 
-- **测试较慢**（开创 DB + wiring + 多轮），每用例 30s 上限；全量 CI 会显著拉长，需权衡。
+- **测试较慢**（开创 DB + wiring + 多轮），每用例 30s 上限（audit-state 跨重启用例 afterAll cleanup 60s）；全量 CI 会显著拉长，需权衡。
 - harness 设 `BUTLER_V5_INTAKE_ENABLED=0` 是**有意为之**（走 runButlerLoop 全工具集）；不要改成走 intake，否则 write_file 不可见、审批流测不了。
 - `acceptance-app.ts` 放 apps/api 而非 tests/：Hono 依赖解析边界；不要挪动。
-- 交接前 uncommitted 的还有因之前验收留下的 `.blackboard/state.md`、`AGENTS.md` 文档链接修复、`.trae/` IDE 元数据等，属既有改动，与本 harness 无关，提交时勿混入。
+- `_analyze.md` 由 `scenarios/realistic.test.ts` `afterAll` 自动覆盖生成（提交时勿混入）；`recordings-archive/v*-pre-*-fix/*.json` 是 per-version LLM baseline fixture，per-project `.gitignore` 已 gitignore，不提交。
+- 既有未提交改动（如 `.blackboard/state.md`、`AGENTS.md` 文档链接、`.trae/` IDE 元数据等）属先前验收遗留，与本 harness 无关，提交时勿混入。
+
+## 8. 历史参考
+
+- `4972ed94` — wechat end-to-end simulated acceptance harness（4 文件 / 11 用例首次 ship）。
+- `aadf23ce` — 35 realistic owner-task scenarios for product-layer analysis（realistic 35 场景首次 ship）。
+- `d226f33f` — read-only run_command bypass approval for owner（P1）。
+- `46ef4db3` — capability telemetry + /undo command + spam guard（P1+P2 closure）[MANUAL-OVERRIDE]。
+- `7a79c2d3` — plan role accepts minimax + record-real-llm noFixture plumbing。
+- `1252143c` — per-version baseline archive（recordings-archive/，防录音对比基线丢失）。
+- PRD 原交接日期 2026-09-03，状态对齐日期 2026-09-07。
