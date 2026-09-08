@@ -102,10 +102,10 @@ pnpm test   # 或项目惯例的全量测试入口
 
 ## 7. 风险与注意点
 
-- **测试较慢**（开创 DB + wiring + 多轮），每用例 30s 上限（audit-state 跨重启用例 afterAll cleanup 60s）；全量 CI 会显著拉长，需权衡。
+- **测试较慢**（开创 DB + wiring + 多轮），每用例 30s 上限（audit-state 跨重启用例 test timeout 60s）；全量 CI 会显著拉长，需权衡。
 - harness 设 `BUTLER_V5_INTAKE_ENABLED=0` 是**有意为之**（走 runButlerLoop 全工具集）；不要改成走 intake，否则 write_file 不可见、审批流测不了。
 - `acceptance-app.ts` 放 apps/api 而非 tests/：Hono 依赖解析边界；不要挪动。
-- `_analyze.md` 由 `scenarios/realistic.test.ts` `afterAll` 自动覆盖生成（提交时勿混入）；`recordings-archive/v*-pre-*-fix/*.json` 是 per-version LLM baseline fixture，per-project `.gitignore` 已 gitignore，不提交。
+- `_analyze.md` 由 `scenarios/realistic.test.ts` `afterAll` 自动覆盖生成（提交时勿混入）；`recordings-archive/v*-pre-*-fix/*.json` 是 per-version LLM baseline fixture，WFXM 根目录 `.gitignore` 已 gitignore，不提交。
 - 既有未提交改动（如 `.blackboard/state.md`、`AGENTS.md` 文档链接、`.trae/` IDE 元数据等）属先前验收遗留，与本 harness 无关，提交时勿混入。
 
 ## 8. 历史参考
