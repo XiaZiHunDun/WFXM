@@ -31,6 +31,8 @@ import { isWechatIntakeEnabled, routeWechatIntake } from "./wechat-intake.js"
 import { resolveWechatInboundProjectId } from "./wechat-active-project.js"
 import { tryWechatInboundCommand } from "./wechat-inbound-commands.js"
 import { issueSubscribeToken } from "./ws-subscribe.js"
+import { captureWechatSessionSnapshot } from "./wechat-session-snapshot.js"
+import { maybePrependSessionDigest } from "./wechat-session-digest.js"
 
 export function createRoutes(app: Hono, wiring: Wiring) {
   app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
@@ -103,6 +105,13 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         }
         return c.text(normalized.error.reason, 400)
       }
+      // B 方向 推 2: capture per-user session snapshot after every bot reply.
+      // Slash path passes no runResult → lastRunStatus stays "none".
+      await captureWechatSessionSnapshot({
+        wiring,
+        userId: normalized.value.subject,
+        env,
+      })
       return c.json(
         {
           conversationId: normalized.value.conversationId,
@@ -168,16 +177,38 @@ export function createRoutes(app: Hono, wiring: Wiring) {
           idempotencyKey: value.idempotencyKey,
           runTrigger: value.runTrigger,
         })
+    // B 方向 推 2: prepend "since you were last here" digest when owner
+    // returns after a long idle. Slash replies skip this — they are
+    // deterministic data views, not LLM prose, and don't need a preamble.
+    const { reply, digest: sessionDigest } = maybePrependSessionDigest({
+      reply: loopResult.reply,
+      userId: value.subject,
+      now: Date.now(),
+      env,
+    })
+    const traces = sessionDigest
+      ? [...loopResult.traces, "session-open-digest:shown"]
+      : loopResult.traces
+    // Capture snapshot for the *next* session-open digest computation.
+    await captureWechatSessionSnapshot({
+      wiring,
+      userId: value.subject,
+      runResult: {
+        traces: loopResult.traces,
+        finalDecision: loopResult.finalDecision,
+      },
+      env,
+    })
     return c.json(
       {
         conversationId: value.conversationId,
         turnId: value.turnId,
-        reply: loopResult.reply,
+        reply,
         meta: {
           iterations: loopResult.iterations,
           toolCalls: loopResult.toolCalls,
           finalDecision: loopResult.finalDecision,
-          traces: loopResult.traces,
+          traces,
         },
       },
       201,
