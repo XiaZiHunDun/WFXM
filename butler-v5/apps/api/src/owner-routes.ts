@@ -6,6 +6,7 @@ import { registerMemoriesRoutes } from "./owner-routes/memories.js"
 import { registerDocumentsRoutes } from "./owner-routes/documents.js"
 import { registerProjectKnowledgeRoutes } from "./owner-routes/project-knowledge.js"
 import { registerTracesProceduresTasksRoutes } from "./owner-routes/traces-procedures-tasks.js"
+import { registerUsageRoutes } from "./owner-routes/usage.js"
 import { registerMcpRoutes } from "./owner-routes/mcp.js"
 
 /**
@@ -20,5 +21,6 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   registerDocumentsRoutes(app, wiring)
   registerProjectKnowledgeRoutes(app, wiring)
   registerTracesProceduresTasksRoutes(app, wiring)
+  registerUsageRoutes(app, wiring)
   registerMcpRoutes(app, wiring)
 }
