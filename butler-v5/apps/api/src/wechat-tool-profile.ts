@@ -9,6 +9,7 @@ export type WechatIntakeIntentKind =
   | "dev_session"
   | "switch_project"
   | "continue_dev"
+  | "task_digest"
 
 export const EXEC_TOOL_NAMES = ["run_command", "write_file"] as const
 

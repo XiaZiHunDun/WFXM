@@ -70,6 +70,47 @@ function shortId(id: string): string {
   return id.slice(0, 8)
 }
 
+/**
+ * Pure digest for the memory-candidates segment (used by `/记忆候选` and the
+ * combined `task_digest` intent handler). Returns the same text the
+ * `/记忆候选` slash command emits when `emptyMessage` is omitted. The helper
+ * intentionally does NOT fall back to unscoped candidates (mirrors the
+ * conservative scoping in the original `/记忆候选` handler — see the
+ * "candidate 不应该跨 project 泄露" comment). Empty default is already
+ * "暂无 …" so the digest handler usually passes nothing; the option exists
+ * for future wording changes without touching the slash command output.
+ */
+export async function formatMemoryCandidatesDigest(
+  args: {
+    readonly wiring: Wiring
+    readonly fromUserId: string
+    readonly env?: NodeJS.ProcessEnv
+  },
+  options?: { readonly emptyMessage?: string },
+): Promise<{ readonly text: string; readonly isEmpty: boolean }> {
+  const env = args.env ?? process.env
+  const subject = args.fromUserId.trim()
+  const active = getWechatActiveProjectId(subject, env)
+  const store = args.wiring.durableMemoryStore
+  if (!store) {
+    return { text: "Durable Memory 存储不可用。", isEmpty: true }
+  }
+  const candidates = await store.listBySubject({ subject, status: "candidate", limit: 20 })
+  const scoped = candidates.filter(
+    (item) => !item.provenance.note || item.provenance.note.includes(active),
+  )
+  if (scoped.length === 0) {
+    return { text: options?.emptyMessage ?? "暂无 candidate 记忆。", isEmpty: true }
+  }
+  const lines = [`候选 ${scoped.length} 条（${active}）：`]
+  for (const item of scoped) {
+    lines.push(
+      `• ${shortId(item.id)} ${item.content.slice(0, 100)}${item.content.length > 100 ? "…" : ""}`,
+    )
+  }
+  return { text: lines.join("\n"), isEmpty: false }
+}
+
 export async function tryWechatMemoryCommand(args: {
   readonly wiring: Wiring
   readonly fromUserId: string
@@ -127,26 +168,19 @@ export async function tryWechatMemoryCommand(args: {
   }
 
   if (trimmed === "/记忆候选" || trimmed === "/memories-pending") {
-    if (!store) {
-      return done("Durable Memory 存储不可用。", ["wechat-memory: no store"])
+    const digest = await formatMemoryCandidatesDigest({
+      wiring: args.wiring,
+      fromUserId: args.fromUserId,
+      env,
+    })
+    if (!args.wiring.durableMemoryStore) {
+      // Mirror the original `wechat-memory: no store` trace; helper returns
+      // a generic empty string when store is missing.
+      return done(digest.text, ["wechat-memory: no store"])
     }
-    const candidates = await store.listBySubject({ subject, status: "candidate", limit: 20 })
-    const scoped = candidates.filter(
-      (item) => !item.provenance.note || item.provenance.note.includes(active),
-    )
-    if (scoped.length === 0) {
-      // Conservative: 不 fallback 到 unscoped（与 /记忆 不同）—— candidate 不应该跨 project 泄露
-      // /记忆 会 fallback 是因为 confirmed 数量通常稳定，unscoped 仍可控；
-      // candidate 是待处理，不应让其他 project 的 pending 污染当前对话上下文。
-      return done("暂无 candidate 记忆。", ["wechat-memory: candidates empty"])
-    }
-    const lines = [`候选 ${scoped.length} 条（${active}）：`]
-    for (const item of scoped) {
-      lines.push(
-        `• ${shortId(item.id)} ${item.content.slice(0, 100)}${item.content.length > 100 ? "…" : ""}`,
-      )
-    }
-    return done(lines.join("\n"), ["wechat-memory: candidates list"])
+    return done(digest.text, [
+      digest.isEmpty ? "wechat-memory: candidates empty" : "wechat-memory: candidates list",
+    ])
   }
 
   if (trimmed === "/记忆" || trimmed === "/memories") {

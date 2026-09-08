@@ -32,6 +32,49 @@ function shortId(taskId: string): string {
   return taskId.slice(0, 8)
 }
 
+/**
+ * Pure digest for the open-tasks segment (used by `/待办` and the combined
+ * `task_digest` intent handler). Returns the same text the `/待办` slash
+ * command emits when `emptyMessage` is omitted, so slash output and digest
+ * segment stay in lockstep. The combined digest handler passes a terse
+ * `emptyMessage` so empty segments read "暂无" instead of the verbose
+ * usage hint.
+ */
+export async function formatOpenTasksDigest(
+  args: {
+    readonly wiring: Wiring
+    readonly fromUserId: string
+    readonly env?: NodeJS.ProcessEnv
+  },
+  options?: { readonly emptyMessage?: string },
+): Promise<{ readonly text: string; readonly isEmpty: boolean }> {
+  const env = args.env ?? process.env
+  const subject = args.fromUserId.trim()
+  const active = getWechatActiveProjectId(subject, env)
+  const store = args.wiring.taskStore
+  if (!store) {
+    return { text: "Task 存储不可用。", isEmpty: true }
+  }
+  const items = await store.listBySubject({ subject, status: "open", limit: 50 })
+  const scoped = items.filter((item) => matchesActiveProject(item.title, active))
+  if (scoped.length === 0) {
+    return {
+      text:
+        options?.emptyMessage ??
+        `当前项目「${active}」没有 open 待办。\n用法：/待办 新增 <标题> [| <目标>]`,
+      isEmpty: true,
+    }
+  }
+  const lines = [`待办（${active}）:`]
+  for (const item of scoped) {
+    lines.push(
+      `• ${shortId(item.id)} ${stripProjectPrefix(item.title, active)}${item.goal ? `\n  目标: ${item.goal.slice(0, 80)}` : ""}`,
+    )
+  }
+  lines.push("", "命令：/运行 <id> · /完成 <id>")
+  return { text: lines.join("\n"), isEmpty: false }
+}
+
 async function resolveTaskByToken(
   wiring: Wiring,
   subject: string,
@@ -65,22 +108,12 @@ export async function tryWechatTaskCommand(args: {
   const active = getWechatActiveProjectId(subject, env)
 
   if (trimmed === "/待办" || trimmed === "/tasks") {
-    const items = await store.listBySubject({ subject, status: "open", limit: 50 })
-    const scoped = items.filter((item) => matchesActiveProject(item.title, active))
-    if (scoped.length === 0) {
-      return done(
-        `当前项目「${active}」没有 open 待办。\n用法：/待办 新增 <标题> [| <目标>]`,
-        ["wechat-task: empty list"],
-      )
-    }
-    const lines = [`待办（${active}）:`]
-    for (const item of scoped) {
-      lines.push(
-        `• ${shortId(item.id)} ${stripProjectPrefix(item.title, active)}${item.goal ? `\n  目标: ${item.goal.slice(0, 80)}` : ""}`,
-      )
-    }
-    lines.push("", "命令：/运行 <id> · /完成 <id>")
-    return done(lines.join("\n"), ["wechat-task: list"])
+    const digest = await formatOpenTasksDigest({
+      wiring: args.wiring,
+      fromUserId: args.fromUserId,
+      env,
+    })
+    return done(digest.text, [digest.isEmpty ? "wechat-task: empty list" : "wechat-task: list"])
   }
 
   if (trimmed.startsWith("/待办 新增") || trimmed.startsWith("/待办 新建")) {

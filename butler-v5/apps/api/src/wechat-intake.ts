@@ -26,11 +26,17 @@ import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 import { resolveToolNamesForIntake, isDevWorkIntent } from "./wechat-tool-profile.js"
 import { enrichDevRunResult } from "./dev-quality-gate.js"
 import { classifyWechatIntentWithLlm } from "./wechat-intake-llm.js"
+import { formatTaskDigestReply } from "./wechat-task-digest-reply.js"
 import type { McpToolBundle } from "./mcp-bootstrap.js"
 import type { Wiring } from "./wiring.js"
 
 export type WechatIntentKind =
-  "chat" | "dev_task" | "dev_session" | "switch_project" | "continue_dev"
+  | "chat"
+  | "dev_task"
+  | "dev_session"
+  | "switch_project"
+  | "continue_dev"
+  | "task_digest"
 
 export type WechatIntent = {
   readonly kind: WechatIntentKind
@@ -42,6 +48,17 @@ const DEV_TASK_RE =
   /(?:write_file|run_command|实现|开发|编写|修改|修复|重构|添加|新增|删除|创建|写个|写入|写\s|做个|加个|改一下|帮我改|帮我写|修一下|fix|implement|refactor|add feature|bug)/iu
 
 const CONTINUE_DEV_RE = /(?:继续|接着|刚才|上次|接着做|继续做|continue|resume)/iu
+
+/**
+ * Owner free-form "what's going on" phrasings — Chinese NL that wants the
+ * combined status / tasks / candidates digest without typing three
+ * separate slash commands. Must be checked BEFORE CONTINUE_DEV_RE so
+ * "我刚才在干啥" does not get swallowed by the "刚才" substring match.
+ * Patterns are intentionally long enough (>=4 chars) to avoid clashing
+ * with short continue_dev / dev_task fragments.
+ */
+const TASK_DIGEST_RE =
+  /^(?:我刚才在干啥|我昨天在干啥|我刚才在做什么|我昨天在做什么|刚才在做什么|昨天在做什么|我还有哪些|我还有啥|还有什么|还有哪些|现在啥状态|现在咋样|现在怎么样|项目现在状态|接下来做啥|下一步该做啥|现在该做啥|还有啥要处理|还有什么没处理|总结我最近|汇总我最近|给我个状态|看看状态|看下状态)[?!！。]?\s*$/iu
 
 /** Short phrases that must stay chat (no dev_task / tool bias). */
 const CHAT_ONLY_RE =
@@ -69,6 +86,12 @@ export function classifyWechatIntent(content: string): WechatIntent {
   if (switchCmd?.startsWith("/切换 ")) {
     const target = switchCmd.slice("/切换 ".length).trim()
     if (target) return { kind: "switch_project", switchTarget: target }
+  }
+
+  // task_digest must come before CONTINUE_DEV_RE so "我刚才在干啥" is not
+  // captured by the "刚才" substring (see TASK_DIGEST_RE comment).
+  if (TASK_DIGEST_RE.test(t)) {
+    return { kind: "task_digest" }
   }
 
   if (CONTINUE_DEV_RE.test(t) && t.length < 80) {
@@ -225,6 +248,25 @@ export async function routeWechatIntake(args: {
       }),
       [`intake:switch:${projectId}`],
     )
+  }
+
+  if (intent.kind === "task_digest") {
+    // Read-only digest fan-out. Bypasses runButlerLoop entirely (zero LLM
+    // calls, zero tool calls) and reuses the same on-demand helpers that
+    // /状态 /待办 /记忆候选 use, so per-section wording stays in lockstep.
+    const digest = await formatTaskDigestReply({
+      wiring: args.wiring,
+      fromUserId: args.fromUserId,
+      env,
+      ...(args.mcpBundle === undefined ? {} : { mcpBundle: args.mcpBundle }),
+    })
+    return {
+      reply: digest.reply,
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Respond",
+      traces: [`intake-source:${classified.source}`, ...digest.traces],
+    }
   }
 
   const loopOpts = resolveIntakeLoopOptions({

@@ -14,6 +14,7 @@ const VALID_KINDS: readonly WechatIntentKind[] = [
   "dev_session",
   "switch_project",
   "continue_dev",
+  "task_digest",
 ]
 
 function parseIntakeJson(text: string): WechatIntent | null {
@@ -74,7 +75,7 @@ export async function classifyWechatIntentWithLlm(args: {
       content: [
         "You classify WeChat user messages for a butler agent.",
         "Return exactly one JSON object (no markdown):",
-        '{ "kind": "chat"|"dev_task"|"dev_session"|"switch_project"|"continue_dev",',
+        '{ "kind": "chat"|"dev_task"|"dev_session"|"switch_project"|"continue_dev"|"task_digest",',
         '  "goal"?: "...", "switchTarget"?: "..." }',
         "",
         "Rules:",
@@ -82,6 +83,7 @@ export async function classifyWechatIntentWithLlm(args: {
         "- switch_project: user wants to switch project (切到/切换到 X)",
         "- dev_task: implement/fix/refactor/code change requests; messages naming write_file or run_command are always dev_task",
         "- continue_dev: continue previous dev work (继续/接着)",
+        "- task_digest: owner asks for current state / open tasks / pending candidates in one go (我刚才在干啥, 还有什么, 现在啥状态, 接下来做啥, 总结我最近); short status-style phrasing without dev intent",
         "- chat: greetings, questions, read-only, reminders, ping, time, status",
         "",
         "When unsure, use chat. Do not use dev_task for simple questions or ping.",

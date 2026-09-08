@@ -206,7 +206,14 @@ async function activeProjectContext(args: ProjectSurfaceArgs): Promise<{
   return { active, label, pkCount, pkStoreId, tools }
 }
 
-async function buildStatusReply(args: ProjectSurfaceArgs): Promise<string> {
+/**
+ * Pure digest for the project status segment (used by `/状态` and the
+ * combined `task_digest` intent handler). Returns the exact same text the
+ * `/状态` slash command emits, so digest segment and slash output stay in
+ * lockstep. Caller in `wechat-task-digest-reply.ts` wraps it in a section
+ * header.
+ */
+export async function formatStatusDigest(args: ProjectSurfaceArgs): Promise<string> {
   const { active, label, pkCount, pkStoreId, tools } = await activeProjectContext(args)
   const openTasks = await pendingTaskCount(args.wiring, args.fromUserId)
   const devState = getProjectState({
@@ -346,7 +353,7 @@ export async function tryWechatProjectCommand(args: {
     normalized === "当前在哪个项目" ||
     normalized === "当前项目是什么"
   ) {
-    return doneResult(await buildStatusReply(resolvedArgs), ["project-surface: status"])
+    return doneResult(await formatStatusDigest(resolvedArgs), ["project-surface: status"])
   }
 
   if (normalized === "/项目概况" || normalized === "/概况" || normalized === "/project overview") {

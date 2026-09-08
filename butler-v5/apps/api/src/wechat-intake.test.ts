@@ -74,4 +74,45 @@ describe("wechat-intake", () => {
     expect(opts.includeExecTools).toBe(false)
     expect(opts.allowedToolNames).not.toContain("run_command")
   })
+
+  it("classifies owner status-style phrasings as task_digest", () => {
+    // Owner free-form NL that wants the combined status/tasks/candidates
+    // digest without typing 3 slash commands.
+    expect(classifyWechatIntent("我刚才在干啥").kind).toBe("task_digest")
+    expect(classifyWechatIntent("我还有哪些").kind).toBe("task_digest")
+    expect(classifyWechatIntent("现在啥状态").kind).toBe("task_digest")
+    expect(classifyWechatIntent("接下来做啥").kind).toBe("task_digest")
+    expect(classifyWechatIntent("总结我最近").kind).toBe("task_digest")
+  })
+
+  it("task_digest priority beats continue_dev despite '刚才' substring overlap", () => {
+    // CONTINUE_DEV_RE matches "刚才" — verify the regex order puts
+    // task_digest first so owner phrasing routes correctly.
+    expect(classifyWechatIntent("我刚才在干啥").kind).toBe("task_digest")
+    // Pure continue_dev (no task_digest intent) still works:
+    expect(classifyWechatIntent("继续").kind).toBe("continue_dev")
+    expect(classifyWechatIntent("接着做").kind).toBe("continue_dev")
+  })
+
+  it("task_digest does not capture dev-task or chat phrasings", () => {
+    // Verify the task_digest regex is narrow enough to not steal dev/chat
+    expect(classifyWechatIntent("实现一个工具").kind).toBe("dev_task")
+    expect(classifyWechatIntent("你好").kind).toBe("chat")
+    expect(classifyWechatIntent("ping").kind).toBe("chat")
+  })
+
+  it("task_digest plan-only tool surface (matches chat)", () => {
+    // task_digest short-circuits before the loop, but if it ever fell
+    // through, the tool surface must be plan-only (no exec).
+    const env = { ...process.env, BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH: "" }
+    const opts = resolveIntakeLoopOptions({
+      intent: { kind: "task_digest" },
+      projectId: "wechat",
+      env,
+    })
+    expect(opts.includeExecTools).toBe(false)
+    expect(opts.requiresDevSession).toBe(false)
+    expect(opts.allowedToolNames).not.toContain("run_command")
+    expect(opts.allowedToolNames).not.toContain("write_file")
+  })
 })
