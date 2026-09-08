@@ -150,4 +150,69 @@ describe("runCandidateExpiresTick", () => {
     expect(errorCalls).toHaveLength(1)
     expect(errorCalls[0]).toContain("not wired")
   })
+
+  it("notify is NOT called when expired = 0", async () => {
+    const wiring = {
+      durableMemoryStore: {
+        listExpiredCandidates: async () => [],
+        markExpired: async () => [],
+      },
+    }
+    let notifyCalled = false
+    const result = await runCandidateExpiresTick({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub
+      wiring: wiring as any,
+      ttlMs: 1000,
+      logger,
+      now: () => new Date(1000),
+      notify: async () => {
+        notifyCalled = true
+      },
+    })
+    expect(result.expired).toBe(0)
+    expect(notifyCalled).toBe(false)
+  })
+
+  it("notify IS called with result when expired > 0", async () => {
+    const wiring = {
+      durableMemoryStore: {
+        listExpiredCandidates: async () => [{ id: "m-1", createdAt: new Date(0) }],
+        markExpired: async () => [{ id: "m-1", updated: true }],
+      },
+    }
+    let captured: { expired: number; scanned: number } | null = null
+    const result = await runCandidateExpiresTick({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub
+      wiring: wiring as any,
+      ttlMs: 1000,
+      logger,
+      now: () => new Date(2000), // 2000ms gap > ttlMs → expired
+      notify: async (r) => {
+        captured = { expired: r.expired, scanned: r.scanned }
+      },
+    })
+    expect(result.expired).toBe(1)
+    expect(captured).toEqual({ expired: 1, scanned: 1 })
+  })
+
+  it("notify throwing does NOT break the tick (logged + returns result)", async () => {
+    const wiring = {
+      durableMemoryStore: {
+        listExpiredCandidates: async () => [{ id: "m-1", createdAt: new Date(0) }],
+        markExpired: async () => [{ id: "m-1", updated: true }],
+      },
+    }
+    const result = await runCandidateExpiresTick({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub
+      wiring: wiring as any,
+      ttlMs: 1000,
+      logger,
+      now: () => new Date(2000), // 2000ms gap > ttlMs → expired
+      notify: async () => {
+        throw new Error("notify boom")
+      },
+    })
+    expect(result.expired).toBe(1)
+    expect(errorCalls.some((c) => c.includes("notify failed"))).toBe(true)
+  })
 })

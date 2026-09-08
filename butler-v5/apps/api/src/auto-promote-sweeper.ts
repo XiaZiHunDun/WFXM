@@ -22,6 +22,13 @@ export interface AutoPromoteTickDeps {
   readonly config: AutoPromoteConfig
   readonly now?: () => Date
   readonly logger?: AutoPromoteLogger
+  /** C 方向 推 3: opt-in wechat push hook. Called only when promoted > 0. */
+  readonly notify?: (result: {
+    readonly promoted: number
+    readonly scanned: number
+    readonly wiring: Wiring
+    readonly env?: NodeJS.ProcessEnv
+  }) => Promise<void>
 }
 
 export async function runAutoPromoteTick(
@@ -34,6 +41,8 @@ export async function runAutoPromoteTick(
     logger.error("[memory-auto-promote] tick skipped: durableMemoryStore not wired")
     return { scanned: 0, promoted: 0 }
   }
+  let scannedCount: number
+  let promotedCount: number
   try {
     const candidates = await store.findAutoPromoteCandidates({
       now,
@@ -49,16 +58,19 @@ export async function runAutoPromoteTick(
       logger.info(
         `[memory-auto-promote] scanned=${candidates.length} promoted=0 windowMs=${deps.config.windowMs}`,
       )
-      return { scanned: candidates.length, promoted: 0 }
+      scannedCount = candidates.length
+      promotedCount = 0
+    } else {
+      const count = await store.markAutoPromoted({
+        ids: toPromote.map((c) => c.id),
+        now,
+      })
+      logger.info(
+        `[memory-auto-promote] scanned=${candidates.length} promoted=${count} windowMs=${deps.config.windowMs}`,
+      )
+      scannedCount = candidates.length
+      promotedCount = count
     }
-    const count = await store.markAutoPromoted({
-      ids: toPromote.map((c) => c.id),
-      now,
-    })
-    logger.info(
-      `[memory-auto-promote] scanned=${candidates.length} promoted=${count} windowMs=${deps.config.windowMs}`,
-    )
-    return { scanned: candidates.length, promoted: count }
   } catch (err) {
     logger.error(
       "[memory-auto-promote] tick failed:",
@@ -66,6 +78,21 @@ export async function runAutoPromoteTick(
     )
     return { scanned: 0, promoted: 0 }
   }
+  if (deps.notify && promotedCount > 0) {
+    try {
+      await deps.notify({
+        promoted: promotedCount,
+        scanned: scannedCount,
+        wiring: deps.wiring,
+      })
+    } catch (err) {
+      logger.error(
+        "[memory-auto-promote] notify failed:",
+        err instanceof Error ? err.message : String(err),
+      )
+    }
+  }
+  return { scanned: scannedCount, promoted: promotedCount }
 }
 
 const defaultLogger: AutoPromoteLogger = {
@@ -83,6 +110,7 @@ export function startAutoPromoteSweeperIfEnabled(args: {
   readonly wiring: Wiring
   readonly config: AutoPromoteConfig
   readonly logger?: AutoPromoteLogger
+  readonly notify?: AutoPromoteTickDeps["notify"]
 }): AutoPromoteSweeperHandle | null {
   if (!args.config.enabled) return null
 
@@ -96,6 +124,7 @@ export function startAutoPromoteSweeperIfEnabled(args: {
       wiring: args.wiring,
       config: args.config,
       logger,
+      ...(args.notify === undefined ? {} : { notify: args.notify }),
     })
     if (!stopped) {
       timer = setTimeout(() => {

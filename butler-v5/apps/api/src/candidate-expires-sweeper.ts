@@ -57,6 +57,13 @@ export interface SweeperTickDeps {
   readonly batchLimit?: number
   readonly now?: () => Date
   readonly logger?: CandidateExpiresLogger
+  /** C 方向 推 3: opt-in wechat push hook. Called only when expired > 0. */
+  readonly notify?: (result: {
+    readonly expired: number
+    readonly scanned: number
+    readonly wiring: Wiring
+    readonly env?: NodeJS.ProcessEnv
+  }) => Promise<void>
 }
 
 export async function runCandidateExpiresTick(
@@ -68,17 +75,18 @@ export async function runCandidateExpiresTick(
     logger.error("[candidate-expires] tick skipped: durableMemoryStore not wired")
     return { scanned: 0, expired: 0 }
   }
+  let result: { scanned: number; expired: number; olderThanMs: number }
   try {
-    const result = await expireOldCandidates({
+    const r = await expireOldCandidates({
       store,
       now: deps.now?.() ?? new Date(),
       ttlMs: deps.ttlMs,
       ...(deps.batchLimit === undefined ? {} : { batchLimit: deps.batchLimit }),
     })
     logger.info(
-      `[candidate-expires] scanned=${result.scanned} expired=${result.expired} olderThanMs=${result.olderThanMs}`,
+      `[candidate-expires] scanned=${r.scanned} expired=${r.expired} olderThanMs=${r.olderThanMs}`,
     )
-    return { scanned: result.scanned, expired: result.expired }
+    result = { scanned: r.scanned, expired: r.expired, olderThanMs: r.olderThanMs }
   } catch (err) {
     logger.error(
       "[candidate-expires] tick failed:",
@@ -86,6 +94,21 @@ export async function runCandidateExpiresTick(
     )
     return { scanned: 0, expired: 0 }
   }
+  if (deps.notify && result.expired > 0) {
+    try {
+      await deps.notify({
+        expired: result.expired,
+        scanned: result.scanned,
+        wiring: deps.wiring,
+      })
+    } catch (err) {
+      logger.error(
+        "[candidate-expires] notify failed:",
+        err instanceof Error ? err.message : String(err),
+      )
+    }
+  }
+  return { scanned: result.scanned, expired: result.expired }
 }
 
 export function startCandidateExpiresSweeperIfEnabled(args: {
@@ -93,6 +116,7 @@ export function startCandidateExpiresSweeperIfEnabled(args: {
   readonly env?: NodeJS.ProcessEnv
   readonly config?: CandidateExpiresSweeperConfig
   readonly logger?: CandidateExpiresLogger
+  readonly notify?: SweeperTickDeps["notify"]
 }): CandidateExpiresSweeperHandle | null {
   const env = args.env ?? process.env
   const config = args.config ?? parseCandidateExpiresSweeperConfig(env)
@@ -109,6 +133,7 @@ export function startCandidateExpiresSweeperIfEnabled(args: {
       ttlMs: config.ttlMs,
       ...(config.batchLimit === undefined ? {} : { batchLimit: config.batchLimit }),
       logger,
+      ...(args.notify === undefined ? {} : { notify: args.notify }),
     })
     if (!stopped) {
       timer = setTimeout(() => {

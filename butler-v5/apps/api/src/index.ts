@@ -11,6 +11,13 @@ import { startCandidateExpiresSweeperIfEnabled } from "./candidate-expires-sweep
 import { startAutoPromoteSweeperIfEnabled } from "./auto-promote-sweeper.js"
 import { parseAutoPromoteConfig } from "./auto-promote-config.js"
 import { isSubagentEnabled } from "./subagent-config.js"
+import {
+  formatAutoPromoteNotify,
+  formatCandidateExpiresNotify,
+  isSweeperNotifyEnabled,
+  pushSweeperNotify,
+  resolveSweeperNotifyOwner,
+} from "./wechat-sweeper-notify.js"
 
 const app = new Hono()
 
@@ -75,9 +82,34 @@ if (projectKnowledgeWatchHandle) {
   console.error("[butler-v5] project-knowledge watch worker started")
 }
 
+// C 方向 推 3: sweeper → wechat push hooks (opt-in via env).
+// Each sweeper carries its own notify callback; the sweeper already wraps
+// notify errors so a failing push never blocks the tick.
+const sweeperNotifyEnabled = isSweeperNotifyEnabled(process.env)
+const sweeperNotifyOwner = resolveSweeperNotifyOwner(process.env)
+
+const candidateExpiresNotify = async (result: {
+  readonly expired: number
+  readonly scanned: number
+}): Promise<void> => {
+  const text = formatCandidateExpiresNotify({
+    expired: result.expired,
+    scanned: result.scanned,
+  })
+  if (!text || !sweeperNotifyOwner) return
+  await pushSweeperNotify({
+    type: "candidate_expires",
+    to: sweeperNotifyOwner,
+    text,
+    env: process.env,
+    channels: wiring.channels,
+  })
+}
+
 const candidateExpiresHandle = startCandidateExpiresSweeperIfEnabled({
   wiring,
   env: process.env,
+  ...(sweeperNotifyEnabled ? { notify: candidateExpiresNotify } : {}),
 })
 if (candidateExpiresHandle) {
   // eslint-disable-next-line no-console -- operator log when no logger injected
@@ -86,9 +118,27 @@ if (candidateExpiresHandle) {
 
 // G4: candidate auto-promote sweeper
 const autoPromoteCfg = parseAutoPromoteConfig(process.env)
+const autoPromoteNotify = async (result: {
+  readonly promoted: number
+  readonly scanned: number
+}): Promise<void> => {
+  const text = formatAutoPromoteNotify({
+    promoted: result.promoted,
+    scanned: result.scanned,
+  })
+  if (!text || !sweeperNotifyOwner) return
+  await pushSweeperNotify({
+    type: "auto_promote",
+    to: sweeperNotifyOwner,
+    text,
+    env: process.env,
+    channels: wiring.channels,
+  })
+}
 const autoPromoteHandle = startAutoPromoteSweeperIfEnabled({
   wiring,
   config: autoPromoteCfg,
+  ...(sweeperNotifyEnabled ? { notify: autoPromoteNotify } : {}),
 })
 if (autoPromoteHandle) {
   // eslint-disable-next-line no-console -- operator log when no logger injected
