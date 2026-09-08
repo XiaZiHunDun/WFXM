@@ -1,9 +1,10 @@
 /**
- * 微信消息模拟验收 — 产品层回归锁（/undo 命令 + 垃圾消息护栏 + LLM 遥测）。
+ * 微信消息模拟验收 — 产品层回归锁（/undo 命令 + 垃圾消息护栏 + LLM 遥测 +
+ * inline-approval intents + run_command read-only bypass + pnpm install 审批）。
  *
  * 脚本化 LLM(fixture) 驱动真实 `/v1/wechat/inbound`，不调真模型/真微信/真服务。
  *
- * 覆盖三个产品层真实修复的回归锁：
+ * 覆盖以下产品层真实修复的回归锁：
  *   1. `/undo <path>`：真实审批恢复 + undoLastWrite 还原内容。预先在工作区
  *      创建 `undo.txt=before`，fixture write_file 写 `after`，走完审批往返
  *      后 `/undo undo.txt` 必须还原文件内容，并回复 `已还原`。
@@ -13,6 +14,12 @@
  *   3. LLM 遥测：跑通一次普通对话后，本地 tracer 必须记录到至少一条
  *      `kind=step, name=llm_call` 事件，且所有匹配事件的 status 为 `ok`，
  *      证明 §14 observability 的 llm_call 埋点没有断流。
+ *   4. inline-approval intents：owner 用 `y` / `👌` / `✅` / `👍` 任一 intent
+ *      token，应能 resume waiting approval step 并完成 write_file 实际写入。
+ *   5. run_command read-only argv（`ls`）：d226f33f owner bypass 命中，
+ *      finalDecision 不能是 WaitForApproval。
+ *   6. run_command write argv（`pnpm install`）：不在 isReadOnlyCommand 白名单，
+ *      finalDecision 必须是 WaitForApproval。
  *
  * 每个用例独立 conversationId，避免 ActiveMainRunConflict 跨用例污染。
  */
@@ -208,13 +215,16 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     expect(res.finalDecision).not.toBe("WaitForApproval")
   }, 30_000)
 
-  it("run_command write argv (`git status`): 仍触发审批", async () => {
+  it("run_command write argv (`pnpm install`): 仍触发审批", async () => {
+    // pnpm install 是写操作（修改 node_modules / lockfile），不在
+    // isReadOnlyCommand 白名单（仅 typecheck/test），d226f33f 的 owner
+    // read-only bypass 不命中，必须走 WaitForApproval。
     app.setFixtures({
-      plan: [toolCallEntry("run_command", { argv: ["git", "status"] })],
+      plan: [toolCallEntry("run_command", { argv: ["pnpm", "install"] })],
     })
     const res = await sendWechatMessage(app, {
-      content: "git status",
-      conversationId: "c-run-command-write-git-status",
+      content: "安装依赖",
+      conversationId: "c-run-command-write-pnpm-install",
     })
     expect(res.status).toBe(201)
     expect(res.finalDecision).toBe("WaitForApproval")
