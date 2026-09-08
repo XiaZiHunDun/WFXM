@@ -28,7 +28,7 @@
 | `butler-v5/tests/acceptance/harness.ts` | 共享 harness：`makeAcceptanceApp`（装配生产 wiring + Hono 路由）、`sendWechatMessage`（POST /v1/wechat/inbound + 解析响应）、`toolCallEntry`/`decisionEntry`/`textEntry` 辅助 |
 | `butler-v5/apps/api/src/acceptance-app.ts` | `buildHonoApp(wiring)`：从 Wiring 挂载生产入站路由。放 apps/api 是因 `hono`/`createRoutes` 只在 apps/api 内解析（root 不可见），tests/ 直接 import hono 会失败。仅薄封装，不绕行生产逻辑 |
 
-### 2.2 acceptance 用例文件（4 文件 / 11 用例 — 已交付、实跑通过）
+### 2.2 acceptance 用例文件（5 文件 / 14 用例 — 已交付、实跑通过）
 
 | 文件 | 用例数 | 覆盖场景 |
 | --- | --- | --- |
@@ -36,6 +36,7 @@
 | `butler-v5/tests/acceptance/fault-tolerance.test.ts` | 3 | 容错 / 降级路径：① 入站校验失败（缺 apiVersion）返回 400 + `invalid body`（非 500 / 不丢消息）② 同 conversationId 在 waiting_approval 上再次入站降级为「未完成审批」回复（`ActiveMainRunConflict` 兜底）③ fixture 耗尽时 LLM 返回降级文本（`[fixture exhausted: plan#N]`，非 500 / 非 HTML 错误页） |
 | `butler-v5/tests/acceptance/subagent-multiturn.test.ts` | 2 | 多轮对话 + 跨 turn 工具调用：① 同 conversationId 第二轮沿用第一轮 history（同一 convId 产生 ≥ 2 条 run）② 跨 turn 工具调用：turn1 `write_file` paused → turn2 「确认」恢复 → run 终态 succeeded |
 | `butler-v5/tests/acceptance/audit-state.test.ts` | 3 | 审计 + 跨重启状态：① 入站 → `eventStore` 写入 `ConversationStarted` 行（事件流 schema 不变量 correlationId / actorKind / actorId 验证）② write_file 审批通过后 `scoped_grants` 表写入 grant 行（capability 审计可追溯）③ 跨「重启」：close harness → 同 PGlite data dir 重开 → pending approval 仍可恢复 |
+| `butler-v5/tests/acceptance/product-regressions.test.ts` | 3 | 产品层回归锁（owner 真撞问题触发后 ship，对应 §18 trigger 设计）：① `/undo`：真实审批恢复后 `undoLastWrite` 还原文件内容（工作区预先 `before` → fixture 写 `after` → 审批 → `/undo` 还原为 `before`，reply 含「已还原」）② 垃圾消息护栏：`"请".repeat(80)` 单字符重复 80 次触发 `detectSpam` 短路 LLM，reply 命中 `消息过长\|重复\|具体需求` 且 toolCalls=0（不消耗 fixture）③ LLM 遥测：普通对话产生 `step/llm_call` 事件且 status=ok |
 
 ### 2.3 realistic 场景文件（35 场景 — 已交付、实跑通过）
 
@@ -56,10 +57,10 @@
 - `/记住` 等命令由 `tryWechatInboundCommand` 命令捷径拦截（`routes.ts:80`），LLM-free 返回「已记住」✓。
 
 > **当前实跑结果（2026-09-07）**：`pnpm vitest run tests/acceptance --pool=forks`
-> → **5 test files passed / 46 tests passed / ~10.1s**（tests 累计 ~15.9s）；
+> → **6 test files passed / 49 tests passed / ~10.1s**（tests 累计 ~15.9s）；
 > `pnpm vitest run tests/acceptance/scenarios/realistic.test.ts --pool=forks`
 > → **1 test file passed / 35 tests passed / ~5.7s**（tests 累计 ~3.6s）。
-> 4 acceptance 文件覆盖 11 用例 + realistic 覆盖 35 场景 = **46/46 绿**。
+> 4 核心 acceptance 文件（11 用例）+ `product-regressions.test.ts`（3 用例）+ `scenarios/realistic.test.ts`（35 场景）= **49/49 绿**。
 
 ## 4. 关键机制 / 约定
 
@@ -72,13 +73,15 @@
 
 ## 5. 剩余项（按优先级）
 
-四 acceptance 文件 + 35 realistic 场景已全部交付且实跑通过（46/46 绿，见 §2 / §3）。剩余仅以下：
+4 核心 acceptance 文件（11 用例）+ `product-regressions.test.ts`（3 用例）+ 35 realistic 场景已全部交付且实跑通过（**49/49 绿**，见 §2 / §3）。剩余仅以下：
 
-### 5.1 [P1] Regression lock 三件套（与 §18 trigger 设计挂钩 — 等真实 owner 手撞再启用，未撞前不必新增用例）
+### 5.1 后续扩展（owner 实测触发型，非待办）
 
-1. **`/undo` regression lock**：`scenarios/realistic.test.ts` 中 C9「撤销刚才」已用 fixture 跑通正向 reply；`/undo` 命令已随 `46ef4db3` ship（`46ef4db3` 同 commit 还含 capability telemetry + spam guard）。待 owner 实测中撞到 `/undo` 真问题，再补 fixture assertion 锁住 `commands-approval` 入口的撤销链路（与 `tryWechatInboundCommand` 拦截分支对齐）。
-2. **`spam-guard` regression lock**：`_fixtures.ts` 中 C4「长消息 spam」已有 assertion（`finalDecision: "Respond"` / `minToolCalls: 0` / `replyPattern: /重复|请发具体/`）锁住 `46ef4db3` shipped 的 guard 短路 LLM 行为，无需再补 C4 用例。若 owner 撞到新型 spam 模式（多轮刷屏 / emoji spam / 跨日重发等），按需新增 C-edge 用例扩展覆盖。
-3. **`llm_call` regression lock**：当前 `commands-approval` / `subagent-multiturn` 用例已隐含覆盖 `write_file` → `llm_call` 链路；待 owner 撞到真实 `llm_call` 失败 / 超时 / usage 计费异常（D23 / D24 闭环后），补一条 fixture assertion 显式锁 `step/llm_call` 事件 + usage 字段（与 §14 observability 一致性挂钩）。
+Baseline Regression lock 三件套（`/undo` + `spam-guard` + `llm_call`）已落在 `product-regressions.test.ts`（3 用例，见 §2.2），不再属于「待办」范围。后续按 §18 trigger 制度，仅在 owner 实测中撞到新型问题时**按需扩展**对应 fixture assertion，不预设新增用例：
+
+1. **`/undo` 扩展**：若 owner 撞到 `/undo` 在多文件 / 部分失败 / 与审批联动等场景的边界行为，按需新增 fixture assertion 扩展覆盖。
+2. **`spam-guard` 扩展**：若 owner 撞到新型 spam 模式（多轮刷屏 / emoji spam / 跨日重发 / 短句堆叠等），按需新增 C-edge 用例扩展覆盖（现有 `_fixtures.ts` C4 已锁单字符重复场景）。
+3. **`llm_call` 扩展**：若 owner 撞到真实 `llm_call` 失败 / 超时 / usage 计费异常（D23 / D24 闭环后），按需补 fixture assertion 显式锁 `step/llm_call` 事件 + usage 字段（与 §14 observability 一致性挂钩）。
 
 ### 5.2 [P1] 最终验证收尾
 
