@@ -2,10 +2,10 @@
 
 > **交接对象**：Claude Code（后续开发）。
 > **主线**：`butler-v5` 是唯一活动产品主线；v4 已退役。
-> 交接日期：2026-09-03。本 PRD 状态对齐：`commands-approval` / `fault-tolerance` /
-> `subagent-multiturn` / `audit-state` 四文件 + `scenarios/realistic.test.ts`
-> 35 场景已全部交付并实跑通过；剩余仅为 /undo · spam-guard · llm_call
-> 三处 regression lock 与最终验证收尾。
+> 交接日期：2026-09-03。本 PRD 状态对齐：5 acceptance 文件（4 核心 +
+> `product-regressions` 含 /undo · spam-guard · llm_call 三处 regression lock）
+> + `scenarios/realistic.test.ts` 35 场景已全部交付并实跑通过（**49/49 绿**）；
+> 剩余仅为最终验证收尾（见 §5.2）。
 
 ## 1. 目标与动机
 
