@@ -144,4 +144,53 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     expect(llmCalls.length).toBeGreaterThan(0)
     expect(llmCalls.every((event) => event.status === "ok")).toBe(true)
   }, 30_000)
+
+  describe("inline-approval: single-char/emoji intents drive real resume", () => {
+    // P0 回归锁：parseInlineApprovalIntent 识别 `y` / `👌` / `✅` / `👍` 四个
+    // intent token（inline-approval-intent.ts L13-17），但单元测试只覆盖
+    // intent 解析层；这里把同一组 token 接进 wechat-inbound-butler 的
+    // tryWechatInlineApproval → createWaitingApprovalStep resume → write_file
+    // 实际执行全链路，确保 owner 在真实 wechat 流上用单字符/emoji 触发
+    // 审批放行后，文件真的被改写（不只是 intent 字符串匹配）。
+    //
+    // 每个 intent 用独立的 conversationId + 文件路径，避免跨用例 waiting
+    // approval / 创建态污染；helper 复用 4 次，断言保持显式以让失败信息
+    // 直接指向断掉的 intent。
+
+    function itOwnsFileWithApproval(token: string, filePath: string, convId: string): void {
+      it(`inline-approval: '${token}' triggers write_file resume end-to-end`, async () => {
+        const fullPath = join(app.workspaceRoot, filePath)
+        writeFileSync(fullPath, "before", "utf8")
+        app.setFixtures({
+          plan: [toolCallEntry("write_file", { path: filePath, content: "after" })],
+        })
+
+        // 1. Owner 请求写入 → policy Ask → WaitForApproval（run paused）
+        const first = await sendWechatMessage(app, {
+          content: `把 ${filePath} 改成 after`,
+          conversationId: convId,
+        })
+        expect(first.status).toBe(201)
+        expect(first.finalDecision).toBe("WaitForApproval")
+        expect(first.conversationId).toBe(convId)
+
+        // 2. Owner 用单字符/emoji intent 应答 → intent 识别为 approve →
+        //    复用 waiting step → run 恢复 → write_file 实际写入 "after"。
+        //    关键回归点：reply 不能是 "没有待审批"（说明 intent 真被接住），
+        //    且磁盘文件必须真的是 "after"（说明执行路径走完）。
+        const approved = await sendWechatMessage(app, {
+          content: token,
+          conversationId: convId,
+        })
+        expect(approved.status).toBe(201)
+        expect(approved.reply).not.toContain("没有待审批")
+        expect(readFileSync(fullPath, "utf8")).toBe("after")
+      }, 30_000)
+    }
+
+    itOwnsFileWithApproval("y", "inline-y.txt", "c-inline-approval-y")
+    itOwnsFileWithApproval("👌", "inline-ok.txt", "c-inline-approval-ok")
+    itOwnsFileWithApproval("✅", "inline-check.txt", "c-inline-approval-check")
+    itOwnsFileWithApproval("👍", "inline-thumbs.txt", "c-inline-approval-thumbs")
+  })
 })
