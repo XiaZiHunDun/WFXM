@@ -138,4 +138,7 @@ butler-v5/tests/acceptance/scenarios/recordings/
 butler-v5/tests/acceptance/scenarios/recordings-archive/*
 !butler-v5/tests/acceptance/scenarios/recordings-archive/README.md
 !butler-v5/tests/acceptance/scenarios/recordings-archive/*/
+# re-ignore subdir contents: `!*/` above un-ignores the dirs themselves, which
+# would otherwise leave each subdir's *.json untracked-but-not-ignored.
+butler-v5/tests/acceptance/scenarios/recordings-archive/*/*
 !butler-v5/tests/acceptance/scenarios/recordings-archive/*/README.md

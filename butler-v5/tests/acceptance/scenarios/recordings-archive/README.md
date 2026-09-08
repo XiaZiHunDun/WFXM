@@ -32,7 +32,8 @@ When changing system prompt or `isReadOnlyCommand`:
 
 1. `cp -r v7-current v{N+1}-pre-{change-name}-fix` (snapshot the current state)
 2. Apply change + re-record → becomes v{N+2}-current
-3. Run `pnpm tsx /tmp/diff-real-llm.ts` to compare
+3. Run `pnpm diff:real-llm` to compare (add `-- --dir <version-subdir>` to
+   diff an archived snapshot instead of the live `recordings/`)
 4. If aggregate metrics improve → commit + update PRD; if regress → revert
 
 ## Disk footprint
