@@ -49,6 +49,10 @@ export interface WorkspaceToolContext {
   readonly credentialAllowlist?: readonly string[]
   /** D47 exec audit context (observation only; injected from wiring). */
   readonly audit?: ExecAuditContext
+  /** D49: chainId = runId (D47 ExecAuditContext.runId). */
+  readonly chainId?: string
+  /** D49: conversationId for chain↔conversation guard. */
+  readonly conversationId?: string
 }
 
 /** Normalize `credentials`/`argv`-style name lists from tool args to valid names. */
@@ -220,6 +224,24 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
       UNDO_TOUCH_COUNTER += 1
       UNDO_TOUCHED.set(resolved.path, UNDO_TOUCH_COUNTER)
 
+      // D49: chain push (only if ctx.chainId present)
+      if (ctx.chainId) {
+        let entries = UNDO_CHAIN.get(ctx.chainId)
+        if (!entries) {
+          entries = []
+          UNDO_CHAIN.set(ctx.chainId, entries)
+        }
+        entries.push({
+          kind: "write",
+          path: resolved.path,
+          beforeContent,
+          tool: "write_file",
+          pushedAt: UNDO_TOUCH_COUNTER,
+        })
+        if (entries.length > CHAIN_CAP) entries.shift()
+        if (ctx.conversationId) UNDO_CHAIN_CONV.set(ctx.chainId, ctx.conversationId)
+      }
+
       // R16 sandbox 扩面：write_file 走 bwrap tee-equivalent（stdin 透传 +
       // workspace --bind RW）。disabled 模式 fall back 到进程内 fs writeFileSync。
       const { executeArgvInSandbox } = await import(
@@ -283,6 +305,52 @@ const UNDO_CAP = 16
 let UNDO_TOUCH_COUNTER = 0
 const UNDO_TOUCHED = new Map<string, number>()
 
+// D49: chain-aware undo (multi-tool turn). chainId = runId.
+const CHAIN_CAP = 32
+
+export type ChainEntry =
+  | {
+      readonly kind: "write"
+      readonly path: string
+      readonly beforeContent: string | null
+      readonly tool: "write_file"
+      readonly pushedAt: number
+    }
+  | {
+      readonly kind: "command"
+      readonly argv: readonly string[]
+      readonly cwd: string
+      readonly gitStatusBeforeHash: string | null
+      readonly exit: number | null
+      readonly startedAt: number
+      readonly tool: "run_command"
+    }
+
+export interface ChainRevertResult {
+  readonly chainId: string
+  readonly reverted: readonly {
+    readonly entry: ChainEntry
+    readonly ok: boolean
+    readonly reason?: string
+  }[]
+  readonly commandSideEffects: readonly {
+    readonly argv: readonly string[]
+    readonly note: string
+  }[]
+  readonly gitHeadBefore: string | null
+}
+
+const UNDO_CHAIN = new Map<string, ChainEntry[]>()
+const UNDO_CHAIN_CONV = new Map<string, string>()
+let GIT_HEAD_CACHE: string | null | undefined
+
+/** Test-only: clear UNDO_CHAIN + UNDO_CHAIN_CONV + git cache. */
+export function resetUndoChain(): void {
+  UNDO_CHAIN.clear()
+  UNDO_CHAIN_CONV.clear()
+  GIT_HEAD_CACHE = undefined
+}
+
 /** Pop the most recent before-content for `path` (returns undefined if empty). */
 export function undoLastWrite(workspaceRoot: string, path: string): string | null | undefined {
   const resolved = resolve(workspaceRoot, path)
@@ -332,6 +400,48 @@ export function resetUndoStack(): void {
   UNDO_STACK.clear()
   UNDO_TOUCHED.clear()
   UNDO_TOUCH_COUNTER = 0
+}
+
+/**
+ * D49: revert all writes tracked for `chainId`, in reverse order (newest
+ * first). Best-effort: each entry succeeds or fails independently.
+ * Consumes the chain on completion (success or failure).
+ *
+ * Task 1 minimal impl: only `kind: "write"` entries are reverted.
+ * `kind: "command"` entries are skipped silently (full handling lands
+ * in Task 2 once run_command pushes its entries).
+ */
+export function undoChain(chainId: string): ChainRevertResult | undefined {
+  const entries = UNDO_CHAIN.get(chainId)
+  if (!entries || entries.length === 0) return undefined
+  const gitHeadBefore = GIT_HEAD_CACHE ?? null
+  const reverted: { entry: ChainEntry; ok: boolean; reason?: string }[] = []
+  for (const entry of [...entries].reverse()) {
+    if (entry.kind !== "write") continue
+    try {
+      if (entry.beforeContent === null) {
+        writeFileSync(entry.path, "", "utf8")
+      } else {
+        mkdirSync(dirname(entry.path), { recursive: true })
+        writeFileSync(entry.path, entry.beforeContent, "utf8")
+      }
+      reverted.push({ entry, ok: true })
+    } catch (err) {
+      reverted.push({
+        entry,
+        ok: false,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+  UNDO_CHAIN.delete(chainId)
+  UNDO_CHAIN_CONV.delete(chainId)
+  return {
+    chainId,
+    reverted,
+    commandSideEffects: [],
+    gitHeadBefore,
+  }
 }
 
 export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
