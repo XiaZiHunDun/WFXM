@@ -23,6 +23,8 @@ vi.mock("./wechat-inbound-butler.js", () => ({
 describe("v5 wiring", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
   let wiring: Wiring
+  let sessionStateDir = ""
+  let prevSessionStateEnv: string | undefined
 
   beforeEach(async () => {
     db = await makeTestDb()
@@ -37,10 +39,24 @@ describe("v5 wiring", () => {
       db: db.db,
       backfillConversation: async () => undefined,
     })
+    // Isolate wechat-session-state.json (B 推 2 reads from it for the
+    // "since you were last here" digest). Without isolation, stale entries
+    // in ~/.config/butler-v5/wechat-session-state.json from prior runs
+    // pollute tests (e.g. R8.x.11 saw a digest prepended when none was
+    // expected).
+    sessionStateDir = mkdtempSync(join(tmpdir(), "butler-wiring-session-state-"))
+    prevSessionStateEnv = process.env["BUTLER_V5_WECHAT_SESSION_STATE"]
+    process.env["BUTLER_V5_WECHAT_SESSION_STATE"] = join(sessionStateDir, "state.json")
   })
 
   afterEach(async () => {
     await db.close()
+    if (sessionStateDir) rmSync(sessionStateDir, { recursive: true, force: true })
+    if (prevSessionStateEnv === undefined) {
+      delete process.env["BUTLER_V5_WECHAT_SESSION_STATE"]
+    } else {
+      process.env["BUTLER_V5_WECHAT_SESSION_STATE"] = prevSessionStateEnv
+    }
   })
 
   it("exposes eventBridge for Hono routes to consume", () => {

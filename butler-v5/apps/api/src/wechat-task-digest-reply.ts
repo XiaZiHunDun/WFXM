@@ -61,8 +61,11 @@ export async function formatTaskDigestReply(args: {
     ),
   ])
 
+  // formatStatusDigest returns `Promise<string>` directly, while
+  // formatOpenTasksDigest / formatMemoryCandidatesDigest return
+  // `{ text, isEmpty }`. Unwrap each according to its actual shape.
   const statusText =
-    settled[0].status === "fulfilled" ? settled[0].value.text : FAILURE_FALLBACK.status
+    settled[0].status === "fulfilled" ? settled[0].value : FAILURE_FALLBACK.status
   const tasksText =
     settled[1].status === "fulfilled" ? settled[1].value.text : FAILURE_FALLBACK.tasks
   const candidatesText =
