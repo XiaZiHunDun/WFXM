@@ -13,6 +13,14 @@
  * C. 边界 / 失败模式 — 10
  * D. 跨场景组合 — 5
  */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { expect } from "vitest"
+import {
+  UNDO_CHAIN_CONV_FOR_TEST,
+  UNDO_CHAIN_FOR_TEST,
+  resetUndoChain,
+} from "@butler/api/workspace-tools.js"
 import type { FixtureEntry } from "../harness.js"
 
 export type ScenarioCategory = "A-concrete" | "B-open" | "C-edge" | "D-combo"
@@ -20,6 +28,10 @@ export type ScenarioCategory = "A-concrete" | "B-open" | "C-edge" | "D-combo"
 export interface ScenarioExpect {
   /** reply 必须 match 的正则或子串（任一即可） */
   readonly replyPattern?: RegExp | string
+  /** reply 必须全部包含的子串（D49: D1-chain-extension 用） */
+  readonly containsAll?: readonly string[]
+  /** reply 不能包含的子串 */
+  readonly containsNone?: readonly string[]
   /** 期望 finalDecision（first turn） */
   readonly finalDecision?: "Respond" | "WaitForApproval" | "Finish"
   /** 期望至少触发的工具调用数（across all turns） */
@@ -28,6 +40,12 @@ export interface ScenarioExpect {
   readonly requireApproval?: boolean
   /** 多 turn 场景：第 2+ turn 的 reply match */
   readonly followUpPatterns?: (RegExp | string)[]
+}
+
+/** D49: 透传给 setup/verify 钩子的上下文。 */
+export interface ScenarioSetupCtx {
+  /** acceptance harness 创建的临时 workspace 根目录。 */
+  readonly workspaceRoot: string
 }
 
 export interface Scenario {
@@ -43,6 +61,10 @@ export interface Scenario {
     readonly intake?: readonly FixtureEntry[]
   }
   readonly expect: ScenarioExpect
+  /** D49: 在 first turn 之前运行的钩子（用于 seed UNDO_CHAIN 等）。 */
+  readonly setup?: (ctx: ScenarioSetupCtx) => Promise<void> | void
+  /** D49: 在所有 turn 完成后运行的钩子（用于 verify 文件回写等）。 */
+  readonly verify?: (ctx: ScenarioSetupCtx) => Promise<void> | void
 }
 
 const text = (content: string): FixtureEntry => ({
@@ -570,6 +592,80 @@ export const scenariosD: readonly Scenario[] = [
       { content: "跑 test" },
     ],
     followUpPatterns: [/^[^没有]/, /pass|fail|test/],
+  },
+  // D49 Task 7: D1 chain extension — 5-step chain undo via "撤销这轮".
+  // Adjacent to D1 (not a new D-number). Seeds UNDO_CHAIN directly per spec §5.3
+  // mock pattern (matches D46 resetUndoStack): bypasses real write_file / run_command
+  // push and verifies popChain + formatChainReply integration end-to-end.
+  {
+    id: "D1-chain-extension",
+    category: "D-combo",
+    title: "D1 5 步链撤销（多 tool undo）",
+    input: "撤销这轮",
+    fixtures: { plan: [] },
+    setup: (ctx) => {
+      resetUndoChain()
+      const helperPath = join(ctx.workspaceRoot, "helper.ts")
+      const testPath = join(ctx.workspaceRoot, "test.ts")
+      UNDO_CHAIN_FOR_TEST.set("run-d1", [
+        {
+          kind: "write",
+          path: helperPath,
+          beforeContent: "ORIGINAL_HELPER",
+          tool: "write_file",
+          pushedAt: 1,
+        },
+        {
+          kind: "write",
+          path: testPath,
+          beforeContent: "ORIGINAL_TEST",
+          tool: "write_file",
+          pushedAt: 2,
+        },
+        {
+          kind: "command",
+          argv: ["pnpm", "test"],
+          cwd: ctx.workspaceRoot,
+          gitStatusBeforeHash: null,
+          exit: 1,
+          startedAt: 3,
+          tool: "run_command",
+        },
+        {
+          kind: "write",
+          path: helperPath,
+          beforeContent: "NEW_HELPER",
+          tool: "write_file",
+          pushedAt: 4,
+        },
+        {
+          kind: "command",
+          argv: ["pnpm", "test"],
+          cwd: ctx.workspaceRoot,
+          gitStatusBeforeHash: null,
+          exit: 0,
+          startedAt: 5,
+          tool: "run_command",
+        },
+      ])
+      UNDO_CHAIN_CONV_FOR_TEST.set("run-d1", "conv-d1")
+    },
+    expect: {
+      finalDecision: "Respond",
+      containsAll: ["✅", "helper.ts", "test.ts", "pnpm test", "无法自动 undo"],
+      containsNone: ["git起点"],
+    },
+    verify: (ctx) => {
+      // 3 write reverts restore files to step 0 (ORIGINAL_HELPER / ORIGINAL_TEST).
+      // undoChain walks entries in reverse order:
+      //   step 4 write (beforeContent=NEW_HELPER) → helper.ts = NEW_HELPER
+      //   step 2 write (beforeContent=ORIGINAL_TEST) → test.ts = ORIGINAL_TEST
+      //   step 1 write (beforeContent=ORIGINAL_HELPER) → helper.ts = ORIGINAL_HELPER
+      const helperPath = join(ctx.workspaceRoot, "helper.ts")
+      const testPath = join(ctx.workspaceRoot, "test.ts")
+      expect(readFileSync(helperPath, "utf8")).toBe("ORIGINAL_HELPER")
+      expect(readFileSync(testPath, "utf8")).toBe("ORIGINAL_TEST")
+    },
   },
   {
     id: "D2",

@@ -66,100 +66,130 @@ describe("acceptance/realistic (35 真实场景产品层行为)", () => {
       let approvalCount = 0
       let totalToolCalls = 0
       const convId = `c-realistic-${scenario.id}`
-
-      // turn 1
-      app.setFixtures({
-        plan: scenario.fixtures.plan ?? [],
-        exec: scenario.fixtures.exec ?? [],
-        intake: scenario.fixtures.intake ?? [],
-      })
-      const r1 = await sendWechatMessage(app, {
-        content: scenario.input,
-        conversationId: convId,
-      })
-      turns.push({
-        input: scenario.input,
-        reply: r1.reply ?? "",
-        replyLen: (r1.reply ?? "").length,
-        status: r1.status,
-        finalDecision: r1.finalDecision,
-        toolCalls: r1.toolCalls,
-      })
-      if (r1.finalDecision === "WaitForApproval") approvalCount += 1
-      totalToolCalls += r1.toolCalls ?? 0
-
-      // 断言 turn 1
-      expect(r1.status).toBe(201)
-      if (scenario.expect.finalDecision) {
-        expect(r1.finalDecision).toBe(scenario.expect.finalDecision)
-      }
-      if (scenario.expect.replyPattern) {
-        const p = scenario.expect.replyPattern
-        const text = r1.reply ?? ""
-        const ok = p instanceof RegExp ? p.test(text) : text.includes(p)
-        if (!ok) notes.push(`reply 不 match ${p}，实际："${text.slice(0, 80)}..."`)
-        expect(ok).toBe(true)
-      }
-      if (scenario.expect.minToolCalls !== undefined) {
-        // 多 turn 累计后再断言
-      }
-      if (scenario.expect.requireApproval) {
-        expect(r1.finalDecision).toBe("WaitForApproval")
+      // D49: 透传 harness workspaceRoot 给 setup/verify 钩子（D1-chain-extension 用）。
+      const ctx = { workspaceRoot: app.workspaceRoot }
+      if (scenario.setup) {
+        await scenario.setup(ctx)
       }
 
-      // follow-ups
-      for (let i = 0; i < (scenario.followUps ?? []).length; i += 1) {
-        const fu = scenario.followUps?.[i]
-        if (!fu) continue
-        // 重新 setFixtures 一次（counter 重置；模拟"新 LLM 调用"）
+      try {
+        // turn 1
         app.setFixtures({
           plan: scenario.fixtures.plan ?? [],
           exec: scenario.fixtures.exec ?? [],
           intake: scenario.fixtures.intake ?? [],
         })
-        const rN = await sendWechatMessage(app, {
-          content: fu.content,
+        const r1 = await sendWechatMessage(app, {
+          content: scenario.input,
           conversationId: convId,
         })
         turns.push({
-          input: fu.content,
-          reply: rN.reply ?? "",
-          replyLen: (rN.reply ?? "").length,
-          status: rN.status,
-          finalDecision: rN.finalDecision,
-          toolCalls: rN.toolCalls,
+          input: scenario.input,
+          reply: r1.reply ?? "",
+          replyLen: (r1.reply ?? "").length,
+          status: r1.status,
+          finalDecision: r1.finalDecision,
+          toolCalls: r1.toolCalls,
         })
-        if (rN.finalDecision === "WaitForApproval") approvalCount += 1
-        totalToolCalls += rN.toolCalls ?? 0
+        if (r1.finalDecision === "WaitForApproval") approvalCount += 1
+        totalToolCalls += r1.toolCalls ?? 0
 
-        // 断言 follow-up
-        const fuPattern = scenario.expect.followUpPatterns?.[i]
-        if (fuPattern) {
-          const text = rN.reply ?? ""
-          const ok = fuPattern instanceof RegExp ? fuPattern.test(text) : text.includes(fuPattern)
-          if (!ok) notes.push(`followUp[${i}] 不 match ${fuPattern}，实际："${text.slice(0, 80)}..."`)
+        // 断言 turn 1
+        expect(r1.status).toBe(201)
+        if (scenario.expect.finalDecision) {
+          expect(r1.finalDecision).toBe(scenario.expect.finalDecision)
+        }
+        if (scenario.expect.replyPattern) {
+          const p = scenario.expect.replyPattern
+          const text = r1.reply ?? ""
+          const ok = p instanceof RegExp ? p.test(text) : text.includes(p)
+          if (!ok) notes.push(`reply 不 match ${p}，实际："${text.slice(0, 80)}..."`)
           expect(ok).toBe(true)
         }
-      }
-
-      // 累计断言
-      if (scenario.expect.minToolCalls !== undefined) {
-        if (totalToolCalls < scenario.expect.minToolCalls) {
-          notes.push(`tool calls ${totalToolCalls} < expected ${scenario.expect.minToolCalls}`)
+        if (scenario.expect.containsAll) {
+          const text = r1.reply ?? ""
+          for (const needle of scenario.expect.containsAll) {
+            if (!text.includes(needle)) {
+              notes.push(`reply 不包含 ${needle}，实际："${text.slice(0, 80)}..."`)
+            }
+            expect(text).toContain(needle)
+          }
         }
-        expect(totalToolCalls).toBeGreaterThanOrEqual(scenario.expect.minToolCalls)
-      }
+        if (scenario.expect.containsNone) {
+          const text = r1.reply ?? ""
+          for (const needle of scenario.expect.containsNone) {
+            if (text.includes(needle)) {
+              notes.push(`reply 不应包含 ${needle}，实际："${text.slice(0, 80)}..."`)
+            }
+            expect(text).not.toContain(needle)
+          }
+        }
+        if (scenario.expect.minToolCalls !== undefined) {
+          // 多 turn 累计后再断言
+        }
+        if (scenario.expect.requireApproval) {
+          expect(r1.finalDecision).toBe("WaitForApproval")
+        }
 
-      metrics.push({
-        id: scenario.id,
-        category: scenario.category,
-        title: scenario.title,
-        turns,
-        approvalCount,
-        totalToolCalls,
-        passed: notes.length === 0,
-        notes,
-      })
+        // follow-ups
+        for (let i = 0; i < (scenario.followUps ?? []).length; i += 1) {
+          const fu = scenario.followUps?.[i]
+          if (!fu) continue
+          // 重新 setFixtures 一次（counter 重置；模拟"新 LLM 调用"）
+          app.setFixtures({
+            plan: scenario.fixtures.plan ?? [],
+            exec: scenario.fixtures.exec ?? [],
+            intake: scenario.fixtures.intake ?? [],
+          })
+          const rN = await sendWechatMessage(app, {
+            content: fu.content,
+            conversationId: convId,
+          })
+          turns.push({
+            input: fu.content,
+            reply: rN.reply ?? "",
+            replyLen: (rN.reply ?? "").length,
+            status: rN.status,
+            finalDecision: rN.finalDecision,
+            toolCalls: rN.toolCalls,
+          })
+          if (rN.finalDecision === "WaitForApproval") approvalCount += 1
+          totalToolCalls += rN.toolCalls ?? 0
+
+          // 断言 follow-up
+          const fuPattern = scenario.expect.followUpPatterns?.[i]
+          if (fuPattern) {
+            const text = rN.reply ?? ""
+            const ok = fuPattern instanceof RegExp ? fuPattern.test(text) : text.includes(fuPattern)
+            if (!ok) notes.push(`followUp[${i}] 不 match ${fuPattern}，实际："${text.slice(0, 80)}..."`)
+            expect(ok).toBe(true)
+          }
+        }
+
+        // 累计断言
+        if (scenario.expect.minToolCalls !== undefined) {
+          if (totalToolCalls < scenario.expect.minToolCalls) {
+            notes.push(`tool calls ${totalToolCalls} < expected ${scenario.expect.minToolCalls}`)
+          }
+          expect(totalToolCalls).toBeGreaterThanOrEqual(scenario.expect.minToolCalls)
+        }
+
+        metrics.push({
+          id: scenario.id,
+          category: scenario.category,
+          title: scenario.title,
+          turns,
+          approvalCount,
+          totalToolCalls,
+          passed: notes.length === 0,
+          notes,
+        })
+      } finally {
+        // D49: verify 在 finally 中跑，确保即使 turn 断言失败也执行（让 fs 状态可观测）。
+        if (scenario.verify) {
+          await scenario.verify(ctx)
+        }
+      }
     }, 30_000)
   }
 })
