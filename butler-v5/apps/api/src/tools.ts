@@ -702,7 +702,11 @@ function workspaceToolCtx(ctx: ButlerToolContext): WorkspaceToolContext {
   return {
     ...(ctx.workspaceRoot ? { workspaceRoot: ctx.workspaceRoot } : {}),
     ...(audit
-      ? { audit, chainId: audit.runId, conversationId: audit.conversationId }
+      ? {
+          audit,
+          ...(audit.runId !== undefined ? { chainId: audit.runId } : {}),
+          conversationId: audit.conversationId,
+        }
       : {}),
   }
 }
