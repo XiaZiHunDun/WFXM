@@ -701,7 +701,9 @@ function workspaceToolCtx(ctx: ButlerToolContext): WorkspaceToolContext {
     : undefined
   return {
     ...(ctx.workspaceRoot ? { workspaceRoot: ctx.workspaceRoot } : {}),
-    ...(audit ? { audit } : {}),
+    ...(audit
+      ? { audit, chainId: audit.runId, conversationId: audit.conversationId }
+      : {}),
   }
 }
 
