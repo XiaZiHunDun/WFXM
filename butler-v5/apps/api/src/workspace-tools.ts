@@ -387,6 +387,21 @@ export function resetUndoChain(): void {
   GIT_HEAD_CACHE = undefined
 }
 
+/** Get conversationId stored for a chainId, or undefined if no entry. */
+export function getUndoChainConversation(chainId: string): string | undefined {
+  return UNDO_CHAIN_CONV.get(chainId)
+}
+
+/** List all chainId↔conversationId pairs (insertion order). */
+export function undoChain_listConversations(): readonly [string, string][] {
+  return [...UNDO_CHAIN_CONV.entries()]
+}
+
+/** List all chainIds in insertion order. */
+export function undoChain_listChainIds(): readonly string[] {
+  return [...UNDO_CHAIN.keys()]
+}
+
 /** D49: push a run_command entry into UNDO_CHAIN if chainId present. */
 async function pushCommandToChain(
   ctx: WorkspaceToolContext,

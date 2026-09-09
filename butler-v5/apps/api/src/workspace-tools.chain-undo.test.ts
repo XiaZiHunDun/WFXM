@@ -130,3 +130,27 @@ describe("D49 chain undo — partial revert", () => {
     expect(result2).toBeUndefined()
   })
 })
+
+describe("D49 chain undo — resetUndoChain", () => {
+  beforeEach(() => {
+    TMP = mkdtempSync(join(tmpdir(), "chain-undo-"))
+    FILE_A = join(TMP, "a.ts")
+    writeFileSync(FILE_A, "OLD_A", "utf8")
+    resetUndoStack()
+    resetUndoChain()
+  })
+
+  afterEach(() => {
+    rmSync(TMP, { recursive: true, force: true })
+  })
+
+  it("C4: resetUndoChain clears UNDO_CHAIN + UNDO_CHAIN_CONV + git cache", async () => {
+    const ctx = { chainId: "run-x", workspaceRoot: TMP }
+    const write = makeWriteFileTool(ctx)
+    await write.run({ path: "a.ts", content: "Z" })
+    expect(undoChain("run-x")).toBeDefined()
+
+    resetUndoChain()
+    expect(undoChain("run-x")).toBeUndefined()
+  })
+})
