@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import {
+  makeRunCommandTool,
   makeWriteFileTool,
   resetUndoChain,
   resetUndoStack,
@@ -51,5 +52,30 @@ describe("D49 chain undo — write_file push", () => {
     // Read-back: verify file content actually restored
     expect(readFileSync(FILE_A, "utf8")).toBe("OLD_A")
     expect(readFileSync(FILE_B, "utf8")).toBe("OLD_B")
+  })
+})
+
+describe("D49 chain undo — run_command push", () => {
+  it("C2: mixed write + command push captures argv/cwd/gitStatusBeforeHash", async () => {
+    const ctx = { chainId: "run-2", workspaceRoot: TMP }
+    const write = makeWriteFileTool(ctx)
+    const runCmd = makeRunCommandTool(ctx)
+    await write.run({ path: "a.ts", content: "X" })
+    await runCmd.run({ argv: ["echo", "hello"] })
+    await write.run({ path: "b.ts", content: "Y" })
+
+    const result = undoChain("run-2")
+    expect(result).toBeDefined()
+    if (!result) return
+    // 2 writes reverted, 1 command in side-effects (no auto-revert)
+    expect(result.reverted).toHaveLength(2)
+    expect(result.commandSideEffects).toHaveLength(1)
+    expect(result.commandSideEffects[0]?.argv).toEqual(["echo", "hello"])
+    // reverse order: b.ts first, then a.ts
+    const firstWrite = result.reverted[0]?.entry
+    expect(firstWrite?.kind).toBe("write")
+    if (firstWrite?.kind === "write") {
+      expect(firstWrite.path).toBe(FILE_B)
+    }
   })
 })

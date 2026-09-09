@@ -387,6 +387,34 @@ export function resetUndoChain(): void {
   GIT_HEAD_CACHE = undefined
 }
 
+/** D49: push a run_command entry into UNDO_CHAIN if chainId present. */
+async function pushCommandToChain(
+  ctx: WorkspaceToolContext,
+  argv: readonly string[],
+  cwd: string,
+  started: number,
+  exitCode: number | null,
+): Promise<void> {
+  if (!ctx.chainId) return
+  let entries = UNDO_CHAIN.get(ctx.chainId)
+  if (!entries) {
+    entries = []
+    UNDO_CHAIN.set(ctx.chainId, entries)
+  }
+  const gitHead = await _safeGitHead(cwd)
+  entries.push({
+    kind: "command",
+    argv,
+    cwd,
+    gitStatusBeforeHash: gitHead,
+    exit: exitCode,
+    startedAt: started,
+    tool: "run_command",
+  })
+  if (entries.length > CHAIN_CAP) entries.shift()
+  if (ctx.conversationId) UNDO_CHAIN_CONV.set(ctx.chainId, ctx.conversationId)
+}
+
 /** Pop the most recent before-content for `path` (returns undefined if empty). */
 export function undoLastWrite(workspaceRoot: string, path: string): string | null | undefined {
   const resolved = resolve(workspaceRoot, path)
@@ -452,21 +480,28 @@ export function undoChain(chainId: string): ChainRevertResult | undefined {
   if (!entries || entries.length === 0) return undefined
   const gitHeadBefore = GIT_HEAD_CACHE ?? null
   const reverted: { entry: ChainEntry; ok: boolean; reason?: string }[] = []
+  const commandSideEffects: { argv: readonly string[]; note: string }[] = []
   for (const entry of [...entries].reverse()) {
-    if (entry.kind !== "write") continue
-    try {
-      if (entry.beforeContent === null) {
-        writeFileSync(entry.path, "", "utf8")
-      } else {
-        mkdirSync(dirname(entry.path), { recursive: true })
-        writeFileSync(entry.path, entry.beforeContent, "utf8")
+    if (entry.kind === "write") {
+      try {
+        if (entry.beforeContent === null) {
+          writeFileSync(entry.path, "", "utf8")
+        } else {
+          mkdirSync(dirname(entry.path), { recursive: true })
+          writeFileSync(entry.path, entry.beforeContent, "utf8")
+        }
+        reverted.push({ entry, ok: true })
+      } catch (err) {
+        reverted.push({
+          entry,
+          ok: false,
+          reason: err instanceof Error ? err.message : String(err),
+        })
       }
-      reverted.push({ entry, ok: true })
-    } catch (err) {
-      reverted.push({
-        entry,
-        ok: false,
-        reason: err instanceof Error ? err.message : String(err),
+    } else {
+      commandSideEffects.push({
+        argv: entry.argv,
+        note: "无法自动 undo，需手工 reverse",
       })
     }
   }
@@ -475,7 +510,7 @@ export function undoChain(chainId: string): ChainRevertResult | undefined {
   return {
     chainId,
     reverted,
-    commandSideEffects: [],
+    commandSideEffects,
     gitHeadBefore,
   }
 }
@@ -570,6 +605,10 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
           outcome: result.ok ? "ok" : "failed",
           detail: { tool: "run_command" },
         })
+
+        // D49: chain push (best-effort; capture all run_command side-effects for owner visibility)
+        await pushCommandToChain(ctx, argv, cwd, started, result.exitCode)
+
         return result
       }
       await recordExecAudit(ctx.audit, {
@@ -580,8 +619,23 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         outcome: sandboxed.ok ? "ok" : "failed",
         detail: { tool: "run_command" },
       })
-      if (!sandboxed.ok) return { ok: false, reason: sandboxed.reason ?? "sandbox failed" }
-      return { ok: true, output: "stdout" in sandboxed ? sandboxed.stdout ?? "" : "sandboxed run returned no output" }
+
+      const sandboxedResult: SpawnCapturedResult = sandboxed.ok
+        ? {
+            ok: true,
+            output:
+              "stdout" in sandboxed
+                ? sandboxed.stdout ?? ""
+                : "sandboxed run returned no output",
+            exitCode: null,
+          }
+        : { ok: false, reason: sandboxed.reason ?? "sandbox failed", exitCode: null }
+
+      // D49: chain push
+      await pushCommandToChain(ctx, argv, cwd, started, sandboxedResult.exitCode)
+
+      if (!sandboxedResult.ok) return { ok: false, reason: sandboxedResult.reason }
+      return { ok: true, output: sandboxedResult.output }
     },
   }
 }
