@@ -44,7 +44,7 @@
 
 ```
 DESIGN.md (架构 SSOT)
-  ├─ §18 line 801-815     + 2 row (§3.1 + §3.2 declined)
+  ├─ §18 line 815-816     + 2 row (§3.1 + §3.2 declined)
   └─ §11.4 line 565-573   + 1 row (§3.2 methodology declined)
 
 D48 doc (观察性笔记)
