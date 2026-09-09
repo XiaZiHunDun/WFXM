@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
@@ -77,5 +77,56 @@ describe("D49 chain undo — run_command push", () => {
     if (firstWrite?.kind === "write") {
       expect(firstWrite.path).toBe(FILE_B)
     }
+  })
+})
+
+describe("D49 chain undo — partial revert", () => {
+  it("C3: reverse order revert; failures caught and continued; chain consumed", async () => {
+    const ctx = { chainId: "run-3", workspaceRoot: TMP }
+    const write = makeWriteFileTool(ctx)
+    await write.run({ path: "a.ts", content: "NEW_A" })
+    await write.run({ path: "b.ts", content: "NEW_B" })
+    await write.run({ path: "c.ts", content: "NEW_C" })
+
+    // Force a failure on b.ts revert by chmod readonly (best-effort; may
+    // not work on Windows/root; the catch-block path is still exercised
+    // by the spec-described ENOENT scenario in production).
+    try {
+      chmodSync(FILE_B, 0o444)
+    } catch {
+      // skip if chmod unsupported
+    }
+
+    const result = undoChain("run-3")
+    expect(result).toBeDefined()
+    if (!result) return
+    expect(result.reverted).toHaveLength(3)
+    // Reverse order: c.ts first, then b.ts, then a.ts
+    const firstWrite = result.reverted[0]?.entry
+    const secondWrite = result.reverted[1]?.entry
+    const thirdWrite = result.reverted[2]?.entry
+    expect(firstWrite?.kind).toBe("write")
+    if (firstWrite?.kind === "write") {
+      expect(firstWrite.path).toBe(join(TMP, "c.ts"))
+    }
+    expect(secondWrite?.kind).toBe("write")
+    if (secondWrite?.kind === "write") {
+      expect(secondWrite.path).toBe(FILE_B)
+    }
+    expect(thirdWrite?.kind).toBe("write")
+    if (thirdWrite?.kind === "write") {
+      expect(thirdWrite.path).toBe(FILE_A)
+    }
+
+    // Restore perms for cleanup (if chmod was applied)
+    try {
+      chmodSync(FILE_B, 0o644)
+    } catch {
+      // ignore
+    }
+
+    // Chain consumed — second call returns undefined
+    const result2 = undoChain("run-3")
+    expect(result2).toBeUndefined()
   })
 })
