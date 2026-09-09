@@ -812,7 +812,7 @@ Effect-TS 是可选实现工具，不是架构层级。
 - **第二 Channel**：微信被证明是场景瓶颈；
 - **外部 OTEL**：本地 trace 无法定位生产问题；
 - **独立 Worker/Broker**：单进程资源或故障隔离实测不足。
-- **信任模式 / Approval 羊群效应 (declined, 2026-09-09 D51)**：高频 Approval 触发会降低 owner 对真危险操作的警觉（肌肉记忆）。结构根因：policy-gate 无 trust 模式，仅 per-command 静态判定。触发条件：owner 撞 1 次"误点 delete"。**当前决定：decline** — fixture harness 样本盲点；35 场景剩 9 次非 read-only approval 已能表达摩擦；扩 fixture 成本高于潜在价值。详见 [`../docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`](../docs/superpowers/notes/2026-09-09-d51-decline-gaps.md)。
+- **信任模式 / Approval 羊群效应 (declined, 2026-09-09 D51)**：高频 Approval 触发会降低 owner 对真危险操作的警觉（肌肉记忆）。结构根因：policy-gate 无 trust 模式，仅 per-command 静态判定。触发条件：owner 撞 1 次"误点 delete"。**当前决定：decline** — fixture harness 样本盲点；35 场景剩 9 次非 read-only approval 已能表达摩擦；扩 fixture 成本高于潜在价值。详见 [`docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`](docs/superpowers/notes/2026-09-09-d51-decline-gaps.md)。
 - **LLM 输出质量量化 (declined, 2026-09-09 D51)**：结构根因：temperature model 单 round snapshot 不构成稳定 baseline；多 round + prompt freeze 才能稳定，但 4 min × N round 成本。**当前决定：decline** — 方法论限制 + v8 3/3 REVERT 同源风险；待 owner 实测撞"B 类某场景答错了"且能固化 multi-round methodology 才重新评估。
 
 没有触发证据时，不进入路线图。

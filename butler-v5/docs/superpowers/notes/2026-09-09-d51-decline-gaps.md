@@ -47,7 +47,7 @@ D51 = 把 §3.1/§3.2 从"未识别结构问题"显式转为"accepted gap"，按
 | §18 | line 815-816 | +2 row (信任模式 + LLM 质量量化) |
 | §11.4 | line 572 | +1 row (LLM 质量量化方法论基础设施) |
 
-引用：[`../../DESIGN.md`](../../DESIGN.md)（从 `docs/superpowers/notes/` 上溯两级）
+引用：[`../../../DESIGN.md`](../../../DESIGN.md)（从 `docs/superpowers/notes/` 上溯三级）
 
 ---
 
