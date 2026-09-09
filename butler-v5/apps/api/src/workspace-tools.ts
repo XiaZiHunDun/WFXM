@@ -8,7 +8,7 @@
  *
  * Failures return `{ ok: false, reason }` — no throw.
  */
-import { spawn } from "node:child_process"
+import { execFile, spawn } from "node:child_process"
 import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import { isAbsolute, relative, resolve } from "node:path"
@@ -343,6 +343,32 @@ export interface ChainRevertResult {
 const UNDO_CHAIN = new Map<string, ChainEntry[]>()
 const UNDO_CHAIN_CONV = new Map<string, string>()
 let GIT_HEAD_CACHE: string | null | undefined
+
+/**
+ * Read current git HEAD for `cwd`, with module-level memoization.
+ * Spec §2.2 + D49 plan Task 1 Step 3(b): `undoChain` records the pre-revert
+ * head so we can detect no-op reverts (HEAD unchanged). Cached to avoid
+ * spawning a git subprocess per call. Returns null on any error (not a git
+ * repo, timeout, etc.) — best-effort.
+ */
+async function safeGitHead(cwd: string): Promise<string | null> {
+  if (GIT_HEAD_CACHE !== undefined) return GIT_HEAD_CACHE
+  try {
+    const out = await new Promise<string>((resolveP, rejectP) => {
+      execFile(
+        "git",
+        ["rev-parse", "HEAD"],
+        { cwd, timeout: 2000 },
+        (err, stdout) => (err ? rejectP(err) : resolveP(String(stdout).trim())),
+      )
+    })
+    GIT_HEAD_CACHE = out || null
+    return GIT_HEAD_CACHE
+  } catch {
+    GIT_HEAD_CACHE = null
+    return null
+  }
+}
 
 /** Test-only: clear UNDO_CHAIN + UNDO_CHAIN_CONV + git cache. */
 export function resetUndoChain(): void {
