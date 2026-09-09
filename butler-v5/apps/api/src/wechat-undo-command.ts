@@ -20,7 +20,12 @@ import { mkdirSync } from "node:fs"
 import {
   undoLastWrite,
   popMostRecentWrite,
+  undoChain,
+  getUndoChainConversation,
+  undoChain_listConversations,
+  undoChain_listChainIds,
 } from "./workspace-tools.js"
+import type { ChainRevertResult } from "./workspace-tools.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
 
@@ -29,7 +34,11 @@ import type { Wiring } from "./wiring.js"
 // working; rest is then the path. Order alternatives longest-first so
 // `撤销刚才` wins over `撤销` (regex alternation is first-match, not longest).
 const UNDO_INTENT_REGEX =
-  /^(撤销刚才|撤销上一步|撤销上一次|撤销上次|撤销|\/undo|\/撤销|undo)\s*/i
+  /^(撤销这一轮|撤销这轮|撤销本次|撤销这次|撤销刚才|撤销上一步|撤销上一次|撤销上次|撤销|\/undo|\/撤销|\/撤销这轮|undo)\s*/i
+
+// D49: chain intent (multi-tool turn undo). Match longest-first.
+const CHAIN_INTENT_REGEX =
+  /^(撤销这一轮|撤销这轮|撤销本次|撤销这次|\/撤销这轮)\s*$/i
 
 // "Explicit" form: leading `/undo` or `/撤销` (slash prefix). The full match
 // (no trailing path) triggers the graceful "请用 /undo <path>" fallback.
@@ -63,6 +72,31 @@ function restoreAndReply(
   }
 }
 
+function formatChainReply(result: ChainRevertResult): string {
+  const lines: string[] = []
+  lines.push(`[撤销轮次 chainId=${result.chainId}]`)
+  for (const r of result.reverted) {
+    if (r.entry.kind === "write") {
+      const ok = r.ok ? "✅" : "❌"
+      const reason = r.ok ? "" : ` (${r.reason ?? "失败"})`
+      const label = r.entry.beforeContent === null ? "新建文件已置空" : "还原为上版"
+      lines.push(`${ok} ${r.entry.path} → ${label}${reason}`)
+    }
+  }
+  if (result.commandSideEffects.length > 0) {
+    lines.push("")
+    lines.push(`以下 ${result.commandSideEffects.length} 个命令副作用需手工 reverse（无法自动 undo）：`)
+    for (const s of result.commandSideEffects) {
+      lines.push(`• ${s.argv.join(" ")}`)
+    }
+  }
+  if (result.gitHeadBefore) {
+    lines.push("")
+    lines.push(`git起点: ${result.gitHeadBefore}（undo 前 HEAD）`)
+  }
+  return lines.join("\n")
+}
+
 export async function tryWechatUndoCommand(args: {
   readonly wiring: Wiring
   readonly fromUserId: string
@@ -79,6 +113,34 @@ export async function tryWechatUndoCommand(args: {
     (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim() || process.cwd()
   const rest = trimmed.replace(UNDO_INTENT_REGEX, "").trim()
   const isExplicit = EXPLICIT_UNDO_REGEX.test(trimmed)
+
+  // D49: chain 分支 — 在 explicit 判断前先判 chain intent
+  if (CHAIN_INTENT_REGEX.test(trimmed)) {
+    const currentConv = env["BUTLER_V5_CONVERSATION_ID"]?.trim()
+    let chainId: string | undefined
+    if (currentConv) {
+      for (const [cid, conv] of undoChain_listConversations()) {
+        if (conv === currentConv) {
+          chainId = cid
+          break
+        }
+      }
+    }
+    if (!chainId) {
+      const ids = undoChain_listChainIds()
+      chainId = ids[ids.length - 1]
+    }
+    if (!chainId) return done("没有可撤销的轮次。")
+    if (currentConv) {
+      const stored = getUndoChainConversation(chainId)
+      if (stored && stored !== currentConv) {
+        return done("该轮次不属于当前对话。")
+      }
+    }
+    const result = undoChain(chainId)
+    if (!result) return done("当前轮次没有可撤销的操作。")
+    return done(formatChainReply(result))
+  }
 
   // 无 path 路径：分 explicit vs NL 两种行为
   if (rest.length === 0) {

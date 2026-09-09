@@ -343,6 +343,11 @@ export interface ChainRevertResult {
 const UNDO_CHAIN = new Map<string, ChainEntry[]>()
 const UNDO_CHAIN_CONV = new Map<string, string>()
 
+/** @internal — exported for tests only. Production code uses undoChain(). */
+export const UNDO_CHAIN_FOR_TEST = UNDO_CHAIN
+/** @internal — exported for tests only. */
+export const UNDO_CHAIN_CONV_FOR_TEST = UNDO_CHAIN_CONV
+
 /**
  * Module-level git HEAD cache for `undoChain` `gitHeadBefore`. Three-state:
  *   - `undefined` = not yet queried (first `_safeGitHead` call will populate)
