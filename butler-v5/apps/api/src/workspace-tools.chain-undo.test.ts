@@ -1,28 +1,33 @@
-import { describe, expect, it, beforeEach } from "vitest"
-import { writeFileSync, mkdirSync, rmSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import {
   makeWriteFileTool,
-  resetUndoStack,
   resetUndoChain,
+  resetUndoStack,
+  undoChain,
 } from "./workspace-tools.js"
 
-const TMP = join(process.cwd(), ".tmp-chain-undo-test")
-const FILE_A = join(TMP, "a.ts")
-const FILE_B = join(TMP, "b.ts")
+let TMP: string
+let FILE_A: string
+let FILE_B: string
 
-function setup() {
-  rmSync(TMP, { recursive: true, force: true })
-  mkdirSync(TMP, { recursive: true })
+beforeEach(() => {
+  TMP = mkdtempSync(join(tmpdir(), "chain-undo-"))
+  FILE_A = join(TMP, "a.ts")
+  FILE_B = join(TMP, "b.ts")
   writeFileSync(FILE_A, "OLD_A", "utf8")
   writeFileSync(FILE_B, "OLD_B", "utf8")
   resetUndoStack()
   resetUndoChain()
-}
+})
+
+afterEach(() => {
+  rmSync(TMP, { recursive: true, force: true })
+})
 
 describe("D49 chain undo — write_file push", () => {
-  beforeEach(setup)
-
   it("C1: writes push entries to UNDO_CHAIN when chainId present", async () => {
     const ctx = { chainId: "run-1", conversationId: "conv-1", workspaceRoot: TMP }
     const writeA = makeWriteFileTool(ctx)
@@ -32,12 +37,19 @@ describe("D49 chain undo — write_file push", () => {
     expect(r1.ok).toBe(true)
     expect(r2.ok).toBe(true)
 
-    const { undoChain } = await import("./workspace-tools.js")
     const result = undoChain("run-1")
     expect(result).toBeDefined()
-    expect(result!.reverted).toHaveLength(2)
-    expect(result!.reverted[0]!.entry.kind).toBe("write")
-    expect((result!.reverted[0]!.entry as { path: string }).path).toBe(FILE_B)
-    expect(result!.reverted[1]!.ok).toBe(true)
+    if (!result) return
+    expect(result.reverted).toHaveLength(2)
+    const first = result.reverted[0]
+    expect(first?.entry.kind).toBe("write")
+    if (first?.entry.kind === "write") {
+      expect(first.entry.path).toBe(FILE_B)
+    }
+    expect(result.reverted.every(r => r.ok)).toBe(true)
+
+    // Read-back: verify file content actually restored
+    expect(readFileSync(FILE_A, "utf8")).toBe("OLD_A")
+    expect(readFileSync(FILE_B, "utf8")).toBe("OLD_B")
   })
 })

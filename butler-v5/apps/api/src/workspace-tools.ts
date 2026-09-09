@@ -342,6 +342,15 @@ export interface ChainRevertResult {
 
 const UNDO_CHAIN = new Map<string, ChainEntry[]>()
 const UNDO_CHAIN_CONV = new Map<string, string>()
+
+/**
+ * Module-level git HEAD cache for `undoChain` `gitHeadBefore`. Three-state:
+ *   - `undefined` = not yet queried (first `_safeGitHead` call will populate)
+ *   - `null` = queried but not a git repo / subprocess failed
+ *   - `string` = commit hash
+ * Populated by `_safeGitHead` (Task 2's run_command chain push); cleared by
+ * `resetUndoChain` (test-only).
+ */
 let GIT_HEAD_CACHE: string | null | undefined
 
 /**
@@ -351,7 +360,8 @@ let GIT_HEAD_CACHE: string | null | undefined
  * spawning a git subprocess per call. Returns null on any error (not a git
  * repo, timeout, etc.) — best-effort.
  */
-async function safeGitHead(cwd: string): Promise<string | null> {
+// Used by Task 2's run_command chain push to populate GIT_HEAD_CACHE.
+async function _safeGitHead(cwd: string): Promise<string | null> {
   if (GIT_HEAD_CACHE !== undefined) return GIT_HEAD_CACHE
   try {
     const out = await new Promise<string>((resolveP, rejectP) => {
