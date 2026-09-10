@@ -13,13 +13,15 @@
  * C. 边界 / 失败模式 — 10
  * D. 跨场景组合 — 5
  */
-import { readFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect } from "vitest"
 import {
   UNDO_CHAIN_CONV_FOR_TEST,
   UNDO_CHAIN_FOR_TEST,
   resetUndoChain,
+  undoChain_listChainIds,
 } from "@butler/api/workspace-tools.js"
 import type { FixtureEntry } from "../harness.js"
 
@@ -272,6 +274,49 @@ export const scenariosA: readonly Scenario[] = [
       ],
     },
     expect: { finalDecision: "Respond", minToolCalls: 1, replyPattern: /建议|conflict/ },
+  },
+  // D52: B 方向产品层覆盖 — owner idle 30min+ 后返回开口，reply 头部 prepend
+  // "上次您离开时" digest (3 段计数)。setup 写 tmpdir JSON (避免污染默认路径),
+  // 设短 idle threshold (100ms) 让任何 elapsed > 0 都触发。verify 清 tmpdir + 恢复 env。
+  {
+    id: "A11-session-digest-idle-return",
+    category: "A-concrete",
+    title: "A11 owner idle 返回开口，digest prepend",
+    input: "继续",
+    fixtures: { plan: [text("好的，接到。")] },
+    setup: (_ctx) => {
+      const sessionTmpDir = mkdtempSync(join(tmpdir(), "butler-v5-acceptance-digest-"))
+      // 写一个 owner "u-owner"（hardcoded in harness.ts:209）的旧 snapshot
+      // lastReplyAt = 60s 前 → 任何 idle threshold ≤ 60s 都触发
+      writeFileSync(
+        join(sessionTmpDir, "session.json"),
+        JSON.stringify(
+          {
+            "u-owner": {
+              openTaskCount: 3,
+              candidateCount: 5,
+              lastRunStatus: "success",
+              lastReplyAt: Date.now() - 60_000,
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      )
+      process.env["BUTLER_V5_WECHAT_SESSION_STATE"] = join(sessionTmpDir, "session.json")
+      process.env["BUTLER_V5_SESSION_DIGEST_IDLE_MS"] = "100"
+    },
+    expect: {
+      finalDecision: "Respond",
+      replyPattern: /【上次您离开时】/,
+      containsAll: ["任务在跑", "候选待审", "失败"],
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_WECHAT_SESSION_STATE"]
+      delete process.env["BUTLER_V5_SESSION_DIGEST_IDLE_MS"]
+      // tmpdir 自动 cleanup（vitest process exit）
+    },
   },
 ]
 
@@ -665,6 +710,189 @@ export const scenariosD: readonly Scenario[] = [
       const testPath = join(ctx.workspaceRoot, "test.ts")
       expect(readFileSync(helperPath, "utf8")).toBe("ORIGINAL_HELPER")
       expect(readFileSync(testPath, "utf8")).toBe("ORIGINAL_TEST")
+    },
+  },
+  // D52: chain 跨 WaitForApproval 撤销 — approval 打断不破坏 chainId 连续性；
+  // turn 1 写触发 approval → turn 2 确认 resume → turn 3 撤销这轮 整链回滚。
+  {
+    id: "D2-chain-approval",
+    category: "D-combo",
+    title: "D2 chain 跨 WaitForApproval 撤销",
+    input: "帮我改 helper.ts",
+    fixtures: {
+      plan: [
+        tool("read_file", { path: "helper.ts" }),
+        tool("write_file", { path: "helper.ts", content: "FIXED" }),
+      ],
+    },
+    expect: {
+      finalDecision: "WaitForApproval",
+      // turn 2 "确认" resume 后 reply 不锁；turn 3 "撤销这轮" 必须含 ✅ + helper.ts。
+      followUpPatterns: [/.*/, /✅|helper\.ts|还原/],
+    },
+    followUps: [
+      { content: "确认" },
+      { content: "撤销这轮" },
+    ],
+    setup: (ctx) => {
+      resetUndoChain()
+      const helperPath = join(ctx.workspaceRoot, "helper.ts")
+      const convId = "c-realistic-D2-chain-approval"
+      UNDO_CHAIN_FOR_TEST.set("run-d2", [
+        {
+          kind: "write",
+          path: helperPath,
+          beforeContent: "ORIGINAL",
+          tool: "write_file",
+          pushedAt: 1,
+        },
+        {
+          kind: "command",
+          argv: ["pnpm", "test"],
+          cwd: ctx.workspaceRoot,
+          gitStatusBeforeHash: null,
+          exit: 0,
+          startedAt: 2,
+          tool: "run_command",
+        },
+        {
+          kind: "write",
+          path: helperPath,
+          beforeContent: "FIXED",
+          tool: "write_file",
+          pushedAt: 3,
+        },
+      ])
+      UNDO_CHAIN_CONV_FOR_TEST.set("run-d2", convId)
+      // 设 BUTLER_V5_CONVERSATION_ID 让 resolution 走 first-match (insertion order)
+      // 而非 fallback most-recent：turn 2 resume 后 real makeWriteFileTool 会 push
+      // 一个 real_chainId→convId 条目到 UNDO_CHAIN_CONV, 若走 fallback 会被
+      // real_chainId 抢走。first-match 锁定 "run-d2"（先 seed）。
+      process.env["BUTLER_V5_CONVERSATION_ID"] = convId
+    },
+    verify: (ctx) => {
+      // 跨 approval 的 chain 整链回滚：reverse order → entry 3 (beforeContent=FIXED) → entry 1 (beforeContent=ORIGINAL)
+      const helperPath = join(ctx.workspaceRoot, "helper.ts")
+      expect(readFileSync(helperPath, "utf8")).toBe("ORIGINAL")
+      delete process.env["BUTLER_V5_CONVERSATION_ID"]
+    },
+  },
+  // D52: chain 全是 run_command (non-invertible) — 走 "无法自动 undo" 分支。
+  {
+    id: "D3-chain-commands",
+    category: "D-combo",
+    title: "D3 chain 全 run_command 无 auto-undo",
+    input: "撤销这轮",
+    fixtures: { plan: [] },
+    setup: (ctx) => {
+      resetUndoChain()
+      UNDO_CHAIN_FOR_TEST.set("run-d3", [
+        {
+          kind: "command",
+          argv: ["pnpm", "install", "lodash"],
+          cwd: ctx.workspaceRoot,
+          gitStatusBeforeHash: null,
+          exit: 0,
+          startedAt: 1,
+          tool: "run_command",
+        },
+        {
+          kind: "command",
+          argv: ["pnpm", "test"],
+          cwd: ctx.workspaceRoot,
+          gitStatusBeforeHash: null,
+          exit: 1,
+          startedAt: 2,
+          tool: "run_command",
+        },
+        {
+          kind: "command",
+          argv: ["git", "add", "-A"],
+          cwd: ctx.workspaceRoot,
+          gitStatusBeforeHash: null,
+          exit: 0,
+          startedAt: 3,
+          tool: "run_command",
+        },
+      ])
+      UNDO_CHAIN_CONV_FOR_TEST.set("run-d3", "conv-d3")
+    },
+    expect: {
+      finalDecision: "Respond",
+      containsAll: ["无法自动 undo", "pnpm install lodash", "pnpm test", "git add -A"],
+      containsNone: ["✅"],  // 0 个 write revert → 无 ✅
+    },
+    verify: () => {
+      // 全 non-invertible: UNDO_CHAIN 应已被清空（undoChain 末尾 delete）。
+      // 通过 undoChain_listChainIds() 验 chain consumed。
+      expect(undoChain_listChainIds()).not.toContain("run-d3")
+    },
+  },
+  // D52: 同 conv 2 chains, currentConv 未设 → fallback most-recent wins。
+  // Realistic harness 不设 BUTLER_V5_CONVERSATION_ID (production routes.ts 不设),
+  // 所以 tryWechatUndoCommand 走 fallback: undoChain_listChainIds()[-1] = "run-d4b"。
+  {
+    id: "D4-chain-cross-conv",
+    category: "D-combo",
+    title: "D4 同 conv 2 chains, most-recent wins",
+    input: "撤销这轮",
+    fixtures: { plan: [] },
+    setup: (ctx) => {
+      resetUndoChain()
+      const oldPath = join(ctx.workspaceRoot, "old.ts")
+      const newPath = join(ctx.workspaceRoot, "new.ts")
+      UNDO_CHAIN_FOR_TEST.set("run-d4a", [
+        {
+          kind: "write",
+          path: oldPath,
+          beforeContent: "OLD_ORIGINAL",
+          tool: "write_file",
+          pushedAt: 1,
+        },
+      ])
+      UNDO_CHAIN_FOR_TEST.set("run-d4b", [
+        {
+          kind: "write",
+          path: newPath,
+          beforeContent: "NEW_ORIGINAL",
+          tool: "write_file",
+          pushedAt: 2,
+        },
+      ])
+      // 同 conv → resolution loop first-match wins IF currentConv 匹配；fallback 用 most-recent。
+      UNDO_CHAIN_CONV_FOR_TEST.set("run-d4a", "conv-d4")
+      UNDO_CHAIN_CONV_FOR_TEST.set("run-d4b", "conv-d4")
+    },
+    expect: {
+      finalDecision: "Respond",
+      containsAll: ["chainId=run-d4b", "new.ts"],
+      // formatChainReply 只暴露 path + label ("还原为上版"), 不暴露 beforeContent；
+      // 所以 containsNone 不验 "NEW_ORIGINAL"（文件内容由 verify 验）。
+      containsNone: ["run-d4a", "old.ts"],
+    },
+    verify: (ctx) => {
+      // run-d4b 应被 revert（new.ts → NEW_ORIGINAL），run-d4a 应 untouched
+      const newPath = join(ctx.workspaceRoot, "new.ts")
+      expect(readFileSync(newPath, "utf8")).toBe("NEW_ORIGINAL")
+      // run-d4a 应仍在 chain 中（fallback 只撤销 most-recent）
+      expect(undoChain_listChainIds()).toContain("run-d4a")
+    },
+  },
+  // D52: 进程 restart 后 chain in-memory 丢失 (UNDO_CHAIN.clear via resetUndoChain)。
+  // 锁 spec §4.5 "per-process only" 行为。
+  {
+    id: "D5-chain-restart",
+    category: "D-combo",
+    title: "D5 restart 后 chain 丢失, honest reply",
+    input: "撤销这轮",
+    fixtures: { plan: [] },
+    setup: () => {
+      // 模拟 restart: 不 seed 任何 chain，只调 resetUndoChain 清空
+      resetUndoChain()
+    },
+    expect: {
+      finalDecision: "Respond",
+      replyPattern: /^没有可撤销的轮次。?$/,
     },
   },
   {

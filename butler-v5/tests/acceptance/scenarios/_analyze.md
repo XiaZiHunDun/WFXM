@@ -4,15 +4,15 @@
 
 ## 总览
 
-- 场景数：36
-- 通过：36 / 失败：0
-- 触发 approval：9 次
-- 工具调用总数：28
-- reply 字符总数：5165
+- 场景数：41
+- 通过：41 / 失败：0
+- 触发 approval：10 次
+- 工具调用总数：31
+- reply 字符总数：5682
 
 ## 按类别汇总
 
-### A-concrete（10 场景，10 通过）
+### A-concrete（11 场景，11 通过）
 
 | ID | 标题 | 工具 | 审批 | 状态 |
 |---|---|---|---|---|
@@ -26,6 +26,7 @@
 | A8 | 生成 PR 描述 | 1 | 0 | ✅ |
 | A9 | 跑 typecheck | 1 | 0 | ✅ |
 | A10 | 加 unit test | 1 | 0 | ✅ |
+| A11-session-digest-idle-return | A11 owner idle 返回开口，digest prepend | 0 | 0 | ✅ |
 
 ### B-open（10 场景，10 通过）
 
@@ -57,12 +58,16 @@
 | C9 | 撤销刚才 | 0 | 0 | ✅ |
 | C10 | 多语言混合 | 1 | 0 | ✅ |
 
-### D-combo（6 场景，6 通过）
+### D-combo（10 场景，10 通过）
 
 | ID | 标题 | 工具 | 审批 | 状态 |
 |---|---|---|---|---|
 | D1 | 写 + 跑 test + 失败 + 修 + 再跑 | 3 | 2 | ✅ |
 | D1-chain-extension | D1 5 步链撤销（多 tool undo） | 0 | 0 | ✅ |
+| D2-chain-approval | D2 chain 跨 WaitForApproval 撤销 | 3 | 1 | ✅ |
+| D3-chain-commands | D3 chain 全 run_command 无 auto-undo | 0 | 0 | ✅ |
+| D4-chain-cross-conv | D4 同 conv 2 chains, most-recent wins | 0 | 0 | ✅ |
+| D5-chain-restart | D5 restart 后 chain 丢失, honest reply | 0 | 0 | ✅ |
 | D2 | 看看 后续追问 | 2 | 0 | ✅ |
 | D3 | 先 read 现在改 | 2 | 1 | ✅ |
 | D4 | 被打断 resume | 2 | 0 | ✅ |
@@ -89,7 +94,7 @@ _decision=Respond | toolCalls=1 | replyLen=69_
 > in: 帮我改 user 路由支持手机号登录
 
 < [待审批] Confirm write_file on apps/api/src/routes/user.ts?
-审批编号: a6b19e7c-3820-4684-89e2-75360fd61e32
+审批编号: 7a68f137-0ff3-483a-a3f0-3d80792f87f1
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=117_
@@ -128,7 +133,7 @@ _decision=Respond | toolCalls=0 | replyLen=296_
 > in: 把 packages/domain/src/foo.ts 里没人用的 import 删掉
 
 < [待审批] Confirm write_file on packages/domain/src/foo.ts?
-审批编号: d45b3b43-b003-42e9-8799-6bcc6f94393b
+审批编号: 383c3a26-63a4-42f3-be83-150a369f0747
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=116_
@@ -140,7 +145,7 @@ _decision=WaitForApproval | toolCalls=2 | replyLen=116_
 > in: 把 utils.ts 的 timeout 改成可配的
 
 < [待审批] Confirm write_file on apps/api/src/utils.ts?
-审批编号: 34ec6e14-b847-456f-9bb9-569d652d4c12
+审批编号: 624e3a37-cf7e-40c1-a088-fee4f97b5704
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=111_
@@ -201,6 +206,18 @@ _decision=Respond | toolCalls=1 | replyLen=24_
 要加哪个？
 
 _decision=Respond | toolCalls=1 | replyLen=148_
+
+### A11-session-digest-idle-return — A11 owner idle 返回开口，digest prepend（A-concrete）
+
+**turn 1**
+
+> in: 继续
+
+< 【上次您离开时】(约 1m 前) · 3 任务在跑 · 5 候选待审 · 0 失败
+
+好的，接到。
+
+_decision=Respond | toolCalls=0 | replyLen=49_
 
 ### B1 — v5 现在有什么问题（B-open）
 
@@ -453,7 +470,7 @@ _decision=Respond | toolCalls=1 | replyLen=23_
 > in: 帮我写个东西
 
 < [待审批] Confirm write_file on foo.txt?
-审批编号: a74927fe-27a3-47b5-9c16-140b2f087ef7
+审批编号: 77b23044-ec70-42c6-975e-eb8ed22b5407
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=97_
@@ -481,7 +498,7 @@ _decision=Respond | toolCalls=0 | replyLen=13_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-8LG6QK/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-8g6zdN/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -502,7 +519,7 @@ _decision=Respond | toolCalls=1 | replyLen=82_
 > in: 加个 helper 跑下测试
 
 < [待审批] Confirm write_file on packages/runtime/src/helper.ts?
-审批编号: 9425dc8e-7249-4c77-8935-a1eb37e69099
+审批编号: 2c1ee648-77e4-4014-aa0d-652800d331fe
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=120_
@@ -521,7 +538,7 @@ _decision=Respond | toolCalls=1 | replyLen=55_
 > in: 跑 test
 
 < [待审批] Confirm write_file on packages/runtime/src/helper.ts?
-审批编号: 227b84a7-9403-4c66-9ab3-40c772dfd586
+审批编号: 7126f005-862a-4174-a639-5bdd626f6b77
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=120_
@@ -533,15 +550,85 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=120_
 > in: 撤销这轮
 
 < [撤销轮次 chainId=run-d1]
-✅ /tmp/wb-accept-ws-8LG6QK/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-8LG6QK/test.ts → 还原为上版
-✅ /tmp/wb-accept-ws-8LG6QK/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-8g6zdN/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-8g6zdN/test.ts → 还原为上版
+✅ /tmp/wb-accept-ws-8g6zdN/helper.ts → 还原为上版
 
 以下 2 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
 • pnpm test
 
 _decision=Respond | toolCalls=0 | replyLen=214_
+
+### D2-chain-approval — D2 chain 跨 WaitForApproval 撤销（D-combo）
+
+**turn 1**
+
+> in: 帮我改 helper.ts
+
+< [待审批] Confirm write_file on helper.ts?
+审批编号: caf8c909-5760-4486-b150-e922fa835171
+回复「确认」批准，或「拒绝」取消。
+
+_decision=WaitForApproval | toolCalls=2 | replyLen=99_
+
+**turn 2**
+
+> in: 确认
+
+< ✅ 文件已写入
+wrote helper.ts (5 chars)
+
+_decision=Respond | toolCalls=1 | replyLen=33_
+
+**turn 3**
+
+> in: 撤销这轮
+
+< [撤销轮次 chainId=run-d2]
+✅ /tmp/wb-accept-ws-8g6zdN/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-8g6zdN/helper.ts → 还原为上版
+
+以下 1 个命令副作用需手工 reverse（无法自动 undo）：
+• pnpm test
+
+_decision=Respond | toolCalls=0 | replyLen=159_
+
+### D3-chain-commands — D3 chain 全 run_command 无 auto-undo（D-combo）
+
+**turn 1**
+
+> in: 撤销这轮
+
+< [撤销轮次 chainId=run-d3]
+
+以下 3 个命令副作用需手工 reverse（无法自动 undo）：
+• git add -A
+• pnpm test
+• pnpm install lodash
+
+_decision=Respond | toolCalls=0 | replyLen=104_
+
+### D4-chain-cross-conv — D4 同 conv 2 chains, most-recent wins（D-combo）
+
+**turn 1**
+
+> in: 撤销这轮
+
+< [撤销轮次 chainId=run-d4b]
+✅ /tmp/wb-accept-ws-8g6zdN/new.ts → 还原为上版
+
+_decision=Respond | toolCalls=0 | replyLen=64_
+
+### D5-chain-restart — D5 restart 后 chain 丢失, honest reply（D-combo）
+
+**turn 1**
+
+> in: 撤销这轮
+
+< 没有可撤销的轮次。
+
+_decision=Respond | toolCalls=0 | replyLen=9_
 
 ### D2 — 看看 后续追问（D-combo）
 
@@ -568,7 +655,7 @@ _decision=Respond | toolCalls=1 | replyLen=42_
 > in: 把 user.ts 的 password validator 换成 zod schema
 
 < [待审批] Confirm write_file on apps/api/src/user.ts?
-审批编号: 6e953fd6-f861-4edd-bb66-95d9dda5f141
+审批编号: fcc7ed4f-8144-4c51-9593-08f5535719bb
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=2 | replyLen=110_
@@ -598,7 +685,7 @@ _decision=Respond | toolCalls=1 | replyLen=29_
 > in: 加个 /debug 命令
 
 < [待审批] Confirm write_file on apps/api/src/wechat-inbound-commands.ts?
-审批编号: 1d2c9650-b31f-41de-bd89-42c3c1c34d48
+审批编号: 0452ded1-aa48-4f19-8f71-2fc7396a91f4
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=129_
@@ -617,7 +704,7 @@ _decision=Respond | toolCalls=1 | replyLen=64_
 > in: 它安全吗
 
 < [待审批] Confirm write_file on apps/api/src/wechat-inbound-commands.ts?
-审批编号: 99610671-cf74-4460-8dc6-d030d984361a
+审批编号: 421e8b95-d7c1-4b1a-9dad-a1de7ec9c71c
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=129_
