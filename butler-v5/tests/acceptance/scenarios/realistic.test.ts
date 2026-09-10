@@ -60,8 +60,8 @@ describe("acceptance/realistic (35 真实场景产品层行为)", () => {
     )
   })
 
-  // D53a demo: runScenario 把原 it() 主体（除 state init + metrics.push）抽出，
-  // 给 runMultiRound N=3 wrap 用。其他 40 scenario 暂保持原样（Task 6 全量 retro）。
+  // D53a: 把原 it() 主体（除 state init + metrics.push）抽出，给 runMultiRound N=3 wrap 用。
+  // 41 scenario 全走同一 it() + runScenario + runMultiRound 模式 (Task 6 全量 retro)。
   async function runScenario(
     scenario: (typeof ALL_SCENARIOS)[number],
     convId: string,
@@ -188,156 +188,45 @@ describe("acceptance/realistic (35 真实场景产品层行为)", () => {
   }
 
   for (const scenario of ALL_SCENARIOS) {
-    // D53a demo: D2-chain-approval 走 N=3 runner（其他 40 scenario 暂保持原样）。
-    if (scenario.id === "D2-chain-approval") {
-      it(`${scenario.id} ${scenario.title} [N=3 demo]`, async () => {
-        const convId = `c-realistic-${scenario.id}`
-        const ctx = { workspaceRoot: app.workspaceRoot }
-        await runMultiRound(
-          async () => {
-            // 每 round fresh state, 否则 round 1 的状态污染 round 2
-            const notes: string[] = []
-            const turns: TurnMetric[] = []
-            await runScenario(scenario, convId, ctx, notes, turns)
-            // metrics.push 暂不在 N=3 demo 跑 (Task 6 全量 retro 时统一处理)
-          },
-          { rounds: 3, aggregation: "all" },
-        )
-      }, 90_000)
-      continue
-    }
-
-    it(`${scenario.id} ${scenario.title}`, async () => {
+    it(`${scenario.id} ${scenario.title} [N=3]`, async () => {
       const convId = `c-realistic-${scenario.id}`
       // D49: 透传 harness workspaceRoot 给 setup/verify 钩子（D1-chain-extension 用）。
       const ctx = { workspaceRoot: app.workspaceRoot }
-      const notes: string[] = []
-      const turns: TurnMetric[] = []
-      let approvalCount = 0
-      let totalToolCalls = 0
-      if (scenario.setup) {
-        await scenario.setup(ctx)
-      }
+      // D53a Task 6: 3 round 各跑一次, 记录 last round 数据（fixtures 决定性, 3 round 等价）。
+      let lastTurns: TurnMetric[] = []
+      let lastNotes: string[] = []
+      let lastApprovalCount = 0
+      let lastTotalToolCalls = 0
 
-      try {
-        // turn 1
-        app.setFixtures({
-          plan: scenario.fixtures.plan ?? [],
-          exec: scenario.fixtures.exec ?? [],
-          intake: scenario.fixtures.intake ?? [],
-        })
-        const r1 = await sendWechatMessage(app, {
-          content: scenario.input,
-          conversationId: convId,
-        })
-        turns.push({
-          input: scenario.input,
-          reply: r1.reply ?? "",
-          replyLen: (r1.reply ?? "").length,
-          status: r1.status,
-          finalDecision: r1.finalDecision,
-          toolCalls: r1.toolCalls,
-        })
-        if (r1.finalDecision === "WaitForApproval") approvalCount += 1
-        totalToolCalls += r1.toolCalls ?? 0
+      await runMultiRound(
+        async () => {
+          // 每 round fresh state: notes/turns 必须 round-local, 否则 round 1 污染 round 2
+          const notes: string[] = []
+          const turns: TurnMetric[] = []
+          const { approvalCount, totalToolCalls } = await runScenario(
+            scenario, convId, ctx, notes, turns,
+          )
+          // 记录 last round 数据 (per-scenario metrics 而非 per-round, 避免 _analyze.md 3× 重复)
+          lastTurns = turns
+          lastNotes = notes
+          lastApprovalCount = approvalCount
+          lastTotalToolCalls = totalToolCalls
+        },
+        { rounds: 3, aggregation: "all" },
+      )
 
-        // 断言 turn 1
-        expect(r1.status).toBe(201)
-        if (scenario.expect.finalDecision) {
-          expect(r1.finalDecision).toBe(scenario.expect.finalDecision)
-        }
-        if (scenario.expect.replyPattern) {
-          const p = scenario.expect.replyPattern
-          const text = r1.reply ?? ""
-          const ok = p instanceof RegExp ? p.test(text) : text.includes(p)
-          if (!ok) notes.push(`reply 不 match ${p}，实际："${text.slice(0, 80)}..."`)
-          expect(ok).toBe(true)
-        }
-        if (scenario.expect.containsAll) {
-          const text = r1.reply ?? ""
-          for (const needle of scenario.expect.containsAll) {
-            if (!text.includes(needle)) {
-              notes.push(`reply 不包含 ${needle}，实际："${text.slice(0, 80)}..."`)
-            }
-            expect(text).toContain(needle)
-          }
-        }
-        if (scenario.expect.containsNone) {
-          const text = r1.reply ?? ""
-          for (const needle of scenario.expect.containsNone) {
-            if (text.includes(needle)) {
-              notes.push(`reply 不应包含 ${needle}，实际："${text.slice(0, 80)}..."`)
-            }
-            expect(text).not.toContain(needle)
-          }
-        }
-        if (scenario.expect.minToolCalls !== undefined) {
-          // 多 turn 累计后再断言
-        }
-        if (scenario.expect.requireApproval) {
-          expect(r1.finalDecision).toBe("WaitForApproval")
-        }
-
-        // follow-ups
-        for (let i = 0; i < (scenario.followUps ?? []).length; i += 1) {
-          const fu = scenario.followUps?.[i]
-          if (!fu) continue
-          // 重新 setFixtures 一次（counter 重置；模拟"新 LLM 调用"）
-          app.setFixtures({
-            plan: scenario.fixtures.plan ?? [],
-            exec: scenario.fixtures.exec ?? [],
-            intake: scenario.fixtures.intake ?? [],
-          })
-          const rN = await sendWechatMessage(app, {
-            content: fu.content,
-            conversationId: convId,
-          })
-          turns.push({
-            input: fu.content,
-            reply: rN.reply ?? "",
-            replyLen: (rN.reply ?? "").length,
-            status: rN.status,
-            finalDecision: rN.finalDecision,
-            toolCalls: rN.toolCalls,
-          })
-          if (rN.finalDecision === "WaitForApproval") approvalCount += 1
-          totalToolCalls += rN.toolCalls ?? 0
-
-          // 断言 follow-up
-          const fuPattern = scenario.expect.followUpPatterns?.[i]
-          if (fuPattern) {
-            const text = rN.reply ?? ""
-            const ok = fuPattern instanceof RegExp ? fuPattern.test(text) : text.includes(fuPattern)
-            if (!ok) notes.push(`followUp[${i}] 不 match ${fuPattern}，实际："${text.slice(0, 80)}..."`)
-            expect(ok).toBe(true)
-          }
-        }
-
-        // 累计断言
-        if (scenario.expect.minToolCalls !== undefined) {
-          if (totalToolCalls < scenario.expect.minToolCalls) {
-            notes.push(`tool calls ${totalToolCalls} < expected ${scenario.expect.minToolCalls}`)
-          }
-          expect(totalToolCalls).toBeGreaterThanOrEqual(scenario.expect.minToolCalls)
-        }
-
-        metrics.push({
-          id: scenario.id,
-          category: scenario.category,
-          title: scenario.title,
-          turns,
-          approvalCount,
-          totalToolCalls,
-          passed: notes.length === 0,
-          notes,
-        })
-      } finally {
-        // D49: verify 在 finally 中跑，确保即使 turn 断言失败也执行（让 fs 状态可观测）。
-        if (scenario.verify) {
-          await scenario.verify(ctx)
-        }
-      }
-    }, 30_000)
+      // runMultiRound aggregation=all 已校验 3 round 全 pass → 走到这里说明全过
+      metrics.push({
+        id: scenario.id,
+        category: scenario.category,
+        title: scenario.title,
+        turns: lastTurns,
+        approvalCount: lastApprovalCount,
+        totalToolCalls: lastTotalToolCalls,
+        passed: true,
+        notes: lastNotes,
+      })
+    }, 90_000)
   }
 })
 
