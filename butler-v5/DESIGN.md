@@ -571,6 +571,16 @@ Outbox 不作为通用领域事件总线。系统内部默认直接函数调用�
 - Kafka、Redis Stream 或独立 Broker。
 - LLM 质量量化方法论基础设施 (declined, 2026-09-09 D51)：multi-round + prompt freeze baseline 工具链。**当前决定：decline** — 见 §18 对应 row；D47 fixture-recording 同源风险未解除前不启。
 
+**D53c re-eval (2026-09-11)**: 5 not-trigger 项 + 1 declined 项，0 状态变化，0 新 trigger evidence。证据：
+- 全量 Projection：owner 实测查询延迟未超预算（35/41 scenarios pass under D53a fresh verify）；
+- Snapshot + DeltaChannel：D53a baseline snapshot 是 test artifact（41 scenarios N=3 wrap, `06855af6`）非 prod API，不构 trigger；
+- Command Bus / Query Bus：owner 实测同步耦合未严重；
+- 通用 Event Bus：DESIGN §7 line 60 explicit "模块间默认直接调用"，owner 实测跨服务解耦未需求；
+- Kafka / Redis Stream / 独立 Broker：owner 实测单进程故障隔离未不足；
+- LLM 质量量化：D53a 是 verification methodology（multi-round + prompt-freeze + fresh verify, D53a §7 line 182-183）不量化质量，状态保持 declined。
+
+完整 deferral reeval 见 [`docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md`](docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md) §2。
+
 只有出现实测性能、隔离或查询需求时，才为具体读模型增加局部 Projection。
 
 ---
@@ -801,19 +811,21 @@ Effect-TS 是可选实现工具，不是架构层级。
 
 ## 18. 延后项与触发条件
 
-- **独立 Task 聚合**：Owner 需要跨对话的任务板，且 Conversation/Run 查询无法表达待办生命周期；
-- **Procedure 模板**：至少两个已批准场景无法由普通线性/条件 Step 表达；通用 DAG、并行合并与 Channel reducer 仍更后；
-- **Durable Memory / Project Knowledge 表**：真实召回或资料管理需求出现，且 Transcript 不够 — 🟡 ship 全闭环 + G3 batch UI（2026-09-01 D39）+ G1 expires cleanup（2026-09-01 D40）+ G2 candidate dedup（2026-09-01 D41）+ G4 candidate auto-promote（2026-09-01 D42）+ **G5 跨 project recall（2026-09-02 D43）**；
-- **并发资源锁**：出现必须独占的 workspace 或设备冲突；
-- **局部 Projection**：具体查询无法在目标延迟内完成；
-- **Snapshot**：运行历史加载 p95 超过预算且无法通过普通索引解决；
-- **向量检索**：结构化/全文检索在真实语料上召回不足；
-- **浏览器能力**：Policy Gate、Grant 和网络沙箱已经稳定；
-- **第二 Channel**：微信被证明是场景瓶颈；
-- **外部 OTEL**：本地 trace 无法定位生产问题；
-- **独立 Worker/Broker**：单进程资源或故障隔离实测不足。
-- **信任模式 / Approval 羊群效应 (declined, 2026-09-09 D51)**：高频 Approval 触发会降低 owner 对真危险操作的警觉（肌肉记忆）。结构根因：policy-gate 无 trust 模式，仅 per-command 静态判定。触发条件：owner 撞 1 次"误点 delete"。**当前决定：decline** — fixture harness 样本盲点；35 场景剩 9 次非 read-only approval 已能表达摩擦；扩 fixture 成本高于潜在价值。详见 [`docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`](docs/superpowers/notes/2026-09-09-d51-decline-gaps.md)。
-- **LLM 输出质量量化 (declined, 2026-09-09 D51)**：结构根因：temperature model 单 round snapshot 不构成稳定 baseline；多 round + prompt freeze 才能稳定，但 4 min × N round 成本。**当前决定：decline** — 方法论限制 + v8 3/3 REVERT 同源风险；待 owner 实测撞"B 类某场景答错了"且能固化 multi-round methodology 才重新评估。
+- **独立 Task 聚合**：Owner 需要跨对话的任务板，且 Conversation/Run 查询无法表达待办生命周期；**triggered (D22 已 ship, 状态稳定)**；**D53c re-eval (2026-09-11)**: 0 新 evidence, 状态保持。
+- **Procedure 模板**：至少两个已批准场景无法由普通线性/条件 Step 表达；通用 DAG、并行合并与 Channel reducer 仍更后；**triggered (D22 已 ship, 状态稳定)**；**D53c re-eval (2026-09-11)**: 0 新 evidence, 状态保持。
+- **Durable Memory / Project Knowledge 表**：真实召回或资料管理需求出现，且 Transcript 不够 — 🟡 ship 全闭环 + G3 batch UI（2026-09-01 D39）+ G1 expires cleanup（2026-09-01 D40）+ G2 candidate dedup（2026-09-01 D41）+ G4 candidate auto-promote（2026-09-01 D42）+ **G5 跨 project recall（2026-09-02 D43）**；**D53c re-eval (2026-09-11)**: D39-D43 §12 G3-G5 走 trigram Jaccard / listBySubject, 足够, 不构 §18 row 3 trigger, 状态保持 🟡。
+- **并发资源锁**：出现必须独占的 workspace 或设备冲突；**D53c re-eval (2026-09-11)**: 0 新 evidence, 状态保持。
+- **局部 Projection**：具体查询无法在目标延迟内完成；**D53c re-eval (2026-09-11)**: 0 新 evidence, 状态保持。
+- **Snapshot**：运行历史加载 p95 超过预算且无法通过普通索引解决；**D53c re-eval (2026-09-11)**: 状态保持 not trigger；D53a baseline snapshot 是 test artifact 非 prod API, 不构 trigger。
+- **向量检索**：结构化/全文检索在真实语料上召回不足；**D53c re-eval (2026-09-11)**: 0 新 evidence, 状态保持。
+- **浏览器能力**：Policy Gate、Grant 和网络沙箱已经稳定；R16 (bubblewrap 2026-08-28 partial) unchanged；**D53c re-eval (2026-09-11)**: 0 新 evidence, 状态保持半 trigger。
+- **第二 Channel**：微信被证明是场景瓶颈；**D53c re-eval (2026-09-11)**: 状态保持半 trigger, wechat 方向 D49 (chain intent) / B (session digest `076a0b45`) / C (sweeper push `68dc2bbe`) 扩面；slack skeleton, telegram 未触及。
+- **外部 OTEL**：本地 trace 无法定位生产问题；**D53c re-eval (2026-09-11)**: 0 新 evidence, 状态保持。
+- **独立 Worker/Broker**：单进程资源或故障隔离实测不足；**D53c re-eval (2026-09-11)**: 0 新 evidence, 状态保持。
+- **信任模式 / Approval 羊群效应 (declined, 2026-09-09 D51)**：高频 Approval 触发会降低 owner 对真危险操作的警觉（肌肉记忆）。结构根因：policy-gate 无 trust 模式，仅 per-command 静态判定。触发条件：owner 撞 1 次"误点 delete"。**当前决定：decline** — fixture harness 样本盲点；35 场景剩 9 次非 read-only approval 已能表达摩擦；扩 fixture 成本高于潜在价值。详见 [`docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`](docs/superpowers/notes/2026-09-09-d51-decline-gaps.md)。**D53c re-eval (2026-09-11)**: 无新 evidence, 状态保持 declined (D44 P0 inline-approval `69dc924c` y/👌/✅/👍/❌/👎 真实 resume 修相邻, 不构 trust mode trigger)。
+- **LLM 输出质量量化 (declined, 2026-09-09 D51)**：结构根因：temperature model 单 round snapshot 不构成稳定 baseline；多 round + prompt freeze 才能稳定，但 4 min × N round 成本。**当前决定：decline** — 方法论限制 + v8 3/3 REVERT 同源风险；待 owner 实测撞"B 类某场景答错了"且能固化 multi-round methodology 才重新评估。**D53c re-eval (2026-09-11)**: 无新 evidence, D53a 是 verification methodology 不量化质量 (D53a §7 line 182-183 explicit "协议不解决'什么算质量'"), 状态保持 declined。
+
+完整 deferral reeval 见 [`docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md`](docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md)。
 
 没有触发证据时，不进入路线图。
 

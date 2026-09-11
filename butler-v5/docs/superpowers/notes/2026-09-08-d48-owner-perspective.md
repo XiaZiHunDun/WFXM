@@ -97,8 +97,8 @@
 - **现象**：D46 F1+F2 覆盖单 tool 写撤销（`popMostRecentWrite` + `resetUndoStack`）。D1 场景"写 → 跑 test → 失败 → 修 → 再跑"是 5 步链，撤销仅覆盖第 1 步写。
 - **owner 视角**：35 场景没出现"撤销多步"，但撞到会很惨——5 步链中间某步出错，owner 想回到第 1 步前的状态，bot 答"已撤销第 1 步的 helper.ts"，但中间 4 步的副作用还在。
 - **结构根因**：当前 `UNDO_STACK` 只 track `write_file`，不 track `run_command` / `apply_patch` / 多 write 组合。
-- **当前状态**：未识别为 gap。35 场景没暴露是因为 owner 没真撞。
-- **触发条件**：owner 实测 1 周后撞 1 次"撤销刚才那 5 步"。
+- **当前状态**：shipped via D49 owner-撞点 protocol + D52 acceptance lock (5 chain-undo scenarios: D2-chain-approval / D3-chain-commands / D4-chain-cross-conv / D5-chain-restart / D1-chain-extension)。D51 line 19 table 标 "shipped" 是 SSOT；本 doc 文字先前为 "未识别" (drift, D53c fix)。D49 ship claim vs impl drift (5-type 缺 3 / 6-phrase 缺 1 / memory "invertible flag" 不存在) D52 acceptance observed, D51 protocol 不修, route to D54。
+- **触发条件**：✅ 已 hit (2026-09-09 D49, owner-撞点 protocol 启动)。D48 笔记时未识别为 gap, D51 table flip 到 "shipped" 时未同步 text (drift, D53c 闭环)。
 
 ---
 
@@ -172,9 +172,9 @@
 |---|---|---|
 | Owner 真撞 P0/P1/P2/P3 新 gap | `pnpm diff:real-llm` 跑出 aggregate 退化 → 启动 D49 | ⬜ 等触发 |
 | B10/D5 owner 视角个性化撞点 | §18 row 3 (low ROI) | ⬜ 等 owner 撞 |
-| multi-tool chain 撤销 (3.3) | owner 撞 1 次"撤销 5 步" | ⬜ 等触发 |
-| approval 羊群效应 (3.1) | owner 撞 1 次"误点确认" | × declined (D51) |
-| 真实 LLM 质量量化 (3.2) | owner 撞 1 次"答错了" | × declined (D51) |
+| multi-tool chain 撤销 (3.3) | owner 撞 1 次"撤销 5 步" | ✅ shipped (D49, 2026-09-09) — D53c re-eval (2026-09-11) |
+| approval 羊群效应 (3.1) | owner 撞 1 次"误点确认" | × declined (D51, 2026-09-09) — D53c re-eval (2026-09-11) unchanged |
+| 真实 LLM 质量量化 (3.2) | owner 撞 1 次"答错了" | × declined (D51, 2026-09-09) — D53c re-eval (2026-09-11) unchanged |
 | D47 fixture-recording | 同源风险 v8 3/3 REVERT | ⚠️ 需固化 multi-round + prompt freeze |
 | D48 owner 实测 1 周笔记 | v8 candidate D (本笔记第 5 节) | ✅ 当前 |
 | §18 5 项延后 | trigger guard | ⬜ 等 owner |
