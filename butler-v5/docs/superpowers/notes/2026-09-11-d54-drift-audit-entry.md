@@ -13,6 +13,7 @@
 1. **D49 5-type 缺口** — impl 2 类 ChainEntry (write_file + run_command), spec 5 类 (write_file/edit_file/run_command/apply_patch/delete_file). D52 acceptance harness observed 5-type 缺口, D51 协议不修, route to D54.
 2. **D49 6→5 phrases 缺口** — 缺 "撤销这批" 短语 (D49 spec 列 6, impl regex 实际 5+). D52 观察, D51 协议不修.
 3. **memory "invertible flag" 不存在** — D49 spec 描述 `invertible: true` 字段 (表明可逆), impl 无此字段 (apps/api/src/workspace-tools.ts:35-41). D52 观察, D51 协议不修. **D54 decision: formalize (delete spec mention) or implement (add field).**
+   - **D54 T5 closure (2026-09-11)**: 全文 grep `invertible` in `docs/superpowers/specs/2026-09-09-d49-multi-tool-chain-undo-design.md` → 0 hits。spec 实际上从未声明 `invertible: true` 字段 — 该 drift 在 spec 中不存在, 是 audit 误报 (`apps/api/src/workspace-tools.ts:35-41` 是 ALLOWED_RUN_COMMANDS 数组常量, 不是 `invertible` 字段位置)。**formalize 选择**: 在 D49 spec §4.6 加 "Per-kind Revert Semantics (no `invertible` flag)" 段, SSOT lock per-kind 行为 (write/edit/delete fully reversible; patch best-effort; command non-invertible) + 解释为什么故意不引入 boolean 字段。这把 audit 误报 lock 在 spec 中, 防后续 drift 重现。
 4. **D52 acceptance harness 观察 ship claim vs impl drift** — D49 spec vs impl 5-type / 6-phrase / invertible 偏差. D51 协议不修, route to D54.
 5. **D49-D53 期间新发现 drift** — D54 实施时 scan 发现 (D53a/b 已 ship, 可能引入新 drift).
 

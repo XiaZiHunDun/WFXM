@@ -42,17 +42,46 @@ inbound wechat message
 ### 2.1 新增类型（`workspace-tools.ts`）
 
 ```typescript
-/** Chain = single inbound Run (LLM turn + approval cycles). chainId = runId. */
+/**
+ * Chain = single inbound Run (LLM turn + approval cycles). chainId = runId.
+ *
+ * Revert semantics are per-kind — there is intentionally NO `invertible: true`
+ * boolean field. See §4.6 for the explicit per-kind revert matrix (some kinds
+ * are fully reversible from `beforeContent`, others are best-effort or
+ * non-invertible; the revert function dispatches on `kind` rather than reading
+ * a flag).
+ */
 export type ChainEntry =
   | {
-      readonly kind: "write"
-      readonly path: string // absolute
+      readonly kind: "write"          // D49 initial: write_file
+      readonly path: string           // absolute
       readonly beforeContent: string | null // null = new file
       readonly tool: "write_file"
-      readonly pushedAt: number // monotonic counter (= UNDO_TOUCH_COUNTER)
+      readonly pushedAt: number        // monotonic counter (= UNDO_TOUCH_COUNTER)
     }
   | {
-      readonly kind: "command"
+      readonly kind: "edit"           // D54 T1: edit_file (added post-D49 ship)
+      readonly path: string
+      readonly beforeContent: string | null // null = file newly created by edit
+      readonly tool: "edit_file"
+      readonly pushedAt: number
+    }
+  | {
+      readonly kind: "patch"          // D54 T2: apply_patch (added post-D49 ship)
+      readonly path: string
+      readonly beforeContent: string | null // null = no snapshot captured
+      readonly tool: "apply_patch"
+      readonly pushedAt: number
+    }
+  | {
+      readonly kind: "delete"         // D54 T3: delete_file (added post-D49 ship)
+      readonly path: string
+      readonly beforeContent: string | null // null = no snapshot captured
+      readonly tool: "delete_file"
+      readonly pushedAt: number
+    }
+  | {
+      readonly kind: "command"        // D49 initial: run_command (non-invertible; reported as side-effect)
       readonly argv: readonly string[]
       readonly cwd: string
       readonly gitStatusBeforeHash: string | null // git rev-parse HEAD; null if not git / fails
@@ -255,10 +284,23 @@ undoChain(chainId):
     ↓
     for entry in reversed(entries):
       switch entry.kind:
-        case "write":
+        case "write":                            // D49
           try writeFileSync(entry.path, entry.beforeContent ?? "")
           catch err: reverted.push({ entry, ok: false, reason: err.message })
-        case "command":
+        case "edit":                             // D54 T1
+          if entry.beforeContent === null:
+            try unlinkSync(entry.path)           // 新建 → 删除
+            catch ENOENT: ok=true (already gone)
+          else writeFileSync(entry.path, entry.beforeContent)
+        case "patch":                            // D54 T2 (best-effort)
+          if entry.beforeContent === null:
+            reverted.push({ entry, ok: false, reason: "no before state captured" })
+          else try writeFileSync(entry.path, entry.beforeContent)
+        case "delete":                           // D54 T3
+          if entry.beforeContent === null:
+            reverted.push({ entry, ok: false, reason: "no before state captured" })
+          else try writeFileSync(entry.path, entry.beforeContent)  // 重建
+        case "command":                          // D49 (non-invertible)
           commandSideEffects.push({ argv, note: "无法自动 undo，需手工 reverse" })
     ↓
     DELETE UNDO_CHAIN[chainId]   // chain consumed even on partial failure
@@ -296,6 +338,28 @@ undoChain(chainId):
 - 进程重启 = UNDO_CHAIN 全清 → chain undo 失效
 - owner 可 `git diff` 查 pending changes（已有 comment）
 - D46 已承认此限制；D49 不引入新持久化层
+
+### 4.6 Per-kind Revert Semantics (no `invertible` flag)
+
+D49 design 故意 **不引入 `invertible: true` boolean 字段** on `ChainEntry`。Revert 语义 dispatch on `entry.kind`，而非读 flag。Per-kind revert 矩阵：
+
+| `kind` | 源 tool | revert 机制 | 副作用保证 |
+|---|---|---|---|
+| `"write"` | `write_file` | `writeFileSync(path, beforeContent ?? "")`；null beforeContent（新文件）→ 写空串 | ✅ best-effort；失败记 `ok: false, reason` |
+| `"edit"` | `edit_file` | null beforeContent（新文件由 edit 创建）→ `unlinkSync` 删除；否则 `writeFileSync(path, beforeContent)` | ✅ best-effort；ENOENT 视为 ok |
+| `"patch"` | `apply_patch` | null beforeContent → 不可 revert（记 `reason: "no before state captured"`）；否则 `writeFileSync(path, beforeContent)`（不 apply `-R`，仅 snapshot 还原） | ⚠️ best-effort；非 -R 反向 patch |
+| `"delete"` | `delete_file` | null beforeContent → 不可 revert（记 `reason`）；否则 `writeFileSync(path, beforeContent)` 重建 | ✅ best-effort；失败记 `ok: false, reason` |
+| `"command"` | `run_command` | **不可自动 revert** → push `commandSideEffects` 列表，note: "无法自动 undo，需手工 reverse" | ❌ 非 invertible；owner 需手工 reverse |
+
+**为什么没有 `invertible` flag**：
+1. **类型即文档**：`kind` literal union 已经是 exhaustive，dispatch 在 type system 层强制；额外 boolean 字段是冗余且易漂移
+2. **per-kind 行为差异**：5 种 kind 中 3 种 fully reversible（write/edit/delete，snapshot 完整），1 种 best-effort（patch，-R patch 不实现），1 种 non-invertible（command）—— boolean 字段会丢失这种细粒度语义
+3. **D54 audit 闭环**：drift audit (D54 entry line 15) 报告 "memory `invertible flag` 不存在" — 该 drift 在 D49 spec 中不存在，是 audit 误报；本节作为 SSOT lock per-kind 行为，防止后续 audit 重复出现
+
+**Owner 视角**：
+- write/edit/delete = "撤销这轮" 会自动还原文件内容
+- apply_patch = "撤销这轮" 会还原到 before snapshot（patch 文本不反演，仅内容还原）
+- run_command = "撤销这轮" **不会**自动 undo；reply 列表 command 副作用提示 "无法自动 undo，需手工 reverse"
 
 ---
 
