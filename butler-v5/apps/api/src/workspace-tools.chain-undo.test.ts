@@ -8,6 +8,7 @@ import {
   resetUndoChain,
   resetUndoStack,
   undoChain,
+  UNDO_CHAIN_FOR_TEST,
 } from "./workspace-tools.js"
 
 let TMP: string
@@ -152,5 +153,51 @@ describe("D49 chain undo — resetUndoChain", () => {
 
     resetUndoChain()
     expect(undoChain("run-x")).toBeUndefined()
+  })
+})
+
+describe("D54 chain undo — edit_file push", () => {
+  it("E1: undoChain reverts edit_file entry by restoring beforeContent", async () => {
+    const chainId = "run-edit-1"
+    const path = join(TMP, "edit.txt")
+    const beforeContent = "line 1\nline 2\n"
+    const afterContent = "line 1\nline 2 modified\n"
+
+    // Simulate edit_file: file starts at beforeContent, edit moves it to afterContent.
+    writeFileSync(path, afterContent, "utf8")
+
+    // Manually push an edit_file ChainEntry (no makeEditFileTool yet).
+    const chain = UNDO_CHAIN_FOR_TEST.get(chainId) ?? []
+    chain.push({
+      kind: "edit",
+      path,
+      beforeContent,
+      afterContent,
+      tool: "edit_file",
+      pushedAt: Date.now(),
+    })
+    UNDO_CHAIN_FOR_TEST.set(chainId, chain)
+
+    // Verify entry stored
+    const stored = UNDO_CHAIN_FOR_TEST.get(chainId)
+    expect(stored).toHaveLength(1)
+    expect(stored?.[0]?.kind).toBe("edit")
+    if (stored?.[0]?.kind === "edit") {
+      expect(stored[0].path).toBe(path)
+      expect(stored[0].beforeContent).toBe(beforeContent)
+      expect(stored[0].afterContent).toBe(afterContent)
+      expect(stored[0].tool).toBe("edit_file")
+    }
+
+    // Revert
+    const result = undoChain(chainId)
+    expect(result).toBeDefined()
+    if (!result) return
+    expect(result.reverted).toHaveLength(1)
+    expect(result.reverted[0]?.ok).toBe(true)
+    expect(result.reverted[0]?.entry.kind).toBe("edit")
+
+    // Verify file content restored
+    expect(readFileSync(path, "utf8")).toBe(beforeContent)
   })
 })

@@ -9,7 +9,7 @@
  * Failures return `{ ok: false, reason }` — no throw.
  */
 import { execFile, spawn } from "node:child_process"
-import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import { isAbsolute, relative, resolve } from "node:path"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
@@ -317,6 +317,14 @@ type ChainEntry =
       readonly pushedAt: number
     }
   | {
+      readonly kind: "edit"
+      readonly path: string
+      readonly beforeContent: string | null
+      readonly afterContent: string | null
+      readonly tool: "edit_file"
+      readonly pushedAt: number
+    }
+  | {
       readonly kind: "command"
       readonly argv: readonly string[]
       readonly cwd: string
@@ -500,6 +508,29 @@ export function undoChain(chainId: string): ChainRevertResult | undefined {
       try {
         if (entry.beforeContent === null) {
           writeFileSync(entry.path, "", "utf8")
+        } else {
+          mkdirSync(dirname(entry.path), { recursive: true })
+          writeFileSync(entry.path, entry.beforeContent, "utf8")
+        }
+        reverted.push({ entry, ok: true })
+      } catch (err) {
+        reverted.push({
+          entry,
+          ok: false,
+          reason: err instanceof Error ? err.message : String(err),
+        })
+      }
+    } else if (entry.kind === "edit") {
+      // D54: edit_file revert — restore beforeContent.
+      // null beforeContent = file was newly created by this edit; revert by deleting.
+      try {
+        if (entry.beforeContent === null) {
+          try {
+            unlinkSync(entry.path)
+          } catch (unlinkErr) {
+            // ENOENT is fine — already gone
+            if ((unlinkErr as NodeJS.ErrnoException).code !== "ENOENT") throw unlinkErr
+          }
         } else {
           mkdirSync(dirname(entry.path), { recursive: true })
           writeFileSync(entry.path, entry.beforeContent, "utf8")
