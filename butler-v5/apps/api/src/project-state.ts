@@ -27,7 +27,7 @@ type ProjectStateStore = Record<string, ProjectStateRecord>
 
 const DEFAULT_STORE_PATH = join(homedir(), ".config", "butler-v5", "project-state.json")
 
-export function projectStateStorePath(env: NodeJS.ProcessEnv = process.env): string {
+function projectStateStorePath(env: NodeJS.ProcessEnv = process.env): string {
   const configured = (env["BUTLER_V5_PROJECT_STATE_STORE"] ?? "").trim()
   return configured || DEFAULT_STORE_PATH
 }

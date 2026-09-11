@@ -26,7 +26,7 @@ export function channelOutboundMediaEnabled(env: NodeJS.ProcessEnv = process.env
   return envTruthy(env["BUTLER_V5_CHANNEL_OUTBOUND_MEDIA"])
 }
 
-export function mediaKindForPath(filePath: string): "image" | "file" {
+function mediaKindForPath(filePath: string): "image" | "file" {
   const lower = filePath.toLowerCase()
   for (const ext of IMAGE_EXT) {
     if (lower.endsWith(ext)) return "image"
@@ -54,7 +54,7 @@ export function parseChannelOutboundMedia(reply: string): ParsedChannelOutbound 
   return { text, attachments }
 }
 
-export function allowedOutboundMediaRoots(env: NodeJS.ProcessEnv = process.env): readonly string[] {
+function allowedOutboundMediaRoots(env: NodeJS.ProcessEnv = process.env): readonly string[] {
   const roots = [resolve(process.cwd()), resolve(process.cwd(), ".butler-v5")]
   const workspace = (env["BUTLER_V5_WORKSPACE"] ?? "").trim()
   if (workspace) roots.push(resolve(workspace))

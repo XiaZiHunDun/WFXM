@@ -36,7 +36,7 @@ export function parseCsvIds(raw: string | undefined): string[] {
     .filter((part) => part.length > 0)
 }
 
-export function parseDmPolicy(raw: string | undefined): DmPolicy {
+function parseDmPolicy(raw: string | undefined): DmPolicy {
   const policy = (raw ?? "open").trim().toLowerCase()
   if (policy === "allowlist" || policy === "disabled" || policy === "open") {
     return policy

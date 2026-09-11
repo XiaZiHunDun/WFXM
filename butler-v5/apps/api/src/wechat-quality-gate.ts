@@ -26,7 +26,7 @@ function workspaceRootFromEnv(env: NodeJS.ProcessEnv): string {
   return (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim() || process.cwd()
 }
 
-export function qualityGateConfigPath(env: NodeJS.ProcessEnv = process.env): string {
+function qualityGateConfigPath(env: NodeJS.ProcessEnv = process.env): string {
   const configured = (env["BUTLER_V5_QUALITY_GATE_CONFIG"] ?? "").trim()
   if (configured) return configured
   return resolve(process.cwd(), "config/quality-gate.json")

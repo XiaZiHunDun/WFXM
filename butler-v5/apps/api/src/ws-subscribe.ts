@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto"
 
-export const DEFAULT_SUBSCRIBE_TTL_MS = 3_600_000
+const DEFAULT_SUBSCRIBE_TTL_MS = 3_600_000
 
 export type SubscribeRecord = {
   readonly conversationId: string

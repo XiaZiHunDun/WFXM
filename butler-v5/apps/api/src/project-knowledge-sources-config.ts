@@ -14,7 +14,7 @@ export type ProjectKnowledgeSourcesLoadResult =
   | { readonly kind: "loaded"; readonly manifest: ProjectKnowledgeSourcesManifest }
   | { readonly kind: "error"; readonly reason: string }
 
-export function projectKnowledgeSourcesPathFromEnv(
+function projectKnowledgeSourcesPathFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
   const raw = (env["BUTLER_V5_PROJECT_KNOWLEDGE_SOURCES_PATH"] ?? "").trim()
@@ -22,7 +22,7 @@ export function projectKnowledgeSourcesPathFromEnv(
   return "config/project-knowledge-sources.json"
 }
 
-export function loadProjectKnowledgeSourcesFromPath(
+function loadProjectKnowledgeSourcesFromPath(
   path: string,
 ): ProjectKnowledgeSourcesLoadResult {
   try {

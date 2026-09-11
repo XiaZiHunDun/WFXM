@@ -72,7 +72,7 @@ export function parseScheduleJobsJson(text: string): readonly ScheduleJobSpec[] 
   return jobs
 }
 
-export function loadScheduleJobsFromPath(path: string): readonly ScheduleJobSpec[] {
+function loadScheduleJobsFromPath(path: string): readonly ScheduleJobSpec[] {
   try {
     const text = readFileSync(path, "utf8")
     return parseScheduleJobsJson(text)

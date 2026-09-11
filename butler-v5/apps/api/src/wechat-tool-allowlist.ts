@@ -75,7 +75,7 @@ export function loadWechatToolAllowlistFromPath(path: string): WechatToolAllowli
   }
 }
 
-export function wechatToolAllowlistPath(env: NodeJS.ProcessEnv = process.env): string {
+function wechatToolAllowlistPath(env: NodeJS.ProcessEnv = process.env): string {
   return (env["BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH"] ?? "").trim()
 }
 

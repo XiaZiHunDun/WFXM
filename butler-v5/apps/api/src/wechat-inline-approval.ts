@@ -10,7 +10,7 @@ import { resolveOwnerSubject } from "./tool-boundary.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
 
-export function canRespondToInlineApproval(
+function canRespondToInlineApproval(
   fromUserId: string,
   pendingSubject: string,
   env: NodeJS.ProcessEnv,

@@ -6,7 +6,7 @@ export function pkcs7Pad(data: Buffer, blockSize = 16): Buffer {
   return Buffer.concat([data, Buffer.alloc(padLen, padLen)])
 }
 
-export function pkcs7Unpad(padded: Buffer): Buffer {
+function pkcs7Unpad(padded: Buffer): Buffer {
   if (padded.length === 0) return padded
   const padLen = padded[padded.length - 1]
   if (padLen === undefined || padLen < 1 || padLen > 16) return padded

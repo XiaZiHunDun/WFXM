@@ -229,7 +229,7 @@ function delay(ms: number): Promise<void> {
   })
 }
 
-export function startIlinkPoller(
+function startIlinkPoller(
   config: IlinkPollerConfig,
   opts: {
     readonly fetch?: typeof fetch

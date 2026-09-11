@@ -19,7 +19,7 @@ export type DevVerifyResult = {
   readonly durationMs: number
 }
 
-export function isDevVerifyAutoEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+function isDevVerifyAutoEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = (env["BUTLER_V5_DEV_VERIFY_ENABLED"] ?? "1").trim().toLowerCase()
   return raw !== "0" && raw !== "false" && raw !== "off"
 }
@@ -29,7 +29,7 @@ export function isDevVerifyInlineEnabled(env: NodeJS.ProcessEnv = process.env): 
   return envTruthy(env["BUTLER_V5_DEV_VERIFY_INLINE"])
 }
 
-export function workspaceRootFromEnv(env: NodeJS.ProcessEnv = process.env): string {
+function workspaceRootFromEnv(env: NodeJS.ProcessEnv = process.env): string {
   return (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim() || process.cwd()
 }
 
@@ -61,7 +61,7 @@ export function resolveDevVerifyArgv(env: NodeJS.ProcessEnv = process.env): read
   return ["pnpm", "test"]
 }
 
-export function devVerifyTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+function devVerifyTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
   const raw = Number(env["BUTLER_V5_DEV_VERIFY_TIMEOUT_MS"] ?? 300_000)
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 300_000
 }
@@ -71,7 +71,7 @@ function truncate(text: string, max: number): string {
   return `${text.slice(0, max)}…`
 }
 
-export async function runArgv(args: {
+async function runArgv(args: {
   readonly argv: readonly string[]
   readonly cwd: string
   readonly timeoutMs: number
@@ -123,7 +123,7 @@ export async function runArgv(args: {
   })
 }
 
-export async function listGitTouchedPaths(args: {
+async function listGitTouchedPaths(args: {
   readonly cwd: string
   readonly env?: NodeJS.ProcessEnv
   readonly limit?: number
@@ -173,7 +173,7 @@ export async function listGitTouchedPaths(args: {
   return [...merged].slice(0, limit)
 }
 
-export async function resolveGitBranch(args: {
+async function resolveGitBranch(args: {
   readonly cwd: string
   readonly env?: NodeJS.ProcessEnv
   readonly audit?: ExecAuditContext
@@ -190,7 +190,7 @@ export async function resolveGitBranch(args: {
   return branch.length > 0 ? branch : undefined
 }
 
-export async function runDevVerify(args: {
+async function runDevVerify(args: {
   readonly projectId: string
   readonly env?: NodeJS.ProcessEnv
   readonly audit?: ExecAuditContext
@@ -262,7 +262,7 @@ export function formatDevQualityReply(args: {
   return lines.join("\n")
 }
 
-export function loopUsedDirectExecTools(loop: Pick<ButlerLoopResult, "traces">): boolean {
+function loopUsedDirectExecTools(loop: Pick<ButlerLoopResult, "traces">): boolean {
   return loop.traces.some((t) => t.startsWith("write_file@") || t.startsWith("run_command@"))
 }
 

@@ -56,7 +56,7 @@ export interface WorkspaceToolContext {
 }
 
 /** Normalize `credentials`/`argv`-style name lists from tool args to valid names. */
-export function normalizeCredentialNames(raw: unknown): readonly string[] {
+function normalizeCredentialNames(raw: unknown): readonly string[] {
   if (!Array.isArray(raw)) return []
   const out: string[] = []
   for (const entry of raw) {
@@ -77,7 +77,7 @@ export function workspaceRootFrom(ctx?: WorkspaceToolContext): string {
 }
 
 /** Narrow workspace for bubblewrap+slirp runs (monorepo root bind can hang/fail). */
-export function sandboxWorkspaceRootFrom(ctx?: WorkspaceToolContext): string {
+function sandboxWorkspaceRootFrom(ctx?: WorkspaceToolContext): string {
   const dedicated = process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"]?.trim()
   if (dedicated) return dedicated
   return workspaceRootFrom(ctx)
@@ -471,12 +471,6 @@ export function popMostRecentWrite(): { path: string; content: string | null } |
     UNDO_TOUCHED.delete(bestPath)
   }
   return { path: bestPath, content }
-}
-
-/** Number of pending undo entries for `path` (for diagnostics). */
-export function pendingUndoCount(workspaceRoot: string, path: string): number {
-  const resolved = resolve(workspaceRoot, path)
-  return UNDO_STACK.get(resolved)?.length ?? 0
 }
 
 /** Reset undo stack (test-only). Clears all paths + touch counters. */

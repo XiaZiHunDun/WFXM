@@ -29,7 +29,7 @@ function workspaceRootFromEnv(env: NodeJS.ProcessEnv): string {
   return (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim() || process.cwd()
 }
 
-export function wechatProjectPathsConfigPath(env: NodeJS.ProcessEnv = process.env): string {
+function wechatProjectPathsConfigPath(env: NodeJS.ProcessEnv = process.env): string {
   const configured = (env["BUTLER_V5_WECHAT_PROJECT_PATHS"] ?? "").trim()
   if (configured) return configured
   return resolve(process.cwd(), "config/wechat-project-paths.json")
@@ -50,7 +50,7 @@ export function loadWechatProjectPathsConfig(
   }
 }
 
-export function projectPathEntry(
+function projectPathEntry(
   inboundProjectId: string,
   env: NodeJS.ProcessEnv = process.env,
 ): WechatProjectPathEntry | undefined {

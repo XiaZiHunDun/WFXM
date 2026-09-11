@@ -49,7 +49,7 @@ function parseTimeoutMs(env: NodeJS.ProcessEnv): number {
   return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000
 }
 
-export function parseMcpStdioArgs(
+function parseMcpStdioArgs(
   env: NodeJS.ProcessEnv,
   manifestServer?: McpManifestServer | null,
   serverId?: string,

@@ -10,11 +10,11 @@ import type {
 export type { ChannelInboundMedia, ChannelMediaContent, ChannelMediaKind }
 
 
-export function telegramMediaCacheEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+function telegramMediaCacheEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_TELEGRAM_MEDIA_CACHE"])
 }
 
-export function telegramMediaCacheDir(env: NodeJS.ProcessEnv = process.env): string {
+function telegramMediaCacheDir(env: NodeJS.ProcessEnv = process.env): string {
   const custom = (env["BUTLER_V5_TELEGRAM_MEDIA_DIR"] ?? "").trim()
   if (custom) return custom
   return join(process.cwd(), ".butler-v5", "telegram-media")
@@ -162,7 +162,7 @@ export async function downloadTelegramFile(config: {
   }
 }
 
-export function telegramMediaMaxBytes(env: NodeJS.ProcessEnv = process.env): number {
+function telegramMediaMaxBytes(env: NodeJS.ProcessEnv = process.env): number {
   const raw = Number(env["BUTLER_V5_TELEGRAM_MEDIA_MAX_BYTES"] ?? 8 * 1024 * 1024)
   return Number.isFinite(raw) && raw > 0 ? raw : 8 * 1024 * 1024
 }

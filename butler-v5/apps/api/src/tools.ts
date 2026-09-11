@@ -87,7 +87,7 @@ type ToolHistory =
  * Prefer 0002 `messages` when BUTLER_V5_READ_MODEL is hybrid/relational
  * and RuntimeStore is wired; otherwise fall back to event_store.
  */
-export async function loadToolConversationHistory(ctx: ButlerToolContext): Promise<ToolHistory> {
+async function loadToolConversationHistory(ctx: ButlerToolContext): Promise<ToolHistory> {
   const source = resolveReadModelSource(ctx.env ?? process.env)
   if (source !== "event_store" && ctx.runtimeStore) {
     const messages = await ctx.runtimeStore.listMessages(ctx.conversationId)
@@ -591,7 +591,7 @@ export function makeRecallDurableMemoryTool(ctx: ButlerToolContext): ToolDefinit
  * `recall_document` — keyword recall over ingested documents (extracted text).
  * Not a vector index; does not invent documents.
  */
-export function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
+function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
   return makeTool("recall_document", "low", async (args) => {
     const store = ctx.documentStore
     if (!store) {

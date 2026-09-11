@@ -131,7 +131,7 @@ function registerSubscriber(conversationId: string, ws: WsWebSocket): () => void
   }
 }
 
-export function extractQueryParam(url: string, name: string): string {
+function extractQueryParam(url: string, name: string): string {
   const qIndex = url.indexOf("?")
   if (qIndex < 0) return ""
   const query = url.slice(qIndex + 1)
@@ -163,7 +163,7 @@ export type WsIdentity =
   | { readonly ok: true; readonly conversationId: string }
   | { readonly ok: false; readonly reason: string }
 
-export function resolveWsIdentity(url: string): WsIdentity {
+function resolveWsIdentity(url: string): WsIdentity {
   const token = extractQueryParam(url, "token")
   const conversationId = extractConversationId(url)
   if (token) {

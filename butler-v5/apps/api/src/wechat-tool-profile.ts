@@ -11,9 +11,9 @@ export type WechatIntakeIntentKind =
   | "continue_dev"
   | "task_digest"
 
-export const EXEC_TOOL_NAMES = ["run_command", "write_file"] as const
+const EXEC_TOOL_NAMES = ["run_command", "write_file"] as const
 
-export function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
+function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
   const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name)
   if (isSubagentEnabled(env)) return names
   return names.filter((n) => n !== "delegate_to_subagent")

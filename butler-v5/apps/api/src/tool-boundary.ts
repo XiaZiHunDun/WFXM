@@ -24,17 +24,17 @@ import { isMcpReadonlyAutoAllowEnabled } from "./mcp-readonly-policy.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { devSessionRunId } from "./dev-session-grant.js"
 
-export const DEFAULT_TOOL_TIMEOUT_MS = 5_000
-export const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
+const DEFAULT_TOOL_TIMEOUT_MS = 5_000
+const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
 /** Slirp allowlist (unshare + slirp4netns + iptables) needs well above the default 5s tool budget. */
-export const RUN_COMMAND_SLIRP_TIMEOUT_MS = 120_000
+const RUN_COMMAND_SLIRP_TIMEOUT_MS = 120_000
 
 function mcpToolTimeoutMs(): number {
   const timeoutMs = Number(process.env["BUTLER_V5_MCP_TIMEOUT_MS"] ?? 30_000)
   return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000
 }
 
-export function runCommandTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+function runCommandTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
   const raw = env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"]?.trim()
   if (raw) {
     const parsed = Number(raw)

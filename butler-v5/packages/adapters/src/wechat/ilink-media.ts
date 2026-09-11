@@ -10,7 +10,6 @@ import {
   type ILinkResult,
 } from "./ilink-protocol.js"
 
-export { WECHAT_OUTBOUND_NETWORK_HOSTS } from "@butler/domain/governance/wechat-network-hosts.js"
 import { WECHAT_OUTBOUND_NETWORK_HOST_SET } from "@butler/domain/governance/wechat-network-hosts.js"
 
 export const DEFAULT_WECHAT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
@@ -114,7 +113,7 @@ export function assertWechatCdnUrl(url: string): ILinkResult<URL> {
   return { ok: true, value: parsed }
 }
 
-export function cdnDownloadUrl(cdnBaseUrl: string, encryptedQueryParam: string): string {
+function cdnDownloadUrl(cdnBaseUrl: string, encryptedQueryParam: string): string {
   const base = cdnBaseUrl.replace(/\/+$/, "")
   return `${base}/download?encrypted_query_param=${encodeURIComponent(encryptedQueryParam)}`
 }

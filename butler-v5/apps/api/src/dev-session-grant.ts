@@ -10,7 +10,7 @@ import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { issuePreconfiguredGrants } from "@butler/runtime/scoped-grant-service.js"
 import { resolveOwnerSubject } from "./tool-boundary.js"
 
-export const DEV_SESSION_TOOLS = ["run_command", "write_file"] as const
+const DEV_SESSION_TOOLS = ["run_command", "write_file"] as const
 
 const DEFAULT_TTL_MINUTES = 30
 const DEFAULT_MAX_USES = 50
@@ -29,7 +29,7 @@ export function devSessionRunId(subject: string): string {
   ].join("-")
 }
 
-export function devSessionConversationId(subject: string): string {
+function devSessionConversationId(subject: string): string {
   return `c-dev-session-${subject.trim()}`
 }
 
@@ -44,13 +44,13 @@ export function isDevSessionPhrase(content: string): boolean {
   )
 }
 
-export function devSessionTtlMs(env: NodeJS.ProcessEnv = process.env): number {
+function devSessionTtlMs(env: NodeJS.ProcessEnv = process.env): number {
   const raw = Number(env["BUTLER_V5_DEV_SESSION_GRANT_MINUTES"] ?? DEFAULT_TTL_MINUTES)
   const minutes = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TTL_MINUTES
   return minutes * 60 * 1000
 }
 
-export function devSessionMaxUses(env: NodeJS.ProcessEnv = process.env): number {
+function devSessionMaxUses(env: NodeJS.ProcessEnv = process.env): number {
   const raw = Number(env["BUTLER_V5_DEV_SESSION_MAX_USES"] ?? DEFAULT_MAX_USES)
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_MAX_USES
 }

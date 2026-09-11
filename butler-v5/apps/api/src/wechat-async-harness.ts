@@ -17,7 +17,7 @@ export async function waitForCondition(
   return predicate()
 }
 
-export function readMockNotifyOutbox(path: string): readonly Record<string, unknown>[] {
+function readMockNotifyOutbox(path: string): readonly Record<string, unknown>[] {
   if (!existsSync(path)) return []
   return readFileSync(path, "utf8")
     .split("\n")
