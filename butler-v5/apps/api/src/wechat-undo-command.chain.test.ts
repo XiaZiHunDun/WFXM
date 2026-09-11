@@ -50,6 +50,22 @@ describe("D49 wechat-undo-command chain branch", () => {
     }
   })
 
+  it("D54-T4: '撤销这批' phrase matches chain intent regex (D49 6-phrase spec full ✓)", async () => {
+    const phrases = ["撤销这批", "撤销这批 "]
+    for (const p of phrases) {
+      const r = await tryWechatUndoCommand({
+        wiring: stubWiring,
+        fromUserId: FROM,
+        content: p,
+        env: { ...process.env, BUTLER_V5_WORKSPACE_ROOT: TMP },
+      })
+      expect(r).not.toBeNull()
+      if (!r) continue
+      // No chain seeded → "没有可撤销的轮次" (proves chain branch routed)
+      expect(r.reply).toMatch(/没有可撤销的轮次/)
+    }
+  })
+
   it("C6: chain undo with no chain returns honest reply", async () => {
     const r = await tryWechatUndoCommand({
       wiring: stubWiring,

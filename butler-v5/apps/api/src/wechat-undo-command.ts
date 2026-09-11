@@ -37,8 +37,9 @@ const UNDO_INTENT_REGEX =
   /^(撤销这一轮|撤销这轮|撤销本次|撤销这次|撤销刚才|撤销上一步|撤销上一次|撤销上次|撤销|\/undo|\/撤销|\/撤销这轮|undo)\s*/i
 
 // D49: chain intent (multi-tool turn undo). Match longest-first.
+// D54 T4: add "撤销这批" (6th phrase from D49 6-phrase spec → 6 of 6 impl, FULL ✓).
 const CHAIN_INTENT_REGEX =
-  /^(撤销这一轮|撤销这轮|撤销本次|撤销这次|\/撤销这轮)\s*$/i
+  /^(撤销这一轮|撤销这轮|撤销这批|撤销本次|撤销这次|\/撤销这轮)\s*$/i
 
 // "Explicit" form: leading `/undo` or `/撤销` (slash prefix). The full match
 // (no trailing path) triggers the graceful "请用 /undo <path>" fallback.
