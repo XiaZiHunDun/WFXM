@@ -6,7 +6,7 @@
 >
 > **生效日期:** 2026-09-11 (D53c ship)
 >
-> **来源:** D38 §18 (commit fee02192, 2026-08-31) + D22 §11.4 (commit 4c8ed47f, 2026-08-31) + D48 doc (2026-09-08) + D49/D51/D52 实证 + D53a/D53b/c commits
+> **来源:** D38 §18 (commit fee02192, 2026-08-31) + D22 §11.4 (commit e3f000d3, 2026-08-31) + D48 doc (2026-09-08) + D49/D51/D52 实证 + D53a/D53b/c commits
 >
 > **证据窗口:** D38..HEAD = 253 commits (D39-D52 = 244 + D53a/b/c = 9)
 
@@ -198,7 +198,7 @@ D53c ship gates (D53a protocol applied):
 - `pnpm test:full` ✓ 1874/1/0 (N=3, unchanged from D53b)
 - `pnpm lint` ✓ 0
 - `pnpm typecheck` ✓ 0 (7/7 packages)
-- `pnpm deadcode:knip` ✓ 3 FPs (unchanged)
+- `pnpm deadcode:knip` ✓ 6 reported (3 documented FP + 3 devDeps runtime-used, static-analysis limit, D54 decide)
 - `pnpm arch-proxy` (tests/architecture/) ✓ 219/219
 - DESIGN.md / D48 doc / D54 entry 链接 cross-check 一致
 
