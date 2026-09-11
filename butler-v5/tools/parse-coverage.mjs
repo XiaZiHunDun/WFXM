@@ -13,9 +13,11 @@ const summaryPath = "coverage/coverage-summary.json";
 const outPath = "tools/coverage-baseline.json";
 
 const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
+// Dynamic so re-running for D54+ doesn't silently overwrite with stale values.
+// Set SHIP_EVENT to label a non-D53b run; defaults to D53b for backward compat.
 const baseline = {
-  snapshotDate: "2026-09-11",
-  shipEvent: "D53b",
+  snapshotDate: new Date().toISOString().slice(0, 10),
+  shipEvent: process.env.SHIP_EVENT || "D53b",
   total: summary.total,
   packages: {},
   files: {},
