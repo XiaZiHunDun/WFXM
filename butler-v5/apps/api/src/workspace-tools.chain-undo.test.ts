@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
@@ -261,6 +261,76 @@ describe("D54 chain undo — apply_patch push", () => {
       beforeContent: null,
       patchContent: "@@ -1 +1 @@\n-old\n+new\n",
       tool: "apply_patch",
+      pushedAt: Date.now(),
+    })
+    UNDO_CHAIN_FOR_TEST.set(chainId, chain)
+
+    const result = undoChain(chainId)
+    expect(result).toBeDefined()
+    if (!result) return
+    expect(result.reverted).toHaveLength(1)
+    expect(result.reverted[0]?.ok).toBe(false)
+    expect(result.reverted[0]?.reason).toBe("no before state captured")
+  })
+})
+
+describe("D54 chain undo — delete_file push", () => {
+  it("E3: undoChain reverts delete_file entry by recreating file with beforeContent", async () => {
+    const chainId = "run-delete-1"
+    const path = join(TMP, "delete.txt")
+    const beforeContent = "line 1\nline 2\n"
+
+    // Simulate delete_file: file existed at beforeContent, then got deleted.
+    // Set up the deleted state: file removed from disk, beforeContent captured.
+    writeFileSync(path, beforeContent, "utf8")
+    const chain = UNDO_CHAIN_FOR_TEST.get(chainId) ?? []
+    chain.push({
+      kind: "delete",
+      path,
+      beforeContent,
+      tool: "delete_file",
+      pushedAt: Date.now(),
+    })
+    UNDO_CHAIN_FOR_TEST.set(chainId, chain)
+
+    // Simulate the tool actually deleting the file from disk.
+    unlinkSync(path)
+    expect(existsSync(path)).toBe(false)
+
+    // Verify entry stored
+    const stored = UNDO_CHAIN_FOR_TEST.get(chainId)
+    expect(stored).toHaveLength(1)
+    expect(stored?.[0]?.kind).toBe("delete")
+    if (stored?.[0]?.kind === "delete") {
+      expect(stored[0].path).toBe(path)
+      expect(stored[0].beforeContent).toBe(beforeContent)
+      expect(stored[0].tool).toBe("delete_file")
+    }
+
+    // Revert: should recreate the file with beforeContent.
+    const result = undoChain(chainId)
+    expect(result).toBeDefined()
+    if (!result) return
+    expect(result.reverted).toHaveLength(1)
+    expect(result.reverted[0]?.ok).toBe(true)
+    expect(result.reverted[0]?.entry.kind).toBe("delete")
+
+    // Verify file recreated with original content
+    expect(existsSync(path)).toBe(true)
+    expect(readFileSync(path, "utf8")).toBe(beforeContent)
+  })
+
+  it("E3b: undoChain marks delete_file revert as failed when beforeContent is null", async () => {
+    const chainId = "run-delete-2"
+    const path = join(TMP, "delete-noop.txt")
+
+    // No beforeContent captured — cannot safely recreate the file.
+    const chain = UNDO_CHAIN_FOR_TEST.get(chainId) ?? []
+    chain.push({
+      kind: "delete",
+      path,
+      beforeContent: null,
+      tool: "delete_file",
       pushedAt: Date.now(),
     })
     UNDO_CHAIN_FOR_TEST.set(chainId, chain)

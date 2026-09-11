@@ -341,6 +341,13 @@ type ChainEntry =
       readonly tool: "apply_patch"
       readonly pushedAt: number
     }
+  | {
+      readonly kind: "delete"  // D54 T3: delete_file ChainEntry
+      readonly path: string
+      readonly beforeContent: string | null
+      readonly tool: "delete_file"
+      readonly pushedAt: number
+    }
 
 export interface ChainRevertResult {
   readonly chainId: string
@@ -555,6 +562,24 @@ export function undoChain(chainId: string): ChainRevertResult | undefined {
       // D54 T2: apply_patch revert — best-effort, write beforeContent back.
       // Don't try to apply -R patch; just restore the prior snapshot.
       // null beforeContent = no snapshot captured; cannot revert.
+      if (entry.beforeContent === null) {
+        reverted.push({ entry, ok: false, reason: "no before state captured" })
+      } else {
+        try {
+          mkdirSync(dirname(entry.path), { recursive: true })
+          writeFileSync(entry.path, entry.beforeContent, "utf8")
+          reverted.push({ entry, ok: true })
+        } catch (err) {
+          reverted.push({
+            entry,
+            ok: false,
+            reason: err instanceof Error ? err.message : String(err),
+          })
+        }
+      }
+    } else if (entry.kind === "delete") {
+      // D54 T3: delete_file revert — recreate file with beforeContent.
+      // null beforeContent = no snapshot captured; cannot safely recreate.
       if (entry.beforeContent === null) {
         reverted.push({ entry, ok: false, reason: "no before state captured" })
       } else {
