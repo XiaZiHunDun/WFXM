@@ -31,6 +31,11 @@ export default defineConfig({
       provider: "v8",
       include: [
         "packages/domain/src/**/*.ts",
+        "packages/ports/src/**/*.ts",
+        "packages/runtime/src/**/*.ts",
+        "packages/persistence/src/**/*.ts",
+        "packages/adapters/src/**/*.ts",
+        "apps/api/src/**/*.ts",
       ],
       exclude: ["**/*.test.ts", "**/index.ts"],
       thresholds: {

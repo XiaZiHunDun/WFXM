@@ -211,6 +211,48 @@
       "replyLen": 30,
       "toolCalls": 5,
       "approvalCount": 0
+    },
+    "A11-session-digest-idle-return": {
+      "status": 0,
+      "replyLen": 0,
+      "toolCalls": 0,
+      "approvalCount": 0,
+      "_note": "no recording generated — D52 scenario (formalize per D53c decision)"
+    },
+    "D1-chain-extension": {
+      "status": 0,
+      "replyLen": 0,
+      "toolCalls": 0,
+      "approvalCount": 0,
+      "_note": "no recording generated — D52 scenario (formalize per D53c decision)"
+    },
+    "D2-chain-approval": {
+      "status": 0,
+      "replyLen": 0,
+      "toolCalls": 0,
+      "approvalCount": 0,
+      "_note": "no recording generated — D52 scenario (formalize per D53c decision)"
+    },
+    "D3-chain-commands": {
+      "status": 0,
+      "replyLen": 0,
+      "toolCalls": 0,
+      "approvalCount": 0,
+      "_note": "no recording generated — D52 scenario (formalize per D53c decision)"
+    },
+    "D4-chain-cross-conv": {
+      "status": 0,
+      "replyLen": 0,
+      "toolCalls": 0,
+      "approvalCount": 0,
+      "_note": "no recording generated — D52 scenario (formalize per D53c decision)"
+    },
+    "D5-chain-restart": {
+      "status": 0,
+      "replyLen": 0,
+      "toolCalls": 0,
+      "approvalCount": 0,
+      "_note": "no recording generated — D52 scenario (formalize per D53c decision)"
     }
   }
 }

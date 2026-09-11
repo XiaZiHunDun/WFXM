@@ -174,9 +174,9 @@ describe("D53a methodology", () => {
       const data = JSON.parse(readFileSync(path, "utf8"))
       expect(data.shipEvent).toBe("D53a")
       expect(data.snapshotDate).toBe("2026-09-10")
-      // Task 2 drift: recordings/ 实际是 35 scenarios (A1-A10, B1-B10, C1-C10, D1-D5 = 10+10+10+5)
-      // realistic test 有 41 (35 + 5 D52 + 1 A11) 但 recordings/ 没更新, D53c 重新评估时处理
-      expect(Object.keys(data.scenarios).length).toBe(35)
+      // D53c Task 7 Drift 2: 补 6 placeholder (A11-session-digest + D1-D5 chain)
+      // recordings/ 35 真实 metric + 6 placeholder (D52/A11 ship 后) = 41
+      expect(Object.keys(data.scenarios).length).toBe(41)
     })
   })
 })

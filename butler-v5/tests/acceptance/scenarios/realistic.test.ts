@@ -1,7 +1,7 @@
 /**
  * 真实 owner 任务场景 — product-layer 行为分析。
  *
- * 跑 35 个场景（10 真实开发 + 10 开放性 + 10 边界 + 5 组合），每个场景：
+ * 跑 41 个场景（10 真实开发 + 10 开放性 + 10 边界 + 6 组合 + 5 chain 撤销），每个场景：
  * - 注入"好 bot"的 fixture 序列
  * - 通过 /v1/wechat/inbound 跑真实 wiring
  * - 断言 reply pattern / final decision / 工具调用数 / approval flow
@@ -42,7 +42,7 @@ interface ScenarioMetric {
   readonly notes: string[]
 }
 
-describe("acceptance/realistic (35 真实场景产品层行为)", () => {
+describe("acceptance/realistic (41 真实场景产品层行为)", () => {
   let app: AcceptanceApp
   const metrics: ScenarioMetric[] = []
 
@@ -238,7 +238,7 @@ function renderAnalyze(metrics: readonly ScenarioMetric[]): string {
   const lines: string[] = []
   lines.push(`# Acceptance Realistic Scenarios — 产品层行为分析`)
   lines.push("")
-  lines.push(`生成时间：2026-09-04（35 场景自动跑出）`)
+  lines.push(`生成时间：2026-09-11（41 场景自动跑出）`)
   lines.push("")
   lines.push(`## 总览`)
   lines.push("")
