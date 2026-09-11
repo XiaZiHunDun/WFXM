@@ -83,6 +83,15 @@ const FIXTURE_DEFS: readonly { readonly role: string; readonly key: "plan" | "ex
  * 设置 `process.env.BUTLER_V5_LLM_FIXTURE_DIR` 与 `BUTLER_V5_WORKSPACE_ROOT`
  * （HTTP 路由内以 `process.env` 选择 LLM 与解析工作区根）。调用方须在
  * `afterAll` 调 `app.close()`。
+ *
+ * 同时给每个 acceptance app 配独立的 wechat-session-state 文件路径
+ * （D53b task 7 借鉴 D50 wiring.test.ts 模式）。原因：wechat-session-state
+ * 写入走 host-global `~/.config/butler-v5/wechat-session-state.json` +
+ * 原子 `.tmp` → `rename`（wechat-session-state.ts:75）。vitest 默认多
+ * worker 池并发跑多个 acceptance test 文件 → 跨 worker 同时写同一 `.tmp`
+ * → ENOENT / rename 失败 / 500 D53b 撞点。每 app 一个 tmpdir 让每个文件
+ * 互不干扰；和现实生产单进程写 host-global 不冲突，因为 env var 显式
+ * override 只在 test process 内生效。
  */
 export async function makeAcceptanceApp(opts?: {
   readonly overrides?: Readonly<Record<string, string>>
@@ -99,6 +108,12 @@ export async function makeAcceptanceApp(opts?: {
 }): Promise<AcceptanceApp> {
   const fixtureDir = opts?.noFixture ? "" : mkdtempSync(join(tmpdir(), "wb-accept-fixture-"))
   const workspaceRoot = mkdtempSync(join(tmpdir(), "wb-accept-ws-"))
+  // 每个 acceptance app 独立的 wechat session state tmpdir（见函数 doc）。
+  // mkdtempSync 是唯一的；prev env 在 close() 复原，保留 caller 自定义值。
+  const sessionStateDir = mkdtempSync(join(tmpdir(), "wb-accept-session-state-"))
+  const sessionStatePath = join(sessionStateDir, "session.json")
+  const prevSessionStateEnv = process.env["BUTLER_V5_WECHAT_SESSION_STATE"]
+  process.env["BUTLER_V5_WECHAT_SESSION_STATE"] = sessionStatePath
   if (!opts?.noFixture) {
     process.env["BUTLER_V5_LLM_FIXTURE_DIR"] = fixtureDir
   } else {
@@ -119,6 +134,7 @@ export async function makeAcceptanceApp(opts?: {
     // HTTP 路由默认走 wechat-intake 分类路径；关闭以统一走 runButlerLoop
     // （真实回退路径，含完整微信工具集 write_file + 审批链路）。
     BUTLER_V5_INTAKE_ENABLED: "0",
+    BUTLER_V5_WECHAT_SESSION_STATE: sessionStatePath,
     ...(opts?.overrides ?? {}),
     ...(opts?.pgliteDataDir ? { BUTLER_V5_PGLITE_DATA_DIR: opts.pgliteDataDir } : {}),
   }
@@ -188,6 +204,14 @@ export async function makeAcceptanceApp(opts?: {
     delete process.env["BUTLER_V5_WORKSPACE_ROOT"]
     if (fixtureDir) rmSync(fixtureDir, { recursive: true, force: true })
     rmSync(workspaceRoot, { recursive: true, force: true })
+    // 还原 caller 可能预设的 BUTLER_V5_WECHAT_SESSION_STATE；本 app 的 tmpdir
+    // 一次性 rm。如果 caller 没预设（默认 undefined），按 D50 协议 delete。
+    if (prevSessionStateEnv === undefined) {
+      delete process.env["BUTLER_V5_WECHAT_SESSION_STATE"]
+    } else {
+      process.env["BUTLER_V5_WECHAT_SESSION_STATE"] = prevSessionStateEnv
+    }
+    rmSync(sessionStateDir, { recursive: true, force: true })
   }
 
   return { request, wiring, db, workspaceRoot, fixtureDir, setFixtures, close }
