@@ -23,7 +23,7 @@ export interface ExecAuditContext {
   readonly subject?: string
 }
 
-export type ExecOutcome = "ok" | "failed" | "spawned"
+type ExecOutcome = "ok" | "failed" | "spawned"
 
 /** One exec execution audit record — fields aligned with existing audit events. */
 export interface ExecAuditRecord {

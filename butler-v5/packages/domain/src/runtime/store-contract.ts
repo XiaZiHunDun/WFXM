@@ -210,7 +210,7 @@ export interface RuntimeStore {
 }
 
 /** Drizzle transaction handle (PgliteDatabase | NodePgDatabase `tx`). */
-export type RuntimeTx = unknown
+type RuntimeTx = unknown
 
 export type ReadModelSource = "event_store" | "hybrid" | "relational"
 

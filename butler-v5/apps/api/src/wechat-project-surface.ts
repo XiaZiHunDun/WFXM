@@ -14,7 +14,7 @@ import type { Wiring } from "./wiring.js"
 import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 import { formatProjectStateLines, getProjectState } from "./project-state.js"
 
-export type WechatProjectPathEntry = {
+type WechatProjectPathEntry = {
   readonly label?: string
   readonly readmePath?: string
   readonly manifestPath?: string

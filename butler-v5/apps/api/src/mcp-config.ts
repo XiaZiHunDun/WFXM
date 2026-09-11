@@ -7,21 +7,21 @@ import { isMcpEnabled, mcpStubToolNames } from "@butler/runtime/mcp-gate.js"
 
 export type McpTransportKind = "http" | "stdio" | "sse"
 
-export type McpHttpConnection = {
+type McpHttpConnection = {
   readonly kind: "http"
   readonly url: string
   readonly timeoutMs: number
   readonly token?: string
 }
 
-export type McpSseConnection = {
+type McpSseConnection = {
   readonly kind: "sse"
   readonly url: string
   readonly timeoutMs: number
   readonly token?: string
 }
 
-export type McpStdioConnection = {
+type McpStdioConnection = {
   readonly kind: "stdio"
   readonly command: string
   readonly args: readonly string[]

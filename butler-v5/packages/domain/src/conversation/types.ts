@@ -7,13 +7,13 @@ import type { IntentReceipt } from "../guards/index.js"
 // ─── 品牌类型 ───────────────────────────────────────────
 export type ConversationId = string & { readonly __brand: "ConversationId" }
 export type LoopId = string & { readonly __brand: "LoopId" }
-export type ProjectIdRef = string & { readonly __brand: "ProjectIdRef" }
+type ProjectIdRef = string & { readonly __brand: "ProjectIdRef" }
 export type TurnId = string & { readonly __brand: "TurnId" }
 export type ToolCallId = string & { readonly __brand: "ToolCallId" }
 
 // ─── 对话/回合状态 ──────────────────────────────────────
-export type ConversationStatus = "open" | "running" | "waiting" | "completed"
-export type TurnStatus = "running" | "responded" | "tooled" | "completed" | "failed"
+type ConversationStatus = "open" | "running" | "waiting" | "completed"
+type TurnStatus = "running" | "responded" | "tooled" | "completed" | "failed"
 
 // ─── 消息 ───────────────────────────────────────────────
 export type MessageRole = "user" | "assistant" | "tool" | "system"

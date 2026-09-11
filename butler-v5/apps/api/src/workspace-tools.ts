@@ -308,7 +308,7 @@ const UNDO_TOUCHED = new Map<string, number>()
 // D49: chain-aware undo (multi-tool turn). chainId = runId.
 const CHAIN_CAP = 32
 
-export type ChainEntry =
+type ChainEntry =
   | {
       readonly kind: "write"
       readonly path: string

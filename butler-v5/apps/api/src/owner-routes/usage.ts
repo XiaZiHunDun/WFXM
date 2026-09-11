@@ -9,7 +9,7 @@ import { ownerAuthorized } from "../owner-auth.js"
  * map so the owner UI can show which capabilities dominated a run.
  * Tokens/cost come from llm_call step events (D23/D24 trace payload).
  */
-export interface ConversationUsage {
+interface ConversationUsage {
   readonly llmCalls: number
   readonly inputTokens: number
   readonly outputTokens: number
@@ -23,7 +23,7 @@ export interface ConversationUsage {
  * `capabilityCalls` is the integer count (not a map) so the owner
  * dashboard can render a single total tile without re-summing the map.
  */
-export interface UsageTotals {
+interface UsageTotals {
   readonly llmCalls: number
   readonly inputTokens: number
   readonly outputTokens: number

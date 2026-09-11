@@ -38,9 +38,9 @@ import {
 import { makeNodeStdioSpawn } from "./mcp-spawn.js"
 import type { ExecAuditContext } from "./exec-audit.js"
 
-export type McpBootstrapMode = "off" | "stub" | "multi" | McpConnectionConfig["kind"]
+type McpBootstrapMode = "off" | "stub" | "multi" | McpConnectionConfig["kind"]
 
-export interface McpServerBootstrap {
+interface McpServerBootstrap {
   readonly serverId: string
   readonly mode: McpBootstrapMode
   readonly discovered: readonly McpDiscoveredTool[]

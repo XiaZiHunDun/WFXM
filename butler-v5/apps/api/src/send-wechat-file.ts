@@ -13,7 +13,7 @@ import {
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { resolveUnderWorkspace, workspaceRootFrom } from "./workspace-tools.js"
 
-export type SendWechatMediaFn = (input: {
+type SendWechatMediaFn = (input: {
   readonly to: string
   readonly fileName: string
   readonly plaintext: Buffer

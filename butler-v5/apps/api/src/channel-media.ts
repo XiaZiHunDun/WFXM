@@ -4,10 +4,9 @@ import { join } from "node:path"
 import type {
   ChannelInboundMedia,
   ChannelMediaContent,
-  ChannelMediaKind,
 } from "@butler/adapters/slack/index.js"
 
-export type { ChannelInboundMedia, ChannelMediaContent, ChannelMediaKind }
+export type { ChannelInboundMedia, ChannelMediaContent }
 
 
 function telegramMediaCacheEnabled(env: NodeJS.ProcessEnv = process.env): boolean {

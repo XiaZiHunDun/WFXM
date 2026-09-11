@@ -19,7 +19,7 @@ export interface CompactOptions {
   readonly maxChars?: number
 }
 
-export type CompactSource = "none" | "extractive" | "llm"
+type CompactSource = "none" | "extractive" | "llm"
 
 export interface CompactResult {
   readonly messages: readonly LLMMessage[]

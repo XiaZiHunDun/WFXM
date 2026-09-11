@@ -15,7 +15,7 @@ import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 import { envTruthy } from "./env-util.js"
 import { sendWechatProactiveNotify } from "./wechat-run-notify.js"
 
-export type SweeperType = "candidate_expires" | "auto_promote"
+type SweeperType = "candidate_expires" | "auto_promote"
 
 const DEFAULT_THROTTLE_MS = 60 * 60 * 1000 // 1 hour
 

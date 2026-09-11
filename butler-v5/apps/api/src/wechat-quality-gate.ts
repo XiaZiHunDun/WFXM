@@ -6,13 +6,13 @@ import { getWechatActiveProjectId } from "./wechat-active-project.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
 
-export type QualityGateCommand = {
+type QualityGateCommand = {
   readonly name: string
   readonly argv: readonly string[]
   readonly timeoutMs?: number
 }
 
-export type QualityGateProject = {
+type QualityGateProject = {
   readonly cwd?: string
   readonly commands: readonly QualityGateCommand[]
 }

@@ -49,7 +49,7 @@ export const subscribers: Map<string, Set<WsWebSocket>> = new Map()
  * `kind: "connected"` is a one-shot on-open greeting; `kind: "event"`
  * wraps a push; `kind: "pong"` answers a client ping.
  */
-export type WsOutboundFrame =
+type WsOutboundFrame =
   | { readonly kind: "connected"; readonly conversationId: string }
   | { readonly kind: "event"; readonly conversationId: string; readonly event: unknown }
   | { readonly kind: "pong" }
@@ -159,7 +159,7 @@ export function extractConversationId(url: string): string {
   return extractQueryParam(url, "conversationId")
 }
 
-export type WsIdentity =
+type WsIdentity =
   | { readonly ok: true; readonly conversationId: string }
   | { readonly ok: false; readonly reason: string }
 
