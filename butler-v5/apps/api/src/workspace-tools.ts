@@ -333,6 +333,14 @@ type ChainEntry =
       readonly startedAt: number
       readonly tool: "run_command"
     }
+  | {
+      readonly kind: "patch"  // D54 T2: apply_patch ChainEntry
+      readonly path: string
+      readonly beforeContent: string | null
+      readonly patchContent: string  // unified diff format
+      readonly tool: "apply_patch"
+      readonly pushedAt: number
+    }
 
 export interface ChainRevertResult {
   readonly chainId: string
@@ -542,6 +550,25 @@ export function undoChain(chainId: string): ChainRevertResult | undefined {
           ok: false,
           reason: err instanceof Error ? err.message : String(err),
         })
+      }
+    } else if (entry.kind === "patch") {
+      // D54 T2: apply_patch revert — best-effort, write beforeContent back.
+      // Don't try to apply -R patch; just restore the prior snapshot.
+      // null beforeContent = no snapshot captured; cannot revert.
+      if (entry.beforeContent === null) {
+        reverted.push({ entry, ok: false, reason: "no before state captured" })
+      } else {
+        try {
+          mkdirSync(dirname(entry.path), { recursive: true })
+          writeFileSync(entry.path, entry.beforeContent, "utf8")
+          reverted.push({ entry, ok: true })
+        } catch (err) {
+          reverted.push({
+            entry,
+            ok: false,
+            reason: err instanceof Error ? err.message : String(err),
+          })
+        }
       }
     } else {
       commandSideEffects.push({

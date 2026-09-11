@@ -201,3 +201,75 @@ describe("D54 chain undo — edit_file push", () => {
     expect(readFileSync(path, "utf8")).toBe(beforeContent)
   })
 })
+
+describe("D54 chain undo — apply_patch push", () => {
+  it("E2: undoChain reverts apply_patch entry by restoring beforeContent", async () => {
+    const chainId = "run-patch-1"
+    const path = join(TMP, "patch.txt")
+    const beforeContent = "line 1\nline 2\n"
+    const afterContent = "line 1\nline 2 modified\n"
+    // Unified-diff representation of the patch that produced afterContent.
+    const patchContent = "@@ -1,2 +1,2 @@\n line 1\n-line 2\n+line 2 modified\n"
+
+    // Simulate apply_patch: file starts at beforeContent, patch moves it to afterContent.
+    writeFileSync(path, afterContent, "utf8")
+
+    // Manually push an apply_patch ChainEntry (no makeApplyPatchTool yet).
+    const chain = UNDO_CHAIN_FOR_TEST.get(chainId) ?? []
+    chain.push({
+      kind: "patch",
+      path,
+      beforeContent,
+      patchContent,
+      tool: "apply_patch",
+      pushedAt: Date.now(),
+    })
+    UNDO_CHAIN_FOR_TEST.set(chainId, chain)
+
+    // Verify entry stored
+    const stored = UNDO_CHAIN_FOR_TEST.get(chainId)
+    expect(stored).toHaveLength(1)
+    expect(stored?.[0]?.kind).toBe("patch")
+    if (stored?.[0]?.kind === "patch") {
+      expect(stored[0].path).toBe(path)
+      expect(stored[0].beforeContent).toBe(beforeContent)
+      expect(stored[0].patchContent).toBe(patchContent)
+      expect(stored[0].tool).toBe("apply_patch")
+    }
+
+    // Revert (best-effort: write beforeContent back, don't try git apply -R).
+    const result = undoChain(chainId)
+    expect(result).toBeDefined()
+    if (!result) return
+    expect(result.reverted).toHaveLength(1)
+    expect(result.reverted[0]?.ok).toBe(true)
+    expect(result.reverted[0]?.entry.kind).toBe("patch")
+
+    // Verify file content restored
+    expect(readFileSync(path, "utf8")).toBe(beforeContent)
+  })
+
+  it("E2b: undoChain marks apply_patch revert as failed when beforeContent is null", async () => {
+    const chainId = "run-patch-2"
+    const path = join(TMP, "patch-noop.txt")
+
+    // No beforeContent captured — best-effort revert cannot restore.
+    const chain = UNDO_CHAIN_FOR_TEST.get(chainId) ?? []
+    chain.push({
+      kind: "patch",
+      path,
+      beforeContent: null,
+      patchContent: "@@ -1 +1 @@\n-old\n+new\n",
+      tool: "apply_patch",
+      pushedAt: Date.now(),
+    })
+    UNDO_CHAIN_FOR_TEST.set(chainId, chain)
+
+    const result = undoChain(chainId)
+    expect(result).toBeDefined()
+    if (!result) return
+    expect(result.reverted).toHaveLength(1)
+    expect(result.reverted[0]?.ok).toBe(false)
+    expect(result.reverted[0]?.reason).toBe("no before state captured")
+  })
+})
