@@ -1,0 +1,48 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/acceptance/record-real-llm.ts", "scripts/acceptance/diff-real-llm.ts"],
+      "project": ["scripts/acceptance/**/*.ts"]
+    },
+    "apps/api": {
+      "entry": ["src/index.ts", "src/bootstrap-wiring.ts", "src/cli-run.ts"]
+    },
+    "cli": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/adapters": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/domain": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/persistence": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/ports": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/runtime": {
+      "entry": ["src/index.ts"]
+    }
+  },
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.test-d.ts",
+    "**/*.test.mjs",
+    "**/_fixtures/**",
+    "**/_archive/**",
+    "_archive/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "tools/**",
+    "docs/**",
+    "config/**",
+    "hooks/**",
+    "**/_meta/**",
+    "**/recordings/**"
+  ],
+  "ignoreDependencies": ["turbo", "pnpm", "ts-prune"]
+}
