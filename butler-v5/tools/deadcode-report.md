@@ -293,3 +293,39 @@ Conclusion: parallel-run cross-file state contamination, **pre-existing**, unrel
 - `RuntimeTx` is referenced by two architecture tests via source-text regex (`/type\s+RuntimeTx\s*=\s*unknown/`). Dropping `export` preserves the matched text — both tests still pass.
 - `ChannelMediaKind` in `apps/api/src/channel-media.ts` was a pure pass-through re-export of the slack adapter's own type. Removed from both the `import type` and `export type` lists; the slack canonical definition is untouched.
 - Zero of the 70 export/type names had any `*.test.ts` reference (knip's `**/*.test.ts` ignore was therefore not a source of false positives in this batch).
+
+## Post-D54 verification (Task 6 — 2026-09-11)
+
+Re-ran `pnpm deadcode:knip` after D54 T6 config update:
+
+- **Total findings: 0** (was 6 post-D53c: 3 unused deps + 3 unused exports; was 3 post-D53b before D53c regression fix)
+- **knip exit code: 0** (clean pass; first time since the 6 FPs were introduced)
+- **knip config delta**: `ignoreDependencies` × 6 (3 existing + 3 new MCP devDeps) + `ignoreIssues` × 2 (file-glob → `["exports", "types"]` for the 2 source files)
+
+### Why `ignoreIssues` instead of `ignoreExports`
+
+The original D54 T6 plan specified `ignoreExports` (per-export suppression list), but knip v6.35.1 does not support that key — schema validation rejects it with `ERROR: Invalid input (unrecognized_keys: ignoreExports)`. Verified against `node_modules/knip/dist/schema/configuration.d.ts`: available `ignore*` keys are `ignoreBinaries`, `ignoreDependencies`, `ignoreFiles`, `ignoreMembers`, `ignoreUnresolved`, `ignoreExportsUsedInFile`, `ignoreIssues`, `ignoreWorkspaces`. Closest equivalent for per-file export suppression is `ignoreIssues` (file-glob → issue-type array). Used it as the substitute; the spirit of "knip 6 → 0 reported" is preserved.
+
+### False positives documented (not deleted)
+
+| Name | File | Why knip can't see it | Suppression |
+|---|---|---|---|
+| `approveWaitingStep` | `apps/api/src/approval-resume.ts:32` | Re-export from `@butler/runtime/approval-runtime.js`; runtime consumers import via this barrel | `ignoreIssues` for file |
+| `denyWaitingStep` | `apps/api/src/approval-resume.ts:32` | Same as above | `ignoreIssues` for file |
+| `buildHonoApp` | `apps/api/src/acceptance-app.ts:14` | Used by `tests/acceptance/harness.ts`, excluded by knip's `**/*.test.ts` ignore | `ignoreIssues` for file |
+| `@modelcontextprotocol/server-github` | root `package.json:59` | Runtime-used via `config/mcp-manifest.json:35` subprocess spawn; `config/**` is in knip `ignore` | `ignoreDependencies` |
+| `@ivotoby/openapi-mcp-server` | root `package.json:58` | Same as above (`config/mcp-manifest.json:59`) | `ignoreDependencies` |
+| `firecrawl-mcp` | root `package.json:65` | Same as above (`config/mcp-manifest.json:22`) | `ignoreDependencies` |
+
+All 6 are **D53b regression-fix correctness**: D53b T3c deleted them as "unused", D53c restored them once evidence surfaced (config/mcp-manifest.json + mcp-config.test.ts references). knip static analysis cannot trace through these paths because of the `ignore` patterns, hence the suppressions here.
+
+### Verification evidence
+
+- **`pnpm deadcode:knip`**: 0 reported, exit 0
+- **`pnpm lint`**: 0 errors, 0 warnings
+- **`pnpm typecheck`**: 8/8 workspaces green (unchanged; no source edits)
+- **No source-file edits**: only `knip.json` + `tools/deadcode-report.md` changed
+
+### D54 closure summary
+
+Drift items closed by D54 batch: 5-type spec full ✓ (T1-T3 added delete_file / apply_patch / run_command with invertible flag) / 6-phrase spec full ✓ (T4 added `撤销这轮` family) / invertible flag spec formalized ✓ (T5) / **knip config closed ✓ (T6, this task)**.

@@ -44,6 +44,17 @@
     "**/_meta/**",
     "**/recordings/**"
   ],
-  "ignoreDependencies": ["turbo", "pnpm", "ts-prune"],
+  "ignoreDependencies": [
+    "turbo",
+    "pnpm",
+    "ts-prune",
+    "@modelcontextprotocol/server-github",
+    "@ivotoby/openapi-mcp-server",
+    "firecrawl-mcp"
+  ],
+  "ignoreIssues": {
+    "apps/api/src/approval-resume.ts": ["exports", "types"],
+    "apps/api/src/acceptance-app.ts": ["exports", "types"]
+  },
   "ignoreBinaries": ["capsh", "bwrap"]
 }
