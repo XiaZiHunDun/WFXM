@@ -247,3 +247,49 @@ Reviewed 8 candidates with explicit grep verification:
 - This audit is **static only**. Runtime dead code (registered callbacks, conditional registrations) cannot be found by knip.
 - D45 lesson applied: `pnpm deadcode:knip` exit code is 1 even with 87 true-dead + 5 FP + 0 fixture. Wrap with `|| true` to make it not fail CI until Task 3 is complete.
 - The `acceptHarness.ts` (tests/acceptance/harness.ts) is a meaningful behavior driver (D52 evidence: 41 scenarios), so `buildHonoApp` is **definitely** needed even if knip flags it. False positive confirmed by manual review.
+---
+
+## Post-deletion verification (Task 3 — 2026-09-11)
+
+Re-ran `pnpm deadcode:knip` after all 6 sub-tasks:
+
+- **Total findings: 3** (was 92)
+- **True dead remaining: 0** (was 87)
+- **False positive (kept): 3** — `approveWaitingStep`, `denyWaitingStep` (`apps/api/src/approval-resume.ts:32`), `buildHonoApp` (`apps/api/src/acceptance-app.ts:14`). The 2 binary FPs (`capsh`, `bwrap`) are now suppressed via `ignoreBinaries`.
+- **Reclassifications: 0** — every one of the 87 true-dead candidates was verified and removed; no restore was needed.
+
+### Sub-task commits
+
+| Sub-task | Commit | Change |
+|---|---|---|
+| 3a | `3891a19a` | Delete 8 unused files (9 files on disk — `conversation-id.ts` + its deprecated test) |
+| 3b | `50468e41` | Remove 4 unused deps from `packages/adapters/package.json` (`@butler/persistence`, `@butler/runtime`, `drizzle-orm`, `hono`) |
+| 3c | `bc15cece` | Remove 3 unused devDeps from root `package.json` (`@modelcontextprotocol/server-github`, `@ivotoby/openapi-mcp-server`, `firecrawl-mcp`) |
+| 3d | `b484a741` | Drop 50 unused exports (48 `export` keyword drops + 1 re-export line delete `WECHAT_OUTBOUND_NETWORK_HOSTS` + 1 full function delete `pendingUndoCount`) — 26 files |
+| 3e | `91c0d700` | Drop 22 unused exported types (21 `export type`/`interface` drops + 1 re-export-list entry removal `ChannelMediaKind`) — 14 files |
+| 3f | `77bd8628` | `knip.json` add `ignoreBinaries: ["capsh", "bwrap"]` |
+
+### Verification evidence
+
+- **`pnpm typecheck`**: green after every sub-task (8/8 workspaces)
+- **`pnpm lint`**: 0 errors, 0 warnings after 3d and 3e
+- **`pnpm test`**: 277 files / 1874 passed / 1 skipped after 3e
+- **`pnpm test:acceptance` (N=3)**: 81/81 passed after 3a and after 3e
+
+### Pre-existing flake observed (NOT caused by deletions)
+
+`tests/acceptance/product-regressions.test.ts > /undo：真实审批后还原 write_file 写入` intermittently returns 500 instead of 201 **when the full acceptance suite runs in parallel**. Isolation-proof performed during Task 3d:
+
+- clean `HEAD` (3c, no 3d edits), full suite ×3 → **3/3 fail** with the same `expected 500 to be 201`
+- clean `HEAD`, file in isolation ×3 → 3/3 pass
+- with 3d edits, file in isolation ×3 → 3/3 pass
+- with 3d edits, full suite ×3 → 1 pass / 2 fail (same assertion)
+
+Conclusion: parallel-run cross-file state contamination, **pre-existing**, unrelated to any deletion. Belongs to the Task 7 flake-fix scope alongside `subagent-multiturn`.
+
+### Cross-reference notes captured during verification
+
+- `workspaceRootFromEnv` and `runArgv` each have *separate private definitions* in `wechat-quality-gate.ts` / `wechat-project-surface.ts`. Dropping `export` in `dev-quality-gate.ts` does not affect them.
+- `RuntimeTx` is referenced by two architecture tests via source-text regex (`/type\s+RuntimeTx\s*=\s*unknown/`). Dropping `export` preserves the matched text — both tests still pass.
+- `ChannelMediaKind` in `apps/api/src/channel-media.ts` was a pure pass-through re-export of the slack adapter's own type. Removed from both the `import type` and `export type` lists; the slack canonical definition is untouched.
+- Zero of the 70 export/type names had any `*.test.ts` reference (knip's `**/*.test.ts` ignore was therefore not a source of false positives in this batch).
