@@ -44,5 +44,6 @@
     "**/_meta/**",
     "**/recordings/**"
   ],
-  "ignoreDependencies": ["turbo", "pnpm", "ts-prune"]
+  "ignoreDependencies": ["turbo", "pnpm", "ts-prune"],
+  "ignoreBinaries": ["capsh", "bwrap"]
 }
