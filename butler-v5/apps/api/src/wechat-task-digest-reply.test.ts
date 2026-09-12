@@ -158,4 +158,38 @@ describe("formatTaskDigestReply", () => {
     const failedTrace = result.traces.find((t) => t.startsWith("task-digest:failed="))
     expect(failedTrace).toBe("task-digest:failed=1")
   })
+
+  it("surfaces per-store failure reason inline so owner can diagnose which backend is down", async () => {
+    // Audit finding (D55 SF-01): allSettled swallowing means owner sees only
+    // generic "查询失败" — operators cannot tell whether status / tasks /
+    // candidates backend is degraded. Inline reason is the minimal signal.
+    const throwingMemoryStore = {
+      create: async () => { throw new Error("not used") },
+      get: async () => null,
+      update: async () => { throw new Error("not used") },
+      delete: async () => false,
+      listBySubject: async () => {
+        throw new Error("simulated memory outage")
+      },
+      countBySubject: async () => 0,
+      listExpiredCandidates: async () => [],
+      markExpired: async () => [],
+    } as unknown as DurableMemoryStore
+    const failWiring: Wiring = {
+      ...wiring,
+      durableMemoryStore: throwingMemoryStore,
+    }
+    const result = await formatTaskDigestReply({
+      wiring: failWiring,
+      fromUserId: "u-digest",
+      env: testEnv,
+    })
+    // Owner sees which backend is broken (the actual error reason)
+    expect(result.reply).toContain("simulated memory outage")
+    // Trace now carries per-store failure details for §14 observability
+    const reasonTrace = result.traces.find((t) => t.startsWith("task-digest:reason="))
+    expect(reasonTrace).toBeDefined()
+    expect(reasonTrace).toContain("candidates")
+    expect(reasonTrace).toContain("simulated memory outage")
+  })
 })
