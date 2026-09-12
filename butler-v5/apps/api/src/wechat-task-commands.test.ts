@@ -10,12 +10,13 @@ import { RunEngine } from "@butler/runtime/run-engine.js"
 import { createProjectKnowledgeStore, createTaskStore, type TaskRecord, type TaskStore } from "@butler/persistence"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { setWechatActiveProjectId } from "./wechat-active-project.js"
+import type * as TaskRunBackgroundModule from "./task-run-background.js"
 import { tryWechatTaskCommand } from "./wechat-task-commands.js"
 
 // Stub the background-task-runner so async /运行 is exercised without a real LLM loop.
 // Sync /运行 is also stubbed via the same module boundary.
 vi.mock("./task-run-background.js", async () => {
-  const actual = await vi.importActual<typeof import("./task-run-background.js")>(
+  const actual = await vi.importActual<typeof TaskRunBackgroundModule>(
     "./task-run-background.js",
   )
   return {
@@ -46,12 +47,14 @@ const mockedRunTaskGoal = vi.mocked(runTaskGoal)
 describe("tryWechatTaskCommand", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
   let wiring: Wiring
+  let taskStore: TaskStore
   let storeDir = ""
   let env: NodeJS.ProcessEnv
 
   beforeEach(async () => {
     db = await makeTestDb()
     const bridge = new EventBridge({ db: db.db, workerId: "task-cmd-test" })
+    const ts = createTaskStore(db.db)
     wiring = makeWiring({
       bridge,
       workerId: "task-cmd-test",
@@ -60,8 +63,10 @@ describe("tryWechatTaskCommand", () => {
       db: db.db,
       backfillConversation: async () => undefined,
       projectKnowledgeStore: createProjectKnowledgeStore(db.db),
-      taskStore: createTaskStore(db.db),
+      taskStore: ts,
     })
+    if (!wiring.taskStore) throw new Error("test wiring must wire taskStore")
+    taskStore = wiring.taskStore
     storeDir = mkdtempSync(join(tmpdir(), "butler-task-cmd-"))
     env = {
       BUTLER_V5_WECHAT_ACTIVE_PROJECT_STORE: join(storeDir, "active.json"),
@@ -134,7 +139,6 @@ describe("tryWechatTaskCommand", () => {
   // ─── /待办 (list) ───────────────────────────────────────────────────────
   it("/待办 lists open tasks scoped to active project", async () => {
     // Seed two open tasks in two different projects + one done.
-    const taskStore = wiring.taskStore!
     const t1 = await taskStore.create({
       id: randomUUID(),
       subject: "u-list",
@@ -179,13 +183,14 @@ describe("tryWechatTaskCommand", () => {
       env,
     })
     expect(result).not.toBeNull()
-    expect(result!.reply).toContain("待办（WFXM）")
-    expect(result!.reply).toContain("do thing one")
-    expect(result!.reply).toContain(t1.id.slice(0, 8))
-    expect(result!.reply).not.toContain("hidden task")
-    expect(result!.reply).not.toContain("completed thing")
-    expect(result!.reply).toContain("/运行 <id>")
-    expect(result!.reply).toContain("/完成 <id>")
+    if (!result) throw new Error("/待办 should return non-null result")
+    expect(result.reply).toContain("待办（WFXM）")
+    expect(result.reply).toContain("do thing one")
+    expect(result.reply).toContain(t1.id.slice(0, 8))
+    expect(result.reply).not.toContain("hidden task")
+    expect(result.reply).not.toContain("completed thing")
+    expect(result.reply).toContain("/运行 <id>")
+    expect(result.reply).toContain("/完成 <id>")
   })
 
   it("/待办 (empty) returns the digest emptyMessage; no items shown", async () => {
@@ -235,7 +240,7 @@ describe("tryWechatTaskCommand", () => {
     expect(result?.reply).toContain("/运行")
     expect(result?.traces.some((t) => t.startsWith("wechat-task: created "))).toBe(true)
 
-    const stored = await wiring.taskStore!.listBySubject({ subject: "u-add" })
+    const stored = await taskStore.listBySubject({ subject: "u-add" })
     expect(stored).toHaveLength(1)
     expect(stored[0].title).toBe("[WFXM] 写周报")
     expect(stored[0].goal).toBe("写周报")
@@ -250,7 +255,7 @@ describe("tryWechatTaskCommand", () => {
       env,
     })
     expect(result?.reply).toContain("完成 D56")
-    const stored = await wiring.taskStore!.listBySubject({ subject: "u-pipe" })
+    const stored = await taskStore.listBySubject({ subject: "u-pipe" })
     expect(stored[0].title).toBe("[WFXM] 完成 D56")
     expect(stored[0].goal).toBe("写测试 + 改 runtime-store 事务")
   })
@@ -281,14 +286,14 @@ describe("tryWechatTaskCommand", () => {
       env,
     })
     expect(result?.reply).toMatch(/已添加待办 [0-9a-f]{8}：起草 design doc/)
-    const stored = await wiring.taskStore!.listBySubject({ subject: "u-new" })
+    const stored = await taskStore.listBySubject({ subject: "u-new" })
     expect(stored).toHaveLength(1)
     expect(stored[0].title).toBe("[WFXM] 起草 design doc")
   })
 
   // ─── /运行 sync ─────────────────────────────────────────────────────────
   it("/运行 (sync mode) calls runTaskGoal and returns loop result", async () => {
-    const task = await wiring.taskStore!.create({
+    const task = await taskStore.create({
       id: randomUUID(),
       subject: "u-run-sync",
       title: "[WFXM] do sync work",
@@ -339,7 +344,7 @@ describe("tryWechatTaskCommand", () => {
   })
 
   it("/运行 accepts short 8-char id prefix", async () => {
-    const task = await wiring.taskStore!.create({
+    const task = await taskStore.create({
       id: randomUUID(),
       subject: "u-run-short",
       title: "[WFXM] by short id",
@@ -362,7 +367,7 @@ describe("tryWechatTaskCommand", () => {
   })
 
   it("/运行 (async mode) delegates to scheduler; sync runTaskGoal NOT called", async () => {
-    const task = await wiring.taskStore!.create({
+    const task = await taskStore.create({
       id: randomUUID(),
       subject: "u-run-async",
       title: "[WFXM] async work",
@@ -391,7 +396,7 @@ describe("tryWechatTaskCommand", () => {
   })
 
   it("/运行 (async mode) surfaces busy reason when scheduler rejects", async () => {
-    const task = await wiring.taskStore!.create({
+    const task = await taskStore.create({
       id: randomUUID(),
       subject: "u-run-busy",
       title: "[WFXM] busy",
@@ -416,7 +421,7 @@ describe("tryWechatTaskCommand", () => {
   })
 
   it("/运行 (sync mode) catches runTaskGoal throw and surfaces message", async () => {
-    const task = await wiring.taskStore!.create({
+    const task = await taskStore.create({
       id: randomUUID(),
       subject: "u-run-err",
       title: "[WFXM] err",
@@ -441,7 +446,7 @@ describe("tryWechatTaskCommand", () => {
 
   // ─── /完成 ──────────────────────────────────────────────────────────────
   it("/完成 <id> marks the task as done via store.update", async () => {
-    const task = await wiring.taskStore!.create({
+    const task = await taskStore.create({
       id: randomUUID(),
       subject: "u-done",
       title: "[WFXM] to finish",
@@ -455,10 +460,10 @@ describe("tryWechatTaskCommand", () => {
     })
     let updatedPayload: TaskRecord | undefined
     const wrapped: TaskStore = {
-      ...wiring.taskStore!,
+      ...taskStore,
       update: async (record) => {
         updatedPayload = record
-        return wiring.taskStore!.update(record)
+        return taskStore.update(record)
       },
     }
     const wrappedWiring: Wiring = { ...wiring, taskStore: wrapped }
@@ -470,8 +475,9 @@ describe("tryWechatTaskCommand", () => {
     })
     expect(result?.reply).toBe(`待办 ${task.id.slice(0, 8)} 已标记完成。`)
     expect(updatedPayload).toBeDefined()
-    expect(updatedPayload!.status).toBe("done")
-    const reloaded = await wiring.taskStore!.get(task.id)
+    if (!updatedPayload) throw new Error("updatedPayload should be captured")
+    expect(updatedPayload.status).toBe("done")
+    const reloaded = await taskStore.get(task.id)
     expect(reloaded?.status).toBe("done")
   })
 
@@ -498,7 +504,7 @@ describe("tryWechatTaskCommand", () => {
   })
 
   it("/完成 when store.get returns null after resolveTaskByToken hit (race) returns done-missing trace", async () => {
-    const task = await wiring.taskStore!.create({
+    const task = await taskStore.create({
       id: randomUUID(),
       subject: "u-done-race",
       title: "[WFXM] race",
@@ -511,10 +517,10 @@ describe("tryWechatTaskCommand", () => {
       updatedAt: 0,
     })
     const wrapped: TaskStore = {
-      ...wiring.taskStore!,
+      ...taskStore,
       get: async (id) => {
         if (id === task.id) return null
-        return wiring.taskStore!.get(id)
+        return taskStore.get(id)
       },
     }
     const wrappedWiring: Wiring = { ...wiring, taskStore: wrapped }

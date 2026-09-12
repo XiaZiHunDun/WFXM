@@ -235,7 +235,8 @@ describe("startProjectKnowledgeWatchWorkerIfEnabled", () => {
     // Wait long enough for at least 2 ticks (initial + 1 interval).
     await new Promise((r) => setTimeout(r, 80))
     expect(mockedSync.mock.calls.length).toBeGreaterThanOrEqual(2)
-    handle!.stop()
+    if (!handle) throw new Error("handle should be non-null")
+    handle.stop()
   })
 
   it("stop() prevents further ticks and clears timer", async () => {
@@ -257,7 +258,8 @@ describe("startProjectKnowledgeWatchWorkerIfEnabled", () => {
     expect(handle).not.toBeNull()
     // Let one tick run.
     await new Promise((r) => setTimeout(r, 30))
-    handle!.stop()
+    if (!handle) throw new Error("handle should be non-null")
+    handle.stop()
     const callsAfterStop = mockedSync.mock.calls.length
     // Wait > tickMs and confirm no new tick happens.
     await new Promise((r) => setTimeout(r, 60))
@@ -300,7 +302,8 @@ describe("startProjectKnowledgeWatchWorkerIfEnabled", () => {
     // Multiple tick calls may have been attempted but sync ran exactly once
     // (or a tiny number bounded by retry/timing) — assert it is small.
     expect(mockedSync.mock.calls.length).toBeLessThanOrEqual(2)
-    handle!.stop()
+    if (!handle) throw new Error("handle should be non-null")
+    handle.stop()
   })
 
   it("logs error and continues ticking when sync throws", async () => {
@@ -334,6 +337,7 @@ describe("startProjectKnowledgeWatchWorkerIfEnabled", () => {
     expect(logger.errors.some((m) => m.includes("tick failed"))).toBe(true)
     expect(logger.errors.some((m) => m.includes("boom"))).toBe(true)
     expect(mockedSync.mock.calls.length).toBeGreaterThanOrEqual(2)
-    handle!.stop()
+    if (!handle) throw new Error("handle should be non-null")
+    handle.stop()
   })
 })
