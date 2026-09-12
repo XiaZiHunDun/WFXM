@@ -494,7 +494,7 @@ _decision=Respond | toolCalls=0 | replyLen=13_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-xo8Jok/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-pKsadn/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -564,8 +564,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < [撤销轮次 chainId=run-d2]
-✅ /tmp/wb-accept-ws-xo8Jok/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-xo8Jok/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-pKsadn/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-pKsadn/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
