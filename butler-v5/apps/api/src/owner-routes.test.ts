@@ -1237,3 +1237,165 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     expect(body.error).toBe("concurrent-modification")
   })
 })
+
+// D58 T4 (audit #3 F-02 + F-03): memory CRUD + rollback routes mutated
+// durable state without writing to audit_events, so owner-facing audit
+// queries returned empty for these actions. Mirror the sibling mcp
+// revoke-grants pattern: call appendAuditEvent with the state-change
+// action + relevant detail.
+describe("memory routes audit_events (D58 T4 §13 audit completeness)", () => {
+  let db: Awaited<ReturnType<typeof makeTestDb>>
+  let store: ReturnType<typeof createDurableMemoryStore>
+  let runtimeStore: ReturnType<typeof createRuntimeStore>
+  let app: Hono
+
+  beforeEach(async () => {
+    db = await makeTestDb()
+    store = createDurableMemoryStore(db.db)
+    runtimeStore = createRuntimeStore(db.db)
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      durableMemoryStore: store,
+    })
+    app = new Hono()
+    createOwnerRoutes(app, wiring)
+    // Freeze time so rollback-window check stays inside the 7d default —
+    // mirrors the rollback-auto-promote describe block above.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-09-01T00:01:00Z"))
+  })
+
+  afterEach(async () => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+    await db.close()
+  })
+
+  async function seedCandidate(content: string): Promise<string> {
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content,
+      sourceKind: "owner",
+      status: "candidate",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const saved = await store.create(made.value)
+    return saved.id
+  }
+
+  async function postJSON(path: string, body?: unknown): Promise<Response> {
+    return app.request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  }
+
+  async function delJSON(path: string): Promise<Response> {
+    return app.request(path, { method: "DELETE" })
+  }
+
+  function captureAuditEvents(): {
+    appendSpy: ReturnType<typeof vi.spyOn>
+    events: { action: string; subject: string; detail: unknown }[]
+  } {
+    const events: { action: string; subject: string; detail: unknown }[] = []
+    const appendSpy = vi
+      .spyOn(runtimeStore, "appendAuditEvent")
+      .mockImplementation(async (input) => {
+        events.push({ action: input.action, subject: input.subject, detail: input.detail })
+      })
+    return { appendSpy, events }
+  }
+
+  it("POST /:id/confirm writes memory.confirmed to audit_events", async () => {
+    const id = await seedCandidate("audit-confirm")
+    const { events } = captureAuditEvents()
+    const res = await postJSON(`/v1/owner/memories/${id}/confirm`)
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "memory.confirmed")
+    expect(found).toBeDefined()
+    expect(found?.subject).toBe("owner")
+    expect((found?.detail as { memoryId?: string }).memoryId).toBe(id)
+  })
+
+  it("POST /:id/reject writes memory.rejected to audit_events", async () => {
+    const id = await seedCandidate("audit-reject")
+    const { events } = captureAuditEvents()
+    const res = await postJSON(`/v1/owner/memories/${id}/reject`)
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "memory.rejected")
+    expect(found).toBeDefined()
+    expect(found?.subject).toBe("owner")
+    expect((found?.detail as { memoryId?: string }).memoryId).toBe(id)
+  })
+
+  it("DELETE /:id writes memory.deleted to audit_events", async () => {
+    const id = await seedCandidate("audit-delete")
+    const { events } = captureAuditEvents()
+    const res = await delJSON(`/v1/owner/memories/${id}`)
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "memory.deleted")
+    expect(found).toBeDefined()
+    expect(found?.subject).toBe("owner")
+    expect((found?.detail as { memoryId?: string }).memoryId).toBe(id)
+  })
+
+  it("POST /:id/rollback-auto-promote writes memory.rollback to audit_events", async () => {
+    const baseMs = Date.parse("2026-09-01T00:00:00Z")
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "audit-rollback",
+      sourceKind: "owner",
+      status: "candidate",
+      nowMs: baseMs,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const created = await store.create(made.value)
+    // Mirror the rollback-auto-promote describe block: markAutoPromoted
+    // sets status='confirmed' + promotedBy='sweeper' in one step.
+    await store.markAutoPromoted({
+      ids: [created.id],
+      now: new Date(baseMs + 10_000),
+    })
+    const { events } = captureAuditEvents()
+    const res = await postJSON(
+      `/v1/owner/memories/${created.id}/rollback-auto-promote`,
+      { reason: "test" },
+    )
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "memory.rollback")
+    expect(found).toBeDefined()
+    expect(found?.subject).toBe("owner")
+    expect((found?.detail as { memoryId?: string; reason?: string }).memoryId).toBe(created.id)
+    expect((found?.detail as { memoryId?: string; reason?: string }).reason).toBe("test")
+  })
+
+  it("POST /confirm-batch writes memory.confirmed per id", async () => {
+    const id1 = await seedCandidate("batch-confirm-1")
+    const id2 = await seedCandidate("batch-confirm-2")
+    const { events } = captureAuditEvents()
+    const res = await postJSON("/v1/owner/memories/confirm-batch", { ids: [id1, id2] })
+    expect(res.status).toBe(200)
+    const confirmed = events.filter((e) => e.action === "memory.confirmed")
+    const confirmedIds = confirmed.map((e) => (e.detail as { memoryId?: string }).memoryId)
+    expect(confirmedIds.sort()).toEqual([id1, id2].sort())
+  })
+
+  it("POST /reject-batch writes memory.rejected per id", async () => {
+    const id1 = await seedCandidate("batch-reject-1")
+    const id2 = await seedCandidate("batch-reject-2")
+    const { events } = captureAuditEvents()
+    const res = await postJSON("/v1/owner/memories/reject-batch", { ids: [id1, id2] })
+    expect(res.status).toBe(200)
+    const rejected = events.filter((e) => e.action === "memory.rejected")
+    const rejectedIds = rejected.map((e) => (e.detail as { memoryId?: string }).memoryId)
+    expect(rejectedIds.sort()).toEqual([id1, id2].sort())
+  })
+})

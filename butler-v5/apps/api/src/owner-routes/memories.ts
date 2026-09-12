@@ -147,6 +147,17 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       return c.json({ ok: false, reason: "already expired" }, 409)
     }
     const updated = await store.update(confirmDurableMemory(existing, Date.now()))
+    // D58 T4 (audit #3 F-03): §13 audit completeness — owner state
+    // transitions must leave an audit_event row. Mirror mcp.ts revoke-grants.
+    await wiring.runtimeStore.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "memory.confirmed",
+      subject: "owner",
+      detail: { memoryId },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, item: updated })
   })
 
@@ -164,6 +175,16 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       return c.json({ ok: false, reason: "already expired" }, 409)
     }
     const updated = await store.update(rejectDurableMemory(existing, Date.now()))
+    // D58 T4 (audit #3 F-03): §13 audit completeness.
+    await wiring.runtimeStore.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "memory.rejected",
+      subject: "owner",
+      detail: { memoryId },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, item: updated })
   })
 
@@ -266,6 +287,18 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
     console.error(
       `[memory-rollback] ok owner=owner id=${memoryId} reason=${body.reason ?? "none"}`,
     )
+    // D58 T4 (audit #3 F-02): rollback mutated durable state with only
+    // stderr logging before. Now mirror mcp.ts revoke-grants and write
+    // an audit_event row so owner queries on audit_events find rollbacks.
+    await wiring.runtimeStore.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "memory.rollback",
+      subject: "owner",
+      detail: { memoryId, reason: body.reason ?? null },
+      createdAt: now,
+    })
     return c.json({ memory: updated })
   })
 
@@ -276,6 +309,16 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
     const memoryId = c.req.param("memoryId")
     const ok = await store.delete(memoryId)
     if (!ok) return c.json({ ok: false, reason: "not found" }, 404)
+    // D58 T4 (audit #3 F-03): §13 audit completeness.
+    await wiring.runtimeStore.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "memory.deleted",
+      subject: "owner",
+      detail: { memoryId },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, memoryId })
   })
 
@@ -384,6 +427,21 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       ids: parsed.ids,
       transform: (record, nowMs) => confirmDurableMemory(record, nowMs),
     })
+    // D58 T4 (audit #3 F-03): one audit_event per succeeded id.
+    const now = new Date()
+    await Promise.all(
+      result.succeeded.map((memoryId) =>
+        wiring.runtimeStore.appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: null,
+          conversationId: null,
+          action: "memory.confirmed",
+          subject,
+          detail: { memoryId, batch: true },
+          createdAt: now,
+        }),
+      ),
+    )
     return c.json({ confirmed: result.succeeded, failed: result.failed })
   })
 
@@ -403,6 +461,21 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       ids: parsed.ids,
       transform: (record, nowMs) => rejectDurableMemory(record, nowMs),
     })
+    // D58 T4 (audit #3 F-03): one audit_event per succeeded id.
+    const now = new Date()
+    await Promise.all(
+      result.succeeded.map((memoryId) =>
+        wiring.runtimeStore.appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: null,
+          conversationId: null,
+          action: "memory.rejected",
+          subject,
+          detail: { memoryId, batch: true },
+          createdAt: now,
+        }),
+      ),
+    )
     return c.json({ rejected: result.succeeded, failed: result.failed })
   })
 }
