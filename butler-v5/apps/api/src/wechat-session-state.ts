@@ -68,11 +68,22 @@ function readSessionStore(path: string): SessionStateStore {
   }
 }
 
-function writeSessionStore(path: string, store: SessionStateStore): void {
-  mkdirSync(dirname(path), { recursive: true })
-  const tmp = `${path}.tmp`
-  writeFileSync(tmp, `${JSON.stringify(store, null, 2)}\n`, "utf8")
-  renameSync(tmp, path)
+// D60 T5.1 (audit #1 F-03): write-side try/catch. Previously the module
+// docstring claimed 'Pure I/O: never throws' which was FALSE — disk full
+// or permission denied would crash the caller in wechat-session-snapshot.ts.
+// Catch + log so the failure is observable but doesn't crash the request.
+function writeSessionStore(path: string, store: SessionStateStore): boolean {
+  try {
+    mkdirSync(dirname(path), { recursive: true })
+    const tmp = `${path}.tmp`
+    writeFileSync(tmp, `${JSON.stringify(store, null, 2)}\n`, "utf8")
+    renameSync(tmp, path)
+    return true
+  } catch (err) {
+    // eslint-disable-next-line no-console -- operator log (file write failed)
+    console.error(`[wechat-session-state] writeSessionStore failed for ${path}:`, err)
+    return false
+  }
 }
 
 export function readWechatSessionState(
@@ -89,11 +100,11 @@ export function writeWechatSessionState(
   userId: string,
   state: SessionState,
   env: NodeJS.ProcessEnv = process.env,
-): void {
+): boolean {
   const key = userId.trim()
-  if (!key) return
+  if (!key) return false
   const path = wechatSessionStatePath(env)
   const store = readSessionStore(path)
   store[key] = state
-  writeSessionStore(path, store)
+  return writeSessionStore(path, store)
 }

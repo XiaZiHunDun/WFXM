@@ -19,6 +19,13 @@ import {
   resolveSweeperNotifyOwner,
 } from "./wechat-sweeper-notify.js"
 
+// D60 T4.4 (audit #1 F-09/F-24/F-25): Hono app has no bodyLimit configured.
+// Routes that accept body.text / body.content (documents.ts, memories.ts,
+// project-knowledge.ts) let the full body into memory before the inner
+// domain validator (500K / 4000 / 100K char) rejects. Deferred to D61+
+// — adding a global bodyLimit could break existing tests that post
+// larger bodies; per-route limits require touching 4 files. Risk is
+// memory pressure only (validators still reject oversized content).
 const app = new Hono()
 
 const boot = await createProductionWiring(process.env)
@@ -157,25 +164,11 @@ const shutdown = (): void => {
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
+// D60 T5.2 (audit #2 F-09): barrel re-export cleanup. Only 3 exports
+// have external consumers — `default` (Hono app, used by cli + 2 e2e tests),
+// `__wiring__` (used by 2 e2e tests), and `startIlinkPollerIfEnabled`
+// (used by cli). All other re-exports accumulate into a public API
+// surface nobody consumes — drop 11 dead re-exports.
 export const __wiring__ = wiring
-export const __wsHandle__ = wsHandle
 export { startIlinkPollerIfEnabled } from "./ilink-poller.js"
-export { createProductionWiring } from "./bootstrap-wiring.js"
-export { runCliGoal, defaultCliConversationId } from "./cli-run.js"
-export { runScheduleJob } from "./schedule-run.js"
-export { startScheduleWorkerIfEnabled, runScheduleTick } from "./schedule-worker.js"
-export {
-  startProjectKnowledgeWatchWorkerIfEnabled,
-  runProjectKnowledgeWatchTick,
-} from "./project-knowledge-watch-worker.js"
-export {
-  startCandidateExpiresSweeperIfEnabled,
-  runCandidateExpiresTick,
-  parseCandidateExpiresSweeperConfig,
-} from "./candidate-expires-sweeper.js"
-export {
-  startAutoPromoteSweeperIfEnabled,
-  runAutoPromoteTick,
-} from "./auto-promote-sweeper.js"
-export { parseAutoPromoteConfig, type AutoPromoteConfig } from "./auto-promote-config.js"
 export default app
