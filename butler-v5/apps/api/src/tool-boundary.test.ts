@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { makeMcpToolDefinition } from "./mcp-tools.js"
-import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
+import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
+import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 
 describe("tool-boundary", () => {
