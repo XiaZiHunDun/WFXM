@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # git pre-commit hook: IDE 无关的后备保护。
 # 在每次 git commit 前运行关键门禁检查。
-# 安装: cp scripts/ai_guard/pre_commit_hook.sh .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# 安装: bash scripts/ai_guard/install-hooks.sh
 
 set -euo pipefail
 
@@ -9,49 +9,25 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 export PYTHONPATH=.
 
+# Shared protected-files list (also used by commit-msg hook).
+. "$ROOT/scripts/ai_guard/protected_files.sh"
+
 echo "== AI Guard: pre-commit 检查 =="
 
-# 1. 检查是否修改了受保护文件
-PROTECTED_FILES=(
-    "butler/core/agent_loop/loop.py"
-    "butler/contracts/__init__.py"
-    "pyproject.toml"
-    ".claude/settings.json"
-    "scripts/ai_guard/pre_tool_use_hook.py"
-    "scripts/ai_guard/post_tool_use_hook.py"
-    # Butler v5 production load-bearing (see docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md)
-    "butler-v5/packages/persistence/src/migrations/0001_initial.sql"
-    "butler-v5/apps/api/src/wechat-inbound-butler.ts"
-    "butler-v5/packages/runtime/src/agent-kernel.ts"
-    "butler-v5/packages/runtime/src/run-engine.ts"
-    "butler-v5/packages/persistence/src/event-bridge.ts"
-    "butler-v5/packages/runtime/src/capability-boundary.ts"
-    "butler-v5/apps/api/src/tool-boundary.ts"
-    "butler-v5/apps/api/src/capability-guard.ts"
-    "butler-v5/apps/api/src/workspace-tools.ts"
-)
-
-VIOLATIONS=0
+# 1. 检查是否修改了受保护文件 (warn-only here; commit-msg hook enforces)
+PROTECTED_HITS=()
 for pf in "${PROTECTED_FILES[@]}"; do
     if git diff --cached --name-only | grep -q "^${pf}$"; then
-        echo "❌ BLOCKED: 受保护文件被修改: $pf"
-        echo "   如需修改，请在 commit message 中包含 [MANUAL-OVERRIDE] 标记。"
-        VIOLATIONS=$((VIOLATIONS + 1))
+        PROTECTED_HITS+=("$pf")
     fi
 done
 
-# 允许人工覆盖（commit message 包含 [MANUAL-OVERRIDE]）
-if [ "$VIOLATIONS" -gt 0 ]; then
-    # 检查 commit message（如果是 commit 操作）
-    COMMIT_MSG_FILE="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
-    if [ -f "$COMMIT_MSG_FILE" ] && grep -q "\[MANUAL-OVERRIDE\]" "$COMMIT_MSG_FILE"; then
-        echo "⚠️  [MANUAL-OVERRIDE] 检测到，允许修改受保护文件。"
-    else
-        echo ""
-        echo "提交被阻止。$VIOLATIONS 个受保护文件被修改。"
-        echo "如需人工覆盖，请在 commit message 中添加 [MANUAL-OVERRIDE] 标记。"
-        exit 1
-    fi
+if [ "${#PROTECTED_HITS[@]}" -gt 0 ]; then
+    echo "⚠️  受保护文件被修改（commit-msg hook 将检查 [MANUAL-OVERRIDE]）:"
+    for pf in "${PROTECTED_HITS[@]}"; do
+        echo "   - $pf"
+    done
+    echo ""
 fi
 
 # 2. 检查层依赖（快速版）
@@ -85,7 +61,7 @@ if git diff --cached --name-only | grep -qE "^butler/.*\.py$"; then
     fi
 fi
 
-# G3: Secret scanning（所有文件改动时都检查）
+# G3: Secret scanning（所有文件改动时都检查；no override — secrets must not be committed）
 echo "→ 运行 secret 扫描..."
 # 注意：while 循环的退出码 = 最后一条 body 命令的退出码。set -euo pipefail 下，
 # git check-ignore 对"未被忽略的文件"返回 1，会使该 pipeline 返回非零。
@@ -103,17 +79,11 @@ SECRET_HITS=$(git diff --cached --name-only | while read f; do
 done || true)
 
 if [ -n "$SECRET_HITS" ]; then
-    # 检查人工覆盖
-    COMMIT_MSG_FILE="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
-    if [ -f "$COMMIT_MSG_FILE" ] && grep -q "\[MANUAL-OVERRIDE\]" "$COMMIT_MSG_FILE"; then
-        echo "⚠️  [MANUAL-OVERRIDE] 检测到，跳过 secret 扫描。"
-    else
-        echo "❌ 检测到可能的密钥/凭证："
-        echo "$SECRET_HITS"
-        echo ""
-        echo "提交被阻止。如确需提交（如测试 fixture），请在 commit message 中添加 [MANUAL-OVERRIDE]。"
-        exit 1
-    fi
+    echo "❌ 检测到可能的密钥/凭证："
+    echo "$SECRET_HITS"
+    echo ""
+    echo "提交被阻止。如确需提交（如测试 fixture），请使用 --no-verify 跳过所有 hooks。"
+    exit 1
 fi
 echo "✅ Secret 扫描通过"
 

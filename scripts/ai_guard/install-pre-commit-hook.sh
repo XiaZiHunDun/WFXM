@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Idempotently sync the pre-commit hook from the repo source into
-# .git/hooks/pre-commit. Run from the repo root.
+# Idempotently sync git hooks from repo sources into .git/hooks/.
+# Run from the repo root.
 #
-# Source of truth: scripts/ai_guard/pre_commit_hook.sh
-# Install target: .git/hooks/pre-commit
+# Sources of truth (script files in scripts/ai_guard/):
+#   - pre_commit_hook.sh  -> .git/hooks/pre-commit
+#   - commit_msg_hook.sh  -> .git/hooks/commit-msg
+#
+# Both hooks share scripts/ai_guard/protected_files.sh (sourced at runtime,
+# so changes to that file take effect without re-installing the hooks).
 #
 # Design notes:
 # - Idempotent: re-running overwrites with the same content + chmod.
@@ -13,28 +17,44 @@
 # - Standalone: no `set -e` so a missing .git/hooks/ doesn't cascade.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SOURCE="$REPO_ROOT/scripts/ai_guard/pre_commit_hook.sh"
-TARGET="$REPO_ROOT/.git/hooks/pre-commit"
 
-if [ ! -f "$SOURCE" ]; then
-    echo "[install-pre-commit-hook] source missing: $SOURCE" >&2
-    exit 0
-fi
+# Format: "<source> <target>"
+HOOKS=(
+    "pre_commit_hook.sh pre-commit"
+    "commit_msg_hook.sh commit-msg"
+)
 
 if [ ! -d "$REPO_ROOT/.git" ]; then
-    echo "[install-pre-commit-hook] not a git repo (.git missing) — skip" >&2
+    echo "[install-hooks] not a git repo (.git missing) — skip" >&2
     exit 0
 fi
 
 if [ ! -d "$REPO_ROOT/.git/hooks" ]; then
-    echo "[install-pre-commit-hook] .git/hooks missing — skip" >&2
+    echo "[install-hooks] .git/hooks missing — skip" >&2
     exit 0
 fi
 
-if ! cp "$SOURCE" "$TARGET" 2>/dev/null; then
-    echo "[install-pre-commit-hook] cannot write to $TARGET — skip" >&2
-    exit 0
-fi
+EXIT_CODE=0
+for entry in "${HOOKS[@]}"; do
+    source_name="${entry% *}"
+    target_name="${entry#* }"
+    SOURCE="$REPO_ROOT/scripts/ai_guard/$source_name"
+    TARGET="$REPO_ROOT/.git/hooks/$target_name"
 
-chmod +x "$TARGET"
-echo "[install-pre-commit-hook] installed $(basename "$TARGET") from $SOURCE"
+    if [ ! -f "$SOURCE" ]; then
+        echo "[install-hooks] source missing: $SOURCE" >&2
+        EXIT_CODE=1
+        continue
+    fi
+
+    if ! cp "$SOURCE" "$TARGET" 2>/dev/null; then
+        echo "[install-hooks] cannot write to $TARGET — skip" >&2
+        EXIT_CODE=1
+        continue
+    fi
+
+    chmod +x "$TARGET"
+    echo "[install-hooks] installed $target_name from $source_name"
+done
+
+exit $EXIT_CODE
