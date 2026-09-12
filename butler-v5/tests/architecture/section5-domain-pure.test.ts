@@ -150,7 +150,9 @@ describe("arch: §5 Domain 纯规则层 (D25 audit — pure + impure fallback pa
 
   it("§5 范围 4: 可重放的确定性决策 / Policy 规则 (domain *pure.ts files)", () => {
     const pureFiles = [
-      join(DOMAIN_SRC, "permissions/pure.ts"),
+      // D59 T4 (audit #2 F-02): permissions/pure.ts was deleted — the
+      // duplicate ADT was never used in production. Permission decisions
+      // live in governance/types.ts (live) and policy-gate.ts (runtime).
       join(DOMAIN_SRC, "guards/pure.ts"),
       join(DOMAIN_SRC, "memory/pure.ts"),
       join(DOMAIN_SRC, "tools/pure.ts"),

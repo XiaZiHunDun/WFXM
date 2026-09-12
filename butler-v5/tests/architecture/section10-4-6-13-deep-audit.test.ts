@@ -78,8 +78,10 @@ import { join } from "node:path"
 const SCHEDULE = join(__dirname, "../../packages/domain/src/runtime/schedule.ts")
 const DECISION = join(__dirname, "../../packages/domain/src/runtime/decision.ts")
 const PERMISSION_TYPES = join(
+  // D59 T4 (audit #2 F-03): permissions/types.ts was deleted (duplicate
+  // ADT). The live PermissionPolicy interface lives in governance/types.ts.
   __dirname,
-  "../../packages/domain/src/permissions/types.ts",
+  "../../packages/domain/src/governance/types.ts",
 )
 const POLICY_GATE = join(__dirname, "../../packages/runtime/src/policy-gate.ts")
 const CAPABILITY_BOUNDARY = join(
@@ -213,24 +215,22 @@ describe("arch: §10.4 Sandbox + §6 Application + §13 风险与自治 deep aud
 
   // ── §13 风险与自治 (4 cases)───────────────────────────────
 
-  it("§13: PermissionPolicy declares 3 lists (allowed / denied / requireApproval — text-vs-impl drift: §13 line 602-606 '3-class trigger' is mapped to 3 per-tool lists; 'Always-confirm' = requireApproval list with approver)", () => {
+  it("§13: PermissionPolicy declares per-tool trigger lists (alwaysConfirm + denyByDefault — text-vs-impl drift: §13 line 602-606 '3-class trigger' is mapped to per-tool lists in governance/types.ts; live impl uses alwaysConfirm/denyByDefault instead of allowed/denied/requireApproval)", () => {
     const src = readFileSync(PERMISSION_TYPES, "utf-8")
     const match = src.match(
       /export interface PermissionPolicy\s*\{([\s\S]*?)\n\}/,
     )
     expect(match, "PermissionPolicy interface not found").not.toBeNull()
     const body = match?.[1] ?? ""
-    // §13 line 602-606 lists 3 trigger classes. Impl groups them
-    // per-tool via 3 lists (allowed / denied / requireApproval).
-    // PolicyDecision ADT is Allow / Deny / RequireApproval(approver).
-    expect(body, "PermissionPolicy must declare `allowed` list").toMatch(
-      /readonly\s+allowed:\s*readonly\s+\{/,
+    // D59 T4 (audit #2 F-03): the live PermissionPolicy lives in
+    // governance/types.ts (not the deleted permissions/types.ts
+    // duplicate). It declares per-tool trigger lists for the §13
+    // 3-class trigger model.
+    expect(body, "PermissionPolicy must declare `alwaysConfirm` list").toMatch(
+      /readonly\s+alwaysConfirm:\s*readonly\s+\w+\[\]/,
     )
-    expect(body, "PermissionPolicy must declare `denied` list").toMatch(
-      /readonly\s+denied:\s*readonly\s+\{/,
-    )
-    expect(body, "PermissionPolicy must declare `requireApproval` list (§13 line 606 Always-confirm semantics per-tool approver)").toMatch(
-      /readonly\s+requireApproval:\s*readonly\s+\{/,
+    expect(body, "PermissionPolicy must declare `denyByDefault` list").toMatch(
+      /readonly\s+denyByDefault:\s*readonly\s+\w+\[\]/,
     )
   })
 
