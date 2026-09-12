@@ -9,11 +9,18 @@ import { createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { makeWiring } from "./wiring.js"
 import * as ownerAuth from "./owner-auth.js"
 import { createDurableMemoryStore } from "@butler/persistence/durable-memory-store.js"
+import { createDocumentStore } from "@butler/persistence/document-store.js"
+import { createProjectKnowledgeStore } from "@butler/persistence/project-knowledge-store.js"
+import { createProcedureStore, createTaskStore } from "@butler/persistence/task-procedure-store.js"
 import {
   confirmDurableMemory,
   createDurableMemoryRecord,
   rejectDurableMemory,
 } from "@butler/domain/knowledge/durable-memory.js"
+import { ingestDocumentRecord } from "@butler/domain/knowledge/document-ingest.js"
+import { createProjectKnowledgeRecord } from "@butler/domain/knowledge/project-knowledge.js"
+import { createProcedureRecord as _createProcedureRecord } from "@butler/domain/knowledge/task-procedure.js"
+import { createTaskRecord } from "@butler/domain/knowledge/task-procedure.js"
 
 describe("owner routes", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
@@ -1397,5 +1404,211 @@ describe("memory routes audit_events (D58 T4 §13 audit completeness)", () => {
     const rejected = events.filter((e) => e.action === "memory.rejected")
     const rejectedIds = rejected.map((e) => (e.detail as { memoryId?: string }).memoryId)
     expect(rejectedIds.sort()).toEqual([id1, id2].sort())
+  })
+})
+
+// D59 T1 (audit #1 F-21..F-29): documents, project-knowledge, procedures and
+// tasks routes mutate durable state without writing to audit_events, leaving
+// owner-facing audit queries empty for these actions. Mirror the D58 T4
+// memories.ts pattern: call appendAuditEvent with the state-change action +
+// relevant detail. Sibling reference: mcp.ts revoke-grants.
+describe("document / project-knowledge / procedure / task routes audit_events (D59 T1 §13 audit completeness)", () => {
+  let db: Awaited<ReturnType<typeof makeTestDb>>
+  let runtimeStore: ReturnType<typeof createRuntimeStore>
+  let docStore: ReturnType<typeof createDocumentStore>
+  let pkStore: ReturnType<typeof createProjectKnowledgeStore>
+  let procStore: ReturnType<typeof createProcedureStore>
+  let taskStore: ReturnType<typeof createTaskStore>
+  let memStore: ReturnType<typeof createDurableMemoryStore>
+  let app: Hono
+
+  beforeEach(async () => {
+    db = await makeTestDb()
+    runtimeStore = createRuntimeStore(db.db)
+    docStore = createDocumentStore(db.db)
+    pkStore = createProjectKnowledgeStore(db.db)
+    procStore = createProcedureStore(db.db)
+    taskStore = createTaskStore(db.db)
+    memStore = createDurableMemoryStore(db.db)
+    const bridge = new EventBridge({ db: db.db, workerId: "test" })
+    const wiring = makeWiring({
+      bridge,
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      durableMemoryStore: memStore,
+      documentStore: docStore,
+      projectKnowledgeStore: pkStore,
+      procedureStore: procStore,
+      taskStore,
+    })
+    app = new Hono()
+    createOwnerRoutes(app, wiring)
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    await db.close()
+  })
+
+  async function postJSON(path: string, body?: unknown): Promise<Response> {
+    return app.request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  }
+
+  async function delJSON(path: string): Promise<Response> {
+    return app.request(path, { method: "DELETE" })
+  }
+
+  function captureAuditEvents(): {
+    events: { action: string; subject: string; detail: unknown }[]
+  } {
+    const events: { action: string; subject: string; detail: unknown }[] = []
+    vi.spyOn(runtimeStore, "appendAuditEvent").mockImplementation(async (input) => {
+      events.push({ action: input.action, subject: input.subject, detail: input.detail })
+    })
+    return { events }
+  }
+
+  async function seedDocument(title: string, text: string): Promise<string> {
+    const made = ingestDocumentRecord({
+      subject: "owner",
+      title,
+      format: "plaintext",
+      text,
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const saved = await docStore.create(made.value)
+    return saved.id
+  }
+
+  async function seedProjectKnowledge(projectId: string, title: string): Promise<string> {
+    const made = createProjectKnowledgeRecord({
+      projectId,
+      title,
+      kind: "manual_note",
+      body: "seed body",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const saved = await pkStore.create(made.value)
+    return saved.id
+  }
+
+  it("POST /v1/owner/documents writes document.created to audit_events", async () => {
+    const { events } = captureAuditEvents()
+    const res = await postJSON("/v1/owner/documents", {
+      title: "audit-create-doc",
+      format: "plaintext",
+      text: "hello",
+    })
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "document.created")
+    expect(found).toBeDefined()
+    expect(found?.subject).toBe("owner")
+  })
+
+  it("DELETE /v1/owner/documents/:id writes document.deleted to audit_events", async () => {
+    const id = await seedDocument("audit-delete-doc", "bye")
+    const { events } = captureAuditEvents()
+    const res = await delJSON(`/v1/owner/documents/${id}`)
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "document.deleted")
+    expect(found).toBeDefined()
+    expect((found?.detail as { documentId?: string }).documentId).toBe(id)
+  })
+
+  it("POST /v1/owner/documents/:id/promote-memory writes memory.created_from_document to audit_events", async () => {
+    const id = await seedDocument("audit-promote-mem", "promote content")
+    const { events } = captureAuditEvents()
+    const res = await postJSON(`/v1/owner/documents/${id}/promote-memory`, {
+      status: "confirmed",
+    })
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "memory.created_from_document")
+    expect(found).toBeDefined()
+    expect((found?.detail as { documentId?: string }).documentId).toBe(id)
+  })
+
+  it("POST /v1/owner/documents/:id/promote-project-knowledge writes project_knowledge.created_from_document to audit_events", async () => {
+    const id = await seedDocument("audit-promote-pk", "pk content")
+    const { events } = captureAuditEvents()
+    const res = await postJSON(
+      `/v1/owner/documents/${id}/promote-project-knowledge?projectId=proj-x`,
+      {},
+    )
+    expect(res.status).toBe(200)
+    const found = events.find(
+      (e) => e.action === "project_knowledge.created_from_document",
+    )
+    expect(found).toBeDefined()
+    expect((found?.detail as { documentId?: string }).documentId).toBe(id)
+  })
+
+  it("POST /v1/owner/project-knowledge writes project_knowledge.created to audit_events", async () => {
+    const { events } = captureAuditEvents()
+    const res = await postJSON("/v1/owner/project-knowledge", {
+      projectId: "proj-x",
+      title: "audit-create-pk",
+      text: "manual note",
+    })
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "project_knowledge.created")
+    expect(found).toBeDefined()
+    expect(found?.subject).toBe("owner")
+  })
+
+  it("DELETE /v1/owner/project-knowledge/:id writes project_knowledge.deleted to audit_events", async () => {
+    const id = await seedProjectKnowledge("proj-x", "audit-delete-pk")
+    const { events } = captureAuditEvents()
+    const res = await delJSON(`/v1/owner/project-knowledge/${id}`)
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "project_knowledge.deleted")
+    expect(found).toBeDefined()
+    expect((found?.detail as { itemId?: string }).itemId).toBe(id)
+  })
+
+  it("POST /v1/owner/procedures writes procedure.created to audit_events", async () => {
+    const { events } = captureAuditEvents()
+    const res = await postJSON("/v1/owner/procedures", {
+      name: "audit-create-proc",
+      steps: [{ key: "s1", title: "t", goal: "g" }],
+    })
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "procedure.created")
+    expect(found).toBeDefined()
+    expect(found?.subject).toBe("owner")
+  })
+
+  it("POST /v1/owner/tasks writes task.created to audit_events", async () => {
+    const { events } = captureAuditEvents()
+    const res = await postJSON("/v1/owner/tasks", {
+      title: "audit-create-task",
+      goal: "do something",
+    })
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "task.created")
+    expect(found).toBeDefined()
+    expect(found?.subject).toBe("owner")
+  })
+
+  it("POST /v1/owner/tasks/:id/done writes task.done to audit_events", async () => {
+    const made = createTaskRecord({
+      subject: "owner",
+      title: "audit-done-task",
+      goal: "g",
+    })
+    if (!made.ok) throw new Error(made.reason)
+    const saved = await taskStore.create(made.value)
+    const { events } = captureAuditEvents()
+    const res = await postJSON(`/v1/owner/tasks/${saved.id}/done`)
+    expect(res.status).toBe(200)
+    const found = events.find((e) => e.action === "task.done")
+    expect(found).toBeDefined()
+    expect((found?.detail as { taskId?: string }).taskId).toBe(saved.id)
   })
 })

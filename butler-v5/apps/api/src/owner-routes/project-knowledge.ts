@@ -107,6 +107,21 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
     })
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     const saved = await store.create(created.value)
+    // D59 T1 (audit #1 F-23): §13 audit completeness — manual project
+    // knowledge POST creates durable state; mirror mcp.ts revoke-grants.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "project_knowledge.created",
+      subject: "owner",
+      detail: {
+        itemId: saved.id,
+        projectId: saved.projectId,
+        kind: saved.kind,
+      },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, item: saved })
   })
 
@@ -136,6 +151,16 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
     const itemId = c.req.param("itemId")
     const ok = await store.delete(itemId)
     if (!ok) return c.json({ ok: false, reason: "not found" }, 404)
+    // D59 T1 (audit #1 F-29): §13 audit completeness.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "project_knowledge.deleted",
+      subject: "owner",
+      detail: { itemId },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, itemId })
   })
 }

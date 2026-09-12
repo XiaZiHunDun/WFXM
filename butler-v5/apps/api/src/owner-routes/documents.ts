@@ -92,6 +92,17 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     })
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     const saved = await store.create(created.value)
+    // D59 T1 (audit #1 F-24): §13 audit completeness — owner state
+    // mutations must leave an audit_event row. Mirror mcp.ts revoke-grants.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "document.created",
+      subject: body.subject ?? "owner",
+      detail: { documentId: saved.id, title: saved.title },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, item: saved })
   })
 
@@ -156,6 +167,17 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       )
     }
     const saved = await memories.create(created.value)
+    // D59 T1 (audit #1 F-21): §13 audit completeness — document→memory
+    // promotion mutates durable memory state; mirror mcp.ts revoke-grants.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "memory.created_from_document",
+      subject: created.value.subject,
+      detail: { memoryId: saved.id, documentId: doc.id },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, item: saved })
   })
 
@@ -182,6 +204,17 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     })
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     const saved = await pk.create(created.value)
+    // D59 T1 (audit #1 F-22): §13 audit completeness — document→project
+    // knowledge promotion mutates durable state.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "project_knowledge.created_from_document",
+      subject: "owner",
+      detail: { itemId: saved.id, projectId: saved.projectId, documentId: doc.id },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, item: saved })
   })
 
@@ -196,6 +229,22 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       (await wiring.durableMemoryStore?.deleteBySourceDocumentId(documentId)) ?? 0
     const cascadedProjectKnowledge =
       (await wiring.projectKnowledgeStore?.deleteBySourceDocumentId(documentId)) ?? 0
+    // D59 T1 (audit #1 F-25 + F-28): §13 audit completeness — document
+    // deletion cascades memories + project-knowledge; mirror mcp.ts
+    // revoke-grants so owner audit queries find these destructive ops.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "document.deleted",
+      subject: "owner",
+      detail: {
+        documentId,
+        cascadedMemories: cascaded,
+        cascadedProjectKnowledge,
+      },
+      createdAt: new Date(),
+    })
     return c.json({
       ok: true,
       documentId,

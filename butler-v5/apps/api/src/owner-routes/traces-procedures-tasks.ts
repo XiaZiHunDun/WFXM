@@ -83,6 +83,16 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
     })
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     const saved = await store.create(created.value)
+    // D59 T1 (audit #1 F-26 procedures): §13 audit completeness.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "procedure.created",
+      subject: "owner",
+      detail: { procedureId: saved.id, name: saved.name },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, item: saved })
   })
 
@@ -130,6 +140,16 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
     })
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     const saved = await store.create(created.value)
+    // D59 T1 (audit #1 F-26 task): §13 audit completeness.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "task.created",
+      subject: body.subject ?? "owner",
+      detail: { taskId: saved.id, title: saved.title },
+      createdAt: new Date(),
+    })
     return c.json({ ok: true, item: saved })
   })
 
@@ -169,6 +189,17 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
       ...existing,
       status: "done",
       updatedAt: Date.now(),
+    })
+    // D59 T1 (audit #1 F-27): §13 audit completeness — task status
+    // transition writes audit_event.
+    await wiring.runtimeStore?.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      action: "task.done",
+      subject: existing.subject,
+      detail: { taskId: existing.id, fromStatus: existing.status },
+      createdAt: new Date(),
     })
     return c.json({ ok: true, item: updated })
   })
