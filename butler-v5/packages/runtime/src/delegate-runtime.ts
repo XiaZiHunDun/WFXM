@@ -1,6 +1,13 @@
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { EventStorePort } from "@butler/ports/core/event-store.js"
 
+// D60 T4.2 (audit #1 F-05): consistent truncation for delegate task text
+// across all storage sites (run goal, step input, outbox payload). The
+// conversation content (line ~101) is kept as the FULL task — the child LLM
+// needs the full text for context — but the metadata-only fields are
+// truncated to TASK_PREVIEW_CHARS to keep summaries / outbox payloads bounded.
+const TASK_PREVIEW_CHARS = 200
+
 /**
  * R8.x.9: closed allowlist of capability tool names that a subagent
  * may be granted. The route layer (`tools.ts`) and the worker layer
@@ -110,7 +117,7 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
       triggerSource: "parent_run",
       idempotencyKey: `child-run:${input.parentRunId}:${childConversationId}`,
       subject,
-      goal: input.task.slice(0, 200),
+      goal: input.task.slice(0, TASK_PREVIEW_CHARS),
       budget: {
         maxSteps: 3,
         role: input.role,
@@ -127,7 +134,7 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
       status: "queued",
       input: {
         role: input.role,
-        task: input.task,
+        task: input.task.slice(0, TASK_PREVIEW_CHARS),
         capabilities: input.capabilities.map((c) => c.tool as string),
       },
       createdAt: now,
@@ -166,7 +173,7 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
       payload: {
         childConversationId,
         role: input.role,
-        task: input.task,
+        task: input.task.slice(0, TASK_PREVIEW_CHARS),
         capabilities: input.capabilities,
         ...(childRunId ? { childRunId } : {}),
         ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),

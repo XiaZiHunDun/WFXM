@@ -161,9 +161,15 @@ export async function downloadTelegramFile(config: {
   }
 }
 
+// D60 T4.3 (audit #1 F-16/F-28/F-29): clamp operator-supplied media-size
+// env var to the 100MB safety cap so a typo (e.g. =999999999999) can't
+// bypass the gate.
+const MAX_MEDIA_BYTES_CAP = 100 * 1024 * 1024
+
 function telegramMediaMaxBytes(env: NodeJS.ProcessEnv = process.env): number {
   const raw = Number(env["BUTLER_V5_TELEGRAM_MEDIA_MAX_BYTES"] ?? 8 * 1024 * 1024)
-  return Number.isFinite(raw) && raw > 0 ? raw : 8 * 1024 * 1024
+  if (!Number.isFinite(raw) || raw <= 0) return 8 * 1024 * 1024
+  return Math.min(raw, MAX_MEDIA_BYTES_CAP)
 }
 
 export async function resolveTelegramInboundContent(

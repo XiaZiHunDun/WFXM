@@ -4,6 +4,12 @@
  * No DAG, no parallel merge, no second Run Engine.
  */
 
+// D60 T4.1 (audit #1 F-04): defense-in-depth length caps. Aligns with
+// memory content cap (4000) and project-knowledge body cap (100K) — tasks
+// are owner-metadata, so memory-sized is appropriate.
+const MAX_NAME_CHARS = 4000
+const MAX_STEPS = 100
+
 export type TaskId = string
 export type ProcedureId = string
 
@@ -75,8 +81,18 @@ export type ProcedureValidation =
 export function createProcedureRecord(input: CreateProcedureInput): ProcedureValidation {
   const name = input.name.trim()
   if (!name) return { ok: false, reason: "name is required" }
+  // D60 T4.1 (audit #1 F-04): defense-in-depth length cap on procedure name
+  // (matches memory content cap at 4000 chars; project-knowledge at 100K
+  // is for bulk body content, not metadata).
+  if (name.length > MAX_NAME_CHARS) {
+    return { ok: false, reason: `name exceeds ${MAX_NAME_CHARS} chars` }
+  }
   if (!Array.isArray(input.steps) || input.steps.length === 0) {
     return { ok: false, reason: "steps must be a non-empty array" }
+  }
+  // D60 T4.1: cap step count to prevent a 1M-step procedure from owner input.
+  if (input.steps.length > MAX_STEPS) {
+    return { ok: false, reason: `steps exceeds ${MAX_STEPS} entries` }
   }
   const steps: ProcedureStepTemplate[] = []
   const keys = new Set<string>()
@@ -117,6 +133,18 @@ export function createTaskRecord(input: CreateTaskInput): TaskValidation {
   if (!subject) return { ok: false, reason: "subject is required" }
   if (!title) return { ok: false, reason: "title is required" }
   if (!goal) return { ok: false, reason: "goal is required" }
+  // D60 T4.1 (audit #1 F-04): defense-in-depth length caps on subject/title/goal
+  // (matches memory content cap at 4000 chars; project-knowledge at 100K
+  // is for bulk body content, not metadata).
+  if (subject.length > MAX_NAME_CHARS) {
+    return { ok: false, reason: `subject exceeds ${MAX_NAME_CHARS} chars` }
+  }
+  if (title.length > MAX_NAME_CHARS) {
+    return { ok: false, reason: `title exceeds ${MAX_NAME_CHARS} chars` }
+  }
+  if (goal.length > MAX_NAME_CHARS) {
+    return { ok: false, reason: `goal exceeds ${MAX_NAME_CHARS} chars` }
+  }
   const status = input.status ?? "open"
   if (status !== "open" && status !== "done" && status !== "cancelled") {
     return { ok: false, reason: "invalid status" }

@@ -29,9 +29,15 @@ export interface SendWechatFileContext {
   readonly env?: NodeJS.ProcessEnv
 }
 
+// D60 T4.3 (audit #1 F-16/F-28/F-29): upper-bound cap on operator-supplied
+// media-size env vars. Without this, an operator typo
+// (e.g. WECHAT_MEDIA_MAX_BYTES=999999999999) bypasses the gate entirely.
+const MAX_MEDIA_BYTES_CAP = 100 * 1024 * 1024
+
 function mediaMaxBytes(env: NodeJS.ProcessEnv): number {
   const raw = Number(env["WECHAT_MEDIA_MAX_BYTES"] ?? 8 * 1024 * 1024)
-  return Number.isFinite(raw) && raw > 0 ? raw : 8 * 1024 * 1024
+  if (!Number.isFinite(raw) || raw <= 0) return 8 * 1024 * 1024
+  return Math.min(raw, MAX_MEDIA_BYTES_CAP)
 }
 
 function defaultSendWechatMedia(env: NodeJS.ProcessEnv): SendWechatMediaFn | undefined {

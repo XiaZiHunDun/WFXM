@@ -79,7 +79,15 @@ export function parseIlinkPollerConfig(env: NodeJS.ProcessEnv): ILinkResult<Ilin
     join(homedir(), ".config", "butler-v5", "ilink-sync.json")
   ).trim()
   const workspaceRoot = (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim()
-  const mediaMaxBytes = Number(env["WECHAT_MEDIA_MAX_BYTES"] ?? 8 * 1024 * 1024)
+  // D60 T4.3 (audit #1 F-16/F-28/F-29): clamp operator-supplied media-size
+// env var to the 100MB safety cap so a typo (e.g. =999999999999) can't
+// bypass the gate.
+const MAX_MEDIA_BYTES_CAP = 100 * 1024 * 1024
+const rawMaxBytes = Number(env["WECHAT_MEDIA_MAX_BYTES"] ?? 8 * 1024 * 1024)
+const mediaMaxBytes =
+  Number.isFinite(rawMaxBytes) && rawMaxBytes > 0
+    ? Math.min(rawMaxBytes, MAX_MEDIA_BYTES_CAP)
+    : 8 * 1024 * 1024
   return {
     ok: true,
     value: {

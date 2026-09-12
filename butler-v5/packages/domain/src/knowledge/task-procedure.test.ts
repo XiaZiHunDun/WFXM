@@ -162,3 +162,89 @@ describe("defaultTaskConversationId", () => {
     expect(defaultTaskConversationId(" task-7 ")).toBe("task- task-7 ")
   })
 })
+
+// D60 T4.1 (audit #1 F-04): defense-in-depth length caps on procedure
+// name + steps count + task subject/title/goal. Aligns with memory (4000
+// chars) and project-knowledge (100K body) caps.
+describe("createProcedureRecord / createTaskRecord length caps (D60 T4.1)", () => {
+  const huge = "x".repeat(4001)
+  const ok4000 = "y".repeat(4000)
+
+  it("rejects procedure name > 4000 chars", () => {
+    const result = createProcedureRecord({
+      name: huge,
+      steps: [{ key: "k", title: "t", goal: "g" }],
+      nowMs: 1,
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toContain("exceeds 4000")
+  })
+
+  it("accepts procedure name = 4000 chars", () => {
+    const result = createProcedureRecord({
+      name: ok4000,
+      steps: [{ key: "k", title: "t", goal: "g" }],
+      nowMs: 1,
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it("rejects procedure with > 100 steps", () => {
+    const steps = Array.from({ length: 101 }, (_, i) => ({
+      key: `k${i}`,
+      title: "t",
+      goal: "g",
+    }))
+    const result = createProcedureRecord({ name: "n", steps, nowMs: 1 })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toContain("exceeds 100")
+  })
+
+  it("accepts procedure with 100 steps", () => {
+    const steps = Array.from({ length: 100 }, (_, i) => ({
+      key: `k${i}`,
+      title: "t",
+      goal: "g",
+    }))
+    const result = createProcedureRecord({ name: "n", steps, nowMs: 1 })
+    expect(result.ok).toBe(true)
+  })
+
+  it("rejects task with subject > 4000 chars", () => {
+    const result = createTaskRecord({
+      subject: huge,
+      title: "t",
+      goal: "g",
+      nowMs: 1,
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toContain("subject exceeds 4000")
+  })
+
+  it("rejects task with title > 4000 chars", () => {
+    const result = createTaskRecord({
+      subject: "s",
+      title: huge,
+      goal: "g",
+      nowMs: 1,
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toContain("title exceeds 4000")
+  })
+
+  it("rejects task with goal > 4000 chars", () => {
+    const result = createTaskRecord({
+      subject: "s",
+      title: "t",
+      goal: huge,
+      nowMs: 1,
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toContain("goal exceeds 4000")
+  })
+})
