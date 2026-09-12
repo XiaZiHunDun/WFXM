@@ -199,7 +199,7 @@ describe("wechat-sweeper-notify", () => {
       expect(r).toEqual({ sent: true })
     })
 
-    it("send failure does NOT record throttle (retry next tick)", async () => {
+    it("send failure records throttle so persistent errors don't per-tick spam (D55 SF-04)", async () => {
       const fakeSend = async () => ({ ok: false as const, reason: "ilink down" })
       const r1 = await pushSweeperNotify({
         type: "candidate_expires",
@@ -210,19 +210,22 @@ describe("wechat-sweeper-notify", () => {
         send: fakeSend,
       })
       expect(r1).toEqual({ sent: false, reason: "ilink down" })
-      // Next push 1 min later should still try (no throttle recorded)
+      // Throttle IS recorded on failure (audit D55 SF-04): next push within
+      // the throttle window must short-circuit, not burn through the same
+      // outage. Owner can still bypass via /记忆候选 command path.
+      expect(_peekSweeperThrottleForTests("candidate_expires:u-1")).toBe(1000)
       const r2 = await pushSweeperNotify({
         type: "candidate_expires",
         to: "u-1",
         text: "msg-2",
         env: enabledEnv,
-        now: 1000 + 60 * 1000,
+        now: 1000 + 60 * 1000, // 1 min later, well inside 1h window
         send: fakeSend,
       })
-      expect(r2).toEqual({ sent: false, reason: "ilink down" })
+      expect(r2).toEqual({ sent: false, reason: "throttled" })
     })
 
-    it("send throws → caught, returned as sent=false with reason", async () => {
+    it("send throw also records throttle (D55 SF-04 backoff)", async () => {
       const throwing = async () => {
         throw new Error("kaboom")
       }
@@ -235,6 +238,17 @@ describe("wechat-sweeper-notify", () => {
         send: throwing,
       })
       expect(r).toEqual({ sent: false, reason: "kaboom" })
+      expect(_peekSweeperThrottleForTests("candidate_expires:u-1")).toBe(1000)
+      // Next push 1 min later is throttled, not retried.
+      const r2 = await pushSweeperNotify({
+        type: "candidate_expires",
+        to: "u-1",
+        text: "msg-2",
+        env: enabledEnv,
+        now: 1000 + 60 * 1000,
+        send: throwing,
+      })
+      expect(r2).toEqual({ sent: false, reason: "throttled" })
     })
 
     it("different owners don't share throttle", async () => {

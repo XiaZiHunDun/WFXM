@@ -112,12 +112,19 @@ export async function pushSweeperNotify(
       ...(args.channels === undefined ? {} : { channels: args.channels }),
     })
   } catch (err) {
+    // D55 SF-04: throttle on failure too — persistent errors (ilink down,
+    // misconfigured token) would otherwise spam every sweeper tick. Owner
+    // can still bypass via /记忆候选 command path which is not throttled.
+    lastSentAtMs.set(key, now)
     return {
       sent: false,
       reason: err instanceof Error ? err.message : String(err),
     }
   }
-  if (!result.ok) return { sent: false, reason: result.reason }
+  // Record throttle regardless of ok/fail — same rationale as the throw
+  // path above: a non-ok result is still an attempted push that consumed
+  // the window, and the next tick shouldn't burn through the same outage.
   lastSentAtMs.set(key, now)
+  if (!result.ok) return { sent: false, reason: result.reason }
   return { sent: true }
 }
