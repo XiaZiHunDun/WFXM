@@ -85,12 +85,23 @@ export async function sendWechatProactiveNotify(args: {
   readonly channels?: ReadonlyMap<ChannelKind, ChannelPort>
 }): Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }> {
   const env = args.env ?? process.env
+  // D59 T5 (audit #3 F-07): push notify had 3 silent failure modes the
+  // owner (and operator) couldn't diagnose. Log a structured stderr
+  // line for each so the failure mode is recoverable from logs alone.
   if (!isRunNotifyEnabled(env)) {
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error(
+      `[wechat-run-notify] skipped reason=run_notify_disabled to=${args.to} hint=set BUTLER_V5_RUN_NOTIFY_ENABLED=1`,
+    )
     return { ok: false, reason: "run notify disabled" }
   }
   const to = args.to.trim()
   const text = args.text.trim()
   if (!to || !text) {
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error(
+      `[wechat-run-notify] skipped reason=empty_recipient_or_message toLen=${args.to.length} textLen=${args.text.length}`,
+    )
     return { ok: false, reason: "empty recipient or message" }
   }
   // D2.4 step 1: when Composition Root registers a WeChat ChannelPort, prefer the
@@ -104,13 +115,20 @@ export async function sendWechatProactiveNotify(args: {
         content: text,
       })
       if (!result.ok) {
+        // eslint-disable-next-line no-console -- operator log when no logger injected
+        console.error(
+          `[wechat-run-notify] port-send-failed reason=${result.reason} to=${to}`,
+        )
         return { ok: false, reason: result.reason }
       }
       return { ok: true }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(`[wechat-run-notify] port-threw reason=${message} to=${to}`)
       return {
         ok: false,
-        reason: err instanceof Error ? err.message : String(err),
+        reason: message,
       }
     }
   }
@@ -123,26 +141,42 @@ export async function sendWechatProactiveNotify(args: {
       )
       return { ok: true }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(
+        `[wechat-run-notify] mock-outbox-write-failed reason=${message} path=${mockOutbox}`,
+      )
       return {
         ok: false,
-        reason: err instanceof Error ? err.message : String(err),
+        reason: message,
       }
     }
   }
   const client = ilinkClientFromEnv(env)
   if (!client) {
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error(
+      `[wechat-run-notify] skipped reason=ilink_not_configured to=${to} hint=set WECHAT_TOKEN+WECHAT_BASE_URL or BUTLER_V5_ILINK_ENABLED=1`,
+    )
     return { ok: false, reason: "iLink not configured" }
   }
   try {
     const result = await ilinkSendMessage(client, { to, text })
     if (!result.ok) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(
+        `[wechat-run-notify] ilink-send-failed reason=${result.reason ?? "ilink send failed"} to=${to}`,
+      )
       return { ok: false, reason: result.reason ?? "ilink send failed" }
     }
     return { ok: true }
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error(`[wechat-run-notify] ilink-threw reason=${message} to=${to}`)
     return {
       ok: false,
-      reason: err instanceof Error ? err.message : String(err),
+      reason: message,
     }
   }
 }

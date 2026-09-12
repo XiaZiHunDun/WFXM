@@ -23,7 +23,6 @@ import {
   undoChain,
   getUndoChainConversation,
   undoChain_listConversations,
-  undoChain_listChainIds,
 } from "./workspace-tools.js"
 import type { ChainRevertResult } from "./workspace-tools.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
@@ -151,11 +150,22 @@ export async function tryWechatUndoCommand(args: {
         }
       }
     }
+    // D59 T5 (audit #3 F-04): previously when no chainId matched the
+    // current conversation we silently fell back to the most-recent
+    // global chainId via undoChain_listChainIds(). That fallback reverted
+    // operations from a different (possibly other-owner) conversation
+    // without confirmation. Surface a clear error instead — owner can
+    // retry with /undo <chainId> explicitly if they meant a different
+    // chain.
     if (!chainId) {
-      const ids = undoChain_listChainIds()
-      chainId = ids[ids.length - 1]
+      if (currentConv) {
+        return done(
+          "当前对话没有可撤销的轮次。如果你想撤销其他对话的轮次，请用 `/撤销 <chainId>` 显式指定。",
+          ["wechat-undo: chain not found for current conversation"],
+        )
+      }
+      return done("没有可撤销的轮次。")
     }
-    if (!chainId) return done("没有可撤销的轮次。")
     if (currentConv) {
       const stored = getUndoChainConversation(chainId)
       if (stored && stored !== currentConv) {
