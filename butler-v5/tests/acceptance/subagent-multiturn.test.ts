@@ -76,7 +76,9 @@ describe("acceptance/subagent-multiturn (微信多轮对话 + 跨 turn 工具调
     })
     expect(first.status).toBe(201)
     expect(first.finalDecision).toBe("WaitForApproval")
-    expect(first.reply).toMatch(/需要确认|审批编号|approve/i)
+    // D59 T3 (audit #3 F-06 + F-08): owner-facing reply no longer
+    // contains "审批编号". Match on the new text shape (待审批).
+    expect(first.reply).toMatch(/需要确认|待审批|审批编号|approve/i)
 
     const convId = first.conversationId as string
 

@@ -55,7 +55,10 @@ describe("acceptance/commands-approval (微信核心命令 + 审批流)", () => 
     })
     expect(first.status).toBe(201)
     // policy 门控：不静默执行、不自动发 grant，回复含审批提示
-    expect(first.reply).toMatch(/需要确认|审批编号|approve/i)
+    // D59 T3 (audit #3 F-06 + F-08): owner-facing reply no longer
+    // contains "审批编号" (the UUID was misleading). The reply still
+    // surfaces an approval prompt — match on the new text shape.
+    expect(first.reply).toMatch(/需要确认|待审批|审批编号|approve/i)
     expect(first.finalDecision).toBe("WaitForApproval")
     expect(first.conversationId).toBeTypeOf("string")
 
