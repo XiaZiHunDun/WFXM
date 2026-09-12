@@ -196,11 +196,20 @@ export async function runButlerLoop(args: {
     )
   } catch (err) {
     if (err instanceof ActiveMainRunConflict) {
+      // D59 T3 (audit #3 F-01): the helper activeRunConflictReply already
+      // returns an owner-facing message per status; previously the
+      // computed value was discarded and the catch always replied with a
+      // hardcoded message that leaked internal status tokens
+      // (waiting_approval / waiting_external). Use the helper's reply
+      // verbatim — falls back to the generic waiting run message when
+      // status is unknown.
       const waitingStatus = activeRunConflictReply(err.activeRun.status, err.activeRun.id)
+      const knownStatuses = new Set(["waiting_approval", "waiting_external"])
+      const reply = knownStatuses.has(err.activeRun.status)
+        ? waitingStatus
+        : `当前对话已有进行中的 Run（${err.activeRun.id}），请稍后再试。`
       return {
-        reply: waitingStatus
-          ? `当前对话仍有未完成的 Run（${err.activeRun.status}）。请先回复「确认」或「拒绝」完成审批，或等待外部步骤结束。`
-          : `当前对话已有进行中的 Run（${err.activeRun.id}），请稍后再试。`,
+        reply,
         iterations: 0,
         toolCalls: 0,
         finalDecision: "Finish",
@@ -520,7 +529,10 @@ async function runButlerLoopBody(args: {
         const outcome = await toolExecutor.execute(def, toolArgs)
         if (isPendingApprovalOutcome(outcome)) {
           throw new RunPauseForApproval({
-            reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}\n回复「确认」批准，或「拒绝」取消。`,
+            // D59 T3 (audit #3 F-08): drop the stepId UUID from the
+            // owner-facing reply (same fix as approval-resume.ts F-06).
+            // stepId stays in the trace below for §14 observability.
+            reply: `${outcome.reason}\n回复「确认」批准，或「拒绝」取消。`,
             iterations: 0,
             toolCalls: 0,
             finalDecision: "WaitForApproval" as ModelDecision["_tag"],

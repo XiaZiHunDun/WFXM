@@ -298,7 +298,13 @@ async function continueLoopAfterCapability(args: {
         const outcome = await toolExecutor.execute(def, toolArgs)
         if (isPendingApprovalOutcome(outcome)) {
           throw new RunPauseForApproval({
-            reply: `${outcome.reason}\n审批编号: ${outcome.pendingApproval.stepId}\n回复「确认」批准，或「拒绝」取消。`,
+            // D59 T3 (audit #3 F-06): drop the stepId UUID from the
+            // owner-facing reply. inline-approval logic ignores the UUID
+            // and resolves the pending step via
+            // listWaitingApprovalStepsForConversation(...).at(-1), so the
+            // UUID was misleading to the owner. stepId remains in the
+            // trace below for §14 observability.
+            reply: `${outcome.reason}\n回复「确认」批准，或「拒绝」取消。`,
             iterations: 0,
             toolCalls: 0,
             finalDecision: "WaitForApproval",

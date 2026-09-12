@@ -196,9 +196,20 @@ export async function tryWechatTaskCommand(args: {
   }
 
   if (trimmed.startsWith("/完成")) {
-    const token = trimmed.slice("/完成".length).trim()
+    const rest = trimmed.slice("/完成".length).trim()
+    if (!rest) {
+      return done("用法：/完成 <待办id前缀> [--force]", ["wechat-task: done usage"])
+    }
+    // D59 T3 (audit #3 F-05): /完成 is destructive with no owner-visible
+    // warning. Require an explicit confirm suffix or --force flag before
+    // marking the task as done. Without the suffix, surface a confirm gate
+    // so owner sees what would change. This mirrors the inline-approval
+    // 确认/拒绝 pattern used elsewhere.
+    const forceSuffix = /\s+(?:--force|确认)\s*$/u
+    const token = rest.replace(forceSuffix, "").trim()
+    const confirmed = forceSuffix.test(rest)
     if (!token) {
-      return done("用法：/完成 <待办id前缀>", ["wechat-task: done usage"])
+      return done("用法：/完成 <待办id前缀> [--force]", ["wechat-task: done usage"])
     }
     const match = await resolveTaskByToken(args.wiring, subject, token)
     if (!match) {
@@ -207,6 +218,12 @@ export async function tryWechatTaskCommand(args: {
     const existing = await store.get(match.id)
     if (!existing) {
       return done(`未找到待办「${token}」。`, ["wechat-task: done missing"])
+    }
+    if (!confirmed) {
+      return done(
+        `待办 ${shortId(match.id)} 即将标记完成。\n回复「/完成 ${shortId(match.id)} 确认」继续，或「取消」放弃。`,
+        [`wechat-task: done confirm ${match.id}`],
+      )
     }
     await store.update({ ...existing, status: "done", updatedAt: Date.now() })
     return done(`待办 ${shortId(match.id)} 已标记完成。`, [`wechat-task: done ${match.id}`])

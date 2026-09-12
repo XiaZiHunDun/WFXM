@@ -445,7 +445,7 @@ describe("tryWechatTaskCommand", () => {
   })
 
   // ─── /完成 ──────────────────────────────────────────────────────────────
-  it("/完成 <id> marks the task as done via store.update", async () => {
+  it("/完成 <id> shows confirm gate when no confirm suffix", async () => {
     const task = await taskStore.create({
       id: randomUUID(),
       subject: "u-done",
@@ -473,6 +473,39 @@ describe("tryWechatTaskCommand", () => {
       content: `/完成 ${task.id}`,
       env,
     })
+    expect(result?.reply).toContain("即将标记完成")
+    expect(result?.reply).toContain("确认")
+    expect(updatedPayload).toBeUndefined()
+  })
+
+  it("/完成 <id> 确认 marks the task as done via store.update", async () => {
+    const task = await taskStore.create({
+      id: randomUUID(),
+      subject: "u-done",
+      title: "[WFXM] to finish",
+      goal: "g",
+      status: "open",
+      conversationId: null,
+      procedureId: null,
+      procedureStepIndex: null,
+      createdAt: 0,
+      updatedAt: 0,
+    })
+    let updatedPayload: TaskRecord | undefined
+    const wrapped: TaskStore = {
+      ...taskStore,
+      update: async (record) => {
+        updatedPayload = record
+        return taskStore.update(record)
+      },
+    }
+    const wrappedWiring: Wiring = { ...wiring, taskStore: wrapped }
+    const result = await tryWechatTaskCommand({
+      wiring: wrappedWiring,
+      fromUserId: "u-done",
+      content: `/完成 ${task.id} 确认`,
+      env,
+    })
     expect(result?.reply).toBe(`待办 ${task.id.slice(0, 8)} 已标记完成。`)
     expect(updatedPayload).toBeDefined()
     if (!updatedPayload) throw new Error("updatedPayload should be captured")
@@ -488,7 +521,7 @@ describe("tryWechatTaskCommand", () => {
       content: "/完成",
       env,
     })
-    expect(result?.reply).toBe("用法：/完成 <待办id前缀>")
+    expect(result?.reply).toBe("用法：/完成 <待办id前缀> [--force]")
     expect(result?.traces).toContain("wechat-task: done usage")
   })
 
