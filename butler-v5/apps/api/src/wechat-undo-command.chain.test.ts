@@ -128,4 +128,43 @@ describe("D49 wechat-undo-command chain branch", () => {
     if (!r) return
     expect(r.reply).toBe("该轮次不属于当前对话。")
   })
+
+  // D54 follow-up: formatChainReply must render non-write kinds (was MEDIUM bug — silent drop)
+  it("D54-followup: formatChainReply renders edit_file reverted entry (no silent drop)", async () => {
+    const { UNDO_CHAIN_FOR_TEST, UNDO_CHAIN_CONV_FOR_TEST } = await import("./workspace-tools.js")
+    // Simulate: edit_file was just run, replacing OLD with NEW
+    writeFileSync(FILE_A, "NEW_EDIT", "utf8")
+    UNDO_CHAIN_FOR_TEST.set("run-edit", [
+      {
+        kind: "edit",
+        path: FILE_A,
+        beforeContent: "OLD_EDIT",
+        afterContent: "NEW_EDIT",
+        tool: "edit_file",
+        pushedAt: 1,
+      },
+    ])
+    UNDO_CHAIN_CONV_FOR_TEST.set("run-edit", "conv-edit")
+
+    const r = await tryWechatUndoCommand({
+      wiring: stubWiring,
+      fromUserId: FROM,
+      content: "撤销这轮",
+      env: {
+        ...process.env,
+        BUTLER_V5_WORKSPACE_ROOT: TMP,
+        BUTLER_V5_CONVERSATION_ID: "conv-edit",
+      },
+    })
+    expect(r).not.toBeNull()
+    if (!r) return
+
+    // Verify reply renders the edit entry (would be silently absent in the MEDIUM bug)
+    expect(r.reply).toContain("✅")
+    expect(r.reply).toContain(FILE_A)
+    expect(r.reply).toMatch(/edit/)
+
+    // Verify file content reverted
+    expect(readFileSync(FILE_A, "utf8")).toBe("OLD_EDIT")
+  })
 })

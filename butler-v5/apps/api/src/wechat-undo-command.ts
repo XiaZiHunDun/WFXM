@@ -77,11 +77,35 @@ function formatChainReply(result: ChainRevertResult): string {
   const lines: string[] = []
   lines.push(`[撤销轮次 chainId=${result.chainId}]`)
   for (const r of result.reverted) {
-    if (r.entry.kind === "write") {
-      const ok = r.ok ? "✅" : "❌"
-      const reason = r.ok ? "" : ` (${r.reason ?? "失败"})`
-      const label = r.entry.beforeContent === null ? "新建文件已置空" : "还原为上版"
-      lines.push(`${ok} ${r.entry.path} → ${label}${reason}`)
+    const ok = r.ok ? "✅" : "❌"
+    const reason = r.ok ? "" : ` (${r.reason ?? "失败"})`
+    switch (r.entry.kind) {
+      case "write": {
+        const label = r.entry.beforeContent === null ? "新建文件已置空" : "还原为上版"
+        lines.push(`${ok} ${r.entry.path} → ${label}${reason}`)
+        break
+      }
+      case "edit": {
+        const label = r.entry.beforeContent === null ? "edit 已置空" : "edit 已还原"
+        lines.push(`${ok} ${r.entry.path} → ${label}${reason}`)
+        break
+      }
+      case "patch": {
+        const label = r.entry.beforeContent === null ? "patch 无 before" : "patch 已还原"
+        lines.push(`${ok} ${r.entry.path} → ${label}${reason}`)
+        break
+      }
+      case "delete": {
+        const label = r.entry.beforeContent === null ? "删除无 before" : "文件已重建"
+        lines.push(`${ok} ${r.entry.path} → ${label}${reason}`)
+        break
+      }
+      case "command": {
+        // Command entries don't appear in reverted (they appear in commandSideEffects).
+        // Unreachable in practice, but TypeScript requires exhaustiveness.
+        lines.push(`${ok} <command>${reason}`)
+        break
+      }
     }
   }
   if (result.commandSideEffects.length > 0) {
