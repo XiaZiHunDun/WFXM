@@ -130,12 +130,13 @@ export async function tryWechatQualityGateCommand(args: {
 
   const active = getWechatActiveProjectId(args.fromUserId, env)
   const project = gateProject(active, env)
+  // D58 T5 + D59 T2 (audit #3 F-06 + F-02): surface the owner-facing label
+  // (e.g. "WFXM") rather than the raw internal id ("wechat"). Catalog is
+  // defined in parseWechatProjectCatalog; falls back to id when no
+  // label exists. Resolve once at the top so the missing-config reply
+  // and the success-path heading share the same owner-facing label.
+  const ownerLabel = resolveWechatProjectLabel(active, env)
   if (!project || project.commands.length === 0) {
-    // D58 T5 (audit #3 F-06): surface the owner-facing label (e.g.
-    // "WFXM") rather than the raw internal id ("wechat"). Catalog is
-    // defined in parseWechatProjectCatalog; falls back to id when no
-    // label exists.
-    const ownerLabel = resolveWechatProjectLabel(active, env)
     return done(
       `项目「${ownerLabel}」未配置质量门禁。\n编辑 config/quality-gate.json 后重试。`,
       ["quality-gate: missing config"],
@@ -155,7 +156,7 @@ export async function tryWechatQualityGateCommand(args: {
 
   const root = workspaceRootFromEnv(env)
   const cwd = resolve(root, (project.cwd ?? ".").trim() || ".")
-  const lines = [`【${active} 质量门禁】`]
+  const lines = [`【${ownerLabel} 质量门禁】`]
   let failed = 0
   const audit: ExecAuditContext | undefined = args.runtimeStore
     ? { runtimeStore: args.runtimeStore, subject: args.fromUserId }

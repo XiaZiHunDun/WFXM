@@ -18,6 +18,7 @@ import { formatStatusDigest } from "./wechat-project-surface.js"
 import { formatOpenTasksDigest } from "./wechat-task-commands.js"
 import { formatMemoryCandidatesDigest } from "./wechat-memory-commands.js"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
+import { resolveWechatProjectLabel } from "./wechat-active-project.js"
 
 /** Defensive cap; WeChat supports ~4000 chars but 1500 keeps replies
  *  scannable on mobile and matches the owner-set budget for this surface. */
@@ -40,6 +41,10 @@ export async function formatTaskDigestReply(args: {
   const env = args.env ?? process.env
   const subject = args.fromUserId.trim()
   const active = getWechatActiveProjectId(subject, env)
+  // D59 T2 (audit #3 F-09): surface owner-facing label (e.g. "WFXM") in
+  // digest section headings rather than the raw internal id. Falls back
+  // to the raw id when no catalog entry exists for the project id.
+  const ownerLabel = resolveWechatProjectLabel(active, env)
 
   // Parallel fetch with fault isolation: a single section's failure must
   // not blank the whole digest. allSettled lets us render the other two
@@ -106,15 +111,15 @@ export async function formatTaskDigestReply(args: {
       : null
 
   const body = [
-    `【任务摘要 · ${active}】`,
+    `【任务摘要 · ${ownerLabel}】`,
     "",
     "【项目状态】",
     statusText,
     "",
-    `【开放待办】（${active}）`,
+    `【开放待办】（${ownerLabel}）`,
     tasksText,
     "",
-    `【候选记忆】（${active}）`,
+    `【候选记忆】（${ownerLabel}）`,
     candidatesText,
     "",
     "——",

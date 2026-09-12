@@ -7,6 +7,7 @@ import { resolve } from "node:path"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import { loadQualityGateConfig } from "./wechat-quality-gate.js"
+import { resolveWechatProjectLabel } from "./wechat-active-project.js"
 import { updateProjectState } from "./project-state.js"
 import { isRunNotifyEnabled, sendWechatProactiveNotify } from "./wechat-run-notify.js"
 import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
@@ -233,11 +234,16 @@ function projectStateVerifyPatch(args: {
 
 export function formatDevQualityReply(args: {
   readonly projectId: string
+  readonly ownerLabel: string
   readonly baseReply: string
   readonly verify: DevVerifyResult
   readonly touchedPaths: readonly string[]
 }): string {
-  const lines = [`【开发验收】项目 ${args.projectId}`]
+  // D59 T2 (audit #3 F-09): use owner-facing label (e.g. "WFXM") in the
+  // heading rather than the raw internal id. Caller resolves the label
+  // via resolveWechatProjectLabel (projectId, env) — keeps the formatter
+  // pure (no env coupling) and lets tests pass ownerLabel directly.
+  const lines = [`【开发验收】项目 ${args.ownerLabel}`]
   if (args.touchedPaths.length > 0) {
     lines.push("", "改动文件：")
     for (const path of args.touchedPaths) {
@@ -281,11 +287,14 @@ export function shouldAutoDevVerify(args: {
 
 function formatDevVerifyPendingReply(args: {
   readonly projectId: string
+  readonly ownerLabel: string
   readonly baseReply: string
   readonly commandLabel: string
   readonly touchedPaths: readonly string[]
 }): string {
-  const lines = [`【开发验收】项目 ${args.projectId}`]
+  // D59 T2 (audit #3 F-09): mirror formatDevQualityReply — owner-facing
+  // label in the heading instead of the raw internal id.
+  const lines = [`【开发验收】项目 ${args.ownerLabel}`]
   if (args.touchedPaths.length > 0) {
     lines.push("", "改动文件：")
     for (const path of args.touchedPaths) {
@@ -335,6 +344,7 @@ export function scheduleAsyncDevVerify(args: {
     if (!to) return
     const text = formatDevQualityReply({
       projectId: args.projectId,
+      ownerLabel: resolveWechatProjectLabel(args.projectId, args.env),
       baseReply: args.baseReply,
       verify,
       touchedPaths,
@@ -408,6 +418,7 @@ export async function enrichDevRunResult(args: {
       ...args.loop,
       reply: formatDevVerifyPendingReply({
         projectId: args.projectId,
+        ownerLabel: resolveWechatProjectLabel(args.projectId, env),
         baseReply: args.loop.reply,
         commandLabel,
         touchedPaths,
@@ -434,6 +445,7 @@ export async function enrichDevRunResult(args: {
   })
   const reply = formatDevQualityReply({
     projectId: args.projectId,
+    ownerLabel: resolveWechatProjectLabel(args.projectId, env),
     baseReply: args.loop.reply,
     verify,
     touchedPaths: freshTouchedPaths,
@@ -480,6 +492,7 @@ export async function enrichSubagentDevReply(args: {
   })
   return formatDevQualityReply({
     projectId: args.projectId,
+    ownerLabel: resolveWechatProjectLabel(args.projectId, env),
     baseReply: args.baseReply,
     verify,
     touchedPaths,

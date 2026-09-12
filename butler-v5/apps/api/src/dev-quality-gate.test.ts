@@ -100,6 +100,7 @@ describe("dev-quality-gate", () => {
   it("formatDevQualityReply structures WeChat output", () => {
     const text = formatDevQualityReply({
       projectId: "wechat",
+      ownerLabel: "WFXM",
       baseReply: "已完成修改",
       verify: {
         ok: true,
@@ -110,7 +111,8 @@ describe("dev-quality-gate", () => {
       },
       touchedPaths: ["apps/api/src/foo.ts"],
     })
-    expect(text).toContain("【开发验收】")
+    expect(text).toContain("【开发验收】项目 WFXM")
+    expect(text).not.toContain("项目 wechat")
     expect(text).toContain("foo.ts")
     expect(text).toContain("✓")
     expect(text).toContain("已完成修改")

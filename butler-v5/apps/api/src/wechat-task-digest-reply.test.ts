@@ -58,10 +58,10 @@ describe("formatTaskDigestReply", () => {
       env: testEnv,
     })
     // Header + section markers + footer present
-    expect(result.reply).toMatch(/【任务摘要 · wechat】/)
+    expect(result.reply).toMatch(/【任务摘要 · WFXM】/)
     expect(result.reply).toContain("【项目状态】")
-    expect(result.reply).toMatch(/【开放待办】/u)
-    expect(result.reply).toMatch(/【候选记忆】/u)
+    expect(result.reply).toMatch(/【开放待办】（WFXM）/u)
+    expect(result.reply).toMatch(/【候选记忆】（WFXM）/u)
     expect(result.reply).toContain("如需详情：/状态 · /待办 · /记忆候选")
     // Empty sections show the digest-context 暂无 wording (per owner choice)
     expect(result.reply).toContain("暂无开放待办。")
