@@ -135,11 +135,13 @@ export function startCandidateExpiresSweeperIfEnabled(args: {
       logger,
       ...(args.notify === undefined ? {} : { notify: args.notify }),
     })
-    if (!stopped) {
-      timer = setTimeout(() => {
-        void tick()
-      }, config.tickMs)
-    }
+    // D58 T3 (audit #1 F-09): same pattern as auto-promote-sweeper —
+    // explicit early-return after the await rather than nested-if
+    // scheduling.
+    if (stopped) return
+    timer = setTimeout(() => {
+      void tick()
+    }, config.tickMs)
   }
 
   logger.info(`[candidate-expires] sweeper started tickMs=${config.tickMs} ttlMs=${config.ttlMs}`)

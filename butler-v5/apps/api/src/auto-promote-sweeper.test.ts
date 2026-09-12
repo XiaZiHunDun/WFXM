@@ -36,6 +36,54 @@ describe("startAutoPromoteSweeperIfEnabled", () => {
     expect(handle).not.toBeNull()
     handle?.stop()
   })
+
+  // D58 T3 (audit #1 F-07): stop() must not leak a setTimeout that
+  // would re-enter tick() after the sweeper is supposedly halted. With
+  // fake timers we can hold the in-flight tick open, call stop(), then
+  // observe whether a fresh setTimeout was scheduled.
+  it("stop() does not leave a pending setTimeout that re-fires tick", async () => {
+    vi.useFakeTimers()
+    try {
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout")
+      let resolveTick: (() => void) | null = null
+      const wiring = {
+        durableMemoryStore: {
+          findAutoPromoteCandidates: () =>
+            new Promise<readonly unknown[]>((resolve) => {
+              // Hold the in-flight tick open so stop() races with it.
+              resolveTick = () => resolve([])
+            }),
+          markAutoPromoted: async () => 0,
+        },
+      }
+      const handle = startAutoPromoteSweeperIfEnabled({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub
+        wiring: wiring as any,
+        config: {
+          enabled: true,
+          windowMs: 1000,
+          sweepLimit: 500,
+          sweepIntervalMs: 100,
+          rollbackWindowMs: 7 * 24 * 3_600_000,
+        },
+      })
+      expect(handle).not.toBeNull()
+      // Let the first tick start (microtasks only — fake timers hold setTimeout).
+      await vi.advanceTimersByTimeAsync(0)
+      // Call stop() while tick is still awaiting.
+      handle?.stop()
+      const setTimeoutCallsAtStop = setTimeoutSpy.mock.calls.length
+      // Release the in-flight tick and let any scheduled timer attempt to fire.
+      if (resolveTick) resolveTick()
+      await vi.advanceTimersByTimeAsync(500)
+      // After stop(), no NEW setTimeout should have been scheduled by the
+      // sweeper (post-await path must observe `stopped === true`).
+      expect(setTimeoutSpy.mock.calls.length).toBe(setTimeoutCallsAtStop)
+    } finally {
+      vi.useRealTimers()
+      vi.restoreAllMocks()
+    }
+  })
 })
 
 describe("runAutoPromoteTick", () => {

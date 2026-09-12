@@ -177,13 +177,16 @@ export function startScheduleWorkerIfEnabled(args: {
         "[schedule] tick failed:",
         err instanceof Error ? err.message : String(err),
       )
-    } finally {
-      if (!stopped) {
-        timer = setTimeout(() => {
-          void tick()
-        }, config.tickMs)
-      }
     }
+    // D58 T3 (audit #1 F-08): same lifetime pattern as auto-promote-sweeper
+    // and candidate-expires-sweeper — explicit early-return after the
+    // await rather than nested-if scheduling. Stops the sweeper loop
+    // cleanly even when the in-flight tick takes long enough that
+    // stop() runs concurrently.
+    if (stopped) return
+    timer = setTimeout(() => {
+      void tick()
+    }, config.tickMs)
   }
 
   logger.info(

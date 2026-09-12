@@ -126,11 +126,13 @@ export function startAutoPromoteSweeperIfEnabled(args: {
       logger,
       ...(args.notify === undefined ? {} : { notify: args.notify }),
     })
-    if (!stopped) {
-      timer = setTimeout(() => {
-        void tick()
-      }, args.config.sweepIntervalMs)
-    }
+    // D58 T3 (audit #1 F-07): explicit early-return after the await
+    // rather than a nested `if (!stopped) { setTimeout(...) }`. Reads
+    // as a single linear control flow and makes the lifetime obvious.
+    if (stopped) return
+    timer = setTimeout(() => {
+      void tick()
+    }, args.config.sweepIntervalMs)
   }
 
   logger.info(
