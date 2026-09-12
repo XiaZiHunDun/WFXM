@@ -82,7 +82,7 @@ describe("runButlerLoop", () => {
       env: {},
       logger: silentLogger,
     })
-    expect(result.reply).toContain("MVP stub reply")
+    expect(result.reply).toContain("已收到")
     expect(result.finalDecision).toBe("Finish")
     expect(result.toolCalls).toBe(0)
   })
@@ -447,7 +447,7 @@ describe("runButlerLoop", () => {
       logger: silentLogger,
       adapter,
     })
-    expect(result.reply).toContain("MVP stub reply")
+    expect(result.reply).toContain("已收到")
     expect(result.finalDecision).toBe("Finish")
   })
 
@@ -484,7 +484,7 @@ describe("runButlerLoop", () => {
       logger: silentLogger,
       adapter: failingAdapter,
     })
-    expect(result.reply).toContain("MVP stub reply")
+    expect(result.reply).toContain("已收到")
     expect(result.finalDecision).toBe("Finish")
     expect(result.traces.some((t) => t.includes("llm failure"))).toBe(true)
   })
@@ -509,7 +509,7 @@ describe("runButlerLoop", () => {
     })
     // Stuck-loop detector fires at the 3rd invocation of (get_current_time, {}).
     expect(result.iterations).toBe(3)
-    expect(result.reply).toContain("MVP stub reply")
+    expect(result.reply).toContain("已收到")
     expect(
       result.traces.some((t) => /stuck-loop: get_current_time invoked 3x with same args; aborting/.test(t)),
     ).toBe(true)
@@ -533,7 +533,7 @@ describe("runButlerLoop", () => {
     })
     // Unknown native tool_call pushes error result then loops again;
     // empty follow-up response → fall back to stub via loop iteration.
-    expect(result.reply).toContain("MVP stub reply")
+    expect(result.reply).toContain("已收到")
     expect(result.traces.some((t) => t.includes("unknown tool"))).toBe(true)
   })
 

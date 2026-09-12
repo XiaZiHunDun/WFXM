@@ -40,8 +40,8 @@ describe("eval/16 llm-call-timeout (B-09 fix verification)", () => {
     expect(
       result.metrics.traces.some((t) => /LLM timeout after 200ms/.test(t)),
     ).toBe(true)
-    // The reply is the stub (wechat stub fallback) — owner gets "MVP stub reply"
-    expect(result.metrics.reply).toContain("MVP stub")
+    // The reply is the stub (wechat stub fallback) — owner gets "已收到"
+    expect(result.metrics.reply).toContain("已收到")
     // Loop ran in ≤ 1s (timeout 200ms + JSDOM overhead)
     expect(result.metrics.loopMs).toBeLessThan(2000)
   })
