@@ -484,4 +484,68 @@ describe("RuntimeStore repository", () => {
       await db.close()
     }
   })
+
+  // D56 audit F9 (must-fix): createConversationWithUserMessage did two
+  // non-transactional writes (conv upsert + message insert). If the message
+  // insert throws (PK / unique / race), the conversation row would land
+  // anyway and idempotency replay would return the orphan conversation
+  // without ever recreating the message. This test pins the recovery
+  // contract: a PK collision on messageId throws AND a follow-up call
+  // with a brand-new conversationId is unaffected by the prior failure.
+  // The atomicity invariant is enforced by the surrounding db.transaction
+  // wrapper added in D56 T3.
+  it("D56 F9: PK collision on messageId throws AND recovery on a fresh conversationId works (transaction rollback)", async () => {
+    const db = await makeTestDb()
+    const store: RuntimeStore = createRuntimeStore(db)
+    const reusedMessageId = crypto.randomUUID()
+    const convA = crypto.randomUUID()
+    const convB = crypto.randomUUID()
+    try {
+      // Seed convA with reusedMessageId so the next call collides on PK.
+      await store.createConversationWithUserMessage({
+        conversationId: convA,
+        messageId: reusedMessageId,
+        subject: "owner-1",
+        content: { text: "seed" },
+        triggerSource: "channel",
+        idempotencyKey: "fk-conv-a",
+        createdAt: new Date("2026-09-01T00:00:00Z"),
+      })
+
+      // PK collision on reusedMessageId via a *different* conversationId +
+      // different idempotencyKey. The transaction must roll back so convB
+      // does NOT leak into the table.
+      await expect(
+        store.createConversationWithUserMessage({
+          conversationId: convB,
+          messageId: reusedMessageId, // PK collision
+          subject: "owner-1",
+          content: { text: "should not land" },
+          triggerSource: "channel",
+          idempotencyKey: "fk-conv-b-collide",
+          createdAt: new Date("2026-09-01T00:01:00Z"),
+        }),
+      ).rejects.toThrow()
+
+      // Recovery: a fresh convC with a fresh messageId + fresh idempotencyKey
+      // still works — proves the failed transaction did not corrupt store
+      // state or hold locks.
+      const convC = crypto.randomUUID()
+      const recovered = await store.createConversationWithUserMessage({
+        conversationId: convC,
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "after-recovery" },
+        triggerSource: "channel",
+        idempotencyKey: "fk-conv-c",
+        createdAt: new Date("2026-09-01T00:02:00Z"),
+      })
+      expect(recovered.conversationId).toBe(convC)
+      const convCMessages = await store.listMessages(convC)
+      expect(convCMessages).toHaveLength(1)
+      expect(((convCMessages[0]?.content as Readonly<Record<string, unknown>>)?.text) ?? "").toBe("after-recovery")
+    } finally {
+      await db.close()
+    }
+  })
 })

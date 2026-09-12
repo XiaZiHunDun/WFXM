@@ -135,39 +135,45 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         return { conversationId: hit.conversationId, messageId: hit.messageId }
       }
 
-      const existingConv = await db
-        .select()
-        .from(conversations)
-        .where(eq(conversations.conversationId, input.conversationId))
-        .limit(1)
-      if (!existingConv[0]) {
-        const projectId =
-          input.projectId ?? inferProjectIdFromConversationId(input.conversationId)
-        await db.insert(conversations).values({
-          conversationId: input.conversationId,
-          projectId,
-          subject: input.subject,
-          createdAt: input.createdAt,
-          updatedAt: input.createdAt,
-        })
-      } else {
-        const projectId =
-          input.projectId ??
-          existingConv[0].projectId ??
-          inferProjectIdFromConversationId(input.conversationId)
-        await db
-          .update(conversations)
-          .set({ updatedAt: input.createdAt, subject: input.subject, projectId })
+      // D56 F9 (audit-driven fix): conversation upsert + message insert must be
+      // atomic. Without the transaction wrapper, a message insert failure (PK
+      // collision, FK violation, race) leaves an orphan conversation row that
+      // idempotency replay returns forever without recreating the message.
+      await db.transaction(async (tx) => {
+        const existingConv = await tx
+          .select()
+          .from(conversations)
           .where(eq(conversations.conversationId, input.conversationId))
-      }
-      await db.insert(messages).values({
-        messageId: input.messageId,
-        conversationId: input.conversationId,
-        role: "user",
-        content: redactStoredContent(input.content),
-        triggerSource: input.triggerSource,
-        idempotencyKey: input.idempotencyKey,
-        createdAt: input.createdAt,
+          .limit(1)
+        if (!existingConv[0]) {
+          const projectId =
+            input.projectId ?? inferProjectIdFromConversationId(input.conversationId)
+          await tx.insert(conversations).values({
+            conversationId: input.conversationId,
+            projectId,
+            subject: input.subject,
+            createdAt: input.createdAt,
+            updatedAt: input.createdAt,
+          })
+        } else {
+          const projectId =
+            input.projectId ??
+            existingConv[0].projectId ??
+            inferProjectIdFromConversationId(input.conversationId)
+          await tx
+            .update(conversations)
+            .set({ updatedAt: input.createdAt, subject: input.subject, projectId })
+            .where(eq(conversations.conversationId, input.conversationId))
+        }
+        await tx.insert(messages).values({
+          messageId: input.messageId,
+          conversationId: input.conversationId,
+          role: "user",
+          content: redactStoredContent(input.content),
+          triggerSource: input.triggerSource,
+          idempotencyKey: input.idempotencyKey,
+          createdAt: input.createdAt,
+        })
       })
       return { conversationId: input.conversationId, messageId: input.messageId }
     },
