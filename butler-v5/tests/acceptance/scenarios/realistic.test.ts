@@ -1,7 +1,7 @@
 /**
  * 真实 owner 任务场景 — product-layer 行为分析。
  *
- * 跑 41 个场景（10 真实开发 + 10 开放性 + 10 边界 + 6 组合 + 5 chain 撤销），每个场景：
+ * 跑 41 个场景（11 真实开发 + 10 开放性 + 10 边界 + 10 组合（5 基础 + 5 chain 撤销）），每个场景：
  * - 注入"好 bot"的 fixture 序列
  * - 通过 /v1/wechat/inbound 跑真实 wiring
  * - 断言 reply pattern / final decision / 工具调用数 / approval flow

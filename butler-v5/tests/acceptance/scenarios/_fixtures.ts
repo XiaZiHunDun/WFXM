@@ -903,7 +903,7 @@ export const scenariosD: readonly Scenario[] = [
     fixtures: {
       plan: [
         tool("read_file", { path: "apps/api/src/owner-routes.ts" }),
-        text("已读 owner-routes.ts（1200+ 行，分 7 子模块）。要细看哪个？"),
+        text("已读 owner-routes.ts（26 行 barrel, 9 子模块）。要细看哪个？"),
       ],
     },
     expect: { finalDecision: "Respond", minToolCalls: 1 },
