@@ -108,6 +108,9 @@ export async function tryWechatSubagentCommand(args: {
       role: parsed.role,
       task: parsed.task,
       capabilities: ["general"],
+      // D58 T1: thread the owner who delegated so audit_events.subject
+      // resolves to the human, not the subagent role.
+      ownerSubject: subject,
     })
     return done(
       [

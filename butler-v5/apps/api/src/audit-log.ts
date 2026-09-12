@@ -56,6 +56,10 @@ export interface AuditEntry {
   readonly role: string
   readonly task: string
   readonly capabilities: readonly string[]
+  /** D58 T1 (audit #3 F-01): owner who delegated — written into
+   *  audit_events.subject so owner-facing audit queries resolve to a
+   *  human subject, not the subagent role. Optional for back-compat. */
+  readonly ownerSubject?: string
   readonly replyExcerpt?: string
   readonly reason?: string
   readonly toolName?: string

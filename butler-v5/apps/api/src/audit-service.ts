@@ -14,7 +14,10 @@ export function writeSubagentAudit(store: RuntimeStore | undefined, entry: Audit
       runId: null,
       conversationId: entry.parentConversationId,
       action: `subagent.${entry.kind}`,
-      subject: entry.role,
+      // D58 T1 (audit #3 F-01): prefer the owner who delegated over the
+      // subagent role. Falls back to role for legacy callers / CLI paths
+      // where no owner subject is known.
+      subject: entry.ownerSubject ?? entry.role,
       detail: {
         childConversationId: entry.childConversationId,
         task: entry.task,
@@ -25,7 +28,12 @@ export function writeSubagentAudit(store: RuntimeStore | undefined, entry: Audit
       },
       createdAt: new Date(entry.ts),
     })
-    .catch(() => {
-      // audit must never break the route or worker
+    .catch((err) => {
+      // D58 T1 (audit #1 F-02): audit must never break the route/worker,
+      // but persistent audit-pipeline failures were completely invisible.
+      // Log to stderr so a regression in the audit pipeline surfaces in
+      // operator logs. Pattern is D55 SF-04 + D57 T5 reuse.
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[audit-service] appendAuditEvent failed:", err)
     })
 }

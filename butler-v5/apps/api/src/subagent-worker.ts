@@ -334,6 +334,8 @@ async function runChildLlm(
           capabilities,
           reason,
           toolName: def.name,
+          // D58 T1: thread owner subject for audit_events.subject.
+          ownerSubject,
         })
         return { ok: false, reason }
       }
@@ -350,6 +352,8 @@ async function runChildLlm(
           capabilities,
           toolName: def.name,
           reason: rawOutcome.reason,
+          // D58 T1: thread owner subject for audit_events.subject.
+          ownerSubject,
         })
         throw new RunPauseForApproval({
           reply: `${rawOutcome.reason}\n审批编号: ${stepId}\n需出网命令请 Owner 执行：butler approve ${stepId} --network-allowlist registry.npmjs.org:443`,
@@ -370,6 +374,8 @@ async function runChildLlm(
         capabilities,
         toolName: def.name,
         reason: toolResult.ok ? "ok" : toolResult.reason,
+        // D58 T1: thread owner subject for audit_events.subject.
+        ownerSubject,
       })
       return toolResult
     },

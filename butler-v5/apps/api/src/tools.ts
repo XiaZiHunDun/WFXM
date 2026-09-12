@@ -309,6 +309,8 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
         task,
         capabilities: effectiveCaps,
         reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
+        // D58 T1: thread owner subject if available for audit_events.subject.
+        ownerSubject: ctx.wechatUserId,
       })
       return {
         ok: false,
@@ -352,6 +354,8 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
       role,
       task,
       capabilities: effectiveCaps,
+      // D58 T1: thread owner subject if available for audit_events.subject.
+      ownerSubject: ctx.wechatUserId,
     })
     if (ctx.wechatUserId) {
       recordChildRunDelegated({
