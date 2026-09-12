@@ -230,6 +230,43 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     expect(res.status).toBe(201)
     expect(res.finalDecision).toBe("WaitForApproval")
   }, 30_000)
+
+  it("inline-deny: '拒绝' resumes approval → write_file NOT executed (D55 T5 regression lock)", async () => {
+    // D55 G-approval-deny audit: every prior approval test (A2/A5/A6/D1/D5 +
+    // product-regressions above) only exercises '确认' / 'y' / '👌' paths.
+    // Deny path was implemented (parseInlineApprovalIntent + denyWaitingStep)
+    // but never tested end-to-end. If deny silently broke, owner would see
+    // a confusing reply but the write would still happen — exactly the kind
+    // of silent failure mode v5 was designed to avoid.
+    const denyPath = "deny-regression.txt"
+    const denyFile = join(app.workspaceRoot, denyPath)
+    writeFileSync(denyFile, "before-deny", "utf8")
+
+    app.setFixtures({
+      plan: [toolCallEntry("write_file", { path: denyPath, content: "after-deny" })],
+    })
+    const convId = "c-product-deny-regression"
+
+    // turn 1: owner request → WaitForApproval
+    const first = await sendWechatMessage(app, {
+      content: `把 ${denyPath} 改成 after-deny`,
+      conversationId: convId,
+    })
+    expect(first.status).toBe(201)
+    expect(first.finalDecision).toBe("WaitForApproval")
+
+    // turn 2: owner sends 拒绝 → inline-deny intent → denyWaitingStep
+    // → reply "已拒绝待审批操作" + write_file must NOT execute.
+    const denied = await sendWechatMessage(app, {
+      content: "拒绝",
+      conversationId: convId,
+    })
+    expect(denied.status).toBe(201)
+    expect(denied.reply).not.toContain("没有待审批")
+    expect(denied.reply).toContain("已拒绝")
+    // Critical regression check: file content unchanged (write was rejected)
+    expect(readFileSync(denyFile, "utf8")).toBe("before-deny")
+  }, 30_000)
 })
 
 // ============================================================================
