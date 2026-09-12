@@ -1,12 +1,23 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   formatDevQualityReply,
   isDevVerifyInlineEnabled,
   resolveDevVerifyArgv,
   resolveDevVerifyCwd,
+  scheduleAsyncDevVerify,
   shouldAutoDevVerify,
   shouldAutoDevVerifySubagent,
 } from "./dev-quality-gate.js"
+
+// D57 audit #3 F-10: lock the contract that scheduleAsyncDevVerify logs
+// to stderr (instead of swallowing silently) when the background pipeline
+// throws — otherwise project state can stay stuck on '验收运行中' with no
+// operator signal.
+const updateProjectStateMock = vi.fn()
+
+vi.mock("./project-state.js", () => ({
+  updateProjectState: (...args: unknown[]) => updateProjectStateMock(...args),
+}))
 
 describe("dev-quality-gate", () => {
   it("resolveDevVerifyArgv defaults to pnpm test", () => {
@@ -116,5 +127,56 @@ describe("dev-quality-gate", () => {
         ),
       ).toBe(false)
     }
+  })
+})
+
+describe("scheduleAsyncDevVerify", () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>
+  let savedEnv: NodeJS.ProcessEnv
+
+  beforeEach(() => {
+    savedEnv = { ...process.env }
+    stderrSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    updateProjectStateMock.mockReset()
+  })
+
+  afterEach(() => {
+    process.env = savedEnv
+    stderrSpy.mockRestore()
+  })
+
+  it("logs stderr and resolves when updateProjectState throws (audit F-10)", async () => {
+    updateProjectStateMock.mockImplementationOnce(() => {
+      throw new Error("DB connection lost")
+    })
+    // cwd points to butler-v5 (a real git repo) so the pre-verify git
+    // commands succeed; the throw is injected via updateProjectStateMock.
+    const cwd = resolveDevVerifyCwd("wechat", {})
+    await expect(
+      scheduleAsyncDevVerify({
+        projectId: "wechat",
+        fromUserId: "owner",
+        baseReply: "已写",
+        cwd,
+        env: {},
+      }),
+    ).resolves.toBeUndefined()
+    expect(stderrSpy).toHaveBeenCalledWith(
+      "[dev-quality-gate] background verify crashed:",
+      "DB connection lost",
+    )
+  })
+
+  it("does not log when updateProjectState succeeds", async () => {
+    updateProjectStateMock.mockImplementationOnce(() => undefined)
+    const cwd = resolveDevVerifyCwd("wechat", {})
+    await scheduleAsyncDevVerify({
+      projectId: "wechat",
+      fromUserId: "owner",
+      baseReply: "已写",
+      cwd,
+      env: {},
+    })
+    expect(stderrSpy).not.toHaveBeenCalled()
   })
 })

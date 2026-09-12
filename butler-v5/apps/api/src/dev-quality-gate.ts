@@ -302,15 +302,15 @@ function formatDevVerifyPendingReply(args: {
   return lines.join("\n")
 }
 
-function scheduleAsyncDevVerify(args: {
+export function scheduleAsyncDevVerify(args: {
   readonly projectId: string
   readonly fromUserId: string
   readonly baseReply: string
   readonly cwd: string
   readonly env: NodeJS.ProcessEnv
   readonly runtimeStore?: RuntimeStore
-}): void {
-  void (async () => {
+}): Promise<void> {
+  return (async () => {
     const audit: ExecAuditContext | undefined = args.runtimeStore
       ? { runtimeStore: args.runtimeStore, subject: args.fromUserId }
       : undefined
@@ -340,8 +340,15 @@ function scheduleAsyncDevVerify(args: {
       touchedPaths,
     })
     await sendWechatProactiveNotify({ to, text, env: args.env })
-  })().catch(() => {
-    // best-effort background verify
+  })().catch((err: unknown) => {
+    // D57 audit #3 F-10: log to stderr so operators can diagnose when
+    // background verify crashes (would otherwise leave project state stuck
+    // on '验收运行中' with no operator signal).
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error(
+      "[dev-quality-gate] background verify crashed:",
+      err instanceof Error ? err.message : String(err),
+    )
   })
 }
 
