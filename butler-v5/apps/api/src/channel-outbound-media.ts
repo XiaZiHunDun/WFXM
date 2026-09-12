@@ -2,10 +2,13 @@ import { readFile } from "node:fs/promises"
 import { envTruthy } from "./env-util.js"
 import { basename, isAbsolute, resolve } from "node:path"
 import { access } from "node:fs/promises"
+// D59 T4 (audit #2 F-04): ChannelOutboundResult was defined identically
+// in both channel-outbound.ts and channel-outbound-media.ts. Import the
+// canonical definition from channel-outbound.ts (the broader file) to
+// remove the duplicate.
+import type { ChannelOutboundResult } from "./channel-outbound.js"
 
-export type ChannelOutboundResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: string }
+export type { ChannelOutboundResult }
 
 const MEDIA_TAG_RE = /\[\[media:([^\]]+)\]\]/g
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"])

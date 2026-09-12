@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest"
 import { Effect } from "effect"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
 import {
-  compactConversationHistory,
   compactConversationHistoryWithLlm,
   eventsToHistoryMessages,
   type HistoryEvent,
@@ -60,38 +59,6 @@ describe("eventsToHistoryMessages", () => {
     expect(msgs).toEqual([
       { role: "user", content: "old" },
       { role: "assistant", content: "ok" },
-    ])
-  })
-})
-
-describe("compactConversationHistory", () => {
-  it("keeps recent messages when under budget", () => {
-    const msgs = [
-      { role: "user" as const, content: "a" },
-      { role: "assistant" as const, content: "b" },
-    ]
-    const out = compactConversationHistory(msgs, { maxMessages: 8, maxChars: 1000 })
-    expect(out.messages).toEqual(msgs)
-    expect(out.compacted).toBe(false)
-    expect(out.source).toBe("none")
-  })
-
-  it("summarizes dropped older turns when over maxMessages", () => {
-    const msgs = [
-      { role: "user" as const, content: "one" },
-      { role: "assistant" as const, content: "two" },
-      { role: "user" as const, content: "three" },
-      { role: "assistant" as const, content: "four" },
-    ]
-    const out = compactConversationHistory(msgs, { maxMessages: 2, maxChars: 4000 })
-    expect(out.compacted).toBe(true)
-    expect(out.source).toBe("extractive")
-    expect(out.messages[0]?.role).toBe("system")
-    expect(out.messages[0]?.content).toMatch(/Earlier conversation/)
-    expect(out.messages[0]?.content).toContain("one")
-    expect(out.messages.slice(-2)).toEqual([
-      { role: "user", content: "three" },
-      { role: "assistant", content: "four" },
     ])
   })
 })

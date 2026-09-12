@@ -115,27 +115,10 @@ function extractiveSummaryMessage(dropped: readonly LLMMessage[]): LLMMessage {
   }
 }
 
-/**
- * Keep the newest turns that fit the budget. Dropped older turns become
- * one extractive system summary message prepended to the kept list.
- */
-export function compactConversationHistory(
-  messages: readonly LLMMessage[],
-  opts: CompactOptions = {},
-): CompactResult {
-  if (messages.length === 0) {
-    return { messages: [], compacted: false, source: "none" }
-  }
-  const { kept, dropped } = splitBudget(messages, opts)
-  if (dropped.length === 0) {
-    return { messages: kept, compacted: false, source: "none" }
-  }
-  return {
-    messages: [extractiveSummaryMessage(dropped), ...kept],
-    compacted: true,
-    source: "extractive",
-  }
-}
+// D59 T4 (audit #1 F-17): compactConversationHistory (sync extractive
+// summary) was superseded by compactConversationHistoryWithLlm — only
+// its own test file consumed the sync path. Deleted. Production callers
+// use the LLM-based compactConversationHistoryWithLlm below.
 
 function droppedTranscript(dropped: readonly LLMMessage[]): string {
   const raw = dropped.map((m) => `${m.role}: ${m.content}`).join("\n")

@@ -185,7 +185,10 @@ export {
 } from "./projects/pure.js"
 
 // ─── 权限域 ──────────────────────────────────────────────
-export { type Permission, decidePermission } from "./permissions/types.js"
+// D59 T4 (audit #2 F-03): remove dead re-exports of Permission /
+// decidePermission — the source module permissions/types.ts was deleted
+// (duplicate ADT, never used in production). The live permission ADT
+// lives in governance/types.ts (see packages/domain/src/governance/).
 
 // ─── 事件溯源 ────────────────────────────────────────────
 export {
