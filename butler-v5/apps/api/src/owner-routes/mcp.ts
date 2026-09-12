@@ -84,16 +84,30 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
     if (!serverId) return c.text("serverId required", 400)
     const body = (await c.req.json().catch(() => ({}))) as { readonly subject?: string }
     const now = new Date()
-    const revoked = await revokeScopedGrantsForMcpServer(wiring.runtimeStore, serverId, now)
+    // D60 T1.3 (audit #1 F-02): close D59 T1 missed-sweep — the audit_event
+    // must record the action even if the underlying revoke throws (same
+    // §13 audit completeness gap that D59 T1 closed for 9 other routes).
+    let revoked = 0
+    let failureReason: string | null = null
+    try {
+      revoked = await revokeScopedGrantsForMcpServer(wiring.runtimeStore, serverId, now)
+    } catch (err) {
+      failureReason = err instanceof Error ? err.message : String(err)
+    }
     await wiring.runtimeStore.appendAuditEvent({
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
       action: "mcp.grants_revoked",
       subject: body.subject ?? "owner",
-      detail: { serverId, revoked },
+      detail: failureReason
+        ? { serverId, revoked, failureReason }
+        : { serverId, revoked },
       createdAt: now,
     })
+    if (failureReason) {
+      return c.json({ ok: false, serverId, error: failureReason }, 500)
+    }
     return c.json({ ok: true, serverId, revoked })
   })
 }

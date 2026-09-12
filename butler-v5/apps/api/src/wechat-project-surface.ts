@@ -214,7 +214,7 @@ async function activeProjectContext(args: ProjectSurfaceArgs): Promise<{
  * header.
  */
 export async function formatStatusDigest(args: ProjectSurfaceArgs): Promise<string> {
-  const { active, label, pkCount, pkStoreId, tools } = await activeProjectContext(args)
+  const { active, label, pkCount, tools } = await activeProjectContext(args)
   const openTasks = await pendingTaskCount(args.wiring, args.fromUserId)
   const devState = getProjectState({
     userId: args.fromUserId,
@@ -223,8 +223,9 @@ export async function formatStatusDigest(args: ProjectSurfaceArgs): Promise<stri
   })
   const stateLines = formatProjectStateLines(devState)
   const lines = [
-    `当前项目：${active}（${label}）`,
-    `知识库：${pkCount ?? "?"} 条（store: ${pkStoreId}）`,
+    // D60 T1.4 (audit #3 F-04): close D59 T2 missed-sweep — ownerLabel only.
+    `当前项目：${label}`,
+    `知识库：${pkCount ?? "?"} 条`,
     `工具：${tools.label}`,
   ]
   if (stateLines.length > 0) {
@@ -238,10 +239,10 @@ export async function formatStatusDigest(args: ProjectSurfaceArgs): Promise<stri
 }
 
 async function buildOverviewReply(args: ProjectSurfaceArgs): Promise<string> {
-  const { active, label, pkCount, pkStoreId, tools } = await activeProjectContext(args)
+  const { active, label, pkCount, tools } = await activeProjectContext(args)
   const paths = projectPathEntry(active, args.env)
   const root = workspaceRootFromEnv(args.env)
-  const lines = [`【${active}（${label}）概况】`]
+  const lines = [`【${label} 概况】`]
 
   if (paths?.manifestPath) {
     try {
@@ -258,7 +259,7 @@ async function buildOverviewReply(args: ProjectSurfaceArgs): Promise<string> {
     if (head) lines.push("", head)
   }
 
-  lines.push("", `知识库 ${pkCount ?? "?"} 条（${pkStoreId}）· 工具 ${tools.label}`)
+  lines.push("", `知识库 ${pkCount ?? "?"} 条 · 工具 ${tools.label}`)
   const openTasks = await pendingTaskCount(args.wiring, args.fromUserId)
   if (openTasks !== null) {
     lines.push(`待办 ${openTasks} 条 open（/待办）`)
@@ -272,9 +273,12 @@ async function buildHealthReply(args: {
   readonly mcpBundle?: McpToolBundle
 }): Promise<string> {
   const active = getWechatActiveProjectId(args.fromUserId, args.env)
+  // D60 T1.5 (audit #3 F-05): close D59 T2 missed-sweep — resolve ownerLabel.
+  const catalog = parseWechatProjectCatalog(args.env)
+  const label = catalog.find((item) => item.id === active)?.label ?? active
   const paths = projectPathEntry(active, args.env)
   const root = workspaceRootFromEnv(args.env)
-  const checks: string[] = [`【${active} 体检】`]
+  const checks: string[] = [`【${label} 体检】`]
 
   if (!paths) {
     checks.push("⚠ 未配置 wechat-project-paths.json 条目（仅检查 PK/工具）")
@@ -311,7 +315,6 @@ function switchReply(
 ): ButlerLoopResult {
   const catalog = parseWechatProjectCatalog(env)
   const label = catalog.find((item) => item.id === projectId)?.label ?? projectId
-  const pkStoreId = resolveProjectKnowledgeInboundProjectId(projectId, env)
   const tools = summarizeWechatToolProfile({
     projectId,
     env,
@@ -319,8 +322,8 @@ function switchReply(
   })
   return doneResult(
     [
-      `已切换到项目：${projectId}（${label}）`,
-      `知识库：${pkStoreId} · 工具：${tools.label}`,
+      `已切换到项目：${label}`,
+      `知识库：就绪 · 工具：${tools.label}`,
       "后续消息使用新会话。发送 /项目概况 或 /状态 查看详情。",
     ].join("\n"),
     [`project-switch: ${projectId}`],

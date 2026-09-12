@@ -174,6 +174,16 @@ function prefixReply(role: string, content: string): string {
 }
 
 /**
+ * D60 T1.1 (audit #3 F-01): owner-facing reply when the child loop pauses
+ * for approval. The stepId UUID and operator CLI stay in the `traces`
+ * array for §14 observability, never in the reply text (D48 §4 owner-facing
+ * contract). Exported for testability.
+ */
+export function buildPauseForApprovalReply(reason: string): string {
+  return `${reason}\n请 Owner 审批该步（子代理需网络访问）。`
+}
+
+/**
  * Run the child LLM turn. R8.x.10: advertises only granted tools and
  * refuses to execute any tool_call outside that set. Existing
  * general-only delegations keep the previous single-shot text path
@@ -357,7 +367,10 @@ async function runChildLlm(
           ownerSubject,
         })
         throw new RunPauseForApproval({
-          reply: `${rawOutcome.reason}\n审批编号: ${stepId}\n需出网命令请 Owner 执行：butler approve ${stepId} --network-allowlist registry.npmjs.org:443`,
+          // D60 T1.1 (audit #3 F-01): close D59 T3 missed-sweep — drop the
+          // stepId UUID + operator CLI from the owner-facing reply.
+          // stepId stays in the trace below for §14 observability.
+          reply: buildPauseForApprovalReply(rawOutcome.reason),
           iterations: 0,
           toolCalls: 0,
           finalDecision: "WaitForApproval" as ModelDecision["_tag"],
@@ -738,6 +751,10 @@ export function runSubagentWorker(
     POLL_INTERVAL_MS
   const runtimeStore = opts.runtimeStore
   let stopped = false
+  // D60 T1.2 (audit #1 F-01): close D58 T3 missed-sweep — track the timer
+  // handle so stop() can cancel a pending tick that hasn't fired yet
+  // (D58 T3 fixed the 3 sweepers; subagent-worker was the lone outlier).
+  let timer: ReturnType<typeof setTimeout> | null = null
 
   const tick = async (): Promise<void> => {
     if (stopped) return
@@ -752,22 +769,18 @@ export function runSubagentWorker(
     } catch (err) {
       logger.error("[subagent-worker] tick failed:", err)
     }
-    if (!stopped) {
-      setTimeout(() => {
-        tick().catch((err) => {
-          logger.error("[subagent-worker] unhandled tick error:", err)
-        })
-      }, intervalMs)
-    }
+    if (stopped) return
+    // D60 T1.2: capture timer handle so stop() can clearTimeout below.
+    timer = setTimeout(() => {
+      void tick()
+    }, intervalMs)
   }
 
   // First tick is delayed by `intervalMs` so the v5 process has a
   // moment to finish bootstrapping before the worker starts hammering
   // the outbox.
-  setTimeout(() => {
-    tick().catch((err) => {
-      logger.error("[subagent-worker] unhandled initial tick error:", err)
-    })
+  timer = setTimeout(() => {
+    void tick()
   }, intervalMs)
 
   logger.warn(`[subagent-worker] started (intervalMs=${intervalMs})`)
@@ -775,6 +788,8 @@ export function runSubagentWorker(
   return {
     stop: () => {
       stopped = true
+      if (timer) clearTimeout(timer)
+      timer = null
     },
   }
 }

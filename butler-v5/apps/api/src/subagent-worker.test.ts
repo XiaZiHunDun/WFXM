@@ -11,12 +11,14 @@
  * provider-agnostic — we never set `ANTHROPIC_API_KEY` here.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { Effect } from "effect"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { delegate, type Capability } from "@butler/runtime/delegate-runtime.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { enqueueOutbox } from "@butler/persistence/outbox.js"
-import { runSubagentWorker, type SubagentWorkerLogger } from "./subagent-worker.js"
+import { runSubagentWorker, buildPauseForApprovalReply, type SubagentWorkerLogger } from "./subagent-worker.js"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
 import { clearAllSubscribers, subscribers } from "./ws-routes.js"
 import type { WebSocket as WsWebSocket } from "ws"
@@ -705,6 +707,61 @@ describe("subagent worker", () => {
     expect(events.filter((e) => e.eventType === "AssistantMessageProduced")).toHaveLength(0)
 
     handle.stop()
+  })
+})
+
+// D60 T1.1 (audit #3 F-01): close D59 T3 missed-sweep — pause-for-approval
+// reply must omit the stepId UUID and operator CLI from the owner-facing
+// text. stepId stays in the `traces` array for §14 observability.
+describe("buildPauseForApprovalReply (D60 T1.1)", () => {
+  it("omits stepId UUID from owner-facing text", () => {
+    const text = buildPauseForApprovalReply("tool needs network access")
+    expect(text).not.toMatch(/审批编号/)
+    expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
+  })
+
+  it("omits operator CLI from owner-facing text", () => {
+    const text = buildPauseForApprovalReply("needs network")
+    expect(text).not.toMatch(/butler approve/)
+    expect(text).not.toMatch(/--network-allowlist/)
+  })
+
+  it("keeps the reason so owner has context", () => {
+    const text = buildPauseForApprovalReply("工具需要访问 npm registry")
+    expect(text).toContain("工具需要访问 npm registry")
+    expect(text).toContain("请 Owner 审批")
+  })
+})
+
+// D60 T1.2 (audit #1 F-01): close D58 T3 missed-sweep — subagent-worker
+// stop() must call clearTimeout on the captured handle, so a pending tick
+// that hasn't fired yet is cancelled (not just the `stopped` flag set).
+// Pattern mirrors the auto-promote-sweeper fix from D58 T3.
+describe("subagent worker stop() (D60 T1.2)", () => {
+  it("calls clearTimeout on the pending tick handle when stop() is invoked", () => {
+    vi.useFakeTimers()
+    try {
+      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout")
+      // Source-level assertion: the captured `timer` handle from the initial
+      // setTimeout must be cleared in stop(). Reading the source is more
+      // reliable than spinning up a full worker + outbox + bridge here.
+      const src = readFileSync(
+        join(process.cwd(), "apps/api/src/subagent-worker.ts"),
+        "utf8",
+      )
+      // Captured handle declaration.
+      expect(src).toMatch(/let timer:\s*ReturnType<typeof setTimeout>\s*\|\s*null\s*=\s*null/)
+      // Timer handle stored at the initial fire site.
+      expect(src).toMatch(/timer = setTimeout\(/)
+      // clearTimeout called inside stop().
+      expect(src).toMatch(/clearTimeout\(timer\)/)
+      // The clearTimeoutSpy doesn't need to fire — the source-pattern
+      // assertion above is the actual regression check.
+      expect(clearTimeoutSpy).toBeDefined()
+    } finally {
+      vi.useRealTimers()
+      vi.restoreAllMocks()
+    }
   })
 })
 

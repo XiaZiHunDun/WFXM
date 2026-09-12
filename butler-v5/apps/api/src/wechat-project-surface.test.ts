@@ -142,4 +142,60 @@ describe("tryWechatProjectCommand integration", () => {
     expect(health?.reply).toContain("体检")
     expect(health?.reply).toMatch(/✓|✗/)
   })
+
+  // D60 T1.4-T1.7 (audit #3 F-04 + F-05 + F-12): ownerLabel only —
+  // no parenthesized projectId redundancy, no pkStoreId leak in any
+  // /状态 /项目概况 /项目 体检 /切换 reply.
+  it("/状态 reply uses ownerLabel only (no projectId redundancy, no pkStoreId)", async () => {
+    await tryWechatProjectCommand({
+      wiring,
+      fromUserId: "u-surface",
+      content: "/切换 LingWen1",
+      env: testEnv,
+    })
+    const status = await tryWechatProjectCommand({
+      wiring,
+      fromUserId: "u-surface",
+      content: "/状态",
+      env: testEnv,
+    })
+    expect(status?.reply).toContain("LingWen") // ownerLabel
+    expect(status?.reply).not.toMatch(/LingWen1[（(]/) // no projectId wrapped in parens
+    expect(status?.reply).not.toMatch(/store:/) // no pkStoreId leak
+  })
+
+  it("/项目概况 reply uses ownerLabel only (no projectId redundancy)", async () => {
+    await tryWechatProjectCommand({
+      wiring,
+      fromUserId: "u-surface",
+      content: "/切换 LingWen1",
+      env: testEnv,
+    })
+    const overview = await tryWechatProjectCommand({
+      wiring,
+      fromUserId: "u-surface",
+      content: "/项目概况",
+      env: testEnv,
+    })
+    expect(overview?.reply).toContain("LingWen")
+    expect(overview?.reply).not.toMatch(/LingWen1[（(]/)
+  })
+
+  it("/项目 体检 reply uses ownerLabel (not raw projectId)", async () => {
+    await tryWechatProjectCommand({
+      wiring,
+      fromUserId: "u-surface",
+      content: "/切换 LingWen1",
+      env: testEnv,
+    })
+    const health = await tryWechatProjectCommand({
+      wiring,
+      fromUserId: "u-surface",
+      content: "/项目 体检",
+      env: testEnv,
+    })
+    // title contains ownerLabel, not raw projectId
+    expect(health?.reply).toMatch(/【LingWen 体检】/)
+    expect(health?.reply).not.toMatch(/【LingWen1/)
+  })
 })
