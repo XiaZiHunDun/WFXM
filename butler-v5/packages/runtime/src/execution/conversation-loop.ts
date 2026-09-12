@@ -83,10 +83,16 @@ export interface ConversationLoopLogger {
   readonly error: (message: string, error: unknown) => void
 }
 
+// D60 T3.1 (audit #2 F-05): structurally equivalent to `LLMToolCall`
+// (same id/name/args fields). Args was previously typed
+// `Readonly<Record<string, unknown>>` which blocked the structural
+// assignment from `LLMMMessage[]` in subagent-worker; widened to
+// `Record<string, unknown>` so LLMToolCall is directly assignable
+// without an `as unknown as` cast.
 export interface ConversationLoopToolCall {
   readonly id: string
   readonly name: string
-  readonly args: Readonly<Record<string, unknown>>
+  readonly args: Record<string, unknown>
 }
 
 export interface ConversationLoopMessage {

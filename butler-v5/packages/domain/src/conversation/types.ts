@@ -11,6 +11,16 @@ type ProjectIdRef = string & { readonly __brand: "ProjectIdRef" }
 export type TurnId = string & { readonly __brand: "TurnId" }
 export type ToolCallId = string & { readonly __brand: "ToolCallId" }
 
+/**
+ * D60 T3.4 (audit #2 F-08): explicit factory for `LoopId`. The brand is a
+ * compile-time only marker (no runtime representation), so the only way to
+ * widen `string` to `LoopId` is a cast — but a single, named factory
+ * centralises the cast so callers don't reach for `as unknown as LoopId`.
+ */
+export function makeLoopId(s: string): LoopId {
+  return s as LoopId
+}
+
 // ─── 对话/回合状态 ──────────────────────────────────────
 type ConversationStatus = "open" | "running" | "waiting" | "completed"
 type TurnStatus = "running" | "responded" | "tooled" | "completed" | "failed"

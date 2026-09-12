@@ -13,6 +13,9 @@ export {
   type AgentPersona,
   type ContextWindow,
   type ContextNode,
+  // D60 T3.4: explicit LoopId factory — replaces `as unknown as LoopId`
+  // at the 2 transitions.ts call sites.
+  makeLoopId,
 } from "./conversation/types.js"
 export { transition } from "./conversation/transitions.js"
 export { makeContextWindow, isNearLimit, chooseStrategy } from "./conversation/context.js"

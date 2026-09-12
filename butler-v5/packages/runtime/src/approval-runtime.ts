@@ -65,7 +65,29 @@ export function parsePendingCapabilityInput(
   ) {
     return null
   }
-  return input as unknown as PendingCapabilityInput
+  // D60 T3.2 (audit #2 F-06): construct PendingCapabilityInput explicitly
+  // from validated fields instead of `return input as unknown as PendingCapabilityInput`.
+  // The local casts (`as string`, `as ActionKind`, etc.) are documented inline
+  // for each required field; the record-widening double-cast is no longer needed.
+  return {
+    _tag: "PendingCapability",
+    capability,
+    conversationId,
+    subject,
+    question,
+    args: (input["args"] ?? {}) as Readonly<Record<string, unknown>>,
+    resource: input["resource"] as string,
+    expiresAtMs: input["expiresAtMs"] as number,
+    digest: input["digest"] as string,
+    kind: input["kind"] as ActionKind,
+    risk: input["risk"] as RiskLevel,
+    ...(typeof input["wechatUserId"] === "string"
+      ? { wechatUserId: input["wechatUserId"] }
+      : {}),
+    ...(typeof input["wechatContextToken"] === "string"
+      ? { wechatContextToken: input["wechatContextToken"] }
+      : {}),
+  }
 }
 
 export async function createWaitingApprovalStep(

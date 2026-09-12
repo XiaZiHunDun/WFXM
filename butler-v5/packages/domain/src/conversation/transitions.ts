@@ -1,14 +1,15 @@
 // domain/conversation/transitions.ts
 // 对话状态机 — 纯函数，零副作用
 
-import type {
-  LoopId,
-  ConversationEvent,
-  ConversationState,
-  Conversation,
-  Turn,
-  TurnId,
-  ToolCallId,
+import {
+  type LoopId,
+  type ConversationEvent,
+  type ConversationState,
+  type Conversation,
+  type Turn,
+  type TurnId,
+  type ToolCallId,
+  makeLoopId,
 } from "./types.js"
 
 // ─── 对话聚合上的 Turn 转换 ──────────────────────────────
@@ -76,7 +77,7 @@ export function transition(state: ConversationState, event: ConversationEvent): 
   switch (event._tag) {
     case "ConversationStarted":
       return state._tag === "Idle"
-        ? { _tag: "Running", loopId: event.conversationId as unknown as LoopId }
+        ? { _tag: "Running", loopId: makeLoopId(event.conversationId) }
         : state
 
     case "MessageAdded":
@@ -117,7 +118,7 @@ export function transition(state: ConversationState, event: ConversationEvent): 
     case "ReviewCompleted":
       return state._tag === "AwaitingReview" && state.receiptId === event.receiptId
         ? event.approved
-          ? { _tag: "Running", loopId: event.receiptId as unknown as LoopId }
+          ? { _tag: "Running", loopId: makeLoopId(event.receiptId) }
           : {
               _tag: "Failed",
               error: {

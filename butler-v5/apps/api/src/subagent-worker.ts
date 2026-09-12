@@ -42,9 +42,7 @@ import { computeCostUsd, parseLlmPricing, resolveCurrentLlmModel } from "./llm-p
 import type { ModelDecision } from "@butler/runtime/decision.js"
 import {
   runConversationLoop,
-  type ConversationLoopLlmTool,
   type ConversationLoopLogger,
-  type ConversationLoopMessage,
   type ConversationLoopPorts,
 } from "@butler/runtime/execution/index.js"
 import type { EventStorePort } from "@butler/ports/core/event-store.js"
@@ -408,8 +406,10 @@ async function runChildLlm(
   try {
     const loopResult = await runConversationLoop({
       kernel,
-      messages: messages as unknown as ConversationLoopMessage[],
-      llmTools: advertised as unknown as readonly ConversationLoopLlmTool[],
+      // D60 T3.1 (audit #2 F-05): structural-subset cast removed —
+      // ConversationLoopToolCall now accepts LLMToolCall directly.
+      messages,
+      llmTools: advertised,
       ports,
       maxIterations: MAX_CHILD_ITERATIONS,
       llmTimeoutMs: LLM_TIMEOUT_MS,

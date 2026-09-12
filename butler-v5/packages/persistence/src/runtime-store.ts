@@ -123,6 +123,10 @@ function toStoredMessage(row: typeof messages.$inferSelect): StoredMessage {
 }
 
 export function createRuntimeStore(db: ButlerDb): RuntimeStore {
+  // D60 T3.3 (audit #2 F-07): single local type alias for Drizzle's tx
+  // parameter. Used at all `*InTx` adapter sites below; previously
+  // duplicated as a bespoke conditional type at 2 sites.
+  type DbTx = Parameters<typeof db.transaction>[0] extends (tx: infer T) => unknown ? T : never
   return {
     async createConversationWithUserMessage(input) {
       const existing = await db
@@ -447,12 +451,8 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
     async appendAuditEventInTx(tx, input) {
       // tx is a Drizzle tx (Pglite or NodePg). The `tx` parameter type is
       // `RuntimeTx = unknown` in the contract; we trust callers to pass a
-      // Drizzle-compatible tx and cast locally.
-      const t = tx as unknown as Parameters<typeof db.transaction>[0] extends (
-        tx: infer T,
-      ) => unknown
-        ? T
-        : never
+      // Drizzle-compatible tx and cast locally via the DbTx alias above.
+      const t = tx as unknown as DbTx
       await t.insert(auditEvents).values({
         auditId: input.auditId,
         runId: input.runId,
@@ -465,11 +465,7 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
     },
 
     async transitionRunStatusInTx(tx, runId, expectedVersion, to, updatedAt) {
-      const t = tx as unknown as Parameters<typeof db.transaction>[0] extends (
-        tx: infer T,
-      ) => unknown
-        ? T
-        : never
+      const t = tx as unknown as DbTx
       const updated = await t
         .update(runs)
         .set({ status: to, version: expectedVersion + 1, updatedAt })
