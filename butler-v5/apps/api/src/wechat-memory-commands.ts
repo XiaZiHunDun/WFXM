@@ -15,19 +15,22 @@ import type { Wiring } from "./wiring.js"
 // by design; wechat is more constrained than the HTTP API).
 const dedupCfg = parseDedupConfig(process.env)
 
-async function checkDedup(opts: {
-  readonly store: DurableMemoryStore
-  readonly subject: string
-  readonly content: string
-}): Promise<
+type DedupCheckResult =
   | {
+      readonly kind: "hit"
       readonly existingMemoryId: string
       readonly similarity: number
       readonly status: DurableMemoryStatus
     }
-  | null
-> {
-  if (!dedupCfg.enabled) return null
+  | { readonly kind: "clean" }
+  | { readonly kind: "error"; readonly reason: string }
+
+async function checkDedup(opts: {
+  readonly store: DurableMemoryStore
+  readonly subject: string
+  readonly content: string
+}): Promise<DedupCheckResult> {
+  if (!dedupCfg.enabled) return { kind: "clean" }
   try {
     const result = await findSimilarMemories({
       store: opts.store,
@@ -38,21 +41,23 @@ async function checkDedup(opts: {
       recentMs: dedupCfg.recentMs,
       limit: dedupCfg.limit,
     })
-    if (result.best === null) return null
+    if (result.best === null) return { kind: "clean" }
     return {
+      kind: "hit",
       existingMemoryId: result.best.id,
       similarity: result.best.similarity,
       status: result.best.status,
     }
   } catch (err) {
     // Fail-open: dedup DB error must not block owner writes (§20 #11
-    // 守住 owner 自主权). Surface via stderr so operators can diagnose.
+    // 守住 owner 自主权). D55 SF-02: surface reason to caller so the
+    // /记住 handler can append an owner-visible warning (in addition to
+    // stderr log) — silent fail-open hides dedup outages and lets
+    // unbounded duplicates accumulate.
+    const reason = err instanceof Error ? err.message : String(err)
     // eslint-disable-next-line no-console -- operator log when no logger injected
-    console.error(
-      "[memory-dedup] check failed:",
-      err instanceof Error ? err.message : String(err),
-    )
-    return null
+    console.error("[memory-dedup] check failed:", reason)
+    return { kind: "error", reason }
   }
 }
 
@@ -144,13 +149,14 @@ export async function tryWechatMemoryCommand(args: {
     // G2 dedup guard (D41 T5): block /记住 when a near-duplicate memory already
     // exists for the same subject. Wechat has no force bypass — owner cannot
     // override via this channel (by design; wechat is more constrained than
-    // HTTP). Fail-open inside helper — DB errors fall through to create.
+    // HTTP). Fail-open inside helper — DB errors fall through to create,
+    // with a warning suffix appended so the owner knows dedup is degraded.
     const dedupHit = await checkDedup({
       store,
       subject: created.value.subject,
       content: created.value.content,
     })
-    if (dedupHit !== null) {
+    if (dedupHit.kind === "hit") {
       // eslint-disable-next-line no-console -- operator log when no logger injected
       console.error(
         `[memory-dedup] wechat hit existingId=${dedupHit.existingMemoryId} similarity=${dedupHit.similarity.toFixed(3)} status=${dedupHit.status}`,
@@ -161,10 +167,15 @@ export async function tryWechatMemoryCommand(args: {
       )
     }
     const saved = await store.create(created.value)
-    return done(
-      `已记住（${shortId(saved.id)}）：${text.slice(0, 120)}${text.length > 120 ? "…" : ""}`,
-      [`wechat-memory: remember ${saved.id}`],
-    )
+    const baseReply = `已记住（${shortId(saved.id)}）：${text.slice(0, 120)}${text.length > 120 ? "…" : ""}`
+    if (dedupHit.kind === "error") {
+      const reply = `${baseReply}\n（注：去重检查失败：${dedupHit.reason}，记忆已保存但未做重复检查）`
+      return done(reply, [
+        "wechat-memory: dedup failed",
+        `wechat-memory: remember ${saved.id}`,
+      ])
+    }
+    return done(baseReply, [`wechat-memory: remember ${saved.id}`])
   }
 
   if (trimmed === "/记忆候选" || trimmed === "/memories-pending") {
