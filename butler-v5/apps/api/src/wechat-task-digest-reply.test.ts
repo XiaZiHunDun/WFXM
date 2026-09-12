@@ -184,9 +184,11 @@ describe("formatTaskDigestReply", () => {
       fromUserId: "u-digest",
       env: testEnv,
     })
-    // Owner sees which backend is broken (the actual error reason)
-    expect(result.reply).toContain("simulated memory outage")
-    // Trace now carries per-store failure details for §14 observability
+    // D60 T2.2 (audit #3 F-06): owner sees the per-backend base text
+    // (which backend is broken) but NOT the raw error reason. The
+    // raw reason stays in the trace for §14 observability.
+    expect(result.reply).toContain("记忆候选查询失败")
+    expect(result.reply).not.toContain("simulated memory outage")
     const reasonTrace = result.traces.find((t) => t.startsWith("task-digest:reason="))
     expect(reasonTrace).toBeDefined()
     expect(reasonTrace).toContain("candidates")

@@ -391,7 +391,8 @@ describe("tryWechatTaskCommand", () => {
     expect(mockedSchedule).toHaveBeenCalledTimes(1)
     expect(mockedRunTaskGoal).not.toHaveBeenCalled()
     expect(result?.reply).toContain("已在后台运行")
-    expect(result?.reply).toContain("BUTLER_V5_RUN_NOTIFY_ENABLED=1")
+    // D60 T2.3 (audit #3 F-07): env-var knobs removed from owner reply.
+    expect(result?.reply).not.toMatch(/BUTLER_V5_/)
     expect(result?.traces.some((t) => t.startsWith("wechat-task: async run "))).toBe(true)
   })
 

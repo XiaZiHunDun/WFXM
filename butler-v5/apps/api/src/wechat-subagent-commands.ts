@@ -113,15 +113,13 @@ export async function tryWechatSubagentCommand(args: {
       ownerSubject: subject,
     })
     return done(
+      // D60 T2.4 (audit #3 F-08): drop child id, 8-hex run id, and
+      // env-var knobs (3 jargon leaks). operator surfaces only.
       [
         `已委派给 ${parsed.role} 子代理（后台运行）。`,
-        `child: …${shortChildId(outcome.childConversationId)}`,
-        outcome.childRunId ? `run: ${outcome.childRunId.slice(0, 8)}` : "",
-        "完成后会主动推送微信（需 BUTLER_V5_RUN_NOTIFY_ENABLED=1）。",
+        "完成后会主动推送微信。",
         "查看：/委派状态",
-      ]
-        .filter((line) => line.length > 0)
-        .join("\n"),
+      ].join("\n"),
       [`wechat-subagent: delegated ${outcome.childConversationId}`],
     )
   } catch (err) {

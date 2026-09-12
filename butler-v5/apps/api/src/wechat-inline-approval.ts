@@ -77,13 +77,15 @@ export async function tryWechatInlineApproval(args: {
   if (intent === "deny") {
     const deny = await denyWaitingStep(args.wiring.runtimeStore, step.id, args.fromUserId)
     return {
+      // D60 T2.6 (audit #3 F-10): drop raw capability name (write_file, etc.)
+      // from owner-facing reply. Operator tool id, not catalog id.
       reply: deny.alreadyProcessed
         ? "该操作已处理，无需重复操作。"
-        : `已拒绝待审批操作（${pending.capability}）。`,
+        : "已拒绝待审批操作。",
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",
-      traces: [`inline-approval: denied ${step.id}`],
+      traces: [`inline-approval: denied ${step.id} (capability=${pending.capability})`],
     }
   }
 

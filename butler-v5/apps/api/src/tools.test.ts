@@ -405,7 +405,11 @@ describe("weibutler tools", () => {
       const output = String(result.output)
       expect(output).toContain("researcher")
       expect(output).toContain("已委派")
-      expect(output).toMatch(/child conversation: child-c-tools-1-/)
+      // D60 T2.5 (audit #3 F-09): raw childRunId / childConversationId
+      // no longer echo to the LLM. Both IDs are still emitted as the
+      // `ChildRunCreated` event below — owner-side trace coverage.
+      expect(output).not.toMatch(/child conversation:/)
+      expect(output).not.toMatch(/child run:/)
     }
     const events = await bridge.loadStream(conversationId)
     const childEvents = events.filter((e) => e.eventType === "ChildRunCreated")

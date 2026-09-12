@@ -69,9 +69,13 @@ export async function formatTaskDigestReply(args: {
   // formatStatusDigest returns `Promise<string>` directly, while
   // formatOpenTasksDigest / formatMemoryCandidatesDigest return
   // `{ text, isEmpty }`. Unwrap each according to its actual shape.
-  // D55 SF-01: surface the actual rejection reason inline so owners can
-  // tell which backend is degraded (status / tasks / candidates) instead
-  // of seeing three identical "查询失败" lines.
+  // D60 T2.2 (audit #3 F-06): drop raw error reason from owner-facing
+  // failure text. The per-backend distinction comes from FAILURE_FALLBACK's
+  // distinct base messages ("项目状态查询失败" / "待办查询失败" / "记忆候选查询失败"),
+  // so owners can still tell which backend is degraded without seeing
+  // internals like 'connection refused on 127.0.0.1:5432'.
+  // (D55 SF-01 wanted per-backend distinction; that's preserved.)
+  // The raw reason is kept in `reasonTrace` below for operator observability.
   const reasonOf = (s: PromiseSettledResult<unknown>): string | null =>
     s.status === "rejected"
       ? s.reason instanceof Error
@@ -81,20 +85,14 @@ export async function formatTaskDigestReply(args: {
   const statusReason = reasonOf(settled[0])
   const tasksReason = reasonOf(settled[1])
   const candidatesReason = reasonOf(settled[2])
-  const formatFailed = (base: string, reason: string | null): string =>
-    reason === null ? base : `${base}（${reason}）`
   const statusText =
-    settled[0].status === "fulfilled"
-      ? settled[0].value
-      : formatFailed(FAILURE_FALLBACK.status, statusReason)
+    settled[0].status === "fulfilled" ? settled[0].value : FAILURE_FALLBACK.status
   const tasksText =
-    settled[1].status === "fulfilled"
-      ? settled[1].value.text
-      : formatFailed(FAILURE_FALLBACK.tasks, tasksReason)
+    settled[1].status === "fulfilled" ? settled[1].value.text : FAILURE_FALLBACK.tasks
   const candidatesText =
     settled[2].status === "fulfilled"
       ? settled[2].value.text
-      : formatFailed(FAILURE_FALLBACK.candidates, candidatesReason)
+      : FAILURE_FALLBACK.candidates
   const failedCount =
     (settled[0].status === "rejected" ? 1 : 0) +
     (settled[1].status === "rejected" ? 1 : 0) +

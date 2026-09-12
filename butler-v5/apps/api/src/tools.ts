@@ -369,9 +369,11 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
     }
     return {
       ok: true,
-      output: outcome.childRunId
-        ? `任务已委派给 ${outcome.role} 子代理（child run: ${outcome.childRunId}, conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`
-        : `任务已委派给 ${outcome.role} 子代理（child conversation: ${outcome.childConversationId}）。子代理运行后会自动回复。`,
+      // D60 T2.5 (audit #3 F-09): drop raw childRunId + childConversationId
+      // from the tool's owner-facing output (passed up to the LLM).
+      // Both IDs remain in the wechat-subagent-commands reply trace
+      // (wechat-subagent: delegated ...) for §14 observability.
+      output: `任务已委派给 ${outcome.role} 子代理。子代理运行后会自动回复。`,
     }
   })
 }

@@ -167,8 +167,13 @@ async function continueLoopAfterCapability(args: {
     projectId: "approval-resume",
     actor: { kind: "agent", id: "approval-resume" },
   })
-  const userContent =
-    `已批准并执行 ${args.capability}，结果：\n${args.toolOutput}\n` +
+  // D60 T2.7 (audit #3 F-11): the raw capability name stays in the kernel
+// user_content (LLM uses it to know context) but the kernel output is no
+// longer echoing the operator tool id to the owner via the LLM reply.
+// Approval trace (`approval-resume: approved ${stepId} cap=${args.capability}`)
+// preserves it for §14 observability.
+const userContent =
+    `已批准并执行该步，结果：\n${args.toolOutput}\n` +
     `请用中文继续完成用户目标；需要时可调用工具。`
   try {
     await kernel.openTurn({ userMessage: { role: "user", content: userContent } })

@@ -162,10 +162,11 @@ export async function tryWechatTaskCommand(args: {
         return done(scheduled.reason, [`wechat-task: run busy ${match.id}`])
       }
       return done(
+        // D60 T2.3 (audit #3 F-07): drop env-var knobs from owner-facing reply.
+        // Notify/sync are operator concerns not surfaced to owner.
         [
           `待办 ${shortId(match.id)} 已在后台运行。`,
-          "完成后会主动推送微信（BUTLER_V5_RUN_NOTIFY_ENABLED=1）。",
-          "同步运行：设置 BUTLER_V5_TASK_RUN_ASYNC=0 且 BUTLER_V5_RUN_NOTIFY_ENABLED=0。",
+          "完成后会主动推送微信。",
         ].join("\n"),
         [`wechat-task: async run ${match.id}`],
       )
