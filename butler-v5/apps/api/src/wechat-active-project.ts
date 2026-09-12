@@ -119,3 +119,22 @@ export function resolveWechatInboundProjectId(
   if (explicit) return explicit
   return getWechatActiveProjectId(userId, env)
 }
+
+/**
+ * D58 T5 (audit #3 F-05 + F-06): resolve an internal project id to the
+ * owner-facing label defined in parseWechatProjectCatalog. Falls back
+ * to the id itself when no label is found so owner-facing messages
+ * still display *something* meaningful for projects that haven't been
+ * given a friendly label.
+ */
+export function resolveWechatProjectLabel(
+  projectId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const id = projectId.trim()
+  if (!id) return id
+  for (const item of parseWechatProjectCatalog(env)) {
+    if (item.id === id) return item.label
+  }
+  return id
+}

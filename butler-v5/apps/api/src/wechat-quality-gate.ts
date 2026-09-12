@@ -2,7 +2,7 @@ import { spawn } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
-import { getWechatActiveProjectId } from "./wechat-active-project.js"
+import { getWechatActiveProjectId, resolveWechatProjectLabel } from "./wechat-active-project.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
 
@@ -131,8 +131,13 @@ export async function tryWechatQualityGateCommand(args: {
   const active = getWechatActiveProjectId(args.fromUserId, env)
   const project = gateProject(active, env)
   if (!project || project.commands.length === 0) {
+    // D58 T5 (audit #3 F-06): surface the owner-facing label (e.g.
+    // "WFXM") rather than the raw internal id ("wechat"). Catalog is
+    // defined in parseWechatProjectCatalog; falls back to id when no
+    // label exists.
+    const ownerLabel = resolveWechatProjectLabel(active, env)
     return done(
-      `项目「${active}」未配置质量门禁。\n编辑 config/quality-gate.json 后重试。`,
+      `项目「${ownerLabel}」未配置质量门禁。\n编辑 config/quality-gate.json 后重试。`,
       ["quality-gate: missing config"],
     )
   }

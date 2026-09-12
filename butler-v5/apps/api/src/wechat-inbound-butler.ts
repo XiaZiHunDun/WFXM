@@ -71,6 +71,22 @@ const defaultLogger: ButlerLoopLogger = {
 export type ButlerLoopResult = ConversationLoopResult
 
 /**
+ * D58 T5 (audit #3 F-18): map an ActiveMainRunConflict status token to
+ * owner-facing Chinese wording. The owner never sees internal state
+ * names like "waiting_approval" — only human-readable phrasing.
+ */
+export function activeRunConflictReply(status: string, runId: string): string {
+  switch (status) {
+    case "waiting_approval":
+      return "当前对话仍有未完成的审批步骤。请回复「确认」或「拒绝」继续，或等待你之前的请求结束。"
+    case "waiting_external":
+      return "当前对话正在等待外部步骤完成（例如网络命令或审批回执）。稍后再试即可。"
+    default:
+      return `当前对话已有进行中的 Run（${runId}），请稍后再试。`
+  }
+}
+
+/**
  * Delivery-shell entry: Intake already normalized; this wires WeChat-specific
  * tools/LLM/history then runs Execution `runConversationLoop` under RunEngine.
  */
@@ -169,15 +185,20 @@ export async function runButlerLoop(args: {
           allowedToolNames,
           runId: ctx.runId,
           workingSet: ctx.workingSet,
-          ...(process.env["EVAL_DEBUG"] ? { llmTimeoutMs: args.llmTimeoutMs ?? "(undefined)" as unknown as number } : {}),
+          // D58 T5 (audit #1 F-01): EVAL_DEBUG path used to substitute the
+          // string "(undefined)" into a number field when llmTimeoutMs was
+          // unset, silently corrupting the timeout value. Only forward
+          // the field when EVAL_DEBUG is set AND a real number is available.
+          ...(process.env["EVAL_DEBUG"] && args.llmTimeoutMs !== undefined
+            ? { llmTimeoutMs: args.llmTimeoutMs }
+            : {}),
         }),
     )
   } catch (err) {
     if (err instanceof ActiveMainRunConflict) {
-      const waiting =
-        err.activeRun.status === "waiting_approval" || err.activeRun.status === "waiting_external"
+      const waitingStatus = activeRunConflictReply(err.activeRun.status, err.activeRun.id)
       return {
-        reply: waiting
+        reply: waitingStatus
           ? `当前对话仍有未完成的 Run（${err.activeRun.status}）。请先回复「确认」或「拒绝」完成审批，或等待外部步骤结束。`
           : `当前对话已有进行中的 Run（${err.activeRun.id}），请稍后再试。`,
         iterations: 0,
