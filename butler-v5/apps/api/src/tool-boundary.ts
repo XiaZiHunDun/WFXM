@@ -19,10 +19,10 @@ import {
   readKillSwitch,
   type CapabilityRegistry,
 } from "@butler/runtime/policy-gate.js"
-import { markGrantConsumed } from "./approval-resume.js"
 import { isMcpReadonlyAutoAllowEnabled } from "./mcp-readonly-policy.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { devSessionRunId } from "./dev-session-grant.js"
+import { markGrantConsumed } from "./tool-boundary-helpers.js"
 
 const DEFAULT_TOOL_TIMEOUT_MS = 5_000
 const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
@@ -80,16 +80,6 @@ async function lookupActiveGrant(args: {
     ...probe,
     runId: sessionRunId,
   })
-}
-
-export function resolveOwnerSubject(env: NodeJS.ProcessEnv, fallback: string): string {
-  const raw = env["BUTLER_OWNER_WECHAT_ID"]?.trim()
-  if (!raw) return fallback
-  const first = raw
-    .split(/[,\s]+/)
-    .map((part) => part.trim())
-    .find((part) => part.length > 0)
-  return first ?? fallback
 }
 
 export interface ToolExecutor {

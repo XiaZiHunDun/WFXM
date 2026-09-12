@@ -58,7 +58,8 @@ import {
   normalizeCapabilityNames,
 } from "./capability-guard.js"
 import { findTool, makeWeibutlerTools } from "./tools.js"
-import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
+import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
+import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import { toRunResult, isPendingApprovalOutcome } from "./approval-resume.js"
 import { ensureDelegationToolGrants } from "./delegation-grants.js"
 import { enrichSubagentDevReply } from "./dev-quality-gate.js"

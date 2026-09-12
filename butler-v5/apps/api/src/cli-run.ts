@@ -1,6 +1,6 @@
 import { buildCliRunTrigger, validateRunTrigger } from "@butler/domain/runtime.js"
 import { runButlerLoop, type ButlerLoopResult } from "./wechat-inbound-butler.js"
-import { resolveOwnerSubject } from "./tool-boundary.js"
+import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import type { Wiring } from "./wiring.js"
 
 export function defaultCliConversationId(subject: string, goal: string): string {

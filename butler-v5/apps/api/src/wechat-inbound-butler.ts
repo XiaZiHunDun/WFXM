@@ -24,7 +24,8 @@ import {
 } from "@butler/domain/runtime.js"
 import type { Wiring } from "./wiring.js"
 import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
-import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
+import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
+import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import { isPendingApprovalOutcome, toRunResult } from "./approval-resume.js"
 import { ActiveMainRunConflict, RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import {

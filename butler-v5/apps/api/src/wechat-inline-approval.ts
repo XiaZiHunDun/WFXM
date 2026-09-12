@@ -6,7 +6,7 @@ import {
 import { parseInlineApprovalIntent } from "@butler/runtime/inline-approval-intent.js"
 import { parseCsvIds } from "./ilink-config.js"
 import { resumeApprovedCapability } from "./approval-resume.js"
-import { resolveOwnerSubject } from "./tool-boundary.js"
+import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
 

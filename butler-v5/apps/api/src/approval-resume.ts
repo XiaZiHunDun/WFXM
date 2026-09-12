@@ -4,7 +4,6 @@ import {
   parsePendingCapabilityInput,
   type ApprovalDecision,
 } from "@butler/runtime/approval-runtime.js"
-import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import {
@@ -24,20 +23,13 @@ import type { RunResult } from "@butler/runtime/tool-runtime.js"
 import { Effect } from "effect"
 import { pickLLMForRole, type LLMMessage, type LLMTool } from "@butler/adapters"
 import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
-import { makeToolExecutor, resolveOwnerSubject, toolTimeoutMs } from "./tool-boundary.js"
+import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
+import { markGrantConsumed, resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import { stubReply } from "./wechat-inbound-llm.js"
 import { isExecCapability } from "./wechat-tool-profile.js"
 import type { Wiring } from "./wiring.js"
 
 export { approveWaitingStep, denyWaitingStep } from "@butler/runtime/approval-runtime.js"
-
-export async function markGrantConsumed(
-  store: RuntimeStore,
-  grant: ScopedGrantRecord,
-): Promise<void> {
-  if (grant.remainingUses === null) return
-  await store.updateScopedGrantRemainingUses(grant.id, Math.max(0, grant.remainingUses - 1))
-}
 
 export function isPendingApprovalOutcome(
   outcome: ToolExecutionOutcome,
