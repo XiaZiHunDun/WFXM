@@ -44,6 +44,66 @@ describe("parseIlinkPollerConfig", () => {
     expect(parsed.value.allowedUserIds).toEqual(["u-a", "u-b", "u-owner"])
     expect(parsed.value.dropGroups).toBe(true)
   })
+
+  // D57 audit #1 F-02 — supplement untested branches of ilink-config.ts.
+  it("falls back to ILINK_BASE_URL when WECHAT_BASE_URL unset", () => {
+    const parsed = parseIlinkPollerConfig({
+      BUTLER_V5_ILINK_ENABLED: "1",
+      WECHAT_TOKEN: "tok",
+      ILINK_BASE_URL: "http://ilink-fallback:9999",
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.value.baseUrl).toBe("http://ilink-fallback:9999")
+  })
+
+  it("sets dropGroups=false when WECHAT_GROUP_POLICY=open", () => {
+    const parsed = parseIlinkPollerConfig({
+      BUTLER_V5_ILINK_ENABLED: "1",
+      WECHAT_TOKEN: "tok",
+      WECHAT_GROUP_POLICY: "open",
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.value.dropGroups).toBe(false)
+  })
+
+  it("falls back numeric defaults when env is non-finite", () => {
+    const parsed = parseIlinkPollerConfig({
+      BUTLER_V5_ILINK_ENABLED: "1",
+      WECHAT_TOKEN: "tok",
+      BUTLER_V5_ILINK_LONG_POLL_MS: "not-a-number",
+      BUTLER_V5_ILINK_EMPTY_DELAY_MS: "abc",
+      WECHAT_MEDIA_MAX_BYTES: "0",
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.value.longPollTimeoutMs).toBe(35_000)
+    expect(parsed.value.emptyPollDelayMs).toBe(250)
+    expect(parsed.value.mediaMaxBytes).toBe(8 * 1024 * 1024)
+  })
+
+  it("respects BUTLER_V5_ILINK_SYNC_BUF_PATH override", () => {
+    const parsed = parseIlinkPollerConfig({
+      BUTLER_V5_ILINK_ENABLED: "1",
+      WECHAT_TOKEN: "tok",
+      BUTLER_V5_ILINK_SYNC_BUF_PATH: "/tmp/custom-ilink-sync.json",
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.value.syncBufPath).toBe("/tmp/custom-ilink-sync.json")
+  })
+
+  it("coerces unknown dmPolicy to 'open' (defensive default)", () => {
+    const parsed = parseIlinkPollerConfig({
+      BUTLER_V5_ILINK_ENABLED: "1",
+      WECHAT_TOKEN: "tok",
+      WECHAT_DM_POLICY: "  GIBBERISH  ",
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.value.dmPolicy).toBe("open")
+  })
 })
 
 describe("runIlinkPollCycle", () => {
