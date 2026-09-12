@@ -7,11 +7,11 @@
  * - 多 turn 时 fixtures 按 LLM 调用顺序消耗；counter 在 setFixtures 时重置
  * - 写文件触发 `WaitForApproval`；owner 后续「确认」走 inline approval
  *
- * 4 类共 35 场景：
- * A. 真实开发任务（具体可执行）— 10
+ * 4 类共 41 场景：
+ * A. 真实开发任务（具体可执行）— 11（含 A11-session-digest-idle-return）
  * B. 开放性任务（探索型）— 10
  * C. 边界 / 失败模式 — 10
- * D. 跨场景组合 — 5
+ * D. 跨场景组合 — 10（5 基础 + 5 chain-undo，D52 acceptance harness extension）
  */
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"

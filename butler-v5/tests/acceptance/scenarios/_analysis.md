@@ -1,7 +1,8 @@
 # Acceptance Realistic Scenarios — 人工分析
 
 > 配套：`_analyze.md`（自动跑出每场景 reply 抓取 + 工具/审批统计）；本文是 judgment 层。
-> 生成：2026-09-04 | 35 场景 / 35 通过 / 2.35s / 13 次 approval / 33 次 tool call / 5179 字符 reply
+> 生成：2026-09-12（D55 fresh verify） | 41 场景 / 41 通过 / 41 × N=3 / 10 次 approval / 31 次 tool call / 5682 字符 reply
+> 早期 baseline（2026-09-04，35 场景 D46 ship 时）| 35 场景 / 35 通过 / 2.35s / 13 次 approval / 33 次 tool call / 5179 字符 reply
 > 方法：每场景手工编码"好 bot" fixture（不是真 LLM），跑出 v5 wrap-around 行为
 
 ---
@@ -40,7 +41,7 @@
 
 ### 🟠 P1 — A3 / A7 / A8 / A9：**read-only run_command 也走 approval**
 
-`pnpm test` / `git log` / `git diff` / `pnpm typecheck` 都是只读 / 无副作用命令，但 v5 policy-gate 一律要求 approval。35 场景里 **13 次 approval，其中 4 次是只读命令**。
+`pnpm test` / `git log` / `git diff` / `pnpm typecheck` 都是只读 / 无副作用命令，但 v5 policy-gate 一律要求 approval。35 场景（D46 ship 时）里 **13 次 approval，其中 4 次是只读命令**；D52 acceptance harness 扩展至 41 场景后该数字变为 10 次 approval。
 
 **owner 真撞场景**：owner 一天问 20 次"git log" / "跑 test" / "show diff"，每次都"确认" — 摩擦感极大。会养成"确认 = 无脑点"的肌肉记忆，**反而降低对真危险操作的警觉**（羊群效应）。
 

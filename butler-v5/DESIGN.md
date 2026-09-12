@@ -572,7 +572,7 @@ Outbox 不作为通用领域事件总线。系统内部默认直接函数调用�
 - LLM 质量量化方法论基础设施 (declined, 2026-09-09 D51)：multi-round + prompt freeze baseline 工具链。**当前决定：decline** — 见 §18 对应 row；D47 fixture-recording 同源风险未解除前不启。
 
 **D53c re-eval (2026-09-11)**: 5 not-trigger 项 + 1 declined 项，0 状态变化，0 新 trigger evidence。证据：
-- 全量 Projection：owner 实测查询延迟未超预算（35/41 scenarios pass under D53a fresh verify）；
+- 全量 Projection：owner 实测查询延迟未超预算（41/41 scenarios pass under D53a/D55 fresh verify N=3）；
 - Snapshot + DeltaChannel：D53a baseline snapshot 是 test artifact（41 scenarios N=3 wrap, `06855af6`）非 prod API，不构 trigger；
 - Command Bus / Query Bus：owner 实测同步耦合未严重；
 - 通用 Event Bus：DESIGN §7 line 60 explicit "模块间默认直接调用"，owner 实测跨服务解耦未需求；
