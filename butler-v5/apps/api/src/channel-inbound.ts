@@ -148,6 +148,10 @@ export function telegramWebhookAuthorized(
   headerSecret: string | undefined,
 ): boolean {
   const expected = (env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"] ?? "").trim()
-  if (!expected) return true
+  // D62 T4 (audit #1 F-07): FAIL-CLOSED when secret is unset. Previously
+  // returned true (FAIL-OPEN) which meant any client POSTing to the
+  // /telegram webhook would be accepted without auth — auth-bypass
+  // vulnerability when operator forgot to configure the secret.
+  if (!expected) return false
   return (headerSecret ?? "").trim() === expected
 }
