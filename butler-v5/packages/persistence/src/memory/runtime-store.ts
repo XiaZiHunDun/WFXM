@@ -39,6 +39,9 @@ interface AuditEventRecord {
   readonly subject: string
   readonly detail: Readonly<Record<string, unknown>>
   readonly createdAt: Date
+  // D63 T3 (audit #9 F-04): nullable correlationId for request-scoped
+  // audit trail. Mirrors the new audit_events.correlation_id column.
+  readonly correlationId: string | null
 }
 
 /**
@@ -277,7 +280,17 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
     },
 
     async appendAuditEvent(input) {
-      appendAudit(input as AuditEventRecord)
+      // D63 T3 (audit #9 F-04): map nullable correlationId through.
+      appendAudit({
+        auditId: input.auditId,
+        runId: input.runId,
+        conversationId: input.conversationId,
+        action: input.action,
+        subject: input.subject,
+        detail: input.detail,
+        createdAt: input.createdAt,
+        correlationId: input.correlationId ?? null,
+      })
     },
 
     async updateScopedGrantRemainingUses(grantId, remainingUses) {
@@ -340,7 +353,17 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
     },
 
     async appendAuditEventInTx(_tx, input) {
-      appendAudit(input)
+      // D63 T3 (audit #9 F-04): map nullable correlationId through.
+      appendAudit({
+        auditId: input.auditId,
+        runId: input.runId,
+        conversationId: input.conversationId,
+        action: input.action,
+        subject: input.subject,
+        detail: input.detail,
+        createdAt: input.createdAt,
+        correlationId: input.correlationId ?? null,
+      })
     },
 
     async transitionRunStatusInTx(_tx, runId, expectedVersion, to, updatedAt) {

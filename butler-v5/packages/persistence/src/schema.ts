@@ -180,6 +180,12 @@ export const auditEvents = pgTable(
     subject: text("subject").notNull(),
     detail: jsonb("detail").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    // D63 T3 (audit #9 F-04): optional correlation_id column for
+    // request-scoped audit trail. Migration 0013 adds this column.
+    // Nullable in the schema so existing emit sites (without
+    // correlationId) keep working; future cycles thread correlationId
+    // through the remaining ~15 emit sites.
+    correlationId: text("correlation_id"),
   },
   (t) => ({
     conversationIdx: index("audit_events_conversation_idx").on(t.conversationId, t.createdAt),

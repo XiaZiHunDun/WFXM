@@ -154,6 +154,12 @@ export interface RuntimeStore {
     readonly subject: string
     readonly detail: Readonly<Record<string, unknown>>
     readonly createdAt: Date
+    // D63 T3 (audit #9 F-04): optional correlationId column for
+    // request-scoped audit trail. New `audit_events.correlation_id`
+    // column added by migration 0013. Routes thread inbound
+    // messageId/conversationId as correlationId; thread through
+    // remaining emit sites in future cycles.
+    readonly correlationId?: string | null
   }) => Promise<void>
   readonly updateScopedGrantRemainingUses: (
     grantId: string,
@@ -195,6 +201,9 @@ export interface RuntimeStore {
       readonly subject: string
       readonly detail: Readonly<Record<string, unknown>>
       readonly createdAt: Date
+      // D63 T3 (audit #9 F-04): see appendAuditEvent above — mirrors the
+      // same nullable correlationId for transactional audit writes.
+      readonly correlationId?: string | null
     },
   ) => Promise<void>
   readonly transitionRunStatusInTx: (

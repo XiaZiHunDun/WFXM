@@ -48,6 +48,10 @@ export type ScheduleTickStats = {
   readonly fired: number
   readonly deferred: number
   readonly skipped: number
+  // D63 T3 (audit #9 F-03): track fired job IDs in stats so the
+  // schedule.fired audit row can carry jobId list (owner queries
+  // can answer "which jobs ran in this tick?").
+  readonly firedJobIds: readonly string[]
 }
 
 /**
@@ -58,6 +62,9 @@ export async function runScheduleTick(deps: ScheduleTickDeps): Promise<ScheduleT
   let fired = 0
   let deferred = 0
   let skipped = 0
+  // D63 T3 (audit #9 F-03): collect fired jobIds so the schedule.fired
+  // audit row carries job attribution (not just a count).
+  const firedJobIds: string[] = []
 
   for (const job of deps.jobs) {
     const conversationId =
@@ -105,6 +112,8 @@ export async function runScheduleTick(deps: ScheduleTickDeps): Promise<ScheduleT
         ...(deps.env === undefined ? {} : { env: deps.env }),
       })
       fired += 1
+      // D63 T3: track which jobs actually fired.
+      firedJobIds.push(job.id)
       deps.lastAttemptByJob.set(job.id, deps.nowMs())
       if (result.quiet) {
         logger.info(`[schedule] quiet success job=${job.id}`)
@@ -125,7 +134,7 @@ export async function runScheduleTick(deps: ScheduleTickDeps): Promise<ScheduleT
     }
   }
 
-  return { fired, deferred, skipped }
+  return { fired, deferred, skipped, firedJobIds }
 }
 
 /**

@@ -67,6 +67,33 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
       isMainQueueBusy: () => false,
       env,
     })
+    // D63 T3 (audit #9 F-03): write a `schedule.fired` audit row when
+    // the tick actually fired any jobs. Owner can query audit_events by
+    // action='schedule.fired' to answer "why did this run happen at
+    // 03:00 UTC?". The downstream run.* audit rows are still emitted
+    // by runButlerLoop → transitionRunToTerminal; this row is the
+    // upstream scheduling intent.
+    if (stats.fired > 0) {
+      try {
+        await wiring.runtimeStore.appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: null,
+          conversationId: null,
+          action: "schedule.fired",
+          subject: "schedule-worker",
+          detail: {
+            fired: stats.fired,
+            deferred: stats.deferred,
+            skipped: stats.skipped,
+            firedJobIds: stats.firedJobIds,
+          },
+          createdAt: new Date(),
+        })
+      } catch (err) {
+        // eslint-disable-next-line no-console -- operator log when no logger injected
+        console.error("[conversations-schedule] appendAuditEvent (schedule.fired) failed:", err)
+      }
+    }
     return c.json({ ok: true, stats, jobs: config.jobs.map((j) => j.id) })
   })
 }

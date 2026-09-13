@@ -445,6 +445,10 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         subject: input.subject,
         detail: redactTraceValue(input.detail, 0),
         createdAt: input.createdAt,
+        // D63 T3 (audit #9 F-04): pass correlationId through. Nullable
+        // for callers that don't thread it yet (existing emit sites);
+        // the migration makes the column optional.
+        correlationId: input.correlationId ?? null,
       })
     },
 
@@ -461,6 +465,8 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         subject: input.subject,
         detail: redactTraceValue(input.detail, 0),
         createdAt: input.createdAt,
+        // D63 T3 (audit #9 F-04): see appendAuditEvent above.
+        correlationId: input.correlationId ?? null,
       })
     },
 

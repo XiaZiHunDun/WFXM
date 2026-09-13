@@ -14,6 +14,7 @@ const MIGRATION_FILES = [
   "0010_project_knowledge.sql",
   "0011_scoped_grant_capability_column.sql",
   "0012_add_auto_promote_columns.sql",
+  "0013_audit_correlation_id.sql",
 ] as const
 
 export type MigrationFileName = (typeof MIGRATION_FILES)[number]

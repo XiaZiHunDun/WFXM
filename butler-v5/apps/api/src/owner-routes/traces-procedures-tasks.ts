@@ -180,6 +180,30 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         taskId,
         ...(body.advance === false ? { advance: false } : {}),
       })
+      // D63 T3 (audit #9 F-02): §13 audit completeness — write a
+      // `task.advance` audit row for the /run path. Previously task.created
+      // (line 144) and task.done (line 195) were audited (D59 T1), but the
+      // /run path mutated task state via `tasks.update` without an audit
+      // row. Owner queries for the most frequent task lifecycle event
+      // returned zero rows.
+      try {
+        await wiring.runtimeStore.appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: null,
+          conversationId: result.task?.conversationId ?? null,
+          action: "task.advance",
+          subject: result.task?.subject ?? "owner",
+          detail: {
+            taskId,
+            stepKey: result.stepKey,
+            finalDecision: result.loop.finalDecision,
+          },
+          createdAt: new Date(),
+        })
+      } catch (err) {
+        // eslint-disable-next-line no-console -- operator log when no logger injected
+        console.error("[traces-procedures-tasks] appendAuditEvent (task.advance) failed:", err)
+      }
       return c.json({
         ok: true,
         task: result.task,
