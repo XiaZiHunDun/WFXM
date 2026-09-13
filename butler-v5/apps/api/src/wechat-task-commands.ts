@@ -1,5 +1,6 @@
 import { createTaskRecord } from "@butler/domain/knowledge/task-procedure.js"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
+import { safeOwnerError } from "./safe-owner-error.js"
 import { isTaskRunAsyncEnabled, scheduleBackgroundTaskRun } from "./task-run-background.js"
 import { runTaskGoal } from "./task-run.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
@@ -190,7 +191,10 @@ export async function tryWechatTaskCommand(args: {
       }
     } catch (err) {
       return done(
-        `运行失败：${err instanceof Error ? err.message : String(err)}`,
+        safeOwnerError(err, "运行失败，请稍后重试", {
+          operation: "wechat-task-run",
+          taskId: match.id,
+        }),
         [`wechat-task: run error ${match.id}`],
       )
     }

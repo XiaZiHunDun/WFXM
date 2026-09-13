@@ -8,6 +8,7 @@ import { cancelRunCascade, expireOverdueRuns } from "@butler/runtime/run-lifecyc
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { resumeApprovedCapability } from "../approval-resume.js"
+import { safeOwnerError } from "../safe-owner-error.js"
 import {
   assertOwnerApprovalRunTrigger,
   buildOwnerApprovalRunTrigger,
@@ -107,7 +108,10 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
       return c.json(
         {
           ok: false,
-          reason: err instanceof Error ? err.message : String(err),
+          reason: safeOwnerError(err, "审批操作失败，请稍后重试", {
+            operation: "approvals-approve",
+            stepId: c.req.param("stepId"),
+          }),
         },
         400,
       )
@@ -124,7 +128,10 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
       return c.json(
         {
           ok: false,
-          reason: err instanceof Error ? err.message : String(err),
+          reason: safeOwnerError(err, "拒绝操作失败，请稍后重试", {
+            operation: "approvals-deny",
+            stepId,
+          }),
         },
         400,
       )
@@ -160,7 +167,10 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
       return c.json(
         {
           ok: false,
-          reason: err instanceof Error ? err.message : String(err),
+          reason: safeOwnerError(err, "取消运行失败，请稍后重试", {
+            operation: "runs-cancel",
+            runId: c.req.param("runId"),
+          }),
         },
         400,
       )
@@ -185,7 +195,9 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
       return c.json(
         {
           ok: false,
-          reason: err instanceof Error ? err.message : String(err),
+          reason: safeOwnerError(err, "清理超时运行失败，请稍后重试", {
+            operation: "runs-expire-overdue",
+          }),
         },
         400,
       )

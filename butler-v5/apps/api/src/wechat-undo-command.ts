@@ -24,6 +24,7 @@ import {
   getUndoChainConversation,
   undoChain_listConversations,
 } from "./workspace-tools.js"
+import { safeOwnerError } from "./safe-owner-error.js"
 import type { ChainRevertResult } from "./workspace-tools.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
@@ -68,7 +69,12 @@ function restoreAndReply(
     writeFileSync(absolutePath, content, "utf8")
     return done(`[undo] ${displayPath} 已还原为上版内容`)
   } catch (err) {
-    return done(`[undo] 失败：${err instanceof Error ? err.message : String(err)}`)
+    return done(
+      safeOwnerError(err, "[undo] 还原失败，请稍后重试", {
+        operation: "wechat-undo-restore",
+        displayPath,
+      }),
+    )
   }
 }
 

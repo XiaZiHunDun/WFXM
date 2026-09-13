@@ -6,6 +6,7 @@ import {
 import { parseInlineApprovalIntent } from "@butler/runtime/inline-approval-intent.js"
 import { parseCsvIds } from "./ilink-config.js"
 import { resumeApprovedCapability } from "./approval-resume.js"
+import { safeOwnerError } from "./safe-owner-error.js"
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
@@ -115,7 +116,15 @@ export async function tryWechatInlineApproval(args: {
       }
     }
     return {
-      reply: `[审批后执行失败] ${resumed.reason}`,
+      reply: safeOwnerError(
+        new Error(`resumeApprovedCapability returned not-ok: ${resumed.reason}`),
+        "审批后执行失败，请稍后重试",
+        {
+          operation: "inline-approval-resume",
+          stepId: step.id,
+          reason: resumed.reason,
+        },
+      ),
       iterations: 1,
       toolCalls: 1,
       finalDecision: "Finish",
@@ -123,7 +132,10 @@ export async function tryWechatInlineApproval(args: {
     }
   } catch (err) {
     return {
-      reply: `[审批失败] ${err instanceof Error ? err.message : String(err)}`,
+      reply: safeOwnerError(err, "审批失败，请稍后重试", {
+        operation: "inline-approval-approve",
+        stepId: step.id,
+      }),
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",

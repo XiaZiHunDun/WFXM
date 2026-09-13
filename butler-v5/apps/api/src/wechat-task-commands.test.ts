@@ -435,14 +435,28 @@ describe("tryWechatTaskCommand", () => {
       updatedAt: 0,
     })
     mockedRunTaskGoal.mockRejectedValueOnce(new Error("loop blew up"))
-    const result = await tryWechatTaskCommand({
-      wiring,
-      fromUserId: "u-run-err",
-      content: `/运行 ${task.id}`,
-      env,
-    })
-    expect(result?.reply).toContain("运行失败：loop blew up")
-    expect(result?.traces.some((t) => t.startsWith("wechat-task: run error "))).toBe(true)
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    try {
+      const result = await tryWechatTaskCommand({
+        wiring,
+        fromUserId: "u-run-err",
+        content: `/运行 ${task.id}`,
+        env,
+      })
+      // D61 T1: owner sees Chinese fallback (NOT the raw err.message leak).
+      expect(result?.reply).toContain("运行失败，请稍后重试")
+      expect(result?.reply).not.toContain("loop blew up")
+      // Operator log preserves full error for grep-ability.
+      const logCall = errorSpy.mock.calls.find(
+        (c) => Array.isArray(c) && c[0] === "[safe-owner-error]",
+      )
+      expect(logCall).toBeDefined()
+      const payload = logCall?.[1] as { message?: string } | undefined
+      expect(payload?.message).toBe("loop blew up")
+      expect(result?.traces.some((t) => t.startsWith("wechat-task: run error "))).toBe(true)
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 
   // ─── /完成 ──────────────────────────────────────────────────────────────

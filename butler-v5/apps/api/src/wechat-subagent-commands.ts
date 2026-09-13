@@ -4,6 +4,7 @@ import { readRecentSubagentAudit } from "./audit-log.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
+import { safeOwnerError } from "./safe-owner-error.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 import type { Wiring } from "./wiring.js"
 
@@ -124,7 +125,9 @@ export async function tryWechatSubagentCommand(args: {
     )
   } catch (err) {
     return done(
-      `委派失败：${err instanceof Error ? err.message : String(err)}`,
+      safeOwnerError(err, "委派失败，请稍后重试", {
+        operation: "wechat-subagent-delegate",
+      }),
       ["wechat-subagent: delegate error"],
     )
   }

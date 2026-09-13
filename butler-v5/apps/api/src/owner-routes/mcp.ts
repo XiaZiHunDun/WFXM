@@ -6,6 +6,7 @@ import { defaultMcpProviderMetadata, mcpProviderMetadataFromManifest } from "@bu
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { loadMcpManifestFromEnv, resolveMcpManifestServer } from "../mcp-manifest.js"
+import { safeOwnerError } from "../safe-owner-error.js"
 
 /**
  * Owner control-surface routes for MCP status and scoped-grant revocation.
@@ -106,7 +107,18 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
       createdAt: now,
     })
     if (failureReason) {
-      return c.json({ ok: false, serverId, error: failureReason }, 500)
+      return c.json(
+        {
+          ok: false,
+          serverId,
+          error: safeOwnerError(
+            new Error(failureReason),
+            "撤销授权失败，请稍后重试",
+            { operation: "mcp-revoke-grants", serverId },
+          ),
+        },
+        500,
+      )
     }
     return c.json({ ok: true, serverId, revoked })
   })

@@ -6,6 +6,7 @@ import {
 import { readFileSync } from "node:fs"
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
+import { safeOwnerError } from "../safe-owner-error.js"
 import { resolveUnderWorkspace, workspaceRootFrom } from "../workspace-tools.js"
 import {
   loadProjectKnowledgeSourcesFromEnv,
@@ -82,7 +83,10 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
         return c.json(
           {
             ok: false,
-            reason: err instanceof Error ? err.message : String(err),
+            reason: safeOwnerError(err, "文件路径无效或无读取权限", {
+              operation: "project-knowledge-read",
+              sourcePath: body.filePath.trim(),
+            }),
           },
           400,
         )
