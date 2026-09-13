@@ -7,6 +7,7 @@ import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import { safeOwnerError } from "./safe-owner-error.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 import type { Wiring } from "./wiring.js"
+import { formatSubagentRoleForOwner } from "./owner-jargon.js"
 
 function done(reply: string, traces: readonly string[]): ButlerLoopResult {
   return {
@@ -65,16 +66,20 @@ export async function tryWechatSubagentCommand(args: {
     }
     const lines = ["最近委派："]
     for (const row of rows.slice().reverse()) {
-      const child = shortChildId(row.childConversationId)
       const taskPreview = row.task.slice(0, 48)
+      // D63 T2 (audit #9 F-22/F-23/F-25): drop raw role enum + child id
+      // hex from all 3 listing rows. Use formatSubagentRoleForOwner() for
+      // the role label. The 40-char reply excerpt is kept (D60 sweep
+      // confirmed it's owner-meaningful).
+      const roleLabel = formatSubagentRoleForOwner(row.role)
       if (row.kind === "delegation") {
-        lines.push(`• [排队] ${row.role} · ${taskPreview} · child…${child}`)
+        lines.push(`• [排队] ${roleLabel} · ${taskPreview}`)
       } else if (row.kind === "completion") {
         lines.push(
-          `• [完成] ${row.role} · ${taskPreview} · ${row.replyExcerpt?.slice(0, 40) ?? "—"}`,
+          `• [完成] ${roleLabel} · ${taskPreview} · ${row.replyExcerpt?.slice(0, 40) ?? "—"}`,
         )
       } else if (row.kind === "rejection") {
-        lines.push(`• [拒绝] ${row.role} · ${row.reason ?? "—"}`)
+        lines.push(`• [拒绝] ${roleLabel} · ${row.reason ?? "—"}`)
       }
     }
     lines.push("", "新任务：/委派 <任务>")

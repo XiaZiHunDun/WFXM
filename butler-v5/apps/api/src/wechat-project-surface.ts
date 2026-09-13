@@ -144,7 +144,10 @@ function formatProjectListLine(args: {
 }): string {
   const marker = args.active ? "→ " : "  "
   const pk = args.pkCount === null ? "知识库 ?" : `知识库 ${args.pkCount} 条`
-  return `${marker}${args.item.label}（${args.item.id}）· ${pk} · ${args.tools}`
+  // D63 T2 (audit #9 F-34): drop `（${args.item.id}）` redundant catalog
+  // id from each row. Owner 视角 — label is enough; the raw id is
+  // operator-only and adds 6-12 chars per row to mobile WeChat output.
+  return `${marker}${args.item.label} · ${pk} · ${args.tools}`
 }
 
 async function buildProjectListReply(args: {

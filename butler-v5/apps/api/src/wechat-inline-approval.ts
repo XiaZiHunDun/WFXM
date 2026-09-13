@@ -43,10 +43,13 @@ export async function tryWechatInlineApproval(args: {
   const step = pendingSteps.at(-1)
   if (!step) {
     return {
+      // D63 T2 (audit #9 F-02/F-03): unify the no-pending reply and add a
+      // recovery hint. Previously `可拒绝的待审批操作` was awkward
+      // (redundant modifier), and both branches lacked a recovery hint.
       reply:
-        intent === "approve"
-          ? "当前对话没有待审批的操作。"
-          : "当前对话没有可拒绝的待审批操作。",
+        intent === "approve" || intent === "deny"
+          ? "当前对话没有待审批的操作，直接发送你的请求即可。"
+          : "当前对话没有待审批的操作，直接发送你的请求即可。",
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Respond",
@@ -67,7 +70,9 @@ export async function tryWechatInlineApproval(args: {
 
   if (!canRespondToInlineApproval(args.fromUserId, pending.subject, env)) {
     return {
-      reply: "你没有权限批准或拒绝此操作。",
+      // D63 T2 (audit #9 F-04): add recovery hint to unauthorized branch.
+      // Tells owner what they can try next instead of a dead-end reply.
+      reply: "你没有权限批准或拒绝此操作。如需处理，请联系管理员或确认是否登录了正确的微信账号。",
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",

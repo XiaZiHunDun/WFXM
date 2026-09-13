@@ -63,14 +63,21 @@ function restoreAndReply(
   try {
     if (content === null) {
       writeFileSync(absolutePath, "", "utf8")
-      return done(`[undo] ${displayPath} 是新建文件，已置空（如需彻底删除请手工 rm）`)
+      // D63 T2 (audit #9 F-12): [undo] English bracket → 【撤销】;
+      // operator "rm" instruction → friendly "联系管理员" (owner can't
+      // run shell on WeChat).
+      return done(`【撤销】${displayPath} 是新建文件，已置空（如需彻底删除请联系管理员）`)
     }
     mkdirSync(dirname(absolutePath), { recursive: true })
     writeFileSync(absolutePath, content, "utf8")
-    return done(`[undo] ${displayPath} 已还原为上版内容`)
+    // D63 T2 (audit #9 F-13): [undo] English bracket → 【撤销】 for
+    // consistency with formatChainReply line 83 (`【撤销轮次】`).
+    return done(`【撤销】${displayPath} 已还原为上版内容`)
   } catch (err) {
     return done(
-      safeOwnerError(err, "[undo] 还原失败，请稍后重试", {
+      // D63 T2 (audit #9 F-12 catch sibling): drop [undo] bracket from
+      // error fallback so all restore-path replies share the 【撤销】 style.
+      safeOwnerError(err, "【撤销】还原失败，请稍后重试", {
         operation: "wechat-undo-restore",
         displayPath,
       }),
@@ -115,7 +122,10 @@ function formatChainReply(result: ChainRevertResult): string {
   }
   if (result.commandSideEffects.length > 0) {
     lines.push("")
-    lines.push(`以下 ${result.commandSideEffects.length} 个命令副作用需手工 reverse（无法自动 undo）：`)
+    // D63 T2 (audit #9 F-14): `reverse` English verb + `undo` English
+    // verb → Chinese. Owner reads Chinese-bracketed reply but sees two
+    // English verbs that don't fit. Replace with "撤销" and "还原".
+    lines.push(`以下 ${result.commandSideEffects.length} 个命令副作用需手工撤销（系统无法自动还原）：`)
     for (const s of result.commandSideEffects) {
       lines.push(`• ${s.argv.join(" ")}`)
     }

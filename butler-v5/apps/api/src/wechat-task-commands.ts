@@ -166,9 +166,12 @@ export async function tryWechatTaskCommand(args: {
       return done(
         // D60 T2.3 (audit #3 F-07): drop env-var knobs from owner-facing reply.
         // Notify/sync are operator concerns not surfaced to owner.
+        // D63 T2 (audit #9 F-16): add progress visibility — owner can
+        // /状态 to see queue position; /取消 <id> if they want to abort.
         [
           `待办 ${shortId(match.id)} 已在后台运行。`,
           "完成后会主动推送微信。",
+          "进度：/状态    取消：/取消 " + shortId(match.id),
         ].join("\n"),
         [`wechat-task: async run ${match.id}`],
       )

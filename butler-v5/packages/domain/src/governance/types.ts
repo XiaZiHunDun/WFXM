@@ -118,7 +118,15 @@ export function decidePolicy(
     }
     return {
       _tag: "Ask",
-      question: `Confirm ${request.capability} on ${request.resource}?`,
+      // D63 T2 (audit #9 F-01): root-cause fix for English approval
+      // question that flowed to owner WeChat via capability-boundary.ts:285.
+      // Owner-facing path keeps the Chinese template; the capability name
+      // is left as-is (operator terminology owner sees in /批准 /拒绝 and
+      // task progress UI — a known operator token, not full jargon).
+      // Per-capability Chinese label substitution happens at the API
+      // layer (apps/api/src/owner-jargon.ts:formatApprovalQuestionForOwner)
+      // when the question reaches a channel.
+      question: `需要 ${request.capability} 操作 ${request.resource}，请确认`,
       expiresAtMs: nowMs + 15 * 60_000,
     }
   }
