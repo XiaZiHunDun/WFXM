@@ -130,6 +130,28 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       )
     }
     const saved = await store.create(created.value)
+    // D62 T1 (audit #1 F-12): close §13 audit completeness gap for the
+    // create path. D58 T4 closed confirm/reject/delete/rollback but
+    // missed create. Best-effort: a failed audit write must not block
+    // the owner-facing response (the memory is already saved).
+    try {
+      await wiring.runtimeStore.appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: null,
+        conversationId: null,
+        action: "memory.created",
+        subject: body.subject ?? "owner",
+        detail: {
+          memoryId: saved.id,
+          sourceKind: created.value.sourceKind,
+          status: saved.status,
+        },
+        createdAt: new Date(),
+      })
+    } catch (err) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[memories] appendAuditEvent (memory.created) failed:", err)
+    }
     return c.json({ ok: true, item: saved })
   })
 

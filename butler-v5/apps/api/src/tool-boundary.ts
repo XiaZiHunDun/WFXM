@@ -176,7 +176,18 @@ export function makeToolExecutor(args: {
         approval,
       )
       if (!explicitGrant && grant && outcome.ok && args.store) {
-        await markGrantConsumed(args.store, grant)
+        // D62 T1 (audit #1 F-01): wrap in try/catch so a DB throw on
+        // remainingUses decrement doesn't surface to the LLM as an
+        // executor error (which would trigger a retry → double execution).
+        // Mirror the D61 T4 fix at approval-resume.ts:451 (move-then-check
+        // ordering); for execute-tool path we consume-then-ignore-failure
+        // because the tool already ran successfully.
+        try {
+          await markGrantConsumed(args.store, grant)
+        } catch (err) {
+          // eslint-disable-next-line no-console -- operator log when no logger injected
+          console.error("[tool-boundary] markGrantConsumed failed:", err)
+        }
       }
       return outcome
     },

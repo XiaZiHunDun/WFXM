@@ -1,6 +1,7 @@
 import { runTaskGoal } from "./task-run.js"
 import { envTruthy } from "./env-util.js"
 import type { Wiring } from "./wiring.js"
+import { safeOwnerError } from "./safe-owner-error.js"
 import {
   formatTaskRunCompletionNotify,
   isRunNotifyEnabled,
@@ -55,7 +56,14 @@ export function scheduleBackgroundTaskRun(args: {
             taskId: args.taskId,
             title: args.title,
             decision: "Error",
-            reply: err instanceof Error ? err.message : String(err),
+            // D62 T1 (audit #3 F-11): replace raw err.message with safe
+            // fallback in the notify path. Full error logged to stderr
+            // via safeOwnerError. Owner sees Chinese reason + taskId,
+            // not DB/network internals.
+            reply: safeOwnerError(err, "运行失败，请稍后重试", {
+              operation: "background-task-run",
+              taskId: args.taskId,
+            }),
             ok: false,
           }),
           env,

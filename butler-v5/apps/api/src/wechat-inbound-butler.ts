@@ -360,8 +360,13 @@ async function runButlerLoopBody(args: {
   if (!adapter) {
     try {
       await kernel.applyDecision({ _tag: "Finish", reason: "no LLM configured" })
-    } catch {
-      // ignore
+    } catch (err) {
+      // D62 T1 (audit #1 F-06): keep the no-LLM fallback behavior (return
+      // stubReply so owner still gets a reply), but log the kernel
+      // applyDecision failure. Same shape as D61 T4 F-07 fix at
+      // approval-resume.ts:178 — missed sibling sweep.
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[wechat-inbound-butler] kernel.applyDecision failed:", err)
     }
     return {
       reply: stubReply(args.content, args.fromUserId, args.projectId),

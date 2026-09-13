@@ -77,9 +77,11 @@ describe("tryWechatMemoryCommand /记住", () => {
     expect(result).not.toBeNull()
     if (result === null) return
     expect(result.reply).toContain("已记住")
-    // Owner-visible warning about dedup failure
-    expect(result.reply).toContain("simulated dedup outage")
+    // D62 T1: owner-visible warning about dedup failure is now a safe
+    // Chinese fallback (not raw "simulated dedup outage"). Full error
+    // stays in stderr via safeOwnerError.
     expect(result.reply).toContain("去重检查失败")
+    expect(result.reply).not.toContain("simulated dedup outage")
     // Trace marks the degraded path for §14 observability
     expect(result.traces.some((t) => t.startsWith("wechat-memory: dedup failed"))).toBe(true)
   })

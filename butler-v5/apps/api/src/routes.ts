@@ -198,15 +198,23 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       ? [...loopResult.traces, "session-open-digest:shown"]
       : loopResult.traces
     // Capture snapshot for the *next* session-open digest computation.
-    await captureWechatSessionSnapshot({
-      wiring,
-      userId: value.subject,
-      runResult: {
-        traces: loopResult.traces,
-        finalDecision: loopResult.finalDecision,
-      },
-      env,
-    })
+    // D62 T1 (audit #1 F-02): mirror the slash-path fix from D61 T4 F-09 —
+    // writeSessionStore failure (disk-full / EACCES) must not 500 the
+    // primary inbound reply. Log for operators, return the bot's reply.
+    try {
+      await captureWechatSessionSnapshot({
+        wiring,
+        userId: value.subject,
+        runResult: {
+          traces: loopResult.traces,
+          finalDecision: loopResult.finalDecision,
+        },
+        env,
+      })
+    } catch (err) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[routes] captureWechatSessionSnapshot (default path) failed:", err)
+    }
     return c.json(
       {
         conversationId: value.conversationId,

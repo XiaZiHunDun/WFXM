@@ -62,6 +62,7 @@ import { toRunResult, isPendingApprovalOutcome } from "./approval-resume.js"
 import { ensureDelegationToolGrants } from "./delegation-grants.js"
 import { enrichSubagentDevReply } from "./dev-quality-gate.js"
 import { execModelTrace } from "@butler/adapters"
+import { safeOwnerError } from "./safe-owner-error.js"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
 import { recordChildRunStatus } from "./project-state.js"
 import { resolveWechatUserFromConversation } from "./wechat-run-notify.js"
@@ -581,8 +582,16 @@ async function handleOutboxMessage(
   } catch (err) {
     logger.error(`[subagent-worker] child LLM call failed for child ${childConversationId}:`, err)
     llmOk = false
+    // D62 T1 (audit #3 F-10): replace raw err.message leak with defensive
+    // helper so the assistant-message content (which surfaces to owner via
+    // the notify path) is a safe Chinese fallback. Full error stays in
+    // the logger.error call above.
     result = {
-      content: `（子代理 ${role} 调用失败: ${err instanceof Error ? err.message : String(err)}）`,
+      content: safeOwnerError(err, `（子代理 ${role} 调用失败，请稍后重试）`, {
+        operation: "subagent-llm-call",
+        childConversationId,
+        role,
+      }),
     }
   }
   const notifyUser =

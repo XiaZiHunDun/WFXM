@@ -8,6 +8,7 @@ import type { DurableMemoryStore } from "@butler/persistence"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
 import { parseDedupConfig } from "./dedup-config.js"
 import { resolveProjectLabel } from "./owner-jargon.js"
+import { safeOwnerError } from "./safe-owner-error.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
 
@@ -77,9 +78,12 @@ async function checkDedup(opts: {
     // /记住 handler can append an owner-visible warning (in addition to
     // stderr log) — silent fail-open hides dedup outages and lets
     // unbounded duplicates accumulate.
-    const reason = err instanceof Error ? err.message : String(err)
-    // eslint-disable-next-line no-console -- operator log when no logger injected
-    console.error("[memory-dedup] check failed:", reason)
+    // D62 T1 (audit #3 F-13): replace raw err.message with safe fallback
+    // in the structured-return path. Caller /记住 surfaces this string to
+    // owner; full error stays in stderr.
+    const reason = safeOwnerError(err, "去重检查失败", {
+      operation: "memory-dedup-check",
+    })
     return { kind: "error", reason }
   }
 }
