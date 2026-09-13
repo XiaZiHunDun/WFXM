@@ -42,8 +42,14 @@ export function parseCandidateExpiresSweeperConfig(
 
 const defaultLogger: CandidateExpiresLogger = {
   info: (msg, ...args) => {
+    // D63 T5 (audit #9 F-07 sibling): info → console.info, not stderr.
+    // Previously info-level messages (e.g. `[candidate-expires] scanned=N`)
+    // were landing on stderr alongside real errors, polluting operator
+    // log filters that key on `journalctl -p err`. Mirror the same
+    // fix across schedule-worker.ts:22, auto-promote-sweeper.ts:101,
+    // project-knowledge-watch-worker.ts:24 (4 sibling sites).
     // eslint-disable-next-line no-console -- operator log
-    console.error(msg, ...args)
+    console.info(msg, ...args)
   },
   error: (msg, ...args) => {
     // eslint-disable-next-line no-console -- operator log

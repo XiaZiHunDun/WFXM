@@ -22,8 +22,10 @@ export type ProjectKnowledgeWatchHandle = {
 
 const defaultLogger: ProjectKnowledgeWatchLogger = {
   info: (msg, ...args) => {
+    // D63 T5 (audit #9 F-07 sibling): info → console.info, not stderr.
+    // See candidate-expires-sweeper.ts:44 for rationale.
     // eslint-disable-next-line no-console -- operator log
-    console.error(msg, ...args)
+    console.info(msg, ...args)
   },
   warn: (msg, ...args) => {
     // eslint-disable-next-line no-console -- operator log

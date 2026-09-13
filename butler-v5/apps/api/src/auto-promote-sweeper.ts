@@ -97,8 +97,12 @@ export async function runAutoPromoteTick(
 
 const defaultLogger: AutoPromoteLogger = {
   info: (msg, ...args) => {
+    // D63 T5 (audit #9 F-07 sibling): info → console.info, not stderr.
+    // See candidate-expires-sweeper.ts:44 for the rationale and the
+    // 3 sibling sites (schedule-worker.ts:22, this file, project-knowledge-
+    // watch-worker.ts:24).
     // eslint-disable-next-line no-console -- operator log
-    console.error(msg, ...args)
+    console.info(msg, ...args)
   },
   error: (msg, ...args) => {
     // eslint-disable-next-line no-console -- operator log

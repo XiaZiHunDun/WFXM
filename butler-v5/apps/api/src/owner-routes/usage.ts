@@ -8,6 +8,12 @@ import { ownerAuthorized } from "../owner-auth.js"
  * Per-conversation usage breakdown. `capabilityCalls` is a name → count
  * map so the owner UI can show which capabilities dominated a run.
  * Tokens/cost come from llm_call step events (D23/D24 trace payload).
+ *
+ * D63 T5 (audit #9 F-12): extend with run completion counts so the
+ * owner /v1/owner/usage endpoint answers "how many runs failed in
+ * last hour". Previously only llm_call tokens/cost + capability
+ * counts were aggregated; run/approval/policy trace kinds were
+ * silently dropped.
  */
 interface ConversationUsage {
   readonly llmCalls: number
@@ -16,6 +22,8 @@ interface ConversationUsage {
   readonly totalTokens: number
   readonly costUsd: number
   readonly capabilityCalls: Readonly<Record<string, number>>
+  readonly runsSucceeded: number
+  readonly runsFailed: number
 }
 
 /**
@@ -30,6 +38,8 @@ interface UsageTotals {
   readonly totalTokens: number
   readonly costUsd: number
   readonly capabilityCalls: number
+  readonly runsSucceeded: number
+  readonly runsFailed: number
 }
 
 export interface UsageAggregate {
@@ -48,6 +58,8 @@ interface MutableConversation {
   totalTokens: number
   costUsd: number
   capabilityCalls: Record<string, number>
+  runsSucceeded: number
+  runsFailed: number
 }
 
 interface MutableTotals {
@@ -57,6 +69,8 @@ interface MutableTotals {
   totalTokens: number
   costUsd: number
   capabilityCalls: number
+  runsSucceeded: number
+  runsFailed: number
 }
 
 function emptyConversation(): MutableConversation {
@@ -67,6 +81,8 @@ function emptyConversation(): MutableConversation {
     totalTokens: 0,
     costUsd: 0,
     capabilityCalls: {},
+    runsSucceeded: 0,
+    runsFailed: 0,
   }
 }
 
@@ -78,6 +94,8 @@ function emptyTotals(): MutableTotals {
     totalTokens: 0,
     costUsd: 0,
     capabilityCalls: 0,
+    runsSucceeded: 0,
+    runsFailed: 0,
   }
 }
 
@@ -127,6 +145,15 @@ export function aggregateUsage(events: readonly TraceEvent[]): UsageAggregate {
         [name]: (slot.capabilityCalls[name] ?? 0) + 1,
       }
       totals.capabilityCalls += 1
+    } else if (e.kind === "step" && e.name === "run_succeeded") {
+      // D63 T5 (audit #9 F-12): extend aggregate to bucket run completion
+      // events. Owner /v1/owner/usage now answers "how many runs
+      // succeeded/failed in this window".
+      slot.runsSucceeded += 1
+      totals.runsSucceeded += 1
+    } else if (e.kind === "step" && e.name === "run_failed") {
+      slot.runsFailed += 1
+      totals.runsFailed += 1
     }
   }
 
