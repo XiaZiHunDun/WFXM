@@ -92,6 +92,22 @@ function isLoopResult(value: unknown): value is ConversationLoopResult {
   )
 }
 
+// D63 T1 (audit #9 F-08): extend formatPostExecReply with explicit per-capability
+// ack prefixes. The default-branch returned raw toolOutput with no `✅` prefix,
+// so owner-approved send_wechat_file / delegate_to_subagent / mcp_* returned
+// raw tool output without any acknowledgement. Use the existing owner-jargon
+// capabilityLabel map; fallback to the raw capability name (rare).
+const CAPABILITY_LABEL: Record<string, string> = {
+  write_file: "文件已写入",
+  run_command: "命令已执行",
+  send_wechat_file: "文件已发送",
+  delegate_to_subagent: "已委派子代理",
+  summarize_today: "今日已汇总",
+  recall_history: "历史已召回",
+  read_file: "文件已读取",
+  get_current_time: "时间已获取",
+}
+
 function formatPostExecReply(capability: string, toolOutput: string): string {
   if (capability === "write_file") {
     return `✅ 文件已写入\n${toolOutput}`
@@ -99,7 +115,8 @@ function formatPostExecReply(capability: string, toolOutput: string): string {
   if (capability === "run_command") {
     return `✅ 命令已执行\n\`\`\`\n${toolOutput.trim()}\n\`\`\``
   }
-  return toolOutput
+  const label = CAPABILITY_LABEL[capability] ?? "操作已完成"
+  return `✅ ${label}\n${toolOutput}`
 }
 
 function postApprovalLoopEnabled(env: NodeJS.ProcessEnv): boolean {

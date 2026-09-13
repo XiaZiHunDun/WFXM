@@ -349,8 +349,13 @@ export async function executeToolThroughBoundary(
           },
           createdAt: new Date(),
         })
-        .catch(() => {
-          // Telemetry is best-effort; never break the request path
+        .catch((err) => {
+          // D63 T1 (audit #9 F-05): capability.executed audit emit silent
+          // fail. Same pattern as D58 audit-service.ts:31-38 closure — log
+          // to stderr so a regression in the audit pipeline surfaces in
+          // operator logs. Never break the request path (best-effort).
+          // eslint-disable-next-line no-console -- operator log when no logger injected
+          console.error("[capability-boundary] capability.executed audit failed:", err)
         })
     }
     return { ok: false, reason: result.reason ?? "capability failed" }
@@ -370,8 +375,12 @@ export async function executeToolThroughBoundary(
         },
         createdAt: new Date(),
       })
-      .catch(() => {
-        // Telemetry best-effort
+      .catch((err) => {
+        // D63 T1 (audit #9 F-05): capability.executed success-path audit
+        // emit silent fail. Mirror of error-path fix above. Never break
+        // the request path; log to stderr for operator diagnosis.
+        // eslint-disable-next-line no-console -- operator log when no logger injected
+        console.error("[capability-boundary] capability.executed audit failed:", err)
       })
   }
   return { ok: true, output: result.output }

@@ -74,7 +74,23 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
         return c.json({ ok: false, reason: "invalid pending capability step" }, 400)
       }
       if (decision._tag === "alreadyProcessed") {
-        return c.json({ ok: true, stepId, alreadyProcessed: true, reason: decision.reason })
+        // D63 T1 (audit #9 F-11): classify alreadyProcessed reason into
+        // owner-jargon before surfacing to the HTTP API caller. Raw
+        // decision.reason is internal (e.g. "step already terminal
+        // (waiting)" or "expired"); map to a stable Chinese phrase.
+        // Map by reason string match; fall back to generic "该审批已处理"
+        // if the reason doesn't match a known internal status.
+        const rawReason = String(decision.reason ?? "")
+        const ownerReason = rawReason.includes("expired")
+          ? "审批已过期"
+          : rawReason.includes("already terminal")
+            ? "该审批已处理"
+            : rawReason.includes("already approved")
+              ? "该审批已通过"
+              : rawReason.includes("already denied")
+                ? "该审批已拒绝"
+                : "该审批已处理"
+        return c.json({ ok: true, stepId, alreadyProcessed: true, reason: ownerReason })
       }
       const ownerSubject = body.subject ?? "owner"
       const trigger = buildOwnerApprovalRunTrigger({

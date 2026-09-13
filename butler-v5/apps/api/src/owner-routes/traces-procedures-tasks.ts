@@ -84,15 +84,24 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     const saved = await store.create(created.value)
     // D59 T1 (audit #1 F-26 procedures): §13 audit completeness.
-    await wiring.runtimeStore?.appendAuditEvent({
-      auditId: crypto.randomUUID(),
-      runId: null,
-      conversationId: null,
-      action: "procedure.created",
-      subject: "owner",
-      detail: { procedureId: saved.id, name: saved.name },
-      createdAt: new Date(),
-    })
+    // D63 T1 (audit #9 F-11): runtimeStore?. optional chaining silently
+    // skipped audit emit when store was undefined. Mirror D62 T1 F-12
+    // pattern (memories.ts:137-154) — non-optional with try/catch so a
+    // failed audit write logs to stderr instead of vanishing.
+    try {
+      await wiring.runtimeStore.appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: null,
+        conversationId: null,
+        action: "procedure.created",
+        subject: "owner",
+        detail: { procedureId: saved.id, name: saved.name },
+        createdAt: new Date(),
+      })
+    } catch (err) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[traces-procedures-tasks] appendAuditEvent (procedure.created) failed:", err)
+    }
     return c.json({ ok: true, item: saved })
   })
 
@@ -141,15 +150,23 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
     if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
     const saved = await store.create(created.value)
     // D59 T1 (audit #1 F-26 task): §13 audit completeness.
-    await wiring.runtimeStore?.appendAuditEvent({
-      auditId: crypto.randomUUID(),
-      runId: null,
-      conversationId: null,
-      action: "task.created",
-      subject: body.subject ?? "owner",
-      detail: { taskId: saved.id, title: saved.title },
-      createdAt: new Date(),
-    })
+    // D63 T1 (audit #9 F-11): mirror D62 T1 F-12 pattern (memories.ts:137-154)
+    // — non-optional with try/catch so a failed audit write logs to stderr
+    // instead of silently skipping when runtimeStore is undefined.
+    try {
+      await wiring.runtimeStore.appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: null,
+        conversationId: null,
+        action: "task.created",
+        subject: body.subject ?? "owner",
+        detail: { taskId: saved.id, title: saved.title },
+        createdAt: new Date(),
+      })
+    } catch (err) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[traces-procedures-tasks] appendAuditEvent (task.created) failed:", err)
+    }
     return c.json({ ok: true, item: saved })
   })
 
@@ -192,15 +209,23 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
     })
     // D59 T1 (audit #1 F-27): §13 audit completeness — task status
     // transition writes audit_event.
-    await wiring.runtimeStore?.appendAuditEvent({
-      auditId: crypto.randomUUID(),
-      runId: null,
-      conversationId: null,
-      action: "task.done",
-      subject: existing.subject,
-      detail: { taskId: existing.id, fromStatus: existing.status },
-      createdAt: new Date(),
-    })
+    // D63 T1 (audit #9 F-11): mirror D62 T1 F-12 pattern (memories.ts:137-154)
+    // — non-optional with try/catch so a failed audit write logs to stderr
+    // instead of silently skipping when runtimeStore is undefined.
+    try {
+      await wiring.runtimeStore.appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: null,
+        conversationId: null,
+        action: "task.done",
+        subject: existing.subject,
+        detail: { taskId: existing.id, fromStatus: existing.status },
+        createdAt: new Date(),
+      })
+    } catch (err) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[traces-procedures-tasks] appendAuditEvent (task.done) failed:", err)
+    }
     return c.json({ ok: true, item: updated })
   })
 }
