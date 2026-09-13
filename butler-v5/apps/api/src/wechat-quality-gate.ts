@@ -173,7 +173,7 @@ export async function tryWechatQualityGateCommand(args: {
     })
     const mark = result.code === 0 ? "✓" : "✗"
     if (result.code !== 0) failed += 1
-    lines.push(`${mark} ${cmd.name} (exit ${result.code})`)
+    lines.push(`${mark} 步骤${result.code !== 0 ? " · 失败" : ""}`)
     if (result.code !== 0 && result.output) {
       lines.push(truncate(result.output, 300))
     }

@@ -63,7 +63,7 @@ export async function formatOpenTasksDigest(
     return {
       text:
         options?.emptyMessage ??
-        `当前项目「${active}」没有 open 待办。\n用法：/待办 新增 <标题> [| <目标>]`,
+        `当前项目「${resolveProjectLabel(active, env)}」没有 open 待办。\n用法：/待办 新增 <标题> [| <目标>]`,
       isEmpty: true,
     }
   }
