@@ -10,7 +10,7 @@ import {
   sendOutboundMedia,
   type ILinkResult,
 } from "@butler/adapters"
-import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { makeToolName, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { resolveUnderWorkspace, workspaceRootFrom } from "./workspace-tools.js"
 
 type SendWechatMediaFn = (input: {
@@ -63,7 +63,7 @@ function defaultSendWechatMedia(env: NodeJS.ProcessEnv): SendWechatMediaFn | und
 
 export function makeSendWechatFileTool(ctx: SendWechatFileContext = {}): ToolDefinition {
   return {
-    name: "send_wechat_file" as ToolDefinition["name"],
+    name: makeToolName("send_wechat_file"),
     risk: "medium",
     async run(
       args: Record<string, unknown>,

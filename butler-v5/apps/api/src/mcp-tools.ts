@@ -1,5 +1,5 @@
 import type { LLMTool } from "@butler/adapters"
-import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { makeToolName, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import {
   isMcpEnabled,
   mcpStubToolNames,
@@ -58,7 +58,7 @@ export function makeMcpToolDefinition(
     ...(discovered.outputSchema !== undefined ? { outputSchema: discovered.outputSchema } : {}),
   }
   return {
-    name: capability as ToolDefinition["name"],
+    name: makeToolName(capability),
     risk: discovered.risk ?? "high",
     ...(hasSchema ? { declared } : {}),
     async run(args: Record<string, unknown>) {

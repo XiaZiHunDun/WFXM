@@ -9,7 +9,7 @@ import {
   type Capability,
   makeCapability,
 } from "@butler/runtime/delegate-runtime.js"
-import type { RunResult, ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { makeToolName, type RunResult, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { recordChildRunDelegated } from "./project-state.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
@@ -110,7 +110,7 @@ function makeTool(
   run: (args: Record<string, unknown>) => Promise<RunResult>,
 ): ToolDefinition {
   return {
-    name: name as ToolDefinition["name"],
+    name: makeToolName(name),
     risk,
     async run(args: Record<string, unknown>): Promise<RunResult> {
       try {

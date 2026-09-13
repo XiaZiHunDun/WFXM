@@ -12,7 +12,7 @@ import { execFile, spawn } from "node:child_process"
 import { mkdirSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import { isAbsolute, relative, resolve } from "node:path"
-import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { makeToolName, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import type { CredentialProvider } from "@butler/ports/core/credential-provider.js"
 import { isValidCredentialName } from "@butler/ports/core/credential-provider.js"
 import {
@@ -121,7 +121,7 @@ function escapesRoot(rootReal: string, candidate: string): boolean {
 
 export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
   return {
-    name: "read_file" as ToolDefinition["name"],
+    name: makeToolName("read_file"),
     risk: "low",
     async run(
       args: Record<string, unknown>,
@@ -185,7 +185,7 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
 
 export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
   return {
-    name: "write_file" as ToolDefinition["name"],
+    name: makeToolName("write_file"),
     risk: "high",
     async run(
       args: Record<string, unknown>,
@@ -614,7 +614,7 @@ export function undoChain(chainId: string): ChainRevertResult | undefined {
 
 export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
   return {
-    name: "run_command" as ToolDefinition["name"],
+    name: makeToolName("run_command"),
     risk: "high",
     async run(
       args: Record<string, unknown>,

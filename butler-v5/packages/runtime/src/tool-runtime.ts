@@ -9,6 +9,18 @@ export interface ToolDefinition {
   readonly declared?: CapabilityProviderMetadata
 }
 
+/**
+ * D62 T3 (audit #2 F-17 widening): brand factory for `ToolDefinition["name"]`.
+ * Sibling to D60 `makeLoopId` / D61 `makeCapability` pattern. Apply this
+ * instead of `name: x as ToolDefinition["name"]` — the cast hid the fact
+ * that callers were skipping the brand check. Validation (e.g. ALLOWED
+ * registry membership) is left to callers; this function only asserts the
+ * structural shape.
+ */
+export function makeToolName(toolName: string): ToolDefinition["name"] {
+  return toolName as ToolDefinition["name"]
+}
+
 export type RunResult =
   { readonly ok: true; readonly output: unknown } | { readonly ok: false; readonly reason: string }
 
