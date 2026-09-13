@@ -50,7 +50,9 @@ function normalizeHost(host: string): string | null {
   // IDN resolution belonged to runtime/ports; domain now stays pure.
   // Reject-by-default is safer than pass-through when the validator can't
   // confirm the canonical form.
-  if (/[^\x00-\x7f]/.test(lower)) return null
+  for (let i = 0; i < lower.length; i++) {
+    if (lower.charCodeAt(i) > 127) return null
+  }
   if (lower.includes("..")) return null
   return lower
 }
@@ -102,8 +104,9 @@ export function validateNetworkAllowlist(
 }
 
 // D61 T5 (audit #2 F-11 domain purity): hashNetworkAllowlistForAudit moved
-// to `@butler/ports/network-allowlist-hash.js` because it imports `node:crypto`.
-// Direct callers (runtime/approval-runtime) import from ports.
+// to the ports layer (where node built-ins are allowed) because it needs
+// node:crypto. Direct callers (runtime/approval-runtime) update their
+// import path accordingly.
 
 export function hostnamesFromNetworkAllowlist(
   entries: readonly string[],

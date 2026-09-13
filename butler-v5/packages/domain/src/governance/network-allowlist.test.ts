@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
+import { hashNetworkAllowlistForAudit } from "@butler/ports/network-allowlist-hash.js"
 import {
-  hashNetworkAllowlistForAudit,
   isDestinationAllowedInNetworkAllowlist,
   normalizeNetworkAllowlistEntry,
   resolveSandboxEgressIsolation,

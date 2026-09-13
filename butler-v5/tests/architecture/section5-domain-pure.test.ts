@@ -153,7 +153,9 @@ describe("arch: §5 Domain 纯规则层 (D25 audit — pure + impure fallback pa
       // D59 T4 (audit #2 F-02): permissions/pure.ts was deleted — the
       // duplicate ADT was never used in production. Permission decisions
       // live in governance/types.ts (live) and policy-gate.ts (runtime).
-      join(DOMAIN_SRC, "guards/pure.ts"),
+      // D61 T5 (audit #2 F-08): guards/pure.ts also deleted — 6 dead exports
+      // (pickVerificationLevel / verifyChain / pickHealLayer / scoreDeletionRisk
+      // / verifyEvidence / checkRoleSeparation) with zero production callers.
       join(DOMAIN_SRC, "memory/pure.ts"),
       join(DOMAIN_SRC, "tools/pure.ts"),
       join(DOMAIN_SRC, "projects/pure.ts"),

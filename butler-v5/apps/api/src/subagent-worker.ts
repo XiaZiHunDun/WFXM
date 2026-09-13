@@ -32,7 +32,7 @@
 import { Effect } from "effect"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
-import { type LLMAdapter, type LLMMessage, type LLMTool } from "@butler/adapters"
+import { type LLMAdapter, type LLMMessage } from "@butler/adapters"
 import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"

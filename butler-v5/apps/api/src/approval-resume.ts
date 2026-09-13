@@ -21,7 +21,7 @@ import {
 } from "./llm-pricing.js"
 import type { RunResult } from "@butler/runtime/tool-runtime.js"
 import { Effect } from "effect"
-import { pickLLMForRole, type LLMMessage, type LLMTool } from "@butler/adapters"
+import { pickLLMForRole } from "@butler/adapters"
 import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
 import { markGrantConsumed, resolveOwnerSubject } from "./tool-boundary-helpers.js"

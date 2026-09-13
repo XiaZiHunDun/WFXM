@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
+import { resolveManifestStdioArgs } from "@butler/ports/mcp-manifest-path.js"
 import {
   findMcpServer,
   mcpServerIds,
   parseMcpManifest,
   preScanMcpManifest,
   preScanMcpServer,
-  resolveManifestStdioArgs,
 } from "./manifest.js"
 
 describe("MCP manifest", () => {

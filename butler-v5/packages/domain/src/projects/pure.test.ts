@@ -7,7 +7,7 @@ import {
   sortProjectsByCreated,
   searchProjects,
 } from "./pure.js"
-import type { Project, ProjectId, Spec, DelegateTaskInput } from "./types.js"
+import type { Project, Spec, DelegateTaskInput } from "./types.js"
 
 const sampleProject: Project = {
   id: "proj-1" as Project["id"],

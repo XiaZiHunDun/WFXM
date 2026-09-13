@@ -31,8 +31,7 @@ export function safeOwnerError(
     err instanceof Error
       ? { name: err.name, message: err.message, stack: err.stack }
       : { value: String(err) }
-  // eslint-disable-next-line no-console -- operator log; safeOwnerError is the
-  // canonical entry point for catching and logging exceptions on owner paths.
+  // eslint-disable-next-line no-console -- operator log when no logger injected
   console.error("[safe-owner-error]", {
     ...errInfo,
     context: context ?? null,

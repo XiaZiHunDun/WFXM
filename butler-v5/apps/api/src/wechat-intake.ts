@@ -20,7 +20,6 @@ import {
 } from "./wechat-active-project.js"
 import { normalizeWechatSwitchCommand } from "./wechat-project-switch.js"
 import { summarizeWechatToolProfile } from "./wechat-project-surface.js"
-import { resolveProjectKnowledgeInboundProjectId } from "@butler/domain/knowledge/project-knowledge.js"
 import { updateProjectState } from "./project-state.js"
 import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 import { resolveToolNamesForIntake, isDevWorkIntent } from "./wechat-tool-profile.js"
@@ -142,7 +141,6 @@ function switchProjectReply(args: {
 }): string {
   const catalog = parseWechatProjectCatalog(args.env)
   const label = catalog.find((item) => item.id === args.projectId)?.label ?? args.projectId
-  const pkStoreId = resolveProjectKnowledgeInboundProjectId(args.projectId, args.env)
   const tools = summarizeWechatToolProfile({
     projectId: args.projectId,
     env: args.env,

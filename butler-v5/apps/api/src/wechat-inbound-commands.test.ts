@@ -195,10 +195,10 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result?.reply).toContain("已确认 2 条")
-    expect(result?.reply).toContain(s1.id.slice(0, 8))
-    expect(result?.reply).toContain(s2.id.slice(0, 8))
+    // D61 T2: owner-facing reply is friendly count, not raw token ids.
+    expect(result?.reply).toContain("已确认 2 条记忆")
     expect(result?.reply).not.toContain("失败")
+    expect(result?.reply).not.toContain(s1.id.slice(0, 8))
   })
 
   it("/确认记忆 id1,missing 报告 partial failure", async () => {
@@ -220,9 +220,12 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result?.reply).toContain("已确认 1 条")
-    expect(result?.reply).toContain("失败 1 条")
-    expect(result?.reply).toContain("missing-id=not found")
+    // D61 T2: friendly Chinese failure reason instead of raw token + English.
+    expect(result?.reply).toContain("已确认 1 条记忆")
+    expect(result?.reply).toContain("未确认")
+    // D61 T2: friendly Chinese failure reason instead of raw token + English.
+    expect(result?.reply).not.toContain("missing-id")
+    expect(result?.reply).not.toContain("not found")
   })
 
   it("/确认记忆 无参 regression：确认最近 1 个 candidate", async () => {

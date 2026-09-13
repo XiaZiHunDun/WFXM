@@ -32,7 +32,6 @@ import {
   pickLLMForRole,
   type LLMAdapter,
   type LLMMessage,
-  type LLMTool,
 } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
 import { isExecCapability } from "./wechat-tool-profile.js"

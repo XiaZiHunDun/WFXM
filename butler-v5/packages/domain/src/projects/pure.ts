@@ -3,7 +3,6 @@
 
 import type {
   Project,
-  ProjectId,
   Spec,
   DelegateTaskInput,
 } from "./types.js"
