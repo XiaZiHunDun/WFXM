@@ -8,7 +8,7 @@
 - 通过：41 / 失败：0
 - 触发 approval：10 次
 - 工具调用总数：31
-- reply 字符总数：4876
+- reply 字符总数：4868
 
 ## 按类别汇总
 
@@ -494,7 +494,7 @@ _decision=Respond | toolCalls=0 | replyLen=13_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-pKsadn/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-N99mTg/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -563,14 +563,14 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 
 > in: 撤销这轮
 
-< [撤销轮次 chainId=run-d2]
-✅ /tmp/wb-accept-ws-pKsadn/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-pKsadn/helper.ts → 还原为上版
+< 【撤销轮次】（共 2 步）
+✅ /tmp/wb-accept-ws-N99mTg/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-N99mTg/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
 
-_decision=Respond | toolCalls=0 | replyLen=159_
+_decision=Respond | toolCalls=0 | replyLen=151_
 
 ### D3-chain-commands — D3 chain 全 run_command 无 auto-undo（D-combo）
 
