@@ -16,9 +16,17 @@ program
   .action(async () => {
     const { default: app, startIlinkPollerIfEnabled } = await import("@butler/api")
     const port = Number(process.env["PORT"] ?? 3000)
+    // D63 T4 (audit #9 F-06): default-bind to loopback (127.0.0.1)
+    // unless HOST env var is explicitly set. Previously the Hono
+    // server bound to 0.0.0.0 because hostname was omitted from
+    // @hono/node-server's serve() options. Combined with F-03
+    // (unauthenticated /v1/wechat/inbound), any network-reachable
+    // attacker could act as any wechat user. Mirror the WS server
+    // pattern (HOST env override + loopback default).
+    const host = process.env["HOST"] ?? "127.0.0.1"
     let stopIlink: (() => void) | undefined
-    const server = serve({ fetch: app.fetch, port }, () => {
-      console.log(`v5 wiring listening on :${port}`)
+    const server = serve({ fetch: app.fetch, port, hostname: host }, () => {
+      console.log(`v5 wiring listening on ${host}:${port}`)
       const handle = startIlinkPollerIfEnabled(process.env)
       stopIlink = handle?.stop
     })

@@ -32,7 +32,20 @@ export function ownerAuthorizedFromAddress(address: string | undefined): boolean
 /**
  * Owner API is loopback-only — no separate bearer token.
  * Matches product boundary: local control surface, not exposed to LAN/WAN.
+ *
+ * D63 T4 (audit #9 F-07): reject any request that arrives with an
+ * X-Forwarded-For or X-Real-IP header. The default loopback check
+ * trusts the immediate socket peer address. If operator runs butler-v5
+ * behind a reverse proxy (nginx/caddy) on 127.0.0.1:3000, the proxy's
+ * socket remoteAddress is 127.0.0.1 — ownerAuthorized would return
+ * true for ANY external request that traverses the proxy. The proxy's
+ * own IP sits in X-Forwarded-For; if it's present, treat the request
+ * as not loopback-originated (fail-CLOSED). Explicit trust-proxy config
+ * with X-Forwarded-For chain handling is the longer-term fix; deferred
+ * — D63 ships the defense-in-depth reject instead.
  */
 export function ownerAuthorized(c: Context): boolean {
+  if (c.req.header("x-forwarded-for") !== undefined) return false
+  if (c.req.header("x-real-ip") !== undefined) return false
   return ownerAuthorizedFromAddress(remoteAddressFromContext(c))
 }

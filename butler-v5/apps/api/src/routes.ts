@@ -62,6 +62,20 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     return c.json({ conversationId, turnId: `turn-${Date.now()}` }, 201)
   })
   app.post("/v1/wechat/inbound", async (c) => {
+    // D63 T4 (audit #9 F-03): require BUTLER_V5_INBOUND_SHARED_SECRET in
+    // env + x-inbound-secret header in request. FAIL-CLOSED when env
+    // secret is unset (mirror telegram webhook FAIL-CLOSED from D62 T4
+    // F-07 — same auth-bypass class). Previously the handler had zero
+    // auth, relying on the implicit loopback-only assumption that broke
+    // the moment the Hono server bound to 0.0.0.0 (F-06).
+    const expectedInboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
+    if (!expectedInboundSecret) {
+      return c.text("inbound shared secret not configured", 401)
+    }
+    const headerInboundSecret = c.req.header("x-inbound-secret") ?? ""
+    if (headerInboundSecret.trim() !== expectedInboundSecret) {
+      return c.text("invalid inbound secret", 401)
+    }
     const body = (await c.req.json().catch(() => null)) as null | {
       apiVersion?: string
       fromUserId?: string
@@ -234,6 +248,24 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     if (!isChannelApiEnabled(process.env)) {
       return c.text("channel api disabled", 404)
     }
+    // D63 T4 (audit #9 F-09): require per-channel shared secret at the
+    // generic channel intake seam. The slack/telegram sibling routes
+    // have their own per-channel signature verification (x-slack-signature
+    // / X-Telegram-Bot-Api-Secret-Token, post-D62 FAIL-CLOSED). The
+    // generic channel intake had only allowlist (now FAIL-CLOSED via
+    // channel-config.ts:24), but allowlist is operator config — adding
+    // a shared-secret header gives an additional authentication factor.
+    // FAIL-CLOSED when env secret is unset.
+    const expectedChannelSecret = (
+      process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"] ?? ""
+    ).trim()
+    if (!expectedChannelSecret) {
+      return c.text("channel inbound secret not configured", 401)
+    }
+    const headerChannelSecret = c.req.header("x-channel-inbound-secret") ?? ""
+    if (headerChannelSecret.trim() !== expectedChannelSecret) {
+      return c.text("invalid channel inbound secret", 401)
+    }
     const body = (await c.req.json().catch(() => null)) as null | {
       apiVersion?: string
       channelId?: string
@@ -276,10 +308,16 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     const signingSecret = (process.env["BUTLER_V5_SLACK_SIGNING_SECRET"] ?? "").trim()
     const signature = c.req.header("x-slack-signature") ?? ""
     const timestamp = c.req.header("x-slack-request-timestamp") ?? ""
-    if (
-      signingSecret &&
-      !verifySlackSignature(signingSecret, timestamp, signature, rawBody)
-    ) {
+    // D63 T4 (audit #9 F-01): FAIL-OPEN → FAIL-CLOSED. D62 F-07 sibling —
+    // when BUTLER_V5_SLACK_SIGNING_SECRET is unset, signature was NOT
+    // checked (`signingSecret && !verifySlackSignature(...)` short-
+    // circuited). Mirror the telegram pattern (channel-inbound.ts:151-155):
+    // if no secret is configured, reject with 401 (operator must set the
+    // env var before enabling slack integration).
+    if (!signingSecret) {
+      return c.text("slack signing secret not configured", 401)
+    }
+    if (!verifySlackSignature(signingSecret, timestamp, signature, rawBody)) {
       return c.text("invalid slack signature", 401)
     }
     let body: unknown
@@ -414,6 +452,11 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       )
     }
     const issued = issueSubscribeToken(parsedId.value)
+    if (!issued) {
+      // D63 T4 (audit #9 F-14): token store at cap. Return 503 so the
+      // caller knows to retry (after prune on existing tokens).
+      return c.text("subscribe token store at capacity", 503)
+    }
     return c.json(
       {
         conversationId: parsedId.value,

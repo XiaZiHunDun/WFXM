@@ -19,14 +19,28 @@ import {
   resolveSweeperNotifyOwner,
 } from "./wechat-sweeper-notify.js"
 
-// D60 T4.4 (audit #1 F-09/F-24/F-25): Hono app has no bodyLimit configured.
-// Routes that accept body.text / body.content (documents.ts, memories.ts,
-// project-knowledge.ts) let the full body into memory before the inner
-// domain validator (500K / 4000 / 100K char) rejects. Deferred to D61+
-// — adding a global bodyLimit could break existing tests that post
-// larger bodies; per-route limits require touching 4 files. Risk is
-// memory pressure only (validators still reject oversized content).
+// D60 T4.4 (audit #1 F-09/F-24/F-25) + D63 T4 (audit #9 F-08): Hono app
+// has no bodyLimit configured. Routes that accept body.text / body.content
+// (documents.ts, memories.ts, project-knowledge.ts) let the full body into
+// memory before the inner domain validator (500K / 4000 / 100K char)
+// rejects. Risk is memory pressure (a 10GB POST would buffer before the
+// inner validator sees it). Apply a custom Content-Length check middleware
+// that rejects oversized bodies at the HTTP layer before buffering. The
+// 2 MiB cap is generous for the largest documented content limit (memory
+// 4K chars; documents 500K chars; project-knowledge 100K chars). Per-route
+// limits are more surgical but require touching 4 files — defer to D64.
+const MAX_BODY_BYTES = 2 * 1024 * 1024
 const app = new Hono()
+app.use("*", async (c, next) => {
+  const contentLengthHeader = c.req.header("content-length")
+  if (contentLengthHeader !== undefined) {
+    const declared = Number(contentLengthHeader)
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+      return c.text("request body too large", 413)
+    }
+  }
+  await next()
+})
 
 const boot = await createProductionWiring(process.env)
 if (!boot.ok) {
