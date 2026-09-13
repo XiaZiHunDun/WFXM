@@ -40,7 +40,14 @@ describe("Slack HTTP route guards (test-env e2e)", () => {
   it("returns 401 with invalid signing signature (wrong secret)", async () => {
     process.env["BUTLER_V5_SLACK_ENABLED"] = "1"
     process.env["BUTLER_V5_SLACK_SIGNING_SECRET"] = "real-secret"
-    const body = JSON.stringify({ type: "url_verification", challenge: "x" })
+    // D63 T4 (audit #9 F-01) post-fix: Slack url_verification is the
+    // documented exception that skips signature check (per Slack
+    // onboarding handshake). To test signature FAIL-CLOSED, send an
+    // event_callback body which must be signature-verified.
+    const body = JSON.stringify({
+      type: "event_callback",
+      event: { type: "message", user: "u1", text: "hi" },
+    })
     const wrongSig = signSlack("attacker-secret", "1700000000", body)
     const res = await buildApp().request("/v1/channel/slack/events", {
       method: "POST",
@@ -57,9 +64,16 @@ describe("Slack HTTP route guards (test-env e2e)", () => {
   it("returns 401 with tampered body", async () => {
     process.env["BUTLER_V5_SLACK_ENABLED"] = "1"
     process.env["BUTLER_V5_SLACK_SIGNING_SECRET"] = "real-secret"
-    const signedBody = JSON.stringify({ type: "url_verification", challenge: "x" })
+    // D63 T4 post-fix: signature check applies to non-challenge events.
+    const signedBody = JSON.stringify({
+      type: "event_callback",
+      event: { type: "message", user: "u1", text: "hi" },
+    })
     const sig = signSlack("real-secret", "1700000000", signedBody)
-    const tamperedBody = JSON.stringify({ type: "url_verification", challenge: "DIFFERENT" })
+    const tamperedBody = JSON.stringify({
+      type: "event_callback",
+      event: { type: "message", user: "u1", text: "DIFFERENT" },
+    })
     const res = await buildApp().request("/v1/channel/slack/events", {
       method: "POST",
       headers: {
@@ -77,11 +91,12 @@ describe("Slack HTTP route guards (test-env e2e)", () => {
     process.env["BUTLER_V5_SLACK_SIGNING_SECRET"] = "real-secret"
     const oldTs = "1700000000"
     const nowMs = Number(oldTs) * 1000 + 6 * 60_000 // 6 min later
-    const body = JSON.stringify({ type: "url_verification", challenge: "x" })
+    // D63 T4 post-fix: signature check applies to non-challenge events.
+    const body = JSON.stringify({
+      type: "event_callback",
+      event: { type: "message", user: "u1", text: "hi" },
+    })
     const sig = signSlack("real-secret", oldTs, body)
-    // Need to use vitest fake timer? Simpler: sign at current time, but use old ts.
-    // Actually the route uses Date.now() internally. We can't easily mock that.
-    // Instead we send a stale ts and verify it's rejected (since Date.now() is current).
     const res = await buildApp().request("/v1/channel/slack/events", {
       method: "POST",
       headers: {
@@ -116,18 +131,23 @@ describe("Slack HTTP route guards (test-env e2e)", () => {
     expect(json.challenge).toBe("verify-me")
   })
 
-  it("accepts unsigned requests when BUTLER_V5_SLACK_SIGNING_SECRET is empty (dev mode)", async () => {
+  it("rejects unsigned event_callback when BUTLER_V5_SLACK_SIGNING_SECRET is empty (FAIL-CLOSED)", async () => {
     process.env["BUTLER_V5_SLACK_ENABLED"] = "1"
     delete process.env["BUTLER_V5_SLACK_SIGNING_SECRET"]
-    const body = JSON.stringify({ type: "url_verification", challenge: "no-sig-needed" })
+    // D63 T4 (audit #9 F-01) post-fix: FAIL-CLOSED on empty secret for
+    // non-challenge events. url_verification still bypasses signature
+    // check (per Slack protocol); this test exercises the event_callback
+    // FAIL-CLOSED branch.
+    const body = JSON.stringify({
+      type: "event_callback",
+      event: { type: "message", user: "u1", text: "hi" },
+    })
     const res = await buildApp().request("/v1/channel/slack/events", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body,
     })
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { challenge: string }
-    expect(json.challenge).toBe("no-sig-needed")
+    expect(res.status).toBe(401)
   })
 
   it("returns 400 for invalid JSON body", async () => {

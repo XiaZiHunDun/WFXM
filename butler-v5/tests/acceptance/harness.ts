@@ -123,6 +123,11 @@ export async function makeAcceptanceApp(opts?: {
   // 路由以 process.env 判 isWechatIntakeEnabled（默认 1 → routeWechatIntake）。
   // 统一关掉，走 runButlerLoop 真实回退路径（含完整微信工具集 + 审批链路）。
   process.env["BUTLER_V5_INTAKE_ENABLED"] = "0"
+  // D63 T4 (audit #9 F-03) post-fix: seed the inbound shared secrets so
+  // the FAIL-CLOSED auth checks pass. Acceptance tests already provide a
+  // matching x-inbound-secret header in sendWechatMessage() below.
+  process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-inbound-secret-9c2f"
+  process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"] = "test-channel-secret-7a8b"
 
   const env: NodeJS.ProcessEnv = {
     BUTLER_V5_DB: "pglite",
@@ -212,6 +217,10 @@ export async function makeAcceptanceApp(opts?: {
       process.env["BUTLER_V5_WECHAT_SESSION_STATE"] = prevSessionStateEnv
     }
     rmSync(sessionStateDir, { recursive: true, force: true })
+    // D63 T4 post-fix: clear the seeded inbound shared secrets so other
+    // test files don't see them leaking between runs.
+    delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    delete process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"]
   }
 
   return { request, wiring, db, workspaceRoot, fixtureDir, setFixtures, close }
@@ -227,7 +236,14 @@ export async function sendWechatMessage(
   msgSeq += 1
   const res = await app.request("/v1/wechat/inbound", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      // D63 T4 (audit #9 F-03) post-fix: butler-v5 now requires the
+      // x-inbound-secret header to match BUTLER_V5_INBOUND_SHARED_SECRET
+      // (FAIL-CLOSED when secret unset). Acceptance tests seed the
+      // matching secret in createAcceptanceApp() above.
+      "x-inbound-secret": "test-inbound-secret-9c2f",
+    },
     body: JSON.stringify({
       apiVersion: "v1",
       fromUserId: "u-owner",

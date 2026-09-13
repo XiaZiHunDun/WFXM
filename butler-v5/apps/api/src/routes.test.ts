@@ -57,6 +57,11 @@ describe("B 方向: session snapshot capture on inbound", () => {
       BUTLER_V5_WECHAT_PROJECT_PATHS: join(process.cwd(), "config/wechat-project-paths.json"),
       BUTLER_V5_WECHAT_SESSION_STATE: join(storeDir, "session.json"),
       BUTLER_V5_WORKSPACE_ROOT: join(process.cwd(), ".."),
+      // D63 T4 (audit #9 F-03) post-fix: seed the inbound shared secrets
+      // so the FAIL-CLOSED auth checks pass.
+      BUTLER_V5_INBOUND_SHARED_SECRET: "test-inbound-secret-9c2f",
+      BUTLER_V5_CHANNEL_INBOUND_SECRET: "test-channel-secret-7a8b",
+      BUTLER_V5_CHANNEL_ALLOWLIST: "wechat",
     }
   })
 
@@ -74,7 +79,10 @@ describe("B 方向: session snapshot capture on inbound", () => {
       createRoutes(app, wiring)
       const res = await app.request("/v1/wechat/inbound", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-inbound-secret-9c2f",
+        },
         body: JSON.stringify({
           apiVersion: "v1",
           fromUserId: "u-routes-1",
@@ -100,7 +108,10 @@ describe("B 方向: session snapshot capture on inbound", () => {
       createRoutes(app, wiring)
       await app.request("/v1/wechat/inbound", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-inbound-secret-9c2f",
+        },
         body: JSON.stringify({
           apiVersion: "v1",
           fromUserId: "u-iso-A",
@@ -109,7 +120,10 @@ describe("B 方向: session snapshot capture on inbound", () => {
       })
       await app.request("/v1/wechat/inbound", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-inbound-secret-9c2f",
+        },
         body: JSON.stringify({
           apiVersion: "v1",
           fromUserId: "u-iso-B",

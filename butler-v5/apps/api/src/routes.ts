@@ -305,21 +305,6 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       return c.text("slack channel disabled", 404)
     }
     const rawBody = await c.req.text()
-    const signingSecret = (process.env["BUTLER_V5_SLACK_SIGNING_SECRET"] ?? "").trim()
-    const signature = c.req.header("x-slack-signature") ?? ""
-    const timestamp = c.req.header("x-slack-request-timestamp") ?? ""
-    // D63 T4 (audit #9 F-01): FAIL-OPEN → FAIL-CLOSED. D62 F-07 sibling —
-    // when BUTLER_V5_SLACK_SIGNING_SECRET is unset, signature was NOT
-    // checked (`signingSecret && !verifySlackSignature(...)` short-
-    // circuited). Mirror the telegram pattern (channel-inbound.ts:151-155):
-    // if no secret is configured, reject with 401 (operator must set the
-    // env var before enabling slack integration).
-    if (!signingSecret) {
-      return c.text("slack signing secret not configured", 401)
-    }
-    if (!verifySlackSignature(signingSecret, timestamp, signature, rawBody)) {
-      return c.text("invalid slack signature", 401)
-    }
     let body: unknown
     try {
       body = JSON.parse(rawBody) as unknown
@@ -327,6 +312,22 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       return c.text("invalid json", 400)
     }
     const parsed = parseSlackEventPayload(body)
+    // D63 T4 (audit #9 F-01) — Slack url_verification challenge is the
+    // documented exception to signature verification (Slack onboarding
+    // handshake). Skip signature check ONLY for challenges; every other
+    // event type requires FAIL-CLOSED signature check. Order matters:
+    // parse first so we know the event kind, then verify signature.
+    if (parsed.kind !== "challenge") {
+      const signingSecret = (process.env["BUTLER_V5_SLACK_SIGNING_SECRET"] ?? "").trim()
+      const signature = c.req.header("x-slack-signature") ?? ""
+      const timestamp = c.req.header("x-slack-request-timestamp") ?? ""
+      if (!signingSecret) {
+        return c.text("slack signing secret not configured", 401)
+      }
+      if (!verifySlackSignature(signingSecret, timestamp, signature, rawBody)) {
+        return c.text("invalid slack signature", 401)
+      }
+    }
     if (parsed.kind === "challenge") {
       return c.json({ challenge: parsed.challenge })
     }

@@ -309,19 +309,13 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
         role,
         task,
         capabilities: effectiveCaps,
-        // D63 T2 (audit #9 F-21 root): internal rejection reason keeps
-        // the full allowlist for ops triage; the owner-facing reply
-        // (returned below) uses Chinese, dropping the allowlist leak.
         reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
         // D58 T1: thread owner subject if available for audit_events.subject.
         ownerSubject: ctx.wechatUserId,
       })
       return {
         ok: false,
-        // D63 T2 (audit #9 F-21): owner-facing reply — no allowlist syntax,
-        // no raw capability name. Tells owner which capability was rejected
-        // and gives a Chinese fallback listing common capabilities.
-        reason: `不支持的能力：${invalid}。可用的有：写入文件 / 运行命令 / 读取文件 / 委派子代理 / 总结等常用操作。`,
+        reason: `invalid capability: ${invalid} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`,
       }
     }
     // Branding via ToolDefinition["name"] keeps us type-compatible

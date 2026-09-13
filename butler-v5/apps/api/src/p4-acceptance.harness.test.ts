@@ -32,6 +32,10 @@ describe("P4 acceptance harness", () => {
     vi.stubEnv("DEEPSEEK_API_KEY", "")
     vi.stubEnv("MINIMAX_API_KEY", "")
     vi.stubEnv("DASHSCOPE_API_KEY", "")
+    // D63 T4 (audit #9 F-03) post-fix: seed the inbound shared secrets
+    // so the FAIL-CLOSED auth checks pass.
+    vi.stubEnv("BUTLER_V5_INBOUND_SHARED_SECRET", "test-inbound-secret-9c2f")
+    vi.stubEnv("BUTLER_V5_CHANNEL_INBOUND_SECRET", "test-channel-secret-7a8b")
     resetSharedLocalTracer({
       BUTLER_V5_TRACE: "1",
       BUTLER_V5_TRACE_REDACT: "1",
@@ -77,7 +81,12 @@ describe("P4 acceptance harness", () => {
     const wxConversationId = "c-p4-wechat-accept"
     const wxRes = await app.request("/v1/wechat/inbound", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        // D63 T4 (audit #9 F-03) post-fix: must include the inbound
+        // shared secret so the FAIL-CLOSED auth check passes.
+        "x-inbound-secret": "test-inbound-secret-9c2f",
+      },
       body: JSON.stringify({
         apiVersion: "v1",
         fromUserId: "wx-owner-1",

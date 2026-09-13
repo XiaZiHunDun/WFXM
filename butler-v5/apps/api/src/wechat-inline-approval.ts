@@ -70,9 +70,7 @@ export async function tryWechatInlineApproval(args: {
 
   if (!canRespondToInlineApproval(args.fromUserId, pending.subject, env)) {
     return {
-      // D63 T2 (audit #9 F-04): add recovery hint to unauthorized branch.
-      // Tells owner what they can try next instead of a dead-end reply.
-      reply: "你没有权限批准或拒绝此操作。如需处理，请联系管理员或确认是否登录了正确的微信账号。",
+      reply: "你没有权限批准或拒绝此操作。",
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",
@@ -85,13 +83,9 @@ export async function tryWechatInlineApproval(args: {
     return {
       // D60 T2.6 (audit #3 F-10): drop raw capability name (write_file, etc.)
       // from owner-facing reply. Operator tool id, not catalog id.
-      // D63 T1 (audit #9 F-06): include the publicResource path so owner
-      // can connect the deny reply to which pending step they just acted
-      // on. Generic "已拒绝待审批操作" was ambiguous when multiple pending
-      // steps existed in conversation history.
       reply: deny.alreadyProcessed
         ? "该操作已处理，无需重复操作。"
-        : `✅ 已拒绝：${pending.resource}`,
+        : "已拒绝待审批操作。",
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",
@@ -117,11 +111,7 @@ export async function tryWechatInlineApproval(args: {
     const resumed = await resumeApprovedCapability(args.wiring, decision, { env })
     if (resumed.ok) {
       return {
-        // D63 T1 (audit #9 F-05): add `✅ 已批准` acknowledgement prefix
-        // so owner sees the approval was processed (not just the tool's
-        // raw output). The ack + the tool output together let owner
-        // connect the approval action to the result.
-        reply: `✅ 已批准：${pending.resource}\n\n${String(resumed.output)}`,
+        reply: String(resumed.output),
         iterations: 1,
         toolCalls: 1,
         finalDecision: "Respond",

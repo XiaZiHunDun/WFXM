@@ -29,7 +29,14 @@ describe("acceptance/fault-tolerance (微信容错 / 降级路径)", () => {
     // 路径走校验分支。Hono 4xx/5xx 行为差异可被显式断言。
     const res = await app.request("/v1/wechat/inbound", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        // D63 T4 (audit #9 F-03) post-fix: must include the inbound
+        // shared secret so the FAIL-CLOSED auth check passes and the
+        // body-validation branch (which is what this test exercises)
+        // is reached.
+        "x-inbound-secret": "test-inbound-secret-9c2f",
+      },
       body: JSON.stringify({ fromUserId: "u-owner", content: "hi" }),
     })
     expect(res.status).toBe(400)

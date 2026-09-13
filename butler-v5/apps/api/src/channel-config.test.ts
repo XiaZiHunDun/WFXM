@@ -11,9 +11,13 @@ describe("channel-config", () => {
     expect(isChannelApiEnabled({ BUTLER_V5_CHANNEL_API_ENABLED: "1" })).toBe(true)
   })
 
-  it("allowlist empty means all channels allowed", () => {
+  it("allowlist empty now means FAIL-CLOSED (D63 T4 F-02)", () => {
+    // D63 T4 (audit #9 F-02): empty allowlist previously meant "any
+    // channelId accepted" — FAIL-OPEN. Inverted to FAIL-CLOSED so an
+    // operator must explicitly populate BUTLER_V5_CHANNEL_ALLOWLIST
+    // to allow channels.
     expect(parseAllowedChannelIds({})).toEqual([])
-    expect(isChannelAllowed("slack", [])).toBe(true)
+    expect(isChannelAllowed("slack", [])).toBe(false)
   })
 
   it("allowlist restricts channel ids", () => {

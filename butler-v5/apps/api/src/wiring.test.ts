@@ -20,11 +20,57 @@ vi.mock("./wechat-inbound-butler.js", () => ({
   })),
 }))
 
+// D63 T4 (audit #9 F-03) post-fix: BUTLER_V5_INBOUND_SHARED_SECRET must
+// be set for /v1/wechat/inbound + BUTLER_V5_CHANNEL_INBOUND_SECRET for
+// /v1/channel/inbound. Test app injects the matching x-* headers via a
+// small Hono middleware so individual tests don't need to repeat the
+// header on every app.request() call.
+const TEST_INBOUND_SECRET = "test-inbound-secret-9c2f"
+const TEST_CHANNEL_SECRET = "test-channel-secret-7a8b"
+
+/**
+ * Wrap a Hono app with auto-injection of the D63 T4 shared-secret headers
+ * for /v1/wechat/inbound and /v1/channel/inbound. Tests that explicitly
+ * want to verify the FAIL-CLOSED path (e.g. slack-intake.test.ts) bypass
+ * this wrapper.
+ */
+function withInboundAuthHeaders(app: Hono): Hono {
+  const wrapper = new Hono()
+  wrapper.use("*", async (c, next) => {
+    const path = new URL(c.req.url).pathname
+    if (path === "/v1/wechat/inbound" && c.req.header("x-inbound-secret") === undefined) {
+      const headers = new Headers(c.req.raw.headers)
+      headers.set("x-inbound-secret", TEST_INBOUND_SECRET)
+      const raw = new Request(c.req.raw, { headers })
+      return app.fetch(raw)
+    }
+    if (path === "/v1/channel/inbound" && c.req.header("x-channel-inbound-secret") === undefined) {
+      const headers = new Headers(c.req.raw.headers)
+      headers.set("x-channel-inbound-secret", TEST_CHANNEL_SECRET)
+      const raw = new Request(c.req.raw, { headers })
+      return app.fetch(raw)
+    }
+    return next()
+  })
+  wrapper.route("/", app)
+  return wrapper
+}
+
+/** Build a Hono app + createRoutes + apply inbound-auth header injection. */
+function makeWiringTestApp(wiring: Wiring): Hono {
+  const app = new Hono()
+  createRoutes(app, wiring)
+  return withInboundAuthHeaders(app)
+}
+
 describe("v5 wiring", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
   let wiring: Wiring
   let sessionStateDir = ""
   let prevSessionStateEnv: string | undefined
+  let prevInboundSecretEnv: string | undefined
+  let prevChannelSecretEnv: string | undefined
+  let prevChannelApiEnabledEnv: string | undefined
 
   beforeEach(async () => {
     db = await makeTestDb()
@@ -47,6 +93,14 @@ describe("v5 wiring", () => {
     sessionStateDir = mkdtempSync(join(tmpdir(), "butler-wiring-session-state-"))
     prevSessionStateEnv = process.env["BUTLER_V5_WECHAT_SESSION_STATE"]
     process.env["BUTLER_V5_WECHAT_SESSION_STATE"] = join(sessionStateDir, "state.json")
+    // D63 T4 post-fix: seed the inbound shared secrets so the
+    // FAIL-CLOSED auth checks pass. The post-fix reply strings and
+    // ownership checks remain valid; only the secret env is now required.
+    prevInboundSecretEnv = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    prevChannelSecretEnv = process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"]
+    prevChannelApiEnabledEnv = process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = TEST_INBOUND_SECRET
+    process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"] = TEST_CHANNEL_SECRET
   })
 
   afterEach(async () => {
@@ -57,6 +111,21 @@ describe("v5 wiring", () => {
     } else {
       process.env["BUTLER_V5_WECHAT_SESSION_STATE"] = prevSessionStateEnv
     }
+    if (prevInboundSecretEnv === undefined) {
+      delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    } else {
+      process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prevInboundSecretEnv
+    }
+    if (prevChannelSecretEnv === undefined) {
+      delete process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"]
+    } else {
+      process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"] = prevChannelSecretEnv
+    }
+    if (prevChannelApiEnabledEnv === undefined) {
+      delete process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
+    } else {
+      process.env["BUTLER_V5_CHANNEL_API_ENABLED"] = prevChannelApiEnabledEnv
+    }
   })
 
   it("exposes eventBridge for Hono routes to consume", () => {
@@ -65,8 +134,7 @@ describe("v5 wiring", () => {
   })
 
   it("createRoutes with wiring responds 200 to GET /healthz", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const res = await app.request("/healthz")
     expect(res.status).toBe(200)
     const body = (await res.json()) as { status: string; wiring: string }
@@ -75,8 +143,7 @@ describe("v5 wiring", () => {
   })
 
   it("createRoutes with wiring responds 201 to POST /v1/conversations", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const res = await app.request("/v1/conversations", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -94,15 +161,13 @@ describe("v5 wiring", () => {
   })
 
   it("createRoutes with wiring responds 400 on invalid body", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const res = await app.request("/v1/conversations", { method: "POST" })
     expect(res.status).toBe(400)
   })
 
   it("R8.x.11: wechat inbound without conversationId generates a server id", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const res = await app.request("/v1/wechat/inbound", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -120,8 +185,7 @@ describe("v5 wiring", () => {
   })
 
   it("R8.x.13: two wechat inbounds for the same user reuse one conversationId", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const body = {
       apiVersion: "v1",
       fromUserId: "u-memory",
@@ -145,8 +209,7 @@ describe("v5 wiring", () => {
   })
 
   it("R8.x.11: wechat inbound echoes a valid client conversationId", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const clientId = "c-r8x11-presub-client-1"
     const res = await app.request("/v1/wechat/inbound", {
       method: "POST",
@@ -167,8 +230,7 @@ describe("v5 wiring", () => {
   })
 
   it("R8.x.11: wechat inbound rejects an invalid conversationId with 400", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const res = await app.request("/v1/wechat/inbound", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -192,8 +254,7 @@ describe("v5 wiring", () => {
     process.env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"] =
       "wechat:WFXM,LingWen1:LingWen,灵文1号:LingWen"
     try {
-      const app = new Hono()
-      createRoutes(app, wiring)
+      const app = makeWiringTestApp(wiring)
       const res = await app.request("/v1/wechat/inbound", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -230,8 +291,7 @@ describe("v5 wiring", () => {
   })
 
   it("R8.x.17: POST /v1/ws/subscribe returns a token for a valid conversationId", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const res = await app.request("/v1/ws/subscribe", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -251,8 +311,7 @@ describe("v5 wiring", () => {
   })
 
   it("R8.x.17: POST /v1/ws/subscribe rejects a missing conversationId", async () => {
-    const app = new Hono()
-    createRoutes(app, wiring)
+    const app = makeWiringTestApp(wiring)
     const res = await app.request("/v1/ws/subscribe", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -265,8 +324,7 @@ describe("v5 wiring", () => {
     const prev = process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
     delete process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
     try {
-      const app = new Hono()
-      createRoutes(app, wiring)
+      const app = makeWiringTestApp(wiring)
       const res = await app.request("/v1/channel/inbound", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -286,10 +344,14 @@ describe("v5 wiring", () => {
 
   it("channel inbound runs butler loop when enabled", async () => {
     const prev = process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
+    const prevAllowlist = process.env["BUTLER_V5_CHANNEL_ALLOWLIST"]
     process.env["BUTLER_V5_CHANNEL_API_ENABLED"] = "1"
+    // D63 T4 (audit #9 F-02) post-fix: empty allowlist now FAIL-CLOSED.
+    // Operator must explicitly populate the allowlist. The test sets it
+    // to `api` to match the channelId in the request body.
+    process.env["BUTLER_V5_CHANNEL_ALLOWLIST"] = "api"
     try {
-      const app = new Hono()
-      createRoutes(app, wiring)
+      const app = makeWiringTestApp(wiring)
       const res = await app.request("/v1/channel/inbound", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -308,6 +370,8 @@ describe("v5 wiring", () => {
     } finally {
       if (prev === undefined) delete process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
       else process.env["BUTLER_V5_CHANNEL_API_ENABLED"] = prev
+      if (prevAllowlist === undefined) delete process.env["BUTLER_V5_CHANNEL_ALLOWLIST"]
+      else process.env["BUTLER_V5_CHANNEL_ALLOWLIST"] = prevAllowlist
     }
   })
 
@@ -315,8 +379,7 @@ describe("v5 wiring", () => {
     const prev = process.env["BUTLER_V5_SLACK_ENABLED"]
     process.env["BUTLER_V5_SLACK_ENABLED"] = "1"
     try {
-      const app = new Hono()
-      createRoutes(app, wiring)
+      const app = makeWiringTestApp(wiring)
       const res = await app.request("/v1/channel/slack/events", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -335,17 +398,20 @@ describe("v5 wiring", () => {
     const prevEnabled = process.env["BUTLER_V5_TELEGRAM_ENABLED"]
     const prevToken = process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"]
     const prevSecret = process.env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"]
+    const prevAllowlist = process.env["BUTLER_V5_CHANNEL_ALLOWLIST"]
     process.env["BUTLER_V5_TELEGRAM_ENABLED"] = "1"
     process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] = "tg-test-token"
     // D62 T4 (audit #1 F-07): telegramWebhookAuthorized now FAIL-CLOSED
     // when secret unset. Test sets a secret so the delivery path is exercised.
     process.env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"] = "tg-test-secret"
+    // D63 T4 (audit #9 F-02) post-fix: empty allowlist FAIL-CLOSED.
+    // Allow telegram channelId for this test.
+    process.env["BUTLER_V5_CHANNEL_ALLOWLIST"] = "telegram"
     const fetchMock = vi.fn(async () => Response.json({ ok: true, result: {} }))
     const prevFetch = globalThis.fetch
     globalThis.fetch = fetchMock as typeof fetch
     try {
-      const app = new Hono()
-      createRoutes(app, wiring)
+      const app = makeWiringTestApp(wiring)
       const res = await app.request("/v1/channel/telegram/webhook", {
         method: "POST",
         headers: {
@@ -378,6 +444,8 @@ describe("v5 wiring", () => {
       else process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] = prevToken
       if (prevSecret === undefined) delete process.env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"]
       else process.env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"] = prevSecret
+      if (prevAllowlist === undefined) delete process.env["BUTLER_V5_CHANNEL_ALLOWLIST"]
+      else process.env["BUTLER_V5_CHANNEL_ALLOWLIST"] = prevAllowlist
     }
   })
 })

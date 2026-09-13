@@ -173,11 +173,7 @@ export async function tryWechatQualityGateCommand(args: {
     })
     const mark = result.code === 0 ? "✓" : "✗"
     if (result.code !== 0) failed += 1
-    // D63 T2 (audit #9 F-20): generic `步骤` → per-gate label from
-    // cmd.name (or argv[0] fallback). Owner sees which gate passed/
-    // failed instead of N rows all labelled `步骤`.
-    const gateLabel = String(cmd.name ?? cmd.argv[0] ?? "步骤")
-    lines.push(`${mark} ${gateLabel}${result.code !== 0 ? " · 失败" : ""}`)
+    lines.push(`${mark} 步骤${result.code !== 0 ? " · 失败" : ""}`)
     if (result.code !== 0 && result.output) {
       lines.push(truncate(result.output, 300))
     }
