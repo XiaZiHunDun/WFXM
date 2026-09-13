@@ -1,12 +1,13 @@
 // domain/projects/types.ts
-// 项目域 ADT — Project、Spec SDD、DelegateTaskInput
+// 项目域 ADT — Project + ProjectId + Spec SDD + DelegateTaskInput
+// D62 T5 (audit #2 F-02/F-03): removed WorkspaceRoot + ProjectStatus —
+// zero external consumers (D61 T5 deleted the only 4 fns in
+// projects/pure.ts that used them). Project is kept since pure.ts
+// still references it for the sortProjectsByCreated/searchProjects
+// APIs (zero external consumers but kept for completeness).
 
 // ─── 品牌类型 ───────────────────────────────────────────
 export type ProjectId = string & { readonly __brand: "ProjectId" }
-export type WorkspaceRoot = string & { readonly __brand: "WorkspaceRoot" }
-
-// ─── 项目生命周期状态 ──────────────────────────────────
-export type ProjectStatus = "active" | "blocked" | "archived"
 
 // ─── 项目定义 ───────────────────────────────────────────
 export type Project = {
@@ -15,7 +16,7 @@ export type Project = {
   readonly rootPath: string
   readonly specRef?: string
   readonly createdAt: number
-  readonly status: ProjectStatus
+  readonly status: "active" | "blocked" | "archived"
   readonly blockedReason: string | null
 }
 
