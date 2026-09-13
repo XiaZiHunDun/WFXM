@@ -334,8 +334,12 @@ describe("v5 wiring", () => {
   it("telegram webhook delivers outbound when bot token is set", async () => {
     const prevEnabled = process.env["BUTLER_V5_TELEGRAM_ENABLED"]
     const prevToken = process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"]
+    const prevSecret = process.env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"]
     process.env["BUTLER_V5_TELEGRAM_ENABLED"] = "1"
     process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] = "tg-test-token"
+    // D62 T4 (audit #1 F-07): telegramWebhookAuthorized now FAIL-CLOSED
+    // when secret unset. Test sets a secret so the delivery path is exercised.
+    process.env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"] = "tg-test-secret"
     const fetchMock = vi.fn(async () => Response.json({ ok: true, result: {} }))
     const prevFetch = globalThis.fetch
     globalThis.fetch = fetchMock as typeof fetch
@@ -344,7 +348,12 @@ describe("v5 wiring", () => {
       createRoutes(app, wiring)
       const res = await app.request("/v1/channel/telegram/webhook", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          // D62 T4: match the secret set above so webhook passes the
+          // FAIL-CLOSED authorization check.
+          "x-telegram-bot-api-secret-token": "tg-test-secret",
+        },
         body: JSON.stringify({
           update_id: 1,
           message: { message_id: 7, from: { id: 99 }, text: "telegram hi" },
@@ -367,6 +376,8 @@ describe("v5 wiring", () => {
       else process.env["BUTLER_V5_TELEGRAM_ENABLED"] = prevEnabled
       if (prevToken === undefined) delete process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"]
       else process.env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] = prevToken
+      if (prevSecret === undefined) delete process.env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"]
+      else process.env["BUTLER_V5_TELEGRAM_WEBHOOK_SECRET"] = prevSecret
     }
   })
 })
