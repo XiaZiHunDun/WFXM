@@ -1,5 +1,5 @@
 import { homedir } from "node:os"
-import { envTruthy } from "./env-util.js"
+import { envTruthy, parsePositiveInt } from "./env-util.js"
 import { join } from "node:path"
 import {
   DEFAULT_ILINK_BASE_URL,
@@ -65,10 +65,6 @@ export function parseIlinkPollerConfig(env: NodeJS.ProcessEnv): ILinkResult<Ilin
   const baseUrl = (env["WECHAT_BASE_URL"] ?? env["ILINK_BASE_URL"] ?? DEFAULT_ILINK_BASE_URL).trim()
   const port = (env["PORT"] ?? "3000").trim() || "3000"
   const inboundUrl = (env["V5_INBOUND_URL"] ?? `http://127.0.0.1:${port}/v1/wechat/inbound`).trim()
-  const inboundTimeoutMs = Number(env["BUTLER_V5_ILINK_INBOUND_TIMEOUT_MS"] ?? 180_000)
-  const longPollTimeoutMs = Number(env["BUTLER_V5_ILINK_LONG_POLL_MS"] ?? 35_000)
-  const emptyPollDelayMs = Number(env["BUTLER_V5_ILINK_EMPTY_DELAY_MS"] ?? 250)
-  const sessionExpiredSleepMs = Number(env["BUTLER_V5_ILINK_SESSION_SLEEP_MS"] ?? 600_000)
   const allowedUserIds = [
     ...parseCsvIds(env["WECHAT_ALLOWED_USERS"]),
     ...parseCsvIds(env["BUTLER_OWNER_WECHAT_ID"]),
@@ -95,12 +91,10 @@ const mediaMaxBytes =
       token,
       accountId: (env["WECHAT_ACCOUNT_ID"] ?? "").trim(),
       inboundUrl,
-      inboundTimeoutMs: Number.isFinite(inboundTimeoutMs) ? inboundTimeoutMs : 180_000,
-      longPollTimeoutMs: Number.isFinite(longPollTimeoutMs) ? longPollTimeoutMs : 35_000,
-      emptyPollDelayMs: Number.isFinite(emptyPollDelayMs) ? emptyPollDelayMs : 250,
-      sessionExpiredSleepMs: Number.isFinite(sessionExpiredSleepMs)
-        ? sessionExpiredSleepMs
-        : 600_000,
+      inboundTimeoutMs: parsePositiveInt(env["BUTLER_V5_ILINK_INBOUND_TIMEOUT_MS"], 180_000),
+      longPollTimeoutMs: parsePositiveInt(env["BUTLER_V5_ILINK_LONG_POLL_MS"], 35_000),
+      emptyPollDelayMs: parsePositiveInt(env["BUTLER_V5_ILINK_EMPTY_DELAY_MS"], 250),
+      sessionExpiredSleepMs: parsePositiveInt(env["BUTLER_V5_ILINK_SESSION_SLEEP_MS"], 600_000),
       dmPolicy: parseDmPolicy(env["WECHAT_DM_POLICY"]),
       allowedUserIds: uniqueAllowed,
       dropGroups: env["WECHAT_GROUP_POLICY"]?.trim().toLowerCase() === "open" ? false : true,

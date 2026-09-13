@@ -17,8 +17,19 @@ function parseFloatSafe(raw: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
+/**
+ * D61 T4 (audit #1 F-02): dedup threshold is a Jaccard similarity in [0, 1].
+ * Anything > 1.0 disables dedup (can never match), so clamp the upper bound
+ * to 1.0 to surface operator typos (e.g. `2.0` for `0.85`) instead of
+ * silently turning the feature off.
+ */
+function parseDedupThreshold(raw: string | undefined, fallback: number): number {
+  const n = parseFloatSafe(raw, fallback)
+  return n > 1 ? fallback : n
+}
+
 export function parseDedupConfig(env: NodeJS.ProcessEnv): DedupConfig {
-  const threshold = parseFloatSafe(env["BUTLER_V5_MEMORY_DEDUP_THRESHOLD"], 0.85)
+  const threshold = parseDedupThreshold(env["BUTLER_V5_MEMORY_DEDUP_THRESHOLD"], 0.85)
   return {
     enabled: threshold > 0,
     threshold,

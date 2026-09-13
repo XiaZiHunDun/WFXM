@@ -39,8 +39,16 @@ function readStore(path: string): ActiveProjectStore {
 }
 
 function writeStore(path: string, store: ActiveProjectStore): void {
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, `${JSON.stringify(store, null, 2)}\n`, "utf8")
+  try {
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, `${JSON.stringify(store, null, 2)}\n`, "utf8")
+  } catch (err) {
+    // D61 T4 (audit #1 F-04): caller (setWechatActiveProjectId from /切换)
+    // used to 500 on disk-full / EACCES. Log for operators, let the
+    // caller handle the user-visible failure path.
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error("[wechat-active-project] writeStore failed:", err)
+  }
 }
 
 export function parseWechatProjectCatalog(

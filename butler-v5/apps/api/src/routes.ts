@@ -107,11 +107,19 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       }
       // B 方向 推 2: capture per-user session snapshot after every bot reply.
       // Slash path passes no runResult → lastRunStatus stays "none".
-      await captureWechatSessionSnapshot({
-        wiring,
-        userId: normalized.value.subject,
-        env,
-      })
+      // D61 T4 (audit #1 F-09): previously a writeSessionStore failure
+      // amplified into a 500 on every wechat slash reply. Wrap the
+      // snapshot capture so we still serve the bot's reply.
+      try {
+        await captureWechatSessionSnapshot({
+          wiring,
+          userId: normalized.value.subject,
+          env,
+        })
+      } catch (err) {
+        // eslint-disable-next-line no-console -- operator log when no logger injected
+        console.error("[routes] captureWechatSessionSnapshot failed:", err)
+      }
       return c.json(
         {
           conversationId: normalized.value.conversationId,

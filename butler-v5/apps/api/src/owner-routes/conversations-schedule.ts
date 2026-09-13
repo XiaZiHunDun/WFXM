@@ -15,7 +15,7 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
     const projectId = (c.req.query("projectId") ?? "").trim()
     if (!projectId) return c.text("projectId query required", 400)
     const limitRaw = Number((c.req.query("limit") ?? "50").trim())
-    const limit = Number.isFinite(limitRaw) ? limitRaw : 50
+    const limit = Math.min(Math.max(Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : 50, 1), 200)
     const items = await wiring.runtimeStore.listConversationsByProject({ projectId, limit })
     return c.json({ items })
   })

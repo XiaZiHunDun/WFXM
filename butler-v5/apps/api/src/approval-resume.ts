@@ -177,7 +177,13 @@ const userContent =
     `请用中文继续完成用户目标；需要时可调用工具。`
   try {
     await kernel.openTurn({ userMessage: { role: "user", content: userContent } })
-  } catch {
+  } catch (err) {
+    // D61 T4 (audit #1 F-07): keep the original fallback behavior (return
+    // toolOutput so the owner still sees the capability result), but log
+    // the kernel init failure so operators can diagnose why a follow-up
+    // LLM turn never ran.
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error("[approval-resume] kernel.openTurn failed:", err)
     return args.toolOutput
   }
 
@@ -237,8 +243,14 @@ const userContent =
             idempotencyKey: `assistant:approval:${args.runId}:${Date.now()}`,
             createdAt: new Date(),
           })
-        } catch {
-          // non-fatal
+        } catch (err) {
+          // D61 T4 (audit #1 F-08): persist failure of the assistant
+          // approval-resume message used to be silently swallowed.
+          // Keep the non-fatal behavior (we still return the approval
+          // result to the owner) but log the failure so operators
+          // can spot conversation-history drift.
+          // eslint-disable-next-line no-console -- operator log when no logger injected
+          console.error("[approval-resume] appendMessage failed:", err)
         }
       },
       complete: async (msgs, toolsForLlm) => {
@@ -443,11 +455,17 @@ export async function resumeApprovedCapability(
         })
       }
 
+      // D61 T4 (audit #1 F-06): consume the grant BEFORE the result.ok
+      // check + continueLoopAfterCapability. Previously a transient
+      // downstream failure (e.g. continueLoopAfterCapability throwing)
+      // could leave the grant unconsumed, allowing a duplicate capability
+      // execution on owner-driven retry. Consuming up-front is safe because
+      // persistCapabilityStep already recorded the attempt.
+      await markGrantConsumed(wiring.runtimeStore, decision.grant)
       if (!result.ok) {
         return failRun(result.reason)
       }
 
-      await markGrantConsumed(wiring.runtimeStore, decision.grant)
       const reply = await continueLoopAfterCapability({
         wiring,
         runId: ctx.runId,

@@ -10,7 +10,19 @@ export function loadSyncBuf(path: string): string {
     }
     const buf = (parsed as Record<string, unknown>)["get_updates_buf"]
     return typeof buf === "string" ? buf : ""
-  } catch {
+  } catch (err) {
+    // D61 T4 (audit #1 F-10): distinguish ENOENT (legitimate first-run,
+    // silence is correct) from JSON parse error (corruption, must surface
+    // for operators). Previously both returned "" and the poller treated
+    // corruption the same as no state, silently resyncing from zero.
+    const isMissing =
+      err instanceof Error &&
+      "code" in err &&
+      (err as NodeJS.ErrnoException).code === "ENOENT"
+    if (!isMissing) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[ilink-sync] loadSyncBuf parse error (file may be corrupt):", err)
+    }
     return ""
   }
 }

@@ -51,8 +51,16 @@ function readStore(path: string): ProjectStateStore {
 }
 
 function writeStore(path: string, store: ProjectStateStore): void {
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, `${JSON.stringify(store, null, 2)}\n`, "utf8")
+  try {
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, `${JSON.stringify(store, null, 2)}\n`, "utf8")
+  } catch (err) {
+    // D61 T4 (audit #1 F-05): caller (updateProjectState from dev_work
+    // intake) used to 500 on disk-full / EACCES. Log for operators;
+    // caller handles the user-visible failure path.
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error("[project-state] writeStore failed:", err)
+  }
 }
 
 export function getProjectState(args: {
