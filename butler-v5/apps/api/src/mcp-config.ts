@@ -1,7 +1,7 @@
 import type { ILinkResult } from "@butler/adapters"
 import { envTruthy } from "./env-util.js"
 import type { McpManifestServer } from "@butler/domain/mcp/manifest.js"
-import { resolveManifestStdioArgs } from "@butler/domain/mcp/manifest.js"
+import { resolveManifestStdioArgs } from "@butler/ports/mcp-manifest-path.js"
 import { isMcpEnabled, mcpStubToolNames } from "@butler/runtime/mcp-gate.js"
 
 

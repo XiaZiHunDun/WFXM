@@ -2,12 +2,12 @@ import type { ActionKind, RiskLevel, ScopedGrantRecord } from "@butler/domain/go
 import { buildScopedGrantScopeFromPending } from "@butler/domain/governance/types.js"
 import { isMcpCapability } from "@butler/domain/governance/types.js"
 import {
-  hashNetworkAllowlistForAudit,
   hostnamesFromNetworkAllowlist,
   SANDBOX_PROFILE_NETWORK_ALLOWLIST,
   validateNetworkAllowlist,
   envAllowPrivateEgress,
 } from "@butler/domain/governance/network-allowlist.js"
+import { hashNetworkAllowlistForAudit } from "@butler/ports/network-allowlist-hash.js"
 import { outboundNetworkHostsForCapability } from "./grant-network.js"
 import { mcpServerIdForCapability } from "./mcp-consent.js"
 import { transitionRunToTerminal } from "./run-lifecycle.js"

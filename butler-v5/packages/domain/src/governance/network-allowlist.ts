@@ -1,6 +1,3 @@
-import { createHash } from "node:crypto"
-import { domainToASCII } from "node:url"
-
 export const SANDBOX_PROFILE_NETWORK_ALLOWLIST = "workspace-write-network-allowlist" as const
 
 export const MAX_NETWORK_ALLOWLIST_ENTRIES = 8
@@ -48,14 +45,14 @@ function splitHostPort(raw: string): { readonly host: string; readonly port: num
 function normalizeHost(host: string): string | null {
   const lower = host.trim().toLowerCase()
   if (!lower || lower.length > 253) return null
+  // D61 T5 (audit #2 F-11 domain purity): reject any non-ASCII characters
+  // (i.e. IDN hostnames) up-front instead of using `node:url.domainToASCII`.
+  // IDN resolution belonged to runtime/ports; domain now stays pure.
+  // Reject-by-default is safer than pass-through when the validator can't
+  // confirm the canonical form.
+  if (/[^\x00-\x7f]/.test(lower)) return null
   if (lower.includes("..")) return null
-  try {
-    const ascii = domainToASCII(lower)
-    if (!ascii || ascii.includes("..")) return null
-    return ascii.toLowerCase()
-  } catch {
-    return null
-  }
+  return lower
 }
 
 export function normalizeNetworkAllowlistEntry(
@@ -104,9 +101,9 @@ export function validateNetworkAllowlist(
   return { ok: true, normalized }
 }
 
-export function hashNetworkAllowlistForAudit(entries: readonly string[]): string {
-  return createHash("sha256").update(entries.join("\n")).digest("hex").slice(0, 16)
-}
+// D61 T5 (audit #2 F-11 domain purity): hashNetworkAllowlistForAudit moved
+// to `@butler/ports/network-allowlist-hash.js` because it imports `node:crypto`.
+// Direct callers (runtime/approval-runtime) import from ports.
 
 export function hostnamesFromNetworkAllowlist(
   entries: readonly string[],

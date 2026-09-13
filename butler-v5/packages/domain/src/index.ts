@@ -162,14 +162,6 @@ export {
   type ContractSnapshot,
   type ContractRule,
 } from "./guards/types.js"
-export {
-  pickVerificationLevel,
-  verifyChain,
-  pickHealLayer,
-  scoreDeletionRisk,
-  verifyEvidence,
-  checkRoleSeparation,
-} from "./guards/pure.js"
 
 export {
   type ProjectId,
@@ -297,7 +289,6 @@ export {
   DEFAULT_NETWORK_ALLOWLIST_PORT,
   normalizeNetworkAllowlistEntry,
   validateNetworkAllowlist,
-  hashNetworkAllowlistForAudit,
   hostnamesFromNetworkAllowlist,
   resolveSandboxNetworkMode,
   isDestinationAllowedInNetworkAllowlist,

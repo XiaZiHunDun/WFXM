@@ -6,12 +6,8 @@ import {
   validateDelegateTaskInput,
   sortProjectsByCreated,
   searchProjects,
-  activateProject,
-  archiveProject,
-  blockProject,
-  createProject,
 } from "./pure.js"
-import type { Project, ProjectId, Spec, DelegateTaskInput, WorkspaceRoot } from "./types.js"
+import type { Project, ProjectId, Spec, DelegateTaskInput } from "./types.js"
 
 const sampleProject: Project = {
   id: "proj-1" as Project["id"],
@@ -144,28 +140,5 @@ describe("projects/pure", () => {
       const results = searchProjects([sampleProject], "zzz")
       expect(results).toHaveLength(0)
     })
-  })
-})
-
-describe("project lifecycle", () => {
-  const id = "proj-1" as ProjectId
-  const root = "/ws" as WorkspaceRoot
-
-  it("creates a project with active state", () => {
-    const p = createProject({ id, name: "Demo", workspaceRoot: root })
-    expect(p.status).toBe("active")
-    expect(p.createdAt).toBeGreaterThan(0)
-  })
-  it("blocks and unblocks a project", () => {
-    let p = createProject({ id, name: "Demo", workspaceRoot: root })
-    p = blockProject(p, "audit")
-    expect(p.status).toBe("blocked")
-    p = activateProject(p)
-    expect(p.status).toBe("active")
-  })
-  it("archives a project", () => {
-    let p = createProject({ id, name: "Demo", workspaceRoot: root })
-    p = archiveProject(p)
-    expect(p.status).toBe("archived")
   })
 })

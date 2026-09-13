@@ -14,7 +14,9 @@
     "./core/channel.js": "./src/core/channel.ts",
     "./core/outbox.js": "./src/core/outbox.ts",
     "./core/snapshot.js": "./src/core/snapshot.ts",
-    "./core/projection.js": "./src/core/projection.ts"
+    "./core/projection.js": "./src/core/projection.ts",
+    "./mcp-manifest-path.js": "./src/mcp-manifest-path.ts",
+    "./network-allowlist-hash.js": "./src/network-allowlist-hash.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
