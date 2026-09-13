@@ -138,7 +138,7 @@ export async function tryWechatQualityGateCommand(args: {
   const ownerLabel = resolveWechatProjectLabel(active, env)
   if (!project || project.commands.length === 0) {
     return done(
-      `项目「${ownerLabel}」未配置质量门禁。\n编辑 config/quality-gate.json 后重试。`,
+      `项目「${ownerLabel}」未配置质量门禁。\n请联系管理员配置后重试。`,
       ["quality-gate: missing config"],
     )
   }

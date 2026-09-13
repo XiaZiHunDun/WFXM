@@ -3,6 +3,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { parseScheduleWorkerConfig } from "../schedule-config.js"
 import { runScheduleTick } from "../schedule-worker.js"
+import { safeOwnerError } from "../safe-owner-error.js"
 
 /**
  * Owner control-surface routes for conversations and the schedule tick.
@@ -40,7 +41,17 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
     const env = process.env
     const config = parseScheduleWorkerConfig(env)
     if (!config.enabled) {
-      return c.json({ ok: false, reason: "BUTLER_V5_SCHEDULE_ENABLED is not set" }, 400)
+      return c.json(
+        {
+          ok: false,
+          reason: safeOwnerError(
+            new Error("config.enabled=false"),
+            "定时任务未启用，请联系管理员配置。",
+            { operation: "schedule-tick", knob: "定时任务开关" },
+          ),
+        },
+        400,
+      )
     }
     if (config.jobs.length === 0) {
       return c.json({ ok: false, reason: "no schedule jobs configured" }, 400)

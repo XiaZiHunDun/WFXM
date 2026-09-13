@@ -143,8 +143,8 @@ function formatProjectListLine(args: {
   readonly tools: string
 }): string {
   const marker = args.active ? "→ " : "  "
-  const pk = args.pkCount === null ? "PK ?" : `PK ${args.pkCount}`
-  return `${marker}${args.item.id}（${args.item.label}）· ${pk} · ${args.tools}`
+  const pk = args.pkCount === null ? "知识库 ?" : `知识库 ${args.pkCount} 条`
+  return `${marker}${args.item.label}（${args.item.id}）· ${pk} · ${args.tools}`
 }
 
 async function buildProjectListReply(args: {
@@ -154,7 +154,10 @@ async function buildProjectListReply(args: {
   readonly mcpBundle?: McpToolBundle
 }): Promise<string> {
   const active = getWechatActiveProjectId(args.fromUserId, args.env)
-  const lines: string[] = [`项目列表（当前：${active}）`]
+  const activeLabel =
+    parseWechatProjectCatalog(args.env).find((item) => item.id === active)?.label ??
+    active
+  const lines: string[] = [`项目列表（当前：${activeLabel}）`]
   for (const item of parseWechatProjectCatalog(args.env)) {
     const pkCount = await pkCountForInbound(args.wiring, item.id, args.env)
     const tools = summarizeWechatToolProfile({
@@ -267,6 +270,17 @@ async function buildOverviewReply(args: ProjectSurfaceArgs): Promise<string> {
   return lines.join("\n")
 }
 
+function prettyCheckName(name: string): string {
+  switch (name) {
+    case "readme":
+      return "说明文档"
+    case "manifest":
+      return "项目描述"
+    default:
+      return name
+  }
+}
+
 async function buildHealthReply(args: {
   readonly fromUserId: string
   readonly env: NodeJS.ProcessEnv
@@ -291,9 +305,9 @@ async function buildHealthReply(args: {
       const abs = resolve(root, rel)
       try {
         readFileSync(abs)
-        checks.push(`✓ ${name}: ${rel}`)
+        checks.push(`✓ ${prettyCheckName(name)}`)
       } catch {
-        checks.push(`✗ ${name} 缺失: ${rel}`)
+        checks.push(`✗ ${prettyCheckName(name)} 缺失`)
       }
     }
   }

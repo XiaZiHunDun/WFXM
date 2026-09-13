@@ -13,6 +13,7 @@
  */
 import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 import { envTruthy } from "./env-util.js"
+import { describeEnvKnob } from "./owner-jargon.js"
 import { sendWechatProactiveNotify } from "./wechat-run-notify.js"
 
 type SweeperType = "candidate_expires" | "auto_promote"
@@ -43,7 +44,7 @@ export function formatCandidateExpiresNotify(input: {
   if (input.expired <= 0) return ""
   return [
     `【候选过期清理】${input.expired} 条候选已自动过期（扫描 ${input.scanned} 条）。`,
-    "查看 /记忆候选，或调整 BUTLER_V5_CANDIDATE_EXPIRES_TTL_MS。",
+    `查看 /记忆候选，或调整 ${describeEnvKnob("BUTLER_V5_CANDIDATE_EXPIRES_TTL_MS")}。`,
   ].join("\n")
 }
 
@@ -54,7 +55,7 @@ export function formatAutoPromoteNotify(input: {
   if (input.promoted <= 0) return ""
   return [
     `【候选自动升级】${input.promoted} 条候选已自动升级为 confirmed（扫描 ${input.scanned} 条）。`,
-    "查看 /记忆，7 天内可 /回滚自动升级。",
+    "查看 /记忆；如有疑问请回复「撤销刚才」。",
   ].join("\n")
 }
 

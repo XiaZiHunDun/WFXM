@@ -149,8 +149,8 @@ function switchProjectReply(args: {
     mcpBundle: args.mcpBundle,
   })
   return [
-    `已切换到项目：${args.projectId}（${label}）`,
-    `知识库：${pkStoreId} · 工具：${tools.label}`,
+    `已切换到项目：${label}`,
+    `工具：${tools.label}`,
     "后续消息使用新会话。发送 /项目概况 或 /状态 查看详情。",
   ].join("\n")
 }

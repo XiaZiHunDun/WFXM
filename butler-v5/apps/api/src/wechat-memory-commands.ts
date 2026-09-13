@@ -7,8 +7,31 @@ import { findSimilarMemories } from "@butler/domain/knowledge/dedup.js"
 import type { DurableMemoryStore } from "@butler/persistence"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
 import { parseDedupConfig } from "./dedup-config.js"
+import { resolveProjectLabel } from "./owner-jargon.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
+
+function shortenReasons(
+  failed: readonly { readonly token: string; readonly reason: string }[],
+): string {
+  // Map a handful of known English reasons to Chinese; fall back to a count
+  // so we never leak raw error text into owner-visible summaries.
+  const counts: Record<string, number> = {}
+  for (const f of failed) {
+    const key =
+      f.reason === "not found"
+        ? "已不存在"
+        : f.reason === "already confirmed"
+          ? "已确认过"
+          : f.reason === "expired"
+            ? "已过期"
+            : "其他原因"
+    counts[key] = (counts[key] ?? 0) + 1
+  }
+  return Object.entries(counts)
+    .map(([k, n]) => `${k} ${n}`)
+    .join("，")
+}
 
 // G2 dedup (D41 T5) — module-scoped env-driven config (mirrors owner-routes T4).
 // Wechat is owner-facing, no force bypass (owner cannot override via wechat —
@@ -107,7 +130,7 @@ export async function formatMemoryCandidatesDigest(
   if (scoped.length === 0) {
     return { text: options?.emptyMessage ?? "暂无 candidate 记忆。", isEmpty: true }
   }
-  const lines = [`候选 ${scoped.length} 条（${active}）：`]
+  const lines = [`候选 ${scoped.length} 条（${resolveProjectLabel(active, env)}）：`]
   for (const item of scoped) {
     lines.push(
       `• ${shortId(item.id)} ${item.content.slice(0, 100)}${item.content.length > 100 ? "…" : ""}`,
@@ -277,10 +300,10 @@ export async function tryWechatMemoryCommand(args: {
     }
 
     const okLine =
-      confirmed.length > 0 ? `已确认 ${confirmed.length} 条：${confirmed.join(", ")}` : null
+      confirmed.length > 0 ? `已确认 ${confirmed.length} 条记忆。` : null
     const failLine =
       failed.length > 0
-        ? `失败 ${failed.length} 条：${failed.map((f) => `${f.token}=${f.reason}`).join(", ")}`
+        ? `${failed.length} 条未确认（${shortenReasons(failed)}）。`
         : null
     const parts = [okLine, failLine].filter((p): p is string => p !== null)
     // 注：tokens.length===0 已在 line 133 early-return，targets/failed 至少一个非空 ⇒ summary 必非空。

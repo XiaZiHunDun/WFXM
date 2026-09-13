@@ -254,10 +254,7 @@ export function formatDevQualityReply(args: {
   }
   const mark = args.verify.ok ? "✓" : "✗"
   const seconds = (args.verify.durationMs / 1000).toFixed(1)
-  lines.push(
-    "",
-    `测试：${mark} ${args.verify.commandLabel} (exit ${args.verify.exitCode}, ${seconds}s)`,
-  )
+  lines.push("", `测试：${mark}（${seconds}s）`)
   if (!args.verify.ok && args.verify.outputExcerpt) {
     lines.push(truncate(args.verify.outputExcerpt, 400))
   }

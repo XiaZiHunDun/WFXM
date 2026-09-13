@@ -1,5 +1,6 @@
 import { createTaskRecord } from "@butler/domain/knowledge/task-procedure.js"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
+import { formatDecision, resolveProjectLabel } from "./owner-jargon.js"
 import { safeOwnerError } from "./safe-owner-error.js"
 import { isTaskRunAsyncEnabled, scheduleBackgroundTaskRun } from "./task-run-background.js"
 import { runTaskGoal } from "./task-run.js"
@@ -66,7 +67,7 @@ export async function formatOpenTasksDigest(
       isEmpty: true,
     }
   }
-  const lines = [`待办（${active}）:`]
+  const lines = [`待办（${resolveProjectLabel(active, env)}）:`]
   for (const item of scoped) {
     lines.push(
       `• ${shortId(item.id)} ${stripProjectPrefix(item.title, active)}${item.goal ? `\n  目标: ${item.goal.slice(0, 80)}` : ""}`,
@@ -181,7 +182,7 @@ export async function tryWechatTaskCommand(args: {
       return {
         reply: [
           `待办 ${shortId(match.id)} 已运行。`,
-          `决策：${result.loop.finalDecision}`,
+          `决策：${formatDecision(result.loop.finalDecision)}`,
           result.loop.reply,
         ].join("\n\n"),
         iterations: result.loop.iterations,

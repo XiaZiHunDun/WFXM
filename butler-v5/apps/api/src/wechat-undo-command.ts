@@ -80,7 +80,7 @@ function restoreAndReply(
 
 function formatChainReply(result: ChainRevertResult): string {
   const lines: string[] = []
-  lines.push(`[撤销轮次 chainId=${result.chainId}]`)
+  lines.push(`【撤销轮次】（共 ${result.reverted.length} 步）`)
   for (const r of result.reverted) {
     const ok = r.ok ? "✅" : "❌"
     const reason = r.ok ? "" : ` (${r.reason ?? "失败"})`
@@ -122,7 +122,7 @@ function formatChainReply(result: ChainRevertResult): string {
   }
   if (result.gitHeadBefore) {
     lines.push("")
-    lines.push(`git起点: ${result.gitHeadBefore}（undo 前 HEAD）`)
+    lines.push("已恢复到撤销前的 git 起点。")
   }
   return lines.join("\n")
 }

@@ -121,7 +121,7 @@ export function formatDevSessionEnabledReply(args: {
   const until = args.expiresAt.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })
   return [
     `✅ 开发模式已开启（至 ${until}）`,
-    `本时段内 run_command / write_file 最多 ${args.maxUses} 次，无需逐条确认。`,
+    `本时段内运行命令 / 写入文件最多 ${args.maxUses} 次，无需逐条确认。`,
     "发送开发任务即可；回复 /状态 查看项目概况。",
   ].join("\n")
 }

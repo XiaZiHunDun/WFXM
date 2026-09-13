@@ -4,6 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
+import { formatRunRef } from "./owner-jargon.js"
 
 export type ChildRunStatus = "queued" | "running" | "succeeded" | "failed"
 
@@ -155,13 +156,13 @@ export function formatProjectStateLines(state: ProjectStateRecord | null): reado
   if (state.lastChildRunId || state.lastChildRunStatus) {
     const role = state.lastChildRunRole ?? "developer"
     const status = childRunStatusLabel(state.lastChildRunStatus)
-    const id = state.lastChildRunId ? `${state.lastChildRunId.slice(0, 8)}…` : "—"
+    const id = state.lastChildRunId ? formatRunRef(state.lastChildRunId) : "—"
     lines.push(`子代理：${role} · ${status} · ${id}`)
     if (state.lastChildRunTask) {
       lines.push(`子代理任务：${state.lastChildRunTask}`)
     }
   }
-  if (state.lastDevRunId) lines.push(`末次开发 Run：${state.lastDevRunId.slice(0, 8)}…`)
+  if (state.lastDevRunId) lines.push(`末次开发：${formatRunRef(state.lastDevRunId)}`)
   if (state.lastVerifyAtMs) {
     const mark = state.lastVerifyOk ? "✓" : "✗"
     const cmd = state.lastVerifyCommand ?? "verify"
