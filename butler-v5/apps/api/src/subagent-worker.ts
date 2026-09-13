@@ -275,15 +275,12 @@ async function runChildLlm(
       const pricing = parseLlmPricing(env)
       const currentModel = resolveCurrentLlmModel(env)
       try {
-        // ConversationLoopLlmTool is structurally a subset of LLMTool
-        // (name required; description + parameters optional on the loop side,
-        // required on the adapter side). The downcast is safe because the
-        // adapter fills any missing description/parameters from its defaults.
-        const opts =
-          tools.length > 0 ? { tools: tools as unknown as readonly LLMTool[] } : undefined
+        // D61 T3: ConversationLoopLlmTool.description/parameters now match
+        // LLMTool structurally (root-cause widening), so no cast is needed.
+        const opts = tools.length > 0 ? { tools } : undefined
         const resp = await Effect.runPromise(
           adapter
-            .complete(msgs as unknown as readonly LLMMessage[], opts)
+            .complete(msgs, opts)
             .pipe(Effect.timeout(LLM_TIMEOUT_MS)),
         )
         // D23: emit llm_call step trace with token usage.

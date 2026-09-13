@@ -49,7 +49,6 @@ export {
   scoreImportance,
   pickDreamPhase,
   pruneLowImportance,
-  buildDreamResult,
 } from "./memory/pure.js"
 
 // ─── Durable Memory（知识层 2，按需）────────────────────

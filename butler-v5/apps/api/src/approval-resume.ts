@@ -242,14 +242,13 @@ const userContent =
         }
       },
       complete: async (msgs, toolsForLlm) => {
-        const llmMessages = msgs as unknown as LLMMessage[]
         const llmStartedAt = Date.now()
         // D24: pricing lookup is best-effort; missing pricing leaves
         // costUsd as null (aligned with the field's "unknown" semantics).
         const pricing = parseLlmPricing(args.env)
         const currentModel = resolveCurrentLlmModel(args.env)
         return Effect.runPromise(
-          adapter.complete(llmMessages, { tools: toolsForLlm as unknown as readonly LLMTool[] }).pipe(
+          adapter.complete(msgs, { tools: toolsForLlm }).pipe(
             Effect.match({
               onFailure: (err) => {
                 // D23: error trace (no usage when the call never reached the model).

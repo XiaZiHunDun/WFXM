@@ -105,8 +105,18 @@ export interface ConversationLoopMessage {
 
 export interface ConversationLoopLlmTool {
   readonly name: string
-  readonly description?: string
-  readonly parameters?: unknown
+  // D61 T3 (audit #2 F-01/02/03 widening): match the required fields of
+  // `LLMTool` so a `readonly ConversationLoopLlmTool[]` is directly
+  // assignable to `readonly LLMTool[]` (no `as unknown as` cast needed).
+  // All callers pass `LLMTool[]` from `llmToolsForCapabilities`, which
+  // already has both fields — the previous optional form was a holdover
+  // from when conversation-loop accepted arbitrary tool shapes.
+  readonly description: string
+  readonly parameters: {
+    readonly type: "object"
+    readonly properties?: Record<string, unknown>
+    readonly required?: readonly string[]
+  }
 }
 
 export interface ConversationLoopResult {

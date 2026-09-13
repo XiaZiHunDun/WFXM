@@ -33,6 +33,17 @@ export interface Capability {
   readonly tool: string & { readonly __brand: "ToolName" }
 }
 
+/**
+ * D61 T3 (audit #2 F-04 widening): constructor for `Capability` that
+ * applies the `ToolName` brand. Use this instead of `({tool: s}) as unknown
+ * as Capability` — the cast hid the fact that callers were skipping the
+ * brand check. Validation (e.g. ALLOWED_CAPABILITIES membership) is left
+ * to callers; this function only asserts the structural shape.
+ */
+export function makeCapability(toolName: string): Capability {
+  return { tool: toolName as Capability["tool"] }
+}
+
 export interface DelegateInput {
   readonly role: string
   readonly task: string

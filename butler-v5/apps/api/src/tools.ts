@@ -7,6 +7,7 @@ import {
   ALLOWED_CAPABILITIES,
   delegate,
   type Capability,
+  makeCapability,
 } from "@butler/runtime/delegate-runtime.js"
 import type { RunResult, ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { writeSubagentAudit } from "./audit-service.js"
@@ -320,9 +321,7 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
     // Branding via ToolDefinition["name"] keeps us type-compatible
     // with Capability["tool"] without re-deriving the branded
     // string elsewhere.
-    const capabilities: Capability[] = effectiveCaps.map(
-      (c) => ({ tool: c }) as unknown as Capability,
-    )
+    const capabilities: Capability[] = effectiveCaps.map((c) => makeCapability(c))
     const outcome = await delegate({
       role,
       task,
@@ -338,9 +337,7 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
       // (legacy / CLI / service-to-service paths).
       ...(ctx.parentAllowedToolNames
         ? {
-            parentAllowlist: ctx.parentAllowedToolNames.map(
-              (n) => ({ tool: n }) as unknown as Capability,
-            ),
+            parentAllowlist: ctx.parentAllowedToolNames.map((n) => makeCapability(n)),
           }
         : {}),
       ...(ctx.wechatUserId ? { subject: ctx.wechatUserId } : {}),

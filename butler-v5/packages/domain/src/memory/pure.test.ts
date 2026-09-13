@@ -3,7 +3,6 @@ import {
   scoreImportance,
   pickDreamPhase,
   pruneLowImportance,
-  buildDreamResult,
   decayScore,
   fuseResults,
   rankByRecency,
@@ -135,16 +134,6 @@ describe("memory/pure", () => {
       ]
       const pruned = pruneLowImportance(records, 0.5)
       expect(pruned).toEqual([])
-    })
-  })
-
-  describe("buildDreamResult", () => {
-    it("constructs a DreamResult with given inputs", () => {
-      const newMemories = [makeRecord({ id: "new-1" as MemoryRecord["id"] })]
-      const result = buildDreamResult("consolidate", newMemories, ["pruned-1"])
-      expect(result.phase).toBe("consolidate")
-      expect(result.newMemories).toBe(newMemories)
-      expect(result.prunedIds).toEqual(["pruned-1"])
     })
   })
 

@@ -121,7 +121,7 @@ export async function createWaitingApprovalStep(
     runId: request.runId,
     kind: "approval",
     status: "waiting",
-    input: pending as unknown as Readonly<Record<string, unknown>>,
+    input: { ...pending },
     createdAt: now,
   })
   await store.appendAuditEvent({

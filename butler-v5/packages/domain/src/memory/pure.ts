@@ -1,7 +1,7 @@
 // domain/memory/pure.ts
 // 记忆域纯函数 — Dream 两阶段记忆巩固评分
 
-import type { MemoryRecord, DreamPhase, DreamResult, RecallEntry, RecallResult } from "./types.js"
+import type { MemoryRecord, DreamPhase, RecallEntry, RecallResult } from "./types.js"
 
 // ─── 记忆重要性评分 ─────────────────────────────────────
 export function scoreImportance(record: MemoryRecord, recencyWeight: number = 0.5): number {
@@ -28,19 +28,6 @@ export function pruneLowImportance(
   minScore: number = 0.2,
 ): readonly MemoryRecord[] {
   return records.filter((r) => scoreImportance(r) >= minScore)
-}
-
-// ─── Dream 结果构建 ─────────────────────────────────────
-export function buildDreamResult(
-  phase: DreamPhase,
-  newMemories: readonly MemoryRecord[],
-  prunedIds: readonly string[],
-): DreamResult {
-  return {
-    newMemories,
-    prunedIds: prunedIds as unknown as DreamResult["prunedIds"],
-    phase,
-  }
 }
 
 // ─── R2.2 召回策略 [spec §5.2] ──────────────────────────
