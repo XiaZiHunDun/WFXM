@@ -45,7 +45,7 @@ import { loadProjectKnowledgeSystemPrefix } from "./project-knowledge-inject.js"
 import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 import { readRecentSubagentAudit } from "./audit-log.js"
 import { evaluateChannelApproval } from "./lib/fatigue/inline-approval-wiring.js"
-import type { AuditLogReader } from "./lib/fatigue/signal.js"
+import type { AuditEventSummary, AuditLogReader } from "./lib/fatigue/signal.js"
 
 /**
  * D64 T3 (audit #9 F-04 cross-channel wiring): bridge from the existing
@@ -61,7 +61,7 @@ import type { AuditLogReader } from "./lib/fatigue/signal.js"
  */
 function subagentAuditAsFatigueReader(env: NodeJS.ProcessEnv): AuditLogReader {
   return {
-    readRecent: async (windowMs: number): Promise<readonly import("./lib/fatigue/signal.js").AuditEventSummary[]> => {
+    readRecent: async (windowMs: number): Promise<readonly AuditEventSummary[]> => {
       const limit = Math.min(50, Math.max(1, Math.ceil(windowMs / 1000)))
       const rows = readRecentSubagentAudit(limit, env)
       return rows
