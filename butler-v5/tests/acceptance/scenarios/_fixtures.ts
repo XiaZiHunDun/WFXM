@@ -608,6 +608,50 @@ export const scenariosC: readonly Scenario[] = [
     },
     expect: { finalDecision: "Respond", minToolCalls: 1, replyPattern: /summary|assistant|WeChat/i },
   },
+  // D64 T5 (audit #9 F-01 acceptance): F1-fatigue — owner 60s 内连续 y 4 个
+  // normal tool，第 4 个走 fatigue policy.cooldown 分支。验收链：每 turn
+  // write_file → WaitForApproval → 下一 turn "y" 触发 inline-approval resume
+  // → tool execute → fatigue policy 检查 → 第 4 个在 count≥3 时返回 cooldown
+  // (3s sleep inline, 不返回 reply 字符串)。
+  //
+  // 注: 当前 acceptance harness 用 subagent audit log 作 fatigue reader
+  // (wechat-inbound-butler.ts:62-78); 现有 harness 不写 subagent audit
+  // events → count 恒为 0 → fatigue 走 allow, cooldown 实际不触发。本场景
+  // 锁端到端 flow 不断 (4 个 owner approval 都成功, 4 个 write_file 都执行),
+  // 真实 cooldown 验证在 D64 T4 replay API + audit-event.test.ts (不在
+  // acceptance harness scope)。
+  {
+    id: "F1-fatigue",
+    category: "C-edge",
+    title: "F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 fatigue cooldown 分支",
+    input: "改 foo.ts 加 log",
+    fixtures: {
+      plan: writeForApproval("foo.ts", "// added log\n"),
+    },
+    expect: {
+      finalDecision: "WaitForApproval",
+      requireApproval: true,
+      minToolCalls: 4, // 4 个 write_file 都真执行 (含 4 个 resume 后)
+    },
+    followUps: [
+      { content: "y" },          // approve 1 → tool execute
+      { content: "改 bar.ts" },  // write 2 → WaitForApproval
+      { content: "y" },          // approve 2 → tool execute
+      { content: "改 baz.ts" },  // write 3 → WaitForApproval
+      { content: "y" },          // approve 3 → tool execute
+      { content: "改 qux.ts" },  // write 4 → WaitForApproval
+      { content: "y" },          // approve 4 → fatigue.cooldown 路径 (3s sleep inline)
+    ],
+    followUpPatterns: [
+      /^[^没有]/, // approve 1 成功
+      /^[^没有]/, // write 2 触发 WaitForApproval
+      /^[^没有]/, // approve 2 成功
+      /^[^没有]/, // write 3 触发 WaitForApproval
+      /^[^没有]/, // approve 3 成功
+      /^[^没有]/, // write 4 触发 WaitForApproval
+      /^[^没有]/, // approve 4 成功 (cooldown 是 silent sleep, reply 仍返回 tool output)
+    ],
+  },
 ]
 
 // ============================================================================
