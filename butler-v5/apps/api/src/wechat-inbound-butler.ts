@@ -43,6 +43,47 @@ import { tryWechatInlineApproval } from "./wechat-inline-approval.js"
 import { loadDurableMemorySystemPrefix } from "./durable-memory-inject.js"
 import { loadProjectKnowledgeSystemPrefix } from "./project-knowledge-inject.js"
 import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
+import { readRecentSubagentAudit } from "./audit-log.js"
+import { evaluateChannelApproval } from "./lib/fatigue/inline-approval-wiring.js"
+import type { AuditLogReader } from "./lib/fatigue/signal.js"
+
+/**
+ * D64 T3 (audit #9 F-04 cross-channel wiring): bridge from the existing
+ * subagent JSONL audit log (audit-log.ts) to the `AuditLogReader` shape
+ * the fatigue module expects. The subagent log has no `decision` field,
+ * so we default to `"allow"` — pre-D64 events are uniformly allow-shaped
+ * (no checklist/cooldown decisions were emitted before T3 shipped).
+ *
+ * GAP (D64 follow-up): once the runtime audit_events table gains a
+ * dedicated read method (`listRecentAuditEvents`), swap this adapter for
+ * a query over `audit_events` so fatigue mitigation observes decisions
+ * across all entry points, not just subagent delegations.
+ */
+function subagentAuditAsFatigueReader(env: NodeJS.ProcessEnv): AuditLogReader {
+  return {
+    readRecent: async (windowMs: number): Promise<readonly import("./lib/fatigue/signal.js").AuditEventSummary[]> => {
+      const limit = Math.min(50, Math.max(1, Math.ceil(windowMs / 1000)))
+      const rows = readRecentSubagentAudit(limit, env)
+      return rows
+        .filter((r) => typeof r.toolName === "string" && r.toolName.length > 0)
+        .map((r) => ({
+          event_id: `${r.parentConversationId}:${r.ts}`,
+          tool_name: r.toolName as string,
+          actor: r.ownerSubject ?? r.role,
+          ts: Date.parse(r.ts) || 0,
+          decision: "allow" as const,
+        }))
+    },
+  }
+}
+
+/** D64 T3: channel context derived from projectId at the runButlerLoop
+ *  chokepoint. projectId="cli" → cli; otherwise wechat/telegram depending
+ *  on caller — channel-inbound.ts sets channelId="telegram" via projectId. */
+function projectIdToChannel(projectId: string): "wechat" | "telegram" | "cli" {
+  if (projectId === "cli") return "cli"
+  return "wechat"
+}
 
 /**
  * Logger surface for the butler loop. Mirrors the LLMReplyLogger
@@ -529,6 +570,43 @@ async function runButlerLoopBody(args: {
         )
       },
       executeTool: async (def, toolArgs) => {
+        // D64 T3 (audit #9 F-04 cross-channel wiring): invoke approval
+        // fatigue mitigation BEFORE tool execution. Single chokepoint
+        // serves all 3 channels (wechat direct + telegram via
+        // channel-inbound.ts + cli via cli-run.ts) since they all flow
+        // through runButlerLoop. Decision is dispatched by `def.name` and
+        // `toolArgs`, which are only known at tool-execution time —
+        // channel intake has no tool selection yet.
+        //
+        // Cooldown: sleep inline (no channel-specific reply path here;
+        // chokepoint is shared). Checklist: surface to owner via
+        // RunPauseForApproval so the existing approval-resume flow
+        // carries the prompt back to whichever channel owns the
+        // conversation. Allow: proceed as before.
+        const fatigue = await evaluateChannelApproval(
+          String(def.name),
+          toolArgs as Readonly<Record<string, unknown>>,
+          subagentAuditAsFatigueReader(env),
+          {
+            channel: projectIdToChannel(args.projectId),
+            actor: resolveOwnerSubject(env, args.fromUserId),
+            correlationId: args.runId,
+          },
+        )
+        if (fatigue.decision.action === "cooldown") {
+          const cooldownMs = fatigue.decision.duration_ms
+          await new Promise<void>((resolve) => setTimeout(resolve, cooldownMs))
+        } else if (fatigue.decision.action === "checklist") {
+          throw new RunPauseForApproval({
+            reply: fatigue.renderPrompt(),
+            iterations: 0,
+            toolCalls: 0,
+            finalDecision: "WaitForApproval" as ModelDecision["_tag"],
+            traces: [
+              `fatigue checklist ${String(def.name)} items=${fatigue.decision.items.length}`,
+            ],
+          } satisfies ButlerLoopResult)
+        }
         const outcome = await toolExecutor.execute(def, toolArgs)
         if (isPendingApprovalOutcome(outcome)) {
           throw new RunPauseForApproval({

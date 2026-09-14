@@ -29,6 +29,15 @@ export interface ChannelInboundResult {
 export async function handleChannelInbound(
   input: ChannelInboundInput,
 ): Promise<ChannelInboundResult> {
+  // D64 T3 (audit #9 F-04 cross-channel wiring): telegram inbound
+  // inherits approval-fatigue mitigation wired inside `runButlerLoop`,
+  // dispatched as `channel: "telegram"` by channelId. Channel-specific
+  // prompt rendering is the caller's responsibility — this entry point
+  // does not call evaluateChannelApproval directly because tool name
+  // and args are only known at tool-execution time (inside the loop),
+  // not at intake. The fatigue decision lands as either an inline
+  // cooldown sleep or a RunPauseForApproval surfaced back to telegram
+  // via the existing approval-resume flow.
   const allowlist = parseAllowedChannelIds(process.env)
   const channelId = input.channelId.trim()
   if (!isChannelAllowed(channelId, allowlist)) {

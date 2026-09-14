@@ -3,6 +3,17 @@ import { runButlerLoop, type ButlerLoopResult } from "./wechat-inbound-butler.js
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import type { Wiring } from "./wiring.js"
 
+/**
+ * D64 T3 (audit #9 F-04 cross-channel wiring): CLI inbound inherits the
+ * approval-fatigue mitigation wired inside `runButlerLoop` (which
+ * dispatches `channel: "cli"` when projectId="cli"). Cooldown is applied
+ * inline (CLI is interactive, owner sees logs); checklist prompts
+ * surface via the existing RunPauseForApproval flow.
+ *
+ * This file is intentionally a thin shim — wiring is centralized at the
+ * `runButlerLoop` chokepoint so wechat / telegram / cli all share the
+ * same fatigue policy without per-channel drift.
+ */
 export function defaultCliConversationId(subject: string, goal: string): string {
   const slug = Buffer.from(goal, "utf8").toString("base64url").slice(0, 16)
   return `cli-${subject}-${slug}`
