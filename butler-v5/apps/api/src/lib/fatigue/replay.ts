@@ -34,34 +34,37 @@ function groupIntoSequences(events: readonly AuditEventSummary[]): readonly Fati
   if (events.length === 0) return []
   const sorted = [...events].sort((a, b) => a.ts - b.ts)
   const sequences: FatigueSequence[] = []
-  let currentGroup: AuditEventSummary[] = [sorted[0]!]
+  let currentGroup: AuditEventSummary[] = [sorted[0] as AuditEventSummary]
 
   for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i]!.ts - sorted[i - 1]!.ts > SEQUENCE_GAP_MS) {
-      if (currentGroup.length >= DEFAULT_COUNT_THRESHOLD) {
-        sequences.push({
-          start_ts: currentGroup[0]!.ts,
-          end_ts: currentGroup[currentGroup.length - 1]!.ts,
-          count: currentGroup.length,
-          event_ids: currentGroup.map(e => e.event_id),
-        })
-      }
-      currentGroup = [sorted[i]!]
+    const current = sorted[i] as AuditEventSummary
+    const previous = sorted[i - 1] as AuditEventSummary
+    if (current.ts - previous.ts > SEQUENCE_GAP_MS) {
+      pushIfSequence(sequences, currentGroup)
+      currentGroup = [current]
     } else {
-      currentGroup.push(sorted[i]!)
+      currentGroup.push(current)
     }
   }
   // tail group
-  if (currentGroup.length >= DEFAULT_COUNT_THRESHOLD) {
-    sequences.push({
-      start_ts: currentGroup[0]!.ts,
-      end_ts: currentGroup[currentGroup.length - 1]!.ts,
-      count: currentGroup.length,
-      event_ids: currentGroup.map(e => e.event_id),
-    })
-  }
+  pushIfSequence(sequences, currentGroup)
   // sort DESC by start_ts
   return sequences.sort((a, b) => b.start_ts - a.start_ts)
+}
+
+function pushIfSequence(
+  sequences: FatigueSequence[],
+  group: readonly AuditEventSummary[],
+): void {
+  if (group.length < DEFAULT_COUNT_THRESHOLD) return
+  const first = group[0] as AuditEventSummary
+  const last = group[group.length - 1] as AuditEventSummary
+  sequences.push({
+    start_ts: first.ts,
+    end_ts: last.ts,
+    count: group.length,
+    event_ids: group.map(e => e.event_id),
+  })
 }
 
 export async function listFatigueSequences(
@@ -87,7 +90,7 @@ export async function replayFatigueSequence(
   const byId = new Map(events.map(e => [e.event_id, e]))
   const replayed: string[] = []
   const irreversible: string[] = []
-  const failed: Array<{ event_id: string; reason: string }> = []
+  const failed: { event_id: string; reason: string }[] = []
 
   for (const eventId of sequenceEventIds) {
     const event = byId.get(eventId)

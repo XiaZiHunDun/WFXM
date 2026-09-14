@@ -4,13 +4,13 @@ import type { AuditLogReader, AuditEventSummary } from "./signal"
 
 const now = Date.now()
 function makeReader(
-  events: Array<{
+  events: {
     event_id: string
     tool_name: string
     actor: string
     ts: number
     decision: 'allow'
-  }>,
+  }[],
 ): AuditLogReader {
   return {
     readRecent: vi.fn(async (): Promise<readonly AuditEventSummary[]> => events),
@@ -42,7 +42,8 @@ describe("listFatigueSequences", () => {
     expect(result.sequences[0]?.count).toBe(5) // most recent
     expect(result.sequences[1]?.count).toBe(3)
     // DESC by start_ts
-    expect(result.sequences[0]!.start_ts).toBeGreaterThan(result.sequences[1]!.start_ts)
+    const [first, second] = result.sequences
+    expect(first?.start_ts).toBeGreaterThan(second?.start_ts as number)
   })
 })
 
