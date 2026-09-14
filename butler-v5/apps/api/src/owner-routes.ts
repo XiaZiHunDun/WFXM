@@ -8,6 +8,7 @@ import { registerProjectKnowledgeRoutes } from "./owner-routes/project-knowledge
 import { registerTracesProceduresTasksRoutes } from "./owner-routes/traces-procedures-tasks.js"
 import { registerUsageRoutes } from "./owner-routes/usage.js"
 import { registerMcpRoutes } from "./owner-routes/mcp.js"
+import { registerAuditFatigueRoutes } from "./owner-routes/audit-fatigue.js"
 
 /**
  * Owner control-surface routes — aggregation entry.
@@ -23,4 +24,5 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   registerTracesProceduresTasksRoutes(app, wiring)
   registerUsageRoutes(app, wiring)
   registerMcpRoutes(app, wiring)
+  registerAuditFatigueRoutes(app, wiring)
 }
