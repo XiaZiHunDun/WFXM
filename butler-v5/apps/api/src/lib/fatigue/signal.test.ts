@@ -1,8 +1,8 @@
 import { describe, test, expect, vi } from "vitest"
 import { computeFatigueSignal, DEFAULT_WINDOW_SECONDS, DEFAULT_COUNT_THRESHOLD } from "./signal"
-import type { AuditLogReader } from "./signal"
+import type { AuditLogReader, AuditEventSummary } from "./signal"
 
-function makeReader(events: Array<{ event_id: string; tool_name: string; ts: number; decision: 'allow' | 'deny' }>): AuditLogReader {
+function makeReader(events: ReadonlyArray<AuditEventSummary>): AuditLogReader {
   return {
     readRecent: vi.fn(async (windowMs: number) => {
       const cutoff = Date.now() - windowMs
