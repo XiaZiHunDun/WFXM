@@ -701,7 +701,7 @@ export const scenariosC: readonly Scenario[] = [
   // replay 时的行为: butler 不崩, reply 明确指向 HTTP 控制面 + sequences/degraded
   // 语义 (replay API 是 owner 控制面, 不是 butler tool)。
   // 真实 replay 验证在 unit (replay-api.test.ts R1-R4: listFatigueSequences
-  // + replayFatigueSequence + cross-actor reject + isReplayBody validation),
+  // + replayFatigueSequence + cross-actor reject),
   // 不在 acceptance harness scope。
   {
     id: "F3-replay",
