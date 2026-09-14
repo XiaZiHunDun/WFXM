@@ -688,6 +688,40 @@ export const scenariosC: readonly Scenario[] = [
     ],
     followUpPatterns: [/没有待审批/],
   },
+  // D64 T5 (audit #9 F-03 acceptance): F3-replay — owner 询问 replay API
+  // 控制面 (GET/POST /v1/owner/audit/fatigue)。验收链：reader 走
+  // readRecentSubagentAudit (audit-fatigue.ts:ownerAuditReader) — 当前
+  // acceptance harness 不写 subagent audit events → sequences=[] + degraded=true
+  // (replay.ts:listFatigueSequences try/catch 兜底)；POST /replay 收到
+  // 任何 sequence_event_ids 都会失败 (failed[].reason="event not found in
+  // 24h window")。
+  //
+  // 注: acceptance harness 走 /v1/wechat/inbound butler loop, 不经 HTTP routing,
+  // 不能直接调 /v1/owner/audit/fatigue。本场景锁 owner 在 chat surface 询问
+  // replay 时的行为: butler 不崩, reply 明确指向 HTTP 控制面 + sequences/degraded
+  // 语义 (replay API 是 owner 控制面, 不是 butler tool)。
+  // 真实 replay 验证在 unit (replay-api.test.ts R1-R4: listFatigueSequences
+  // + replayFatigueSequence + cross-actor reject + isReplayBody validation),
+  // 不在 acceptance harness scope。
+  {
+    id: "F3-replay",
+    category: "C-edge",
+    title: "F3 owner 询问 replay API, butler chat surface 不直连, 提示走 HTTP 控制面",
+    input: "我刚做的几次操作，能查 replay API 撤销吗？",
+    fixtures: {
+      plan: [
+        text(
+          "replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 audit log reader 在 harness 不写 subagent events → sequences 为空（degraded=true）。请用 HTTP 客户端调。",
+        ),
+      ],
+    },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0, // chat surface 不调 audit API, 无 tool execution
+      // reply 必须解释 HTTP 控制面 + 暴露 harness 限制 (degraded/sequences 空)
+      containsAll: ["HTTP", "audit/fatigue", "degraded"],
+    },
+  },
 ]
 
 // ============================================================================

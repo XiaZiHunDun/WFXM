@@ -4,11 +4,11 @@
 
 ## 总览
 
-- 场景数：42
-- 通过：42 / 失败：0
+- 场景数：44
+- 通过：44 / 失败：0
 - 触发 approval：14 次
 - 工具调用总数：39
-- reply 字符总数：5220
+- reply 字符总数：5399
 
 ## 按类别汇总
 
@@ -43,7 +43,7 @@
 | B9 | owner 应该关心什么 | 0 | 0 | ✅ |
 | B10 | 1 周 focus | 0 | 0 | ✅ |
 
-### C-edge（11 场景，11 通过）
+### C-edge（13 场景，13 通过）
 
 | ID | 标题 | 工具 | 审批 | 状态 |
 |---|---|---|---|---|
@@ -58,6 +58,8 @@
 | C9 | 撤销刚才 | 0 | 0 | ✅ |
 | C10 | 多语言混合 | 1 | 0 | ✅ |
 | F1-fatigue | F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 fatigue cooldown 分支 | 8 | 4 | ✅ |
+| F2-sensitive | F2 sensitive tool (send_wechat_file) 触发 checklist 拦截，owner 确认后无 pending step | 0 | 0 | ✅ |
+| F3-replay | F3 owner 询问 replay API, butler chat surface 不直连, 提示走 HTTP 控制面 | 0 | 0 | ✅ |
 
 ### D-combo（10 场景，10 通过）
 
@@ -495,7 +497,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-zXQLOD/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-fXMGIf/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -583,6 +585,18 @@ wrote foo.ts (13 chars)
 
 _decision=Respond | toolCalls=1 | replyLen=31_
 
+### F2-sensitive — F2 sensitive tool (send_wechat_file) 触发 checklist 拦截，owner 确认后无 pending step（C-edge）
+
+### F3-replay — F3 owner 询问 replay API, butler chat surface 不直连, 提示走 HTTP 控制面（C-edge）
+
+**turn 1**
+
+> in: 我刚做的几次操作，能查 replay API 撤销吗？
+
+< replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 audit log reader 在 harness 不写 subagent events → sequences 为空（degraded=true）。请用 HTTP 客户端调。
+
+_decision=Respond | toolCalls=0 | replyLen=179_
+
 ### D1 — 写 + 跑 test + 失败 + 修 + 再跑（D-combo）
 
 **turn 1**
@@ -639,8 +653,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-zXQLOD/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-zXQLOD/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-fXMGIf/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-fXMGIf/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
