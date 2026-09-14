@@ -23,11 +23,15 @@ const SEQUENCE_GAP_MS = 10_000 // 10s gap = new sequence
 const IRREVERSIBLE_TOOLS = ['send_*', 'broadcast_*', 'external_write', 'run_command']
 const REPLAY_WINDOW_HOURS = 24
 
+// Precompile irreversible patterns once (regex metachars + glob * → .*)
+// Matches checklist.ts:globToRegex so sibling files share one escape strategy.
+const IRREVERSIBLE_PATTERNS = IRREVERSIBLE_TOOLS.map(pattern => {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
+  return new RegExp('^' + escaped + '$')
+})
+
 function isIrreversible(toolName: string): boolean {
-  return IRREVERSIBLE_TOOLS.some(pattern => {
-    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$')
-    return regex.test(toolName)
-  })
+  return IRREVERSIBLE_PATTERNS.some(regex => regex.test(toolName))
 }
 
 function groupIntoSequences(events: readonly AuditEventSummary[]): readonly FatigueSequence[] {

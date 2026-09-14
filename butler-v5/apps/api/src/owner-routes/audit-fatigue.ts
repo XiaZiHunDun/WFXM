@@ -39,7 +39,10 @@ import type { AuditEventSummary, AuditLogReader } from "../lib/fatigue/signal.js
  * boundary instead of a sentinel match.
  */
 
-const OWNER_ACTOR = "owner"
+// TODO(D65+): replace with session lookup when bearer auth lands
+function currentOwnerActor(): string {
+  return "owner"
+}
 
 function ownerAuditReader(): AuditLogReader {
   return {
@@ -63,10 +66,13 @@ interface ReplayBody {
   readonly sequence_event_ids: readonly string[]
 }
 
+const MAX_REPLAY_BATCH = 1000
+
 function isReplayBody(value: unknown): value is ReplayBody {
   if (!value || typeof value !== "object") return false
   const v = value as { sequence_event_ids?: unknown }
   if (!Array.isArray(v.sequence_event_ids)) return false
+  if (v.sequence_event_ids.length === 0 || v.sequence_event_ids.length > MAX_REPLAY_BATCH) return false
   return v.sequence_event_ids.every((id) => typeof id === "string" && id.length > 0)
 }
 
@@ -76,7 +82,7 @@ export function registerAuditFatigueRoutes(app: Hono, _wiring: Wiring): void {
     const windowRaw = Number(c.req.query("window_seconds") ?? "60")
     const windowSeconds = Number.isFinite(windowRaw) && windowRaw > 0 ? Math.floor(windowRaw) : 60
     const reader = ownerAuditReader()
-    const result = await listFatigueSequences(reader, OWNER_ACTOR, windowSeconds)
+    const result = await listFatigueSequences(reader, currentOwnerActor(), windowSeconds)
     return c.json(result)
   })
 
@@ -84,11 +90,11 @@ export function registerAuditFatigueRoutes(app: Hono, _wiring: Wiring): void {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const raw: unknown = await c.req.json().catch(() => null)
     if (!isReplayBody(raw)) {
-      return c.json({ error: "invalid body: expected { sequence_event_ids: string[] }" }, 400)
+      return c.json({ error: `invalid body: expected { sequence_event_ids: string[] } (1-${MAX_REPLAY_BATCH} ids)` }, 400)
     }
     const reader = ownerAuditReader()
     try {
-      const result = await replayFatigueSequence(reader, raw.sequence_event_ids, OWNER_ACTOR)
+      const result = await replayFatigueSequence(reader, raw.sequence_event_ids, currentOwnerActor())
       return c.json(result)
     } catch (err) {
       if (err instanceof Error && err.message.includes("cross-actor")) {
