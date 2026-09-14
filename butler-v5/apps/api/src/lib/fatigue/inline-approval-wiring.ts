@@ -5,7 +5,7 @@ import type { AuditLogReader } from "./signal"
 export interface ChannelContext {
   readonly channel: 'wechat' | 'telegram' | 'cli'
   readonly actor: string
-  readonly correlation_id: string
+  readonly correlationId: string
 }
 
 export interface WiringResult {
@@ -40,6 +40,8 @@ export async function evaluateChannelApproval(
           '此操作 [' + toolName + '] 不可撤销，请确认：',
           ...decision.items.map((item, i) => `${i + 1}. ${item}`),
         ].join('\n')
+      default:
+        throw new Error(`unhandled PolicyDecision action: ${(decision as { action: string }).action}`)
     }
   }
 
