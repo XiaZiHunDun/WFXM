@@ -1,5 +1,6 @@
 import { describe, test, expect, vi } from "vitest"
 import { evaluateChannelApproval } from "./inline-approval-wiring"
+import { projectIdToChannel } from "../../wechat-inbound-butler"
 import type { AuditLogReader, AuditEventSummary } from "./signal"
 
 function makeReader(count: number): AuditLogReader {
@@ -50,5 +51,23 @@ describe("cross-channel approval wiring", () => {
     expect(result.decision.action).toBe("cooldown")
     if (result.decision.action !== "cooldown") throw new Error("expected cooldown")
     expect(result.decision.duration_ms).toBe(3000)
+  })
+})
+
+describe("projectIdToChannel", () => {
+  test("cli projectId → 'cli'", () => {
+    expect(projectIdToChannel("cli")).toBe("cli")
+  })
+  test("channel:telegram projectId → 'telegram'", () => {
+    expect(projectIdToChannel("channel:telegram")).toBe("telegram")
+  })
+  test("channel:telegram:foo projectId → 'telegram'", () => {
+    expect(projectIdToChannel("channel:telegram:foo")).toBe("telegram")
+  })
+  test("project:foo projectId → 'wechat'", () => {
+    expect(projectIdToChannel("project:foo")).toBe("wechat")
+  })
+  test("unknown projectId → 'wechat' (default)", () => {
+    expect(projectIdToChannel("unknown")).toBe("wechat")
   })
 })

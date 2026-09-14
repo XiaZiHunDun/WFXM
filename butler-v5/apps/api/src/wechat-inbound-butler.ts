@@ -78,10 +78,12 @@ function subagentAuditAsFatigueReader(env: NodeJS.ProcessEnv): AuditLogReader {
 }
 
 /** D64 T3: channel context derived from projectId at the runButlerLoop
- *  chokepoint. projectId="cli" → cli; otherwise wechat/telegram depending
- *  on caller — channel-inbound.ts sets channelId="telegram" via projectId. */
-function projectIdToChannel(projectId: string): "wechat" | "telegram" | "cli" {
+ *  chokepoint. projectId="cli" → cli; "channel:telegram*" (set by
+ *  normalize-inbound.ts:130 in the runtime) → telegram; everything
+ *  else is wechat. Exported for testability. */
+export function projectIdToChannel(projectId: string): "wechat" | "telegram" | "cli" {
   if (projectId === "cli") return "cli"
+  if (projectId.startsWith("channel:telegram")) return "telegram"
   return "wechat"
 }
 
