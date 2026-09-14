@@ -390,7 +390,17 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 > - Integration: `cross-channel.test.ts` X1/X2/X3（cooldown path with mocked reader）
 >
 > 真 cooldown 验证在 acceptance 层需要 D65+：`audit_events` table 加 `listRecentAuditEvents` read method 后，subagent log reader 替换 + harness 支持写 audit events。 |
-| **F2-sensitive** | owner 触发 send_email → checklist prompt → owner 勾完 → proceed → audit_event.checklist_required=true |
+| **F2-sensitive** | owner 触发 sensitive tool → checklist intercept + reply 「不可撤销」+ 工具名 | 4 approval + 1 tool call 在 WaitForApproval 拦截 |
+
+> **Note (gap documented):** F2 acceptance verifies checklist intercept + reply content
+> (「不可撤销」+ 工具名). 但 acceptance harness 同样受限：checklist path 不在
+> runtimeStore.createStep (只 throw payload) → owner 后「确认」找不到 pending step
+> → reply「没有待审批的操作」(这是 F2 的 followUpPatterns: /没有待审批/ 显式断言的)。
+> 真实 checklist-on-resume + audit_event.checklist_required=true 在 unit + integration 验证：
+> - Unit: `policy.test.ts` F8 (high-sensitivity low-signal → checklist)
+> - Integration: `cross-channel.test.ts` X1/X2 (wechat + telegram 高敏感高信号 → checklist)
+>
+> 真 checklist-on-resume 验证在 acceptance 层需要 D64+：checklist path 需要 `runtimeStore.createStep` 支持，让 owner ack 能 resume 到 checklist 等待。 |
 | **F3-replay** | owner 触发 4 个连续 approve → GET /v1/owner/audit/fatigue 返回 1 个 sequence → owner POST replay → reversible 已 undo, irreversible 在 reply 列表说明 |
 
 ### 5.5 不破现有 regression
