@@ -401,7 +401,13 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 > - Integration: `cross-channel.test.ts` X1/X2 (wechat + telegram 高敏感高信号 → checklist)
 >
 > 真 checklist-on-resume 验证在 acceptance 层需要 D64+：checklist path 需要 `runtimeStore.createStep` 支持，让 owner ack 能 resume 到 checklist 等待。 |
-| **F3-replay** | owner 触发 4 个连续 approve → GET /v1/owner/audit/fatigue 返回 1 个 sequence → owner POST replay → reversible 已 undo, irreversible 在 reply 列表说明 |
+| **F3-replay** | owner 询问 replay API，butler chat surface 不直连, 提示走 HTTP 控制面 | reply 含 HTTP / audit/fatigue / degraded |
+
+> **Note (gap documented):** F3 acceptance verifies owner 在 chat surface 询问 replay 时 butler 不崩, reply 明确指向 HTTP 控制面（`/v1/owner/audit/fatigue`）+ 暴露 harness 限制（sequences 空 + degraded=true）。但 acceptance harness 走 `/v1/wechat/inbound` butler loop, 不经 HTTP routing, 不能直接调 `/v1/owner/audit/fatigue` list/replay。
+> 真实 replay 验证在 unit 层：
+> - `replay-api.test.ts` R1-R4: `listFatigueSequences`（empty / 2-seq）+ `replayFatigueSequence`（mixed reversible + irreversible / cross-actor reject）
+>
+> 不在 acceptance harness scope。真 acceptance-level replay E2E 需要 D65+：harness 支持写 subagent audit events + chat surface 接 HTTP routing 跳转。 |
 
 ### 5.5 不破现有 regression
 
@@ -413,7 +419,7 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 
 ### 5.6 验收指标
 
-- 全 new tests pass (14 unit + 3 integration + 4 API + 3 acceptance = ~24 new)
+- 全 new tests pass (14 unit + 3 integration + 4 API + 3 acceptance = ~24 new; 3 acceptance all gap-documented per §5.4 Notes — flow smoke / 探针 / chat-side surface)
 - 全 41/41 realistic pass (no regression) → 期望 44/44
 - 全 test baseline +24 new pass
 - 0 lint error
