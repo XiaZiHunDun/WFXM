@@ -7,10 +7,10 @@
  * - 多 turn 时 fixtures 按 LLM 调用顺序消耗；counter 在 setFixtures 时重置
  * - 写文件触发 `WaitForApproval`；owner 后续「确认」走 inline approval
  *
- * 4 类共 41 场景：
+ * 4 类共 42 场景：
  * A. 真实开发任务（具体可执行）— 11（含 A11-session-digest-idle-return）
  * B. 开放性任务（探索型）— 10
- * C. 边界 / 失败模式 — 10
+ * C. 边界 / 失败模式 — 12（含 F1-fatigue / F2-sensitive，D64 T5）
  * D. 跨场景组合 — 10（5 基础 + 5 chain-undo，D52 acceptance harness extension）
  */
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
@@ -651,6 +651,42 @@ export const scenariosC: readonly Scenario[] = [
       /^[^没有]/, // write 4 触发 WaitForApproval
       /^[^没有]/, // approve 4 成功 (cooldown 是 silent sleep, reply 仍返回 tool output)
     ],
+  },
+  // D64 T5 (audit #9 F-02 acceptance): F2-sensitive — owner 触发 sensitive
+  // tool (send_wechat_file 匹配 send_*) 走 fatigue checklist 分支。验收链：
+  // owner 请求 → LLM emit send_wechat_file tool_call → executeTool
+  // → evaluateChannelApproval → matchSensitivity("send_wechat_file") → high
+  // → signal.count=0 (acceptance harness 不写 subagent audit events, count
+  // 恒 0, 但 reader 不抛, signal.degraded=undefined) → isHighSignal=false
+  // → checklist decision。RunPauseForApproval throws with reply =
+  // fatigue.renderPrompt() (含「不可撤销」+ checklist items) and
+  // finalDecision: "WaitForApproval"。
+  //
+  // 与 F1-fatigue gap 不同：本路径不依赖 subagent audit log reader count，
+  // sensitivity match + count=0 → 立即 checklist（不需 cooldown 先 round）。
+  // 但：checklist path 不在 runtimeStore.createStep（只 throw payload）→
+  // owner 后 "确认" 找不到 pending step → 回复 "当前对话没有待审批的操作"。
+  // 真实 checklist-on-resume verification 在 unit (policy.test.ts F8) +
+  // cross-channel.test.ts (X 系列)，不在 acceptance harness scope。
+  {
+    id: "F2-sensitive",
+    category: "C-edge",
+    title: "F2 sensitive tool (send_wechat_file) 触发 checklist 拦截，owner 确认后无 pending step",
+    input: "把 README.md 发到我微信",
+    fixtures: {
+      plan: [tool("send_wechat_file", { path: "README.md" })],
+    },
+    expect: {
+      finalDecision: "WaitForApproval",
+      requireApproval: true,
+      minToolCalls: 1,
+      // checklist 拦截后 reply = renderPrompt() 输出, 必含「不可撤销」+ 工具名
+      containsAll: ["不可撤销", "send_wechat_file"],
+    },
+    followUps: [
+      { content: "确认" }, // checklist path 不 createStep → 「没有待审批」reply
+    ],
+    followUpPatterns: [/没有待审批/],
   },
 ]
 
