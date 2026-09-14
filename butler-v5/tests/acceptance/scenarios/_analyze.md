@@ -497,7 +497,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-fXMGIf/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-nOHEBb/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -653,8 +653,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-fXMGIf/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-fXMGIf/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-nOHEBb/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-nOHEBb/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
