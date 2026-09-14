@@ -7,7 +7,7 @@ export const DEFAULT_COOLDOWN_MS = 3000
 export type PolicyDecision =
   | { readonly action: 'allow' }
   | { readonly action: 'cooldown'; readonly duration_ms: number; readonly signal: FatigueSignal }
-  | { readonly action: 'checklist'; readonly items: ReadonlyArray<string>; readonly signal: FatigueSignal }
+  | { readonly action: 'checklist'; readonly items: readonly string[]; readonly signal: FatigueSignal }
 
 export interface ToolCall {
   readonly tool_name: string

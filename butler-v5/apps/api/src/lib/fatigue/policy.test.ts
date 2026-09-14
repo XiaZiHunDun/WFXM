@@ -1,8 +1,6 @@
 import { describe, test, expect, vi } from "vitest"
 import { evaluateInlineApproval, DEFAULT_COOLDOWN_MS } from "./policy"
-import type { AuditLogReader, FatigueSignal, AuditEventSummary } from "./signal"
-import { computeFatigueSignal } from "./signal"
-import { matchSensitivity } from "./checklist"
+import type { AuditLogReader, AuditEventSummary } from "./signal"
 
 function readerWithCount(count: number, degraded = false): AuditLogReader {
   return {
