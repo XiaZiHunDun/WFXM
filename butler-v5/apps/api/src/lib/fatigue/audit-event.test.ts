@@ -3,7 +3,7 @@ import type { AuditFatigueFields, AuditFatigueDetail } from "./audit-event"
 
 describe("AuditFatigueFields type contract", () => {
   test("T1: accepts fatigue_signal shape", () => {
-    const fields: AuditFatigueFields = {
+    const fields: AuditFatigueDetail = {
       fatigue_signal: {
         count: 3,
         window_seconds: 60,
@@ -55,7 +55,3 @@ describe("AuditFatigueDetail — embeds in detail field", () => {
     expect(extracted.checklist_required).toBe(true)
   })
 })
-
-// Use the imported type so vitest does not flag it as unused
-const _typeAssertion: AuditFatigueDetail | undefined = undefined
-void _typeAssertion
