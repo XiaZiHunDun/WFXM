@@ -661,3 +661,190 @@ describe("documented in-memory simplifications (契约以生产为准)", () => {
     }
   })
 })
+
+/**
+ * D66 T1a cross-impl parity — `listRecentAuditEvents` filter semantics must be
+ * identical between the Date.now()-based memory impl and the Drizzle+indexes
+ * production impl. Assert by building the same fixture in both impls and
+ * comparing auditId sets (ordering may differ at boundary cases; both impls
+ * sort newest-first).
+ */
+describe("listRecentAuditEvents parity", () => {
+  /** Build the same fixture in any store and return the auditIds both impls
+   * should return under each filter combo. */
+  async function buildFixture(
+    store: RuntimeStore,
+  ): Promise<{
+    readonly ids: { readonly aConv: string; readonly aRun: string; readonly aBare: string; readonly bBare: string }
+  }> {
+    const { conversationId, runId } = await seedConversationAndRun(store)
+    const ids = {
+      aConv: crypto.randomUUID(),
+      aRun: crypto.randomUUID(),
+      aBare: crypto.randomUUID(),
+      bBare: crypto.randomUUID(),
+    }
+    // Use recent timestamps so events survive the windowMs: 60_000 cutoff
+    // (Date.now() based in both impls).
+    const now = Date.now()
+    const at = (offsetMs: number): Date => new Date(now - offsetMs)
+    // 3 events for owner-A: one with conversationId, one with runId only,
+    // one outside any filterable scope.
+    await store.appendAuditEvent({
+      auditId: ids.aConv,
+      runId: null,
+      conversationId,
+      action: "test",
+      subject: "owner-A",
+      detail: {},
+      createdAt: at(5_000),
+    })
+    await store.appendAuditEvent({
+      auditId: ids.aRun,
+      runId,
+      conversationId: null,
+      action: "test",
+      subject: "owner-A",
+      detail: {},
+      createdAt: at(3_000),
+    })
+    await store.appendAuditEvent({
+      auditId: ids.aBare,
+      runId: null,
+      conversationId: null,
+      action: "test",
+      subject: "owner-A",
+      detail: {},
+      createdAt: at(1_000),
+    })
+    // 1 event for owner-B (must be filtered by actor).
+    await store.appendAuditEvent({
+      auditId: ids.bBare,
+      runId: null,
+      conversationId: null,
+      action: "test",
+      subject: "owner-B",
+      detail: {},
+      createdAt: at(4_000),
+    })
+    return { ids }
+  }
+
+  function byAuditId(events: readonly { readonly auditId: string }[]): string[] {
+    return [...events.map((e) => e.auditId)].sort()
+  }
+
+  it("production vs memory: actor filter returns identical auditId set", async () => {
+    const prod = await productionFactory()
+    const mem = await memoryFactory()
+    try {
+      const p = await buildFixture(prod.store)
+      const m = await buildFixture(mem.store)
+      const prodActor = await prod.store.listRecentAuditEvents({
+        actor: "owner-A",
+        windowMs: 60_000,
+      })
+      const memActor = await mem.store.listRecentAuditEvents({
+        actor: "owner-A",
+        windowMs: 60_000,
+      })
+      const expectedProd = byAuditId([{ auditId: p.ids.aConv }, { auditId: p.ids.aRun }, { auditId: p.ids.aBare }])
+      const expectedMem = byAuditId([{ auditId: m.ids.aConv }, { auditId: m.ids.aRun }, { auditId: m.ids.aBare }])
+      expect(byAuditId(prodActor)).toEqual(expectedProd)
+      expect(byAuditId(memActor)).toEqual(expectedMem)
+      expect(prodActor.find((e) => e.auditId === p.ids.bBare)).toBeUndefined()
+      expect(memActor.find((e) => e.auditId === m.ids.bBare)).toBeUndefined()
+    } finally {
+      await prod.close()
+      await mem.close()
+    }
+  })
+
+  it("production vs memory: windowMs cutoff drops stale events in both impls", async () => {
+    const prod = await productionFactory()
+    const mem = await memoryFactory()
+    try {
+      const staleId = crypto.randomUUID()
+      // Stale event (createdAt far in the past — past the windowMs cutoff).
+      await prod.store.appendAuditEvent({
+        auditId: staleId,
+        runId: null,
+        conversationId: null,
+        action: "test",
+        subject: "owner-X",
+        detail: {},
+        createdAt: new Date(Date.now() - 10 * 60_000),
+      })
+      await mem.store.appendAuditEvent({
+        auditId: staleId,
+        runId: null,
+        conversationId: null,
+        action: "test",
+        subject: "owner-X",
+        detail: {},
+        createdAt: new Date(Date.now() - 10 * 60_000),
+      })
+      // windowMs of 60_000 should drop the stale event (10 min old).
+      const prodRecent = await prod.store.listRecentAuditEvents({ windowMs: 60_000 })
+      const memRecent = await mem.store.listRecentAuditEvents({ windowMs: 60_000 })
+      expect(prodRecent.find((e) => e.auditId === staleId)).toBeUndefined()
+      expect(memRecent.find((e) => e.auditId === staleId)).toBeUndefined()
+    } finally {
+      await prod.close()
+      await mem.close()
+    }
+  })
+
+  it("production vs memory: limit caps results identically", async () => {
+    const prod = await productionFactory()
+    const mem = await memoryFactory()
+    try {
+      const prodIds: string[] = [];
+      const memIds: string[] = [];
+      // Use timestamps within the windowMs window from now so both impls keep them.
+      const now = Date.now()
+      for (let i = 0; i < 5; i++) {
+        const pid = crypto.randomUUID()
+        const mid = crypto.randomUUID()
+        prodIds.push(pid)
+        memIds.push(mid)
+        await prod.store.appendAuditEvent({
+          auditId: pid,
+          runId: null,
+          conversationId: null,
+          action: "test",
+          subject: "owner-Z",
+          detail: {},
+          createdAt: new Date(now - (4 - i) * 1000), // newest last
+        })
+        await mem.store.appendAuditEvent({
+          auditId: mid,
+          runId: null,
+          conversationId: null,
+          action: "test",
+          subject: "owner-Z",
+          detail: {},
+          createdAt: new Date(now - (4 - i) * 1000), // newest last
+        })
+      }
+      const prodLimited = await prod.store.listRecentAuditEvents({
+        windowMs: 60_000,
+        limit: 3,
+      })
+      const memLimited = await mem.store.listRecentAuditEvents({
+        windowMs: 60_000,
+        limit: 3,
+      })
+      expect(prodLimited).toHaveLength(3)
+      expect(memLimited).toHaveLength(3)
+      // Each impl returns its own 3 auditIds from the 5 it seeded — assert
+      // sizes match and ids belong to the seeded set (parity by cardinality
+      // and subject, not by exact id since UUIDs are per-store).
+      expect(prodLimited.every((e) => prodIds.includes(e.auditId))).toBe(true)
+      expect(memLimited.every((e) => memIds.includes(e.auditId))).toBe(true)
+    } finally {
+      await prod.close()
+      await mem.close()
+    }
+  })
+})

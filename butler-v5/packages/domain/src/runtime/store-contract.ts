@@ -12,7 +12,7 @@ export interface AuditEventRecord {
   readonly createdAt: Date
   // D63 T3 (audit #9 F-04): optional correlationId for request-scoped
   // audit trail. Mirrors the audit_events.correlation_id column.
-  readonly correlationId: string | null
+  readonly correlationId?: string | null
 }
 
 /** Main-Run statuses that block starting another main Run in the same conversation. */

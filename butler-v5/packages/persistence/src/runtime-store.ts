@@ -606,9 +606,10 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       // Filters compose with AND semantics: optional actor (matches the
       // `subject` column — actors are stored as subjects per D58 T1), optional
       // conversationId, recency window (windowMs back from now), and an
-      // optional result cap. Newest first. Uses the existing
-      // audit_events_conversation_idx / audit_events_run_idx for the common
-      // conversationId / runId paths; the actor path is unindexed but rare.
+      // optional result cap. Newest first.
+      // The query planner may use `audit_events_conversation_idx` (schema.ts:191 on
+      // `(conversationId, createdAt)`) when conversationId is provided. No index
+      // covers the actor (`subject`) path; subject filter is a sequential scan.
       const cutoff = new Date(Date.now() - windowMs)
       const conditions = [gte(auditEvents.createdAt, cutoff)]
       if (actor !== undefined) {
