@@ -44,7 +44,7 @@ import { loadDurableMemorySystemPrefix } from "./durable-memory-inject.js"
 import { loadProjectKnowledgeSystemPrefix } from "./project-knowledge-inject.js"
 import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 import { readRecentSubagentAudit } from "./audit-log.js"
-import { evaluateChannelApproval } from "./lib/fatigue/inline-approval-wiring.js"
+import { executeToolWithFatigue } from "./lib/fatigue/execute-tool-with-fatigue.js"
 import type { AuditEventSummary, AuditLogReader } from "./lib/fatigue/signal.js"
 
 /**
@@ -585,7 +585,9 @@ async function runButlerLoopBody(args: {
         // RunPauseForApproval so the existing approval-resume flow
         // carries the prompt back to whichever channel owns the
         // conversation. Allow: proceed as before.
-        const fatigue = await evaluateChannelApproval(
+        // D65 T1: extracted to executeToolWithFatigue (3-kind decision).
+        // D44 y/👌 lock preserved — fatigue runs BEFORE tool execution.
+        const toolDecision = await executeToolWithFatigue(
           String(def.name),
           toolArgs as Readonly<Record<string, unknown>>,
           subagentAuditAsFatigueReader(env),
@@ -595,19 +597,28 @@ async function runButlerLoopBody(args: {
             correlationId: args.runId,
           },
         )
-        if (fatigue.decision.action === "cooldown") {
-          const cooldownMs = fatigue.decision.duration_ms
-          await new Promise<void>((resolve) => setTimeout(resolve, cooldownMs))
-        } else if (fatigue.decision.action === "checklist") {
-          throw new RunPauseForApproval({
-            reply: fatigue.renderPrompt(),
-            iterations: 0,
-            toolCalls: 0,
-            finalDecision: "WaitForApproval" as ModelDecision["_tag"],
-            traces: [
-              `fatigue checklist ${String(def.name)} items=${fatigue.decision.items.length}`,
-            ],
-          } satisfies ButlerLoopResult)
+        switch (toolDecision.kind) {
+          case "allow":
+            break // proceed to toolExecutor.execute below
+          case "cooldown":
+            await new Promise<void>((resolve) => setTimeout(resolve, toolDecision.durationMs))
+            break
+          case "checklist": {
+            const toolName = String(def.name)
+            const renderedPrompt = [
+              `此操作 [${toolName}] 不可撤销，请确认：`,
+              ...toolDecision.items.map((item, i) => `${i + 1}. ${item}`),
+            ].join("\n")
+            throw new RunPauseForApproval({
+              reply: renderedPrompt,
+              iterations: 0,
+              toolCalls: 0,
+              finalDecision: "WaitForApproval" as ModelDecision["_tag"],
+              traces: [
+                `fatigue checklist ${toolName} items=${toolDecision.items.length}`,
+              ],
+            } satisfies ButlerLoopResult)
+          }
         }
         const outcome = await toolExecutor.execute(def, toolArgs)
         if (isPendingApprovalOutcome(outcome)) {
