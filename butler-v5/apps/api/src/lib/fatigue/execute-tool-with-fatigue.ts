@@ -4,12 +4,13 @@
  * Pre-condition: inline-approval y/👌 already resolved (D44 1-token preserved).
  *
  * Returns the tool-execution decision after fatigue mitigation:
- * - `allow` → execute tool directly
- * - `cooldown` → render wait prompt + sleep durationMs (caller handles sleep)
- * - `checklist` → throw RunPauseForApproval with rendered prompt (caller handles)
+ * - `allow` → caller executes tool directly
+ * - `cooldown` → caller sleeps for durationMs
+ * - `checklist` → caller throws RunPauseForApproval with inline-rendered prompt
+ *
+ * Exhaustive mapping of PolicyDecision; new actions require coordinated update.
  */
 import { evaluateInlineApproval } from "./policy"
-import type { ChannelContext } from "./inline-approval-wiring"
 import type { AuditLogReader } from "./signal"
 
 export type ToolExecutionDecision =
@@ -21,7 +22,6 @@ export async function executeToolWithFatigue(
   toolName: string,
   toolArgs: Readonly<Record<string, unknown>>,
   reader: AuditLogReader,
-  _ctx: ChannelContext,
 ): Promise<ToolExecutionDecision> {
   const decision = await evaluateInlineApproval({ tool_name: toolName, args: toolArgs }, reader)
   switch (decision.action) {
@@ -31,5 +31,7 @@ export async function executeToolWithFatigue(
       return { kind: "cooldown", durationMs: decision.duration_ms }
     case "checklist":
       return { kind: "checklist", items: decision.items }
+    default:
+      throw new Error(`unhandled PolicyDecision action: ${(decision as { action: string }).action}`)
   }
 }

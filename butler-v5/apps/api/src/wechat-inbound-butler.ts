@@ -591,11 +591,6 @@ async function runButlerLoopBody(args: {
           String(def.name),
           toolArgs as Readonly<Record<string, unknown>>,
           subagentAuditAsFatigueReader(env),
-          {
-            channel: projectIdToChannel(args.projectId),
-            actor: resolveOwnerSubject(env, args.fromUserId),
-            correlationId: args.runId,
-          },
         )
         switch (toolDecision.kind) {
           case "allow":
