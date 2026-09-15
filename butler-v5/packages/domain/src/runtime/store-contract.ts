@@ -1,6 +1,20 @@
 import type { ScopedGrantRecord, ScopedGrantScope } from "../governance/types.js"
 import type { RunStatus, StepKind, StepStatus, TriggerSource } from "./types.js"
 
+/** D66 T1a: read-side audit event record (returned by listRecentAuditEvents). */
+export interface AuditEventRecord {
+  readonly auditId: string
+  readonly runId: string | null
+  readonly conversationId: string | null
+  readonly action: string
+  readonly subject: string
+  readonly detail: Readonly<Record<string, unknown>>
+  readonly createdAt: Date
+  // D63 T3 (audit #9 F-04): optional correlationId for request-scoped
+  // audit trail. Mirrors the audit_events.correlation_id column.
+  readonly correlationId: string | null
+}
+
 /** Main-Run statuses that block starting another main Run in the same conversation. */
 export const ACTIVE_MAIN_RUN_STATUSES: readonly RunStatus[] = [
   "queued",
@@ -161,6 +175,15 @@ export interface RuntimeStore {
     // remaining emit sites in future cycles.
     readonly correlationId?: string | null
   }) => Promise<void>
+  /** D66 T1a — list recent audit events for replay + acceptance verification.
+   *  Filters: actor (matches `subject` column), conversationId, windowMs
+   *  (createdAt within the last windowMs from now), limit (cap). */
+  readonly listRecentAuditEvents: (input: {
+    readonly actor?: string
+    readonly windowMs: number
+    readonly conversationId?: string
+    readonly limit?: number
+  }) => Promise<readonly AuditEventRecord[]>
   readonly updateScopedGrantRemainingUses: (
     grantId: string,
     remainingUses: number | null,

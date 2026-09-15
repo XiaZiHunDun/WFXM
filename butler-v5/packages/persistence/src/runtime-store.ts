@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, gt, inArray, isNull, lt, isNotNull } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, isNotNull } from "drizzle-orm"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import { grantMatchesAction, type ActionRequest } from "@butler/domain/governance/types.js"
 import { scopedGrantScopeTargetsMcpServer } from "@butler/domain/governance/mcp-tool-capability.js"
 import {
   ACTIVE_MAIN_RUN_STATUSES,
   inferProjectIdFromConversationId,
+  type AuditEventRecord,
   type RunStatus,
   type RuntimeStore,
   type StepKind,
@@ -119,6 +120,19 @@ function toStoredMessage(row: typeof messages.$inferSelect): StoredMessage {
     triggerSource: (row.triggerSource as TriggerSource | null) ?? null,
     idempotencyKey: row.idempotencyKey,
     createdAt: row.createdAt,
+  }
+}
+
+function toAuditEventRecord(row: typeof auditEvents.$inferSelect): AuditEventRecord {
+  return {
+    auditId: row.auditId,
+    runId: row.runId,
+    conversationId: row.conversationId,
+    action: row.action,
+    subject: row.subject,
+    detail: row.detail as Readonly<Record<string, unknown>>,
+    createdAt: row.createdAt,
+    correlationId: row.correlationId ?? null,
   }
 }
 
@@ -585,6 +599,31 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         .where(eq(runs.parentRunId, parentRunId))
         .orderBy(desc(runs.createdAt))
       return rows.map(toStoredRun)
+    },
+
+    async listRecentAuditEvents({ actor, windowMs, conversationId, limit }) {
+      // D66 T1a: read-side audit query for replay + acceptance verification.
+      // Filters compose with AND semantics: optional actor (matches the
+      // `subject` column — actors are stored as subjects per D58 T1), optional
+      // conversationId, recency window (windowMs back from now), and an
+      // optional result cap. Newest first. Uses the existing
+      // audit_events_conversation_idx / audit_events_run_idx for the common
+      // conversationId / runId paths; the actor path is unindexed but rare.
+      const cutoff = new Date(Date.now() - windowMs)
+      const conditions = [gte(auditEvents.createdAt, cutoff)]
+      if (actor !== undefined) {
+        conditions.push(eq(auditEvents.subject, actor))
+      }
+      if (conversationId !== undefined) {
+        conditions.push(eq(auditEvents.conversationId, conversationId))
+      }
+      const baseQuery = db
+        .select()
+        .from(auditEvents)
+        .where(and(...conditions))
+        .orderBy(desc(auditEvents.createdAt))
+      const rows = limit !== undefined ? await baseQuery.limit(limit) : await baseQuery
+      return rows.map(toAuditEventRecord)
     },
   }
 }

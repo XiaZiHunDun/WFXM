@@ -21,6 +21,7 @@
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import {
   ACTIVE_MAIN_RUN_STATUSES,
+  type AuditEventRecord,
   type RuntimeStore,
   type RunStatus,
   type StoredConversation,
@@ -30,19 +31,10 @@ import {
 } from "@butler/domain/runtime.js"
 import { RuntimeVersionConflictError } from "../runtime-store.js"
 
-/** 内存内 audit 事件记录（合同无读侧，仅保留供测试断言）。 */
-interface AuditEventRecord {
-  readonly auditId: string
-  readonly runId: string | null
-  readonly conversationId: string | null
-  readonly action: string
-  readonly subject: string
-  readonly detail: Readonly<Record<string, unknown>>
-  readonly createdAt: Date
-  // D63 T3 (audit #9 F-04): nullable correlationId for request-scoped
-  // audit trail. Mirrors the new audit_events.correlation_id column.
-  readonly correlationId: string | null
-}
+/** D66 T1a: re-export for the few legacy callers that imported the local
+ *  memory-only interface. New code should import `AuditEventRecord` from
+ *  `@butler/domain/runtime.js` directly. */
+export type { AuditEventRecord }
 
 /**
  * 纯内存 RuntimeStore（Repository Port 的可替换实现）。
@@ -364,6 +356,22 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
         createdAt: input.createdAt,
         correlationId: input.correlationId ?? null,
       })
+    },
+
+    async listRecentAuditEvents({ actor, windowMs, conversationId, limit }) {
+      // D66 T1a: parity with production listRecentAuditEvents — filter by
+      // optional actor (matches `subject` column), conversationId, recency
+      // window (windowMs from now), cap with limit. Sort newest first.
+      const cutoff = Date.now() - windowMs
+      let filtered = audit.filter((e) => e.createdAt.getTime() >= cutoff)
+      if (actor !== undefined) {
+        filtered = filtered.filter((e) => e.subject === actor)
+      }
+      if (conversationId !== undefined) {
+        filtered = filtered.filter((e) => e.conversationId === conversationId)
+      }
+      filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      return limit !== undefined ? filtered.slice(0, limit) : filtered
     },
 
     async transitionRunStatusInTx(_tx, runId, expectedVersion, to, updatedAt) {

@@ -19,6 +19,7 @@ export {
 export {
   ACTIVE_MAIN_RUN_STATUSES,
   isActiveMainRunStatus,
+  type AuditEventRecord,
   type StoredMessage,
   type StoredConversation,
   type StoredRun,
