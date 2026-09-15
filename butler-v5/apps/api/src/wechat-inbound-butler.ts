@@ -46,6 +46,7 @@ import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 import { readRecentSubagentAudit } from "./audit-log.js"
 import { executeToolWithFatigue } from "./lib/fatigue/execute-tool-with-fatigue.js"
 import type { AuditEventSummary, AuditLogReader } from "./lib/fatigue/signal.js"
+import type { AuditFatigueDetail } from "./lib/fatigue/audit-event.js"
 
 /**
  * D64 T3 (audit #9 F-04 cross-channel wiring): bridge from the existing
@@ -592,6 +593,26 @@ async function runButlerLoopBody(args: {
           toolArgs as Readonly<Record<string, unknown>>,
           subagentAuditAsFatigueReader(env),
         )
+        // D66 T1c — thread AuditFatigueDetail at chokepoint (mirrors §2.4
+        // spec). Every fatigue decision (allow / cooldown / checklist) is
+        // recorded into the existing audit pipeline so owner replay queries
+        // can see fatigue interventions. Allow case spreads an empty detail
+        // (no fatigue fields — no intervention occurred).
+        const fatigueDetail: AuditFatigueDetail = toolDecision.kind === "cooldown"
+          ? { cooldown_applied: { duration_ms: toolDecision.durationMs } }
+          : toolDecision.kind === "checklist"
+            ? { checklist_required: true }
+            : {}
+        await args.wiring.runtimeStore.appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: args.runId ?? null,
+          conversationId: args.conversationId ?? null,
+          action: "fatigue.decision",
+          subject: String(def.name),
+          detail: { ...fatigueDetail },
+          createdAt: new Date(),
+          correlationId: args.runId ?? null,
+        })
         switch (toolDecision.kind) {
           case "allow":
             break // proceed to toolExecutor.execute below
