@@ -60,32 +60,6 @@ export function formatDecision(decision: string): string {
 }
 
 /**
- * D63 T2 (audit #9 F-01): owner-jargon for the approval question.
- * Replaces the English template (`Confirm ${capability} on ${resource}?`)
- * that flowed from capability-boundary.ts:285 into owner WeChat replies.
- * Maps raw capability names to Chinese; keeps resource path verbatim
- * (caller can wrap with publicPath() if workspace-root stripping is wanted).
- */
-const CAPABILITY_LABEL: Record<string, string> = {
-  write_file: "写入文件",
-  run_command: "运行命令",
-  send_wechat_file: "发送文件",
-  delegate_to_subagent: "委派子代理",
-  read_file: "读取文件",
-  summarize_today: "汇总今日",
-  recall_history: "调用历史",
-  get_current_time: "查询时间",
-}
-
-export function formatApprovalQuestionForOwner(
-  capability: string,
-  resource: string,
-): string {
-  const label = CAPABILITY_LABEL[capability] ?? "执行操作"
-  return `是否${label}（${resource}）？`
-}
-
-/**
  * D63 T2 (audit #9 F-17/F-22-F-25): owner-jargon for subagent role.
  * Drops raw English role enum (`general`, `developer`, `reviewer`) from
  * owner-facing strings. Falls back to a Chinese generic if the role
