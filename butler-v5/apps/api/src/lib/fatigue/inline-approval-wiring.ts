@@ -25,7 +25,7 @@ export async function evaluateChannelApproval(
   toolName: string,
   toolArgs: Readonly<Record<string, unknown>>,
   reader: AuditLogReader,
-  ctx: ChannelContext,
+  _ctx: ChannelContext,
 ): Promise<WiringResult> {
   const decision = await evaluateInlineApproval({ tool_name: toolName, args: toolArgs }, reader)
 

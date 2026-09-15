@@ -11,13 +11,13 @@ export interface AuditEventSummary {
 }
 
 export interface AuditLogReader {
-  readRecent(windowMs: number): Promise<ReadonlyArray<AuditEventSummary>>
+  readRecent(windowMs: number): Promise<readonly AuditEventSummary[]>
 }
 
 export interface FatigueSignal {
   readonly count: number
   readonly window_seconds: number
-  readonly last_n_actions: ReadonlyArray<AuditEventSummary>
+  readonly last_n_actions: readonly AuditEventSummary[]
   readonly degraded?: true
 }
 
