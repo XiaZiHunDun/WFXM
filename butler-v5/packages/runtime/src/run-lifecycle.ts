@@ -46,6 +46,8 @@ export async function cancelRun(
       subject: options.subject,
       detail: { reason: options.reason ?? "owner_cancel", from: run.status },
       createdAt: now,
+      // D66 T1b: thread runId as request-scoped correlation.
+      correlationId: runId ?? null,
     })
     return cancelled
   })
@@ -117,6 +119,9 @@ export async function cancelRunCascade(
           ancestorRunId: runId === c.id ? null : runId,
         },
         createdAt: now,
+        // D66 T1b: thread the root runId (cascade request context) so
+        // every cascaded audit ties back to the originating owner cancel.
+        correlationId: runId ?? null,
       })
       return c
     })
@@ -171,6 +176,8 @@ export async function expireRun(
       subject: options.subject ?? "system",
       detail: { deadline: run.deadline?.toISOString() ?? null, from: run.status },
       createdAt: now,
+      // D66 T1b: thread runId as request-scoped correlation.
+      correlationId: runId ?? null,
     })
     return expired
   })
@@ -222,6 +229,8 @@ export async function transitionRunToTerminal(
         ...(options.reason !== undefined ? { reason: options.reason } : {}),
       },
       createdAt: options.now,
+      // D66 T1b: thread runId as request-scoped correlation.
+      correlationId: runId ?? null,
     })
     return terminal
   })
@@ -312,6 +321,8 @@ export async function enterWaitingExternal(
       subject: request.subject,
       detail: { stepId, reason: request.reason },
       createdAt: now,
+      // D66 T1b: thread request.runId as request-scoped correlation.
+      correlationId: request.runId ?? null,
     })
     return { stepId, run: waiting }
   })
@@ -364,6 +375,8 @@ export async function resumeFromWaitingExternal(
       subject: options.subject,
       detail: { stepId: options.stepId ?? null },
       createdAt: now,
+      // D66 T1b: thread runId as request-scoped correlation.
+      correlationId: runId ?? null,
     })
     return resumed
   })

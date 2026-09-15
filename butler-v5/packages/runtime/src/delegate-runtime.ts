@@ -162,6 +162,10 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
         role: input.role,
       },
       createdAt: now,
+      // D66 T1b: thread parent runId as request-scoped correlation.
+      // The child was spawned from this parent request — link audit
+      // trail back to the originating Run for owner replay queries.
+      correlationId: input.parentRunId ?? null,
     })
   }
 

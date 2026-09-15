@@ -137,6 +137,8 @@ export async function createWaitingApprovalStep(
       question: request.question,
     },
     createdAt: now,
+    // D66 T1b: thread request.runId as request-scoped correlation.
+    correlationId: request.runId ?? null,
   })
   return { stepId }
 }
@@ -285,6 +287,8 @@ export async function approveWaitingStep(
         : {}),
     },
     createdAt: now,
+    // D66 T1b: thread step.runId as request-scoped correlation.
+    correlationId: step.runId ?? null,
   })
   return { _tag: "approved", step, grant, runId: step.runId }
 }
@@ -338,6 +342,8 @@ export async function denyWaitingStep(
     subject: ownerSubject,
     detail: { stepId, reason },
     createdAt: now,
+    // D66 T1b: thread step.runId as request-scoped correlation.
+    correlationId: step.runId ?? null,
   })
   return { alreadyProcessed: false }
 }

@@ -348,6 +348,8 @@ export async function executeToolThroughBoundary(
             reason: result.reason ?? "failed",
           },
           createdAt: new Date(),
+          // D66 T1b: thread approval.runId as request-scoped correlation.
+          correlationId: approval.runId ?? null,
         })
         .catch((err) => {
           // D63 T1 (audit #9 F-05): capability.executed audit emit silent
@@ -374,6 +376,8 @@ export async function executeToolThroughBoundary(
           durationMs: Date.now() - started,
         },
         createdAt: new Date(),
+        // D66 T1b: thread approval.runId as request-scoped correlation.
+        correlationId: approval.runId ?? null,
       })
       .catch((err) => {
         // D63 T1 (audit #9 F-05): capability.executed success-path audit
