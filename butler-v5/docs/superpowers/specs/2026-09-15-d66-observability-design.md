@@ -78,15 +78,20 @@ interface AuditEventRecord {
 
 **Wrapper in audit-service** (`apps/api/src/audit-service.ts`):
 ```typescript
-export async function listRecentAuditEvents(input: {
-  readonly actor?: string
-  readonly windowMs: number
-  readonly conversationId?: string
-  readonly limit?: number
-}): Promise<readonly AuditEventRecord[]> {
+export async function listRecentAuditEvents(
+  store: RuntimeStore,
+  input: {
+    readonly actor?: string
+    readonly windowMs: number
+    readonly conversationId?: string
+    readonly limit?: number
+  },
+): Promise<readonly AuditEventRecord[]> {
   return store.listRecentAuditEvents(input)
 }
 ```
+
+> DI pattern matches sibling `writeSubagentAudit(store, entry)` at `apps/api/src/audit-service.ts:8`.
 
 ### 2.2 T1b: correlationId threading
 
