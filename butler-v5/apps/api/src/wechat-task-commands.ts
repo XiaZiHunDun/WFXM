@@ -55,7 +55,7 @@ export async function formatOpenTasksDigest(
   const active = getWechatActiveProjectId(subject, env)
   const store = args.wiring.taskStore
   if (!store) {
-    return { text: "Task 存储不可用。", isEmpty: true }
+    return { text: "待办存储不可用。", isEmpty: true }
   }
   const items = await store.listBySubject({ subject, status: "open", limit: 50 })
   const scoped = items.filter((item) => matchesActiveProject(item.title, active))
@@ -103,7 +103,7 @@ export async function tryWechatTaskCommand(args: {
 
   const store = args.wiring.taskStore
   if (!store) {
-    return done("Task 存储不可用。", ["wechat-task: no store"])
+    return done("待办存储不可用。", ["wechat-task: no store"])
   }
 
   const subject = args.fromUserId.trim()

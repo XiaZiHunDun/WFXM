@@ -7,9 +7,12 @@ import { envTruthy } from "./env-util.js"
 import { appendFileSync } from "node:fs"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
-// formatDecision still available from owner-jargon.ts but unused here
-// after D63 audit round-trip; the helper is imported where needed
-// (e.g. inline-approval context building). Kept for future callers.
+// D65 T4 (owner-jargon revert): restore formatDecision + formatSubagentRoleForOwner
+// imports. D63 audit removed them after closing the prior pass, but the
+// owner-facing reply strings in this file still leak the raw enums.
+// formatDecision: maps run-decision enums to Chinese (e.g. "Respond" → "已回复").
+// formatSubagentRoleForOwner: maps subagent role enums (e.g. "developer" → "开发").
+import { formatDecision, formatSubagentRoleForOwner } from "./owner-jargon.js"
 
 
 /** Proactive WeChat push when long runs / subagents finish (BUTLER_V5_RUN_NOTIFY_ENABLED). */
@@ -29,7 +32,7 @@ export function formatTaskRunCompletionNotify(input: {
   const excerpt = input.reply.trim().slice(0, 400)
   return [
     `【待办${status}】${short} ${input.title.slice(0, 60)}`,
-    `决策：${input.decision}`,
+    `决策：${formatDecision(input.decision)}`,
     excerpt ? `回复：${excerpt}` : "",
   ]
     .filter((line) => line.length > 0)
@@ -45,7 +48,7 @@ export function formatSubagentCompletionNotify(input: {
   const status = input.ok ? "完成" : "失败"
   const excerpt = input.reply.trim().slice(0, 400)
   return [
-    `【子代理${status}】${input.role}`,
+    `【子代理${status}】${formatSubagentRoleForOwner(input.role)}`,
     `任务：${input.task.slice(0, 120)}`,
     excerpt ? `回复：${excerpt}` : "",
   ]

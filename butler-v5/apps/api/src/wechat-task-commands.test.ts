@@ -124,7 +124,7 @@ describe("tryWechatTaskCommand", () => {
   })
 
   // ─── no-store branch ────────────────────────────────────────────────────
-  it("returns 'Task 存储不可用。' when wiring.taskStore is null", async () => {
+  it("returns '待办存储不可用。' when wiring.taskStore is null", async () => {
     const noStoreWiring: Wiring = { ...wiring, taskStore: null }
     const result = await tryWechatTaskCommand({
       wiring: noStoreWiring,
@@ -132,7 +132,7 @@ describe("tryWechatTaskCommand", () => {
       content: "/待办",
       env,
     })
-    expect(result?.reply).toBe("Task 存储不可用。")
+    expect(result?.reply).toBe("待办存储不可用。")
     expect(result?.traces).toContain("wechat-task: no store")
   })
 

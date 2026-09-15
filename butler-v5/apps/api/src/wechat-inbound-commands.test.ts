@@ -166,7 +166,7 @@ describe("wechat inbound commands", () => {
       env: testEnv,
     })
     expect(result).not.toBeNull()
-    expect(result?.reply).toContain("暂无 candidate 记忆")
+    expect(result?.reply).toContain("暂无待审记忆")
   })
 
   it("/确认记忆 id1,id2 批量确认", async () => {

@@ -54,7 +54,7 @@ export function formatAutoPromoteNotify(input: {
 }): string {
   if (input.promoted <= 0) return ""
   return [
-    `【候选自动升级】${input.promoted} 条候选已自动升级为 confirmed（扫描 ${input.scanned} 条）。`,
+    `【候选自动升级】${input.promoted} 条候选已自动升级为已确认（扫描 ${input.scanned} 条）。`,
     "查看 /记忆；如有疑问请回复「撤销刚才」。",
   ].join("\n")
 }

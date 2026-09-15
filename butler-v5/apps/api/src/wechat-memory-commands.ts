@@ -125,14 +125,14 @@ export async function formatMemoryCandidatesDigest(
   const active = getWechatActiveProjectId(subject, env)
   const store = args.wiring.durableMemoryStore
   if (!store) {
-    return { text: "Durable Memory 存储不可用。", isEmpty: true }
+    return { text: "记忆存储不可用。", isEmpty: true }
   }
   const candidates = await store.listBySubject({ subject, status: "candidate", limit: 20 })
   const scoped = candidates.filter(
     (item) => !item.provenance.note || item.provenance.note.includes(active),
   )
   if (scoped.length === 0) {
-    return { text: options?.emptyMessage ?? "暂无 candidate 记忆。", isEmpty: true }
+    return { text: options?.emptyMessage ?? "暂无待审记忆。", isEmpty: true }
   }
   const lines = [`候选 ${scoped.length} 条（${resolveProjectLabel(active, env)}）：`]
   for (const item of scoped) {
@@ -157,7 +157,7 @@ export async function tryWechatMemoryCommand(args: {
 
   if (trimmed.startsWith("/记住")) {
     if (!store) {
-      return done("Durable Memory 存储不可用。", ["wechat-memory: no store"])
+      return done("记忆存储不可用。", ["wechat-memory: no store"])
     }
     const text = trimmed.slice("/记住".length).trim()
     if (!text) {
@@ -223,7 +223,7 @@ export async function tryWechatMemoryCommand(args: {
 
   if (trimmed === "/记忆" || trimmed === "/memories") {
     if (!store) {
-      return done("Durable Memory 存储不可用。", ["wechat-memory: no store"])
+      return done("记忆存储不可用。", ["wechat-memory: no store"])
     }
     const confirmed = await store.listBySubject({ subject, status: "confirmed", limit: 10 })
     const scoped = confirmed.filter(
@@ -233,7 +233,7 @@ export async function tryWechatMemoryCommand(args: {
     if (items.length === 0) {
       return done("暂无已确认记忆。使用 /记住 … 添加。", ["wechat-memory: empty"])
     }
-    const lines = [`记忆（${active}，最近 ${items.length} 条）:`]
+    const lines = [`记忆（${resolveProjectLabel(active, env)}，最近 ${items.length} 条）:`]
     for (const item of items) {
       lines.push(`• ${shortId(item.id)} ${item.content.slice(0, 100)}${item.content.length > 100 ? "…" : ""}`)
     }
@@ -242,14 +242,14 @@ export async function tryWechatMemoryCommand(args: {
 
   if (trimmed.startsWith("/确认记忆")) {
     if (!store) {
-      return done("Durable Memory 存储不可用。", ["wechat-memory: no store"])
+      return done("记忆存储不可用。", ["wechat-memory: no store"])
     }
     const tokenRaw = trimmed.slice("/确认记忆".length).trim()
     const candidates = await store.listBySubject({ subject, status: "candidate", limit: 20 })
 
     const legacyConfirm = async (record: (typeof candidates)[number] | undefined) => {
       if (!record) {
-        return done("没有待确认的 candidate 记忆。", ["wechat-memory: confirm none"])
+        return done("没有待审的记忆。", ["wechat-memory: confirm none"])
       }
       const updated = await store.update(confirmDurableMemory(record, Date.now()))
       return done(

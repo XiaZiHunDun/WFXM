@@ -19,6 +19,7 @@ describe("task-run-background", () => {
     })
     expect(text).toContain("【待办完成】")
     expect(text).toContain("abcd1234")
-    expect(text).toContain("Respond")
+    // D65 T4 owner-jargon revert: formatDecision maps "Respond" → "已回复".
+    expect(text).toContain("已回复")
   })
 })
