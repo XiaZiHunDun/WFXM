@@ -98,6 +98,9 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "document.created",
       subject: body.subject ?? "owner",
       detail: { documentId: saved.id, title: saved.title },
@@ -139,6 +142,9 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "project_knowledge.created_from_document",
       subject: "owner",
       detail: { itemId: saved.id, projectId: saved.projectId, documentId: doc.id },
@@ -165,6 +171,9 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "document.deleted",
       subject: "owner",
       detail: {

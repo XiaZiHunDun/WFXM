@@ -121,6 +121,9 @@ export async function handleRollbackAutoPromote(
     auditId: crypto.randomUUID(),
     runId: null,
     conversationId: null,
+    // D66 T1b-apps-api: thread request-scoped correlation. Owner
+    // direct API call; no inbound run — pass null.
+    correlationId: null,
     action: "memory.rollback",
     subject: "owner",
     detail: { memoryId, reason: body.reason ?? null },

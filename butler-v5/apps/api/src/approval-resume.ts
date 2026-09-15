@@ -458,6 +458,11 @@ export async function resumeApprovedCapability(
           auditId: crypto.randomUUID(),
           runId: decision.runId,
           conversationId: pending.conversationId,
+          // D66 T1b-apps-api: thread request-scoped correlation. Approval
+          // resume is part of an existing run; reuse the runId as the
+          // correlation context so audit queries can group all resume/exec
+          // events by the originating run.
+          correlationId: ctx.runId ?? decision.runId ?? null,
           action: "approval.resume",
           subject: options.trigger.subject,
           detail: {
@@ -498,6 +503,11 @@ export async function resumeApprovedCapability(
         auditId: crypto.randomUUID(),
         runId: decision.runId,
         conversationId: pending.conversationId,
+        // D66 T1b-apps-api: thread request-scoped correlation. Approval
+        // executed is part of an existing run; reuse the runId as the
+        // correlation context so audit queries can group all resume/exec
+        // events by the originating run.
+        correlationId: ctx.runId ?? decision.runId ?? null,
         action: "approval.executed",
         subject: pending.subject,
         detail: {

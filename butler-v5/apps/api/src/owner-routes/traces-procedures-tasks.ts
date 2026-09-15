@@ -93,6 +93,9 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         auditId: crypto.randomUUID(),
         runId: null,
         conversationId: null,
+        // D66 T1b-apps-api: thread request-scoped correlation. Owner
+        // direct API call; no inbound run — pass null.
+        correlationId: null,
         action: "procedure.created",
         subject: "owner",
         detail: { procedureId: saved.id, name: saved.name },
@@ -158,6 +161,9 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         auditId: crypto.randomUUID(),
         runId: null,
         conversationId: null,
+        // D66 T1b-apps-api: thread request-scoped correlation. Owner
+        // direct API call; no inbound run — pass null.
+        correlationId: null,
         action: "task.created",
         subject: body.subject ?? "owner",
         detail: { taskId: saved.id, title: saved.title },
@@ -193,6 +199,9 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         auditId: crypto.randomUUID(),
         runId: null,
         conversationId: null,
+        // D66 T1b-apps-api: thread request-scoped correlation. Owner
+        // direct API call; no inbound run — pass null.
+        correlationId: null,
         action: "task.done",
         subject: existing.subject,
         detail: { taskId: existing.id, fromStatus: existing.status },

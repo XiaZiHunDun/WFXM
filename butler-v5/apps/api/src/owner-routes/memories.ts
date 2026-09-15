@@ -139,6 +139,9 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
         auditId: crypto.randomUUID(),
         runId: null,
         conversationId: null,
+        // D66 T1b-apps-api: thread request-scoped correlation. Owner
+        // direct API call; no inbound run — pass null.
+        correlationId: null,
         action: "memory.created",
         subject: body.subject ?? "owner",
         detail: {
@@ -175,6 +178,9 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "memory.confirmed",
       subject: "owner",
       detail: { memoryId },
@@ -202,6 +208,9 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "memory.rejected",
       subject: "owner",
       detail: { memoryId },
@@ -228,6 +237,9 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "memory.deleted",
       subject: "owner",
       detail: { memoryId },
@@ -349,6 +361,9 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
           auditId: crypto.randomUUID(),
           runId: null,
           conversationId: null,
+          // D66 T1b-apps-api: thread request-scoped correlation. Owner
+          // direct API call; no inbound run — pass null.
+          correlationId: null,
           action: "memory.confirmed",
           subject,
           detail: { memoryId, batch: true },
@@ -383,6 +398,9 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
           auditId: crypto.randomUUID(),
           runId: null,
           conversationId: null,
+          // D66 T1b-apps-api: thread request-scoped correlation. Owner
+          // direct API call; no inbound run — pass null.
+          correlationId: null,
           action: "memory.rejected",
           subject,
           detail: { memoryId, batch: true },

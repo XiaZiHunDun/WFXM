@@ -117,6 +117,9 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "project_knowledge.created",
       subject: "owner",
       detail: {
@@ -160,6 +163,9 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "project_knowledge.deleted",
       subject: "owner",
       detail: { itemId },

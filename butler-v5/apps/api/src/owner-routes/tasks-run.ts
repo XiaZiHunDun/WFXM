@@ -38,6 +38,11 @@ export async function handleTaskRun(c: Context, wiring: Wiring): Promise<Respons
         auditId: crypto.randomUUID(),
         runId: null,
         conversationId: result.task?.conversationId ?? null,
+        // D66 T1b-apps-api: thread request-scoped correlation. Owner
+        // /tasks/:taskId/run is a direct API call (no inbound run); use
+        // the task's conversationId when present so audit queries can
+        // group advance events by conversation.
+        correlationId: result.task?.conversationId ?? null,
         action: "task.advance",
         subject: result.task?.subject ?? "owner",
         detail: {

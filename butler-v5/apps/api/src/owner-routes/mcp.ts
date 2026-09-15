@@ -99,6 +99,9 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
+      // D66 T1b-apps-api: thread request-scoped correlation. Owner
+      // direct API call; no inbound run — pass null.
+      correlationId: null,
       action: "mcp.grants_revoked",
       subject: body.subject ?? "owner",
       detail: failureReason

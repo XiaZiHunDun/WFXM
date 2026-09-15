@@ -79,6 +79,9 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
           auditId: crypto.randomUUID(),
           runId: null,
           conversationId: null,
+          // D66 T1b-apps-api: thread request-scoped correlation. Schedule
+          // worker tick has no inbound run — pass null.
+          correlationId: null,
           action: "schedule.fired",
           subject: "schedule-worker",
           detail: {

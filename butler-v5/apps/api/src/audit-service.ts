@@ -13,6 +13,11 @@ export function writeSubagentAudit(store: RuntimeStore | undefined, entry: Audit
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: entry.parentConversationId,
+      // D66 T1b-apps-api: thread request-scoped correlation. Subagent audit
+      // has no inbound runId; use the upstream owner's parentConversationId
+      // as the correlation context so owner audit queries can group subagent
+      // events back to the originating owner request.
+      correlationId: entry.parentConversationId,
       action: `subagent.${entry.kind}`,
       // D58 T1 (audit #3 F-01): prefer the owner who delegated over the
       // subagent role. Falls back to role for legacy callers / CLI paths

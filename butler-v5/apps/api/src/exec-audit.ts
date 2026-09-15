@@ -19,6 +19,10 @@ export interface ExecAuditContext {
   readonly runtimeStore?: RuntimeStore
   readonly conversationId?: string | null
   readonly runId?: string | null
+  // D66 T1b-apps-api: optional request-scoped correlation forwarded by
+  // the caller (e.g. a long-running run loop that already carries one).
+  // Falls back to runId at the audit emit site.
+  readonly correlationId?: string | null
   /** Who triggered the execution (owner id / role / server id). */
   readonly subject?: string
 }
@@ -54,6 +58,9 @@ export async function recordExecAudit(
       auditId: crypto.randomUUID(),
       runId: ctx.runId ?? null,
       conversationId: ctx.conversationId ?? null,
+      // D66 T1b-apps-api: thread request-scoped correlation so exec
+      // audit events can be grouped back to the originating run/conversation.
+      correlationId: ctx.runId ?? ctx.correlationId ?? null,
       action: "exec.executed",
       subject: ctx.subject ?? "system",
       detail: {
