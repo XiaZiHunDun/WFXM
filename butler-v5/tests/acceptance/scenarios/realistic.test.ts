@@ -199,7 +199,7 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
       let lastApprovalCount = 0
       let lastTotalToolCalls = 0
 
-      await runMultiRound(
+      const result = await runMultiRound(
         async () => {
           // 每 round fresh state: notes/turns 必须 round-local, 否则 round 1 污染 round 2
           const notes: string[] = []
@@ -216,7 +216,9 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
         { rounds: 3, aggregation: "all" },
       )
 
-      // runMultiRound aggregation=all 已校验 3 round 全 pass → 走到这里说明全过
+      // D68 T1: harness bug fix — multi-round.ts:78-79 契约要求 caller 读 result.passed
+      // (helper 不 throw on aggregation=all failure); 此前 silently push passed=true 是 silent-failure
+      expect(result.passed).toBe(true)
       metrics.push({
         id: scenario.id,
         category: scenario.category,
@@ -224,7 +226,7 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
         turns: lastTurns,
         approvalCount: lastApprovalCount,
         totalToolCalls: lastTotalToolCalls,
-        passed: true,
+        passed: result.passed,
         notes: lastNotes,
       })
     }, 90_000)
