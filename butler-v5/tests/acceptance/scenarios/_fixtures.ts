@@ -860,31 +860,34 @@ export const scenariosC: readonly Scenario[] = [
       /^[^没有]/,
     ],
   },
-  // C-F2-checklist-proceed: F2-sensitive 变体 — high-sensitivity tool 改用
-  // delete_file (而非 send_wechat_file)。empty audit + 高敏 + 低信号 →
-  // checklist immediate → owner「确认」→ consume-path bridge 升级 ack。
-  // 验证链：empty audit + delete_file plan → F8 checklist
+  // C-F2-checklist-proceed: F2-sensitive 变体 — high-sensitivity tool 与 F2 同为
+  // send_wechat_file (D67 T2a-1: 原本计划用 delete_file, 但 delete_file 不是
+  // 已注册 LLM tool, harness 退化到 Respond → 3 个 expect 全部 silent fail。
+  // 改为 send_wechat_file + 不同 path 保持 F2 链路校验, 失去 "不同 tool" 角度)。
+  // empty audit + 高敏 + 低信号 → checklist immediate → owner「确认」→
+  // consume-path bridge 升级 ack。
+  // 验证链：empty audit + send_wechat_file plan → F8 checklist
   // (高敏+低信号) → runtimeStore.createStep → RunPauseForApproval reply
-  // 「不可撤销 [delete_file] + items」 → owner 确认 → bridge ack。
+  // 「不可撤销 [send_wechat_file] + items」 → owner 确认 → bridge ack。
   {
     id: "C-F2-checklist-proceed",
     category: "C-edge",
     title:
-      "C-F2 sensitive 变体: delete_file (非 send) 触发 checklist → owner 确认 → bridge 升级 ack",
-    input: "删除 owner-default project memory",
+      "C-F2 sensitive 变体: send_wechat_file 不同 path 触发 checklist → owner 确认 → bridge 升级 ack",
+    input: "把 owner-default project memory 发到我微信",
     fixtures: {
-      plan: [tool("delete_file", { path: "owner-default" })],
+      plan: [tool("send_wechat_file", { path: "owner-default" })],
     },
     expect: {
       finalDecision: "WaitForApproval",
       requireApproval: true,
       minToolCalls: 1,
       // turn 1: checklist prompt
-      containsAll: ["不可撤销", "delete_file"],
+      containsAll: ["不可撤销", "send_wechat_file"],
     },
     setup: (ctx) => {
       // D67 T2a-1: empty audit path so fatigue reader sees count=0 → high-sensitivity
-      // tool triggers checklist (与 F2 同模式, 不同 high-sensitivity tool 类型)。
+      // tool triggers checklist (与 F2 同模式, 同 high-sensitivity tool, 不同 path)。
       const _auditPath = freshSubagentAuditPath("c-f2-checklist-proceed")
       void ctx
       void _auditPath
