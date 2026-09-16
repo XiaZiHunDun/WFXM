@@ -7,10 +7,11 @@
  * - 多 turn 时 fixtures 按 LLM 调用顺序消耗；counter 在 setFixtures 时重置
  * - 写文件触发 `WaitForApproval`；owner 后续「确认」走 inline approval
  *
- * 4 类共 42 场景：
+ * 4 类共 48 场景（D67 T2a-1: +4 C 子分类场景 C-F1-real-cooldown /
+ *   C-F2-checklist-proceed / C-F3-replay-api / C-additional-1）：
  * A. 真实开发任务（具体可执行）— 11（含 A11-session-digest-idle-return）
  * B. 开放性任务（探索型）— 10
- * C. 边界 / 失败模式 — 12（含 F1-fatigue / F2-sensitive，D64 T5）
+ * C. 边界 / 失败模式 — 16（含 F1-fatigue / F2-sensitive / F3-replay / D67 T2a-1 ×4）
  * D. 跨场景组合 — 10（5 基础 + 5 chain-undo，D52 acceptance harness extension）
  */
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
@@ -801,6 +802,180 @@ export const scenariosC: readonly Scenario[] = [
       containsAll: ["HTTP", "audit/fatigue"],
       // T1b 后: 不再断言 "degraded" (因为 sequences 非空)
       containsNone: ["degraded"],
+    },
+  },
+  // ==========================================================================
+  // D67 T2a-1 — 4 new C category scenarios (fatigue / cooldown / replay).
+  // ==========================================================================
+  // C-F1-real-cooldown: F1-fatigue 变体 — pre-injected events 用 read_file
+  // toolName (而非 write_file)，验证 fatigue reader 的 count 是工具无关。
+  // 即 count>=3 的阈值不区分 tool 类型，第 4 个 write_file plan 仍走
+  // cooldown 路径。验证链：3 read_file pre-inject + write_file plan →
+  // fatigue reader count=3 → cooldown 3s sleep inline → 4 个 write_file
+  // 全执行。
+  {
+    id: "C-F1-real-cooldown",
+    category: "C-edge",
+    title:
+      "C-F1 cooldown 变体: 3 个 read_file pre-inject + write_file plan 触发 REAL cooldown (工具类型无关)",
+    input: "改 foo.ts 加 log",
+    fixtures: {
+      plan: writeForApproval("foo.ts", "// added log\n"),
+    },
+    expect: {
+      finalDecision: "WaitForApproval",
+      requireApproval: true,
+      minToolCalls: 4, // 4 个 write_file 都真执行 (含 4 个 resume 后)
+    },
+    setup: (ctx) => {
+      // D67 T2a-1: pre-injected events toolName="read_file" (与 F1 的
+      // write_file 区分) — 验证疲劳计数跨工具类型聚合。
+      const _auditPath = freshSubagentAuditPath("c-f1-real-cooldown")
+      const convId = `c-realistic-C-F1-real-cooldown`
+      for (let i = 0; i < 3; i += 1) {
+        emitSubagentAuditEvent({ toolName: "read_file", parentConversationId: convId })
+      }
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
+    followUps: [
+      { content: "y" }, // approve 1 → write_file execute (count=3 read_file in log)
+      { content: "改 bar.ts" }, // write 2 → WaitForApproval
+      { content: "y" }, // approve 2 → execute
+      { content: "改 baz.ts" }, // write 3 → WaitForApproval
+      { content: "y" }, // approve 3 → execute
+      { content: "改 qux.ts" }, // write 4 → WaitForApproval
+      { content: "y" }, // approve 4 → cooldown path (3s sleep inline)
+    ],
+    followUpPatterns: [
+      /^[^没有]/,
+      /^[^没有]/,
+      /^[^没有]/,
+      /^[^没有]/,
+      /^[^没有]/,
+      /^[^没有]/,
+      /^[^没有]/,
+    ],
+  },
+  // C-F2-checklist-proceed: F2-sensitive 变体 — high-sensitivity tool 改用
+  // delete_file (而非 send_wechat_file)。empty audit + 高敏 + 低信号 →
+  // checklist immediate → owner「确认」→ consume-path bridge 升级 ack。
+  // 验证链：empty audit + delete_file plan → F8 checklist
+  // (高敏+低信号) → runtimeStore.createStep → RunPauseForApproval reply
+  // 「不可撤销 [delete_file] + items」 → owner 确认 → bridge ack。
+  {
+    id: "C-F2-checklist-proceed",
+    category: "C-edge",
+    title:
+      "C-F2 sensitive 变体: delete_file (非 send) 触发 checklist → owner 确认 → bridge 升级 ack",
+    input: "删除 owner-default project memory",
+    fixtures: {
+      plan: [tool("delete_file", { path: "owner-default" })],
+    },
+    expect: {
+      finalDecision: "WaitForApproval",
+      requireApproval: true,
+      minToolCalls: 1,
+      // turn 1: checklist prompt
+      containsAll: ["不可撤销", "delete_file"],
+    },
+    setup: (ctx) => {
+      // D67 T2a-1: empty audit path so fatigue reader sees count=0 → high-sensitivity
+      // tool triggers checklist (与 F2 同模式, 不同 high-sensitivity tool 类型)。
+      const _auditPath = freshSubagentAuditPath("c-f2-checklist-proceed")
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
+    followUps: [{ content: "确认" }], // bridge: fatigue_checklist step → "已升级确认"
+    followUpPatterns: [/已升级.*确认/],
+  },
+  // C-F3-replay-api: F3-replay 变体 — pre-injected 5 events 跨 2 distinct
+  // conversationId (3+2 分布)，验证 reader sees 2 distinct sequences
+  // (而非 F3 的 1 个 sequence)。Chat-side 探针继续是 acceptance surface;
+  // 多 sequence 透传由 reader (queryRecentSubagentAudit) 内部处理。
+  {
+    id: "C-F3-replay-api",
+    category: "C-edge",
+    title:
+      "C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences",
+    input: "我刚做的几次操作，能查 replay API 撤销吗？",
+    fixtures: {
+      plan: [
+        text(
+          "replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 harness 注入 5 个 subagent audit events 跨 2 个 conversationId (3+2 分布) → reader sees 2 distinct sequences (而非 F3 的 1 个), sequences count=2 → degraded=false。可走 HTTP 客户端调 GET /fatigue 查多 sequence 的 replay 候选。",
+        ),
+      ],
+    },
+    setup: (ctx) => {
+      // D67 T2a-1: 与 F3 区别是 pre-injected events 跨 2 个 conversationId (3+2)。
+      // → reader (readRecentSubagentAudit → queryRecentSubagentAudit) sees 2
+      // distinct sequences。 Reply 必须仍解释 HTTP 控制面 + 含 "audit/fatigue"。
+      const _auditPath = freshSubagentAuditPath("c-f3-replay-api")
+      const convId1 = `c-realistic-C-F3-replay-api-seq1`
+      const convId2 = `c-realistic-C-F3-replay-api-seq2`
+      for (let i = 0; i < 3; i += 1) {
+        emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: convId1 })
+      }
+      for (let i = 0; i < 2; i += 1) {
+        emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: convId2 })
+      }
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0,
+      containsAll: ["HTTP", "audit/fatigue"],
+      // 多 sequence 时 reader 不再 degraded (与 F3 同断言)
+      containsNone: ["degraded"],
+    },
+  },
+  // C-additional-1: owner 直接查询路径 — phantom audit event (来自随机
+  // conversationId, 与当前 runId 不相关) pre-injected → 验证 chat reply 不受
+  // foreign audit 数据干扰。同时验证 runId=null + conversationId=null 隐含路径
+  // (即 phantom 事件) 能被 system graceful 处理。Plan 是纯文本列出 active 任务
+  // → 无 tool execution → finalDecision=Respond。
+  {
+    id: "C-additional-1",
+    category: "C-edge",
+    title:
+      "C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply",
+    input: "列出所有 active 的任务",
+    fixtures: {
+      plan: [
+        text(
+          "当前 active 任务：\n- 改 foo.ts (in progress)\n- 修 bar.ts (queued)\n- 部署 v5.2 (blocked)\n\n如需详细状态，可用 /v1/owner/usage 查 owner-direct 接口。",
+        ),
+      ],
+    },
+    setup: (ctx) => {
+      // D67 T2a-1: phantom audit event from a random (non-matching) conversationId
+      // → 模拟 owner-direct API call w/o inbound run 的 correlationId=null 边界
+      // (audit_event 有 conversationId 但不 match 当前 runId)。Reader 仍能读到
+      // 数据但 chat reply 不受影响。
+      const _auditPath = freshSubagentAuditPath("c-additional-1")
+      const phantomConvId = `phantom-${Math.random().toString(36).slice(2, 10)}`
+      emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: phantomConvId })
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0,
+      // reply 必须含 "active" 关键词 (任务列表)
+      containsAll: ["active"],
     },
   },
 ]

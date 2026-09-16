@@ -4,11 +4,11 @@
 
 ## 总览
 
-- 场景数：44
-- 通过：44 / 失败：0
-- 触发 approval：14 次
-- 工具调用总数：39
-- reply 字符总数：5399
+- 场景数：48
+- 通过：48 / 失败：0
+- 触发 approval：19 次
+- 工具调用总数：48
+- reply 字符总数：6006
 
 ## 按类别汇总
 
@@ -43,7 +43,7 @@
 | B9 | owner 应该关心什么 | 0 | 0 | ✅ |
 | B10 | 1 周 focus | 0 | 0 | ✅ |
 
-### C-edge（13 场景，13 通过）
+### C-edge（17 场景，17 通过）
 
 | ID | 标题 | 工具 | 审批 | 状态 |
 |---|---|---|---|---|
@@ -57,9 +57,13 @@
 | C8 | 重复确认 | 2 | 1 | ✅ |
 | C9 | 撤销刚才 | 0 | 0 | ✅ |
 | C10 | 多语言混合 | 1 | 0 | ✅ |
-| F1-fatigue | F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 fatigue cooldown 分支 | 8 | 4 | ✅ |
-| F2-sensitive | F2 sensitive tool (send_wechat_file) 触发 checklist 拦截，owner 确认后无 pending step | 0 | 0 | ✅ |
-| F3-replay | F3 owner 询问 replay API, butler chat surface 不直连, 提示走 HTTP 控制面 | 0 | 0 | ✅ |
+| F1-fatigue | F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 REAL fatigue cooldown (audit injection) | 8 | 4 | ✅ |
+| F2-sensitive | F2 sensitive tool checklist 拦截 → owner 确认 → consume-path bridge 升级 ack | 1 | 1 | ✅ |
+| F3-replay | F3 owner 询问 replay API, harness pre-injects 3 audit events, reader sees real data | 0 | 0 | ✅ |
+| C-F1-real-cooldown | C-F1 cooldown 变体: 3 个 read_file pre-inject + write_file plan 触发 REAL cooldown (工具类型无关) | 8 | 4 | ✅ |
+| C-F2-checklist-proceed | C-F2 sensitive 变体: delete_file (非 send) 触发 checklist → owner 确认 → bridge 升级 ack | 0 | 0 | ✅ |
+| C-F3-replay-api | C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences | 0 | 0 | ✅ |
+| C-additional-1 | C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply | 0 | 0 | ✅ |
 
 ### D-combo（10 场景，10 通过）
 
@@ -497,7 +501,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-8vr4qR/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-DrCx8C/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -511,7 +515,7 @@ _decision=Respond | toolCalls=0 | replyLen=63_
 
 _decision=Respond | toolCalls=1 | replyLen=82_
 
-### F1-fatigue — F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 fatigue cooldown 分支（C-edge）
+### F1-fatigue — F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 REAL fatigue cooldown (audit injection)（C-edge）
 
 **turn 1**
 
@@ -585,17 +589,128 @@ wrote foo.ts (13 chars)
 
 _decision=Respond | toolCalls=1 | replyLen=31_
 
-### F2-sensitive — F2 sensitive tool (send_wechat_file) 触发 checklist 拦截，owner 确认后无 pending step（C-edge）
+### F2-sensitive — F2 sensitive tool checklist 拦截 → owner 确认 → consume-path bridge 升级 ack（C-edge）
 
-### F3-replay — F3 owner 询问 replay API, butler chat surface 不直连, 提示走 HTTP 控制面（C-edge）
+**turn 1**
+
+> in: 把 README.md 发到我微信
+
+< 此操作 [send_wechat_file] 不可撤销，请确认：
+1. 我已读此操作的后果，且操作不可撤销。
+2. 我确认目标对象正确（recipient / path / target）。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=95_
+
+**turn 2**
+
+> in: 确认
+
+< 已升级确认（send_wechat_file），操作将按你之前的请求执行。
+
+_decision=Respond | toolCalls=0 | replyLen=37_
+
+### F3-replay — F3 owner 询问 replay API, harness pre-injects 3 audit events, reader sees real data（C-edge）
 
 **turn 1**
 
 > in: 我刚做的几次操作，能查 replay API 撤销吗？
 
-< replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 audit log reader 在 harness 不写 subagent events → sequences 为空（degraded=true）。请用 HTTP 客户端调。
+< replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 harness 注入 3 个 subagent audit events → reader sees count=3 (sequences 非空)，可走 HTTP 客户端调 GET /fatigue 查 replay 候选。
 
-_decision=Respond | toolCalls=0 | replyLen=179_
+_decision=Respond | toolCalls=0 | replyLen=202_
+
+### C-F1-real-cooldown — C-F1 cooldown 变体: 3 个 read_file pre-inject + write_file plan 触发 REAL cooldown (工具类型无关)（C-edge）
+
+**turn 1**
+
+> in: 改 foo.ts 加 log
+
+< [待审批] 需要 write_file 操作 foo.ts，请确认
+回复「确认」批准，或「拒绝」取消。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+
+**turn 2**
+
+> in: y
+
+< ✅ 文件已写入
+wrote foo.ts (13 chars)
+
+_decision=Respond | toolCalls=1 | replyLen=31_
+
+**turn 3**
+
+> in: 改 bar.ts
+
+< [待审批] 需要 write_file 操作 foo.ts，请确认
+回复「确认」批准，或「拒绝」取消。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+
+**turn 4**
+
+> in: y
+
+< ✅ 文件已写入
+wrote foo.ts (13 chars)
+
+_decision=Respond | toolCalls=1 | replyLen=31_
+
+**turn 5**
+
+> in: 改 baz.ts
+
+< [待审批] 需要 write_file 操作 foo.ts，请确认
+回复「确认」批准，或「拒绝」取消。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+
+**turn 6**
+
+> in: y
+
+< ✅ 文件已写入
+wrote foo.ts (13 chars)
+
+_decision=Respond | toolCalls=1 | replyLen=31_
+
+**turn 7**
+
+> in: 改 qux.ts
+
+< [待审批] 需要 write_file 操作 foo.ts，请确认
+回复「确认」批准，或「拒绝」取消。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+
+**turn 8**
+
+> in: y
+
+< ✅ 文件已写入
+wrote foo.ts (13 chars)
+
+_decision=Respond | toolCalls=1 | replyLen=31_
+
+### C-F2-checklist-proceed — C-F2 sensitive 变体: delete_file (非 send) 触发 checklist → owner 确认 → bridge 升级 ack（C-edge）
+
+### C-F3-replay-api — C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences（C-edge）
+
+### C-additional-1 — C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply（C-edge）
+
+**turn 1**
+
+> in: 列出所有 active 的任务
+
+< 当前 active 任务：
+- 改 foo.ts (in progress)
+- 修 bar.ts (queued)
+- 部署 v5.2 (blocked)
+
+如需详细状态，可用 /v1/owner/usage 查 owner-direct 接口。
+
+_decision=Respond | toolCalls=0 | replyLen=124_
 
 ### D1 — 写 + 跑 test + 失败 + 修 + 再跑（D-combo）
 
@@ -653,8 +768,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-8vr4qR/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-8vr4qR/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-DrCx8C/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-DrCx8C/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
