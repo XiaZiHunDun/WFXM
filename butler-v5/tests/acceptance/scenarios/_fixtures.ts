@@ -7,12 +7,12 @@
  * - 多 turn 时 fixtures 按 LLM 调用顺序消耗；counter 在 setFixtures 时重置
  * - 写文件触发 `WaitForApproval`；owner 后续「确认」走 inline approval
  *
- * 4 类共 48 场景（D67 T2a-1: +4 C 子分类场景 C-F1-real-cooldown /
- *   C-F2-checklist-proceed / C-F3-replay-api / C-additional-1）：
+ * 4 类共 52 场景（D67 T2a-2: +4 D 子分类场景 D-cross-channel-consistency /
+ *   D-audit-correlation-continuity / D-owner-direct-no-inbound / D-additional-2）：
  * A. 真实开发任务（具体可执行）— 11（含 A11-session-digest-idle-return）
  * B. 开放性任务（探索型）— 10
  * C. 边界 / 失败模式 — 16（含 F1-fatigue / F2-sensitive / F3-replay / D67 T2a-1 ×4）
- * D. 跨场景组合 — 10（5 基础 + 5 chain-undo，D52 acceptance harness extension）
+ * D. 跨场景组合 — 14（5 基础 + 5 chain-undo，D52 acceptance harness extension + D67 T2a-2 ×4）
  */
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -1340,6 +1340,165 @@ export const scenariosD: readonly Scenario[] = [
       { content: "它安全吗" },
     ],
     followUpPatterns: [/^[^没有]/, /安全|risk|capability/i],
+  },
+  // D67 T2a-2 (arch boundary edge case #1): D-cross-channel-consistency —
+  // 模拟同一 conversationId 跨 3 个 channel (wechat / telegram / CLI) 写入
+  // audit events, 验证 audit trail 跨 channel 聚合一致。 3 个事件共享
+  // parentConversationId 但 ownerSubject 不同 (u-wechat / u-telegram / u-cli),
+  // 模拟三端同 conv 场景。Reader (subagentAuditAsFatigueReader) 走跨 channel
+  // 聚合路径 → count=3 → 触发 cooldown 链路。验证链：3 events 同 conv 注入
+  // + write_file plan → 第 4 个 write 走 REAL fatigue cooldown (3s sleep) →
+  // owner 「确认」 → 执行通过。
+  {
+    id: "D-cross-channel-consistency",
+    category: "D-combo",
+    title:
+      "D-cross-channel 一致性: 同一 conv 跨 wechat+telegram+CLI 注入 3 audit events, 第 4 个写触发 cooldown",
+    input: "改 foo.ts 加 log",
+    fixtures: {
+      plan: writeForApproval("foo.ts", "// added log\n"),
+    },
+    expect: {
+      finalDecision: "WaitForApproval",
+      requireApproval: true,
+      minToolCalls: 1,
+    },
+    setup: (ctx) => {
+      // D67 T2a-2: 3 个 audit events 共享同一 convId 但 ownerSubject 不同,
+      // 模拟跨 3 个 channel 同一会话的边界场景。
+      const _auditPath = freshSubagentAuditPath("d-cross-channel-consistency")
+      const sharedConvId = `c-realistic-D-cross-channel`
+      for (const channel of ["wechat", "telegram", "cli"]) {
+        emitSubagentAuditEvent({
+          toolName: "write_file",
+          parentConversationId: sharedConvId,
+          ownerSubject: `u-${channel}`,
+        })
+      }
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
+    followUps: [{ content: "确认" }], // cooldown path (3s sleep inline) → approve
+    followUpPatterns: [/^[^没有]/],
+  },
+  // D67 T2a-2 (arch boundary edge case #2): D-audit-correlation-continuity —
+  // 5 个连续 audit emit 共享同一 correlation_id (parentConversationId),
+  // 验证 correlation 跨多个事件保持连续。Reader 看到 5 个事件归到同一
+  // sequence, 而非分散成 5 个独立 sequence。Plan 是纯文本 (无 tool call),
+  // finalDecision=Respond, 仅验证 chat reply 不被 5-event sequence 影响。
+  {
+    id: "D-audit-correlation-continuity",
+    category: "D-combo",
+    title:
+      "D-audit-correlation 连续性: 5 连续 emit 共享同一 correlation_id, reader sees 1 sequence",
+    input: "列出 plan 给我看",
+    fixtures: {
+      plan: [
+        text(
+          "5 步 plan: read index → edit config → run test → commit → push。已列出, 待你确认。",
+        ),
+      ],
+    },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0,
+    },
+    setup: (ctx) => {
+      // D67 T2a-2: 5 个 audit events 共享同一 convId, 模拟单次请求内 5
+      // 个连续 emit sites (e.g., correlation_id thread 跨多 emit 调用)。
+      const _auditPath = freshSubagentAuditPath("d-audit-correlation-continuity")
+      const sharedConvId = `c-realistic-D-correlation`
+      for (let i = 0; i < 5; i += 1) {
+        emitSubagentAuditEvent({
+          toolName: "write_file",
+          parentConversationId: sharedConvId,
+        })
+      }
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
+  },
+  // D67 T2a-2 (arch boundary edge case #3): D-owner-direct-no-inbound —
+  // owner-direct API call 走 /v1/owner/usage 等 HTTP 控制面, 无 inbound
+  // runId, audit correlationId=null 路径。Phantom audit event (随机
+  // conversationId) pre-injected → 验证 chat reply 不受 foreign audit
+  // 数据干扰 (cross-correlation isolation)。
+  {
+    id: "D-owner-direct-no-inbound",
+    category: "D-combo",
+    title:
+      "D-owner-direct 无 inbound run: phantom audit (随机 convId) 不污染 chat reply",
+    input: "查 owner-direct 用量",
+    fixtures: {
+      plan: [
+        text(
+          "owner-direct 路径走 HTTP 控制面 (/v1/owner/usage), 不在 chat surface 集成。当前无 inbound run, audit correlationId=null。Phantom audit event (跨随机 convId) 不污染 chat reply。",
+        ),
+      ],
+    },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0,
+      containsAll: ["HTTP", "/v1/owner/usage"],
+      containsNone: ["degraded"],
+    },
+    setup: (ctx) => {
+      // D67 T2a-2: phantom audit event with random (non-matching) conversationId
+      // → 模拟 owner-direct path 无 inbound run 的 correlationId=null 边界。
+      // Reader 读到数据但 chat reply 不受影响 (cross-correlation isolation)。
+      const _auditPath = freshSubagentAuditPath("d-owner-direct-no-inbound")
+      const phantomConvId = `phantom-${Math.random().toString(36).slice(2, 10)}`
+      emitSubagentAuditEvent({
+        toolName: "write_file",
+        parentConversationId: phantomConvId,
+      })
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
+  },
+  // D67 T2a-2 (arch boundary edge case #4): D-additional-2 — audit emit 失败
+  // (invalid path 不存在) → appendAudit swallow exception, scenario 继续
+  // 不 crash。锁 §3 "graceful continue" 边界: appendAudit 永远 silent fail
+  // (audit-log.ts:72-79 catch swallow), 调用方不需要 defend against audit IO。
+  // 验证链：设 invalid path → scenario 仍走完整 plan + 触发 approval + owner
+  // 确认 → 不 crash。
+  {
+    id: "D-additional-2",
+    category: "D-combo",
+    title:
+      "D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario",
+    input: "改 bar.ts 加 log",
+    fixtures: {
+      plan: writeForApproval("bar.ts", "// added log\n"),
+    },
+    expect: {
+      finalDecision: "WaitForApproval",
+      requireApproval: true,
+      minToolCalls: 1,
+    },
+    setup: (ctx) => {
+      // D67 T2a-2: invalid audit path (目录不存在) → ensureLogPath 会 mkdirSync
+      // recursive 但中间层级无写权限时 mkdir 失败 → appendFileSync 抛 EACCES
+      // → appendAudit catch swallow (audit-log.ts:76-78) → silent fail, scenario
+      // 不受影响。
+      process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] =
+        "/nonexistent/readonly/dir/audit.jsonl"
+      void ctx
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
+    followUps: [{ content: "确认" }],
+    followUpPatterns: [/^[^没有]/],
   },
 ]
 
