@@ -625,6 +625,23 @@ async function runButlerLoopBody(args: {
               `此操作 [${toolName}] 不可撤销，请确认：`,
               ...toolDecision.items.map((item, i) => `${i + 1}. ${item}`),
             ].join("\n")
+            // D67 T1a — persist a pending approval step so the owner-side
+            // "确认" handler (approval-resume) can resume the run instead of
+            // firing RunPauseForApproval into the void. Mirrors the
+            // `kind="approval" status="waiting"` shape used by
+            // approval-runtime.requestApproval.
+            await args.wiring.runtimeStore.createStep({
+              id: crypto.randomUUID(),
+              runId: args.runId,
+              kind: "approval",
+              status: "waiting",
+              input: {
+                reason: "fatigue_checklist",
+                toolName,
+                items: toolDecision.items,
+              },
+              createdAt: new Date(),
+            })
             throw new RunPauseForApproval({
               reply: renderedPrompt,
               iterations: 0,

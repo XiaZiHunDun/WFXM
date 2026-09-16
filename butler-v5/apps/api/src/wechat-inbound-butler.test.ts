@@ -952,3 +952,154 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.startsWith("recall_project_knowledge@"))).toBe(true)
   })
 })
+
+// ============================================================================
+// D67 T1a — fatigue checklist creates a pending approval step before
+// throwing RunPauseForApproval, so the owner-side "确认" handler can resume.
+// ============================================================================
+
+describe("fatigue checklist createStep integration (D67 T1a)", () => {
+  let db: Awaited<ReturnType<typeof makeTestDb>>
+  let bridge: EventBridge
+  let silentLogger: ButlerLoopLogger = {
+    warn: () => undefined,
+    error: () => undefined,
+  }
+
+  /** Build a wiring with an injected MCP tool `send_email` so fatigue sees a
+   *  high-sensitivity tool (matches `send_*` glob in checklist.ts). */
+  function buildWiringWithSendEmail(): Wiring {
+    const runtimeStore = createRuntimeStore(db.db)
+    return makeWiring({
+      bridge,
+      workerId: "w-butler-t1a",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+      mcp: {
+        runtimeTools: [
+          {
+            name: "send_email" as never,
+            risk: "high",
+            run: async () => ({ ok: true, output: "email-sent" }),
+          },
+        ],
+        llmTools: [
+          {
+            name: "send_email",
+            description: "send an email",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+        mode: "multi",
+        discovered: [],
+        servers: [],
+        serverIdByCapability: {
+          send_email: "demo",
+        },
+      },
+    })
+  }
+
+  beforeEach(async () => {
+    db = await makeTestDb()
+    bridge = new EventBridge({ db: db.db, workerId: "w-butler-t1a" })
+  })
+
+  afterEach(async () => {
+    await db.close()
+    vi.restoreAllMocks()
+  })
+
+  test("U1: checklist triggers createStep before RunPauseForApproval", async () => {
+    const wiring = buildWiringWithSendEmail()
+    const createStepSpy = vi.spyOn(wiring.runtimeStore, "createStep")
+    const adapter = makeMockAdapter([
+      toolCallResponse([{ id: "tc_send", name: "send_email", args: { to: "x@y" } }]),
+    ])
+    // D67 T1a: force the fatigue reader to point at an empty / non-existent
+    // JSONL so signal.count=0 → high-sensitivity tool triggers checklist
+    // directly (rather than the count>=3 cooldown path).
+    const emptyAuditPath = `/tmp/d67-t1a-empty-audit-${Date.now()}-${Math.random()}.jsonl`
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-d67-t1a-u1",
+      content: "send the email",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: { BUTLER_V5_SUBAGENT_AUDIT_PATH: emptyAuditPath },
+      logger: silentLogger,
+      adapter,
+    })
+    // Fatigue fires the checklist path → createStep called once with kind/status.
+    expect(createStepSpy).toHaveBeenCalledTimes(1)
+    const call = createStepSpy.mock.calls[0]?.[0]
+    expect(call).toBeDefined()
+    expect(call?.kind).toBe("approval")
+    expect(call?.status).toBe("waiting")
+    // RunPauseForApproval still thrown — owner sees the checklist prompt.
+    expect(result.finalDecision).toBe("WaitForApproval")
+    expect(result.traces.some((t) => t.startsWith("fatigue checklist send_email"))).toBe(true)
+  })
+
+  test("U2: low-sensitivity tool path does not call createStep from fatigue checklist", async () => {
+    // get_current_time is a normal tool — no sensitivity match → allow path,
+    // so fatigue does not emit a pending approval step.
+    const wiring = makeWiring({
+      bridge,
+      workerId: "w-butler-t1a",
+      runtimeStore: createRuntimeStore(db.db),
+      runEngine: new RunEngine(createRuntimeStore(db.db)),
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
+    const createStepSpy = vi.spyOn(wiring.runtimeStore, "createStep")
+    const adapter = makeMockAdapter([
+      toolCallResponse([{ id: "tc_time", name: "get_current_time", args: {} }]),
+      textResponse("now is the time"),
+    ])
+    const result = await runButlerLoop({
+      wiring,
+      conversationId: "c-d67-t1a-u2",
+      content: "what time is it?",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: {},
+      logger: silentLogger,
+      adapter,
+    })
+    expect(createStepSpy).not.toHaveBeenCalled()
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.reply).toBe("now is the time")
+  })
+
+  test("U3: createStep input records reason=fatigue_checklist + toolName + items", async () => {
+    const wiring = buildWiringWithSendEmail()
+    const createStepSpy = vi.spyOn(wiring.runtimeStore, "createStep")
+    const adapter = makeMockAdapter([
+      toolCallResponse([{ id: "tc_send2", name: "send_email", args: {} }]),
+    ])
+    const emptyAuditPath = `/tmp/d67-t1a-empty-audit-${Date.now()}-${Math.random()}-u3.jsonl`
+    await runButlerLoop({
+      wiring,
+      conversationId: "c-d67-t1a-u3",
+      content: "send the email",
+      fromUserId: "u-1",
+      projectId: "p-1",
+      env: { BUTLER_V5_SUBAGENT_AUDIT_PATH: emptyAuditPath },
+      logger: silentLogger,
+      adapter,
+    })
+    expect(createStepSpy).toHaveBeenCalledTimes(1)
+    const call = createStepSpy.mock.calls[0]?.[0]
+    expect(call).toBeDefined()
+    const input = call?.input as
+      | { readonly reason?: string; readonly toolName?: string; readonly items?: readonly string[] }
+      | undefined
+    expect(input?.reason).toBe("fatigue_checklist")
+    expect(input?.toolName).toBe("send_email")
+    expect(Array.isArray(input?.items)).toBe(true)
+    expect(input?.items?.length ?? 0).toBeGreaterThan(0)
+  })
+})
