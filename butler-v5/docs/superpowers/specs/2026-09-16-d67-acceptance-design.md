@@ -101,10 +101,10 @@ case "checklist": {
   ].join("\n")
   // D67 T1a — persist pending step so owner "确认" can resume
   await wiring.runtimeStore.createStep({
-    id: makeLoopId(),
+    id: crypto.randomUUID(),
     runId: args.runId,
-    kind: "owner_approval",
-    status: "pending",
+    kind: "approval",
+    status: "waiting",
     input: {
       reason: "fatigue_checklist",
       toolName,
