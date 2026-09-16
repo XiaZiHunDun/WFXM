@@ -4,11 +4,11 @@
 
 ## 总览
 
-- 场景数：48
-- 通过：48 / 失败：0
-- 触发 approval：19 次
-- 工具调用总数：48
-- reply 字符总数：6006
+- 场景数：52
+- 通过：52 / 失败：0
+- 触发 approval：22 次
+- 工具调用总数：53
+- reply 字符总数：6528
 
 ## 按类别汇总
 
@@ -61,11 +61,11 @@
 | F2-sensitive | F2 sensitive tool checklist 拦截 → owner 确认 → consume-path bridge 升级 ack | 1 | 1 | ✅ |
 | F3-replay | F3 owner 询问 replay API, harness pre-injects 3 audit events, reader sees real data | 0 | 0 | ✅ |
 | C-F1-real-cooldown | C-F1 cooldown 变体: 3 个 read_file pre-inject + write_file plan 触发 REAL cooldown (工具类型无关) | 8 | 4 | ✅ |
-| C-F2-checklist-proceed | C-F2 sensitive 变体: delete_file (非 send) 触发 checklist → owner 确认 → bridge 升级 ack | 0 | 0 | ✅ |
+| C-F2-checklist-proceed | C-F2 sensitive 变体: send_wechat_file 不同 path 触发 checklist → owner 确认 → bridge 升级 ack | 1 | 1 | ✅ |
 | C-F3-replay-api | C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences | 0 | 0 | ✅ |
 | C-additional-1 | C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply | 0 | 0 | ✅ |
 
-### D-combo（10 场景，10 通过）
+### D-combo（14 场景，14 通过）
 
 | ID | 标题 | 工具 | 审批 | 状态 |
 |---|---|---|---|---|
@@ -79,6 +79,10 @@
 | D3 | 先 read 现在改 | 2 | 1 | ✅ |
 | D4 | 被打断 resume | 2 | 0 | ✅ |
 | D5 | 写完 问安全吗 | 3 | 2 | ✅ |
+| D-cross-channel-consistency | D-cross-channel 一致性: 同一 conv 跨 wechat+telegram+CLI 注入 3 audit events, 第 4 个写触发 cooldown | 2 | 1 | ✅ |
+| D-audit-correlation-continuity | D-audit-correlation 连续性: 5 连续 emit 共享同一 correlation_id, reader sees 1 sequence | 0 | 0 | ✅ |
+| D-owner-direct-no-inbound | D-owner-direct 无 inbound run: phantom audit (随机 convId) 不污染 chat reply | 0 | 0 | ✅ |
+| D-additional-2 | D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario | 2 | 1 | ✅ |
 
 ## 每场景 reply 抓取（用于人工 review）
 
@@ -501,7 +505,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-DrCx8C/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-N6RlOQ/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -693,7 +697,25 @@ wrote foo.ts (13 chars)
 
 _decision=Respond | toolCalls=1 | replyLen=31_
 
-### C-F2-checklist-proceed — C-F2 sensitive 变体: delete_file (非 send) 触发 checklist → owner 确认 → bridge 升级 ack（C-edge）
+### C-F2-checklist-proceed — C-F2 sensitive 变体: send_wechat_file 不同 path 触发 checklist → owner 确认 → bridge 升级 ack（C-edge）
+
+**turn 1**
+
+> in: 把 owner-default project memory 发到我微信
+
+< 此操作 [send_wechat_file] 不可撤销，请确认：
+1. 我已读此操作的后果，且操作不可撤销。
+2. 我确认目标对象正确（recipient / path / target）。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=95_
+
+**turn 2**
+
+> in: 确认
+
+< 已升级确认（send_wechat_file），操作将按你之前的请求执行。
+
+_decision=Respond | toolCalls=0 | replyLen=37_
 
 ### C-F3-replay-api — C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences（C-edge）
 
@@ -768,8 +790,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-DrCx8C/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-DrCx8C/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-N6RlOQ/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-N6RlOQ/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -865,3 +887,63 @@ _decision=Respond | toolCalls=1 | replyLen=64_
 回复「确认」批准，或「拒绝」取消。
 
 _decision=WaitForApproval | toolCalls=1 | replyLen=84_
+
+### D-cross-channel-consistency — D-cross-channel 一致性: 同一 conv 跨 wechat+telegram+CLI 注入 3 audit events, 第 4 个写触发 cooldown（D-combo）
+
+**turn 1**
+
+> in: 改 foo.ts 加 log
+
+< [待审批] 需要 write_file 操作 foo.ts，请确认
+回复「确认」批准，或「拒绝」取消。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+
+**turn 2**
+
+> in: 确认
+
+< ✅ 文件已写入
+wrote foo.ts (13 chars)
+
+_decision=Respond | toolCalls=1 | replyLen=31_
+
+### D-audit-correlation-continuity — D-audit-correlation 连续性: 5 连续 emit 共享同一 correlation_id, reader sees 1 sequence（D-combo）
+
+**turn 1**
+
+> in: 列出 plan 给我看
+
+< 5 步 plan: read index → edit config → run test → commit → push。已列出, 待你确认。
+
+_decision=Respond | toolCalls=0 | replyLen=72_
+
+### D-owner-direct-no-inbound — D-owner-direct 无 inbound run: phantom audit (随机 convId) 不污染 chat reply（D-combo）
+
+**turn 1**
+
+> in: 查 owner-direct 用量
+
+< owner-direct 路径走 HTTP 控制面 (/v1/owner/usage), 不在 chat surface 集成。当前无 inbound run, audit correlationId=null。Phantom audit event (跨随机 convId) 不污染 chat reply。
+
+_decision=Respond | toolCalls=0 | replyLen=154_
+
+### D-additional-2 — D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario（D-combo）
+
+**turn 1**
+
+> in: 改 bar.ts 加 log
+
+< [待审批] 需要 write_file 操作 bar.ts，请确认
+回复「确认」批准，或「拒绝」取消。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+
+**turn 2**
+
+> in: 确认
+
+< ✅ 文件已写入
+wrote bar.ts (13 chars)
+
+_decision=Respond | toolCalls=1 | replyLen=31_
