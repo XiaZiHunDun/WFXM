@@ -24,7 +24,6 @@ import {
   resetUndoChain,
   undoChain_listChainIds,
 } from "@butler/api/workspace-tools.js"
-import { appendAudit } from "@butler/api/audit-log.js"
 import type { FixtureEntry } from "../harness.js"
 
 export type ScenarioCategory = "A-concrete" | "B-open" | "C-edge" | "D-combo"
@@ -103,47 +102,45 @@ const writeForApproval = (path: string, content: string): FixtureEntry[] => [
 ]
 
 // ============================================================================
-// D67 T1b — Acceptance harness audit writes.
+// D67 T1b / D68 T2a — Acceptance harness audit writes.
 // ============================================================================
 
 /**
- * Mirror `subagentAuditAsFatigueReader`'s source (subagent JSONL) so harness
- * scenarios can inject high-signal data that the real fatigue reader
- * (subagentAuditAsFatigueReader / D64 T1) picks up.
+ * D68 T2a — D64 reader swap: fatigue reader now reads from
+ * `runtimeStore.listRecentAuditEvents` (D66 T1a), not the subagent JSONL
+ * log. So harness scenarios inject directly into the in-memory
+ * `audit_events` table via `runtimeStore.appendAuditEvent` — that's the
+ * canonical source the reader queries.
  *
- * Caller MUST set `process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]` to a fresh
- * tmpdir path BEFORE running the scenario (per-scenario isolation), and
- * `delete` it in `verify`. The harness setup callback is the right hook —
- * mirroring T1a's `BUTLER_V5_SUBAGENT_AUDIT_PATH: emptyAuditPath` pattern.
- *
- * Spec note: §2.2 of D67 design doc calls for `runtimeStore.appendAuditEvent`,
- * but the actual reader (subagentAuditAsFatigueReader:62-78) still reads
- * from the subagent JSONL log, NOT from `audit_events`. Until D64 follow-up
- * swaps the reader to `listRecentAuditEvents`, this JSONL bridge is the only
- * path that triggers real cooldown / real fatigue decisions in harness.
+ * Caller invokes this helper inside the scenario's `setup` callback,
+ * passing the harness `ctx` so the in-memory store is reachable.
  */
-function emitSubagentAuditEvent(opts: {
-  readonly toolName: string
-  readonly parentConversationId?: string
-  readonly ownerSubject?: string
-}): void {
-  appendAudit({
-    ts: new Date().toISOString(),
-    kind: "tool_call",
-    parentConversationId: opts.parentConversationId ?? "harness-f1",
-    childConversationId: opts.parentConversationId ?? "harness-f1",
-    role: "owner",
-    task: "fatigue injection (D67 T1b harness)",
-    capabilities: [],
-    ownerSubject: opts.ownerSubject ?? "u-owner",
-    toolName: opts.toolName,
+async function injectAuditEvent(
+  ctx: ScenarioSetupCtx,
+  opts: {
+    readonly toolName: string
+    readonly parentConversationId?: string
+  },
+): Promise<void> {
+  await ctx.app.wiring.runtimeStore.appendAuditEvent({
+    auditId: crypto.randomUUID(),
+    runId: null,
+    conversationId: opts.parentConversationId ?? null,
+    action: "tool_call",
+    subject: opts.toolName,
+    detail: { harnessInjection: "D68 T2a" },
+    createdAt: new Date(),
+    correlationId: null,
   })
 }
 
 /**
- * Allocate a fresh subagent audit log path under a tmpdir and set the env
- * override. Returns the path so `verify` can `rmSync` it. Mirrors the
- * A11-session-digest-idle-return pattern (mkdtempSync per scenario).
+ * D68 T2a — Legacy no-op retained for backward compat with F2/C-F2
+ * setups that called `freshSubagentAuditPath` to seed an empty JSONL.
+ * After the reader swap, the JSONL is no longer read by the fatigue
+ * reader, so setting the env override is dead code. Kept so existing
+ * scenario definitions compile; `verify` callbacks still delete the
+ * (never-set) env var harmlessly.
  */
 function freshSubagentAuditPath(prefix: string): string {
   const auditTmpDir = mkdtempSync(join(tmpdir(), `butler-v5-${prefix}-`))
@@ -685,18 +682,17 @@ export const scenariosC: readonly Scenario[] = [
       requireApproval: true,
       minToolCalls: 4, // 4 个 write_file 都真执行 (含 4 个 resume 后)
     },
-    setup: (ctx) => {
-      // D67 T1b: per-scenario subagent audit log path + 3 events pre-injected
-      // → fatigue reader (subagentAuditAsFatigueReader) sees count=3 when the
-      // 4th write_file runs. Mirrors T1a test pattern (BUTLER_V5_SUBAGENT_AUDIT_PATH
-      // override → empty/non-existent path → count=0).
+    setup: async (ctx) => {
+      // D68 T2a: inject 3 audit events into runtimeStore.audit_events
+      // (the canonical source post-swap). Fatigue reader sees count=3
+      // when the 4th write_file runs → triggers REAL cooldown 3s sleep.
+      // Old JSONL injection is obsolete; freshSubagentAuditPath no longer
+      // affects the reader but kept for env-var cleanup symmetry.
       const _auditPath = freshSubagentAuditPath("f1-fatigue")
       const convId = `c-realistic-F1-fatigue`
       for (let i = 0; i < 3; i += 1) {
-        emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: convId })
+        await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId })
       }
-      // suppress unused-vars; ctx + auditPath used by caller for cleanup
-      void ctx
       void _auditPath
     },
     verify: () => {
@@ -781,15 +777,14 @@ export const scenariosC: readonly Scenario[] = [
         ),
       ],
     },
-    setup: (ctx) => {
-      // D67 T1b: pre-inject 3 subagent audit events so reader sees real data
-      // (was empty before T1b; now non-empty → sequences populated, degraded=false).
+    setup: async (ctx) => {
+      // D68 T2a: inject 3 audit events into runtimeStore.audit_events so
+      // reader sees real data (sequences populated, degraded=false).
       const _auditPath = freshSubagentAuditPath("f3-replay")
       const convId = `c-realistic-F3-replay`
       for (let i = 0; i < 3; i += 1) {
-        emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: convId })
+        await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId })
       }
-      void ctx
       void _auditPath
     },
     verify: () => {
@@ -827,15 +822,14 @@ export const scenariosC: readonly Scenario[] = [
       requireApproval: true,
       minToolCalls: 4, // 4 个 write_file 都真执行 (含 4 个 resume 后)
     },
-    setup: (ctx) => {
-      // D67 T2a-1: pre-injected events toolName="read_file" (与 F1 的
-      // write_file 区分) — 验证疲劳计数跨工具类型聚合。
+    setup: async (ctx) => {
+      // D68 T2a: inject 3 read_file audit events into runtimeStore
+      // (与 F1 的 write_file 区分) — 验证疲劳计数跨工具类型聚合。
       const _auditPath = freshSubagentAuditPath("c-f1-real-cooldown")
       const convId = `c-realistic-C-F1-real-cooldown`
       for (let i = 0; i < 3; i += 1) {
-        emitSubagentAuditEvent({ toolName: "read_file", parentConversationId: convId })
+        await injectAuditEvent(ctx, { toolName: "read_file", parentConversationId: convId })
       }
-      void ctx
       void _auditPath
     },
     verify: () => {
@@ -915,20 +909,19 @@ export const scenariosC: readonly Scenario[] = [
         ),
       ],
     },
-    setup: (ctx) => {
-      // D67 T2a-1: 与 F3 区别是 pre-injected events 跨 2 个 conversationId (3+2)。
-      // → reader (readRecentSubagentAudit → queryRecentSubagentAudit) sees 2
-      // distinct sequences。 Reply 必须仍解释 HTTP 控制面 + 含 "audit/fatigue"。
+    setup: async (ctx) => {
+      // D68 T2a: 与 F3 区别是 pre-injected events 跨 2 个 conversationId (3+2)。
+      // → reader (listRecentAuditEvents) sees 2 distinct sequences。
+      // Reply 必须仍解释 HTTP 控制面 + 含 "audit/fatigue"。
       const _auditPath = freshSubagentAuditPath("c-f3-replay-api")
       const convId1 = `c-realistic-C-F3-replay-api-seq1`
       const convId2 = `c-realistic-C-F3-replay-api-seq2`
       for (let i = 0; i < 3; i += 1) {
-        emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: convId1 })
+        await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId1 })
       }
       for (let i = 0; i < 2; i += 1) {
-        emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: convId2 })
+        await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId2 })
       }
-      void ctx
       void _auditPath
     },
     verify: () => {
@@ -961,15 +954,14 @@ export const scenariosC: readonly Scenario[] = [
         ),
       ],
     },
-    setup: (ctx) => {
-      // D67 T2a-1: phantom audit event from a random (non-matching) conversationId
+    setup: async (ctx) => {
+      // D68 T2a: phantom audit event from a random (non-matching) conversationId
       // → 模拟 owner-direct API call w/o inbound run 的 correlationId=null 边界
       // (audit_event 有 conversationId 但不 match 当前 runId)。Reader 仍能读到
       // 数据但 chat reply 不受影响。
       const _auditPath = freshSubagentAuditPath("c-additional-1")
       const phantomConvId = `phantom-${Math.random().toString(36).slice(2, 10)}`
-      emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: phantomConvId })
-      void ctx
+      await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: phantomConvId })
       void _auditPath
     },
     verify: () => {
@@ -1382,19 +1374,17 @@ export const scenariosD: readonly Scenario[] = [
       requireApproval: true,
       minToolCalls: 1,
     },
-    setup: (ctx) => {
-      // D67 T2a-2: 3 个 audit events 共享同一 convId 但 ownerSubject 不同,
-      // 模拟跨 3 个 channel 同一会话的边界场景。
+    setup: async (ctx) => {
+      // D68 T2a: 3 个 audit events 共享同一 convId 但 ownerSubject 不同,
+      // 模拟跨 3 个 channel 同一会话的边界场景。注入到 runtimeStore。
       const _auditPath = freshSubagentAuditPath("d-cross-channel-consistency")
       const sharedConvId = `c-realistic-D-cross-channel`
-      for (const channel of ["wechat", "telegram", "cli"]) {
-        emitSubagentAuditEvent({
+      for (const _channel of ["wechat", "telegram", "cli"]) {
+        await injectAuditEvent(ctx, {
           toolName: "write_file",
           parentConversationId: sharedConvId,
-          ownerSubject: `u-${channel}`,
         })
       }
-      void ctx
       void _auditPath
     },
     verify: () => {
@@ -1425,18 +1415,18 @@ export const scenariosD: readonly Scenario[] = [
       finalDecision: "Respond",
       minToolCalls: 0,
     },
-    setup: (ctx) => {
-      // D67 T2a-2: 5 个 audit events 共享同一 convId, 模拟单次请求内 5
+    setup: async (ctx) => {
+      // D68 T2a: 5 个 audit events 共享同一 convId, 模拟单次请求内 5
       // 个连续 emit sites (e.g., correlation_id thread 跨多 emit 调用)。
+      // 注入到 runtimeStore.audit_events。
       const _auditPath = freshSubagentAuditPath("d-audit-correlation-continuity")
       const sharedConvId = `c-realistic-D-correlation`
       for (let i = 0; i < 5; i += 1) {
-        emitSubagentAuditEvent({
+        await injectAuditEvent(ctx, {
           toolName: "write_file",
           parentConversationId: sharedConvId,
         })
       }
-      void ctx
       void _auditPath
     },
     verify: () => {
@@ -1467,17 +1457,16 @@ export const scenariosD: readonly Scenario[] = [
       containsAll: ["HTTP", "/v1/owner/usage"],
       containsNone: ["degraded"],
     },
-    setup: (ctx) => {
-      // D67 T2a-2: phantom audit event with random (non-matching) conversationId
+    setup: async (ctx) => {
+      // D68 T2a: phantom audit event with random (non-matching) conversationId
       // → 模拟 owner-direct path 无 inbound run 的 correlationId=null 边界。
-      // Reader 读到数据但 chat reply 不受影响 (cross-correlation isolation)。
+      // 注入到 runtimeStore。Reader 读到数据但 chat reply 不受影响。
       const _auditPath = freshSubagentAuditPath("d-owner-direct-no-inbound")
       const phantomConvId = `phantom-${Math.random().toString(36).slice(2, 10)}`
-      emitSubagentAuditEvent({
+      await injectAuditEvent(ctx, {
         toolName: "write_file",
         parentConversationId: phantomConvId,
       })
-      void ctx
       void _auditPath
     },
     verify: () => {

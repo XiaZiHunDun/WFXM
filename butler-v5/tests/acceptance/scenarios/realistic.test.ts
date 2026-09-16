@@ -65,12 +65,23 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
   async function runScenario(
     scenario: (typeof ALL_SCENARIOS)[number],
     convId: string,
-    ctx: { workspaceRoot: string },
+    ctx: import("./_fixtures.js").ScenarioSetupCtx,
     notes: string[],
     turns: TurnMetric[],
   ): Promise<{ approvalCount: number; totalToolCalls: number }> {
     let approvalCount = 0
     let totalToolCalls = 0
+
+    // D68 T2a: per-scenario audit_events isolation. The fatigue reader
+    // (subagentAuditAsFatigueReader) now queries runtimeStore.audit_events
+    // (the canonical source post-swap), so scenarios that pre-inject audit
+    // events would leak into subsequent scenarios if we didn't reset.
+    // JSONL bridge had implicit per-scenario isolation via fresh tmpdir;
+    // runtimeStore shares state across scenarios so we truncate via raw
+    // SQL (Drizzle's `deleteFrom` needs a schema-aware table ref, raw
+    // `sql\`DELETE FROM ...\`` is the cheapest escape hatch).
+    const { sql } = await import("drizzle-orm")
+    await ctx.app.db.execute(sql`DELETE FROM audit_events`)
 
     if (scenario.setup) {
       await scenario.setup(ctx)
