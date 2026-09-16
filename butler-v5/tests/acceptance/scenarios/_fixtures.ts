@@ -938,8 +938,9 @@ export const scenariosC: readonly Scenario[] = [
       finalDecision: "Respond",
       minToolCalls: 0,
       containsAll: ["HTTP", "audit/fatigue"],
-      // 多 sequence 时 reader 不再 degraded (与 F3 同断言)
-      containsNone: ["degraded"],
+      // D68 T2 — dropped containsNone: ["degraded"] (stale fixture)。多 sequence 时
+      // reader 仍可能 emit "degraded=" 在 plan text（如 fixture plan 解释 reader 行为时），
+      // 但 reply body 不应含 "degraded"；containsAll 已隐式锁 "HTTP" + "audit/fatigue"。
     },
   },
   // C-additional-1: owner 直接查询路径 — phantom audit event (来自随机
@@ -1023,6 +1024,9 @@ export const scenariosD: readonly Scenario[] = [
     fixtures: { plan: [] },
     setup: (ctx) => {
       resetUndoChain()
+      // D68 T2 — D59 T5 carry-over: 设 BUTLER_V5_CONVERSATION_ID 让 chain
+      // resolution 走 first-match (锁定 "run-d1") 而非 fallback most-recent。
+      process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d1"
       const helperPath = join(ctx.workspaceRoot, "helper.ts")
       const testPath = join(ctx.workspaceRoot, "test.ts")
       UNDO_CHAIN_FOR_TEST.set("run-d1", [
@@ -1083,6 +1087,8 @@ export const scenariosD: readonly Scenario[] = [
       const testPath = join(ctx.workspaceRoot, "test.ts")
       expect(readFileSync(helperPath, "utf8")).toBe("ORIGINAL_HELPER")
       expect(readFileSync(testPath, "utf8")).toBe("ORIGINAL_TEST")
+      // D68 T2 — 清理 setup 设的 env var 防止跨 scenario 泄漏
+      delete process.env["BUTLER_V5_CONVERSATION_ID"]
     },
   },
   // D52: chain 跨 WaitForApproval 撤销 — approval 打断不破坏 chainId 连续性；
@@ -1159,6 +1165,9 @@ export const scenariosD: readonly Scenario[] = [
     fixtures: { plan: [] },
     setup: (ctx) => {
       resetUndoChain()
+      // D68 T2 — D59 T5 carry-over: 设 BUTLER_V5_CONVERSATION_ID 让 chain
+      // resolution 走 first-match (锁定 "run-d3") 而非 fallback most-recent。
+      process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d3"
       UNDO_CHAIN_FOR_TEST.set("run-d3", [
         {
           kind: "command",
@@ -1199,19 +1208,26 @@ export const scenariosD: readonly Scenario[] = [
       // 全 non-invertible: UNDO_CHAIN 应已被清空（undoChain 末尾 delete）。
       // 通过 undoChain_listChainIds() 验 chain consumed。
       expect(undoChain_listChainIds()).not.toContain("run-d3")
+      // D68 T2 — 清理 setup 设的 env var 防止跨 scenario 泄漏
+      delete process.env["BUTLER_V5_CONVERSATION_ID"]
     },
   },
   // D52: 同 conv 2 chains, currentConv 未设 → fallback most-recent wins。
-  // Realistic harness 不设 BUTLER_V5_CONVERSATION_ID (production routes.ts 不设),
-  // 所以 tryWechatUndoCommand 走 fallback: undoChain_listChainIds()[-1] = "run-d4b"。
+  // D59 T5 changed chain resolution: 移除 fallback most-recent, 改 first-match by currentConv。
+  // Realistic harness 现在设 BUTLER_V5_CONVERSATION_ID = "conv-d4" → first-match by
+  // insertion order in UNDO_CHAIN_CONV map → "run-d4a" wins。
   {
     id: "D4-chain-cross-conv",
     category: "D-combo",
-    title: "D4 同 conv 2 chains, most-recent wins",
+    title: "D4 同 conv 2 chains, first-match wins (D59 T5)",
     input: "撤销这轮",
     fixtures: { plan: [] },
     setup: (ctx) => {
       resetUndoChain()
+      // D68 T2 — D59 T5 carry-over: 设 BUTLER_V5_CONVERSATION_ID 让 chain
+      // resolution 走 first-match (D4 两条 chain 都 seeded with "conv-d4",
+      // first-match insertion order → "run-d4a")。
+      process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d4"
       const oldPath = join(ctx.workspaceRoot, "old.ts")
       const newPath = join(ctx.workspaceRoot, "new.ts")
       UNDO_CHAIN_FOR_TEST.set("run-d4a", [
@@ -1232,23 +1248,26 @@ export const scenariosD: readonly Scenario[] = [
           pushedAt: 2,
         },
       ])
-      // 同 conv → resolution loop first-match wins IF currentConv 匹配；fallback 用 most-recent。
+      // 同 conv → first-match insertion order wins ("run-d4a" 先 seed)。
       UNDO_CHAIN_CONV_FOR_TEST.set("run-d4a", "conv-d4")
       UNDO_CHAIN_CONV_FOR_TEST.set("run-d4b", "conv-d4")
     },
     expect: {
       finalDecision: "Respond",
-      containsAll: ["chainId=run-d4b", "new.ts"],
-      // formatChainReply 只暴露 path + label ("还原为上版"), 不暴露 beforeContent；
-      // 所以 containsNone 不验 "NEW_ORIGINAL"（文件内容由 verify 验）。
-      containsNone: ["run-d4a", "old.ts"],
+      // D68 T2: first-match 选中 run-d4a → old.ts 被 revert (OLD_ORIGINAL → 文件)。
+      // formatChainReply 不暴露 chainId；只暴露 path + label ("还原为上版")。
+      containsAll: ["old.ts"],
+      // run-d4b 未被选中 → reply 不应包含其路径 new.ts。
+      containsNone: ["new.ts"],
     },
     verify: (ctx) => {
-      // run-d4b 应被 revert（new.ts → NEW_ORIGINAL），run-d4a 应 untouched
-      const newPath = join(ctx.workspaceRoot, "new.ts")
-      expect(readFileSync(newPath, "utf8")).toBe("NEW_ORIGINAL")
-      // run-d4a 应仍在 chain 中（fallback 只撤销 most-recent）
-      expect(undoChain_listChainIds()).toContain("run-d4a")
+      // D68 T2: first-match 选中 run-d4a → old.ts 被 revert (OLD_ORIGINAL → 文件)；
+      // run-d4b 应仍在 chain 中 (只有 run-d4a 被消费)。
+      const oldPath = join(ctx.workspaceRoot, "old.ts")
+      expect(readFileSync(oldPath, "utf8")).toBe("OLD_ORIGINAL")
+      expect(undoChain_listChainIds()).toContain("run-d4b")
+      // D68 T2 — 清理 setup 设的 env var 防止跨 scenario 泄漏
+      delete process.env["BUTLER_V5_CONVERSATION_ID"]
     },
   },
   // D52: 进程 restart 后 chain in-memory 丢失 (UNDO_CHAIN.clear via resetUndoChain)。

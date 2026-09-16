@@ -8,7 +8,7 @@
 - 通过：52 / 失败：0
 - 触发 approval：22 次
 - 工具调用总数：53
-- reply 字符总数：6528
+- reply 字符总数：7177
 
 ## 按类别汇总
 
@@ -73,7 +73,7 @@
 | D1-chain-extension | D1 5 步链撤销（多 tool undo） | 0 | 0 | ✅ |
 | D2-chain-approval | D2 chain 跨 WaitForApproval 撤销 | 3 | 1 | ✅ |
 | D3-chain-commands | D3 chain 全 run_command 无 auto-undo | 0 | 0 | ✅ |
-| D4-chain-cross-conv | D4 同 conv 2 chains, most-recent wins | 0 | 0 | ✅ |
+| D4-chain-cross-conv | D4 同 conv 2 chains, first-match wins (D59 T5) | 0 | 0 | ✅ |
 | D5-chain-restart | D5 restart 后 chain 丢失, honest reply | 0 | 0 | ✅ |
 | D2 | 看看 后续追问 | 2 | 0 | ✅ |
 | D3 | 先 read 现在改 | 2 | 1 | ✅ |
@@ -505,7 +505,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-N6RlOQ/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-ojPZVD/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -719,6 +719,14 @@ _decision=Respond | toolCalls=0 | replyLen=37_
 
 ### C-F3-replay-api — C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences（C-edge）
 
+**turn 1**
+
+> in: 我刚做的几次操作，能查 replay API 撤销吗？
+
+< replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 harness 注入 5 个 subagent audit events 跨 2 个 conversationId (3+2 分布) → reader sees 2 distinct sequences (而非 F3 的 1 个), sequences count=2 → degraded=false。可走 HTTP 客户端调 GET /fatigue 查多 sequence 的 replay 候选。
+
+_decision=Respond | toolCalls=0 | replyLen=292_
+
 ### C-additional-1 — C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply（C-edge）
 
 **turn 1**
@@ -765,6 +773,21 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=75_
 
 ### D1-chain-extension — D1 5 步链撤销（多 tool undo）（D-combo）
 
+**turn 1**
+
+> in: 撤销这轮
+
+< 【撤销轮次】（共 3 步）
+✅ /tmp/wb-accept-ws-ojPZVD/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-ojPZVD/test.ts → 还原为上版
+✅ /tmp/wb-accept-ws-ojPZVD/helper.ts → 还原为上版
+
+以下 2 个命令副作用需手工 reverse（无法自动 undo）：
+• pnpm test
+• pnpm test
+
+_decision=Respond | toolCalls=0 | replyLen=206_
+
 ### D2-chain-approval — D2 chain 跨 WaitForApproval 撤销（D-combo）
 
 **turn 1**
@@ -790,8 +813,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-N6RlOQ/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-N6RlOQ/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-ojPZVD/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-ojPZVD/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -800,7 +823,29 @@ _decision=Respond | toolCalls=0 | replyLen=151_
 
 ### D3-chain-commands — D3 chain 全 run_command 无 auto-undo（D-combo）
 
-### D4-chain-cross-conv — D4 同 conv 2 chains, most-recent wins（D-combo）
+**turn 1**
+
+> in: 撤销这轮
+
+< 【撤销轮次】（共 0 步）
+
+以下 3 个命令副作用需手工 reverse（无法自动 undo）：
+• git add -A
+• pnpm test
+• pnpm install lodash
+
+_decision=Respond | toolCalls=0 | replyLen=96_
+
+### D4-chain-cross-conv — D4 同 conv 2 chains, first-match wins (D59 T5)（D-combo）
+
+**turn 1**
+
+> in: 撤销这轮
+
+< 【撤销轮次】（共 1 步）
+✅ /tmp/wb-accept-ws-ojPZVD/old.ts → 还原为上版
+
+_decision=Respond | toolCalls=0 | replyLen=55_
 
 ### D5-chain-restart — D5 restart 后 chain 丢失, honest reply（D-combo）
 

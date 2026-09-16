@@ -189,7 +189,6 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
 
   for (const scenario of ALL_SCENARIOS) {
     it(`${scenario.id} ${scenario.title} [N=3]`, async () => {
-      const convId = `c-realistic-${scenario.id}`
       // D49: 透传 harness workspaceRoot 给 setup/verify 钩子（D1-chain-extension 用）。
       // D67 T1b: 透传 app 给 setup/verify 钩子（F3-replay HTTP API 用）。
       const ctx = { workspaceRoot: app.workspaceRoot, app }
@@ -198,9 +197,14 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
       let lastNotes: string[] = []
       let lastApprovalCount = 0
       let lastTotalToolCalls = 0
+      // D68 T2 — per-round convId 隔离 (fixes 8 stale fixtures: A2/A5/A6/F2/C-F2/D3-no-fu/D1/D5)。
+      // 此前 3 round 共享同一个 convId → round 2/3 读到 round 1 残留状态。
+      let roundNum = 0
 
       const result = await runMultiRound(
         async () => {
+          roundNum += 1
+          const convId = `c-realistic-${scenario.id}-r${roundNum}`
           // 每 round fresh state: notes/turns 必须 round-local, 否则 round 1 污染 round 2
           const notes: string[] = []
           const turns: TurnMetric[] = []
