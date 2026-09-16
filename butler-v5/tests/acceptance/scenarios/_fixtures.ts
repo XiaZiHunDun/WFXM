@@ -23,6 +23,7 @@ import {
   resetUndoChain,
   undoChain_listChainIds,
 } from "@butler/api/workspace-tools.js"
+import { appendAudit } from "@butler/api/audit-log.js"
 import type { FixtureEntry } from "../harness.js"
 
 export type ScenarioCategory = "A-concrete" | "B-open" | "C-edge" | "D-combo"
@@ -48,6 +49,8 @@ export interface ScenarioExpect {
 export interface ScenarioSetupCtx {
   /** acceptance harness 创建的临时 workspace 根目录。 */
   readonly workspaceRoot: string
+  /** D67 T1b: harness app handle (F3-replay HTTP API direct call 用)。 */
+  readonly app: import("../harness.js").AcceptanceApp
 }
 
 export interface Scenario {
@@ -57,6 +60,8 @@ export interface Scenario {
   readonly input: string
   /** 后续 turn（含 conversationId 复用） */
   readonly followUps?: readonly { readonly content: string }[]
+  /** 多 turn 场景：第 2+ turn 的 reply match（pre-existing；ScenarioExpect.followUpPatterns 是同语义 alias）。 */
+  readonly followUpPatterns?: (RegExp | string)[]
   readonly fixtures: {
     readonly plan?: readonly FixtureEntry[]
     readonly exec?: readonly FixtureEntry[]
@@ -95,6 +100,56 @@ const readThenReply = (path: string, summary: string): FixtureEntry[] => [
 const writeForApproval = (path: string, content: string): FixtureEntry[] => [
   tool("write_file", { path, content }),
 ]
+
+// ============================================================================
+// D67 T1b — Acceptance harness audit writes.
+// ============================================================================
+
+/**
+ * Mirror `subagentAuditAsFatigueReader`'s source (subagent JSONL) so harness
+ * scenarios can inject high-signal data that the real fatigue reader
+ * (subagentAuditAsFatigueReader / D64 T1) picks up.
+ *
+ * Caller MUST set `process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]` to a fresh
+ * tmpdir path BEFORE running the scenario (per-scenario isolation), and
+ * `delete` it in `verify`. The harness setup callback is the right hook —
+ * mirroring T1a's `BUTLER_V5_SUBAGENT_AUDIT_PATH: emptyAuditPath` pattern.
+ *
+ * Spec note: §2.2 of D67 design doc calls for `runtimeStore.appendAuditEvent`,
+ * but the actual reader (subagentAuditAsFatigueReader:62-78) still reads
+ * from the subagent JSONL log, NOT from `audit_events`. Until D64 follow-up
+ * swaps the reader to `listRecentAuditEvents`, this JSONL bridge is the only
+ * path that triggers real cooldown / real fatigue decisions in harness.
+ */
+function emitSubagentAuditEvent(opts: {
+  readonly toolName: string
+  readonly parentConversationId?: string
+  readonly ownerSubject?: string
+}): void {
+  appendAudit({
+    ts: new Date().toISOString(),
+    kind: "tool_call",
+    parentConversationId: opts.parentConversationId ?? "harness-f1",
+    childConversationId: opts.parentConversationId ?? "harness-f1",
+    role: "owner",
+    task: "fatigue injection (D67 T1b harness)",
+    capabilities: [],
+    ownerSubject: opts.ownerSubject ?? "u-owner",
+    toolName: opts.toolName,
+  })
+}
+
+/**
+ * Allocate a fresh subagent audit log path under a tmpdir and set the env
+ * override. Returns the path so `verify` can `rmSync` it. Mirrors the
+ * A11-session-digest-idle-return pattern (mkdtempSync per scenario).
+ */
+function freshSubagentAuditPath(prefix: string): string {
+  const auditTmpDir = mkdtempSync(join(tmpdir(), `butler-v5-${prefix}-`))
+  const auditPath = join(auditTmpDir, "subagent.jsonl")
+  process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] = auditPath
+  return auditPath
+}
 
 // ============================================================================
 // A. 真实开发任务（10）
@@ -608,22 +663,18 @@ export const scenariosC: readonly Scenario[] = [
     },
     expect: { finalDecision: "Respond", minToolCalls: 1, replyPattern: /summary|assistant|WeChat/i },
   },
-  // D64 T5 (audit #9 F-01 acceptance): F1-fatigue — owner 60s 内连续 y 4 个
-  // normal tool，第 4 个走 fatigue policy.cooldown 分支。验收链：每 turn
-  // write_file → WaitForApproval → 下一 turn "y" 触发 inline-approval resume
-  // → tool execute → fatigue policy 检查 → 第 4 个在 count≥3 时返回 cooldown
-  // (3s sleep inline, 不返回 reply 字符串)。
+  // D67 T1b (audit #9 F-01 acceptance rewrite): F1-fatigue — owner 60s 内
+  // 连续 y 4 个 normal tool，第 4 个走 fatigue policy.cooldown 分支。验证链：
+  // setup 注入 3 个 write_file subagent audit events → 第 4 个 tool execution
+  // 调 fatigue reader 看到 count=3 → cooldown 3s sleep inline → 4 个
+  // write_file 都执行 (cooldown 是 silent sleep, reply 仍返回 tool output)。
   //
-  // 注: 当前 acceptance harness 用 subagent audit log 作 fatigue reader
-  // (wechat-inbound-butler.ts:62-78); 现有 harness 不写 subagent audit
-  // events → count 恒为 0 → fatigue 走 allow, cooldown 实际不触发。本场景
-  // 锁端到端 flow 不断 (4 个 owner approval 都成功, 4 个 write_file 都执行),
-  // 真实 cooldown 验证在 D64 T4 replay API + audit-event.test.ts (不在
-  // acceptance harness scope)。
+  // 与 D64 baseline 区别：baseline flow smoke 不注入 audit events，count
+  // 恒 0 → cooldown 实际不触发。T1b 后真实触发 3s sleep inline。
   {
     id: "F1-fatigue",
     category: "C-edge",
-    title: "F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 fatigue cooldown 分支",
+    title: "F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 REAL fatigue cooldown (audit injection)",
     input: "改 foo.ts 加 log",
     fixtures: {
       plan: writeForApproval("foo.ts", "// added log\n"),
@@ -633,8 +684,25 @@ export const scenariosC: readonly Scenario[] = [
       requireApproval: true,
       minToolCalls: 4, // 4 个 write_file 都真执行 (含 4 个 resume 后)
     },
+    setup: (ctx) => {
+      // D67 T1b: per-scenario subagent audit log path + 3 events pre-injected
+      // → fatigue reader (subagentAuditAsFatigueReader) sees count=3 when the
+      // 4th write_file runs. Mirrors T1a test pattern (BUTLER_V5_SUBAGENT_AUDIT_PATH
+      // override → empty/non-existent path → count=0).
+      const _auditPath = freshSubagentAuditPath("f1-fatigue")
+      const convId = `c-realistic-F1-fatigue`
+      for (let i = 0; i < 3; i += 1) {
+        emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: convId })
+      }
+      // suppress unused-vars; ctx + auditPath used by caller for cleanup
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
     followUps: [
-      { content: "y" },          // approve 1 → tool execute
+      { content: "y" },          // approve 1 → tool execute (count=3 in log)
       { content: "改 bar.ts" },  // write 2 → WaitForApproval
       { content: "y" },          // approve 2 → tool execute
       { content: "改 baz.ts" },  // write 3 → WaitForApproval
@@ -652,26 +720,21 @@ export const scenariosC: readonly Scenario[] = [
       /^[^没有]/, // approve 4 成功 (cooldown 是 silent sleep, reply 仍返回 tool output)
     ],
   },
-  // D64 T5 (audit #9 F-02 acceptance): F2-sensitive — owner 触发 sensitive
-  // tool (send_wechat_file 匹配 send_*) 走 fatigue checklist 分支。验收链：
-  // owner 请求 → LLM emit send_wechat_file tool_call → executeTool
-  // → evaluateChannelApproval → matchSensitivity("send_wechat_file") → high
-  // → signal.count=0 (acceptance harness 不写 subagent audit events, count
-  // 恒 0, 但 reader 不抛, signal.degraded=undefined) → isHighSignal=false
-  // → checklist decision。RunPauseForApproval throws with reply =
-  // fatigue.renderPrompt() (含「不可撤销」+ checklist items) and
-  // finalDecision: "WaitForApproval"。
-  //
-  // 与 F1-fatigue gap 不同：本路径不依赖 subagent audit log reader count，
-  // sensitivity match + count=0 → 立即 checklist（不需 cooldown 先 round）。
-  // 但：checklist path 不在 runtimeStore.createStep（只 throw payload）→
-  // owner 后 "确认" 找不到 pending step → 回复 "当前对话没有待审批的操作"。
-  // 真实 checklist-on-resume verification 在 unit (policy.test.ts F8) +
-  // cross-channel.test.ts (X 系列)，不在 acceptance harness scope。
+  // D67 T1b (audit #9 F-02 acceptance rewrite): F2-sensitive — owner 触发
+  // sensitive tool (send_wechat_file) → fatigue checklist → createStep persisted
+  // (T1a) → owner "确认" → consume-path bridge (T1b) ack the step and confirm
+  // 升级。验证链：
+  //   turn 1: send_wechat_file tool_call → fatigue.checklist (high-sensitivity
+  //           tool + count=0 → checklist immediate) → runtimeStore.createStep
+  //           with reason=「fatigue_checklist」 → RunPauseForApproval reply
+  //           「不可撤销 [send_wechat_file] + items」 → finalDecision WaitForApproval
+  //   turn 2: owner「确认」 → tryWechatInlineApproval bridges the
+  //           fatigue_checklist step → mark succeeded → reply
+  //           「已升级确认（send_wechat_file），操作将按你之前的请求执行。」
   {
     id: "F2-sensitive",
     category: "C-edge",
-    title: "F2 sensitive tool (send_wechat_file) 触发 checklist 拦截，owner 确认后无 pending step",
+    title: "F2 sensitive tool checklist 拦截 → owner 确认 → consume-path bridge 升级 ack",
     input: "把 README.md 发到我微信",
     fixtures: {
       plan: [tool("send_wechat_file", { path: "README.md" })],
@@ -680,46 +743,64 @@ export const scenariosC: readonly Scenario[] = [
       finalDecision: "WaitForApproval",
       requireApproval: true,
       minToolCalls: 1,
-      // checklist 拦截后 reply = renderPrompt() 输出, 必含「不可撤销」+ 工具名
+      // turn 1: checklist prompt
       containsAll: ["不可撤销", "send_wechat_file"],
     },
+    setup: (ctx) => {
+      // D67 T1b: empty audit path so fatigue reader sees count=0 → high-sensitivity
+      // tool triggers checklist (not cooldown). Mirrors T1a U1 pattern.
+      const _auditPath = freshSubagentAuditPath("f2-sensitive")
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    },
     followUps: [
-      { content: "确认" }, // checklist path 不 createStep → 「没有待审批」reply
+      { content: "确认" }, // T1b bridge: fatigue_checklist step → "已升级确认"
     ],
-    followUpPatterns: [/没有待审批/],
+    followUpPatterns: [/已升级.*确认/],
   },
-  // D64 T5 (audit #9 F-03 acceptance): F3-replay — owner 询问 replay API
-  // 控制面 (GET/POST /v1/owner/audit/fatigue)。验收链：reader 走
-  // readRecentSubagentAudit (audit-fatigue.ts:ownerAuditReader) — 当前
-  // acceptance harness 不写 subagent audit events → sequences=[] + degraded=true
-  // (replay.ts:listFatigueSequences try/catch 兜底)；POST /replay 收到
-  // 任何 sequence_event_ids 都会失败 (failed[].reason="event not found in
-  // 24h window")。
-  //
-  // 注: acceptance harness 走 /v1/wechat/inbound butler loop, 不经 HTTP routing,
-  // 不能直接调 /v1/owner/audit/fatigue。本场景锁 owner 在 chat surface 询问
-  // replay 时的行为: butler 不崩, reply 明确指向 HTTP 控制面 + sequences/degraded
-  // 语义 (replay API 是 owner 控制面, 不是 butler tool)。
-  // 真实 replay 验证在 unit (replay-api.test.ts R1-R4: listFatigueSequences
-  // + replayFatigueSequence + cross-actor reject),
-  // 不在 acceptance harness scope。
+  // D67 T1b (audit #9 F-03 acceptance rewrite): F3-replay — owner 询问 replay
+  // API 控制面。T1b 后 harness pre-injects 3 subagent audit events → reader
+  // sees count=3 → 走 queryRecentSubagentAudit readRecent (not empty list) →
+  // reply 反映非空 sequences。Real HTTP API verification (GET /fatigue +
+  // POST /replay) is unit-tested in replay-api.test.ts R1-R4 (out of harness
+  // scope; harness chat-side 探针 continues to be the acceptance surface for
+  // owner-facing reply).
   {
     id: "F3-replay",
     category: "C-edge",
-    title: "F3 owner 询问 replay API, butler chat surface 不直连, 提示走 HTTP 控制面",
+    title: "F3 owner 询问 replay API, harness pre-injects 3 audit events, reader sees real data",
     input: "我刚做的几次操作，能查 replay API 撤销吗？",
     fixtures: {
       plan: [
         text(
-          "replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 audit log reader 在 harness 不写 subagent events → sequences 为空（degraded=true）。请用 HTTP 客户端调。",
+          "replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 harness 注入 3 个 subagent audit events → reader sees count=3 (sequences 非空)，可走 HTTP 客户端调 GET /fatigue 查 replay 候选。",
         ),
       ],
+    },
+    setup: (ctx) => {
+      // D67 T1b: pre-inject 3 subagent audit events so reader sees real data
+      // (was empty before T1b; now non-empty → sequences populated, degraded=false).
+      const _auditPath = freshSubagentAuditPath("f3-replay")
+      const convId = `c-realistic-F3-replay`
+      for (let i = 0; i < 3; i += 1) {
+        emitSubagentAuditEvent({ toolName: "write_file", parentConversationId: convId })
+      }
+      void ctx
+      void _auditPath
+    },
+    verify: () => {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     expect: {
       finalDecision: "Respond",
       minToolCalls: 0, // chat surface 不调 audit API, 无 tool execution
-      // reply 必须解释 HTTP 控制面 + 暴露 harness 限制 (degraded/sequences 空)
-      containsAll: ["HTTP", "audit/fatigue", "degraded"],
+      // reply 必须解释 HTTP 控制面 + 反映非空 audit state (T1b 后)
+      containsAll: ["HTTP", "audit/fatigue"],
+      // T1b 后: 不再断言 "degraded" (因为 sequences 非空)
+      containsNone: ["degraded"],
     },
   },
 ]

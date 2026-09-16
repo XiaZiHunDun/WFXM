@@ -191,7 +191,8 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
     it(`${scenario.id} ${scenario.title} [N=3]`, async () => {
       const convId = `c-realistic-${scenario.id}`
       // D49: 透传 harness workspaceRoot 给 setup/verify 钩子（D1-chain-extension 用）。
-      const ctx = { workspaceRoot: app.workspaceRoot }
+      // D67 T1b: 透传 app 给 setup/verify 钩子（F3-replay HTTP API 用）。
+      const ctx = { workspaceRoot: app.workspaceRoot, app }
       // D53a Task 6: 3 round 各跑一次, 记录 last round 数据（fixtures 决定性, 3 round 等价）。
       let lastTurns: TurnMetric[] = []
       let lastNotes: string[] = []

@@ -57,8 +57,62 @@ export async function tryWechatInlineApproval(args: {
     }
   }
 
+  // D67 T1b — fatigue-checklist step uses a different step.input shape
+  // ({ reason: "fatigue_checklist", toolName, items }) than the runtime's
+  // PendingCapabilityInput. Bridge here: ack the owner, mark step succeeded,
+  // and skip resumeApprovedCapability (no real capability to resume — the
+  // fatigue checklist only blocks execution; tool execution was already
+  // completed at the original Run, and a re-dispatch is owned by the
+  // approval-resume handler for the next turn if needed).
   const pending = parsePendingCapabilityInput(step.input)
-  if (!pending) {
+  const fatigueInput = step.input as
+    | { readonly reason?: unknown; readonly toolName?: unknown }
+    | undefined
+  if (
+    pending === null &&
+    fatigueInput !== undefined &&
+    fatigueInput["reason"] === "fatigue_checklist"
+  ) {
+    const toolName =
+      typeof fatigueInput["toolName"] === "string"
+        ? fatigueInput["toolName"]
+        : "操作"
+    if (intent === "deny") {
+      await args.wiring.runtimeStore.updateStep({
+        stepId: step.id,
+        status: "failed",
+        output: { deniedBy: args.fromUserId, reason: "fatigue_checklist_denied" },
+        updatedAt: new Date(),
+      })
+      return {
+        reply: `已升级拒绝（${toolName}），操作不会执行。`,
+        iterations: 0,
+        toolCalls: 0,
+        finalDecision: "Respond",
+        traces: [`inline-approval: fatigue checklist deny ${step.id}`],
+      }
+    }
+    await args.wiring.runtimeStore.updateStep({
+      stepId: step.id,
+      status: "succeeded",
+      output: {
+        approvedBy: args.fromUserId,
+        reason: "fatigue_checklist_ack",
+        toolName,
+      },
+      updatedAt: new Date(),
+    })
+    return {
+      // D48 owner-jargon: contains "已升级" + "确认" per F2 acceptance.
+      reply: `已升级确认（${toolName}），操作将按你之前的请求执行。`,
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Respond",
+      traces: [`inline-approval: fatigue checklist ack ${step.id}`],
+    }
+  }
+  const pendingCapability = pending
+  if (!pendingCapability) {
     return {
       reply: "待审批步骤数据无效，请联系管理员处理。",
       iterations: 0,
@@ -68,7 +122,7 @@ export async function tryWechatInlineApproval(args: {
     }
   }
 
-  if (!canRespondToInlineApproval(args.fromUserId, pending.subject, env)) {
+  if (!canRespondToInlineApproval(args.fromUserId, pendingCapability.subject, env)) {
     return {
       reply: "你没有权限批准或拒绝此操作。",
       iterations: 0,
@@ -89,7 +143,7 @@ export async function tryWechatInlineApproval(args: {
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",
-      traces: [`inline-approval: denied ${step.id} (capability=${pending.capability})`],
+      traces: [`inline-approval: denied ${step.id} (capability=${pendingCapability.capability})`],
     }
   }
 
