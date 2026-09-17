@@ -44,50 +44,11 @@ import { loadDurableMemorySystemPrefix } from "./durable-memory-inject.js"
 import { loadProjectKnowledgeSystemPrefix } from "./project-knowledge-inject.js"
 import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
 import { executeToolWithFatigue } from "./lib/fatigue/execute-tool-with-fatigue.js"
-import type { AuditEventSummary, AuditLogReader } from "./lib/fatigue/signal.js"
+import { auditFatigueReader } from "./lib/fatigue/audit-reader.js"
 import type { AuditFatigueDetail } from "./lib/fatigue/audit-event.js"
-import type { RuntimeStore } from "@butler/domain/runtime.js"
 
-/**
- * D68 T2a — D64 reader swap: read recent fatigue decisions from the runtime
- * `audit_events` table via `runtimeStore.listRecentAuditEvents` (D66 T1a).
- * The previous D64 T3 bridge over the subagent JSONL log was a T1
- * workaround: only subagent delegations were observable, missing fatigue
- * decisions emitted by other entry points. The runtime table is the
- * canonical source for all fatigue decisions, so the reader now queries
- * it directly.
- *
- * Mapping AuditEventRecord → AuditEventSummary:
- * - `auditId` → `event_id` (UUID, uniquely identifies the row)
- * - `subject` → `tool_name` (subject column = actor who acted, but for
- *   fatigue decisions this is the tool name; per D58 T1 spec).
- * - `actor` defaults to "owner" (audit_events rows are owner-attributed)
- * - `createdAt` → `ts` (ms epoch)
- * - `decision` defaults to "allow" (audit_events has no decision column;
- *   the source rows that fatigue cares about are decision=allow tool
- *   executions, since checklist/cooldown decisions are emitted as
- *   `fatigue.decision` events but the fatigue reader is only invoked
- *   when the owner-action *would* be allowed otherwise).
- */
-function subagentAuditAsFatigueReader(
-  runtimeStore: RuntimeStore,
-): AuditLogReader {
-  return {
-    readRecent: async (windowMs: number): Promise<readonly AuditEventSummary[]> => {
-      const events = await runtimeStore.listRecentAuditEvents({
-        windowMs,
-        limit: 100,
-      })
-      return events.map((e): AuditEventSummary => ({
-        event_id: e.auditId,
-        tool_name: e.subject,
-        actor: "owner",
-        ts: e.createdAt.getTime(),
-        decision: "allow" as const,
-      }))
-    },
-  }
-}
+// D69 T1 — D64 reader swap is now shared with owner-routes/audit-fatigue.ts
+// via lib/fatigue/audit-reader.ts (consolidated per SO-002 / D68 pre-scoped #2).
 
 /** D64 T3: channel context derived from projectId at the runButlerLoop
  *  chokepoint. projectId="cli" → cli; "channel:telegram*" (set by
@@ -602,7 +563,7 @@ async function runButlerLoopBody(args: {
         const toolDecision = await executeToolWithFatigue(
           String(def.name),
           toolArgs as Readonly<Record<string, unknown>>,
-          subagentAuditAsFatigueReader(args.wiring.runtimeStore),
+          auditFatigueReader(args.wiring.runtimeStore),
         )
         // D66 T1c — thread AuditFatigueDetail at chokepoint (mirrors §2.4
         // spec). Every fatigue decision (allow / cooldown / checklist) is
