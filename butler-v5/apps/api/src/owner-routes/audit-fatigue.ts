@@ -6,7 +6,9 @@ import {
   CrossActorReplayError,
   listFatigueSequences,
   replayFatigueSequence,
+  type UndoFn,
 } from "../lib/fatigue/replay.js"
+import { undoLastWrite } from "../workspace-tools.js"
 
 /**
  * D69 T1 — owner audit fatigue replay API.
@@ -34,6 +36,15 @@ import {
  * added, ownerId will come from the authenticated session and the
  * cross-actor check becomes a real identity boundary instead of a
  * sentinel match.
+ *
+ * D70 T1 (audit #11 CQ-010): undo dispatcher is now required and actually
+ * invokes the undo machinery. Previously the function returned
+ * `replayed: [eventId]` for reversible events without doing anything
+ * — silent no-op bug. The dispatcher maps (toolName, eventId, actor)
+ * onto the right undo (write_file/edit_file → undoLastWrite via path +
+ * workspaceRoot in audit_event.detail; everything else → returns
+ * failure with an owner-jargon reason). Routes the outcome into
+ * `replayed` (ok) or `failed` (not ok).
  */
 
 function currentOwnerActor(): string {
@@ -54,6 +65,52 @@ function isReplayBody(value: unknown): value is ReplayBody {
   return v.sequence_event_ids.every((id) => typeof id === "string" && id.length > 0)
 }
 
+/**
+ * D70 T1 (CQ-010): real undo dispatcher. Looks up the audit event detail
+ * for `write_file` / `edit_file` to extract path + workspaceRoot, then
+ * calls `undoLastWrite`. Returns failure with owner-jargon reason when
+ * the audit event is missing the path detail (D71+ infrastructure
+ * work: thread path/workspaceRoot into appendAuditEvent at every
+ * tool-execution chokepoint — currently only fatigue decisions are
+ * audited, not the actual write).
+ */
+async function ownerAuditUndo(
+  wiring: Wiring,
+  toolName: string,
+  eventId: string,
+  actor: string,
+): Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }> {
+  let detail: Readonly<Record<string, unknown>> = {}
+  try {
+    const events = await wiring.runtimeStore.listRecentAuditEvents({
+      actor,
+      windowMs: 24 * 60 * 60 * 1000,
+      limit: 1000,
+    })
+    const event = events.find(e => e.auditId === eventId)
+    detail = event?.detail ?? {}
+  } catch {
+    // fall through with empty detail
+  }
+
+  if (toolName === "write_file" || toolName === "edit_file") {
+    const path = (detail as { path?: unknown }).path
+    const workspaceRoot = (detail as { workspaceRoot?: unknown }).workspaceRoot
+    if (typeof path !== "string" || typeof workspaceRoot !== "string") {
+      return {
+        ok: false,
+        reason: `缺少操作目标信息（文件路径），无法撤销 ${toolName}`,
+      }
+    }
+    const result = undoLastWrite(workspaceRoot, path)
+    if (result === undefined) {
+      return { ok: false, reason: `撤销栈中找不到 ${path} 的写入记录` }
+    }
+    return { ok: true }
+  }
+  return { ok: false, reason: `暂不支持撤销 ${toolName}` }
+}
+
 export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
   const reader = auditFatigueReader(wiring.runtimeStore)
 
@@ -71,8 +128,15 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
     if (!isReplayBody(raw)) {
       return c.json({ error: `invalid body: expected { sequence_event_ids: string[] } (1-${MAX_REPLAY_BATCH} ids)` }, 400)
     }
+    // D70 T1: capture ownerActor once and pass it to replayFatigueSequence
+    // alongside the undo dispatcher. The dispatcher closes the silent
+    // no-op bug (CQ-010) by actually invoking undo machinery for
+    // reversible events and routing failures into result.failed.
+    const ownerActor = currentOwnerActor()
+    const undo: UndoFn = (toolName, eventId, actor) =>
+      ownerAuditUndo(wiring, toolName, eventId, actor)
     try {
-      const result = await replayFatigueSequence(reader, raw.sequence_event_ids, currentOwnerActor())
+      const result = await replayFatigueSequence(reader, raw.sequence_event_ids, ownerActor, undo)
       // D69 T5 (audit #10 SO-16): §13 audit completeness — every other
       // owner-mutating endpoint (rollback, confirm, reject, mcp.revoke-grants)
       // emits an audit_event. POST /v1/owner/audit/fatigue/replay previously
@@ -83,7 +147,7 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
         conversationId: null,
         correlationId: null,
         action: "owner.replay",
-        subject: currentOwnerActor(),
+        subject: ownerActor,
         detail: {
           sequence_event_ids: raw.sequence_event_ids.slice(0, 50),
           replayed: result.replayed.length,

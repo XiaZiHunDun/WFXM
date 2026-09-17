@@ -19,6 +19,22 @@ export interface ReplayResult {
   readonly failed: readonly { event_id: string; reason: string }[]
 }
 
+/**
+ * D70 T1 (audit #11 CQ-010) — undo dispatcher for replay.
+ *
+ * Previously `replayFatigueSequence` returned `replayed: [eventId]` for
+ * reversible events without actually invoking undo. The owner-facing
+ * POST /v1/owner/audit/fatigue/replay endpoint returned success while
+ * doing nothing — silent no-op bug. Callers now MUST pass an `undo`
+ * dispatcher; the function dispatches to it for every reversible event
+ * and routes the outcome into `replayed` (ok) or `failed` (not ok).
+ */
+export type UndoFn = (
+  toolName: string,
+  eventId: string,
+  actor: string,
+) => Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }>
+
 const SEQUENCE_GAP_MS = 10_000 // 10s gap = new sequence
 const IRREVERSIBLE_TOOLS = ['send_*', 'broadcast_*', 'external_write', 'run_command']
 const REPLAY_WINDOW_HOURS = 24
@@ -89,6 +105,7 @@ export async function replayFatigueSequence(
   reader: AuditLogReader,
   sequenceEventIds: readonly string[],
   ownerActor: string,
+  undo: UndoFn,
 ): Promise<ReplayResult> {
   const events = await reader.readRecent(REPLAY_WINDOW_HOURS * 60 * 60 * 1000)
   const byId = new Map(events.map(e => [e.event_id, e]))
@@ -107,12 +124,17 @@ export async function replayFatigueSequence(
     }
     if (isIrreversible(event.tool_name)) {
       irreversible.push(eventId)
-    } else {
-      // For reversible: dispatch to D49 undoChain / D46 undoLastWrite.
-      // Task 7 ships the API surface; actual undo invocation is wired in D65+ when
-      // audit_events has listRecentAuditEvents (per Task 6 GAP doc). For now we
-      // mark as replayed and log the intent.
+      continue
+    }
+    // D70 T1: actually invoke undo. The dispatcher is the only place that
+    // knows how to map a (toolName, eventId, actor) tuple to the right
+    // undo machinery (undoLastWrite / undoChain / etc). On success →
+    // replayed; on failure → failed with the dispatcher's reason.
+    const result = await undo(event.tool_name, eventId, event.actor)
+    if (result.ok) {
       replayed.push(eventId)
+    } else {
+      failed.push({ event_id: eventId, reason: result.reason })
     }
   }
 

@@ -974,13 +974,15 @@ export const scenariosC: readonly Scenario[] = [
       containsAll: ["active"],
     },
   },
-  // NOTE (D69 T5 deferred): owner-route acceptance scenarios (SO-6/SO-26/SO-27)
-  // would require the acceptance harness app to register owner routes
-  // (currently buildHonoApp only calls createRoutes, not createOwnerRoutes).
-  // Per D67 + D68 design, owner-route HTTP surface stays unit-tested
-  // (replay-api.test.ts R1-R4) and harness chat-side 探针 covers the
-  // owner-facing reply path. The 3 new C-O-* scenarios are deferred to
-  // D70+ when acceptance harness scope is expanded to register owner routes.
+  // NOTE (D69 T5 deferred → D70 T1 closed): owner-route acceptance scenarios
+  // (SO-6/SO-26/SO-27) now have buildHonoApp registering createOwnerRoutes
+  // (apps/api/src/acceptance-app.ts). The 3 new C-O-* scenarios remain
+  // deferred — adding them is acceptance-harness scope expansion, not a
+  // route-registration gap. Per D67 + D68 design, owner-route HTTP
+  // surface stays unit-tested at the Hono boundary (audit-fatigue-http.test.ts,
+  // shipped D70 T1) and harness chat-side 探针 covers the owner-facing
+  // reply path. C-O-* scenarios picked up in D71+ when harness scope
+  // expansion lands.
 ]
 
 // ============================================================================

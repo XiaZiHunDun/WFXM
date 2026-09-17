@@ -5,9 +5,17 @@
  * `createRoutes` 只在 apps/api 内部解析（hono 是 apps/api 的直接依赖，root
  * 不可见），tests/ 直接 import hono 会失败。此处只做薄封装，不接生产 wiring、
  * 不触发副作用；真实入站逻辑仍在 `createRoutes` 内未被绕过。
+ *
+ * D70 T1 (audit #11 SO-002): also mounts `createOwnerRoutes` so the
+ * three C-O-* acceptance scenarios deferred from D69 (and the HTTP
+ * surface tests for /v1/owner/audit/fatigue) have a real router to
+ * exercise. Owner auth is loopback-only and `ownerAuthorizedFromAddress`
+ * returns true for the harness's `app.request()` calls (no socket →
+ * VITEST env short-circuit), so no separate auth setup is required.
  */
 import { Hono } from "hono"
 import { createRoutes } from "./routes.js"
+import { createOwnerRoutes } from "./owner-routes.js"
 import type { Wiring } from "./wiring.js"
 
 // ts-prune-ignore-next: 仅被 tests/acceptance 使用（tests 不参与 ts-prune 扫描）。
@@ -16,6 +24,7 @@ export function buildHonoApp(wiring: Wiring): {
 } {
   const app = new Hono()
   createRoutes(app, wiring)
+  createOwnerRoutes(app, wiring)
   // Hono 的 `app.request` 签名为 `Response | Promise<Response>`，统一收敛为
   // `Promise<Response>` 以匹配 tests/acceptance harness 的 typed request 接口。
   return {
