@@ -3,6 +3,15 @@ import type { AuditEventSummary, AuditLogReader } from "./signal.js"
 
 export interface AuditFatigueReaderOptions {
   readonly limit?: number
+  /**
+   * D70 T3 (audit #11 CQ-030): actor string the reader attaches to
+   * emitted AuditEventSummary rows. Previously hardcoded as "owner"
+   * (SEC-013 sentinel). Callers that own an authenticated ownerId
+   * (e.g. POST /v1/owner/* with bearer auth, D71+ work) pass the
+   * resolved id; the loopback-only owner-route surface keeps the
+   * default "owner" sentinel until bearer auth lands.
+   */
+  readonly actor?: string
 }
 
 /**
@@ -48,13 +57,14 @@ export function auditFatigueReader(
   options: AuditFatigueReaderOptions = {},
 ): AuditLogReader {
   const limit = options.limit ?? 100
+  const actor = options.actor ?? "owner" // D70 T3: caller-provided actor, default sentinel
   return {
     readRecent: async (windowMs: number): Promise<readonly AuditEventSummary[]> => {
       const events = await runtimeStore.listRecentAuditEvents({ windowMs, limit })
       return events.map((e): AuditEventSummary => ({
         event_id: e.auditId,
         tool_name: e.subject,
-        actor: "owner",
+        actor,
         ts: e.createdAt.getTime(),
         decision: "allow" as const,
       }))

@@ -12,6 +12,7 @@ import type { Context } from "hono"
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { runTaskGoal } from "../task-run.js"
+import { safeOwnerError } from "../safe-owner-error.js"
 
 export async function handleTaskRun(c: Context, wiring: Wiring): Promise<Response> {
   if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
@@ -65,9 +66,11 @@ export async function handleTaskRun(c: Context, wiring: Wiring): Promise<Respons
       finalDecision: result.loop.finalDecision,
     })
   } catch (err) {
-    return c.json(
-      { ok: false, reason: err instanceof Error ? err.message : String(err) },
-      400,
-    )
+    // D70 T3 (audit #11 SO-006): safeOwnerError wraps the raw message.
+    // D62 T1 F-12 sweep missed this site; closing the leak path here.
+    const reason = safeOwnerError(err, "运行待办失败，请稍后重试", {
+      operation: "owner-routes:tasks-run",
+    })
+    return c.json({ ok: false, reason }, 400)
   }
 }

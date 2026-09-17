@@ -13,6 +13,7 @@ import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 // formatDecision: maps run-decision enums to Chinese (e.g. "Respond" → "已回复").
 // formatSubagentRoleForOwner: maps subagent role enums (e.g. "developer" → "开发").
 import { formatDecision, formatSubagentRoleForOwner } from "./owner-jargon.js"
+import { safeOwnerError } from "./safe-owner-error.js"
 
 
 /** Proactive WeChat push when long runs / subagents finish (BUTLER_V5_RUN_NOTIFY_ENABLED). */
@@ -129,12 +130,16 @@ export async function sendWechatProactiveNotify(args: {
       }
       return { ok: true }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      // eslint-disable-next-line no-console -- operator log when no logger injected
-      console.error(`[wechat-run-notify] port-threw reason=${message} to=${to}`)
+      // D70 T3 (audit #11 SO-014): safeOwnerError wraps the raw message.
+      // Operator log via console.error + safeOwnerError structured log
+      // both fire; owner-facing reply is the Chinese fallback only.
+      const reason = safeOwnerError(err, "通知发送失败，请稍后重试", {
+        operation: "wechat-run-notify:port-send",
+        to,
+      })
       return {
         ok: false,
-        reason: message,
+        reason,
       }
     }
   }
@@ -147,14 +152,13 @@ export async function sendWechatProactiveNotify(args: {
       )
       return { ok: true }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      // eslint-disable-next-line no-console -- operator log when no logger injected
-      console.error(
-        `[wechat-run-notify] mock-outbox-write-failed reason=${message} path=${mockOutbox}`,
-      )
+      const reason = safeOwnerError(err, "无法写入测试日志，请稍后重试", {
+        operation: "wechat-run-notify:mock-outbox-write",
+        path: mockOutbox,
+      })
       return {
         ok: false,
-        reason: message,
+        reason,
       }
     }
   }
@@ -177,12 +181,13 @@ export async function sendWechatProactiveNotify(args: {
     }
     return { ok: true }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    // eslint-disable-next-line no-console -- operator log when no logger injected
-    console.error(`[wechat-run-notify] ilink-threw reason=${message} to=${to}`)
+    const reason = safeOwnerError(err, "iLink 调用失败，请稍后重试", {
+      operation: "wechat-run-notify:ilink-send",
+      to,
+    })
     return {
       ok: false,
-      reason: message,
+      reason,
     }
   }
 }

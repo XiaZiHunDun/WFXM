@@ -56,7 +56,10 @@ export async function handleApproveStep(c: Context, wiring: Wiring): Promise<Res
     )
     const pending = parsePendingCapabilityInput(decision.step.input)
     if (!pending) {
-      return c.json({ ok: false, reason: "invalid pending capability step" }, 400)
+      // D70 T3 (audit #11 SO-015): Chinese owner-jargon. Original was
+      // English "invalid pending capability step" — leaks operator
+      // vocabulary "capability" to the owner-facing reply.
+      return c.json({ ok: false, reason: "审批步骤已失效，请重新发起" }, 400)
     }
     if (decision._tag === "alreadyProcessed") {
       // D63 T1 (audit #9 F-11): classify alreadyProcessed reason into
