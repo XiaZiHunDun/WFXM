@@ -128,34 +128,7 @@ case "checklist": {
 
 **File:** `tests/acceptance/scenarios/_fixtures.ts` (existing harness support)
 
-The harness currently uses `subagentAuditAsFatigueReader` from `wechat-inbound-butler.ts:62-78` which reads from subagent JSONL log. To make acceptance scenarios reflect real audit behavior:
-
-**Add harness-side audit emit helper:**
-```typescript
-// In _fixtures.ts or harness support file
-async function emitAuditEvent(
-  store: RuntimeStore,
-  event: {
-    actor: string
-    action: string
-    subject: string
-    detail: Record<string, unknown>
-  }
-): Promise<void> {
-  await store.appendAuditEvent({
-    auditId: makeLoopId(),
-    runId: null,
-    conversationId: null,
-    action: event.action,
-    subject: event.subject,
-    detail: event.detail,
-    createdAt: new Date(),
-    actor: event.actor,
-  })
-}
-```
-
-Use this in scenarios that need to set up audit state (F1, F2, F3).
+Harness scenarios inject audit events via `runtimeStore.appendAuditEvent` — the canonical source for `subagentAuditAsFatigueReader` (which reads via `runtimeStore.listRecentAuditEvents`). Use in scenarios that need to set up audit state (F1, F2, F3).
 
 ### 2.3 T2a: 8 new acceptance scenarios
 
