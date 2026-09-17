@@ -527,9 +527,9 @@ async function handleOutboxMessage(
     const stubContent = "（子代理未配置 LLM，无法执行）"
     const stubEvent = {
       streamId: msg.streamId,
-      eventId: `evt-${Date.now()}-subagent-stub`,
+      eventId: crypto.randomUUID(),
       eventType: "AssistantMessageProduced" as const,
-      correlationId: `corr-${Date.now()}-subagent`,
+      correlationId: crypto.randomUUID(),
       actor: { kind: "agent" as const, id: `subagent-${role}` },
       event: {
         _tag: "AssistantMessageProduced" as const,
@@ -618,9 +618,9 @@ async function handleOutboxMessage(
   try {
     const replyEvent = {
       streamId: msg.streamId,
-      eventId: `evt-${Date.now()}-subagent-reply`,
+      eventId: crypto.randomUUID(),
       eventType: "AssistantMessageProduced" as const,
-      correlationId: `corr-${Date.now()}-subagent`,
+      correlationId: crypto.randomUUID(),
       actor: { kind: "agent" as const, id: `subagent-${role}` },
       event: {
         _tag: "AssistantMessageProduced" as const,

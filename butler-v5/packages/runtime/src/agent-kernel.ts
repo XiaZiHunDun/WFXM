@@ -25,8 +25,11 @@ export class AgentKernel {
   constructor(private readonly config: AgentKernelConfig) {}
 
   private nextTurnId(): string {
+    // D69 T2 (audit #10 F-34): use crypto.randomUUID() instead of
+    // `evt-${Date.now()}-turn-N` — same-ms parallel turns risk collision
+    // and break cross-event correlation (D63 T3).
     this.turnCounter += 1
-    return `evt-${Date.now()}-turn-${this.turnCounter}`
+    return crypto.randomUUID()
   }
 
   async openTurn(input: {
@@ -40,7 +43,7 @@ export class AgentKernel {
       streamId: this.config.conversationId,
       eventId: this.nextTurnId(),
       eventType: "TurnOpened",
-      correlationId: `corr-${Date.now()}`,
+      correlationId: crypto.randomUUID(),
       actor: this.config.actor,
       event: {
         _tag: "TurnOpened",
@@ -58,9 +61,9 @@ export class AgentKernel {
       case "Respond":
         await this.config.bridge.appendConversationEvent({
           streamId: this.config.conversationId,
-          eventId: `evt-${Date.now()}-resp`,
+          eventId: crypto.randomUUID(),
           eventType: "AssistantMessageProduced",
-          correlationId: `corr-${Date.now()}`,
+          correlationId: crypto.randomUUID(),
           actor: this.config.actor,
           event: { _tag: "AssistantMessageProduced", content: decision.content },
         })

@@ -49,6 +49,17 @@ export interface PendingApprovalRequest {
   readonly wechatContextToken?: string
 }
 
+const ACTION_KINDS = ["read", "write", "command", "delegate", "outbound", "model"] as const
+const RISK_LEVELS = ["low", "medium", "high"] as const
+
+function isActionKind(value: unknown): value is ActionKind {
+  return typeof value === "string" && (ACTION_KINDS as readonly string[]).includes(value)
+}
+
+function isRiskLevel(value: unknown): value is RiskLevel {
+  return typeof value === "string" && (RISK_LEVELS as readonly string[]).includes(value)
+}
+
 export function parsePendingCapabilityInput(
   input: Readonly<Record<string, unknown>>,
 ): PendingCapabilityInput | null {
@@ -57,18 +68,31 @@ export function parsePendingCapabilityInput(
   const conversationId = input["conversationId"]
   const subject = input["subject"]
   const question = input["question"]
+  const resource = input["resource"]
+  const expiresAtMs = input["expiresAtMs"]
+  const digest = input["digest"]
+  const kind = input["kind"]
+  const risk = input["risk"]
   if (
     typeof capability !== "string" ||
     typeof conversationId !== "string" ||
     typeof subject !== "string" ||
-    typeof question !== "string"
+    typeof question !== "string" ||
+    typeof resource !== "string" ||
+    typeof expiresAtMs !== "number" ||
+    typeof digest !== "string" ||
+    !isActionKind(kind) ||
+    !isRiskLevel(risk)
   ) {
+    // D69 T2 (audit #10 F-06/15): runtime-validate ActionKind / RiskLevel
+    // against the literal sets — previously `as ActionKind` / `as RiskLevel`
+    // let a malformed step.input (kind: 'evil' / risk: 42) propagate into
+    // ScopedGrantScope, mirroring D62 §3.1 sibling fix for MCP serverId.
     return null
   }
-  // D60 T3.2 (audit #2 F-06): construct PendingCapabilityInput explicitly
-  // from validated fields instead of `return input as unknown as PendingCapabilityInput`.
-  // The local casts (`as string`, `as ActionKind`, etc.) are documented inline
-  // for each required field; the record-widening double-cast is no longer needed.
+  // Construct PendingCapabilityInput explicitly from validated fields (no
+  // record-widening double-cast). Args is an unknown map; we keep it
+  // untouched for the runtime to evaluate downstream.
   return {
     _tag: "PendingCapability",
     capability,
@@ -76,11 +100,11 @@ export function parsePendingCapabilityInput(
     subject,
     question,
     args: (input["args"] ?? {}) as Readonly<Record<string, unknown>>,
-    resource: input["resource"] as string,
-    expiresAtMs: input["expiresAtMs"] as number,
-    digest: input["digest"] as string,
-    kind: input["kind"] as ActionKind,
-    risk: input["risk"] as RiskLevel,
+    resource,
+    expiresAtMs,
+    digest,
+    kind,
+    risk,
     ...(typeof input["wechatUserId"] === "string"
       ? { wechatUserId: input["wechatUserId"] }
       : {}),

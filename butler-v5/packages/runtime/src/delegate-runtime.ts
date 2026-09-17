@@ -105,7 +105,10 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
     }
   }
 
-  const childConversationId = `child-${input.parentConversationId}-${Date.now()}`
+  // D69 T2 (audit #10 F-33): use crypto.randomUUID() for the child id
+  // discriminator — Date.now() risks collision across parallel delegate
+  // calls in the same ms, which breaks cross-event correlation (D63 T3).
+  const childConversationId = `child-${input.parentConversationId}-${crypto.randomUUID()}`
   const subject = input.subject ?? input.actor.id
   let childRunId: string | null = null
 
@@ -171,9 +174,9 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
 
   await input.bridge.appendConversationEventWithOutbox({
     streamId: input.parentConversationId,
-    eventId: `evt-${Date.now()}-delegate`,
+    eventId: crypto.randomUUID(),
     eventType: "ChildRunCreated",
-    correlationId: `corr-${Date.now()}`,
+    correlationId: crypto.randomUUID(),
     actor: input.actor,
     event: {
       _tag: "ChildRunCreated",

@@ -144,8 +144,15 @@ export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
     }
     const recent = history.rows.slice(-limit)
     const lines = recent.map((e, i) => {
-      const payload = e.payload as Record<string, unknown>
-      const content = typeof payload["content"] === "string" ? (payload["content"] as string) : ""
+      // D69 T2 (audit #10 F-13/24): guard against null/non-object payload
+      // — event-store fallback path may return null; without this guard
+      // the index access throws a TypeError caught by makeTool's outer
+      // catch as a generic "Cannot read properties of null" leak.
+      const payload =
+        e.payload !== null && typeof e.payload === "object"
+          ? (e.payload as Record<string, unknown>)
+          : ({} as Record<string, unknown>)
+      const content = typeof payload["content"] === "string" ? payload["content"] : ""
       return `${i + 1}. [${e.eventType}] ${content}`
     })
     return {

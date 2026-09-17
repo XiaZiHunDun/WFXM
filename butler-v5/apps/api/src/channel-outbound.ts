@@ -49,16 +49,26 @@ export async function sendTelegramOutboundMessage(
       signal: controller.signal,
     })
     const raw = await res.text()
-    let parsed: { readonly ok?: boolean; readonly description?: string }
+    // D69 T2 (audit #10 F-29): defensive parse — previous `as typeof parsed`
+    // cast crashed on telegram 4xx returning null/array/scalar. Parse as
+    // unknown first, then narrow.
+    let parsed: unknown
     try {
-      parsed = JSON.parse(raw) as typeof parsed
+      parsed = JSON.parse(raw)
     } catch {
       return { ok: false, reason: `telegram API non-JSON: ${raw.slice(0, 200)}` }
     }
-    if (!res.ok || !parsed.ok) {
+    const parsedObj =
+      parsed !== null && typeof parsed === "object"
+        ? (parsed as { readonly ok?: unknown; readonly description?: unknown })
+        : null
+    const ok = parsedObj?.ok === true
+    const description =
+      typeof parsedObj?.description === "string" ? parsedObj.description : undefined
+    if (!res.ok || !ok) {
       return {
         ok: false,
-        reason: parsed.description ?? `telegram API HTTP ${res.status}`,
+        reason: description ?? `telegram API HTTP ${res.status}`,
       }
     }
     return { ok: true }

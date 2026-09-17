@@ -7,6 +7,7 @@ import {
   approveWaitingStep,
   createWaitingApprovalStep,
   denyWaitingStep,
+  parsePendingCapabilityInput,
 } from "./approval-runtime.js"
 
 describe("approval-runtime", () => {
@@ -402,5 +403,62 @@ describe("approval-runtime", () => {
     expect(step?.status).toBe("failed")
     const updatedRun = await store2.getRun(run.id)
     expect(updatedRun?.status).toBe("failed")
+  })
+})
+
+describe("parsePendingCapabilityInput", () => {
+  // D69 T2 (audit #10 F-06/15): runtime validation guards added to
+  // parsePendingCapabilityInput. Without these, malformed kind/risk values
+  // propagated into ScopedGrantScope.
+  const valid = {
+    _tag: "PendingCapability",
+    capability: "send_email",
+    conversationId: "conv-1",
+    subject: "owner-1",
+    question: "Send email?",
+    args: { to: "a@b.c" },
+    resource: "smtp",
+    expiresAtMs: Date.now() + 60_000,
+    digest: "abc",
+    kind: "outbound",
+    risk: "medium",
+  }
+
+  it("accepts valid payload", () => {
+    const result = parsePendingCapabilityInput(valid)
+    expect(result).not.toBeNull()
+    expect(result?.kind).toBe("outbound")
+    expect(result?.risk).toBe("medium")
+  })
+
+  it("rejects malformed ActionKind", () => {
+    const result = parsePendingCapabilityInput({ ...valid, kind: "evil" })
+    expect(result).toBeNull()
+  })
+
+  it("rejects missing ActionKind", () => {
+    const { kind: _kind, ...rest } = valid
+    void _kind
+    const result = parsePendingCapabilityInput(rest)
+    expect(result).toBeNull()
+  })
+
+  it("rejects malformed RiskLevel", () => {
+    const result = parsePendingCapabilityInput({ ...valid, risk: 99 })
+    expect(result).toBeNull()
+  })
+
+  it("rejects wrong _tag", () => {
+    const result = parsePendingCapabilityInput({ ...valid, _tag: "Other" })
+    expect(result).toBeNull()
+  })
+
+  it("rejects non-string resource / digest", () => {
+    expect(parsePendingCapabilityInput({ ...valid, resource: 42 })).toBeNull()
+    expect(parsePendingCapabilityInput({ ...valid, digest: null })).toBeNull()
+  })
+
+  it("rejects non-number expiresAtMs", () => {
+    expect(parsePendingCapabilityInput({ ...valid, expiresAtMs: "soon" })).toBeNull()
   })
 })

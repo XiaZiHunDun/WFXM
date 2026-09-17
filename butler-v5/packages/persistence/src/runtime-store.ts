@@ -470,6 +470,12 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       // tx is a Drizzle tx (Pglite or NodePg). The `tx` parameter type is
       // `RuntimeTx = unknown` in the contract; we trust callers to pass a
       // Drizzle-compatible tx and cast locally via the DbTx alias above.
+      // D69 T2 (audit #10 F-08): runtime guard — a non-Drizzle tx would
+      // previously surface as a confusing Drizzle internal error. Throw a
+      // typed diagnostic at the seam instead.
+      if (tx === null || typeof tx !== "object" || typeof (tx as { insert?: unknown }).insert !== "function") {
+        throw new TypeError("appendAuditEventInTx: tx must be a Drizzle-compatible transaction")
+      }
       const t = tx as unknown as DbTx
       await t.insert(auditEvents).values({
         auditId: input.auditId,
@@ -485,6 +491,10 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
     },
 
     async transitionRunStatusInTx(tx, runId, expectedVersion, to, updatedAt) {
+      // D69 T2 (audit #10 F-08): same runtime guard as appendAuditEventInTx.
+      if (tx === null || typeof tx !== "object" || typeof (tx as { update?: unknown }).update !== "function") {
+        throw new TypeError("transitionRunStatusInTx: tx must be a Drizzle-compatible transaction")
+      }
       const t = tx as unknown as DbTx
       const updated = await t
         .update(runs)
