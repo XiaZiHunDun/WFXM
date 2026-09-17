@@ -54,6 +54,7 @@ export {
   downloadAndCacheIlinkMedia,
   enrichIlinkInboundContent,
   extractIlinkMediaRef,
+  WECHAT_OUTBOUND_NETWORK_HOST_SET,
 } from "./ilink-media.js"
 export type { IlinkMediaDownloadConfig, IlinkMediaKind, IlinkMediaRef } from "./ilink-media.js"
 export { makeTranscribeVoice, transcribeDashscopeFile, DASHSCOPE_ASR_URL } from "./ilink-asr.js"

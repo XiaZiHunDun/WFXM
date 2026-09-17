@@ -12,6 +12,13 @@ import {
 
 import { WECHAT_OUTBOUND_NETWORK_HOST_SET } from "@butler/domain/governance/wechat-network-hosts.js"
 
+// D70 T4 (audit #11 SEC-001): re-export so cli's wechat-login.ts can
+// validate QR-confirmed baseUrl without taking a direct @butler/domain
+// dep. cli's dep set is intentionally narrow (@butler/api + adapters +
+// persistence); the host set is the canonical allowlist for outbound
+// WeChat traffic.
+export { WECHAT_OUTBOUND_NETWORK_HOST_SET }
+
 export const DEFAULT_WECHAT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
 
 const WECHAT_CDN_HOSTS = WECHAT_OUTBOUND_NETWORK_HOST_SET
