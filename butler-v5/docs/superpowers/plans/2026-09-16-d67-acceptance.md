@@ -197,13 +197,25 @@ Edit `tests/acceptance/scenarios/_fixtures.ts` (or a new harness support file). 
  * Mirror real appendAuditEvent so harness scenarios can set up audit state
  * that the real fatigue reader (subagentAuditAsFatigueReader / D64 T1) picks up.
  */
+/**
+ * Helper that writes an audit event into the runtime store so the
+ * scenario's harness setup can pre-seed audit state for the fatigue
+ * reader. Mirrors `appendAuditEvent` on RuntimeStore but defaults the
+ * action/subject to sensible values.
+ *
+ * The plan-as-spec described `{ actor, action, subject, detail }` —
+ * the actual implementation in `_fixtures.ts` simplified to
+ * `{ toolName, parentConversationId }` because the harness always emits
+ * `action="tool_call"` and `subject=toolName`; the explicit actor was
+ * dropped when the new auditFatigueReader (D69 T1) hardcoded actor
+ * via the AuditEventSummary mapper. D70 T5 (audit #11 SO-013) brings
+ * the spec back in line with the actual signature.
+ */
 async function injectAuditEvent(
-  store: RuntimeStore,
-  event: {
-    readonly actor: string
-    readonly action: string
-    readonly subject: string
-    readonly detail?: Readonly<Record<string, unknown>>
+  ctx: ScenarioSetupCtx,
+  opts: {
+    readonly toolName: string
+    readonly parentConversationId?: string
   },
 ): Promise<void> {
   await store.appendAuditEvent({
@@ -228,9 +240,9 @@ Edit the F1-fatigue scenario. Before the 4 owner approvals, emit 3 audit events 
   // ... existing fields ...
   fixtures: {
     plan: [
-      injectAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "foo.ts" }),
-      injectAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "bar.ts" }),
-      injectAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "baz.ts" }),
+      injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: "conv-foo" }),
+      injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: "conv-bar" }),
+      injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: "conv-baz" }),
       tool("改 qux.ts 加 log"),
     ],
   },

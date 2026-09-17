@@ -183,7 +183,7 @@ resumes approval → execute tool
 ```
 Test scenario starts
     ↓
-Harness calls injectAuditEvent(store, { actor, action, subject, detail })
+Harness calls injectAuditEvent(ctx, { toolName, parentConversationId })
     ↓
 store.appendAuditEvent writes to audit_events table
     ↓
@@ -240,6 +240,7 @@ Expectations verified (minToolCalls / requireApproval / replyContains / etc.)
 | F1 (rewritten) | 4 audit events → real cooldown | 4th tool execution has actual 3s sleep + reply shows "稍等 3s..." |
 | F2 (rewritten) | sensitive tool → checklist → owner "确认" → proceed | tool execution continues after ack |
 | F3 (rewritten) | GET /fatigue + POST /replay real surface | non-empty sequences returned + reversible/irreversible split correct |
+| F3 (HTTP, D70 T1) | `/v1/owner/audit/fatigue` + `/v1/owner/audit/fatigue/replay` HTTP boundary | 8 cases in `apps/api/src/owner-routes/audit-fatigue-http.test.ts`; verifies Hono route registration, owner auth short-circuit, request validation, JSON shape, CQ-010 honest failure routing (no silent no-op) |
 | New C scenarios (4) | various fatigue/cooldown/replay paths | scenario-specific assertions |
 | New D scenarios (4) | cross-channel / correlation / failure recovery | scenario-specific assertions |
 
