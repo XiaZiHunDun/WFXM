@@ -220,7 +220,7 @@ inbound message (wechat / telegram / CLI)
 | Channel | 入口 | 共享组件 |
 |---|---|---|
 | wechat | `apps/api/src/wechat-inbound-butler.ts` (existing) | `lib/fatigue/policy.ts` |
-| telegram | `apps/api/src/telegram-inbound-butler.ts` (existing) | 同 |
+| telegram | `apps/api/src/channel-inbound.ts` (existing) | 同 |
 | CLI | `apps/api/src/cli-inline-approval.ts` (existing / new) | 同 |
 
 每个 channel 在 `tryApprove` 入口前统一调 `evaluateInlineApproval` — 不在 channel handler 内重复实现 detection / cooldown / checklist 逻辑。
@@ -437,7 +437,7 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 | 新 | `apps/api/src/lib/fatigue/audit-event.ts` | AuditEventFatigue 扩展 type |
 | 新 | `apps/api/src/lib/fatigue/replay.ts` | /v1/owner/audit/fatigue handler |
 | 改 | `apps/api/src/wechat-inbound-butler.ts` | 入口调 evaluateInlineApproval (existing) |
-| 改 | `apps/api/src/telegram-inbound-butler.ts` | 同 |
+| 改 | `apps/api/src/channel-inbound.ts` | 同 |
 | 改 | `apps/api/src/cli-inline-approval.ts` | 同 |
 | 改 | `apps/api/src/audit-event.ts` | +fatigue_signal / +cooldown_applied / +checklist_required 字段 (optional) |
 | 新 | `apps/api/src/lib/fatigue/signal.test.ts` | 5 unit |

@@ -73,6 +73,25 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
     }
     try {
       const result = await replayFatigueSequence(reader, raw.sequence_event_ids, currentOwnerActor())
+      // D69 T5 (audit #10 SO-16): §13 audit completeness — every other
+      // owner-mutating endpoint (rollback, confirm, reject, mcp.revoke-grants)
+      // emits an audit_event. POST /v1/owner/audit/fatigue/replay previously
+      // did not. Mirror memories-rollback.ts:120 pattern.
+      await wiring.runtimeStore.appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: null,
+        conversationId: null,
+        correlationId: null,
+        action: "owner.replay",
+        subject: currentOwnerActor(),
+        detail: {
+          sequence_event_ids: raw.sequence_event_ids.slice(0, 50),
+          replayed: result.replayed.length,
+          irreversible: result.irreversible.length,
+          failed: result.failed.length,
+        },
+        createdAt: new Date(),
+      })
       return c.json(result)
     } catch (err) {
       // D69 T3 (audit #10 SO-13/SO-19): typed catch via instanceof instead

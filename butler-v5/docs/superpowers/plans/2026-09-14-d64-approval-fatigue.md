@@ -23,7 +23,7 @@
 | 新 | `apps/api/src/lib/fatigue/replay.ts` | /v1/owner/audit/fatigue handler |
 | 改 | `apps/api/src/audit-event.ts` | +3 optional 字段 (fatigue_signal / cooldown_applied / checklist_required) |
 | 改 | `apps/api/src/wechat-inbound-butler.ts` | 入口调 evaluateInlineApproval |
-| 改 | `apps/api/src/telegram-inbound-butler.ts` | 同 |
+| 改 | `apps/api/src/channel-inbound.ts` | 同 |
 | 改 | `apps/api/src/cli-run.ts` | 同 |
 | 新 | `apps/api/src/lib/fatigue/signal.test.ts` | 5 unit (F1-F5) |
 | 新 | `apps/api/src/lib/fatigue/checklist.test.ts` | 4 unit (F11-F14) |
@@ -680,7 +680,7 @@ Expected: 0 errors
 
 **Files:**
 - Modify: `apps/api/src/wechat-inbound-butler.ts` (find inline-approval entry; add evaluateChannelApproval call)
-- Modify: `apps/api/src/telegram-inbound-butler.ts` (same)
+- Modify: `apps/api/src/channel-inbound.ts` (same)
 - Modify: `apps/api/src/cli-run.ts` (same)
 - Create: `apps/api/src/lib/fatigue/cross-channel.test.ts`
 
@@ -790,7 +790,7 @@ For exact insertion point, search for the existing approval function in each fil
 cd butler-v5
 pnpm vitest run apps/api/src/lib/fatigue/
 pnpm tsc --noEmit --incremental --project apps/api/tsconfig.json 2>&1 | tail -5
-git add apps/api/src/lib/fatigue/ apps/api/src/wechat-inbound-butler.ts apps/api/src/telegram-inbound-butler.ts apps/api/src/cli-run.ts
+git add apps/api/src/lib/fatigue/ apps/api/src/wechat-inbound-butler.ts apps/api/src/channel-inbound.ts apps/api/src/cli-run.ts
 git commit -m "feat(fatigue): T3 cross-channel wiring (wechat + telegram + CLI share policy)"
 git push origin main
 ```

@@ -18,7 +18,7 @@
 |---|---|---|
 | T1a | `apps/api/src/wechat-inbound-butler.ts` | +~15 lines at checklist case（line 622-637） |
 | T1a | `apps/api/src/wechat-inbound-butler.test.ts` | +3 unit tests |
-| T1b | `tests/acceptance/scenarios/_fixtures.ts` | +emitAuditEvent helper + F1/F2/F3 rewrite |
+| T1b | `tests/acceptance/scenarios/_fixtures.ts` | +injectAuditEvent helper + F1/F2/F3 rewrite |
 | T1b | `tests/acceptance/scenarios/realistic.test.ts` | harness support (if needed) |
 | T2a-1 | `tests/acceptance/scenarios/_fixtures.ts` | +4 C scenarios |
 | T2a-2 | `tests/acceptance/scenarios/_fixtures.ts` | +4 D scenarios |
@@ -165,7 +165,7 @@ Use `--no-verify` if pre-commit hook flakes. **`wechat-inbound-butler.ts` is a p
 ## Task 2: T1b acceptance harness audit writes + F1/F2/F3 rewrite
 
 **Files:**
-- Modify: `tests/acceptance/scenarios/_fixtures.ts` (+emitAuditEvent helper + F1/F2/F3 rewrite)
+- Modify: `tests/acceptance/scenarios/_fixtures.ts` (+injectAuditEvent helper + F1/F2/F3 rewrite)
 - Modify: `tests/acceptance/scenarios/realistic.test.ts` (harness support if needed)
 
 ### Step 1: Run baseline tests
@@ -186,7 +186,7 @@ grep -n "F1-fatigue\|F2-sensitive\|F3-replay" tests/acceptance/scenarios/_fixtur
 
 Find the F1, F2, F3 scenario definitions and surrounding fixture support code.
 
-### Step 3: Add `emitAuditEvent` helper
+### Step 3: Add `injectAuditEvent` helper
 
 Edit `tests/acceptance/scenarios/_fixtures.ts` (or a new harness support file). Add:
 
@@ -197,7 +197,7 @@ Edit `tests/acceptance/scenarios/_fixtures.ts` (or a new harness support file). 
  * Mirror real appendAuditEvent so harness scenarios can set up audit state
  * that the real fatigue reader (subagentAuditAsFatigueReader / D64 T1) picks up.
  */
-async function emitAuditEvent(
+async function injectAuditEvent(
   store: RuntimeStore,
   event: {
     readonly actor: string
@@ -228,9 +228,9 @@ Edit the F1-fatigue scenario. Before the 4 owner approvals, emit 3 audit events 
   // ... existing fields ...
   fixtures: {
     plan: [
-      emitAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "foo.ts" }),
-      emitAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "bar.ts" }),
-      emitAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "baz.ts" }),
+      injectAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "foo.ts" }),
+      injectAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "bar.ts" }),
+      injectAuditEvent(store, { actor: "owner", action: "tool.execute", subject: "baz.ts" }),
       tool("改 qux.ts 加 log"),
     ],
   },

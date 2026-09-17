@@ -183,7 +183,7 @@ resumes approval → execute tool
 ```
 Test scenario starts
     ↓
-Harness calls emitAuditEvent(store, { actor, action, subject, detail })
+Harness calls injectAuditEvent(store, { actor, action, subject, detail })
     ↓
 store.appendAuditEvent writes to audit_events table
     ↓
@@ -255,7 +255,7 @@ All existing 44 scenarios must pass unchanged + new 8 = 52+ total.
 |---|---|---|
 | T1a | `apps/api/src/wechat-inbound-butler.ts` | +~15 lines at checklist case |
 | T1a | `apps/api/src/wechat-inbound-butler.test.ts` | +3 unit tests |
-| T1b | `tests/acceptance/scenarios/_fixtures.ts` | +emitAuditEvent helper + F1/F2/F3 rewrite |
+| T1b | `tests/acceptance/scenarios/_fixtures.ts` | +injectAuditEvent helper + F1/F2/F3 rewrite |
 | T2a-1 | `tests/acceptance/scenarios/_fixtures.ts` | +4 C scenarios |
 | T2a-2 | `tests/acceptance/scenarios/_fixtures.ts` | +4 D scenarios |
 | post-fix | `.audit/D67/{summary.md, protocol-compliance.md}` | NEW |
@@ -281,7 +281,7 @@ All existing 44 scenarios must pass unchanged + new 8 = 52+ total.
 - **T1b harness audit writes**: use existing appendAuditEvent; harness reads via existing subagentAuditAsFatigueReader (which now sees real audit data, not subagent JSONL)
 - **T2a scenario categories**: maintain A/B/C/D convention; 4 new C (fatigue/cooldown/replay) + 4 new D (boundary/correlation/failure)
 - **Real cooldown verification**: F1 acceptance now triggers REAL 3s sleep (not flow smoke); N=3 verify may take longer
-- **Harness support**: emitAuditEvent helper is the only new infrastructure; reuses existing runtimeStore
+- **Harness support**: injectAuditEvent helper is the only new infrastructure; reuses existing runtimeStore
 
 ---
 
