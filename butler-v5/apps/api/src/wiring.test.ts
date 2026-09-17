@@ -143,27 +143,53 @@ describe("v5 wiring", () => {
   })
 
   it("createRoutes with wiring responds 201 to POST /v1/conversations", async () => {
-    const app = makeWiringTestApp(wiring)
-    const res = await app.request("/v1/conversations", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        apiVersion: "v1",
-        projectId: "p-1",
-        toolName: null,
-        content: "hello",
-      }),
-    })
-    expect(res.status).toBe(201)
-    const body = (await res.json()) as { conversationId: string; turnId: string }
-    expect(body.conversationId).toMatch(/^c-p-1-/)
-    expect(body.turnId).toMatch(/^turn-/)
+    // D69 T4 (audit #10 SEC-2): seed auth secret so the route's
+    // FAIL-CLOSED gate accepts the request.
+    const prev = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-wiring-conversations-secret"
+    try {
+      const app = makeWiringTestApp(wiring)
+      const res = await app.request("/v1/conversations", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-wiring-conversations-secret",
+        },
+        body: JSON.stringify({
+          apiVersion: "v1",
+          projectId: "p-1",
+          toolName: null,
+          content: "hello",
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { conversationId: string; turnId: string }
+      expect(body.conversationId).toMatch(/^c-p-1-/)
+      expect(body.turnId).toMatch(/^turn-/)
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+      else process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prev
+    }
   })
 
   it("createRoutes with wiring responds 400 on invalid body", async () => {
-    const app = makeWiringTestApp(wiring)
-    const res = await app.request("/v1/conversations", { method: "POST" })
-    expect(res.status).toBe(400)
+    // D69 T4: with auth satisfied, body validation kicks in. Empty
+    // POST body returns 400.
+    const prev = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-wiring-conversations-secret"
+    try {
+      const app = makeWiringTestApp(wiring)
+      const res = await app.request("/v1/conversations", {
+        method: "POST",
+        headers: {
+          "x-inbound-secret": "test-wiring-conversations-secret",
+        },
+      })
+      expect(res.status).toBe(400)
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+      else process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prev
+    }
   })
 
   it("R8.x.11: wechat inbound without conversationId generates a server id", async () => {
@@ -291,33 +317,58 @@ describe("v5 wiring", () => {
   })
 
   it("R8.x.17: POST /v1/ws/subscribe returns a token for a valid conversationId", async () => {
-    const app = makeWiringTestApp(wiring)
-    const res = await app.request("/v1/ws/subscribe", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ apiVersion: "v1", conversationId: "c-owner-live" }),
-    })
-    expect(res.status).toBe(201)
-    const body = (await res.json()) as {
-      conversationId: string
-      token: string
-      expiresAt: string
-      wsPath: string
+    // D69 T4 (audit #10 SEC-3): seed auth secret so the route's
+    // FAIL-CLOSED gate accepts the request.
+    const prev = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-wiring-subscribe-secret"
+    try {
+      const app = makeWiringTestApp(wiring)
+      const res = await app.request("/v1/ws/subscribe", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-wiring-subscribe-secret",
+        },
+        body: JSON.stringify({ apiVersion: "v1", conversationId: "c-owner-live" }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as {
+        conversationId: string
+        token: string
+        expiresAt: string
+        wsPath: string
+      }
+      expect(body.conversationId).toBe("c-owner-live")
+      expect(body.token.length).toBeGreaterThan(16)
+      expect(body.wsPath).toContain("token=")
+      expect(Number.isNaN(Date.parse(body.expiresAt))).toBe(false)
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+      else process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prev
     }
-    expect(body.conversationId).toBe("c-owner-live")
-    expect(body.token.length).toBeGreaterThan(16)
-    expect(body.wsPath).toContain("token=")
-    expect(Number.isNaN(Date.parse(body.expiresAt))).toBe(false)
   })
 
   it("R8.x.17: POST /v1/ws/subscribe rejects a missing conversationId", async () => {
-    const app = makeWiringTestApp(wiring)
-    const res = await app.request("/v1/ws/subscribe", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ apiVersion: "v1" }),
-    })
-    expect(res.status).toBe(400)
+    // D69 T4 (audit #10 SEC-3): /v1/ws/subscribe now requires
+    // x-inbound-secret header. With auth satisfied, missing
+    // conversationId returns 400.
+    const prev = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-wiring-subscribe-secret"
+    try {
+      const app = makeWiringTestApp(wiring)
+      const res = await app.request("/v1/ws/subscribe", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-wiring-subscribe-secret",
+        },
+        body: JSON.stringify({ apiVersion: "v1" }),
+      })
+      expect(res.status).toBe(400)
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+      else process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prev
+    }
   })
 
   it("channel inbound returns 404 when API disabled", async () => {

@@ -28,6 +28,10 @@ let server: NodeServer | undefined
 let baseUrl = ""
 
 beforeAll(async () => {
+  // D69 T4 (audit #10 SEC-2): POST /v1/conversations now requires the
+  // BUTLER_V5_INBOUND_SHARED_SECRET header. Seed the env var so the
+  // route's FAIL-CLOSED auth gate accepts our requests.
+  process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-r8-real-persistence-secret"
   await new Promise<void>((resolve) => {
     server = serve({ fetch: app.fetch, port: 0 }, (info) => {
       baseUrl = `http://127.0.0.1:${info.port}`
@@ -47,7 +51,10 @@ describe("R8 real-path persistence", () => {
   it("POST /v1/conversations persists exactly one event with full envelope projection", async () => {
     const res = await fetch(`${baseUrl}/v1/conversations`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-inbound-secret": "test-r8-real-persistence-secret",
+      },
       body: JSON.stringify({
         apiVersion: "v1",
         projectId: "p-r8-persist",
@@ -75,7 +82,10 @@ describe("R8 real-path persistence", () => {
     const postOnce = async (content: string) => {
       const r = await fetch(`${baseUrl}/v1/conversations`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-r8-real-persistence-secret",
+        },
         body: JSON.stringify({ apiVersion: "v1", projectId, content }),
       })
       expect(r.status).toBe(201)

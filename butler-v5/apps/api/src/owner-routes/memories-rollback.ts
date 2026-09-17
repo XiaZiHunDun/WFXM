@@ -78,11 +78,12 @@ export async function handleRollbackAutoPromote(
       `[memory-rollback] denied owner=owner id=${memoryId} error=${validation.reason} currentStatus=${memory.status} promotedBy=${memory.promotedBy ?? "null"}`,
     )
     // D69 T3 (audit #10 SO-7): route validation.reason through safeOwnerError
-    // so the owner sees Chinese owner-jargon (e.g. "回滚窗口已过" /
-    // "回滚不可用：状态不符") instead of raw internal domain reasons like
-    // "outside rollback window" / "wrong status". Mirrors D63 T1 pattern
-    // in approvals-approve.ts:69-77 for alreadyProcessed. Full reason
-    // stays in the operator log above.
+    // so the owner sees Chinese owner-jargon ("回滚不可用" fallback) instead
+    // of raw internal domain reasons like "outside rollback window" / "wrong
+    // status". The original domain reason is preserved in `domainReason`
+    // for programmatic clients (tests, analytics, owner replay queries).
+    // Mirrors D63 T1 pattern in approvals-approve.ts:69-77 for
+    // alreadyProcessed. Full reason stays in the operator log above.
     const ownerReason = safeOwnerError(
       validation.reason,
       "回滚不可用",
@@ -92,6 +93,7 @@ export async function handleRollbackAutoPromote(
       {
         ok: false,
         error: ownerReason,
+        domainReason: validation.reason,
         currentStatus: memory.status,
         promotedBy: memory.promotedBy,
         promotedAt:

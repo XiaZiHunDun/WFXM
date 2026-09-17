@@ -1144,7 +1144,7 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     expect(res.status).toBe(409)
     const body = (await res.json()) as { ok: boolean; error: string; currentStatus: string }
     expect(body.ok).toBe(false)
-    expect(body.error).toBe("not-confirmed")
+    expect(body.domainReason).toBe("not-confirmed")
     expect(body.currentStatus).toBe("candidate")
   })
 
@@ -1170,7 +1170,7 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     expect(res.status).toBe(409)
     const body = (await res.json()) as { ok: boolean; error: string }
     expect(body.ok).toBe(false)
-    expect(body.error).toBe("not-auto-promoted")
+    expect(body.domainReason).toBe("not-auto-promoted")
   })
 
   it("returns 409 rollback-window-expired when past 7d post-promote window", async () => {
@@ -1204,7 +1204,7 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
       rollbackDeadline: string | null
     }
     expect(body.ok).toBe(false)
-    expect(body.error).toBe("rollback-window-expired")
+    expect(body.domainReason).toBe("rollback-window-expired")
     expect(body.currentStatus).toBe("confirmed")
     expect(body.promotedBy).toBe("sweeper")
     // promotedAt=baseMs, deadline = baseMs + 7d (in ISO)

@@ -36,6 +36,10 @@ let server: NodeServer | undefined
 let baseUrl = ""
 
 beforeAll(async () => {
+  // D69 T4 (audit #10 SEC-2): POST /v1/conversations now requires the
+  // BUTLER_V5_INBOUND_SHARED_SECRET header. Seed the env var so the
+  // route's FAIL-CLOSED auth gate accepts our requests.
+  process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-r7-wiring-secret"
   await new Promise<void>((resolve) => {
     server = serve({ fetch: app.fetch, port: 0 }, (info) => {
       baseUrl = `http://127.0.0.1:${info.port}`
@@ -63,7 +67,10 @@ describe("R7 wiring end-to-end", () => {
   it("POST /v1/conversations with valid body returns 201 and writes to event_store", async () => {
     const res = await fetch(`${baseUrl}/v1/conversations`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-inbound-secret": "test-r7-wiring-secret",
+      },
       body: JSON.stringify({
         apiVersion: "v1",
         projectId: "p-r7-e2e",
@@ -83,12 +90,32 @@ describe("R7 wiring end-to-end", () => {
     expect(events[0]?.eventType).toBe("ConversationStarted")
   })
 
-  it("POST /v1/conversations with invalid body returns 400", async () => {
+  it("POST /v1/conversations with invalid body returns 400 (auth satisfied)", async () => {
+    // D69 T4: auth gate first, body validation second. With valid
+    // x-inbound-secret header, body validation kicks in and an empty
+    // body returns 400.
     const res = await fetch(`${baseUrl}/v1/conversations`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-inbound-secret": "test-r7-wiring-secret",
+      },
       body: JSON.stringify({}),
     })
     expect(res.status).toBe(400)
+  })
+
+  it("POST /v1/conversations without auth header returns 401", async () => {
+    // D69 T4: missing x-inbound-secret header hits FAIL-CLOSED gate.
+    const res = await fetch(`${baseUrl}/v1/conversations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        apiVersion: "v1",
+        projectId: "p-r7-e2e",
+        content: "hello",
+      }),
+    })
+    expect(res.status).toBe(401)
   })
 })
