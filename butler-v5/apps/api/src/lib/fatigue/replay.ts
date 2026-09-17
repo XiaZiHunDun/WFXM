@@ -103,7 +103,7 @@ export async function replayFatigueSequence(
       continue
     }
     if (event.actor !== ownerActor) {
-      throw new Error(`cross-actor replay rejected: event ${eventId} not owned by ${ownerActor}`)
+      throw new CrossActorReplayError(eventId, ownerActor, event.actor)
     }
     if (isIrreversible(event.tool_name)) {
       irreversible.push(eventId)
@@ -117,4 +117,27 @@ export async function replayFatigueSequence(
   }
 
   return { replayed, irreversible, failed }
+}
+
+/**
+ * D69 T3 (audit #10 SO-13): typed error for cross-actor replay rejection.
+ * Previously the owner-routes audit-fatigue handler caught with
+ * `err.message.includes("cross-actor")` — brittle string match that
+ * silently degraded a 403 into a 500 if the throw site renamed the
+ * message. The error message is kept (with "cross-actor" / "not owner"
+ * tokens) so the existing replay-api.test.ts R4 regex
+ * (/cross-actor|not owner/i) still passes; callers should prefer
+ * `instanceof CrossActorReplayError`.
+ */
+export class CrossActorReplayError extends Error {
+  override readonly name = "CrossActorReplayError" as const
+  constructor(
+    readonly eventId: string,
+    readonly expectedActor: string,
+    readonly actualActor: string,
+  ) {
+    super(
+      `cross-actor replay rejected: event ${eventId} not owned by ${expectedActor} (actual: ${actualActor})`,
+    )
+  }
 }

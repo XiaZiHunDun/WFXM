@@ -61,18 +61,22 @@ export function formatDecision(decision: string): string {
 
 /**
  * D63 T2 (audit #9 F-17/F-22-F-25): owner-jargon for subagent role.
- * Drops raw English role enum (`general`, `developer`, `reviewer`) from
- * owner-facing strings. Falls back to a Chinese generic if the role
- * isn't in the known map.
+ * Drops raw English role enum from owner-facing strings. D69 T3 (audit #10
+ * SO-22): complete the map (planner / tester / custom) and fall back to
+ * a Chinese generic '代理' instead of leaking the raw enum string. Mirrors
+ * D48 owner-jargon noted more roles than the D63 map covered.
  */
-const ROLE_LABEL: Record<string, string> = {
+const ROLE_LABEL: Readonly<Record<string, string>> = {
   general: "通用",
   developer: "开发",
   reviewer: "审查",
+  planner: "规划",
+  tester: "测试",
+  custom: "自定义",
 }
 
 export function formatSubagentRoleForOwner(role: string): string {
-  return ROLE_LABEL[role] ?? role
+  return ROLE_LABEL[role] ?? "代理"
 }
 
 /**

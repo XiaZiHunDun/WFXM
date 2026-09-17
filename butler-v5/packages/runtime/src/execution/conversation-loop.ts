@@ -330,10 +330,13 @@ export async function runConversationLoop(input: {
           logger.warn(
             `[conversation-loop] Unknown tool '${tc.name}' at iteration ${iteration}; pushing error result`,
           )
+          // D69 T3 (audit #10 CQ-19): Chinese owner-jargon phrasing in the
+          // tool-result message so the LLM doesn't echo raw `unknown tool`
+          // English to the owner. Mirrors D48 §4 owner-facing contract.
           traces.push(`unknown tool: ${tc.name}`)
           toolResultMessages.push({
             role: "tool",
-            content: `[error] unknown tool: ${tc.name}`,
+            content: `[错误] 未注册的工具：${tc.name}`,
             toolCallId: tc.id,
             toolName: tc.name,
           })

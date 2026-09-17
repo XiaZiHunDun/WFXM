@@ -3,6 +3,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { auditFatigueReader } from "../lib/fatigue/audit-reader.js"
 import {
+  CrossActorReplayError,
   listFatigueSequences,
   replayFatigueSequence,
 } from "../lib/fatigue/replay.js"
@@ -74,8 +75,12 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
       const result = await replayFatigueSequence(reader, raw.sequence_event_ids, currentOwnerActor())
       return c.json(result)
     } catch (err) {
-      if (err instanceof Error && err.message.includes("cross-actor")) {
-        return c.json({ error: "cross-actor replay rejected" }, 403)
+      // D69 T3 (audit #10 SO-13/SO-19): typed catch via instanceof instead
+      // of err.message.includes("cross-actor") string match. The error
+      // message is owner-jargon Chinese ("拒绝跨账号操作") rather than
+      // English internal jargon.
+      if (err instanceof CrossActorReplayError) {
+        return c.json({ error: "拒绝跨账号操作：该操作不属于你的账号" }, 403)
       }
       throw err
     }

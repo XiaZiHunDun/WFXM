@@ -20,6 +20,7 @@ import {
   injectRunCommandCredentials,
 } from "@butler/adapters/credentials/host-credentials.js"
 import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
+import { safeOwnerError } from "./safe-owner-error.js"
 
 export const ALLOWED_RUN_COMMANDS = [
   "cat",
@@ -164,7 +165,11 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
           if (buf.includes(0)) return { ok: false, reason: "refusing binary file" }
           return { ok: true, output: buf.toString("utf8") }
         } catch (err) {
-          return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+          // D69 T3 (audit #10 CQ-2): route raw ENOENT/EACCES messages through
+          // safeOwnerError so the owner sees a Chinese fallback ("读取文件失败")
+          // rather than `EACCES: permission denied, open '/etc/...'`. The
+          // detailed error stays in operator logs via safeOwnerError.
+          return { ok: false, reason: safeOwnerError(err, "读取文件失败", { operation: "read_file", path: resolved.path }) }
         }
       } else {
         const result = sandboxed as { readonly ok: boolean; readonly stdout?: string; readonly stderr?: string; readonly reason?: string }
