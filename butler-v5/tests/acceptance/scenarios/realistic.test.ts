@@ -13,7 +13,7 @@
 import { describe, expect, it, afterAll, beforeAll } from "vitest"
 import { writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { ALL_SCENARIOS } from "./_fixtures.js"
+import { ALL_SCENARIOS, type ScenarioSetupCtx } from "./_fixtures.js"
 import { resetUndoStack } from "@butler/api/workspace-tools.js"
 import {
   makeAcceptanceApp,
@@ -65,7 +65,7 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
   async function runScenario(
     scenario: (typeof ALL_SCENARIOS)[number],
     convId: string,
-    ctx: import("./_fixtures.js").ScenarioSetupCtx,
+    ctx: ScenarioSetupCtx,
     notes: string[],
     turns: TurnMetric[],
   ): Promise<{ approvalCount: number; totalToolCalls: number }> {

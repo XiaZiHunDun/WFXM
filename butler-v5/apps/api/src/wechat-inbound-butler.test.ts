@@ -961,7 +961,7 @@ describe("runButlerLoop", () => {
 describe("fatigue checklist createStep integration (D67 T1a)", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
   let bridge: EventBridge
-  let silentLogger: ButlerLoopLogger = {
+  const silentLogger: ButlerLoopLogger = {
     warn: () => undefined,
     error: () => undefined,
   }

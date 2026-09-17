@@ -24,7 +24,7 @@ import {
   resetUndoChain,
   undoChain_listChainIds,
 } from "@butler/api/workspace-tools.js"
-import type { FixtureEntry } from "../harness.js"
+import type { AcceptanceApp, FixtureEntry } from "../harness.js"
 
 export type ScenarioCategory = "A-concrete" | "B-open" | "C-edge" | "D-combo"
 
@@ -50,7 +50,7 @@ export interface ScenarioSetupCtx {
   /** acceptance harness 创建的临时 workspace 根目录。 */
   readonly workspaceRoot: string
   /** D67 T1b: harness app handle (F3-replay HTTP API direct call 用)。 */
-  readonly app: import("../harness.js").AcceptanceApp
+  readonly app: AcceptanceApp
 }
 
 export interface Scenario {
