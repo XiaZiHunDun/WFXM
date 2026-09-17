@@ -54,7 +54,11 @@
   ],
   "ignoreIssues": {
     "apps/api/src/approval-resume.ts": ["exports", "types"],
-    "apps/api/src/acceptance-app.ts": ["exports", "types"]
+    "apps/api/src/acceptance-app.ts": ["exports", "types"],
+    "apps/api/src/lib/fatigue/audit-event.ts": ["types"],
+    "apps/api/src/lib/fatigue/checklist.ts": ["types"],
+    "apps/api/src/lib/fatigue/replay.ts": ["types"],
+    "apps/api/src/workspace-tools.ts": ["exports"]
   },
   "ignoreBinaries": ["capsh", "bwrap"]
 }

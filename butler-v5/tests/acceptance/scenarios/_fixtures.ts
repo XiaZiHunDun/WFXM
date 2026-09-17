@@ -134,20 +134,10 @@ async function injectAuditEvent(
   })
 }
 
-/**
- * D68 T2a — Legacy no-op retained for backward compat with F2/C-F2
- * setups that called `freshSubagentAuditPath` to seed an empty JSONL.
- * After the reader swap, the JSONL is no longer read by the fatigue
- * reader, so setting the env override is dead code. Kept so existing
- * scenario definitions compile; `verify` callbacks still delete the
- * (never-set) env var harmlessly.
- */
-function freshSubagentAuditPath(prefix: string): string {
-  const auditTmpDir = mkdtempSync(join(tmpdir(), `butler-v5-${prefix}-`))
-  const auditPath = join(auditTmpDir, "subagent.jsonl")
-  process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] = auditPath
-  return auditPath
-}
+// D70 T2 (audit #11 SO-003): freshSubagentAuditPath() removed — the
+// JSONL injection path was obsolete after the D69 T1 reader swap.
+// 10 call sites deleted; verify() callbacks that deleted the never-set
+// BUTLER_V5_SUBAGENT_AUDIT_PATH env var remain (harmless no-op).
 
 // ============================================================================
 // A. 真实开发任务（10）
@@ -686,14 +676,12 @@ export const scenariosC: readonly Scenario[] = [
       // D68 T2a: inject 3 audit events into runtimeStore.audit_events
       // (the canonical source post-swap). Fatigue reader sees count=3
       // when the 4th write_file runs → triggers REAL cooldown 3s sleep.
-      // Old JSONL injection is obsolete; freshSubagentAuditPath no longer
-      // affects the reader but kept for env-var cleanup symmetry.
-      const _auditPath = freshSubagentAuditPath("f1-fatigue")
+      // D70 T2 (audit #11 SO-003): freshSubagentAuditPath() removed — the
+      // JSONL injection path was obsolete after the D69 T1 reader swap.
       const convId = `c-realistic-F1-fatigue`
       for (let i = 0; i < 3; i += 1) {
         await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId })
       }
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -746,9 +734,7 @@ export const scenariosC: readonly Scenario[] = [
     setup: (ctx) => {
       // D67 T1b: empty audit path so fatigue reader sees count=0 → high-sensitivity
       // tool triggers checklist (not cooldown). Mirrors T1a U1 pattern.
-      const _auditPath = freshSubagentAuditPath("f2-sensitive")
       void ctx
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -780,12 +766,10 @@ export const scenariosC: readonly Scenario[] = [
     setup: async (ctx) => {
       // D68 T2a: inject 3 audit events into runtimeStore.audit_events so
       // reader sees real data (sequences populated, degraded=false).
-      const _auditPath = freshSubagentAuditPath("f3-replay")
       const convId = `c-realistic-F3-replay`
       for (let i = 0; i < 3; i += 1) {
         await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId })
       }
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -825,12 +809,10 @@ export const scenariosC: readonly Scenario[] = [
     setup: async (ctx) => {
       // D68 T2a: inject 3 read_file audit events into runtimeStore
       // (与 F1 的 write_file 区分) — 验证疲劳计数跨工具类型聚合。
-      const _auditPath = freshSubagentAuditPath("c-f1-real-cooldown")
       const convId = `c-realistic-C-F1-real-cooldown`
       for (let i = 0; i < 3; i += 1) {
         await injectAuditEvent(ctx, { toolName: "read_file", parentConversationId: convId })
       }
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -882,9 +864,7 @@ export const scenariosC: readonly Scenario[] = [
     setup: (ctx) => {
       // D67 T2a-1: empty audit path so fatigue reader sees count=0 → high-sensitivity
       // tool triggers checklist (与 F2 同模式, 同 high-sensitivity tool, 不同 path)。
-      const _auditPath = freshSubagentAuditPath("c-f2-checklist-proceed")
       void ctx
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -913,7 +893,6 @@ export const scenariosC: readonly Scenario[] = [
       // D68 T2a: 与 F3 区别是 pre-injected events 跨 2 个 conversationId (3+2)。
       // → reader (listRecentAuditEvents) sees 2 distinct sequences。
       // Reply 必须仍解释 HTTP 控制面 + 含 "audit/fatigue"。
-      const _auditPath = freshSubagentAuditPath("c-f3-replay-api")
       const convId1 = `c-realistic-C-F3-replay-api-seq1`
       const convId2 = `c-realistic-C-F3-replay-api-seq2`
       for (let i = 0; i < 3; i += 1) {
@@ -922,7 +901,6 @@ export const scenariosC: readonly Scenario[] = [
       for (let i = 0; i < 2; i += 1) {
         await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId2 })
       }
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -959,10 +937,8 @@ export const scenariosC: readonly Scenario[] = [
       // → 模拟 owner-direct API call w/o inbound run 的 correlationId=null 边界
       // (audit_event 有 conversationId 但不 match 当前 runId)。Reader 仍能读到
       // 数据但 chat reply 不受影响。
-      const _auditPath = freshSubagentAuditPath("c-additional-1")
       const phantomConvId = `phantom-${Math.random().toString(36).slice(2, 10)}`
       await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: phantomConvId })
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -1386,7 +1362,6 @@ export const scenariosD: readonly Scenario[] = [
     setup: async (ctx) => {
       // D68 T2a: 3 个 audit events 共享同一 convId 但 ownerSubject 不同,
       // 模拟跨 3 个 channel 同一会话的边界场景。注入到 runtimeStore。
-      const _auditPath = freshSubagentAuditPath("d-cross-channel-consistency")
       const sharedConvId = `c-realistic-D-cross-channel`
       for (const _channel of ["wechat", "telegram", "cli"]) {
         await injectAuditEvent(ctx, {
@@ -1394,7 +1369,6 @@ export const scenariosD: readonly Scenario[] = [
           parentConversationId: sharedConvId,
         })
       }
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -1428,7 +1402,6 @@ export const scenariosD: readonly Scenario[] = [
       // D68 T2a: 5 个 audit events 共享同一 convId, 模拟单次请求内 5
       // 个连续 emit sites (e.g., correlation_id thread 跨多 emit 调用)。
       // 注入到 runtimeStore.audit_events。
-      const _auditPath = freshSubagentAuditPath("d-audit-correlation-continuity")
       const sharedConvId = `c-realistic-D-correlation`
       for (let i = 0; i < 5; i += 1) {
         await injectAuditEvent(ctx, {
@@ -1436,7 +1409,6 @@ export const scenariosD: readonly Scenario[] = [
           parentConversationId: sharedConvId,
         })
       }
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
@@ -1470,13 +1442,11 @@ export const scenariosD: readonly Scenario[] = [
       // D68 T2a: phantom audit event with random (non-matching) conversationId
       // → 模拟 owner-direct path 无 inbound run 的 correlationId=null 边界。
       // 注入到 runtimeStore。Reader 读到数据但 chat reply 不受影响。
-      const _auditPath = freshSubagentAuditPath("d-owner-direct-no-inbound")
       const phantomConvId = `phantom-${Math.random().toString(36).slice(2, 10)}`
       await injectAuditEvent(ctx, {
         toolName: "write_file",
         parentConversationId: phantomConvId,
       })
-      void _auditPath
     },
     verify: () => {
       delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]

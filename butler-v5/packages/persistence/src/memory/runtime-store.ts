@@ -31,10 +31,12 @@ import {
 } from "@butler/domain/runtime.js"
 import { RuntimeVersionConflictError } from "../runtime-store.js"
 
-/** D66 T1a: re-export for the few legacy callers that imported the local
- *  memory-only interface. New code should import `AuditEventRecord` from
- *  `@butler/domain/runtime.js` directly. */
-export type { AuditEventRecord }
+// D70 T2 (audit #11 CQ-002): removed legacy re-export of AuditEventRecord.
+// D66 T1a added this as a bridge for "few legacy callers" — fresh audit
+// confirms 0 callers import AuditEventRecord from this module; every
+// consumer (apps/api/src/audit-service.ts, audit-reader.ts,
+// audit-fatigue-http.test.ts) imports directly from
+// @butler/domain/runtime.js. Re-export was dead.
 
 /**
  * 纯内存 RuntimeStore（Repository Port 的可替换实现）。
