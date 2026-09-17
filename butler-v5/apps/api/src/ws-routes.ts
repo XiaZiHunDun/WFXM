@@ -163,6 +163,38 @@ type WsIdentity =
   | { readonly ok: true; readonly conversationId: string }
   | { readonly ok: false; readonly reason: string }
 
+// D69 T4 (audit #10 SEC-6): Cross-Site WebSocket Hijacking guard. Loopback
+// WS auto-allows loopback origins (http://localhost:* / http://127.0.0.1:*).
+// When WS_HOST=0.0.0.0 (public bind), requires BUTLER_V5_WS_ALLOWED_ORIGINS
+// env var to be set to a comma-separated allowlist of origins (exact match).
+// Absent Origin (curl / native clients / same-origin) is always allowed.
+function isOriginAllowedForWsUpgrade(origin: string, boundHost: string): boolean {
+  const isLoopbackBind =
+    boundHost === "127.0.0.1" ||
+    boundHost === "localhost" ||
+    boundHost === "::1" ||
+    boundHost === "0.0.0.0"
+  if (isLoopbackBind) {
+    try {
+      const url = new URL(origin)
+      const host = url.hostname.toLowerCase()
+      if (host === "127.0.0.1" || host === "localhost" || host === "::1") return true
+    } catch {
+      return false
+    }
+    const allowlist = (process.env["BUTLER_V5_WS_ALLOWED_ORIGINS"] ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+    return allowlist.includes(origin)
+  }
+  const allowlist = (process.env["BUTLER_V5_WS_ALLOWED_ORIGINS"] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  return allowlist.includes(origin)
+}
+
 function resolveWsIdentity(url: string): WsIdentity {
   const token = extractQueryParam(url, "token")
   const conversationId = extractConversationId(url)
@@ -201,7 +233,11 @@ export async function startWsServer(
 ): Promise<WsServerHandle> {
   const port = opts.port ?? DEFAULT_WS_PORT
   const host = opts.host ?? "127.0.0.1"
-  const wss = new WebSocketServer({ noServer: true })
+  // D69 T4 (audit #10 SEC-7): cap WS message payload at 64 KiB. Default
+  // ws lib cap is 100 MiB — a malicious client can flood 100 MiB frames;
+  // even though only 'ping' is recognized, the buffer is fully delivered
+  // before JSON.parse runs.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 })
   wss.on("connection", (ws, req) => {
     const identity = resolveWsIdentity(req.url ?? "")
     if (!identity.ok) {
@@ -263,6 +299,22 @@ export async function startWsServer(
     if (!req.url || !req.url.startsWith(WS_PATH_PREFIX)) {
       socket.destroy()
       return
+    }
+    // D69 T4 (audit #10 SEC-6): Cross-Site WebSocket Hijacking guard.
+    // Validate the Origin header — loopback WS should only accept
+    // loopback origins. If WS_HOST=0.0.0.0 (public bind), require
+    // BUTLER_V5_WS_ALLOWED_ORIGINS env var (comma-separated); absent
+    // origin (curl / native clients) is allowed.
+    const origin = req.headers.origin
+    if (typeof origin === "string" && origin !== "") {
+      const allowed = isOriginAllowedForWsUpgrade(origin, host)
+      if (!allowed) {
+        // wsLogger only exposes info/error; use error channel for rejection.
+        wsLogger.error(`[ws-routes] rejected WS upgrade from origin=${origin}`)
+        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n")
+        socket.destroy()
+        return
+      }
     }
     // With `noServer: true`, the ws library does NOT auto-emit
     // the `connection` event — we have to wire it up explicitly.

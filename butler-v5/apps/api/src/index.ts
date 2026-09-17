@@ -29,11 +29,21 @@ import {
 // 2 MiB cap is generous for the largest documented content limit (memory
 // 4K chars; documents 500K chars; project-knowledge 100K chars). Per-route
 // limits are more surgical but require touching 4 files — defer to D64.
+// D69 T4 (audit #10 SEC-4/SEC-10): also reject Transfer-Encoding: chunked
+// (and any request without Content-Length on body-bearing methods) since
+// we cannot stream-count bytes through Hono v4 middleware at this layer
+// — refuse chunked up front rather than allow unbounded buffering.
 const MAX_BODY_BYTES = 2 * 1024 * 1024
 const app = new Hono()
 app.use("*", async (c, next) => {
-  const contentLengthHeader = c.req.header("content-length")
-  if (contentLengthHeader !== undefined) {
+  const method = c.req.method.toUpperCase()
+  const hasBody = method === "POST" || method === "PUT" || method === "PATCH"
+  if (hasBody) {
+    const contentLengthHeader = c.req.header("content-length")
+    const transferEncoding = c.req.header("transfer-encoding") ?? ""
+    if (transferEncoding.toLowerCase().includes("chunked") || contentLengthHeader === null) {
+      return c.text("chunked / unknown-length bodies not allowed (Content-Length required)", 411)
+    }
     const declared = Number(contentLengthHeader)
     if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
       return c.text("request body too large", 413)

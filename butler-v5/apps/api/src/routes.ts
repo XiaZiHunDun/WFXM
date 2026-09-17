@@ -37,6 +37,19 @@ import { maybePrependSessionDigest } from "./wechat-session-digest.js"
 export function createRoutes(app: Hono, wiring: Wiring) {
   app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
   app.post("/v1/conversations", async (c) => {
+    // D69 T4 (audit #10 SEC-2): require BUTLER_V5_INBOUND_SHARED_SECRET
+    // header — same FAIL-CLOSED pattern as /v1/wechat/inbound (D63 T4).
+    // Previously any caller could appendConversationEvent into the event
+    // bridge with no auth, enabling event-bridge write DoS if Hono bound
+    // beyond loopback.
+    const expectedInboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
+    if (!expectedInboundSecret) {
+      return c.text("inbound shared secret not configured", 401)
+    }
+    const headerInboundSecret = c.req.header("x-inbound-secret") ?? ""
+    if (headerInboundSecret.trim() !== expectedInboundSecret) {
+      return c.text("invalid inbound secret", 401)
+    }
     const body = (await c.req.json().catch(() => null)) as null | {
       apiVersion?: string
       projectId?: string
@@ -436,6 +449,18 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     }
   })
   app.post("/v1/ws/subscribe", async (c) => {
+    // D69 T4 (audit #10 SEC-3): require BUTLER_V5_INBOUND_SHARED_SECRET
+    // header — any unauthenticated caller could mint a WS subscribe token
+    // bound to any conversationId, enabling real-time IDOR on the WS push
+    // channel. Mirrors the /v1/wechat/inbound auth pattern.
+    const expectedInboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
+    if (!expectedInboundSecret) {
+      return c.text("inbound shared secret not configured", 401)
+    }
+    const headerInboundSecret = c.req.header("x-inbound-secret") ?? ""
+    if (headerInboundSecret.trim() !== expectedInboundSecret) {
+      return c.text("invalid inbound secret", 401)
+    }
     const body = (await c.req.json().catch(() => null)) as null | {
       apiVersion?: string
       conversationId?: unknown

@@ -22,11 +22,34 @@ describe("HTTP API routes", () => {
     expect(body.status).toBe("ok")
   })
 
-  it("POST /v1/conversations requires body", async () => {
+  it("POST /v1/conversations requires auth (FAIL-CLOSED when BUTLER_V5_INBOUND_SHARED_SECRET unset)", async () => {
+    // D69 T4 (audit #10 SEC-2): auth gate now runs before body validation.
+    // When the env secret is unset (default in this test), 401 should
+    // win over 400. Seeded-secret case is covered by the body-validation
+    // test below.
     const app = new Hono()
     createRoutes(app, { eventStore: null as never })
     const res = await app.request("/v1/conversations", { method: "POST" })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(401)
+  })
+
+  it("POST /v1/conversations with valid auth requires body", async () => {
+    // D69 T4 (audit #10 SEC-2): with auth satisfied, body validation is
+    // the next gate. Returns 400 when body is missing.
+    const prevSecret = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-conversations-secret"
+    try {
+      const app = new Hono()
+      createRoutes(app, { eventStore: null as never })
+      const res = await app.request("/v1/conversations", {
+        method: "POST",
+        headers: { "x-inbound-secret": "test-conversations-secret" },
+      })
+      expect(res.status).toBe(400)
+    } finally {
+      if (prevSecret === undefined) delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+      else process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prevSecret
+    }
   })
 })
 
