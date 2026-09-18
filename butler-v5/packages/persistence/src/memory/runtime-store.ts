@@ -275,6 +275,9 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
 
     async appendAuditEvent(input) {
       // D63 T3 (audit #9 F-04): map nullable correlationId through.
+      // D71 T1 (audit #12 CQ-009): map actor field. In-memory store
+      // mirrors production runtime-store semantics; defaults to 'owner'
+      // sentinel for callers that don't thread actor.
       appendAudit({
         auditId: input.auditId,
         runId: input.runId,
@@ -284,6 +287,7 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
         detail: input.detail,
         createdAt: input.createdAt,
         correlationId: input.correlationId ?? null,
+        actor: input.actor ?? "owner",
       })
     },
 
@@ -348,6 +352,8 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
 
     async appendAuditEventInTx(_tx, input) {
       // D63 T3 (audit #9 F-04): map nullable correlationId through.
+      // D71 T1 (audit #12 CQ-009): map actor field with default 'owner'
+      // sentinel for backward compat.
       appendAudit({
         auditId: input.auditId,
         runId: input.runId,
@@ -357,17 +363,19 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
         detail: input.detail,
         createdAt: input.createdAt,
         correlationId: input.correlationId ?? null,
+        actor: input.actor ?? "owner",
       })
     },
 
     async listRecentAuditEvents({ actor, windowMs, conversationId, limit }) {
       // D66 T1a: parity with production listRecentAuditEvents — filter by
-      // optional actor (matches `subject` column), conversationId, recency
-      // window (windowMs from now), cap with limit. Sort newest first.
+      // optional actor (matches `actor` column per D71 T1; pre-D71 the
+      // `subject` column was overloaded with actor), conversationId,
+      // recency window (windowMs from now), cap with limit. Sort newest first.
       const cutoff = Date.now() - windowMs
       let filtered = audit.filter((e) => e.createdAt.getTime() >= cutoff)
       if (actor !== undefined) {
-        filtered = filtered.filter((e) => e.subject === actor)
+        filtered = filtered.filter((e) => e.actor === actor)
       }
       if (conversationId !== undefined) {
         filtered = filtered.filter((e) => e.conversationId === conversationId)

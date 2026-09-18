@@ -13,6 +13,14 @@ export interface AuditEventRecord {
   // D63 T3 (audit #9 F-04): optional correlationId for request-scoped
   // audit trail. Mirrors the audit_events.correlation_id column.
   readonly correlationId?: string | null
+  // D71 T1 (audit #12 CQ-009 / SO-001): actor field carries owner identity
+  // separately from subject (which holds the tool name for fatigue
+  // decisions or the action key for owner-route events). Pre-D71 emit
+  // sites hardcoded subject="owner" to encode both meanings; the new
+  // actor column (migration 0014) separates them. Default "owner"
+  // preserves the D70 T3 sentinel behavior; future emit sites that
+  // resolve a real session ownerId pass the resolved value here.
+  readonly actor: string
 }
 
 /** Main-Run statuses that block starting another main Run in the same conversation. */
@@ -174,6 +182,13 @@ export interface RuntimeStore {
     // messageId/conversationId as correlationId; thread through
     // remaining emit sites in future cycles.
     readonly correlationId?: string | null
+    // D71 T1 (audit #12 CQ-009 / SO-001): optional actor field maps to
+    // the audit_events.actor column (migration 0014). Defaults to 'owner'
+    // at the store layer for callers that don't thread it yet; preserves
+    // the D70 T3 sentinel behavior. New `audit_events.actor` column
+    // carries owner identity separately from `subject` (which holds the
+    // tool name or owner-route action key).
+    readonly actor?: string
   }) => Promise<void>
   /** D66 T1a — list recent audit events for replay + acceptance verification.
    *  Filters: actor (matches `subject` column), conversationId, windowMs
@@ -227,6 +242,11 @@ export interface RuntimeStore {
       // D63 T3 (audit #9 F-04): see appendAuditEvent above — mirrors the
       // same nullable correlationId for transactional audit writes.
       readonly correlationId?: string | null
+      // D71 T1 (audit #12 CQ-009 / SO-001): see appendAuditEvent above —
+      // mirrors the same optional actor field for transactional audit
+      // writes so the atomic state-change + audit composition stays
+      // consistent with the non-tx variant.
+      readonly actor?: string
     },
   ) => Promise<void>
   readonly transitionRunStatusInTx: (

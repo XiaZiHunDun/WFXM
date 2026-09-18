@@ -186,10 +186,23 @@ export const auditEvents = pgTable(
     // correlationId) keep working; future cycles thread correlationId
     // through the remaining ~15 emit sites.
     correlationId: text("correlation_id"),
+    // D71 T1 (audit #12 CQ-009 / SO-001): actor column for owner identity.
+    // Pre-D71 the subject column overloaded tool name + owner identity;
+    // auditFatigueReader was forced to hardcode actor='owner' because
+    // there was no schema-level actor field. Migration 0014 adds this
+    // column with backfill to 'owner' for existing rows. Emit sites
+    // now thread actor separately from subject; default 'owner' for
+    // sites that don't yet pass it (preserves D70 T3 sentinel behavior).
+    actor: text("actor").notNull().default("owner"),
   },
   (t) => ({
     conversationIdx: index("audit_events_conversation_idx").on(t.conversationId, t.createdAt),
     runIdx: index("audit_events_run_idx").on(t.runId, t.createdAt),
+    // D71 T1: actor index mirrors the (conversation, createdAt) pattern
+    // for owner-actor queries. listRecentAuditEvents({ actor }) uses
+    // sequential scan today; the index lands now so post-migration
+    // queries don't regress.
+    actorIdx: index("audit_events_actor_idx").on(t.actor, t.createdAt),
   }),
 )
 

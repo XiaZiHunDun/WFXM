@@ -133,6 +133,10 @@ function toAuditEventRecord(row: typeof auditEvents.$inferSelect): AuditEventRec
     detail: row.detail as Readonly<Record<string, unknown>>,
     createdAt: row.createdAt,
     correlationId: row.correlationId ?? null,
+    // D71 T1 (audit #12 CQ-009): actor column replaces the overloaded
+    // subject='owner' sentinel pattern. Defaults to 'owner' per the
+    // migration backfill when column was added.
+    actor: row.actor,
   }
 }
 
@@ -463,6 +467,10 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         // for callers that don't thread it yet (existing emit sites);
         // the migration makes the column optional.
         correlationId: input.correlationId ?? null,
+        // D71 T1 (audit #12 CQ-009): actor column. Defaults to 'owner'
+        // for callers that don't thread it yet; preserves D70 T3 sentinel
+        // behavior. Migration 0014 sets NOT NULL + backfills existing rows.
+        actor: input.actor ?? "owner",
       })
     },
 
@@ -487,6 +495,8 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         createdAt: input.createdAt,
         // D63 T3 (audit #9 F-04): see appendAuditEvent above.
         correlationId: input.correlationId ?? null,
+        // D71 T1 (audit #12 CQ-009): see appendAuditEvent above.
+        actor: input.actor ?? "owner",
       })
     },
 
@@ -614,16 +624,16 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
     async listRecentAuditEvents({ actor, windowMs, conversationId, limit }) {
       // D66 T1a: read-side audit query for replay + acceptance verification.
       // Filters compose with AND semantics: optional actor (matches the
-      // `subject` column — actors are stored as subjects per D58 T1), optional
-      // conversationId, recency window (windowMs back from now), and an
-      // optional result cap. Newest first.
-      // The query planner may use `audit_events_conversation_idx` (schema.ts:191 on
-      // `(conversationId, createdAt)`) when conversationId is provided. No index
-      // covers the actor (`subject`) path; subject filter is a sequential scan.
+      // `actor` column per D71 T1 — pre-D71 the actor was overloaded into
+      // the `subject` column), optional conversationId, recency window
+      // (windowMs back from now), and an optional result cap. Newest first.
+      // D71 T1: query planner may use `audit_events_actor_idx` (schema.ts:194
+      // on `(actor, createdAt)`) when actor is provided; closes the pre-D71
+      // sequential-scan bottleneck flagged in D58 T1.
       const cutoff = new Date(Date.now() - windowMs)
       const conditions = [gte(auditEvents.createdAt, cutoff)]
       if (actor !== undefined) {
-        conditions.push(eq(auditEvents.subject, actor))
+        conditions.push(eq(auditEvents.actor, actor))
       }
       if (conversationId !== undefined) {
         conditions.push(eq(auditEvents.conversationId, conversationId))
