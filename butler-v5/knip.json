@@ -55,6 +55,8 @@
   "ignoreIssues": {
     "apps/api/src/approval-resume.ts": ["exports", "types"],
     "apps/api/src/acceptance-app.ts": ["exports", "types"],
+    "apps/api/src/mcp-config.ts": ["exports"],
+    "apps/api/src/channel-outbound-media.ts": ["exports"],
     "apps/api/src/lib/fatigue/audit-event.ts": ["types"],
     "apps/api/src/lib/fatigue/checklist.ts": ["types"],
     "apps/api/src/lib/fatigue/replay.ts": ["types"],
