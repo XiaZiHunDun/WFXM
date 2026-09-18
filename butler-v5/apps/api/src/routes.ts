@@ -503,6 +503,13 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     const body = (await c.req.json().catch(() => null)) as null | {
       apiVersion?: string
       conversationId?: unknown
+      /**
+       * D72 T3 (audit #18 SEC-003): caller identity to bind to the
+       * issued token. Optional — when omitted, the token is issued
+       * without caller binding (legacy behavior preserved). When set,
+       * the WS upgrade must present the same caller string.
+       */
+      caller?: string
     }
     if (!body || body.apiVersion !== "v1") {
       return c.text("invalid body", 400)
@@ -516,18 +523,26 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         400,
       )
     }
-    const issued = issueSubscribeToken(parsedId.value)
+    const caller = typeof body.caller === "string" ? body.caller.trim() : ""
+    const issued = issueSubscribeToken(parsedId.value, { ...(caller ? { caller } : {}) })
     if (!issued) {
       // D63 T4 (audit #9 F-14): token store at cap. Return 503 so the
       // caller knows to retry (after prune on existing tokens).
       return c.text("subscribe token store at capacity", 503)
     }
+    // D72 T3 (audit #18 SEC-003): include caller in wsPath so the WS
+    // upgrade can present the matching caller claim. When caller is
+    // empty, the query param is omitted (legacy path).
+    const wsPath = caller
+      ? `/v1/ws?token=${encodeURIComponent(issued.token)}&caller=${encodeURIComponent(caller)}`
+      : `/v1/ws?token=${encodeURIComponent(issued.token)}`
     return c.json(
       {
         conversationId: parsedId.value,
+        ...(caller ? { caller } : {}),
         token: issued.token,
         expiresAt: new Date(issued.expiresAtMs).toISOString(),
-        wsPath: `/v1/ws?token=${encodeURIComponent(issued.token)}`,
+        wsPath,
       },
       201,
     )

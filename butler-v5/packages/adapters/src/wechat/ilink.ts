@@ -10,6 +10,7 @@ import {
   ILINK_APP_ID,
   type ILinkResult,
 } from "./ilink-protocol.js"
+import { Secret } from "./secret.js"
 
 export {
   buildGetUpdatesBody,
@@ -202,7 +203,7 @@ export type QrStatusAction =
   | {
       readonly kind: "confirmed"
       readonly accountId: string
-      readonly token: string
+      readonly token: Secret<string>
       readonly baseUrl: string
       readonly userId: string
     }
@@ -218,7 +219,11 @@ export function interpretQrStatus(response: Record<string, unknown>): QrStatusAc
     return {
       kind: "confirmed",
       accountId: String(response["ilink_bot_id"] ?? ""),
-      token: String(response["bot_token"] ?? ""),
+      // D72 T3 (audit #18 SEC-002): wrap bot_token in Secret<string> so
+      // accidental console.log / JSON.stringify leaks the wrapper shape,
+      // not the cleartext value. Only the legitimate env-file writer
+      // (cli/src/wechat-login.ts) calls .unwrap().
+      token: Secret.create(String(response["bot_token"] ?? "")),
       baseUrl: String(response["baseurl"] ?? ""),
       userId: String(response["ilink_user_id"] ?? ""),
     }

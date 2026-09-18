@@ -206,6 +206,16 @@ function resolveWsIdentity(url: string): WsIdentity {
     if (conversationId && conversationId !== rec.conversationId) {
       return { ok: false, reason: "token conversationId mismatch" }
     }
+    // D72 T3 (audit #18 SEC-003): when the token was issued with caller
+    // binding (rec.caller != ""), the WS upgrade must present the same
+    // caller string. Without this check, any holder of the shared secret
+    // could subscribe to any conversationId (D70-SEC-3 partial close).
+    if (rec.caller) {
+      const wsCaller = extractQueryParam(url, "caller")
+      if (wsCaller !== rec.caller) {
+        return { ok: false, reason: "token caller mismatch" }
+      }
+    }
     return { ok: true, conversationId: rec.conversationId }
   }
   if (!conversationId) {

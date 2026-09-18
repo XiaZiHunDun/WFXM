@@ -11,6 +11,13 @@ const MAX_TOKENS = 10_000
 export type SubscribeRecord = {
   readonly conversationId: string
   readonly expiresAtMs: number
+  /**
+   * D72 T3 (audit #18 SEC-003): caller identity bound to the token at
+   * issuance time. Empty string means no caller binding (legacy
+   * pre-D72 behavior, preserved for backward compat). When set, the WS
+   * upgrade must present the same caller string or be rejected.
+   */
+  readonly caller: string
 }
 
 const tokens = new Map<string, SubscribeRecord>()
@@ -25,7 +32,7 @@ function pruneExpired(nowMs: number): void {
 
 export function issueSubscribeToken(
   conversationId: string,
-  opts: { readonly ttlMs?: number; readonly nowMs?: number } = {},
+  opts: { readonly ttlMs?: number; readonly nowMs?: number; readonly caller?: string } = {},
 ): { readonly token: string; readonly expiresAtMs: number } | null {
   const nowMs = opts.nowMs ?? Date.now()
   pruneExpired(nowMs)
@@ -41,7 +48,11 @@ export function issueSubscribeToken(
   const ttlMs = opts.ttlMs ?? DEFAULT_SUBSCRIBE_TTL_MS
   const token = randomBytes(24).toString("base64url")
   const expiresAtMs = nowMs + ttlMs
-  tokens.set(token, { conversationId, expiresAtMs })
+  tokens.set(token, {
+    conversationId,
+    expiresAtMs,
+    caller: opts.caller ?? "",
+  })
   return { token, expiresAtMs }
 }
 

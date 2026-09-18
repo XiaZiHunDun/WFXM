@@ -3,6 +3,7 @@ import {
   ilinkGetBotQr,
   ilinkGetQrStatus,
   interpretQrStatus,
+  Secret,
   upsertWechatEnvFile,
   WECHAT_OUTBOUND_NETWORK_HOST_SET,
 } from "@butler/adapters"
@@ -92,6 +93,11 @@ export async function runWechatLogin(
       if (!action.accountId || !action.token) {
         return { ok: false, reason: "QR confirmed but credential payload incomplete" }
       }
+      // D72 T3 (audit #18 SEC-002): unwrap the bot_token at the legitimate
+      // consumption point (env file write). Secret<>.toString() returns
+      // "[REDACTED]" so any accidental log() above this line leaks the
+      // wrapper shape, not the cleartext token.
+      const botToken = action.token.unwrap()
       const confirmedBase = action.baseUrl || currentBase
       // D70 T4 (audit #11 SEC-001): refuse to persist a baseUrl pointing
       // outside the WeChat allowlist. Persisting the unvalidated URL
@@ -104,7 +110,7 @@ export async function runWechatLogin(
         }
       }
       upsertWechatEnvFile(opts.envPath, {
-        token: action.token,
+        token: botToken,
         accountId: action.accountId,
         baseUrl: confirmedBase,
       })

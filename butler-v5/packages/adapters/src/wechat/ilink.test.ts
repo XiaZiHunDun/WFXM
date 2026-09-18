@@ -8,6 +8,7 @@ import {
   interpretQrStatus,
   ITEM_TEXT,
 } from "./ilink.js"
+import { Secret } from "./secret.js"
 
 describe("iLink protocol extract", () => {
   it("reads mock type=text + text_item.content", () => {
@@ -124,20 +125,24 @@ describe("iLink HTTP client", () => {
 
 describe("iLink QR status", () => {
   it("reads confirmed credentials from get_qrcode_status", () => {
-    expect(
-      interpretQrStatus({
-        status: "confirmed",
-        ilink_bot_id: "bot-1",
-        bot_token: "tok-1",
-        baseurl: "https://ilinkai.weixin.qq.com",
-        ilink_user_id: "user-1",
-      }),
-    ).toEqual({
-      kind: "confirmed",
-      accountId: "bot-1",
-      token: "tok-1",
-      baseUrl: "https://ilinkai.weixin.qq.com",
-      userId: "user-1",
+    // D72 T3 (audit #18 SEC-002): bot_token is now wrapped in Secret<>.
+    // The test asserts the wrapper shape (constructor is private — callers
+    // use Secret.create()). Cleartext access requires .unwrap() which is
+    // only allowed at legitimate consumption points (env file write).
+    const action = interpretQrStatus({
+      status: "confirmed",
+      ilink_bot_id: "bot-1",
+      bot_token: "tok-1",
+      baseurl: "https://ilinkai.weixin.qq.com",
+      ilink_user_id: "user-1",
     })
+    expect(action.kind).toBe("confirmed")
+    if (action.kind !== "confirmed") throw new Error("kind narrowed")
+    expect(action.accountId).toBe("bot-1")
+    expect(action.token).toBeInstanceOf(Secret)
+    expect(action.token.toString()).toBe("[REDACTED]")
+    expect(action.token.unwrap()).toBe("tok-1")
+    expect(action.baseUrl).toBe("https://ilinkai.weixin.qq.com")
+    expect(action.userId).toBe("user-1")
   })
 })
