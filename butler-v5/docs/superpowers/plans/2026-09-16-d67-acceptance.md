@@ -543,7 +543,7 @@ cat > .audit/D67/summary.md << 'EOF'
 2. T1c fatigue_signal coverage (extend ToolExecutionDecision to carry signal)
 3. T1b owner-routes correlation (14 owner-route sites pass null; thread owner-identity)
 4. D62 T2/T3/T5 larger partial reverts
-5. Schema migration: dedicated `actor` column
+5. Schema migration: dedicated `actor` column — **closed by D71 T1** (migration 0014 + AuditFatigueReaderOptions.columnActor; D72 T1 enables columnActor: true at 2 production call sites)
 6. `runButlerLoopBody` further god-fn splits
 EOF
 
@@ -612,7 +612,7 @@ Update Current State section:
 - T1c fatigue_signal coverage
 - T1b owner-routes correlation
 - D62 T2/T3/T5 larger partial reverts
-- Schema migration: dedicated `actor` column
+- Schema migration: dedicated `actor` column — **closed by D71 T1** (migration 0014 + AuditFatigueReaderOptions.columnActor; D72 T1 enables columnActor: true at 2 production call sites)
 - `runButlerLoopBody` further god-fn splits
 
 ---

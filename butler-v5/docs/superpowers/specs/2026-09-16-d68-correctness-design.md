@@ -269,7 +269,7 @@ All existing tests must pass unchanged (baseline: 2015 pass / 5 pre-existing fai
 - T1c fatigue_signal coverage
 - T1b owner-routes correlation
 - D62 T2/T3/T5 partial reverts
-- Schema migration: dedicated `actor` column
+- Schema migration: dedicated `actor` column — **closed by D71 T1** (migration 0014 + AuditFatigueReaderOptions.columnActor; D72 T1 enables columnActor: true at 2 production call sites)
 - `runButlerLoopBody` further god-fn splits
 - Arch boundary 收口
 

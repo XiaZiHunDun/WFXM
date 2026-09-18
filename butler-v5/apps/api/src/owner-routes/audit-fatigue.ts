@@ -112,7 +112,7 @@ async function ownerAuditUndo(
 }
 
 export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
-  const reader = auditFatigueReader(wiring.runtimeStore)
+  const reader = auditFatigueReader(wiring.runtimeStore, { columnActor: true })
 
   app.get("/v1/owner/audit/fatigue", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)

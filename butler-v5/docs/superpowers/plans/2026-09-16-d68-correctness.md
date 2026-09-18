@@ -451,7 +451,7 @@ cat > .audit/D68/summary.md << 'EOF'
 1. T1c fatigue_signal coverage (extend ToolExecutionDecision)
 2. T1b owner-routes correlation (14 sites null → owner-identity)
 3. D62 T2/T3/T5 larger partial reverts (20 sites)
-4. Schema migration: dedicated actor column
+4. Schema migration: dedicated actor column — **closed by D71 T1** (migration 0014 + AuditFatigueReaderOptions.columnActor; D72 T1 enables columnActor: true at 2 production call sites)
 5. runButlerLoopBody further god-fn splits
 6. Arch boundary 收口
 
@@ -534,7 +534,7 @@ Update Current State section:
 - T1c fatigue_signal coverage
 - T1b owner-routes correlation
 - D62 T2/T3/T5 partial reverts
-- Schema migration: dedicated actor column
+- Schema migration: dedicated actor column — **closed by D71 T1** (migration 0014 + AuditFatigueReaderOptions.columnActor; D72 T1 enables columnActor: true at 2 production call sites)
 - runButlerLoopBody further god-fn splits
 - Arch boundary 收口
 

@@ -115,6 +115,10 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
         auditId: "evt-write-1",
         runId: null,
         conversationId: null,
+        // D72 T1: actor column now read via columnActor=true; fixtures
+        // must mirror production default 'owner' (appendAuditEvent falls
+        // back to 'owner' when actor is not threaded).
+        actor: "owner",
         action: "fatigue.decision",
         subject: "write_file", // tool name per audit-reader mapping
         detail: {}, // missing path + workspaceRoot — D71+ infrastructure work
@@ -149,6 +153,8 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
         auditId: "evt-send-1",
         runId: null,
         conversationId: null,
+        // D72 T1: see write_file fixture above.
+        actor: "owner",
         action: "fatigue.decision",
         subject: "send_email",
         detail: {},

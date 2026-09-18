@@ -305,7 +305,7 @@ All existing 44 scenarios must pass unchanged + new 8 = 52+ total.
 - T1c fatigue_signal coverage (extend ToolExecutionDecision)
 - T1b owner-routes correlation (14 sites null → owner-identity)
 - D62 T2/T3/T5 larger partial reverts
-- Schema migration: dedicated `actor` column
+- Schema migration: dedicated `actor` column — **closed by D71 T1** (migration 0014 + AuditFatigueReaderOptions.columnActor; D72 T1 enables columnActor: true at 2 production call sites)
 - `runButlerLoopBody` further god-fn splits
 - D60 cleanup 32+50 defer backlog
 

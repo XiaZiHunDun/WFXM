@@ -563,7 +563,7 @@ async function runButlerLoopBody(args: {
         const toolDecision = await executeToolWithFatigue(
           String(def.name),
           toolArgs as Readonly<Record<string, unknown>>,
-          auditFatigueReader(args.wiring.runtimeStore),
+          auditFatigueReader(args.wiring.runtimeStore, { columnActor: true }),
         )
         // D66 T1c — thread AuditFatigueDetail at chokepoint (mirrors §2.4
         // spec). Every fatigue decision (allow / cooldown / checklist) is
