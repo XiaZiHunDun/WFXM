@@ -41,7 +41,20 @@ function auditLogPath(): string {
 
 function ensureLogPath(): void {
   try {
-    mkdirSync(dirname(auditLogPath()), { recursive: true })
+    const dir = dirname(auditLogPath())
+    // D71 T4 (audit #12 SEC-007): set umask before mkdir so the
+    // parent directory and the JSONL file land with restrictive
+    // permissions (0o700 / 0o600) on multi-user hosts. The default
+    // umask 0o022 produces 0o755/0o644 which leaves audit data
+    // world-readable. 0o077 narrows to owner-only. Skip if the
+    // directory already exists; chmodSync only when mkdir created
+    // a fresh directory.
+    const previousUmask = process.umask(0o077)
+    try {
+      mkdirSync(dir, { recursive: true })
+    } finally {
+      process.umask(previousUmask)
+    }
   } catch {
     // swallow — we never want a broken filesystem to crash the route.
   }

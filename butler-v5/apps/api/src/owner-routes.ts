@@ -27,7 +27,11 @@ import { tryAcquireOwnerSlot } from "./lib/owner-rate-limit.js"
 export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   app.use("/v1/owner/*", async (c, next) => {
     if (!tryAcquireOwnerSlot("owner", process.env)) {
-      return c.text("rate limit exceeded", 429)
+      // D71 T4 (audit #12 SO-005): owner-jargon Chinese message. D70 T4
+      // closed the throttle but left the operator English string "rate
+      // limit exceeded" — owner UI sees this verbatim. Return Chinese
+      // with a brief cooldown hint matching the operator fallback style.
+      return c.text("请求过于频繁，请稍后再试", 429)
     }
     await next()
   })

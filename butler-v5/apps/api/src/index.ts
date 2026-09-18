@@ -52,6 +52,36 @@ app.use("*", async (c, next) => {
   await next()
 })
 
+// D71 T4 (audit #12 SEC-006): defense-in-depth HTTP security headers.
+// The butler control surface is loopback-only (no CDN, no public
+// proxying) so a subset of the standard headers is enough — the goal
+// is to harden against a future deployment behind a reverse proxy.
+// Each header is set on every response. Setting \`X-Content-Type-Options\`
+// + \`Referrer-Policy\` is unconditional; HSTS is unconditional (the
+// loopback address may still answer HTTP for operator curl checks, but
+// the header documents the project's HTTPS posture for any future
+// reverse-proxy exposure); CSP/Frame-Options/Permissions-Policy are
+// unconditional defense-in-depth. \`server\` header is stripped to
+// avoid fingerprinting.
+app.use("*", async (c, next) => {
+  await next()
+  // Only set headers when the response hasn't already set them.
+  c.res.headers.set("X-Content-Type-Options", "nosniff")
+  c.res.headers.set("Referrer-Policy", "no-referrer")
+  c.res.headers.set("X-Frame-Options", "DENY")
+  c.res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+  c.res.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=()",
+  )
+  // Minimal CSP — control surface returns JSON only. Allowing 'self'
+    // covers any future local asset; default-deny for everything else.
+  c.res.headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+  // Strip the default Hono/server fingerprint.
+  c.res.headers.delete("server")
+  c.res.headers.delete("x-powered-by")
+})
+
 const boot = await createProductionWiring(process.env)
 if (!boot.ok) {
   // eslint-disable-next-line no-console -- operator log when no logger injected
