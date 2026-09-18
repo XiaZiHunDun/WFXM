@@ -20,7 +20,6 @@ import { resolveIntakeLoopOptions } from "./wechat-intake.js"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { normalizeCapabilityNames } from "./capability-guard.js"
 import {
-  pollMockOutboxForText,
   waitForCondition,
 } from "./wechat-async-harness.js"
 
@@ -246,12 +245,19 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
       "【开发验收】",
     )
 
-    const outbox = await pollMockOutboxForText({
-      path: mockOutbox,
-      includes: "【开发验收】",
-      timeoutMs: 15_000,
-    })
-    expect(outbox.length).toBeGreaterThan(0)
+    // D72 T5 (audit #18 CQ-004): pollMockOutboxForText removed (whole
+    // wechat-async-harness.ts was a test fixture masquerading as production
+    // module). Inline the file-polling check via waitForCondition.
+    const outboxIncludesVerify = await waitForCondition(async () => {
+      try {
+        const fs = await import("node:fs/promises")
+        const buf = await fs.readFile(mockOutbox, "utf8")
+        return buf.includes("【开发验收】")
+      } catch {
+        return false
+      }
+    }, { timeoutMs: 15_000 })
+    expect(outboxIncludesVerify).toBe(true)
   }, 30_000)
 
   it("child run_command under P2 allowlist → pending approval → Owner approve → resume", async () => {

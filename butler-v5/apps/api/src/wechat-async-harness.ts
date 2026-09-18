@@ -1,8 +1,10 @@
 /**
- * T2/T3 async acceptance helpers — poll mock notify outbox and project state.
+ * D72 T5 (audit #18 CQ-004): pollMockOutboxForText removed (was the
+ * only consumer of this file's other helper — test fixture masquerading
+ * as production module per CQ-004). Only `waitForCondition` is kept
+ * here because 3 test cases (wechat-dev-delegate.test.ts) still rely
+ * on the generic polling helper.
  */
-import { readFileSync, existsSync } from "node:fs"
-
 export async function waitForCondition(
   predicate: () => Promise<boolean>,
   opts: { readonly timeoutMs?: number; readonly intervalMs?: number } = {},
@@ -16,31 +18,3 @@ export async function waitForCondition(
   }
   return predicate()
 }
-
-function readMockNotifyOutbox(path: string): readonly Record<string, unknown>[] {
-  if (!existsSync(path)) return []
-  return readFileSync(path, "utf8")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as Record<string, unknown>)
-}
-
-export async function pollMockOutboxForText(args: {
-  readonly path: string
-  readonly includes: string
-  readonly timeoutMs?: number
-}): Promise<readonly Record<string, unknown>[]> {
-  let last: readonly Record<string, unknown>[] = []
-  const ok = await waitForCondition(async () => {
-    last = readMockNotifyOutbox(args.path)
-    return last.some((entry) => JSON.stringify(entry).includes(args.includes))
-  }, { timeoutMs: args.timeoutMs ?? 120_000 })
-  if (!ok) {
-    throw new Error(
-      `mock outbox timeout: missing "${args.includes}" in ${args.path} (${last.length} lines)`,
-    )
-  }
-  return last
-}
-

@@ -8,7 +8,7 @@
 - 通过：52 / 失败：0
 - 触发 approval：22 次
 - 工具调用总数：53
-- reply 字符总数：7177
+- reply 字符总数：7091
 
 ## 按类别汇总
 
@@ -505,7 +505,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-aCoVgk/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-jA55nS/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -619,9 +619,9 @@ _decision=Respond | toolCalls=0 | replyLen=37_
 
 > in: 我刚做的几次操作，能查 replay API 撤销吗？
 
-< replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 harness 注入 3 个 subagent audit events → reader sees count=3 (sequences 非空)，可走 HTTP 客户端调 GET /fatigue 查 replay 候选。
+< replay 控制面在 owner HTTP API（路径以 /v1/owner/audit/fatigue 开头）,不在当前对话里集成。当前会话已记录 3 次操作审计，查询控制面可以看到可撤销候选。请直接打开控制面查看可撤销列表。
 
-_decision=Respond | toolCalls=0 | replyLen=202_
+_decision=Respond | toolCalls=0 | replyLen=116_
 
 ### C-F1-real-cooldown — C-F1 cooldown 变体: 3 个 read_file pre-inject + write_file plan 触发 REAL cooldown (工具类型无关)（C-edge）
 
@@ -778,9 +778,9 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=75_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 3 步）
-✅ /tmp/wb-accept-ws-aCoVgk/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-aCoVgk/test.ts → 还原为上版
-✅ /tmp/wb-accept-ws-aCoVgk/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-jA55nS/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-jA55nS/test.ts → 还原为上版
+✅ /tmp/wb-accept-ws-jA55nS/helper.ts → 还原为上版
 
 以下 2 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -813,8 +813,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-aCoVgk/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-aCoVgk/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-jA55nS/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-jA55nS/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -843,7 +843,7 @@ _decision=Respond | toolCalls=0 | replyLen=96_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 1 步）
-✅ /tmp/wb-accept-ws-aCoVgk/old.ts → 还原为上版
+✅ /tmp/wb-accept-ws-jA55nS/old.ts → 还原为上版
 
 _decision=Respond | toolCalls=0 | replyLen=55_
 

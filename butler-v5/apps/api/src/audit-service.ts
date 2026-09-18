@@ -1,4 +1,4 @@
-import type { AuditEventRecord, RuntimeStore } from "@butler/domain/runtime.js"
+import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { appendAudit, type AuditEntry } from "./audit-log.js"
 
 /**
@@ -41,22 +41,4 @@ export function writeSubagentAudit(store: RuntimeStore | undefined, entry: Audit
       // eslint-disable-next-line no-console -- operator log when no logger injected
       console.error("[audit-service] appendAuditEvent failed:", err)
     })
-}
-
-/**
- * D66 T1a — pass-through read wrapper for `RuntimeStore.listRecentAuditEvents`.
- * Returns the store's filtered audit events for replay + acceptance verification.
- * Filters compose with AND semantics: actor (matches the `subject` column),
- * conversationId, recency window, and an optional result cap.
- */
-export function listRecentAuditEvents(
-  store: RuntimeStore,
-  input: {
-    readonly actor?: string
-    readonly windowMs: number
-    readonly conversationId?: string
-    readonly limit?: number
-  },
-): Promise<readonly AuditEventRecord[]> {
-  return store.listRecentAuditEvents(input)
 }

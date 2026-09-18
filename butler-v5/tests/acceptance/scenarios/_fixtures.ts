@@ -759,8 +759,13 @@ export const scenariosC: readonly Scenario[] = [
     input: "我刚做的几次操作，能查 replay API 撤销吗？",
     fixtures: {
       plan: [
+        // D72 T5 (audit #18 SO-016): rewrite from developer-doc paste to
+        // owner-facing Chinese — mentions the control-plane location but
+        // doesn't leak internal HTTP path conventions into the reply.
         text(
-          "replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 harness 注入 3 个 subagent audit events → reader sees count=3 (sequences 非空)，可走 HTTP 客户端调 GET /fatigue 查 replay 候选。",
+          "replay 控制面在 owner HTTP API（路径以 /v1/owner/audit/fatigue 开头）," +
+            "不在当前对话里集成。当前会话已记录 3 次操作审计，查询控制面可以看到可撤销候选。" +
+            "请直接打开控制面查看可撤销列表。",
         ),
       ],
     },
@@ -946,15 +951,18 @@ export const scenariosC: readonly Scenario[] = [
       containsAll: ["active"],
     },
   },
-  // NOTE (D69 T5 deferred → D70 T1 closed): owner-route acceptance scenarios
-  // (SO-6/SO-26/SO-27) now have buildHonoApp registering createOwnerRoutes
-  // (apps/api/src/acceptance-app.ts). The 3 new C-O-* scenarios remain
-  // deferred — adding them is acceptance-harness scope expansion, not a
-  // route-registration gap. Per D67 + D68 design, owner-route HTTP
-  // surface stays unit-tested at the Hono boundary (audit-fatigue-http.test.ts,
-  // shipped D70 T1) and harness chat-side 探针 covers the owner-facing
-  // reply path. C-O-* scenarios picked up in D71+ when harness scope
-  // expansion lands.
+  // NOTE (D69 T5 deferred → D70 T1 closed → D72 T2 sweep applied):
+  // owner-route acceptance scenarios (SO-6/SO-26/SO-27) now have
+  // buildHonoApp registering createOwnerRoutes (apps/api/src/acceptance-app.ts).
+  // D72 T2 sweep translated 12 owner-jargon sites (memories/documents/
+  // project-knowledge/conversations-schedule/mcp/approvals-runs/memories-rollback/
+  // traces-procedures-tasks/audit-fatigue/channel-outbound) to Chinese — these
+  // changes can be exercised via the existing F* scenarios + future C-O-*
+  // scenarios (D73+ scope). Per D67 + D68 design, owner-route HTTP surface
+  // stays unit-tested at the Hono boundary (audit-fatigue-http.test.ts shipped
+  // D70 T1; owner-routes.test.ts updated D72 T2) and harness chat-side 探针
+  // covers the owner-facing reply path. C-O-* scenarios picked up in D73+ when
+  // harness scope expansion lands.
 ]
 
 // ============================================================================
