@@ -6,6 +6,10 @@ import {
   DEFAULT_WECHAT_CDN_BASE_URL,
   type ILinkResult,
 } from "@butler/adapters"
+import {
+  envAllowsPrivateInboundHosts,
+  isBlockedInboundHost,
+} from "./mcp-config.js"
 
 
 export type DmPolicy = "open" | "allowlist" | "disabled"
@@ -65,6 +69,24 @@ export function parseIlinkPollerConfig(env: NodeJS.ProcessEnv): ILinkResult<Ilin
   const baseUrl = (env["WECHAT_BASE_URL"] ?? env["ILINK_BASE_URL"] ?? DEFAULT_ILINK_BASE_URL).trim()
   const port = (env["PORT"] ?? "3000").trim() || "3000"
   const inboundUrl = (env["V5_INBOUND_URL"] ?? `http://127.0.0.1:${port}/v1/wechat/inbound`).trim()
+  // D72 T4 (audit #18 SEC-004): SSRF guard — reject private (RFC 1918),
+  // link-local, and metadata hosts. Loopback is exempted since the default
+  // V5_INBOUND_URL points at 127.0.0.1:3000 (legitimate in-process target).
+  // Operator opt-out via BUTLER_V5_INBOUND_ALLOW_PRIVATE_HOSTS=1.
+  // Closes pre-scoped D70 #4 (V5_INBOUND_URL SSRF surface).
+  if (!envAllowsPrivateInboundHosts(env)) {
+    try {
+      const parsedInbound = new URL(inboundUrl)
+      if (isBlockedInboundHost(parsedInbound.hostname)) {
+        return {
+          ok: false,
+          reason: `V5_INBOUND_URL host ${parsedInbound.hostname} is on the private-network deny list (RFC 1918 / link-local / metadata). Set BUTLER_V5_INBOUND_ALLOW_PRIVATE_HOSTS=1 to override (dev/test only).`,
+        }
+      }
+    } catch {
+      return { ok: false, reason: `V5_INBOUND_URL is not a valid URL: ${inboundUrl}` }
+    }
+  }
   const allowedUserIds = [
     ...parseCsvIds(env["WECHAT_ALLOWED_USERS"]),
     ...parseCsvIds(env["BUTLER_OWNER_WECHAT_ID"]),

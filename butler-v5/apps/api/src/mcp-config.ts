@@ -1,5 +1,5 @@
 import type { ILinkResult } from "@butler/adapters"
-import { envTruthy } from "./env-util.js"
+import { envTruthy, parseMcpTimeoutMs } from "./env-util.js"
 import type { McpManifestServer } from "@butler/domain/mcp/manifest.js"
 import { resolveManifestStdioArgs } from "@butler/ports/mcp-manifest-path.js"
 import { isMcpEnabled, mcpStubToolNames } from "@butler/runtime/mcp-gate.js"
@@ -45,8 +45,9 @@ export function parseMcpTransportKind(
 }
 
 function parseTimeoutMs(env: NodeJS.ProcessEnv): number {
-  const timeoutMs = Number(env["BUTLER_V5_MCP_TIMEOUT_MS"] ?? 30_000)
-  return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000
+  // D72 T4 (audit #18 CQ-017): call shared helper instead of inlined
+  // Number() / Number.isFinite() dance.
+  return parseMcpTimeoutMs(env)
 }
 
 function parseMcpStdioArgs(
@@ -289,4 +290,49 @@ export function isBlockedMcpHost(hostname: string): boolean {
 
 export function envAllowsPrivateMcpHosts(env: NodeJS.ProcessEnv): boolean {
   return envTruthy(env["BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS"])
+}
+
+/**
+ * D72 T4 (audit #18 SEC-004): host allowlist for the iLink poller's
+ * V5_INBOUND_URL target (the inbound webhook the poller pushes WeChat
+ * events to). Mirrors `isBlockedMcpHost` but EXEMPTS loopback ranges —
+ * the default V5_INBOUND_URL is `http://127.0.0.1:3000/v1/wechat/inbound`
+ * which is the legitimate in-process loopback target. RFC 1918, link-local,
+ * and metadata endpoints still get blocked.
+ *
+ * Operator can set BUTLER_V5_INBOUND_ALLOW_PRIVATE_HOSTS=1 to disable the
+ * block entirely (dev/test only — production should never need this).
+ *
+ * Closure of pre-scoped D70 #4 (V5_INBOUND_URL SSRF).
+ */
+export function isBlockedInboundHost(hostname: string): boolean {
+  const host = hostname.toLowerCase()
+  // Loopback NOT blocked — default V5_INBOUND_URL points at 127.0.0.1
+  // AWS / GCP / Azure metadata endpoint
+  if (host === "169.254.169.254" || host === "metadata.google.internal") return true
+  // Wildcard / unspecified
+  if (host === "0.0.0.0" || host === "::") return true
+  // RFC 1918 private IPv4 ranges — literal string checks (no `net` dep)
+  if (host.startsWith("10.")) return true
+  if (host.startsWith("192.168.")) return true
+  // 172.16.0.0 — 172.31.255.255 covered by 172.1x / 172.2x / 172.3x
+  if (host.startsWith("172.16.") || host.startsWith("172.17.") ||
+      host.startsWith("172.18.") || host.startsWith("172.19.") ||
+      host.startsWith("172.20.") || host.startsWith("172.21.") ||
+      host.startsWith("172.22.") || host.startsWith("172.23.") ||
+      host.startsWith("172.24.") || host.startsWith("172.25.") ||
+      host.startsWith("172.26.") || host.startsWith("172.27.") ||
+      host.startsWith("172.28.") || host.startsWith("172.29.") ||
+      host.startsWith("172.30.") || host.startsWith("172.31.")) return true
+  // Link-local IPv4
+  if (host.startsWith("169.254.")) return true
+  // IPv6 ULA fc00::/7
+  if (host.startsWith("fc") || host.startsWith("fd")) return true
+  // IPv6 link-local fe80::/10
+  if (host.startsWith("fe80:") || host.startsWith("fe80::") || host.startsWith("[fe80")) return true
+  return false
+}
+
+export function envAllowsPrivateInboundHosts(env: NodeJS.ProcessEnv): boolean {
+  return envTruthy(env["BUTLER_V5_INBOUND_ALLOW_PRIVATE_HOSTS"])
 }

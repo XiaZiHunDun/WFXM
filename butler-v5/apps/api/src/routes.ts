@@ -33,6 +33,7 @@ import { tryWechatInboundCommand } from "./wechat-inbound-commands.js"
 import { issueSubscribeToken } from "./ws-subscribe.js"
 import { captureWechatSessionSnapshot } from "./wechat-session-snapshot.js"
 import { maybePrependSessionDigest } from "./wechat-session-digest.js"
+import { requireInboundSharedSecret } from "./env-util.js"
 
 /**
  * D71 T3 (audit #12 SEC-004 / SEC-005): parse a comma-separated
@@ -59,14 +60,8 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     // Previously any caller could appendConversationEvent into the event
     // bridge with no auth, enabling event-bridge write DoS if Hono bound
     // beyond loopback.
-    const expectedInboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
-    if (!expectedInboundSecret) {
-      return c.text("inbound shared secret not configured", 401)
-    }
-    const headerInboundSecret = c.req.header("x-inbound-secret") ?? ""
-    if (headerInboundSecret.trim() !== expectedInboundSecret) {
-      return c.text("invalid inbound secret", 401)
-    }
+    const denied = requireInboundSharedSecret(process.env, c.req.header("x-inbound-secret"))
+    if (denied) return denied
     const body = (await c.req.json().catch(() => null)) as null | {
       apiVersion?: string
       projectId?: string
@@ -98,14 +93,8 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     // F-07 — same auth-bypass class). Previously the handler had zero
     // auth, relying on the implicit loopback-only assumption that broke
     // the moment the Hono server bound to 0.0.0.0 (F-06).
-    const expectedInboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
-    if (!expectedInboundSecret) {
-      return c.text("inbound shared secret not configured", 401)
-    }
-    const headerInboundSecret = c.req.header("x-inbound-secret") ?? ""
-    if (headerInboundSecret.trim() !== expectedInboundSecret) {
-      return c.text("invalid inbound secret", 401)
-    }
+    const denied = requireInboundSharedSecret(process.env, c.req.header("x-inbound-secret"))
+    if (denied) return denied
     const body = (await c.req.json().catch(() => null)) as null | {
       apiVersion?: string
       fromUserId?: string
@@ -492,14 +481,8 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     // header — any unauthenticated caller could mint a WS subscribe token
     // bound to any conversationId, enabling real-time IDOR on the WS push
     // channel. Mirrors the /v1/wechat/inbound auth pattern.
-    const expectedInboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
-    if (!expectedInboundSecret) {
-      return c.text("inbound shared secret not configured", 401)
-    }
-    const headerInboundSecret = c.req.header("x-inbound-secret") ?? ""
-    if (headerInboundSecret.trim() !== expectedInboundSecret) {
-      return c.text("invalid inbound secret", 401)
-    }
+    const denied = requireInboundSharedSecret(process.env, c.req.header("x-inbound-secret"))
+    if (denied) return denied
     const body = (await c.req.json().catch(() => null)) as null | {
       apiVersion?: string
       conversationId?: unknown

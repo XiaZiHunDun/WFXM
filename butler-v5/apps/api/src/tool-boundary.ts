@@ -1,6 +1,7 @@
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import { resolveSandboxEgressIsolation } from "@butler/domain/governance/network-allowlist.js"
+import { parseMcpTimeoutMs } from "./env-util.js"
 import {
   capabilityDefinitionFromTool,
   createProductionCapabilityRegistry,
@@ -30,8 +31,9 @@ const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
 const RUN_COMMAND_SLIRP_TIMEOUT_MS = 120_000
 
 function mcpToolTimeoutMs(): number {
-  const timeoutMs = Number(process.env["BUTLER_V5_MCP_TIMEOUT_MS"] ?? 30_000)
-  return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000
+  // D72 T4 (audit #18 CQ-017): shared helper — was a 2× duplicated
+  // Number(env[...] ?? 30_000) pattern across mcp-config.ts + here.
+  return parseMcpTimeoutMs(process.env)
 }
 
 function runCommandTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {

@@ -21,3 +21,40 @@ export function parsePositiveInt(raw: string | undefined, fallback: number): num
   const n = Number.parseInt(raw, 10)
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
+
+/**
+ * D72 T4 (audit #18 CQ-017): parse `BUTLER_V5_MCP_TIMEOUT_MS` from env,
+ * falling back to 30_000 ms. Single source of truth — replaces the 2×
+ * duplicated `Number(env[...] ?? 30_000)` pattern that previously lived
+ * in mcp-config.ts and tool-boundary.ts.
+ *
+ * Note: 30_000 constants in `channel-outbound-media.ts` (telegram media
+ * upload timeout) and `subagent-worker.ts` (LLM_TIMEOUT_MS) are different
+ * surfaces — they intentionally default to 30_000 but do NOT consume the
+ * same env knob. Don't extend this helper to those sites.
+ */
+export function parseMcpTimeoutMs(env: NodeJS.ProcessEnv): number {
+  return parsePositiveInt(env["BUTLER_V5_MCP_TIMEOUT_MS"], 30_000)
+}
+
+/**
+ * D72 T4 (audit #18 CQ-016): shared-secret auth check used by 3 Hono
+ * handlers (wechat/inbound, events POST, ws/subscribe). Returns the
+ * Hono response on auth failure (401) or null on success. Replaces a
+ * 3× duplicated 7-line block. Note: the comparison remains
+ * timing-unsafe; a future T-track can swap for timingSafeEqual.
+ */
+export function requireInboundSharedSecret(
+  env: NodeJS.ProcessEnv,
+  headerValue: string | undefined,
+): Response | null {
+  const expected = (env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
+  if (!expected) {
+    return new Response("inbound shared secret not configured", { status: 401 })
+  }
+  const provided = (headerValue ?? "").trim()
+  if (provided !== expected) {
+    return new Response("invalid inbound secret", { status: 401 })
+  }
+  return null
+}
