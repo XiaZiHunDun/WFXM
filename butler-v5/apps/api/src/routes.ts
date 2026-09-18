@@ -34,6 +34,23 @@ import { issueSubscribeToken } from "./ws-subscribe.js"
 import { captureWechatSessionSnapshot } from "./wechat-session-snapshot.js"
 import { maybePrependSessionDigest } from "./wechat-session-digest.js"
 
+/**
+ * D71 T3 (audit #12 SEC-004 / SEC-005): parse a comma-separated
+ * allowlist env var. Returns `null` (allowlist disabled) when the
+ * env var is unset/empty; callers must check truthiness before
+ * using the returned set so an unset env doesn't accidentally
+ * reject every caller.
+ */
+function parseAllowlist(raw: string | undefined): ReadonlySet<string> | null {
+  if (raw === undefined) return null
+  const parts = raw
+    .split(",")
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+  if (parts.length === 0) return null
+  return new Set(parts)
+}
+
 export function createRoutes(app: Hono, wiring: Wiring) {
   app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
   app.post("/v1/conversations", async (c) => {
@@ -341,6 +358,18 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         return c.text("invalid slack signature", 401)
       }
     }
+    // D71 T3 (audit #12 SEC-005): optional per-user allowlist via
+    // BUTLER_V5_SLACK_USER_ID_ALLOWLIST (comma-separated). Empty
+    // (default) preserves pre-D71 behavior: signed webhooks accepted
+    // from any user. Set the env to a comma-separated list of trusted
+    // user IDs to harden against a leaked signing-secret scenario
+    // where the attacker forges an event from a known user.
+    const slackAllowlist = parseAllowlist(process.env["BUTLER_V5_SLACK_USER_ID_ALLOWLIST"])
+    if (slackAllowlist && parsed.kind === "message" && parsed.fromSubject) {
+      if (!slackAllowlist.has(parsed.fromSubject)) {
+        return c.text("slack user not in allowlist", 403)
+      }
+    }
     if (parsed.kind === "challenge") {
       return c.json({ challenge: parsed.challenge })
     }
@@ -406,6 +435,16 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     }
     if (parsed.kind === "ignore") {
       return c.body(null, 204)
+    }
+    // D71 T3 (audit #12 SEC-004): optional per-user allowlist via
+    // BUTLER_V5_TELEGRAM_USER_ID_ALLOWLIST (comma-separated). Empty
+    // (default) preserves pre-D71 behavior: signed webhooks accepted
+    // from any user. Set the env to a comma-separated list of trusted
+    // chat/user IDs to harden against a leaked bot-token / hostile
+    // signature scenario where the webhook secret is compromised.
+    const telegramAllowlist = parseAllowlist(process.env["BUTLER_V5_TELEGRAM_USER_ID_ALLOWLIST"])
+    if (telegramAllowlist && !telegramAllowlist.has(parsed.fromSubject)) {
+      return c.text("telegram user not in allowlist", 403)
     }
     try {
       const inboundContent = await resolveTelegramInboundContent(parsed, process.env)
