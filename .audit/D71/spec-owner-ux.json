@@ -1,0 +1,343 @@
+{
+  "sub_track": "spec-owner-ux",
+  "cycle": "D71",
+  "head_at_audit": "e61d92ac",
+  "stats": {
+    "total": 30,
+    "must_fix": 20,
+    "defer": 8,
+    "dont_fix": 2
+  },
+  "findings": [
+    {
+      "id": "D71-SO-001",
+      "title": "listRecentAuditEvents 'actor' filter still queries subject column — schema migration deferred again (D70 SO-001 / D68 pre-scoped #5)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/packages/persistence/src/runtime-store.ts",
+      "line": 625,
+      "category": "schema",
+      "description": "D70 SO-001 closed by D70 T3 SO-7 PARTIAL only: AuditFatigueReaderOptions.actor (audit-reader.ts:14) added but the underlying SQL mapping is unchanged. runtime-store.ts:625-627 still maps `actor` filter to `eq(auditEvents.subject, actor)`. So `ownerAuditFatigue(c)` → `auditFatigueReader(runtimeStore, { actor: 'owner-A' })` (D70 T3 SO-7 API) queries subject='owner-A' — but subject is the tool name per D58 T1 (audit-service.ts:25 ownerSubject, audit-fatigue.ts:151 subject: ownerActor). Subject for owner replay events = 'owner' (sentinel); subject for fatigue decisions = tool name; subject for subagent audits = ownerSubject (the actual human). Cross-actor replay rejection will silently match against ANY of these tokens, not the actor. D71 pre-scoped #1 first-class — must add migration 0014 (actor text NOT NULL DEFAULT 'unknown'), update schema.ts, appendAuditEvent contract (~20 emit sites to thread actor), then runtime-store.ts:626 swaps to eq(auditEvents.actor, actor).",
+      "evidence": "runtime-store.ts:625-627: `if (actor !== undefined) conditions.push(eq(auditEvents.subject, actor))`\naudit-fatigue.ts:150: `subject: ownerActor` (cross-actor check via subject token, not actor)\naudit-service.ts:25: `subject: entry.ownerSubject ?? entry.role`\nschema.ts:173-194 auditEvents table has NO actor column (only audit_id/run_id/conversation_id/action/subject/detail/created_at/correlation_id per migration 0013)\naudit-reader.ts:14 `readonly actor?: string` (added D70 T3 SO-7 — caller-side parameter is plumbed but no schema backing)",
+      "fix_hint": "Migration 0014: `ALTER TABLE audit_events ADD COLUMN actor text NOT NULL DEFAULT 'unknown'; CREATE INDEX audit_events_actor_idx ON audit_events (actor, created_at);`. Update schema.ts (auditEvents table) + appendAuditEvent contract (add `actor` field) + ALL emit sites to populate actor (wechatIn-user, telegram-update, schedule-worker, owner-handle, fatigue.decision at wechat-inbound-butler.ts:583). Then runtime-store.ts:626 swaps to `eq(auditEvents.actor, actor)` and audit-fatigue.ts:150-156 owner.replay audit emit also threads `actor: 'owner'`."
+    },
+    {
+      "id": "D71-SO-002",
+      "title": "D67 spec §5.2 F3 row still says 'GET /fatigue + POST /replay real surface' but F3-replay scenario never hits HTTP (D70 SO-004 partial)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/docs/superpowers/specs/2026-09-16-d67-acceptance-design.md",
+      "line": 242,
+      "category": "spec-drift",
+      "description": "D67 spec line 242: `F3 (rewritten) | GET /fatigue + POST /replay real surface | non-empty sequences returned + reversible/irreversible split correct`. D70 T1 SO-005 added the 8 HTTP cases (audit-fatigue-http.test.ts) but F3-replay acceptance scenario (_fixtures.ts:754-785) still asserts `containsAll: ['HTTP', 'audit/fatigue']` on a chat-side text reply — no actual `app.request('GET /v1/owner/audit/fatigue')` call in the harness. The scenario fixture at line 761-764 is a static text reply; there is no HTTP verification. Spec promised F3 acceptance verification but only delivers text-mention of the HTTP surface. Either add real HTTP exercise to F3-replay scenario OR downgrade spec row to 'HTTP surface unit-tested in audit-fatigue-http.test.ts'.",
+      "evidence": "D67 spec line 242: `F3 (rewritten) | GET /fatigue + POST /replay real surface | non-empty sequences returned + reversible/irreversible split correct`\n_fixtures.ts:761-764: F3-replay plan = `[text('replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue), ...')]` — pure text, no app.request call\n_fixtures.ts:777-784: `expect: { finalDecision: 'Respond', minToolCalls: 0, containsAll: ['HTTP', 'audit/fatigue'], containsNone: ['degraded'] }` — only asserts text content\n_fixtures.ts:953-961: NOTE comment 'C-O-* scenarios picked up in D71+ when harness scope expansion lands' — explicit acknowledgment spec/impl drift\nD70 T1 closed HTTP unit tests but did NOT close F3 harness gap",
+      "fix_hint": "Either (a) add to F3-replay setup a `await ctx.app.request('/v1/owner/audit/fatigue?window_seconds=60')` call and assert the response has sequences.length >= 1 (mirrors audit-fatigue-http.test.ts:58-66 pattern using harness app), OR (b) downgrade D67 spec §5.2 line 242 to `F3 (chat-side) | audit/fatigue mention in reply | reply contains HTTP + audit/fatigue |` + add `F3-HTTP (D70) | 8 unit tests in audit-fatigue-http.test.ts | route registration + auth + validation + CQ-010 honesty |`. Spec must match impl reality."
+    },
+    {
+      "id": "D71-SO-003",
+      "title": "9 scenario verify() callbacks still `delete process.env['BUTLER_V5_SUBAGENT_AUDIT_PATH']` for an env var they never set (D70 SO-003 partial)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/tests/acceptance/scenarios/_fixtures.ts",
+      "line": 687,
+      "category": "vacuous-assertion",
+      "description": "D70 T2 SO-003 deleted freshSubagentAuditPath() — confirmed. But 9 verify() callbacks (lines 687, 740, 775, 818, 870, 906, 944, 1374, 1414, 1452) still call `delete process.env['BUTLER_V5_SUBAGENT_AUDIT_PATH']` to 'clean up' an env var their matching setup() never set. The only scenario that actually sets it is D-additional-2 (line 1480-1482). The other 9 verify callbacks are vacuous no-ops — but they confuse readers into thinking the env var was load-bearing. Spec-coverage reviewers (D68 pre-scoped #4) flagged these; D70 cleanup missed 10 sites (counted F2:740 too).",
+      "evidence": "_fixtures.ts:687 (F1-fatigue), 740 (F2-sensitive), 775 (F3-replay), 818 (C-F1-real-cooldown), 870 (C-F2-checklist-proceed), 906 (C-F3-replay-api), 944 (C-additional-1), 1374 (D-cross-channel), 1414 (D-audit-correlation), 1452 (D-owner-direct) — 10 sites\n_fixtures.ts:1480-1482 (D-additional-2) is the ONLY site that sets the env var\n_fixtures.ts:139-141: comment 'verify() callbacks that deleted the never-set BUTLER_V5_SUBAGENT_AUDIT_PATH env var remain (harmless no-op)'\n_audit-log.ts:25: BUTLER_V5_SUBAGENT_AUDIT_PATH still resolved as override for the JSONL log path (used by wechat-subagent-commands.ts:60 and audit-service.ts:9)",
+      "fix_hint": "Bulk delete the 9 vacuous `delete process.env[...]` lines. Keep D-additional-2 (line 1480-1482 set + 1485 cleanup) which IS load-bearing — it verifies the JSONL appendFileSync catch-silent path at audit-log.ts:72-79 still works when BUTLER_V5_SUBAGENT_AUDIT_PATH points to an unwritable directory."
+    },
+    {
+      "id": "D71-SO-004",
+      "title": "D-additional-2 scenario comment claims audit emit failure → silent fail but JSONL is now decoupled from fatigue reader (D69 T1 architecture drift in scenario comment)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/tests/acceptance/scenarios/_fixtures.ts",
+      "line": 1455,
+      "category": "spec-drift",
+      "description": "D-additional-2 comment at line 1455-1460 says 'audit emit 失败 (invalid path 不存在) → appendAudit swallow exception, scenario 继续不 crash. 锁 §3 graceful continue 边界: appendAudit 永远 silent fail (audit-log.ts:72-79 catch swallow), 调用方不需要 defend against audit IO.' But D69 T1 swapped the FATIGUE reader from JSONL to runtimeStore.audit_events (D70 SO-003 closed). So the comment overstates the architecture: invalid JSONL path → audit-log.ts:72-79 catch silent ✓ true; but the FATIGUE chokepoint (wechat-inbound-butler.ts:578) now writes to audit_events via runtimeStore.appendAuditEvent, NOT the JSONL file. The scenario tests JSONL silent-fail but the comment implies it's the canonical audit pipeline — misleading. Either rename to D-additional-2-jsonl or update comment to acknowledge JSONL is now legacy (audit-log.ts:5 'designed for the owner to grep / tail / pipe to a SIEM later').",
+      "evidence": "_fixtures.ts:1455-1460: comment 'audit emit 失败 graceful continue: invalid path 不 crash scenario' + 'audit-log.ts:72-79 catch swallow'\n_fixtures.ts:1475-1482: setup sets BUTLER_V5_SUBAGENT_AUDIT_PATH to unwritable path — this exercises audit-log.ts:75 appendFileSync only\naudit-service.ts:8-44: writeSubagentAudit dual-writes (JSONL + audit_events) but fatigue reader reads only audit_events post D69 T1\nwechat-inbound-butler.ts:578-587: fatigue.decision emit → runtimeStore.appendAuditEvent (NOT audit-log.ts)\nMEMORY.md 'D70 T2 closed D70 SO-003 freshSubagentAuditPath dead code'",
+      "fix_hint": "Update D-additional-2 scenario title + comment to 'D-additional-2-jsonl: legacy JSONL audit append silent fail (audit-log.ts:72-79 catch)' OR rename + retitle to clarify it tests the legacy JSONL write path specifically, not the canonical audit_events pipeline (which has its own tests in runtime-store.test.ts)."
+    },
+    {
+      "id": "D71-SO-005",
+      "title": "owner-routes.ts:30 returns English 'rate limit exceeded' to owner on 429 (D70 T4 SEC-002 closed throttle but left English operator message)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes.ts",
+      "line": 30,
+      "category": "owner-jargon-leak",
+      "description": "D70 T4 (SEC-002) added 120/min throttle via tryAcquireOwnerSlot. When the throttle triggers, owner-routes.ts:30 returns `c.text('rate limit exceeded', 429)` — English operator vocabulary leaked to the owner-facing HTTP surface. Other owner routes use Chinese fallback ('运行失败，请稍后重试' / '审批操作失败，请稍后重试' etc) via safeOwnerError. Per D60 T1 owner-jargon protocol + D62 T1 F-12 sweep, the 429 message should be a Chinese fallback indicating retry timing.",
+      "evidence": "owner-routes.ts:28-32: `app.use('/v1/owner/*', async (c, next) => { if (!tryAcquireOwnerSlot('owner', process.env)) { return c.text('rate limit exceeded', 429) } await next() })`\ncontrast: tasks-run.ts:71-74: `safeOwnerError(err, '运行待办失败，请稍后重试', ...)`\nmemories-rollback.ts:87: `safeOwnerError(validation.reason, '回滚不可用', ...)`\nowner-jargon.test.ts:65-77: BUTLER_V5_OWNER_RATE_LIMIT_WINDOW_MS knobs documented but the 429 message itself isn't owner-jargon-wrapped",
+      "fix_hint": "Replace `c.text('rate limit exceeded', 429)` with `c.text('请求过于频繁，请稍后再试', 429)` or include Retry-After header with seconds until next slot opens. Mirror D62 T1 owner-jargon protocol. Optionally call safeOwnerError(new Error('rate limit exceeded'), '请求过于频繁，请稍后再试', {operation: 'owner-throttle'}) for consistency."
+    },
+    {
+      "id": "D71-SO-006",
+      "title": "owner-routes/memories.ts HTTP error reasons still English: 'invalid status (must be candidate|confirmed|rejected|expired)' (D70 SO-007 re-found)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/memories.ts",
+      "line": 33,
+      "category": "owner-jargon-leak",
+      "description": "memories.ts validation paths return English operator vocabulary to the owner HTTP API: line 33 `invalid status (must be candidate|confirmed|rejected|expired)`, line 38 `invalid limit (1-100, default 20)`, line 43 `invalid offset (>=0, default 0)`, line 169 `already confirmed`, line 172 `already expired`, line 200 `already rejected`, line 203 `already expired`. D70 SO-007 flagged this exact list but no fix shipped — D70 SO-007 closure appears in audit but the source still has the English strings. Owner UI sees raw English validation errors.",
+      "evidence": "memories.ts:33: `return c.json({ ok: false, reason: 'invalid status (must be candidate|confirmed|rejected|expired)' }, 400)`\nmemories.ts:38: `invalid limit (1-100, default 20)`\nmemories.ts:43: `invalid offset (>=0, default 0)`\nmemories.ts:169: `already confirmed`\nmemories.ts:200: `already rejected`\nmemories.ts:202: `already expired`\nD70 spec-owner-ux.json SO-007: 'owner-routes/memories.ts HTTP error reasons are English jargon — owner UI maps them but no owner-jargon helper applied' (severity: must-fix; status: not closed in T1-T5 ship)\nmemories-rollback.ts:87 sibling: uses safeOwnerError",
+      "fix_hint": "Add a `safeOwnerErrorString(reason: string, fallback: string)` helper to safe-owner-error.ts that maps known English internal reasons to Chinese owner-jargon. Then memories.ts uses `safeOwnerErrorString('invalid status', '状态参数无效')` etc. Apply to all 7 sites."
+    },
+    {
+      "id": "D71-SO-007",
+      "title": "owner-routes/documents.ts:63 returns English 'unsupported format (plaintext|markdown|pdf)' to owner",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/documents.ts",
+      "line": 63,
+      "category": "owner-jargon-leak",
+      "description": "documents.ts:63 returns `c.json({ ok: false, reason: 'unsupported format (plaintext|markdown|pdf)' }, 400)` directly to the owner HTTP surface — English operator vocabulary listing the allowed formats. Same owner-jargon protocol gap as memories.ts (D71-SO-006). Owner sees raw English validation error.",
+      "evidence": "documents.ts:62-65: `const format = parseDocumentFormat(body.format ?? 'plaintext'); if (!format) { return c.json({ ok: false, reason: 'unsupported format (plaintext|markdown|pdf)' }, 400) }`\ncontrast: project-knowledge.ts:60: `if (!projectId) return c.json({ ok: false, reason: 'projectId is required' }, 400)` — also English (D71-SO-008)\nD60 T1 owner-jargon protocol + D62 T1 F-12 sweep",
+      "fix_hint": "Replace with Chinese: `return c.json({ ok: false, reason: '文档格式不支持（仅支持 纯文本/Markdown/PDF）' }, 400)`. Apply safeOwnerErrorString pattern from D71-SO-006."
+    },
+    {
+      "id": "D71-SO-008",
+      "title": "owner-routes/project-knowledge.ts + conversations-schedule.ts return English 'projectId is required' / 'projectId query required' to owner (3 sites)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/project-knowledge.ts",
+      "line": 60,
+      "category": "owner-jargon-leak",
+      "description": "3 owner HTTP validation paths return English operator vocabulary: project-knowledge.ts:28 `projectId query required`, project-knowledge.ts:60 `projectId is required`, conversations-schedule.ts:16 `projectId query required`, conversations-schedule.ts:26 `conversationId required`. Per D60 T1 owner-jargon protocol these should be Chinese owner-facing strings (e.g., '项目ID不能为空' / '会话ID不能为空').",
+      "evidence": "project-knowledge.ts:28: `if (!projectId) return c.text('projectId query required', 400)`\nproject-knowledge.ts:60: `if (!projectId) return c.json({ ok: false, reason: 'projectId is required' }, 400)`\nconversations-schedule.ts:16: `if (!projectId) return c.text('projectId query required', 400)`\nconversations-schedule.ts:26: `if (!conversationId) return c.text('conversationId required', 400)`\ncontrast: conversations-schedule.ts:47-54: uses safeOwnerError for the schedule-disabled path (Chinese fallback '定时任务未启用')",
+      "fix_hint": "Replace all 4 with Chinese: '项目ID不能为空' / '会话ID不能为空'. Centralize in safeOwnerErrorString or add to owner-jargon.ts map. Apply D62 T1 F-12 sweep pattern."
+    },
+    {
+      "id": "D71-SO-009",
+      "title": "wechat-subagent-commands.ts:60 still uses legacy readRecentSubagentAudit for /委派状态 (D70 SO-008 re-found, owner-jargon asymmetry)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/wechat-subagent-commands.ts",
+      "line": 60,
+      "category": "owner-jargon-leak",
+      "description": "/委派状态 command reads subagent JSONL via `readRecentSubagentAudit(12, env)` (line 60). D68 T2a swapped FATIGUE reader to runtimeStore; D70 SO-008 flagged this exact site but no fix shipped. Same fact (subagent delegations) is now visible in /v1/owner/audit/fatigue via the new auditFatigueReader but invisible to /委派状态 if JSONL file is missing or rotated. Owner-facing inconsistency: a fresh restart (JSONL log deleted by rotation) makes /委派状态 reply '暂无委派记录' even though audit_events has the data.",
+      "evidence": "wechat-subagent-commands.ts:59-65: `if (trimmed === '/委派状态' || trimmed === '/委派 状态') { const rows = readRecentSubagentAudit(12, env); if (rows.length === 0) { return done('暂无委派记录。\\n用法：/委派 <任务> 或 /委派 <角色> | <任务>', ...) } }`\naudit-fatigue.ts:115: uses auditFatigueReader (D69 T1)\nwechat-inbound-butler.ts:566: uses auditFatigueReader (D68 T2a)\naudit-service.ts:8-44: writeSubagentAudit dual-writes (JSONL + audit_events) — but reads are asymmetric\nD70 spec-owner-ux.json SO-008: 'wechat-subagent-commands.ts:60 still uses legacy JSONL readRecentSubagentAudit — /委派状态 may show stale data post-D68 swap' (severity: must-fix; status: not closed in T1-T5)",
+      "fix_hint": "Replace `readRecentSubagentAudit(12, env)` with `runtimeStore.listRecentAuditEvents({ windowMs: 7 * 24 * 3600 * 1000, limit: 12 }).then(events => events.filter(e => e.action.startsWith('subagent.')).map(e => auditEntryFromEvent(e)))`. Add auditEntryFromEvent mapper that reconstructs the AuditEntry shape from AuditEventRecord (childConversationId from detail.childConversationId, role from detail, etc.)."
+    },
+    {
+      "id": "D71-SO-010",
+      "title": "owner-routes/mcp.ts:96-97 captures raw err.message into audit_event.detail.failureReason — operator vocabulary persisted to audit log",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/mcp.ts",
+      "line": 96,
+      "category": "owner-jargon-leak",
+      "description": "mcp.ts catch block captures `failureReason = err instanceof Error ? err.message : String(err)` (line 96) and then writes it into `audit_event.detail.failureReason` (line 107). The owner-facing reply goes through safeOwnerError (line 117), but the audit log row that the owner can query via /v1/owner/audit/fatigue contains the raw PG/Redis error message (e.g., 'connection terminated unexpectedly', 'permission denied for table scoped_grants'). Per D60 T1 'log full, return safe' protocol this is correct BEHAVIOR for the operator log but the audit_event row is owner-queryable and surfaces internal error text. Owner replay query would show DB driver vocabulary.",
+      "evidence": "mcp.ts:95-97: `} catch (err) { failureReason = err instanceof Error ? err.message : String(err) }`\nmcp.ts:107-109: `detail: failureReason ? { serverId, revoked, failureReason } : { serverId, revoked }`\nmcp.ts:117-122: `error: safeOwnerError(new Error(failureReason), '撤销授权失败，请稍后重试', ...)` (correct owner-facing Chinese)\naudit-fatigue.ts:150-156: owner.replay audit_event writes raw sequence_event_ids + counts (no raw err leakage here, so cross-check shows the gap is in mcp.ts)",
+      "fix_hint": "Wrap failureReason before persisting: `const sanitizedReason = failureReason.replace(/[\\x00-\\x1f\\x7f]/g, '?').slice(0, 200); detail: { serverId, revoked, failureReason: sanitizedReason }`. Or split into `detail: { serverId, revoked, error: 'revoke_failed', ownerReason: '撤销授权失败，请稍后重试', operatorReason: failureReason }` so audit query shows owner-jargon by default and operator log has full context."
+    },
+    {
+      "id": "D71-SO-011",
+      "title": "auditFatigueReader AuditFatigueReaderOptions.actor parameter (D70 T3 SO-7) has 0 production callers — dead code path",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/lib/fatigue/audit-reader.ts",
+      "line": 14,
+      "category": "other",
+      "description": "D70 T3 SO-7 added `readonly actor?: string` to AuditFatigueReaderOptions (audit-reader.ts:14) but grep shows 0 production callers pass the new actor parameter. Both call sites — audit-fatigue.ts:115 `auditFatigueReader(wiring.runtimeStore)` and wechat-inbound-butler.ts:566 `auditFatigueReader(args.wiring.runtimeStore)` — use the default sentinel 'owner'. The 'caller-provided actor, default sentinel' JSDoc (line 7-13) is aspirational; without bearer auth (D71+ owner identity) there's no real ownerId to thread. Code ships dead — owner-jargon.ts uses the 'owner' sentinel throughout. Either drop the parameter until bearer auth lands or document explicitly that the cross-actor filter is currently using a sentinel string match (semantically weak — D70 SO-001 root cause).",
+      "evidence": "audit-reader.ts:4-15: `export interface AuditFatigueReaderOptions { readonly limit?: number; readonly actor?: string }`\naudit-fatigue.ts:115: `const reader = auditFatigueReader(wiring.runtimeStore)` — no actor option\nwechat-inbound-butler.ts:566: `auditFatigueReader(args.wiring.runtimeStore)` — no actor option\naudit-reader.test.ts:25-72: 5 tests, none exercise the actor option\nowner-auth.ts:32-50: loopback-only, no bearer auth, no real ownerId",
+      "fix_hint": "Either (a) remove the actor parameter until bearer auth lands (avoid misleading API surface), or (b) add a JSDoc warning 'caller-provided actor is currently a string-match sentinel; real owner identity requires bearer auth (D71+ plan)', and add a unit test that exercises the actor option to lock in the contract so it doesn't regress when bearer auth lands."
+    },
+    {
+      "id": "D71-SO-012",
+      "title": "owner-routes/memory-dedup.ts:69 still logs raw err.message to stderr — operator vocabulary in stderr (deferred but worth noting)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/memory-dedup.ts",
+      "line": 69,
+      "category": "owner-jargon-leak",
+      "description": "memory-dedup.ts:69 logs `err instanceof Error ? err.message : String(err)` to stderr in the fail-open catch path. This is operator-only stderr (line 67-70) — NOT owner-facing. However, D60 audit protocol distinguishes 'log full, return safe': the helper logs full but the catch path here does not call safeOwnerError — it's not on the owner HTTP boundary. So this is informational only. Downgraded severity is 'defer' since it's not user-facing, but flagged because D62 T1 F-12 sweep's pattern (audit-log.ts:75) is the same and the log policy could be made consistent.",
+      "evidence": "memory-dedup.ts:63-72: `catch (err) { console.error('[memory-dedup] check failed:', err instanceof Error ? err.message : String(err)); return null }`\ncontrast: tasks-run.ts:56-59: `console.error('[traces-procedures-tasks] appendAuditEvent (task.advance) failed:', err)` — logs full Error object, not err.message\nD60 T1 protocol: 'log full' means log the structured Error object, not stringified .message",
+      "fix_hint": "Replace `console.error('...', err instanceof Error ? err.message : String(err))` with `console.error('...', err)` to log full structured Error (including stack) for operator diagnosis. Matches tasks-run.ts:58 pattern."
+    },
+    {
+      "id": "D71-SO-013",
+      "title": "owner-routes/traces-procedures-tasks.ts has 3 catch blocks logging structured errors but no English-leak risk (defer — for completeness)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/traces-procedures-tasks.ts",
+      "line": 104,
+      "category": "owner-jargon-leak",
+      "description": "traces-procedures-tasks.ts has 3 audit_event emit catch blocks (lines 104, 172, 210) that log structured Error objects (not err.message) — these are correct D63 T1 pattern (F-11). Verified clean. Listed here for completeness because D62 T1 F-12 sweep audit covered this file's catch blocks.",
+      "evidence": "traces-procedures-tasks.ts:104-107: `} catch (err) { console.error('[traces-procedures-tasks] appendAuditEvent (procedure.created) failed:', err) }`\ntraces-procedures-tasks.ts:172-175: same pattern for task.created\ntraces-procedures-tasks.ts:210-213: same pattern for task.done",
+      "fix_hint": "No fix needed. Confirm D62 T1 F-12 sweep + D63 T1 F-11 pattern is locked. Move to dont-fix category in batch commit."
+    },
+    {
+      "id": "D71-SO-014",
+      "title": "F3-replay scenario fixture text is a self-referential explainer ('replay/fatigue 走 HTTP 控制面...') not a real LLM reply (D67 spec mismatch)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/tests/acceptance/scenarios/_fixtures.ts",
+      "line": 761,
+      "category": "scenario-fidelity",
+      "description": "F3-replay scenario fixture (line 761-764) is a static text reply that explains what the HTTP surface does IN-CHARACTER. Real owner-facing reply would either say 'I checked, here's what I found' (with actual sequences) OR redirect to a command. The current fixture reads like developer documentation pasted into the LLM slot. Per D52 acceptance harness extension spec, fixture text should look like real bot behavior — not like comments. Owner reviewing the _analyze.md reply captures sees a meta-explanation rather than a real answer.",
+      "evidence": "_fixtures.ts:760-764: `plan: [text('replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue), 不在 butler chat surface 集成。当前 harness 注入 3 个 subagent audit events → reader sees count=3 (sequences 非空), 可走 HTTP 客户端调 GET /fatigue 查 replay 候选。')]`\n_analyze.md line 62: F3-replay row shows `0 tool calls / 0 approvals / replyLen` — pure text reply\nOther fixtures (A1 line 153-156, B3 line 263-265) read like real bot replies ('已读 README.md：项目是 butler-v5 — 函数式架构微信编码管家')",
+      "fix_hint": "Rewrite F3-replay fixture to real bot voice: `text('我查了下，刚才你做了几次操作：1) write_file → 2) write_file → 3) write_file。最近 60s 有 3 条记录。建议稍后用 curl 或控制面板查 replay 候选。')`. Then move the meta-explanation to the scenario comment (line 747-753) where it belongs."
+    },
+    {
+      "id": "D71-SO-015",
+      "title": "C-O-* owner-route acceptance scenarios still deferred (D70 SO-002 partial closure, D71 pre-scoped #2)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/tests/acceptance/scenarios/_fixtures.ts",
+      "line": 954,
+      "category": "scenario-coverage",
+      "description": "D70 T1 SO-002 partial: buildHonoApp now mounts createOwnerRoutes (acceptance-app.ts:27). But C-O-* acceptance scenarios (3 new scenarios exercising /v1/owner/audit/fatigue + /v1/owner/audit/fatigue/replay via the harness app) are still deferred — _fixtures.ts:953-961 NOTE explicitly says 'C-O-* scenarios picked up in D71+ when harness scope expansion lands'. The HTTP surface has 8 unit tests (audit-fatigue-http.test.ts) but 0 acceptance tests via the realistic.test.ts harness. Acceptance coverage for the owner control surface is a gap that the spec/docs promise but the harness doesn't deliver.",
+      "evidence": "_fixtures.ts:953-961: NOTE 'D69 T5 deferred → D70 T1 closed: owner-route acceptance scenarios (SO-6/SO-26/SO-27) now have buildHonoApp registering createOwnerRoutes ... The 3 new C-O-* scenarios remain deferred — adding them is acceptance-harness scope expansion, not a route-registration gap.'\nacceptance-app.ts:27: `createOwnerRoutes(app, wiring)` (mounted)\naudit-fatigue-http.test.ts:1-199: 8 unit tests (Hono boundary, owner auth, validation, CQ-010 honesty, owner.replay audit emit)\nD67 spec §5.2 row F3 promised acceptance scenarios + D70 spec-owner-ux.json SO-002 'C-O-* scenarios deferred D70+'",
+      "fix_hint": "Add 3 C-O-* scenarios: C-O-1 (owner queries GET /fatigue after 3 injectAuditEvent → sequences.length === 1), C-O-2 (owner POSTs /replay with reversible event_ids → result.replayed populated, owner.replay audit emit verified via runtimeStore.listRecentAuditEvents), C-O-3 (cross-actor replay returns 403 with '拒绝跨账号操作' Chinese message). Use ctx.app.request() pattern. Requires no Hono mock — buildHonoApp now wires everything."
+    },
+    {
+      "id": "D71-SO-016",
+      "title": "AGENTS.md and DESIGN.md cross-package table still says 'ports barrel index' but ports/src exports are not a thin barrel — drift",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/AGENTS.md",
+      "line": 74,
+      "category": "stale-doc",
+      "description": "AGENTS.md line 74 says `packages/ports/src/index.ts | Effect Tag 接口（thin barrel），package-membership.test 兜底`. But D-series changes added many new port definitions and ports/src/index.ts has expanded significantly (durable memory, audit, mcp, fatigue, channel, websocket, etc.). The 'thin barrel' claim is no longer true. Operators reviewing the package surface area get a misleading signal.",
+      "evidence": "AGENTS.md:73-74: `| packages/ports/src/index.ts | Effect Tag 接口（thin barrel），package-membership.test 兜底 |`\nports/src/ (D70+ expanded): now contains durable memory, audit, mcp, fatigue, channel, websocket, run-engine interfaces — not a thin barrel\npackages-membership.test validates which packages exist but does NOT measure barrel thinness",
+      "fix_hint": "Update line 74 to remove 'thin barrel' qualifier or measure ports/src/index.ts LOC and add a comment: 'see <N> LOC; barrel growth tracked in D71 audit'. Apply D62 doc drift closure protocol."
+    },
+    {
+      "id": "D71-SO-017",
+      "title": "DESIGN.md §11.3 line 557 contains malformed D-batch reference 'D7' that should be 'D70'",
+      "severity": "defer",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/DESIGN.md",
+      "line": 557,
+      "category": "stale-doc",
+      "description": "DESIGN.md line 557 says `D7 已 lock 事务原子性` — this appears to be a typo/clipping where the batch ID was truncated. Looking at git log, this should reference D70 (outbox + appendEventAndEnqueueOutbox single-point enqueue per §20 #8 lock). 'D7' is not a recognized D-batch ID — first D-batch was D48. Either correct to D70 or to '2026-08-31 D28' per the surrounding audit context. The truncated D7 reads as broken doc.",
+      "evidence": "DESIGN.md:557: `> - **§11.3 Outbox**：\\`outbox\\` pgTable + \\`appendEventAndEnqueueOutbox\\` 单点入队（§20 #8 D7 已 lock 事务原子性）。`\ngit log shows D28 §11 audit 2026-08-31 referenced in surrounding line 553-559\nFirst D-batch was D48 (per MEMORY.md 'D48-D52 = 17 + D64-D70 audit cycles')",
+      "fix_hint": "Replace 'D7' with the correct batch ID. Most likely 'D28' (per surrounding 2026-08-31 audit context) or 'D70' (latest lock confirmation). Verify via git log --oneline butler-v5/DESIGN.md to find when this line was last touched."
+    },
+    {
+      "id": "D71-SO-018",
+      "title": "D67 spec §10 Out of scope list still references 'D62 T2/T3/T5 larger partial reverts' — scope expansion deferred 2 cycles (D68 pre-scoped #6 still open)",
+      "severity": "defer",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/docs/superpowers/specs/2026-09-16-d67-acceptance-design.md",
+      "line": 307,
+      "category": "spec-drift",
+      "description": "D67 spec §10 line 307 lists 'D62 T2/T3/T5 larger partial reverts' as 'Out of scope (D68+)'. D68 pre-scoped #6 carried this forward. D70 didn't touch it. D71 pre-scoped #3 still has this as open. After 3 cycles of deferral, this is starting to look like 'never shipped'. Owner-facing callback strings (wechat-inline-approval.ts reply strings D49-D63 cluster) were partially reverted in D62 T2/T3/T5; the remaining ~20 sites are still pending. The deferred item lacks a clear acceptance gate.",
+      "evidence": "D67 spec line 307: `- D62 T2/T3/T5 larger partial reverts`\nD68 pre-scoped #6: 20 sites still open\nD70 audit cycle: not closed\nD71 pre-scoped #3: 'D62 T2/T3/T5 larger partial reverts (D68 pre-scoped #6) — 20 sites still open'\nMEMORY.md 'D62 follow-up commitments: 20 sites still open'",
+      "fix_hint": "Either (a) ship D62 T2/T3/T5 follow-up in D71 (T1 batch) — 20 sites is bounded scope, mostly mechanical safeOwnerError wrap, OR (b) formalize the deferral in D71 spec (formal spec doc) with a fresh scope gate + commit window. Don't let it drift to D72 unexamined."
+    },
+    {
+      "id": "D71-SO-019",
+      "title": "A2 scenario title '改 user 路由支持手机号登录' references a non-existent route file (apps/api/src/routes/user.ts doesn't exist)",
+      "severity": "defer",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/tests/acceptance/scenarios/_fixtures.ts",
+      "line": 164,
+      "category": "scenario-fidelity",
+      "description": "A2 scenario fixture writeForApproval targets `apps/api/src/routes/user.ts` (line 167) but the actual apps/api/src/routes.ts file is a single ~18k LOC file containing all routes — there is no `apps/api/src/routes/user.ts`. The fixture path is fictional. In the harness, this resolves to a workspace-relative path that gets routed through the harness's write_file simulation (no real filesystem write to apps/api/src/routes/user.ts), so the test passes. But the scenario title '改 user 路由支持手机号登录' suggests a real refactor that's not actually being tested — owner reviewing scenarios sees a feature request that maps to fictional code.",
+      "evidence": "_fixtures.ts:167-172: `fixtures: { plan: [tool('read_file', { path: 'apps/api/src/routes/user.ts' }), ...writeForApproval('apps/api/src/routes/user.ts', '// 新增 phone 字段支持；add phone-based login flow\\n...')] }`\napps/api/src/ directory: contains only routes.ts (single file, no subdir) — verified by `ls apps/api/src/routes/`\nMEMORY.md 'tests/acceptance/scenarios/_fixtures.ts — fixture 是手工编码的好 bot 应答序列（不是真 LLM，但反映 v5 已实现能力下的合理行为）'\nharness.ts:191-194: app.request routes through scripted LLM fixtures, not real routes.ts",
+      "fix_hint": "Either (a) rewrite A2 title + fixture to reference real code path (e.g., '改 routes.ts 的 conversations POST handler 加 phone 字段') — but this requires updating the fixture harness to allow partial file edits OR (b) add a JSDoc note in the scenario explaining the fixture path is illustrative, not literal. Per D52 acceptance harness spec, fixtures should be product-realistic."
+    },
+    {
+      "id": "D71-SO-020",
+      "title": "B3 scenario reply claims '6 个 Port + 7 个核心（runtime/persistence/llm）' but DESIGN §1 lists 7 cores + ports barrel",
+      "severity": "defer",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/tests/acceptance/scenarios/_fixtures.ts",
+      "line": 269,
+      "category": "scenario-fidelity",
+      "description": "B3 fixture text: '核心概念：- 6 个 Port + 7 个核心（runtime/persistence/llm）' (line 269). AGENTS.md §1 table shows 7 包带 = runtime/domain/ports/persistence/adapters/apps+cli/config+shared. The '6 个 Port' claim is wrong — ports is a single package. The '7 个核心' claim is wrong — there are 5-7 packages depending on how you count. Fixture text looks like fake-correct technical detail. Owner reading the acceptance replay sees numbers that don't match the documented structure.",
+      "evidence": "_fixtures.ts:268-272: `v5 = 函数式架构微信编码管家（Effect-TS）。核心概念：- 6 个 Port + 7 个核心（runtime/persistence/llm） - Acceptance 走 runButlerLoop（INTAKE_ENABLED=0） - 副作用咽喉 = policy-gate + capability-boundary - 3 层记忆 = Transcript / Durable Memory / Project Knowledge`\nAGENTS.md §1 table: 7 entries (Core 内核 runtime, Core 内核 domain, Ports, Driven 适配器 persistence, Driven 适配器 adapters, Driving 适配器 apps+cli, 配置/共享)\nDESIGN.md §1 (D28): similar structure",
+      "fix_hint": "Rewrite B3 reply with accurate package summary: 'v5 = TypeScript + Effect-TS 微信编码管家。包结构：runtime (应用编排), domain (纯规则), ports (端口接口), persistence (Postgres schema + repos), adapters (LLM/channel/sandbox/MCP), apps/api (HTTP 入口).副作用咽喉 = PolicyGate + ScopedGrant + approval Step。3 层记忆 = Transcript / Durable Memory / Project Knowledge。'"
+    },
+    {
+      "id": "D71-SO-021",
+      "title": "wechat-inbound-butler.ts:583 still emits `subject: String(def.name)` for fatigue.decision — tool name lives in subject column (D58 T1 spec; D71 SO-001 schema migration impact)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/wechat-inbound-butler.ts",
+      "line": 583,
+      "category": "audit-emit",
+      "description": "wechat-inbound-butler.ts:583 writes `subject: String(def.name)` for every fatigue.decision emit. D58 T1 (audit #3 F-01) chose this layout — tool name in subject, owner subject falls through to role. But D71-SO-001 schema migration needs a dedicated `actor` column; the emit sites need to ALSO start populating `actor`. Without this, runtime-store.ts:625-627 (subject-as-actor) continues to mis-attribute events. Audit-reader.ts:31 `subject → tool_name` mapping remains correct (tool_name in AuditEventSummary = tool that was executed), but cross-actor filtering at audit-fatigue.ts:150 `subject: ownerActor` will conflict with this emit's subject = toolName. Need to thread actor from owner identity through every appendAuditEvent call site.",
+      "evidence": "wechat-inbound-butler.ts:583: `subject: String(def.name)`\naudit-fatigue.ts:150: `subject: ownerActor` (cross-actor check)\naudit-service.ts:25: `subject: entry.ownerSubject ?? entry.role`\naudit-event.ts:48: 'subject: toolName' (comment in fatigue detail type)\nD58 T1 spec: subject = tool name for fatigue decisions, owner subject for subagent audits\nD71 SO-001: needs actor column added to audit_events + all ~20 emit sites updated",
+      "fix_hint": "When D71 SO-001 ships, update wechat-inbound-butler.ts:578-587 to: `actor: 'system' /* no inbound owner identity in fatigue chokepoint — only owner-direct paths have real owner */, subject: String(def.name), detail: { ...fatigueDetail }`. All other emit sites get similar actor population based on caller context (owner-handler paths → 'owner', subagent-worker → entry.ownerSubject, schedule-worker → 'schedule-worker')."
+    },
+    {
+      "id": "D71-SO-022",
+      "title": "owner-routes/memories.ts handleBatch line 325 returns raw `err.message` in per-id failure list (PG driver error leaks to owner)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/memories.ts",
+      "line": 325,
+      "category": "owner-jargon-leak",
+      "description": "memories.ts:325 (inside handleBatch catch block) returns `failed.push({ id, reason: message })` where message = err.message. Comment line 322-324 acknowledges this: 'Truly unexpected error — surface the raw message in the per-id failed list (callers can act on it)'. But this is owner-facing — POST /v1/owner/memories/confirm-batch returns the failed list and owner UI surfaces it. A malformed UUID gives 'invalid input syntax for type uuid' (handled line 319-322 → 'not found'), but a connection error or permission error would surface 'permission denied for table durable_memories' or 'connection terminated'. Same D60 T1 protocol gap.",
+      "evidence": "memories.ts:312-326: `} catch (err) { const message = err instanceof Error ? err.message : 'unknown error'; if (message.includes('invalid input syntax for type uuid')) { failed.push({ id, reason: 'not found' }); continue } failed.push({ id, reason: message }) }`\nD60 T1 'log full, return safe' protocol — raw err.message on owner HTTP boundary\naudit-fatigue.ts D70 T3 SO-7 typed error pattern (CrossActorReplayError)",
+      "fix_hint": "Add safeOwnerErrorString classification or use a typed error pattern. Replace line 325 `failed.push({ id, reason: message })` with: `const ownerReason = message.includes('invalid input syntax') ? 'not found' : message.includes('permission') ? '权限不足' : message.includes('connection') ? '数据库连接异常' : '操作失败，请稍后重试'; console.error('[memories-batch] unexpected error id=' + id, err); failed.push({ id, reason: ownerReason })`. Mirror memories-rollback.ts:43-48 (malformed UUID → 'not found' classification)."
+    },
+    {
+      "id": "D71-SO-023",
+      "title": "owner-routes/traces-procedures-tasks.ts catch blocks still use raw err.message in console.error (not owner-facing, but inconsistent with F-11 pattern)",
+      "severity": "defer",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/traces-procedures-tasks.ts",
+      "line": 106,
+      "category": "owner-jargon-leak",
+      "description": "traces-procedures-tasks.ts catch blocks (lines 104, 172, 210) log the structured Error object via `console.error('... failed:', err)` — but the surrounding pattern in similar files (tasks-run.ts:58, memories.ts:156) uses `console.error('...', err)` (structured Error, not err.message). Verified clean — already follows F-11 pattern. Listed for completeness. Downgraded severity because the source IS already correct (D63 T1 F-11), but flagged to confirm D70 audit cycle didn't accidentally regress it.",
+      "evidence": "traces-procedures-tasks.ts:104-107: `} catch (err) { console.error('[traces-procedures-tasks] appendAuditEvent (procedure.created) failed:', err) }` — structured Error logged\ntasks-run.ts:56-59: same pattern\nmemories.ts:154-157: same pattern",
+      "fix_hint": "No fix. Confirm D63 T1 F-11 pattern holds across all appendAuditEvent catch blocks. May close in dont-fix category."
+    },
+    {
+      "id": "D71-SO-024",
+      "title": "channel-outbound.ts:59 returns 'telegram API non-JSON: <raw>' to channel reply path — operator vocabulary leaks to wechat",
+      "severity": "defer",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/channel-outbound.ts",
+      "line": 59,
+      "category": "owner-jargon-leak",
+      "description": "channel-outbound.ts:59 returns `telegram API non-JSON: ${raw.slice(0, 200)}` to the wechat reply (this propagates to the bot's reply to the user when telegram delivery fails). Owner sees raw telegram API response fragment. Same pattern at line 71 `telegram API HTTP ${res.status}` (English operator vocabulary) and line 77 `telegram API timeout after ${timeoutMs}ms`. These reach the channel-outbound callers (channel-inbound.ts handles telegram webhook delivery), which then propagates to the bot's failure message. Owner sees 'telegram API non-JSON: {\"ok\":false,\"error_code\":401,\"description\":\"Unauthorized\"}' instead of a Chinese owner-friendly message.",
+      "evidence": "channel-outbound.ts:58-59: `return { ok: false, reason: \\`telegram API non-JSON: ${raw.slice(0, 200)}\\` }`\nchannel-outbound.ts:68-72: `if (!res.ok || !ok) { return { ok: false, reason: description ?? \\`telegram API HTTP ${res.status}\\` } }`\nchannel-outbound.ts:75-78: `if (err instanceof Error && err.name === 'AbortError') { return { ok: false, reason: \\`telegram API timeout after ${timeoutMs}ms\\` } }`\nD69 T2 (audit #10 F-29) defensive parse added at line 52-60 — but the resulting reason string is still English operator vocabulary\nD62 T1 owner-jargon protocol applies to user-visible bot replies (chat surface), not just HTTP API",
+      "fix_hint": "Map channel error reasons to Chinese owner-jargon in channel-outbound.ts OR at the channel-inbound.ts boundary that translates to bot reply. Add `mapChannelErrorToOwnerJargon(reason: string)` helper. Pattern: 'telegram API non-JSON' → 'Telegram 暂时无法响应，请稍后重试'; 'telegram API HTTP 4xx' → 'Telegram 配置无效，请检查 Bot Token'; 'telegram API timeout' → 'Telegram 响应超时，请稍后重试'."
+    },
+    {
+      "id": "D71-SO-025",
+      "title": "_analyze.md baseline '生成时间：2026-09-11（41 场景自动跑出）' is stale — current cycle has 52 scenarios, regenerated 2026-09-17",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/tests/acceptance/scenarios/_analyze.md",
+      "line": 3,
+      "category": "stale-doc",
+      "description": "_analyze.md line 3 says '生成时间：2026-09-11（41 场景自动跑出）' but the document body already shows 52 scenarios (line 8 '场景数：52') and the file's mtime is 2026-09-17. The header timestamp + scenario count are stale; the body has been updated to the 52-scenario baseline via D70 cycle. Owner reviewing acceptance health sees a header that contradicts the body — 41 vs 52 scenarios. Update the header to match.",
+      "evidence": "_analyze.md:3: `生成时间：2026-09-11（41 场景自动跑出）`\n_analyze.md:8: `- 场景数：52` (body says 52)\nfile mtime: 2026-09-17 17:54 (D70 cycle regeneration)\nD70 raw findings note: 'spec-owner-ux.json says 32 findings; ack protocol _analyze.md baseline regenerated by D70 cycle'\nD68 D70 cycles added 11+ scenarios (F1/F2/F3 + 4 C + 4 D, then D67 T2a-2 adds 4 D)",
+      "fix_hint": "Update line 3 to `生成时间：2026-09-17（52 场景自动跑出，D70 cycle 刷新）`. Match the file mtime + the body counts."
+    },
+    {
+      "id": "D71-SO-026",
+      "title": "D-cross-channel scenario uses stale channel reference ('wechat+telegram+CLI') but the harness only injects audit events, doesn't actually drive channels",
+      "severity": "defer",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/tests/acceptance/scenarios/_fixtures.ts",
+      "line": 1328,
+      "category": "scenario-fidelity",
+      "description": "D-cross-channel-consistency scenario title says '同一 conv 跨 wechat+telegram+CLI 注入 3 audit events' but the harness setup (lines 1335-1372) just injects 3 audit events via runtimeStore.appendAuditEvent with the SAME parentConversationId — no actual channel switching happens. The scenario verifies 'reader sees 3 events with same convId form 1 sequence', NOT cross-channel audit consistency. The title is misleading and the scenario doesn't verify the architectural invariant it claims.",
+      "evidence": "_fixtures.ts:1328-1378: scenario setup injects 3 events via `injectAuditEvent(ctx, { toolName: 'write_file', parentConversationId: 'conv-cross' })` × 3 — no wechat/telegram/CLI driving\nD67 spec §2.3 T2a-2 row 1: 'D-cross-channel-consistency | Same scenario via wechat + telegram + CLI — verify same audit trail'\nharness.ts:191: buildHonoApp(wiring) only wires the HTTP layer — no channel entry point switching in the harness\nThe scenario actually verifies 'multiple audit emits with same conversationId aggregate into 1 sequence' (correlation consistency), not channel consistency",
+      "fix_hint": "Either (a) rename scenario to 'D-audit-correlation-same-conv: 3 events with same convId form 1 sequence' (accurate to what it tests), OR (b) build a true cross-channel test by invoking channel-inbound.ts and ws-routes.ts and verifying the audit trail across channel handlers. (a) is the cheaper fix; (b) requires harness scope expansion (deferred D71+)."
+    },
+    {
+      "id": "D71-SO-027",
+      "title": "runButlerLoopBody god-fn still visible in scenario coverage — 1 scenario per split missing (D68 pre-scoped #7)",
+      "severity": "defer",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/wechat-inbound-butler.ts",
+      "line": 0,
+      "category": "scenario-coverage",
+      "description": "D68 pre-scoped #7: runButlerLoopBody is still a god-fn (~600+ LOC). D70 didn't ship a split. Acceptance coverage of the function (52 scenarios) implicitly exercises every branch via the LLM fixture flow, but no scenario specifically targets individual god-fn split candidates (intake handler, plan generation, approval resume, fatigue decision). D71 pre-scoped #4 still open. Without split, refactoring this function is high-risk.",
+      "evidence": "wechat-inbound-butler.ts: ~2500 LOC (D70 batched +12 LOC for owner.replay audit emit +safeOwnerError for tasks-run)\nMEMORY.md 'D68 pre-scoped #7 runButlerLoopBody god-fn splits'\nD70 spec-owner-ux.json did not flag this in T1-T5 (out of scope for audit #11)\nscenariosA:11 + scenariosB:10 + scenariosC:17 + scenariosD:14 = 52 (none target runButlerLoopBody individually)",
+      "fix_hint": "Either (a) D71 batch T1 — split runButlerLoopBody into 3-4 named functions (intake, plan, execute, resume) with explicit signatures, add 4-5 unit tests per split, OR (b) formalize in D71 spec that this stays open until D-series ships a refactor cycle. Don't let it drift another cycle."
+    },
+    {
+      "id": "D71-SO-028",
+      "title": "D64 spec §5.2 '8 cases' for audit-fatigue-http.test.ts was originally promised — actually 8 tests but spec row was D70-added retroactively (drift)",
+      "severity": "dont-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/docs/superpowers/specs/2026-09-16-d67-acceptance-design.md",
+      "line": 243,
+      "category": "stale-doc",
+      "description": "D67 spec §5.2 line 243 has `F3 (HTTP, D70 T1) | ... | 8 cases in apps/api/src/owner-routes/audit-fatigue-http.test.ts; verifies Hono route registration, owner auth short-circuit, request validation, JSON shape, CQ-010 honest failure routing (no silent no-op)`. This row was added in D70 T1 to retroactively close the gap — but the spec is dated 2026-09-16, before D70. Doc consistency requires either a separate 'D70 audit-fatigue spec addendum' doc OR updating the row to acknowledge the retroactive addition. Per D53a ship protocol, retroactive spec additions need to be explicit.",
+      "evidence": "D67 spec mtime: 2026-09-16\nD67 spec line 243: `F3 (HTTP, D70 T1) | ...` — refers to D70 T1 explicitly\nD70 T1 ship: 2026-09-17 (per git log)\nD67 spec was written before D70 — the F3 (HTTP, D70 T1) row is a D70 retro-edit",
+      "fix_hint": "Either (a) revert the row and create docs/superpowers/specs/2026-09-17-d70-audit-fatigue-http-test.md as the formal spec for those 8 tests, OR (b) add a footer note at line 243 explaining the row was added in D70 T1 as retroactive spec reconciliation. (a) is cleaner per D53a ship protocol."
+    },
+    {
+      "id": "D71-SO-029",
+      "title": "owner-routes/memories-rollback.ts:124 returns English 'concurrent-modification' to owner (line 124)",
+      "severity": "must-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/owner-routes/memories-rollback.ts",
+      "line": 124,
+      "category": "owner-jargon-leak",
+      "description": "memories-rollback.ts:124 returns `c.json({ ok: false, error: 'concurrent-modification' }, 409)` — English error code as the owner-facing reason. Per D60 T1 owner-jargon protocol, this should be Chinese ('操作冲突，请重试'). Other owner-rollback paths (line 47 'not found', line 88 '回滚不可用' via safeOwnerError) are Chinese. Concurrent-modification is the lone English string in this file.",
+      "evidence": "memories-rollback.ts:124: `return c.json({ ok: false, error: 'concurrent-modification' }, 409)`\nmemories-rollback.ts:47: `return c.json({ ok: false, reason: 'not found' }, 404)` (English too — D71-SO-029 partial)\nmemories-rollback.ts:88: `safeOwnerError(validation.reason, '回滚不可用', ...)` (Chinese — correct)\nD60 T1 protocol: owner-facing errors in Chinese",
+      "fix_hint": "Replace line 124 `error: 'concurrent-modification'` with `error: '操作冲突，请稍后重试'`. Also replace line 47 `'not found'` with `'记录不存在'` for consistency."
+    },
+    {
+      "id": "D71-SO-030",
+      "title": "safe-owner-error.ts is dead-weight in pre-commit harness: console.error can crash on missing stderr (unlikely but worth noting)",
+      "severity": "dont-fix",
+      "file": "/home/ailearn/projects/WFXM/butler-v5/apps/api/src/safe-owner-error.ts",
+      "line": 35,
+      "category": "other",
+      "description": "safe-owner-error.ts:35 uses `console.error(...)` which writes to process.stderr. If stderr is closed (rare in production but possible in tests with mock stdio), the write throws EPIPE and propagates back through the catch chain — but the helper already caught the original error, so a secondary EPIPE would surface as an uncaught exception in the request handler. In the harness, vitest captures stderr so this doesn't happen. Per D63 T1 F-11 protocol, defensive wrap inside safeOwnerError itself (try { console.error } catch {}) is overkill — but worth noting.",
+      "evidence": "safe-owner-error.ts:35-39: `console.error('[safe-owner-error]', { ...errInfo, context: context ?? null, fallback })`\nharness.ts:194: vitest captures stderr via default vi.spyOn\nProduction: real stderr, no risk\nD63 T1 F-11: did not add inner try/catch in safe-owner-error",
+      "fix_hint": "No fix. Confirm defensive wrap is unnecessary in practice. Document in safe-owner-error.ts JSDoc: 'requires writable stderr (true for all production + harness targets)'. Move to dont-fix category in batch commit."
+    }
+  ]
+}
