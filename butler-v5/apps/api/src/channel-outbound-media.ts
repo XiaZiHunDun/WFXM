@@ -1,7 +1,7 @@
-import { readFile } from "node:fs/promises"
+import { readFile, access } from "node:fs/promises"
+import { realpathSync } from "node:fs"
 import { envTruthy } from "./env-util.js"
 import { basename, isAbsolute, resolve } from "node:path"
-import { access } from "node:fs/promises"
 // D59 T4 (audit #2 F-04): ChannelOutboundResult was defined identically
 // in both channel-outbound.ts and channel-outbound-media.ts. Import the
 // canonical definition from channel-outbound.ts (the broader file) to
@@ -76,6 +76,45 @@ export function isAllowedOutboundMediaPath(
   )
 }
 
+/**
+ * D71 T2 (audit #12 CQ-011 + SEC-019): the allowed-roots check above
+ * operates on the literal path string, which a symlink inside an
+ * allowed root could redirect outside the root (e.g. `.butler-v5/foo
+ * → /etc/passwd`). Resolve any symlink chain before the check so
+ * redirected reads are caught at the allowlist stage, not at the
+ * readFile stage where the damage is already done. Falls back to
+ * the literal resolved path if the file doesn't exist (realpathSync
+ * throws ENOENT); the readFile attempt below will fail closed with
+ * a clear error message.
+ */
+function resolveRealpath(filePath: string): string {
+  try {
+    return realpathSync(filePath)
+  } catch {
+    return resolve(isAbsolute(filePath) ? filePath : resolve(process.cwd(), filePath))
+  }
+}
+
+/** D71 T2: symlink-aware variant of isAllowedOutboundMediaPath.
+ *  Returns false if the literal path resolves to something outside
+ *  the allowed roots via a symlink chain. */
+export function isAllowedOutboundMediaPathReal(
+  filePath: string,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const real = resolveRealpath(filePath)
+  return allowedOutboundMediaRoots(env).some(
+    (root) => {
+      try {
+        const realRoot = realpathSync(root)
+        return real === realRoot || real.startsWith(`${realRoot}/`)
+      } catch {
+        return real === root || real.startsWith(`${root}/`)
+      }
+    },
+  )
+}
+
 export async function resolveOutboundAttachment(
   attachment: ChannelOutboundAttachment,
   env: NodeJS.ProcessEnv = process.env,
@@ -83,12 +122,13 @@ export async function resolveOutboundAttachment(
   | { readonly ok: true; readonly path: string; readonly bytes: Buffer }
   | { readonly ok: false; readonly reason: string }
 > {
-  if (!isAllowedOutboundMediaPath(attachment.path, env)) {
+  // D71 T2 (CQ-011 + SEC-019): use the symlink-aware variant instead
+  // of the literal-path check. A symlink under .butler-v5/ that points
+  // outside the root now fails the allowlist instead of being served.
+  if (!isAllowedOutboundMediaPathReal(attachment.path, env)) {
     return { ok: false, reason: `media path not allowed: ${attachment.path}` }
   }
-  const resolved = resolve(
-    isAbsolute(attachment.path) ? attachment.path : resolve(process.cwd(), attachment.path),
-  )
+  const resolved = resolveRealpath(attachment.path)
   try {
     await access(resolved)
     const bytes = await readFile(resolved)

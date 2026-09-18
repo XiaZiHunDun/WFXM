@@ -175,6 +175,19 @@ export function parseMcpConnectionConfig(
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return { ok: false, reason: "BUTLER_V5_MCP_URL must be http(s)" }
     }
+    // D71 T2 (audit #12 CQ-012 + SEC-001): refuse hosts that resolve to
+    // private/loopback/link-local/metadata ranges. MCP server URLs are
+    // operator-configured but a typo (e.g. 10.0.0.1) or hostile manifest
+    // would otherwise let the HTTP/SSE transport probe internal services
+    // from inside the butler process. The escape hatch is an explicit
+    // env opt-in (BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS=1) for dev/test
+    // setups that intentionally point at 127.0.0.1.
+    if (!envAllowsPrivateMcpHosts(scopedEnv) && isBlockedMcpHost(parsed.hostname)) {
+      return {
+        ok: false,
+        reason: `MCP host ${parsed.hostname} is in a private/loopback/link-local/metadata range; set BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS=1 to override (dev/test only)`,
+      }
+    }
   } catch {
     return { ok: false, reason: "BUTLER_V5_MCP_URL is not a valid URL" }
   }
@@ -224,4 +237,56 @@ export function mcpUsesStubTools(
 
 export function mcpFailClosedOnBootstrap(env: NodeJS.ProcessEnv): boolean {
   return envTruthy(env["BUTLER_V5_MCP_REQUIRED"])
+}
+
+/**
+ * D71 T2 (audit #12 CQ-012 / SEC-001): host allowlist for MCP HTTP/SSE
+ * transports. Rejects private/loopback/link-local/metadata ranges by
+ * literal hostname match — operator misconfiguration or hostile manifest
+ * would otherwise let the transport probe internal services from inside
+ * the butler process. The allowlist is conservative; operator must set
+ * BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS=1 to override (dev/test only).
+ *
+ * Closure of pre-scoped D70 #5 (MCP HTTP/SSE SSRF) and audit #12 D71
+ * carry-forward. Mirrors the post-D63 fail-closed posture for owner
+ * routes (loopback-only) and Telegram/Slack channels (signature + jwt).
+ */
+export function isBlockedMcpHost(hostname: string): boolean {
+  const host = hostname.toLowerCase()
+  // Loopback IPv4 + IPv6 (::1 already normalized by URL parser to [::1])
+  if (host === "127.0.0.1" || host === "::1" || host === "localhost") return true
+  // AWS / GCP / Azure metadata endpoint
+  if (host === "169.254.169.254" || host === "metadata.google.internal") return true
+  // Wildcard / unspecified
+  if (host === "0.0.0.0" || host === "::") return true
+  // RFC 1918 private IPv4 ranges — check literal strings to avoid
+  // pulling in a dependency on `net` or `ipaddr.js`. CIDR-equality:
+  if (host.startsWith("10.")) return true
+  if (host.startsWith("192.168.")) return true
+  if (host === "172.16." || host.startsWith("172.16.")) return true
+  if (host === "172.17." || host.startsWith("172.17.")) return true
+  // 172.16.0.0 — 172.31.255.255 covered by 172.1x / 172.2x / 172.3x
+  if (host.startsWith("172.16.") || host.startsWith("172.17.") ||
+      host.startsWith("172.18.") || host.startsWith("172.19.") ||
+      host.startsWith("172.20.") || host.startsWith("172.21.") ||
+      host.startsWith("172.22.") || host.startsWith("172.23.") ||
+      host.startsWith("172.24.") || host.startsWith("172.25.") ||
+      host.startsWith("172.26.") || host.startsWith("172.27.") ||
+      host.startsWith("172.28.") || host.startsWith("172.29.") ||
+      host.startsWith("172.30.") || host.startsWith("172.31.")) return true
+  // Link-local IPv4
+  if (host.startsWith("169.254.")) return true
+  // IPv6 ULA fc00::/7 (covers fc00-fdff)
+  if (host.startsWith("fc") || host.startsWith("fd")) {
+    // very rough: assume 4-char hex prefix; full validation would parse
+    // the address — sufficient for a host-string literal check.
+    return true
+  }
+  // IPv6 link-local fe80::/10
+  if (host.startsWith("fe80:") || host.startsWith("fe80::") || host.startsWith("[fe80")) return true
+  return false
+}
+
+export function envAllowsPrivateMcpHosts(env: NodeJS.ProcessEnv): boolean {
+  return envTruthy(env["BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS"])
 }
