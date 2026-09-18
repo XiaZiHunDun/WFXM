@@ -768,7 +768,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
       failed: { id: string; reason: string }[]
     }
     expect(body.confirmed).toEqual([id1])
-    expect(body.failed).toEqual([{ id: "missing-id", reason: "not found" }])
+    expect(body.failed).toEqual([{ id: "missing-id", reason: "未找到对应记录" }])
   })
 
   it("confirm-batch rejects already-confirmed candidate", async () => {
@@ -1121,7 +1121,7 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     )
     expect(res.status).toBe(404)
     const body = (await res.json()) as { ok: boolean; reason: string }
-    expect(body).toEqual({ ok: false, reason: "not found" })
+    expect(body).toEqual({ ok: false, reason: "未找到对应记录" })
   })
 
   it("returns 409 not-confirmed when status is 'candidate' (never promoted)", async () => {

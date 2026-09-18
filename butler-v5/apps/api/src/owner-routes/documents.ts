@@ -40,7 +40,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     const store = wiring.documentStore
     if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
     const item = await store.get(c.req.param("documentId"))
-    if (!item) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!item) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     return c.json({ ok: true, item })
   })
 
@@ -60,7 +60,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     const format = parseDocumentFormat(body.format ?? "plaintext")
     if (!format) {
       return c.json(
-        { ok: false, reason: "unsupported format (plaintext|markdown|pdf)" },
+        { ok: false, reason: "不支持的文档格式（plaintext/markdown/pdf）" },
         400,
       )
     }
@@ -122,7 +122,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     }
     const documentId = c.req.param("documentId")
     const doc = await docs.get(documentId)
-    if (!doc) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!doc) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly projectId?: string
       readonly title?: string
@@ -159,7 +159,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
     const documentId = c.req.param("documentId")
     const ok = await store.delete(documentId)
-    if (!ok) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!ok) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     const cascaded =
       (await wiring.durableMemoryStore?.deleteBySourceDocumentId(documentId)) ?? 0
     const cascadedProjectKnowledge =

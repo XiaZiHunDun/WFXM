@@ -30,11 +30,11 @@ export async function sendTelegramOutboundMessage(
   config: TelegramOutboundConfig,
 ): Promise<ChannelOutboundResult> {
   const token = config.token.trim()
-  if (!token) return { ok: false, reason: "telegram bot token is required" }
+  if (!token) return { ok: false, reason: "缺少 Telegram bot token" }
   const chatId = config.chatId.trim()
-  if (!chatId) return { ok: false, reason: "telegram chat_id is required" }
+  if (!chatId) return { ok: false, reason: "缺少 Telegram chat_id" }
   const text = clipOutboundText(config.text, 3900)
-  if (!text) return { ok: false, reason: "reply is empty" }
+  if (!text) return { ok: false, reason: "回复内容为空" }
 
   const fetchFn = config.fetch ?? fetch
   const controller = new AbortController()
@@ -56,7 +56,7 @@ export async function sendTelegramOutboundMessage(
     try {
       parsed = JSON.parse(raw)
     } catch {
-      return { ok: false, reason: `telegram API non-JSON: ${raw.slice(0, 200)}` }
+      return { ok: false, reason: `Telegram 返回内容不是 JSON：${raw.slice(0, 200)}` }
     }
     const parsedObj =
       parsed !== null && typeof parsed === "object"

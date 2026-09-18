@@ -91,7 +91,7 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
     })
     expect(res.status).toBe(400)
     const body = (await res.json()) as { error: string }
-    expect(body.error).toMatch(/invalid body/)
+    expect(body.error).toMatch(/请求体格式错误|invalid body/)
   })
 
   test("POST rejects missing sequence_event_ids", async () => {

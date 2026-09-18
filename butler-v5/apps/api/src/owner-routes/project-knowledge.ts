@@ -23,9 +23,9 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   app.get("/v1/owner/project-knowledge", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const store = wiring.projectKnowledgeStore
-    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "项目知识库暂不可用" }, 503)
     const projectId = (c.req.query("projectId") ?? "").trim()
-    if (!projectId) return c.text("projectId query required", 400)
+    if (!projectId) return c.text("缺少 projectId 参数", 400)
     const items = await store.listByProject({ projectId, limit: 100 })
     return c.json({
       items: items.map((item) => ({
@@ -40,7 +40,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
     const store = wiring.projectKnowledgeStore
     if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
     const item = await store.get(c.req.param("itemId"))
-    if (!item) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!item) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     return c.json({ ok: true, item })
   })
 
@@ -157,7 +157,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
     if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
     const itemId = c.req.param("itemId")
     const ok = await store.delete(itemId)
-    if (!ok) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!ok) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     // D59 T1 (audit #1 F-29): §13 audit completeness.
     await wiring.runtimeStore?.appendAuditEvent({
       auditId: crypto.randomUUID(),

@@ -82,7 +82,7 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/owner/mcp/servers/:serverId/revoke-grants", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const serverId = c.req.param("serverId").trim()
-    if (!serverId) return c.text("serverId required", 400)
+    if (!serverId) return c.text("缺少 serverId 参数", 400)
     const body = (await c.req.json().catch(() => ({}))) as { readonly subject?: string }
     const now = new Date()
     // D60 T1.3 (audit #1 F-02): close D59 T1 missed-sweep — the audit_event

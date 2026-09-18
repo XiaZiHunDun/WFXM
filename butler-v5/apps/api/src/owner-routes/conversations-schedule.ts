@@ -13,7 +13,7 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
   app.get("/v1/owner/conversations", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const projectId = (c.req.query("projectId") ?? "").trim()
-    if (!projectId) return c.text("projectId query required", 400)
+    if (!projectId) return c.text("缺少 projectId 参数", 400)
     const limitRaw = Number((c.req.query("limit") ?? "50").trim())
     const limit = Math.min(Math.max(Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : 50, 1), 200)
     const items = await wiring.runtimeStore.listConversationsByProject({ projectId, limit })
@@ -23,7 +23,7 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
   app.get("/v1/owner/conversations/:conversationId/messages", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const conversationId = c.req.param("conversationId").trim()
-    if (!conversationId) return c.text("conversationId required", 400)
+    if (!conversationId) return c.text("缺少 conversationId 参数", 400)
     const limitRaw = Number((c.req.query("limit") ?? "50").trim())
     const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 50, 1), 200)
     const rows = await wiring.runtimeStore.listMessages(conversationId)

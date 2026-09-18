@@ -37,21 +37,21 @@ export async function handleRollbackAutoPromote(
     memory = await store.get(memoryId)
   } catch (err) {
     // Malformed UUIDs (e.g. "nonexistent") surface as PG syntax errors on
-    // the underlying get query; treat those uniformly as "not found" so
+    // the underlying get query; treat those uniformly as "未找到对应记录" so
     // callers never see driver-level error text (mirrors handleBatch in
     // the batch confirm/reject paths).
     const message = err instanceof Error ? err.message : "unknown error"
     if (message.includes("invalid input syntax for type uuid")) {
       // eslint-disable-next-line no-console -- operator log when no logger injected
       console.error(`[memory-rollback] not-found owner=owner id=${memoryId}`)
-      return c.json({ ok: false, reason: "not found" }, 404)
+      return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     }
     throw err
   }
   if (memory === null) {
     // eslint-disable-next-line no-console -- operator log when no logger injected
     console.error(`[memory-rollback] not-found owner=owner id=${memoryId}`)
-    return c.json({ ok: false, reason: "not found" }, 404)
+    return c.json({ ok: false, reason: "未找到对应记录" }, 404)
   }
 
   // Map store record to domain pure fn input. Type narrow: domain fn requires

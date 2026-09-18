@@ -30,7 +30,7 @@ export async function handlePromoteMemory(
   // Context type loses Hono's route narrowing that the inline closure had.
   const documentId = c.req.param("documentId") ?? ""
   const doc = await docs.get(documentId)
-  if (!doc) return c.json({ ok: false, reason: "not found" }, 404)
+  if (!doc) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
   const body = (await c.req.json().catch(() => ({}))) as {
     readonly content?: string
     readonly status?: string

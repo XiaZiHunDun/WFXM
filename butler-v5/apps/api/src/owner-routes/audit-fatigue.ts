@@ -126,7 +126,7 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const raw: unknown = await c.req.json().catch(() => null)
     if (!isReplayBody(raw)) {
-      return c.json({ error: `invalid body: expected { sequence_event_ids: string[] } (1-${MAX_REPLAY_BATCH} ids)` }, 400)
+      return c.json({ error: `请求体格式错误：需要 { sequence_event_ids: 字符串数组 }（1-${MAX_REPLAY_BATCH} 个）` }, 400)
     }
     // D70 T1: capture ownerActor once and pass it to replayFatigueSequence
     // alongside the undo dispatcher. The dispatcher closes the silent

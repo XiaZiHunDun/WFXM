@@ -53,7 +53,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   app.get("/v1/owner/procedures", async (c) => {
     if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
     const store = wiring.procedureStore
-    if (!store) return c.json({ ok: false, reason: "procedure store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "流程存储暂不可用" }, 503)
     return c.json({ items: await store.list(100) })
   })
 
@@ -183,7 +183,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
     const store = wiring.taskStore
     if (!store) return c.json({ ok: false, reason: "task store unavailable" }, 503)
     const existing = await store.get(c.req.param("taskId"))
-    if (!existing) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!existing) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     const updated = await store.update({
       ...existing,
       status: "done",

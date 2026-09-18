@@ -30,17 +30,17 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
         ? statusRaw
         : undefined
     if (statusRaw && !status) {
-      return c.json({ ok: false, reason: "invalid status (must be candidate|confirmed|rejected|expired)" }, 400)
+      return c.json({ ok: false, reason: "状态参数无效（必须是 candidate/confirmed/rejected/expired）" }, 400)
     }
     const limitRaw = c.req.query("limit")
     const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 20
     if (!Number.isFinite(limit) || limit < 1 || limit > 100) {
-      return c.json({ ok: false, reason: "invalid limit (1-100, default 20)" }, 400)
+      return c.json({ ok: false, reason: "limit 参数超出范围（1-100，默认 20）" }, 400)
     }
     const offsetRaw = c.req.query("offset")
     const offset = offsetRaw ? Number.parseInt(offsetRaw, 10) : 0
     if (!Number.isFinite(offset) || offset < 0) {
-      return c.json({ ok: false, reason: "invalid offset (>=0, default 0)" }, 400)
+      return c.json({ ok: false, reason: "offset 参数无效（>=0，默认 0）" }, 400)
     }
 
     const items = await store.listBySubject({
@@ -164,7 +164,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const memoryId = c.req.param("memoryId")
     const existing = await store.get(memoryId)
-    if (!existing) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!existing) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     if (existing.status === "confirmed") {
       return c.json({ ok: false, reason: "already confirmed" }, 409)
     }
@@ -195,7 +195,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const memoryId = c.req.param("memoryId")
     const existing = await store.get(memoryId)
-    if (!existing) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!existing) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     if (existing.status === "rejected") {
       return c.json({ ok: false, reason: "already rejected" }, 409)
     }
@@ -231,7 +231,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const memoryId = c.req.param("memoryId")
     const ok = await store.delete(memoryId)
-    if (!ok) return c.json({ ok: false, reason: "not found" }, 404)
+    if (!ok) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     // D58 T4 (audit #3 F-03): §13 audit completeness.
     await wiring.runtimeStore.appendAuditEvent({
       auditId: crypto.randomUUID(),
@@ -288,7 +288,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       try {
         const record = await args.store.get(id)
         if (!record) {
-          failed.push({ id, reason: "not found" })
+          failed.push({ id, reason: "未找到对应记录" })
           continue
         }
         if (record.subject !== args.subject) {
@@ -311,13 +311,13 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
         succeeded.push(updated.id)
       } catch (err) {
         // Malformed UUIDs (e.g. "missing-id") surface as PG syntax errors on
-        // the underlying get query; treat those uniformly as "not found" so
+        // the underlying get query; treat those uniformly as "未找到对应记录" so
         // callers never see driver-level error text in the failed list. This
         // special-case is checked FIRST so the generic catch path is reserved
         // for truly unexpected programming errors.
         const message = err instanceof Error ? err.message : "unknown error"
         if (message.includes("invalid input syntax for type uuid")) {
-          failed.push({ id, reason: "not found" })
+          failed.push({ id, reason: "未找到对应记录" })
           continue
         }
         // Truly unexpected error — surface the raw message in the per-id

@@ -79,7 +79,7 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
       })
       const head = cancelled[cancelled.length - 1]
       if (!head) {
-        return c.json({ ok: false, reason: "run not found" }, 404)
+        return c.json({ ok: false, reason: "未找到对应 run" }, 404)
       }
       return c.json({
         ok: true,
