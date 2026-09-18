@@ -136,8 +136,11 @@ async function injectAuditEvent(
 
 // D70 T2 (audit #11 SO-003): freshSubagentAuditPath() removed — the
 // JSONL injection path was obsolete after the D69 T1 reader swap.
-// 10 call sites deleted; verify() callbacks that deleted the never-set
-// BUTLER_V5_SUBAGENT_AUDIT_PATH env var remain (harmless no-op).
+// D71 T5 (audit #12 SO-003): 9 verify() callbacks that deleted the
+// never-set BUTLER_V5_SUBAGENT_AUDIT_PATH env var also removed (were
+// harmless no-ops). D-additional-2 (audit #12 SO-004) keeps its own
+// setup that legitimately SETS the env var to a read-only path to
+// exercise the silent-fail-closed branch of ensureLogPath / appendAudit.
 
 // ============================================================================
 // A. 真实开发任务（10）
@@ -684,7 +687,6 @@ export const scenariosC: readonly Scenario[] = [
       }
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     followUps: [
       { content: "y" },          // approve 1 → tool execute (count=3 in log)
@@ -737,7 +739,6 @@ export const scenariosC: readonly Scenario[] = [
       void ctx
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     followUps: [
       { content: "确认" }, // T1b bridge: fatigue_checklist step → "已升级确认"
@@ -772,7 +773,6 @@ export const scenariosC: readonly Scenario[] = [
       }
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     expect: {
       finalDecision: "Respond",
@@ -815,7 +815,6 @@ export const scenariosC: readonly Scenario[] = [
       }
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     followUps: [
       { content: "y" }, // approve 1 → write_file execute (count=3 read_file in log)
@@ -867,7 +866,6 @@ export const scenariosC: readonly Scenario[] = [
       void ctx
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     followUps: [{ content: "确认" }], // bridge: fatigue_checklist step → "已升级确认"
     followUpPatterns: [/已升级.*确认/],
@@ -903,7 +901,6 @@ export const scenariosC: readonly Scenario[] = [
       }
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     expect: {
       finalDecision: "Respond",
@@ -941,7 +938,6 @@ export const scenariosC: readonly Scenario[] = [
       await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: phantomConvId })
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     expect: {
       finalDecision: "Respond",
@@ -1371,7 +1367,6 @@ export const scenariosD: readonly Scenario[] = [
       }
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     followUps: [{ content: "确认" }], // cooldown path (3s sleep inline) → approve
     followUpPatterns: [/^[^没有]/],
@@ -1411,7 +1406,6 @@ export const scenariosD: readonly Scenario[] = [
       }
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
   },
   // D67 T2a-2 (arch boundary edge case #3): D-owner-direct-no-inbound —
@@ -1449,7 +1443,6 @@ export const scenariosD: readonly Scenario[] = [
       })
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
   },
   // D67 T2a-2 (arch boundary edge case #4): D-additional-2 — audit emit 失败
@@ -1482,7 +1475,6 @@ export const scenariosD: readonly Scenario[] = [
       void ctx
     },
     verify: () => {
-      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
     },
     followUps: [{ content: "确认" }],
     followUpPatterns: [/^[^没有]/],
