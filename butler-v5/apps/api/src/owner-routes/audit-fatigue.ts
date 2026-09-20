@@ -9,6 +9,7 @@ import {
   type UndoFn,
 } from "../lib/fatigue/replay.js"
 import { undoLastWrite } from "../workspace-tools.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * D69 T1 — owner audit fatigue replay API.
@@ -115,7 +116,7 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
   const reader = auditFatigueReader(wiring.runtimeStore, { columnActor: true })
 
   app.get("/v1/owner/audit/fatigue", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const windowRaw = Number(c.req.query("window_seconds") ?? "60")
     const windowSeconds = Number.isFinite(windowRaw) && windowRaw > 0 ? Math.floor(windowRaw) : 60
     const result = await listFatigueSequences(reader, currentOwnerActor(), windowSeconds)
@@ -123,7 +124,7 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/audit/fatigue/replay", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const raw: unknown = await c.req.json().catch(() => null)
     if (!isReplayBody(raw)) {
       return c.json({ error: `请求体格式错误：需要 { sequence_event_ids: 字符串数组 }（1-${MAX_REPLAY_BATCH} 个）` }, 400)

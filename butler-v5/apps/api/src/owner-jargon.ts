@@ -108,3 +108,18 @@ export function publicPath(absolutePath: string, workspaceRoot: string): string 
   }
   return absolutePath
 }
+
+/**
+ * D73 T1 (audit #19 SO-001): owner-facing unauthorized 401 response.
+ * Replaces 40 `c.text("unauthorized", 401)` sites across 13 owner-routes/*.ts
+ * files (D72 T2 sweep missed this batch — the c.text() envelope differs
+ * from the JSON `{ok:false,reason}` body that D72 swept). The body is
+ * "未授权" (Chinese) so owner never sees raw English "unauthorized".
+ *
+ * D72 T2 sweep translated `{ok:false,reason:"..."}` JSON envelopes but
+ * the c.text() 401 path is a separate Hono pattern. Centralizing here
+ * so future owner-routes can call this helper directly.
+ */
+export function unauthorizedForOwner(c: { text: (body: string, status: number) => Response }): Response {
+  return c.text("未授权", 401)
+}

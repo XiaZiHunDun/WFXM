@@ -8,6 +8,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { makeDedupChecker } from "./memory-dedup.js"
 import { handlePromoteMemory } from "./documents-promote-memory.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for documents, including document→memory and
@@ -19,7 +20,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   const checkDedup = makeDedupChecker()
 
   app.get("/v1/owner/documents", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.documentStore
     if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
@@ -36,7 +37,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.get("/v1/owner/documents/:documentId", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.documentStore
     if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
     const item = await store.get(c.req.param("documentId"))
@@ -45,7 +46,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/documents", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.documentStore
     if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
@@ -114,7 +115,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   )
 
   app.post("/v1/owner/documents/:documentId/promote-project-knowledge", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const docs = wiring.documentStore
     const pk = wiring.projectKnowledgeStore
     if (!docs || !pk) {
@@ -154,7 +155,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.delete("/v1/owner/documents/:documentId", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.documentStore
     if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
     const documentId = c.req.param("documentId")

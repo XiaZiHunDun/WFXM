@@ -15,13 +15,14 @@ import { rollbackAutoPromotedCandidate } from "@butler/domain/knowledge/auto-pro
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { safeOwnerError } from "../safe-owner-error.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 export async function handleRollbackAutoPromote(
   c: Context,
   wiring: Wiring,
   rollbackWindowMs: number,
 ): Promise<Response> {
-  if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+  if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
   const store = wiring.durableMemoryStore
   if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
   // Route param is guaranteed by the registered route path
@@ -121,7 +122,7 @@ export async function handleRollbackAutoPromote(
     // (e.g. another rollback won, or owner-confirmed path raced).
     // eslint-disable-next-line no-console -- operator log when no logger injected
     console.error(`[memory-rollback] concurrent-modification owner=owner id=${memoryId}`)
-    return c.json({ ok: false, error: "concurrent-modification" }, 409)
+    return c.json({ ok: false, error: "并发冲突：状态在验证与更新之间已被修改，请重试" }, 409)
   }
 
   // eslint-disable-next-line no-console -- operator log when no logger injected

@@ -24,9 +24,10 @@ import {
   assertOwnerApprovalRunTrigger,
   buildOwnerApprovalRunTrigger,
 } from "../owner-approval-trigger.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 export async function handleApproveStep(c: Context, wiring: Wiring): Promise<Response> {
-  if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+  if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
   // Route param is guaranteed by the registered route path
   // `/v1/owner/approvals/:stepId/approve`. `?? ""` mirrors memories-rollback.ts
   // (T2a) / tasks-run.ts (T2b) / documents-promote-memory.ts (T2c) because the

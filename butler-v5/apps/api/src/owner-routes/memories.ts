@@ -12,6 +12,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { makeDedupChecker } from "./memory-dedup.js"
 import { handleRollbackAutoPromote } from "./memories-rollback.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for durable memories, including batch
@@ -20,7 +21,7 @@ import { handleRollbackAutoPromote } from "./memories-rollback.js"
  */
 export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/memories", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
@@ -61,7 +62,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/memories", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
@@ -159,17 +160,17 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/memories/:memoryId/confirm", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const memoryId = c.req.param("memoryId")
     const existing = await store.get(memoryId)
     if (!existing) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     if (existing.status === "confirmed") {
-      return c.json({ ok: false, reason: "already confirmed" }, 409)
+      return c.json({ ok: false, reason: "已是已确认状态" }, 409)
     }
     if (existing.status === "expired") {
-      return c.json({ ok: false, reason: "already expired" }, 409)
+      return c.json({ ok: false, reason: "已是已过期状态" }, 409)
     }
     const updated = await store.update(confirmDurableMemory(existing, Date.now()))
     // D58 T4 (audit #3 F-03): §13 audit completeness — owner state
@@ -190,17 +191,17 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/memories/:memoryId/reject", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const memoryId = c.req.param("memoryId")
     const existing = await store.get(memoryId)
     if (!existing) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     if (existing.status === "rejected") {
-      return c.json({ ok: false, reason: "already rejected" }, 409)
+      return c.json({ ok: false, reason: "已是已拒绝状态" }, 409)
     }
     if (existing.status === "expired") {
-      return c.json({ ok: false, reason: "already expired" }, 409)
+      return c.json({ ok: false, reason: "已是已过期状态" }, 409)
     }
     const updated = await store.update(rejectDurableMemory(existing, Date.now()))
     // D58 T4 (audit #3 F-03): §13 audit completeness.
@@ -226,7 +227,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   )
 
   app.delete("/v1/owner/memories/:memoryId", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const memoryId = c.req.param("memoryId")
@@ -292,19 +293,19 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
           continue
         }
         if (record.subject !== args.subject) {
-          failed.push({ id, reason: "subject mismatch" })
+          failed.push({ id, reason: "主体不匹配" })
           continue
         }
         if (record.status === "confirmed") {
-          failed.push({ id, reason: "already confirmed" })
+          failed.push({ id, reason: "已是已确认状态" })
           continue
         }
         if (record.status === "rejected") {
-          failed.push({ id, reason: "already rejected" })
+          failed.push({ id, reason: "已是已拒绝状态" })
           continue
         }
         if (record.status === "expired") {
-          failed.push({ id, reason: "already expired" })
+          failed.push({ id, reason: "已是已过期状态" })
           continue
         }
         const updated = await args.store.update(args.transform(record, nowMs))
@@ -338,7 +339,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   const autoPromoteCfg = parseAutoPromoteConfig(process.env)
 
   app.post("/v1/owner/memories/confirm-batch", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const body = (await c.req.json().catch(() => null)) ?? null
@@ -375,7 +376,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/memories/reject-batch", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
     if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
     const body = (await c.req.json().catch(() => null)) ?? null

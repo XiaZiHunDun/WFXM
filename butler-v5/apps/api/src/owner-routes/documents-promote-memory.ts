@@ -12,13 +12,14 @@ import { createDurableMemoryRecord } from "@butler/domain/knowledge/durable-memo
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import type { makeDedupChecker } from "./memory-dedup.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 export async function handlePromoteMemory(
   c: Context,
   wiring: Wiring,
   checkDedup: ReturnType<typeof makeDedupChecker>,
 ): Promise<Response> {
-  if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+  if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
   const docs = wiring.documentStore
   const memories = wiring.durableMemoryStore
   if (!docs || !memories) {

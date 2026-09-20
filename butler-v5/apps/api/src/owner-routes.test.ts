@@ -783,7 +783,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
       failed: { id: string; reason: string }[]
     }
     expect(body.confirmed).toEqual([])
-    expect(body.failed).toEqual([{ id: id1, reason: "already confirmed" }])
+    expect(body.failed).toEqual([{ id: id1, reason: "已是已确认状态" }])
   })
 
   it("confirm-batch rejects subject mismatch", async () => {
@@ -802,7 +802,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
       failed: { id: string; reason: string }[]
     }
     expect(body.confirmed).toEqual([])
-    expect(body.failed).toEqual([{ id: saved.id, reason: "subject mismatch" }])
+    expect(body.failed).toEqual([{ id: saved.id, reason: "主体不匹配" }])
   })
 
   it("confirm-batch rejects empty ids with 400", async () => {
@@ -845,7 +845,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
       failed: { id: string; reason: string }[]
     }
     expect(body.rejected).toEqual([])
-    expect(body.failed).toEqual([{ id: id1, reason: "already rejected" }])
+    expect(body.failed).toEqual([{ id: id1, reason: "已是已拒绝状态" }])
   })
 
   it("single-record confirm returns 409 on re-confirm (regression: silent bump)", async () => {
@@ -859,7 +859,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
     })
     expect(second.status).toBe(409)
     const body = (await second.json()) as { ok: boolean; reason: string }
-    expect(body).toEqual({ ok: false, reason: "already confirmed" })
+    expect(body).toEqual({ ok: false, reason: "已是已确认状态" })
   })
 
   it("single-record reject returns 409 on re-reject (regression: silent bump)", async () => {
@@ -873,7 +873,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
     })
     expect(second.status).toBe(409)
     const body = (await second.json()) as { ok: boolean; reason: string }
-    expect(body).toEqual({ ok: false, reason: "already rejected" })
+    expect(body).toEqual({ ok: false, reason: "已是已拒绝状态" })
   })
 
   it("single-record confirm returns 409 when status='expired' (G1 terminal guard)", async () => {
@@ -884,7 +884,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
     })
     expect(res.status).toBe(409)
     const body = (await res.json()) as { ok: boolean; reason: string }
-    expect(body).toEqual({ ok: false, reason: "already expired" })
+    expect(body).toEqual({ ok: false, reason: "已是已过期状态" })
   })
 
   it("single-record reject returns 409 when status='expired' (G1 terminal guard)", async () => {
@@ -895,7 +895,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
     })
     expect(res.status).toBe(409)
     const body = (await res.json()) as { ok: boolean; reason: string }
-    expect(body).toEqual({ ok: false, reason: "already expired" })
+    expect(body).toEqual({ ok: false, reason: "已是已过期状态" })
   })
 
   it("confirm-batch puts expired ids in failed[] (G1 terminal guard, partial failure)", async () => {
@@ -911,7 +911,7 @@ describe("POST /v1/owner/memories/confirm-batch + /reject-batch", () => {
       failed: { id: string; reason: string }[]
     }
     expect(body.confirmed).toEqual([idCandidate])
-    expect(body.failed).toEqual([{ id: idExpired, reason: "already expired" }])
+    expect(body.failed).toEqual([{ id: idExpired, reason: "已是已过期状态" }])
   })
 })
 
@@ -1241,7 +1241,7 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     expect(res.status).toBe(409)
     const body = (await res.json()) as { ok: boolean; error: string }
     expect(body.ok).toBe(false)
-    expect(body.error).toBe("concurrent-modification")
+    expect(body.error).toBe("并发冲突：状态在验证与更新之间已被修改，请重试")
   })
 })
 

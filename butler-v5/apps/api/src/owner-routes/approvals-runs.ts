@@ -5,6 +5,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { safeOwnerError } from "../safe-owner-error.js"
 import { handleApproveStep } from "./approvals-approve.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for approvals and run lifecycle.
@@ -16,7 +17,7 @@ import { handleApproveStep } from "./approvals-approve.js"
  */
 export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/approvals", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const rows = await wiring.runtimeStore.listWaitingApprovalSteps()
     // P1 acceptance: sensitive parameters are not surfaced to the Owner-facing
     // approvals list. The pending tool `args` are needed only for resume and stay
@@ -44,7 +45,7 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/owner/approvals/:stepId/approve", (c) => handleApproveStep(c, wiring))
 
   app.post("/v1/owner/approvals/:stepId/deny", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const stepId = c.req.param("stepId")
     try {
       const deny = await denyWaitingStep(wiring.runtimeStore, stepId, "owner")
@@ -64,7 +65,7 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/runs/:runId/cancel", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const runId = c.req.param("runId")
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly subject?: string
@@ -103,7 +104,7 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/runs/expire-overdue", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly subject?: string
     }

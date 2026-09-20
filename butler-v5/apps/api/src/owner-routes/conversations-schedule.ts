@@ -4,6 +4,7 @@ import { ownerAuthorized } from "../owner-auth.js"
 import { parseScheduleWorkerConfig } from "../schedule-config.js"
 import { runScheduleTick } from "../schedule-worker.js"
 import { safeOwnerError } from "../safe-owner-error.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for conversations and the schedule tick.
@@ -11,7 +12,7 @@ import { safeOwnerError } from "../safe-owner-error.js"
  */
 export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/conversations", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const projectId = (c.req.query("projectId") ?? "").trim()
     if (!projectId) return c.text("缺少 projectId 参数", 400)
     const limitRaw = Number((c.req.query("limit") ?? "50").trim())
@@ -21,7 +22,7 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
   })
 
   app.get("/v1/owner/conversations/:conversationId/messages", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const conversationId = c.req.param("conversationId").trim()
     if (!conversationId) return c.text("缺少 conversationId 参数", 400)
     const limitRaw = Number((c.req.query("limit") ?? "50").trim())
@@ -37,7 +38,7 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
   })
 
   app.post("/v1/owner/schedule/tick", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const env = process.env
     const config = parseScheduleWorkerConfig(env)
     if (!config.enabled) {
@@ -54,7 +55,7 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
       )
     }
     if (config.jobs.length === 0) {
-      return c.json({ ok: false, reason: "no schedule jobs configured" }, 400)
+      return c.json({ ok: false, reason: "未配置定时任务" }, 400)
     }
     const lastAttemptByJob = new Map<string, number>()
     const scheduleInFlight = { value: false }

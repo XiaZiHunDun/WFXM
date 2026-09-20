@@ -7,6 +7,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { loadMcpManifestFromEnv, resolveMcpManifestServer } from "../mcp-manifest.js"
 import { safeOwnerError } from "../safe-owner-error.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for MCP status and scoped-grant revocation.
@@ -14,7 +15,7 @@ import { safeOwnerError } from "../safe-owner-error.js"
  */
 export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/mcp/status", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const env = process.env
     const enabled = isMcpEnabled(env)
     const bundle = wiring.mcp
@@ -80,7 +81,7 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
   })
 
   app.post("/v1/owner/mcp/servers/:serverId/revoke-grants", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const serverId = c.req.param("serverId").trim()
     if (!serverId) return c.text("缺少 serverId 参数", 400)
     const body = (await c.req.json().catch(() => ({}))) as { readonly subject?: string }

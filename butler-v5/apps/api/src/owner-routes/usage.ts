@@ -3,6 +3,7 @@ import type { TraceEvent } from "@butler/domain/observability/local-trace.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Per-conversation usage breakdown. `capabilityCalls` is a name → count
@@ -172,7 +173,7 @@ export function aggregateUsage(events: readonly TraceEvent[]): UsageAggregate {
  */
 export function registerUsageRoutes(app: Hono, _wiring: Wiring): void {
   app.get("/v1/owner/usage", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const tracer = getSharedLocalTracer()
     const conversationId = c.req.query("conversationId")?.trim() || undefined
     const limitRaw = Number(c.req.query("limit") ?? 5000)

@@ -13,9 +13,10 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { runTaskGoal } from "../task-run.js"
 import { safeOwnerError } from "../safe-owner-error.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 export async function handleTaskRun(c: Context, wiring: Wiring): Promise<Response> {
-  if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+  if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
   // Route param is guaranteed by the registered route path
   // `/v1/owner/tasks/:taskId/run`. `?? ""` mirrors memories-rollback.ts
   // pattern (T2a) because the extracted Context type loses Hono's route

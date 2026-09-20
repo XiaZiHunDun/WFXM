@@ -13,6 +13,7 @@ import {
   isProjectKnowledgeWatchEnabled,
 } from "../project-knowledge-sources-config.js"
 import { syncProjectKnowledgeFromManifest } from "../project-knowledge-sync.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for project knowledge, including file-backed
@@ -21,7 +22,7 @@ import { syncProjectKnowledgeFromManifest } from "../project-knowledge-sync.js"
  */
 export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/project-knowledge", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
     if (!store) return c.json({ ok: false, reason: "项目知识库暂不可用" }, 503)
     const projectId = (c.req.query("projectId") ?? "").trim()
@@ -36,7 +37,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   })
 
   app.get("/v1/owner/project-knowledge/:itemId", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
     if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
     const item = await store.get(c.req.param("itemId"))
@@ -45,7 +46,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   })
 
   app.post("/v1/owner/project-knowledge", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
     if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
@@ -133,7 +134,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   })
 
   app.post("/v1/owner/project-knowledge/sync", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
     if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
     const loaded = loadProjectKnowledgeSourcesFromEnv(process.env)
@@ -152,7 +153,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   })
 
   app.delete("/v1/owner/project-knowledge/:itemId", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
     if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
     const itemId = c.req.param("itemId")

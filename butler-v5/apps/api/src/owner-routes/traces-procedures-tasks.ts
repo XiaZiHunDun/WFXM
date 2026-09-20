@@ -7,6 +7,7 @@ import {
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { handleTaskRun } from "./tasks-run.js"
+import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for traces, procedures and tasks.
@@ -14,7 +15,7 @@ import { handleTaskRun } from "./tasks-run.js"
  */
 export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/traces", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const tracer = getSharedLocalTracer()
     const runId = c.req.query("runId")?.trim()
     const conversationId = c.req.query("conversationId")?.trim()
@@ -45,20 +46,20 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   })
 
   app.post("/v1/owner/traces/clear", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     resetSharedLocalTracer(process.env)
     return c.json({ ok: true })
   })
 
   app.get("/v1/owner/procedures", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.procedureStore
     if (!store) return c.json({ ok: false, reason: "流程存储暂不可用" }, 503)
     return c.json({ items: await store.list(100) })
   })
 
   app.post("/v1/owner/procedures", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.procedureStore
     if (!store) return c.json({ ok: false, reason: "procedure store unavailable" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
@@ -109,7 +110,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   })
 
   app.get("/v1/owner/tasks", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.taskStore
     if (!store) return c.json({ ok: false, reason: "task store unavailable" }, 503)
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
@@ -127,7 +128,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   })
 
   app.post("/v1/owner/tasks", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.taskStore
     if (!store) return c.json({ ok: false, reason: "task store unavailable" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
@@ -179,7 +180,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   app.post("/v1/owner/tasks/:taskId/run", (c) => handleTaskRun(c, wiring))
 
   app.post("/v1/owner/tasks/:taskId/done", async (c) => {
-    if (!ownerAuthorized(c)) return c.text("unauthorized", 401)
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.taskStore
     if (!store) return c.json({ ok: false, reason: "task store unavailable" }, 503)
     const existing = await store.get(c.req.param("taskId"))
