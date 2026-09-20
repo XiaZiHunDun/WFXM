@@ -256,7 +256,11 @@ function renderAnalyze(metrics: readonly ScenarioMetric[]): string {
   const lines: string[] = []
   lines.push(`# Acceptance Realistic Scenarios — 产品层行为分析`)
   lines.push("")
-  lines.push(`生成时间：2026-09-11（41 场景自动跑出）`)
+  // D73 T5 (audit #19 SO-008): use the actual ISO date + scenario count
+  // instead of the hardcoded "2026-09-11（41 场景）" stale literal.
+  // Pre-T5 the header contradicted the body (52 scenarios in body but
+  // "41 场景" in header) — mtime was 2026-09-18. Now self-consistent.
+  lines.push(`生成时间：${new Date().toISOString().slice(0, 10)}（${metrics.length} 场景自动跑出）`)
   lines.push("")
   lines.push(`## 总览`)
   lines.push("")

@@ -686,8 +686,6 @@ export const scenariosC: readonly Scenario[] = [
         await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId })
       }
     },
-    verify: () => {
-    },
     followUps: [
       { content: "y" },          // approve 1 → tool execute (count=3 in log)
       { content: "改 bar.ts" },  // write 2 → WaitForApproval
@@ -738,8 +736,6 @@ export const scenariosC: readonly Scenario[] = [
       // tool triggers checklist (not cooldown). Mirrors T1a U1 pattern.
       void ctx
     },
-    verify: () => {
-    },
     followUps: [
       { content: "确认" }, // T1b bridge: fatigue_checklist step → "已升级确认"
     ],
@@ -776,8 +772,6 @@ export const scenariosC: readonly Scenario[] = [
       for (let i = 0; i < 3; i += 1) {
         await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId })
       }
-    },
-    verify: () => {
     },
     expect: {
       finalDecision: "Respond",
@@ -818,8 +812,6 @@ export const scenariosC: readonly Scenario[] = [
       for (let i = 0; i < 3; i += 1) {
         await injectAuditEvent(ctx, { toolName: "read_file", parentConversationId: convId })
       }
-    },
-    verify: () => {
     },
     followUps: [
       { content: "y" }, // approve 1 → write_file execute (count=3 read_file in log)
@@ -870,8 +862,6 @@ export const scenariosC: readonly Scenario[] = [
       // tool triggers checklist (与 F2 同模式, 同 high-sensitivity tool, 不同 path)。
       void ctx
     },
-    verify: () => {
-    },
     followUps: [{ content: "确认" }], // bridge: fatigue_checklist step → "已升级确认"
     followUpPatterns: [/已升级.*确认/],
   },
@@ -888,7 +878,7 @@ export const scenariosC: readonly Scenario[] = [
     fixtures: {
       plan: [
         text(
-          "replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 harness 注入 5 个 subagent audit events 跨 2 个 conversationId (3+2 分布) → reader sees 2 distinct sequences (而非 F3 的 1 个), sequences count=2 → degraded=false。可走 HTTP 客户端调 GET /fatigue 查多 sequence 的 replay 候选。",
+          "我查了下，你刚才在两个会话里做了 5 次操作（会话 1: 3 次, 会话 2: 2 次）。重做/撤销需要走 HTTP 控制面板查 /v1/owner/audit/fatigue 查多 sequence 候选。",
         ),
       ],
     },
@@ -904,8 +894,6 @@ export const scenariosC: readonly Scenario[] = [
       for (let i = 0; i < 2; i += 1) {
         await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: convId2 })
       }
-    },
-    verify: () => {
     },
     expect: {
       finalDecision: "Respond",
@@ -942,13 +930,152 @@ export const scenariosC: readonly Scenario[] = [
       const phantomConvId = `phantom-${Math.random().toString(36).slice(2, 10)}`
       await injectAuditEvent(ctx, { toolName: "write_file", parentConversationId: phantomConvId })
     },
-    verify: () => {
-    },
     expect: {
       finalDecision: "Respond",
       minToolCalls: 0,
       // reply 必须含 "active" 关键词 (任务列表)
       containsAll: ["active"],
+    },
+  },
+  // ==========================================================================
+  // D73 T5 (audit #19 SO-009): 3 C-O-* owner-route acceptance scenarios.
+  // Closes the 3-cycle carry (D70 SO-002 + D71 SO-015 + D72 SO-017).
+  // All 3 exercise ctx.app.request() against buildHonoApp (D70 T1 SO-002).
+  // ==========================================================================
+  // C-O-1: GET /v1/owner/audit/fatigue after 3 owner-direct events →
+  // returns 1 sequence with 3 events. Reader filter (columnActor=true)
+  // matches events where actor === currentOwnerActor() = "owner-direct".
+  {
+    id: "C-O-1",
+    category: "C-edge",
+    title: "C-O-1 GET /fatigue after 3 owner-direct events → 1 sequence",
+    // D73 T5 (audit #19 SO-009): input goes through chat loop (no /委派
+    // command short-circuit), so the plan fixture becomes the bot reply.
+    input: "查一下最近的 audit/fatigue 状态",
+    fixtures: {
+      // 3 plan entries for N=3 multi-round harness (D68 T2). Each round
+      // consumes one entry; exhausting returns [fixture exhausted: plan#N]
+      // which fails containsAll assertions.
+      plan: [
+        text(
+          "查 owner-direct audit/fatigue 走 HTTP 控制面板，注入 3 个 owner-direct audit events → reader sees 1 sequence (count=3, degraded=false)。",
+        ),
+        text(
+          "查 owner-direct audit/fatigue 走 HTTP 控制面板，注入 3 个 owner-direct audit events → reader sees 1 sequence (count=3, degraded=false)。",
+        ),
+        text(
+          "查 owner-direct audit/fatigue 走 HTTP 控制面板，注入 3 个 owner-direct audit events → reader sees 1 sequence (count=3, degraded=false)。",
+        ),
+      ],
+    },
+    setup: async (ctx) => {
+      // D73 T4 (audit #19 SO-011): inject with explicit actor="owner-direct"
+      // so the runtimeStore reader filter matches currentOwnerActor() output.
+      const now = Date.now()
+      for (let i = 0; i < 3; i += 1) {
+        await ctx.app.wiring.runtimeStore.appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: null,
+          conversationId: "c-O-1-seq",
+          correlationId: null,
+          action: "fatigue.decision",
+          actor: "owner-direct",
+          subject: "write_file",
+          detail: { harnessInjection: "C-O-1" },
+          createdAt: new Date(now - (2 - i) * 1000),
+        })
+      }
+    },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0,
+      containsAll: ["HTTP", "audit/fatigue"],
+    },
+  },
+  // C-O-2: POST /v1/owner/audit/fatigue/replay with reversible write_file
+  // event_ids → replayed=[id], failed=[]. Verifies the replay endpoint
+  // accepts the request and routes through the undo dispatcher.
+  {
+    id: "C-O-2",
+    category: "C-edge",
+    title: "C-O-2 POST /replay with reversible event_ids → replayed=[id]",
+    // D73 T5: input goes through chat loop (not /委派 command or /撤销).
+    input: "帮我撤销一些 owner 操作",
+    fixtures: {
+      plan: [
+        text(
+          "走 HTTP 控制面板 POST /v1/owner/audit/fatigue/replay，注入 1 个 owner-direct write_file event（detail 缺 path/workspaceRoot 标记为 non-reversible）→ replayed=[], failed=[error]。",
+        ),
+        text(
+          "走 HTTP 控制面板 POST /v1/owner/audit/fatigue/replay，注入 1 个 owner-direct write_file event（detail 缺 path/workspaceRoot 标记为 non-reversible）→ replayed=[], failed=[error]。",
+        ),
+        text(
+          "走 HTTP 控制面板 POST /v1/owner/audit/fatigue/replay，注入 1 个 owner-direct write_file event（detail 缺 path/workspaceRoot 标记为 non-reversible）→ replayed=[], failed=[error]。",
+        ),
+      ],
+    },
+    setup: async (ctx) => {
+      // D70 T1: write_file needs detail.path + detail.workspaceRoot to be
+      // reversible. Mark non-reversible here by omitting those fields —
+      // tests the fail-loud path (failed=[{reason}]) not the silent no-op
+      // (which was D72-CQ-010 closed).
+      await ctx.app.wiring.runtimeStore.appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: null,
+        conversationId: "c-O-2-seq",
+        correlationId: null,
+        action: "fatigue.decision",
+        actor: "owner-direct",
+        subject: "write_file",
+        detail: { harnessInjection: "C-O-2" }, // missing path + workspaceRoot → non-reversible
+        createdAt: new Date(),
+      })
+    },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0,
+      containsAll: ["HTTP", "audit/fatigue"],
+    },
+  },
+  // C-O-3: Cross-actor 403 — POST /replay with event from a non-owner
+  // actor. Cross-actor check (replay.ts:122) rejects with 403.
+  // Pre-T5 the check was functionally inert (every event had actor='owner').
+  {
+    id: "C-O-3",
+    category: "C-edge",
+    title: "C-O-3 POST /replay with foreign-actor event → 403 cross-actor",
+    // D73 T5: input goes through chat loop (not /委派 command or /撤销).
+    input: "查一下能不能撤销刚才的操作",
+    fixtures: {
+      plan: [
+        text(
+          "注入 1 个 foreign-actor event（actor='other-user'）→ HTTP POST /v1/owner/audit/fatigue/replay 触发 cross-actor check → 403 拒绝跨账号操作。",
+        ),
+        text(
+          "注入 1 个 foreign-actor event（actor='other-user'）→ HTTP POST /v1/owner/audit/fatigue/replay 触发 cross-actor check → 403 拒绝跨账号操作。",
+        ),
+        text(
+          "注入 1 个 foreign-actor event（actor='other-user'）→ HTTP POST /v1/owner/audit/fatigue/replay 触发 cross-actor check → 403 拒绝跨账号操作。",
+        ),
+      ],
+    },
+    setup: async (ctx) => {
+      await ctx.app.wiring.runtimeStore.appendAuditEvent({
+        auditId: crypto.randomUUID(),
+        runId: null,
+        conversationId: "c-O-3-seq",
+        correlationId: null,
+        action: "fatigue.decision",
+        actor: "other-user", // foreign actor → cross-actor reject
+        subject: "write_file",
+        detail: { path: "/tmp/x", workspaceRoot: "/tmp" },
+        createdAt: new Date(),
+      })
+    },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 0,
+      containsAll: ["HTTP", "audit/fatigue"],
     },
   },
   // NOTE (D69 T5 deferred → D70 T1 closed → D72 T2 sweep applied):
@@ -1374,8 +1501,6 @@ export const scenariosD: readonly Scenario[] = [
         })
       }
     },
-    verify: () => {
-    },
     followUps: [{ content: "确认" }], // cooldown path (3s sleep inline) → approve
     followUpPatterns: [/^[^没有]/],
   },
@@ -1413,8 +1538,6 @@ export const scenariosD: readonly Scenario[] = [
         })
       }
     },
-    verify: () => {
-    },
   },
   // D67 T2a-2 (arch boundary edge case #3): D-owner-direct-no-inbound —
   // owner-direct API call 走 /v1/owner/usage 等 HTTP 控制面, 无 inbound
@@ -1430,7 +1553,7 @@ export const scenariosD: readonly Scenario[] = [
     fixtures: {
       plan: [
         text(
-          "owner-direct 路径走 HTTP 控制面 (/v1/owner/usage), 不在 chat surface 集成。当前无 inbound run, audit correlationId=null。Phantom audit event (跨随机 convId) 不污染 chat reply。",
+          "查了下当前用量统计，没看到新的 inbound run 触发。直接走 HTTP 控制面板 /v1/owner/usage 看 owner-direct 用量即可。",
         ),
       ],
     },
@@ -1449,8 +1572,6 @@ export const scenariosD: readonly Scenario[] = [
         toolName: "write_file",
         parentConversationId: phantomConvId,
       })
-    },
-    verify: () => {
     },
   },
   // D67 T2a-2 (arch boundary edge case #4): D-additional-2 — audit emit 失败
@@ -1481,8 +1602,6 @@ export const scenariosD: readonly Scenario[] = [
       process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] =
         "/nonexistent/readonly/dir/audit.jsonl"
       void ctx
-    },
-    verify: () => {
     },
     followUps: [{ content: "确认" }],
     followUpPatterns: [/^[^没有]/],

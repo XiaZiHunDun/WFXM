@@ -1,6 +1,5 @@
 import { delegate } from "@butler/runtime/delegate-runtime.js"
 import { defaultWechatConversationId } from "@butler/runtime/intake/conversation-id.js"
-import { readRecentSubagentAudit } from "./audit-log.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
@@ -57,24 +56,44 @@ export async function tryWechatSubagentCommand(args: {
   const active = getWechatActiveProjectId(subject, env)
 
   if (trimmed === "/委派状态" || trimmed === "/委派 状态") {
-    const rows = readRecentSubagentAudit(12, env)
-    if (rows.length === 0) {
+    // D73 T5 (audit #19 SO-007): swap JSONL read (readRecentSubagentAudit)
+    // for runtimeStore.listRecentAuditEvents — single source of truth matches
+    // the dual-write at audit-service.ts:12. Pre-T5 readers waited on the
+    // legacy JSONL path which only observed subagent events; the runtime
+    // audit_events table is now the canonical source (D69 T1 pattern).
+    const events = args.wiring.runtimeStore
+      ? await args.wiring.runtimeStore.listRecentAuditEvents({
+          windowMs: 7 * 24 * 3600 * 1000,
+          limit: 12,
+        })
+      : []
+    const subagentEvents = events.filter((e) => e.action.startsWith("subagent."))
+    if (subagentEvents.length === 0) {
       return done("暂无委派记录。\n用法：/委派 <任务> 或 /委派 <角色> | <任务>", [
         "wechat-subagent: status empty",
       ])
     }
     const lines = ["最近委派："]
-    for (const row of rows.slice().reverse()) {
-      const child = shortChildId(row.childConversationId)
-      const taskPreview = row.task.slice(0, 48)
-      if (row.kind === "delegation") {
-        lines.push(`• [排队] ${row.role} · ${taskPreview} · child…${child}`)
-      } else if (row.kind === "completion") {
+    for (const event of subagentEvents.slice().reverse()) {
+      const kind = event.action.slice("subagent.".length) // delegation | completion | rejection
+      const detail = (event.detail ?? {}) as {
+        readonly childConversationId?: string
+        readonly task?: string
+        readonly role?: string
+        readonly replyExcerpt?: string
+        readonly reason?: string
+      }
+      const child = shortChildId(detail.childConversationId ?? "")
+      const taskPreview = (detail.task ?? "").slice(0, 48)
+      const role = event.subject // owner subject at write, not role (per audit-service.ts:25)
+      if (kind === "delegation") {
+        lines.push(`• [排队] ${role} · ${taskPreview} · child…${child}`)
+      } else if (kind === "completion") {
         lines.push(
-          `• [完成] ${row.role} · ${taskPreview} · ${row.replyExcerpt?.slice(0, 40) ?? "—"}`,
+          `• [完成] ${role} · ${taskPreview} · ${detail.replyExcerpt?.slice(0, 40) ?? "—"}`,
         )
-      } else if (row.kind === "rejection") {
-        lines.push(`• [拒绝] ${row.role} · ${row.reason ?? "—"}`)
+      } else if (kind === "rejection") {
+        lines.push(`• [拒绝] ${role} · ${detail.reason ?? "—"}`)
       }
     }
     lines.push("", "新任务：/委派 <任务>")

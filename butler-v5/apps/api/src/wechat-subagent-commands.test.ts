@@ -7,7 +7,6 @@ import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { makeWiring, type Wiring } from "./wiring.js"
-import { appendAudit } from "./audit-log.js"
 import { tryWechatSubagentCommand } from "./wechat-subagent-commands.js"
 
 describe("wechat subagent commands", () => {
@@ -53,14 +52,22 @@ describe("wechat subagent commands", () => {
   })
 
   it("shows recent delegations from audit log", async () => {
-    appendAudit({
-      ts: new Date().toISOString(),
-      kind: "delegation",
-      parentConversationId: "c-wechat-u-sub",
-      childConversationId: "child-c-wechat-u-sub-1",
-      role: "general",
-      task: "smoke summary",
-      capabilities: ["general"],
+    // D73 T5 (audit #19 SO-007): fixture writes to runtimeStore (canonical
+    // source — was JSONL pre-T5). Mirrors audit-service.ts dual-write but
+    // here we write only the runtime row to verify the reader swap.
+    await wiring.runtimeStore.appendAuditEvent({
+      auditId: "11111111-1111-4111-8111-111111111111",
+      runId: null,
+      conversationId: "c-wechat-u-sub",
+      correlationId: "c-wechat-u-sub",
+      action: "subagent.delegation",
+      subject: "general",
+      detail: {
+        childConversationId: "child-c-wechat-u-sub-1",
+        task: "smoke summary",
+        capabilities: ["general"],
+      },
+      createdAt: new Date(),
     })
     const status = await tryWechatSubagentCommand({
       wiring,
