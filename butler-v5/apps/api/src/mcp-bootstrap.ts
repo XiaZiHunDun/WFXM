@@ -37,6 +37,8 @@ import {
 } from "./mcp-config.js"
 import { makeNodeStdioSpawn } from "./mcp-spawn.js"
 import type { ExecAuditContext } from "./exec-audit.js"
+import { makeGuardedFetch } from "./lib/dns-recheck.js"
+import { isBlockedMcpHost, envAllowsPrivateMcpHosts } from "./mcp-config.js"
 
 type McpBootstrapMode = "off" | "stub" | "multi" | McpConnectionConfig["kind"]
 
@@ -78,6 +80,18 @@ function makeTransport(
     readonly audit?: ExecAuditContext
   },
 ): McpTransport {
+  // D73 SEC-002: wrap the fetch with a DNS-recheck guard so each request
+  // re-resolves the hostname and re-validates every returned address
+  // against isBlockedMcpHost. parse-time guard alone is bypassable via
+  // DNS rebinding between parse and fetch. Operator can opt out via
+  // BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS=1 (matches parse-time env knob).
+  // stdio transport doesn't make outbound HTTP, so no guard needed.
+  const baseFetch = options.fetch ?? fetch
+  const httpOrSse = conn.kind === "http" || conn.kind === "sse"
+  const guardedFetch =
+    !httpOrSse || envAllowsPrivateMcpHosts(process.env)
+      ? baseFetch
+      : makeGuardedFetch(baseFetch, conn.url, isBlockedMcpHost)
   switch (conn.kind) {
     case "http":
       return makeMcpHttpTransport({
@@ -85,7 +99,7 @@ function makeTransport(
         timeoutMs: conn.timeoutMs,
         headers: authHeaders(conn.token),
         session: options.session,
-        ...(options.fetch ? { fetch: options.fetch } : {}),
+        fetch: guardedFetch,
       })
     case "sse":
       return makeMcpSseTransport({
@@ -93,7 +107,7 @@ function makeTransport(
         timeoutMs: conn.timeoutMs,
         headers: authHeaders(conn.token),
         session: options.session,
-        ...(options.fetch ? { fetch: options.fetch } : {}),
+        fetch: guardedFetch,
       })
     case "stdio":
       return makeMcpStdioTransport({

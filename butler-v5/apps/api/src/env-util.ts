@@ -4,6 +4,8 @@
  * Single source of truth so feature toggles parse identically everywhere
  * (previously duplicated per module, which allowed drift e.g. missing "yes").
  */
+import { safeCompareTrimmedSecrets } from "./lib/secure-compare.js"
+
 export function envTruthy(raw: string | undefined): boolean {
   if (!raw) return false
   const text = raw.trim().toLowerCase()
@@ -41,8 +43,12 @@ export function parseMcpTimeoutMs(env: NodeJS.ProcessEnv): number {
  * D72 T4 (audit #18 CQ-016): shared-secret auth check used by 3 Hono
  * handlers (wechat/inbound, events POST, ws/subscribe). Returns the
  * Hono response on auth failure (401) or null on success. Replaces a
- * 3× duplicated 7-line block. Note: the comparison remains
- * timing-unsafe; a future T-track can swap for timingSafeEqual.
+ * 3× duplicated 7-line block.
+ *
+ * D73 SEC-004: compare with `safeCompareTrimmedSecrets` (timing-safe)
+ * — was `!==` since D72 T4; symmetric with Telegram's now-closed
+ * timing-safe path. Length mismatch returns false without throwing
+ * (timingSafeEqual throws on unequal length).
  */
 export function requireInboundSharedSecret(
   env: NodeJS.ProcessEnv,
@@ -53,7 +59,7 @@ export function requireInboundSharedSecret(
     return new Response("inbound shared secret not configured", { status: 401 })
   }
   const provided = (headerValue ?? "").trim()
-  if (provided !== expected) {
+  if (!safeCompareTrimmedSecrets(expected, provided)) {
     return new Response("invalid inbound secret", { status: 401 })
   }
   return null

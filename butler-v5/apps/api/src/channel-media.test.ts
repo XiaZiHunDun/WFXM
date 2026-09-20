@@ -68,4 +68,29 @@ describe("channel media", () => {
     )
     expect(enriched.content).toContain("saved to")
   })
+
+  it("sanitizes path-traversal fileId (D73 SEC-005)", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getFile")) {
+        return Response.json({ ok: true, result: { file_path: "photos/file.jpg", file_size: 10 } })
+      }
+      return new Response(Buffer.from("hello"), { status: 200 })
+    })
+    const result = await downloadTelegramFile({
+      token: "tg-token",
+      // Malicious fileId — would escape cacheDir without sanitization.
+      fileId: "../etc/passwd",
+      cacheDir: "/tmp/butler-v5-telegram-traversal-test",
+      maxBytes: 1024,
+      suggestedName: "photo.jpg",
+      fetch: fetchMock as typeof fetch,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    // Sanitized fileId becomes ".._etc_passwd" — no `..` segment that
+    // could escape cacheDir. Path stays inside the configured dir.
+    expect(result.path).toContain("/tmp/butler-v5-telegram-traversal-test/")
+    expect(result.path).not.toMatch(/\.\.\//)
+    expect(result.path).toMatch(/.._etc_passwd-photo\.jpg$/)
+  })
 })

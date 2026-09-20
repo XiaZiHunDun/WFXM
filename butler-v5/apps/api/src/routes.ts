@@ -34,6 +34,7 @@ import { issueSubscribeToken } from "./ws-subscribe.js"
 import { captureWechatSessionSnapshot } from "./wechat-session-snapshot.js"
 import { maybePrependSessionDigest } from "./wechat-session-digest.js"
 import { requireInboundSharedSecret } from "./env-util.js"
+import { safeCompareTrimmedSecrets } from "./lib/secure-compare.js"
 
 /**
  * D71 T3 (audit #12 SEC-004 / SEC-005): parse a comma-separated
@@ -51,6 +52,18 @@ function parseAllowlist(raw: string | undefined): ReadonlySet<string> | null {
   if (parts.length === 0) return null
   return new Set(parts)
 }
+
+/**
+ * D73 SEC-001: canonical caller allowlist for /v1/ws/subscribe.
+ * The token bound to "owner" was previously operator-supplied and
+ * unauthenticated — any holder of BUTLER_V5_INBOUND_SHARED_SECRET
+ * could mint a token claiming any caller. Restrict the accepted
+ * callers to this fixed set; anything else returns 400.
+ *
+ * First entry is the default when the body omits `caller`. Real
+ * bearer-auth caller-binding is pre-scoped for D74+.
+ */
+const ALLOWED_CALLERS = ["owner", "cli", "wechat-forward"] as const
 
 export function createRoutes(app: Hono, wiring: Wiring) {
   app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
@@ -282,7 +295,10 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       return c.text("channel inbound secret not configured", 401)
     }
     const headerChannelSecret = c.req.header("x-channel-inbound-secret") ?? ""
-    if (headerChannelSecret.trim() !== expectedChannelSecret) {
+    // D73 SEC-004: timing-safe compare (was `!==`). Symmetric with the
+    // D72-closed Telegram timing-safe path. Length-mismatch short-circuits
+    // without throwing (timingSafeEqual throws on unequal length).
+    if (!safeCompareTrimmedSecrets(expectedChannelSecret, headerChannelSecret)) {
       return c.text("invalid channel inbound secret", 401)
     }
     const body = (await c.req.json().catch(() => null)) as null | {
@@ -488,9 +504,16 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       conversationId?: unknown
       /**
        * D72 T3 (audit #18 SEC-003): caller identity to bind to the
-       * issued token. Optional — when omitted, the token is issued
-       * without caller binding (legacy behavior preserved). When set,
-       * the WS upgrade must present the same caller string.
+       * issued token. Optional — when omitted, defaults to ALLOWANCE_CALLERS[0]
+       * ("owner") so legitimate same-process clients keep working without
+       * a caller field.
+       *
+       * D73 SEC-001: the body.caller field was operator-supplied and
+       * unauthenticated — any holder of BUTLER_V5_INBOUND_SHARED_SECRET
+       * could mint a token bound to caller="owner" (or any name) and
+       * impersonate that caller to downstream consumers. Restrict to
+       * a fixed allowlist of canonical callers. Real bearer-auth
+       * caller-binding is pre-scoped for D74+.
        */
       caller?: string
     }
@@ -506,23 +529,36 @@ export function createRoutes(app: Hono, wiring: Wiring) {
         400,
       )
     }
-    const caller = typeof body.caller === "string" ? body.caller.trim() : ""
-    const issued = issueSubscribeToken(parsedId.value, { ...(caller ? { caller } : {}) })
+    // D73 SEC-001: canonical caller allowlist. Anything outside the set
+    // is rejected with 400 — no string fallback, no passthrough. The
+    // shared-secret holder can still authenticate, but cannot bind the
+    // resulting token to a self-asserted identifier.
+    const rawCaller = typeof body.caller === "string" ? body.caller.trim() : ""
+    const caller = rawCaller === "" ? ALLOWED_CALLERS[0] : rawCaller
+    // ALLOWED_CALLERS is `as const` — Array.includes expects the narrower
+    // union, but caller is widened to string. Cast to readonly string[]
+    // so the guard narrows back to the allowed union (TS sees includes
+    // returning true iff caller is in the set).
+    if (!(ALLOWED_CALLERS as readonly string[]).includes(caller)) {
+      return c.text(
+        `invalid caller: must be one of ${ALLOWED_CALLERS.join(", ")}`,
+        400,
+      )
+    }
+    const issued = issueSubscribeToken(parsedId.value, { caller })
     if (!issued) {
       // D63 T4 (audit #9 F-14): token store at cap. Return 503 so the
       // caller knows to retry (after prune on existing tokens).
       return c.text("subscribe token store at capacity", 503)
     }
-    // D72 T3 (audit #18 SEC-003): include caller in wsPath so the WS
-    // upgrade can present the matching caller claim. When caller is
-    // empty, the query param is omitted (legacy path).
-    const wsPath = caller
-      ? `/v1/ws?token=${encodeURIComponent(issued.token)}&caller=${encodeURIComponent(caller)}`
-      : `/v1/ws?token=${encodeURIComponent(issued.token)}`
+    // D72 T3 (audit #18 SEC-003) + D73 SEC-001: include caller in wsPath
+    // so the WS upgrade can present the matching caller claim. Caller is
+    // always present now (allowlist default = "owner").
+    const wsPath = `/v1/ws?token=${encodeURIComponent(issued.token)}&caller=${encodeURIComponent(caller)}`
     return c.json(
       {
         conversationId: parsedId.value,
-        ...(caller ? { caller } : {}),
+        caller,
         token: issued.token,
         expiresAt: new Date(issued.expiresAtMs).toISOString(),
         wsPath,

@@ -371,6 +371,90 @@ describe("v5 wiring", () => {
     }
   })
 
+  it("D73 SEC-001: POST /v1/ws/subscribe defaults caller to 'owner' when omitted", async () => {
+    const prev = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-wiring-subscribe-secret"
+    try {
+      const app = makeWiringTestApp(wiring)
+      const res = await app.request("/v1/ws/subscribe", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-wiring-subscribe-secret",
+        },
+        body: JSON.stringify({ apiVersion: "v1", conversationId: "c-owner-default" }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { caller?: string; wsPath?: string }
+      expect(body.caller).toBe("owner")
+      expect(body.wsPath).toContain("caller=owner")
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+      else process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prev
+    }
+  })
+
+  it("D73 SEC-001: POST /v1/ws/subscribe accepts canonical callers (cli, wechat-forward)", async () => {
+    const prev = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-wiring-subscribe-secret"
+    try {
+      const app = makeWiringTestApp(wiring)
+      for (const caller of ["cli", "wechat-forward"]) {
+        const res = await app.request("/v1/ws/subscribe", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-inbound-secret": "test-wiring-subscribe-secret",
+          },
+          body: JSON.stringify({ apiVersion: "v1", conversationId: `c-${caller}`, caller }),
+        })
+        expect(res.status).toBe(201)
+        const body = (await res.json()) as { caller?: string }
+        expect(body.caller).toBe(caller)
+      }
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+      else process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prev
+    }
+  })
+
+  it("D73 SEC-001: POST /v1/ws/subscribe rejects non-allowlisted caller strings", async () => {
+    const prev = process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+    process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = "test-wiring-subscribe-secret"
+    try {
+      const app = makeWiringTestApp(wiring)
+      // The attacker vector: a shared-secret holder previously could
+      // mint a token bound to ANY caller string ("attacker", etc).
+      // After SEC-001, anything outside the canonical set is rejected.
+      // "owner " (trailing space) is trim-normalized to "owner" → allowed
+      // (test the exact-match path, not the trim edge case).
+      for (const caller of ["attacker", "admin", "OWNER", "Owner", "/owner"]) {
+        const res = await app.request("/v1/ws/subscribe", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-inbound-secret": "test-wiring-subscribe-secret",
+          },
+          body: JSON.stringify({ apiVersion: "v1", conversationId: "c-bad-caller", caller }),
+        })
+        expect(res.status).toBe(400)
+      }
+      // Empty caller defaults to "owner" — should pass.
+      const res = await app.request("/v1/ws/subscribe", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-inbound-secret": "test-wiring-subscribe-secret",
+        },
+        body: JSON.stringify({ apiVersion: "v1", conversationId: "c-default-owner" }),
+      })
+      expect(res.status).toBe(201)
+    } finally {
+      if (prev === undefined) delete process.env["BUTLER_V5_INBOUND_SHARED_SECRET"]
+      else process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] = prev
+    }
+  })
+
   it("channel inbound returns 404 when API disabled", async () => {
     const prev = process.env["BUTLER_V5_CHANNEL_API_ENABLED"]
     delete process.env["BUTLER_V5_CHANNEL_API_ENABLED"]

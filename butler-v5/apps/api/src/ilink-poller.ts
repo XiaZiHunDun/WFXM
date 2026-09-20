@@ -25,6 +25,8 @@ import {
 } from "./ilink-config.js"
 import { loadSyncBuf, saveSyncBuf } from "./ilink-sync.js"
 import { resolveWechatInboundProjectId } from "./wechat-active-project.js"
+import { envAllowsPrivateInboundHosts, isBlockedInboundHost } from "./mcp-config.js"
+import { makeGuardedFetch } from "./lib/dns-recheck.js"
 
 export type IlinkPollerLogger = {
   readonly warn: (msg: string, ...args: unknown[]) => void
@@ -239,6 +241,16 @@ function startIlinkPoller(
 ): IlinkPollerHandle {
   const logger = opts.logger ?? defaultLogger
   const fetchImpl = opts.fetch ?? fetch
+  // D73 SEC-002: wrap postInboundHttp's fetch with a DNS-recheck guard.
+  // Each inbound POST re-resolves V5_INBOUND_URL and re-validates every
+  // returned address against isBlockedInboundHost. The parse-time guard
+  // runs once at startup; an attacker rebinding the DNS record between
+  // cycles would otherwise bypass it.
+  // Operator can opt out via BUTLER_V5_INBOUND_ALLOW_PRIVATE_HOSTS=1
+  // (matches parse-time env knob).
+  const inboundFetch = envAllowsPrivateInboundHosts(process.env)
+    ? fetchImpl
+    : makeGuardedFetch(fetchImpl, config.inboundUrl, isBlockedInboundHost)
   const sleep = opts.sleep ?? delay
   const client: ILinkClientConfig = {
     baseUrl: config.baseUrl,
@@ -259,7 +271,7 @@ function startIlinkPoller(
         {
           getUpdates: (syncBuf) => ilinkGetUpdates(client, syncBuf),
           postInbound: (input) =>
-            postInboundHttp(config.inboundUrl, config.inboundTimeoutMs, input, fetchImpl),
+            postInboundHttp(config.inboundUrl, config.inboundTimeoutMs, input, inboundFetch),
           sendMessage: (input) => ilinkSendMessage(client, input),
           accountId: config.accountId,
           emptyPollDelayMs: config.emptyPollDelayMs,

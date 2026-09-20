@@ -152,8 +152,14 @@ export async function downloadTelegramFile(config: {
       return { ok: false, reason: `telegram file exceeds ${config.maxBytes} bytes` }
     }
     await mkdir(config.cacheDir, { recursive: true })
+    // D73 SEC-005: sanitize fileId before interpolating into a filesystem
+    // path. Telegram normally returns file_id as [A-Za-z0-9_-]+, but the
+    // parser doesn't enforce that — a malformed/MITM file_id like
+    // "../etc/passwd" would escape cacheDir because join() doesn't strip
+    // parent-dir segments already present in the input.
     const safeName = config.suggestedName.replace(/[^\w.-]+/g, "_").slice(0, 120)
-    const path = join(config.cacheDir, `${config.fileId}-${safeName}`)
+    const safeFileId = String(config.fileId).replace(/[^\w.-]+/g, "_").slice(0, 64)
+    const path = join(config.cacheDir, `${safeFileId}-${safeName}`)
     await writeFile(path, buf)
     return { ok: true, path }
   } catch (err) {

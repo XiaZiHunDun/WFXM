@@ -3,7 +3,7 @@ import type { Wiring } from "./wiring.js"
 import { isChannelAllowed, parseAllowedChannelIds } from "./channel-config.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import { describeTelegramMedia, type ChannelInboundMedia } from "./channel-media.js"
-import { timingSafeEqual } from "node:crypto"
+import { timingSafeEqualStrings } from "./lib/secure-compare.js"
 
 export interface ChannelInboundInput {
   readonly wiring: Wiring
@@ -168,19 +168,9 @@ export function telegramWebhookAuthorized(
   // (timingSafeEqual throws on unequal length, but we want a stable
   // boolean). Both sides are trimmed first; trim() can vary in length
   // per request but the compare is over the trimmed values.
+  // D73 SEC-004: helper promoted to lib/secure-compare.ts so channel-inbound
+  // + inbound-shared-secret + future sites share one source of truth.
   const provided = (headerSecret ?? "").trim()
   if (provided.length !== expected.length) return false
   return timingSafeEqualStrings(provided, expected)
-}
-
-/**
- * D72 T3 (audit #18 SEC-001): constant-time string equality on equal-length
- * inputs. Node's `crypto.timingSafeEqual` works on Buffers; we wrap it for
- * ASCII/UTF-8 secrets. Length must match the caller's responsibility.
- */
-function timingSafeEqualStrings(a: string, b: string): boolean {
-  const bufA = Buffer.from(a, "utf8")
-  const bufB = Buffer.from(b, "utf8")
-  // timingSafeEqual throws if lengths differ; we already gated above.
-  return timingSafeEqual(bufA, bufB)
 }

@@ -277,12 +277,11 @@ export function isBlockedMcpHost(hostname: string): boolean {
       host.startsWith("172.30.") || host.startsWith("172.31.")) return true
   // Link-local IPv4
   if (host.startsWith("169.254.")) return true
-  // IPv6 ULA fc00::/7 (covers fc00-fdff)
-  if (host.startsWith("fc") || host.startsWith("fd")) {
-    // very rough: assume 4-char hex prefix; full validation would parse
-    // the address — sufficient for a host-string literal check.
-    return true
-  }
+  // D73 SEC-003: IPv6 ULA fc00::/7 (covers fc00-fdff). Restrict to actual
+  // IPv6 literal hostnames (containing ':' or wrapped in '[...]') so the
+  // prefix match doesn't false-positive on public IPv4-style hostnames that
+  // happen to start with "fc" / "fd" (e.g. fc-public-mcp.example.com).
+  if (/^\[?fc[0-9a-f]{2}:/i.test(host) || /^\[?fd[0-9a-f]{2}:/i.test(host)) return true
   // IPv6 link-local fe80::/10
   if (host.startsWith("fe80:") || host.startsWith("fe80::") || host.startsWith("[fe80")) return true
   return false
@@ -326,8 +325,10 @@ export function isBlockedInboundHost(hostname: string): boolean {
       host.startsWith("172.30.") || host.startsWith("172.31.")) return true
   // Link-local IPv4
   if (host.startsWith("169.254.")) return true
-  // IPv6 ULA fc00::/7
-  if (host.startsWith("fc") || host.startsWith("fd")) return true
+  // D73 SEC-003: IPv6 ULA fc00::/7. Mirror isBlockedMcpHost fix — restrict
+  // to actual IPv6 literals so public hostnames starting with "fc"/"fd"
+  // (e.g. fc-public-mcp.example.com) aren't false-positive blocked.
+  if (/^\[?fc[0-9a-f]{2}:/i.test(host) || /^\[?fd[0-9a-f]{2}:/i.test(host)) return true
   // IPv6 link-local fe80::/10
   if (host.startsWith("fe80:") || host.startsWith("fe80::") || host.startsWith("[fe80")) return true
   return false

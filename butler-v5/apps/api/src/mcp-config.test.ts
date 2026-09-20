@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import type { McpManifestServer } from "@butler/domain/mcp/manifest.js"
 import {
+  isBlockedInboundHost,
+  isBlockedMcpHost,
   mcpHasServerEndpoint,
   parseMcpConnectionConfig,
   parseMcpTransportKind,
@@ -80,5 +82,31 @@ describe("parseMcpConnectionConfig", () => {
       "--openapi-spec",
       "/repo/butler-v5/config/openapi/todoist-v1-readonly.yml",
     ])
+  })
+})
+
+// D73 SEC-003: IPv6 ULA prefix match must restrict to actual IPv6
+// literal hostnames (containing ':' or wrapped in '[...]') so public
+// hostnames that happen to start with "fc" / "fd" are not false-positive
+// blocked. Before the fix, `host.startsWith("fc")` matched any string
+// starting with those two letters — silently blocking public
+// hostnames like `fc-public-mcp.example.com`.
+describe("isBlockedMcpHost / isBlockedInboundHost — IPv6 ULA prefix (D73 SEC-003)", () => {
+  it("does NOT block public hostnames that start with 'fc'", () => {
+    expect(isBlockedMcpHost("fc-public-mcp.example.com")).toBe(false)
+    expect(isBlockedInboundHost("fc-public-mcp.example.com")).toBe(false)
+  })
+
+  it("does NOT block public hostnames that start with 'fd'", () => {
+    expect(isBlockedMcpHost("fdashboards.example.com")).toBe(false)
+    expect(isBlockedInboundHost("fdashboards.example.com")).toBe(false)
+  })
+
+  it("still blocks actual IPv6 ULA literal hostnames (fc00::/7)", () => {
+    expect(isBlockedMcpHost("fc00:1234::1")).toBe(true)
+    expect(isBlockedMcpHost("fd00:abcd::1")).toBe(true)
+    expect(isBlockedMcpHost("[fc00::1]:8080")).toBe(true)
+    expect(isBlockedInboundHost("fc00:1234::1")).toBe(true)
+    expect(isBlockedInboundHost("[fd00::1]")).toBe(true)
   })
 })
