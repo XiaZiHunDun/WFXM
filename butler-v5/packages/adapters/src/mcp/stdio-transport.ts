@@ -1,5 +1,6 @@
 import type { McpTransport } from "./client.js"
 import { isMcpNotification } from "./session.js"
+import { DEFAULT_MCP_TIMEOUT_MS } from "../defaults.js"
 
 export interface StdioLineProcess {
   readonly writeLine: (line: string) => void
@@ -83,7 +84,7 @@ export function makeMcpStdioTransport(config: McpStdioTransportConfig): McpTrans
         )
         return { result: null }
       }
-      const timeoutMs = config.timeoutMs ?? 30_000
+      const timeoutMs = config.timeoutMs ?? DEFAULT_MCP_TIMEOUT_MS
       return await new Promise<{ readonly result: unknown }>((resolve, reject) => {
         const timer = setTimeout(() => {
           pending.delete(id as number)

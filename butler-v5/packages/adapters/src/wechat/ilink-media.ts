@@ -11,6 +11,7 @@ import {
 } from "./ilink-protocol.js"
 
 import { WECHAT_OUTBOUND_NETWORK_HOST_SET } from "@butler/domain/governance/wechat-network-hosts.js"
+import { DEFAULT_MEDIA_TIMEOUT_MS } from "../defaults.js"
 
 // D70 T4 (audit #11 SEC-001): re-export so cli's wechat-login.ts can
 // validate QR-confirmed baseUrl without taking a direct @butler/domain
@@ -188,7 +189,7 @@ export async function downloadAndCacheIlinkMedia(
     return { ok: false, reason: "media item had neither encrypt_query_param nor full_url" }
   }
 
-  const timeoutMs = config.timeoutMs ?? 30_000
+  const timeoutMs = config.timeoutMs ?? DEFAULT_MEDIA_TIMEOUT_MS
   const downloaded = await fetchBytes(url, config.fetch, config.maxBytes, timeoutMs)
   if (!downloaded.ok) return downloaded
   let bytes = downloaded.value

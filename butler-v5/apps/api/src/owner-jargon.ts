@@ -98,18 +98,6 @@ export function describeEnvKnob(envVarName: string): string {
 }
 
 /**
- * Render an absolute filesystem path as a workspace-relative display path
- * for owner-facing replies. Falls back to `path` if it cannot be made
- * relative (path outside workspace root).
- */
-export function publicPath(absolutePath: string, workspaceRoot: string): string {
-  if (workspaceRoot && absolutePath.startsWith(workspaceRoot + "/")) {
-    return absolutePath.slice(workspaceRoot.length + 1)
-  }
-  return absolutePath
-}
-
-/**
  * D73 T1 (audit #19 SO-001): owner-facing unauthorized 401 response.
  * Replaces 40 `c.text("unauthorized", 401)` sites across 13 owner-routes/*.ts
  * files (D72 T2 sweep missed this batch — the c.text() envelope differs

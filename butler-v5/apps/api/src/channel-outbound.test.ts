@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { sendTelegramOutboundMessage, slackOutboundEnabled } from "./channel-outbound.js"
+import { sendTelegramOutboundMessage } from "./channel-outbound.js"
 import { sendSlackOutboundMessage } from "@butler/adapters/slack/index.js"
 
 describe("channel outbound", () => {
@@ -38,10 +38,5 @@ describe("channel outbound", () => {
     })
     expect(result).toEqual({ ok: true })
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/bottg-token/sendMessage")
-  })
-
-  it("detects slack outbound when bot token is set", () => {
-    expect(slackOutboundEnabled({ BUTLER_V5_SLACK_BOT_TOKEN: "xoxb-1" })).toBe(true)
-    expect(slackOutboundEnabled({})).toBe(false)
   })
 })

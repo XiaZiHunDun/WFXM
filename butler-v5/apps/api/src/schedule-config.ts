@@ -93,7 +93,11 @@ export function parseScheduleWorkerConfig(
   env: NodeJS.ProcessEnv = process.env,
   cwd: string = process.cwd(),
 ): ScheduleWorkerConfig {
-  const enabled = envTruthy(env["BUTLER_V5_SCHEDULE_ENABLED"])
+  // D73 T3 (audit #19 CQ-005): call isScheduleEnabled so the single source
+  // of truth for the enabled check lives in one named helper. The
+  // envTruthy inline pattern duplicated the same 4-line truthy mapping in
+  // 3 schedule-* modules; isScheduleEnabled makes the surface explicit.
+  const enabled = isScheduleEnabled(env)
   const tickMs = asPositiveInt(env["BUTLER_V5_SCHEDULE_TICK_MS"], 60_000)
   const deferWhenMainBusy = envTruthy(env["BUTLER_V5_SCHEDULE_DEFER_WHEN_BUSY"])
   const inline = (env["BUTLER_V5_SCHEDULE_JOBS"] ?? "").trim()

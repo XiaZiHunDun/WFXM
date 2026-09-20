@@ -7,6 +7,7 @@
  * upload — 30s default timeout.
  */
 import type { SlackOutboundResult } from "./slack-outbound.js"
+import { DEFAULT_MEDIA_TIMEOUT_MS } from "../defaults.js"
 
 export async function sendSlackOutboundFile(config: {
   readonly token: string
@@ -28,7 +29,7 @@ export async function sendSlackOutboundFile(config: {
   if (config.threadTs) form.append("thread_ts", config.threadTs)
 
   const controller = new AbortController()
-  const timeoutMs = config.timeoutMs ?? 30_000
+  const timeoutMs = config.timeoutMs ?? DEFAULT_MEDIA_TIMEOUT_MS
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetchFn("https://slack.com/api/files.upload", {

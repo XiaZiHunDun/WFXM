@@ -3,7 +3,6 @@ import {
   describeEnvKnob,
   formatDecision,
   formatRunRef,
-  publicPath,
   resolveProjectLabel,
 } from "./owner-jargon.js"
 
@@ -73,24 +72,6 @@ describe("owner-jargon helpers", () => {
     it("falls back to '配置项 <name>' for unknown knobs", () => {
       expect(describeEnvKnob("BUTLER_V5_FUTURE_KNOB")).toBe("配置项 FUTURE_KNOB")
       expect(describeEnvKnob("UNKNOWN_PREFIX")).toBe("配置项 UNKNOWN_PREFIX")
-    })
-  })
-
-  describe("publicPath", () => {
-    it("strips workspace root prefix", () => {
-      expect(publicPath("/workspace/foo/bar.ts", "/workspace")).toBe("foo/bar.ts")
-    })
-
-    it("returns absolute path when not under workspace root", () => {
-      expect(publicPath("/other/foo.ts", "/workspace")).toBe("/other/foo.ts")
-    })
-
-    it("handles empty workspace root (returns absolute path verbatim)", () => {
-      expect(publicPath("/workspace/foo.ts", "")).toBe("/workspace/foo.ts")
-    })
-
-    it("does not strip prefix that is only a substring (avoids /workspace2 → workspace)", () => {
-      expect(publicPath("/workspace2/foo.ts", "/workspace")).toBe("/workspace2/foo.ts")
     })
   })
 })

@@ -4,6 +4,7 @@ import {
   isMcpNotification,
   type McpSessionRef,
 } from "./session.js"
+import { DEFAULT_MCP_TIMEOUT_MS } from "../defaults.js"
 
 export interface McpHttpTransportConfig {
   readonly url: string
@@ -38,7 +39,7 @@ export function makeMcpHttpTransport(config: McpHttpTransportConfig): McpTranspo
           })
 
       const controller = new AbortController()
-      const timeoutMs = config.timeoutMs ?? 30_000
+      const timeoutMs = config.timeoutMs ?? DEFAULT_MCP_TIMEOUT_MS
       const timer = setTimeout(() => controller.abort(), timeoutMs)
       try {
         const res = await fetchFn(config.url, {

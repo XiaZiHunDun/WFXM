@@ -19,9 +19,23 @@ import { runButlerLoop, type ButlerLoopLogger } from "./wechat-inbound-butler.js
 import { resolveIntakeLoopOptions } from "./wechat-intake.js"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { normalizeCapabilityNames } from "./capability-guard.js"
-import {
-  waitForCondition,
-} from "./wechat-async-harness.js"
+
+// D73 T3 (audit #19 CQ-003): inlined waitForCondition from the now-deleted
+// apps/api/src/wechat-async-harness.ts (test fixture masquerading as
+// production module — file was a test-only helper masquerading in apps/api).
+async function waitForCondition(
+  predicate: () => Promise<boolean>,
+  opts: { readonly timeoutMs?: number; readonly intervalMs?: number } = {},
+): Promise<boolean> {
+  const timeoutMs = opts.timeoutMs ?? 120_000
+  const intervalMs = opts.intervalMs ?? 50
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (await predicate()) return true
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+  return predicate()
+}
 
 function textResponse(content: string): LLMAssistantResponse {
   return { content, toolCalls: [], stopReason: "end_turn" }

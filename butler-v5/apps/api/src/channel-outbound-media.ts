@@ -7,6 +7,7 @@ import { basename, isAbsolute, resolve } from "node:path"
 // canonical definition from channel-outbound.ts (the broader file) to
 // remove the duplicate.
 import type { ChannelOutboundResult } from "./channel-outbound.js"
+import { DEFAULT_MEDIA_TIMEOUT_MS } from "@butler/adapters"
 
 export type { ChannelOutboundResult }
 
@@ -158,7 +159,7 @@ export async function sendTelegramOutboundMedia(config: {
   if (config.caption?.trim()) form.append("caption", config.caption.trim().slice(0, 1024))
 
   const controller = new AbortController()
-  const timeoutMs = config.timeoutMs ?? 30_000
+  const timeoutMs = config.timeoutMs ?? DEFAULT_MEDIA_TIMEOUT_MS
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetchFn(url, { method: "POST", body: form, signal: controller.signal })

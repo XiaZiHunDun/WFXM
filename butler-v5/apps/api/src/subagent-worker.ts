@@ -32,7 +32,7 @@
 import { Effect } from "effect"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
-import { type LLMAdapter, type LLMMessage } from "@butler/adapters"
+import { type LLMAdapter, type LLMMessage, DEFAULT_LLM_TIMEOUT_MS } from "@butler/adapters"
 import { ALLOWED_CAPABILITIES } from "@butler/runtime/delegate-runtime.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
@@ -94,7 +94,7 @@ const DELEGATE_AGGREGATE_TYPE = "Delegate" as const
  * generous enough for a real model call while still bounded so a
  * stuck provider does not stall the polling loop.
  */
-const LLM_TIMEOUT_MS = 30_000
+const LLM_TIMEOUT_MS = DEFAULT_LLM_TIMEOUT_MS
 
 /**
  * Polling interval in milliseconds. Short enough to feel responsive
