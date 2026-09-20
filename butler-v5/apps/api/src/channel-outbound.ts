@@ -5,6 +5,8 @@ import {
   sendTelegramOutboundMedia,
 } from "./channel-outbound-media.js"
 import { sendSlackOutboundFile, sendSlackOutboundMessage } from "@butler/adapters/slack/index.js"
+import { DEFAULT_TELEGRAM_TEXT_TIMEOUT_MS } from "@butler/adapters"
+import { Secret } from "@butler/adapters/wechat/secret.js"
 import { mapChannelErrorToOwnerJargon } from "./owner-jargon.js"
 
 export type ChannelOutboundResult =
@@ -39,7 +41,7 @@ export async function sendTelegramOutboundMessage(
 
   const fetchFn = config.fetch ?? fetch
   const controller = new AbortController()
-  const timeoutMs = config.timeoutMs ?? 15_000
+  const timeoutMs = config.timeoutMs ?? DEFAULT_TELEGRAM_TEXT_TIMEOUT_MS
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   const url = `${TELEGRAM_API}/bot${token}/sendMessage`
   try {
@@ -228,10 +230,24 @@ export async function deliverTelegramChannelReply(config: {
   }
 }
 
-export function slackBotToken(env: NodeJS.ProcessEnv = process.env): string {
-  return (env["BUTLER_V5_SLACK_BOT_TOKEN"] ?? "").trim()
+/**
+ * D74 T4 (audit #20 SEC-006): wrap return values in Secret<T> so
+ * accidental `console.log(slackBotToken())` prints `[REDACTED]` instead
+ * of the cleartext token. Mirrors packages/adapters/src/wechat/secret.ts
+ * adopted at ilink.ts:206 (D72 T3).
+ *
+ * Callers must `.unwrap()` at the fetch call site (HTTP header
+ * construction). The verbose call site is intentional — every
+ * `.unwrap()` is a code-review signal.
+ */
+export function slackBotToken(
+  env: NodeJS.ProcessEnv = process.env,
+): Secret<string> {
+  return Secret.create((env["BUTLER_V5_SLACK_BOT_TOKEN"] ?? "").trim())
 }
 
-export function telegramBotToken(env: NodeJS.ProcessEnv = process.env): string {
-  return (env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] ?? "").trim()
+export function telegramBotToken(
+  env: NodeJS.ProcessEnv = process.env,
+): Secret<string> {
+  return Secret.create((env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] ?? "").trim())
 }

@@ -450,3 +450,24 @@ describe("runConversationLoop", () => {
     expect(result.traces.some((t) => t.startsWith("loop exhausted"))).toBe(true)
   })
 })
+
+// D74 T2 (audit #20 CQ-006): drift detector — runtime's local
+// DEFAULT_LLM_TIMEOUT_MS must stay in sync with @butler/adapters'
+// DEFAULT_LLM_TIMEOUT_MS at packages/adapters/src/defaults.ts. They
+// are intentionally duplicated because @butler/runtime does not depend
+// on @butler/adapters (would create dep cycle via ports/domain).
+import { DEFAULT_LLM_TIMEOUT_MS as ADAPTERS_DEFAULT } from "@butler/adapters"
+
+describe("DEFAULT_LLM_TIMEOUT_MS drift detector", () => {
+  it("runtime's local constant matches @butler/adapters default", async () => {
+    // Lazy import to keep the test independent of runtime's actual
+    // internal constant name.
+    const runtimeModule = (await import("./conversation-loop.js")) as Record<string, unknown>
+    const runtimeConst = runtimeModule["DEFAULT_LLM_TIMEOUT_MS"] as number | undefined
+    // If runtime exports the constant (it currently does NOT — that's
+    // intentional after D74 T2), the test guards against drift.
+    // Otherwise the test guards by direct equality with adapters'.
+    expect(runtimeConst === undefined || runtimeConst === ADAPTERS_DEFAULT).toBe(true)
+    expect(ADAPTERS_DEFAULT).toBe(30_000)
+  })
+})

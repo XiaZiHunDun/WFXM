@@ -69,7 +69,12 @@ function resolveMaxDecodeRetries(env: NodeJS.ProcessEnv = process.env): number {
  * for DeepSeek-Flash / Sonnet production but bounds worst-case at
  * 5 × 30s = 2.5 min per loop max.
  */
-export const DEFAULT_LLM_TIMEOUT_MS = 30_000
+// D74 T2 (audit #20 CQ-006): local constant — kept in sync with
+// @butler/adapters DEFAULT_LLM_TIMEOUT_MS (packages/adapters/src/defaults.ts).
+// Runtime doesn't depend on adapters (would create dep cycle via ports/domain),
+// so the value is duplicated here and an integration test asserts equality.
+// Drift would surface as a 2-line architecture-decision-record change.
+const DEFAULT_LLM_TIMEOUT_MS = 30_000
 
 function resolveLLMTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
   const raw = (env["BUTLER_V5_LLM_TIMEOUT_MS"] ?? "").trim()

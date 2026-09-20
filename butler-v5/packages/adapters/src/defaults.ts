@@ -15,6 +15,11 @@
  * the per-site env knob (e.g. BUTLER_V5_MCP_TIMEOUT_MS for MCP sites,
  * which env-util.ts:parseMcpTimeoutMs already handles).
  *
+ * D74 T2 (audit #20 CQ-007): added DEFAULT_TELEGRAM_TEXT_TIMEOUT_MS for
+ * the sendMessage (text-only) Telegram API call — distinct from media
+ * uploads (which use DEFAULT_MEDIA_TIMEOUT_MS). 15s is shorter because
+ * text send is a single API roundtrip; media uploads can be larger.
+ *
  * Site-specific knobs (60_000 in wechat-quality-gate.ts) intentionally
  * retain their own defaults — don't extend these constants to those sites.
  */
@@ -22,3 +27,4 @@
 export const DEFAULT_MCP_TIMEOUT_MS = 30_000
 export const DEFAULT_MEDIA_TIMEOUT_MS = 30_000
 export const DEFAULT_LLM_TIMEOUT_MS = 30_000
+export const DEFAULT_TELEGRAM_TEXT_TIMEOUT_MS = 15_000
