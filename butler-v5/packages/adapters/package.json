@@ -18,7 +18,8 @@
     "./mcp/http-transport.js": "./src/mcp/http-transport.ts",
     "./mcp/stdio-transport.js": "./src/mcp/stdio-transport.ts",
     "./mcp/sse-transport.js": "./src/mcp/sse-transport.ts",
-    "./credentials/host-credentials.js": "./src/credentials/host-credentials.ts"
+    "./credentials/host-credentials.js": "./src/credentials/host-credentials.ts",
+    "./wechat/secret.js": "./src/wechat/secret.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

@@ -35,6 +35,7 @@ import { captureWechatSessionSnapshot } from "./wechat-session-snapshot.js"
 import { maybePrependSessionDigest } from "./wechat-session-digest.js"
 import { requireInboundSharedSecret } from "./env-util.js"
 import { safeCompareTrimmedSecrets } from "./lib/secure-compare.js"
+import { markChannelSeen } from "./lib/channel-seen-ids.js"
 
 /**
  * D71 T3 (audit #12 SEC-004 / SEC-005): parse a comma-separated
@@ -395,10 +396,13 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       let delivered = false
       let deliveryReason: string | undefined
       let mediaCount = 0
-      const token = slackBotToken(process.env)
-      if (token) {
+      // D74 T4 (audit #20 SEC-006): unwrap Secret<string> at the fetch
+      // call site. The verbose .unwrap() is intentional — every site is
+      // a code-review signal for where cleartext tokens flow.
+      const slackToken = slackBotToken(process.env).unwrap()
+      if (slackToken) {
         const outbound = await deliverSlackChannelReply({
-          token,
+          token: slackToken,
           channel: parsed.deliveryChannel,
           reply: result.reply,
           ...(parsed.threadTs ? { threadTs: parsed.threadTs } : {}),
@@ -441,6 +445,14 @@ export function createRoutes(app: Hono, wiring: Wiring) {
     if (parsed.kind === "ignore") {
       return c.body(null, 204)
     }
+    // D74 T4 (audit #20 SEC-001): replay dedup — Telegram signs webhook
+    // bodies but doesn't prevent replay within bot-token lifetime.
+    // mirror ilink-poller.ts:145-156 dedup pattern. Returns 204
+    // (idempotent) on duplicate so the attacker can't observe different
+    // behavior between first-send and replay.
+    if (parsed.messageId && !markChannelSeen("telegram", parsed.messageId)) {
+      return c.body(null, 204)
+    }
     // D71 T3 (audit #12 SEC-004): optional per-user allowlist via
     // BUTLER_V5_TELEGRAM_USER_ID_ALLOWLIST (comma-separated). Empty
     // (default) preserves pre-D71 behavior: signed webhooks accepted
@@ -463,10 +475,11 @@ export function createRoutes(app: Hono, wiring: Wiring) {
       let delivered = false
       let deliveryReason: string | undefined
       let mediaCount = 0
-      const token = telegramBotToken(process.env)
-      if (token) {
+      // D74 T4 (audit #20 SEC-006): see Slack handler above.
+      const telegramToken = telegramBotToken(process.env).unwrap()
+      if (telegramToken) {
         const outbound = await deliverTelegramChannelReply({
-          token,
+          token: telegramToken,
           chatId: parsed.fromSubject,
           reply: result.reply,
         })
