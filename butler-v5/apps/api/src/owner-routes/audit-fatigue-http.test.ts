@@ -115,10 +115,11 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
         auditId: "evt-write-1",
         runId: null,
         conversationId: null,
-        // D72 T1: actor column now read via columnActor=true; fixtures
-        // must mirror production default 'owner' (appendAuditEvent falls
-        // back to 'owner' when actor is not threaded).
-        actor: "owner",
+        // D73 T4 (audit #19 SO-011): fixtures use 'owner-direct' sentinel
+        // to mirror the post-T4 owner-direct emit sites. Pre-T4 default
+        // 'owner' would not match currentOwnerActor() = 'owner-direct' —
+        // cross-actor replay check (replay.ts:122) rejects.
+        actor: "owner-direct",
         action: "fatigue.decision",
         subject: "write_file", // tool name per audit-reader mapping
         detail: {}, // missing path + workspaceRoot — D71+ infrastructure work
@@ -153,8 +154,9 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
         auditId: "evt-send-1",
         runId: null,
         conversationId: null,
-        // D72 T1: see write_file fixture above.
-        actor: "owner",
+        // D73 T4 (audit #19 SO-011): mirror write_file fixture above —
+        // use 'owner-direct' sentinel to match post-T4 owner-direct emits.
+        actor: "owner-direct",
         action: "fatigue.decision",
         subject: "send_email",
         detail: {},
@@ -199,7 +201,10 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
       detail: { sequence_event_ids: string[]; replayed: number; irreversible: number; failed: number }
     }
     expect(call.action).toBe("owner.replay")
-    expect(call.subject).toBe("owner")
+    // D73 T4 (audit #19 SO-011): subject now mirrors ownerActor sentinel
+    // ('owner-direct') — was 'owner' pre-T4. The owner-direct path threads
+    // the same sentinel via currentOwnerActor() in audit-fatigue.ts:51.
+    expect(call.subject).toBe("owner-direct")
     expect(call.detail.sequence_event_ids).toEqual(["evt-missing"])
   })
 })

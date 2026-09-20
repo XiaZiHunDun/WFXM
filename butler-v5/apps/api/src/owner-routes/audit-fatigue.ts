@@ -49,7 +49,12 @@ import { unauthorizedForOwner } from "../owner-jargon.js"
  */
 
 function currentOwnerActor(): string {
-  return "owner"
+  // D73 T4 (audit #19 SO-011): thread 'owner-direct' to match the sentinel
+  // emitted by every owner-direct appendAuditEvent call site. Previously
+  // returned 'owner' which matched the schema default — collapsed with
+  // wechat-inbound fatigue emits and made the cross-actor replay check
+  // (replay.ts:122) functionally inert.
+  return "owner-direct"
 }
 
 interface ReplayBody {
@@ -148,6 +153,8 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
         conversationId: null,
         correlationId: null,
         action: "owner.replay",
+        // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+        actor: 'owner-direct',
         subject: ownerActor,
         detail: {
           sequence_event_ids: raw.sequence_event_ids.slice(0, 50),

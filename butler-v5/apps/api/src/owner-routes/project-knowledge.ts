@@ -114,7 +114,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
     const saved = await store.create(created.value)
     // D59 T1 (audit #1 F-23): §13 audit completeness — manual project
     // knowledge POST creates durable state; mirror mcp.ts revoke-grants.
-    await wiring.runtimeStore?.appendAuditEvent({
+    await wiring.runtimeStore.appendAuditEvent({
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
@@ -122,6 +122,8 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "project_knowledge.created",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: "owner",
       detail: {
         itemId: saved.id,
@@ -160,7 +162,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
     const ok = await store.delete(itemId)
     if (!ok) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     // D59 T1 (audit #1 F-29): §13 audit completeness.
-    await wiring.runtimeStore?.appendAuditEvent({
+    await wiring.runtimeStore.appendAuditEvent({
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
@@ -168,6 +170,8 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "project_knowledge.deleted",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: "owner",
       detail: { itemId },
       createdAt: new Date(),

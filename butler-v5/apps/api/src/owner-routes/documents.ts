@@ -95,7 +95,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     const saved = await store.create(created.value)
     // D59 T1 (audit #1 F-24): §13 audit completeness — owner state
     // mutations must leave an audit_event row. Mirror mcp.ts revoke-grants.
-    await wiring.runtimeStore?.appendAuditEvent({
+    await wiring.runtimeStore.appendAuditEvent({
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
@@ -103,6 +103,8 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "document.created",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: body.subject ?? "owner",
       detail: { documentId: saved.id, title: saved.title },
       createdAt: new Date(),
@@ -139,7 +141,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     const saved = await pk.create(created.value)
     // D59 T1 (audit #1 F-22): §13 audit completeness — document→project
     // knowledge promotion mutates durable state.
-    await wiring.runtimeStore?.appendAuditEvent({
+    await wiring.runtimeStore.appendAuditEvent({
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
@@ -147,6 +149,8 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "project_knowledge.created_from_document",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: "owner",
       detail: { itemId: saved.id, projectId: saved.projectId, documentId: doc.id },
       createdAt: new Date(),
@@ -168,7 +172,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     // D59 T1 (audit #1 F-25 + F-28): §13 audit completeness — document
     // deletion cascades memories + project-knowledge; mirror mcp.ts
     // revoke-grants so owner audit queries find these destructive ops.
-    await wiring.runtimeStore?.appendAuditEvent({
+    await wiring.runtimeStore.appendAuditEvent({
       auditId: crypto.randomUUID(),
       runId: null,
       conversationId: null,
@@ -176,6 +180,8 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "document.deleted",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: "owner",
       detail: {
         documentId,

@@ -98,6 +98,8 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         // direct API call; no inbound run — pass null.
         correlationId: null,
         action: "procedure.created",
+        // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+        actor: 'owner-direct',
         subject: "owner",
         detail: { procedureId: saved.id, name: saved.name },
         createdAt: new Date(),
@@ -166,6 +168,8 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         // direct API call; no inbound run — pass null.
         correlationId: null,
         action: "task.created",
+        // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+        actor: 'owner-direct',
         subject: body.subject ?? "owner",
         detail: { taskId: saved.id, title: saved.title },
         createdAt: new Date(),
@@ -204,6 +208,8 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         // direct API call; no inbound run — pass null.
         correlationId: null,
         action: "task.done",
+        // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+        actor: 'owner-direct',
         subject: existing.subject,
         detail: { taskId: existing.id, fromStatus: existing.status },
         createdAt: new Date(),

@@ -580,6 +580,11 @@ async function runButlerLoopBody(args: {
           runId: args.runId ?? null,
           conversationId: args.conversationId ?? null,
           action: "fatigue.decision",
+          // D73 T4 (audit #19 SO-010): explicit actor sentinel so audit_events
+          // distinguishes wechat-inbound fatigue decisions from owner-direct
+          // actions. Schema default 'owner' would collapse the two and make
+          // the cross-actor replay check (replay.ts:122) functionally inert.
+          actor: "fatigue-agent",
           subject: String(def.name),
           detail: { ...fatigueDetail },
           createdAt: new Date(),

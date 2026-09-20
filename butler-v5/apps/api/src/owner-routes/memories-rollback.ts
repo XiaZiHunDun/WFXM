@@ -140,6 +140,8 @@ export async function handleRollbackAutoPromote(
     // direct API call; no inbound run — pass null.
     correlationId: null,
     action: "memory.rollback",
+    // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+    actor: 'owner-direct',
     subject: "owner",
     detail: { memoryId, reason: body.reason ?? null },
     createdAt: now,

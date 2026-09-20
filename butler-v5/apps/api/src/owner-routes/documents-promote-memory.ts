@@ -85,7 +85,7 @@ export async function handlePromoteMemory(
   const saved = await memories.create(created.value)
   // D59 T1 (audit #1 F-21): §13 audit completeness — document→memory
   // promotion mutates durable memory state; mirror mcp.ts revoke-grants.
-  await wiring.runtimeStore?.appendAuditEvent({
+  await wiring.runtimeStore.appendAuditEvent({
     auditId: crypto.randomUUID(),
     runId: null,
     conversationId: null,

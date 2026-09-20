@@ -104,6 +104,8 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "mcp.grants_revoked",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: body.subject ?? "owner",
       detail: failureReason
         ? { serverId, revoked, failureReason }

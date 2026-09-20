@@ -84,6 +84,8 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
           // worker tick has no inbound run — pass null.
           correlationId: null,
           action: "schedule.fired",
+          // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+          actor: 'owner-direct',
           subject: "schedule-worker",
           detail: {
             fired: stats.fired,

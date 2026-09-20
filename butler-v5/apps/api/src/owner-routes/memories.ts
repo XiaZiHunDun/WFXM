@@ -144,6 +144,8 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
         // direct API call; no inbound run — pass null.
         correlationId: null,
         action: "memory.created",
+        // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+        actor: 'owner-direct',
         subject: body.subject ?? "owner",
         detail: {
           memoryId: saved.id,
@@ -183,6 +185,8 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "memory.confirmed",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: "owner",
       detail: { memoryId },
       createdAt: new Date(),
@@ -213,6 +217,8 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "memory.rejected",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: "owner",
       detail: { memoryId },
       createdAt: new Date(),
@@ -242,6 +248,8 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       // direct API call; no inbound run — pass null.
       correlationId: null,
       action: "memory.deleted",
+      // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+      actor: 'owner-direct',
       subject: "owner",
       detail: { memoryId },
       createdAt: new Date(),
@@ -366,6 +374,8 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
           // direct API call; no inbound run — pass null.
           correlationId: null,
           action: "memory.confirmed",
+          // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+          actor: 'owner-direct',
           subject,
           detail: { memoryId, batch: true },
           createdAt: now,
@@ -403,6 +413,8 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
           // direct API call; no inbound run — pass null.
           correlationId: null,
           action: "memory.rejected",
+          // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
+          actor: 'owner-direct',
           subject,
           detail: { memoryId, batch: true },
           createdAt: now,
