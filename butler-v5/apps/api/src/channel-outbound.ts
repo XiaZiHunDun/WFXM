@@ -5,6 +5,7 @@ import {
   sendTelegramOutboundMedia,
 } from "./channel-outbound-media.js"
 import { sendSlackOutboundFile, sendSlackOutboundMessage } from "@butler/adapters/slack/index.js"
+import { mapChannelErrorToOwnerJargon } from "./owner-jargon.js"
 
 export type ChannelOutboundResult =
   | { readonly ok: true }
@@ -66,17 +67,23 @@ export async function sendTelegramOutboundMessage(
     const description =
       typeof parsedObj?.description === "string" ? parsedObj.description : undefined
     if (!res.ok || !ok) {
+      // D74 T1 (audit #20 SO-002 + SO-029): route upstream Telegram
+      // description AND our own English fallback through
+      // mapChannelErrorToOwnerJargon so owner delivery audit never sees
+      // raw English. SO-029 specifically addresses the case where
+      // upstream description (e.g. 'Bad Request: chat not found') used
+      // to override our Chinese fallback — now both paths are mapped.
       return {
         ok: false,
-        reason: description ?? `telegram API HTTP ${res.status}`,
+        reason: mapChannelErrorToOwnerJargon(description ?? `telegram API HTTP ${res.status}`),
       }
     }
     return { ok: true }
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      return { ok: false, reason: `telegram API timeout after ${timeoutMs}ms` }
+      return { ok: false, reason: mapChannelErrorToOwnerJargon(`telegram API timeout after ${timeoutMs}ms`) }
     }
-    return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+    return { ok: false, reason: mapChannelErrorToOwnerJargon(err instanceof Error ? err.message : String(err)) }
   } finally {
     clearTimeout(timer)
   }

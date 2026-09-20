@@ -111,3 +111,133 @@ export function describeEnvKnob(envVarName: string): string {
 export function unauthorizedForOwner(c: { text: (body: string, status: number) => Response }): Response {
   return c.text("未授权", 401)
 }
+
+/**
+ * D74 T1 (audit #20 SO-006): translate a domain-layer English validator
+ * reason to owner-facing Chinese at the owner-route boundary. Domain
+ * layer stays UI-agnostic (English-only) so its logic isn't tied to
+ * owner-side wording; the owner-route wrapper converts.
+ *
+ * Pattern: known domain English strings → known Chinese strings. Unknown
+ * strings get the caller-supplied fallback (defaults to a generic "操作
+ * 失败，请稍后重试"). Mirrors D61 T1 safeOwnerError philosophy (log full,
+ * return safe) but for non-error reasons (validator rejections).
+ *
+ * Used at 9 owner-route sites that bubble `created.reason` /
+ * `parsed.reason` / `triggerCheck.reason` from packages/domain/src.
+ */
+const DOMAIN_REASON_TO_OWNER: Readonly<Record<string, string>> = {
+  // durable-memory.ts validators
+  "subject is required": "缺少 subject 参数",
+  "content is required": "缺少 content 参数",
+  "content exceeds 4000 chars": "内容超出长度限制（最多 4000 字）",
+  "invalid sourceKind": "来源类型参数无效",
+  "invalid status": "状态参数无效",
+  "confidence must be between 0 and 1": "置信度参数超出范围（0-1）",
+  "expiresAt must be in the future when set": "过期时间必须晚于当前时间",
+  "message provenance requires messageId": "消息来源必须提供 messageId",
+  "document provenance requires documentId": "文档来源必须提供 documentId",
+  // document-ingest.ts validators
+  "unsupported format": "不支持的文档格式",
+  // task-procedure.ts validators
+  "name is required": "缺少名称参数",
+  "steps must be a non-empty array": "步骤列表不能为空",
+  "invalid step": "步骤参数无效",
+  "each step needs key, title, and goal": "每一步都需要 key / title / goal",
+  "version must be >= 1": "版本号必须 >= 1",
+  "goal is required": "缺少目标参数",
+  "procedureStepIndex must be >= 0": "procedureStepIndex 参数必须 >= 0",
+  "procedure mismatch": "流程参数不匹配",
+  // project-knowledge.ts validators
+  "projectId is required": "缺少 projectId 参数",
+  "projectId is required for project knowledge recall": "缺少 projectId 参数",
+  "title is required": "缺少标题参数",
+  // project-knowledge-sources.ts validators
+  "invalid JSON": "JSON 格式无效",
+  "manifest must be an object": "manifest 必须是对象",
+  "projects must be an object": "projects 必须是对象",
+  "no valid projects in manifest": "manifest 中未配置有效项目",
+  // memories.ts parseBatchIds (internal validator)
+  "ids must be an array": "ids 必须是数组",
+  "ids must not be empty": "ids 不能为空",
+  "batch too large (max 50)": "批量数量超出限制（最多 50 个）",
+  "ids must be non-empty strings": "ids 必须是非空字符串",
+  // run-trigger.ts validators
+  "idempotencyKey is required": "缺少 idempotencyKey 参数",
+  "conversationRef is required for channel/webhook triggers":
+    "channel / webhook 触发需要 conversationRef",
+  // SO-003: PG error vocabulary that bubbles from batch-failed catch
+  // (substring match in safeOwnerErrorString — PG prefixes the actual offending input)
+  "duplicate key value violates unique constraint": "与已有记录重复",
+}
+
+/**
+ * SO-003: PG error patterns that arrive as substrings inside err.message
+ * (e.g. 'invalid input syntax for type uuid: "foo"'). Matched before
+ * the exact-string DOMAIN_REASON_TO_OWNER lookup so PG-specific
+ * vocabulary translates even when the surrounding err.message has
+ * extra context. Returns the Chinese string OR null if no PG match.
+ */
+const PG_ERROR_SUBSTRINGS: readonly (readonly [string, string])[] = [
+  ["invalid input syntax for type uuid", "未找到对应记录"],
+  ["duplicate key value violates unique constraint", "与已有记录重复"],
+]
+
+const SAFE_OWNER_FALLBACK = "操作失败，请稍后重试"
+
+export function safeOwnerErrorString(reason: string, fallback?: string): string {
+  if (typeof reason !== "string") return fallback ?? SAFE_OWNER_FALLBACK
+  // PG error substring match first — these come back with extra context
+  // appended (e.g. the offending UUID value) so exact match would miss.
+  for (const [pattern, mapped] of PG_ERROR_SUBSTRINGS) {
+    if (reason.includes(pattern)) return mapped
+  }
+  return DOMAIN_REASON_TO_OWNER[reason] ?? fallback ?? SAFE_OWNER_FALLBACK
+}
+
+/**
+ * D74 T1 (audit #20 SO-007): allowlist for `subject` field in audit
+ * emit. Body.subject comes from HTTP request body (attacker-controllable
+ * until bearer auth lands in D74+). Reject anything outside the
+ * allowlist at the boundary, defaulting to "owner" — prevents audit
+ * `subject` column forgery via crafted owner HTTP request.
+ *
+ * Mirrors the actor sentinel pattern (D73 T4 SO-011): audit emit
+ * hardens "who can write this column" with an explicit allowlist rather
+ * than trusting request body. 9 owner-route sites apply this check.
+ */
+export const ALLOWED_SUBJECTS: ReadonlySet<string> = new Set([
+  "owner",
+  "assistant",
+  "system",
+])
+
+export function isAllowedSubject(s: unknown): s is "owner" | "assistant" | "system" {
+  return typeof s === "string" && ALLOWED_SUBJECTS.has(s)
+}
+
+/**
+ * D74 T1 (audit #20 SO-002 + SO-029): translate a Telegram API failure
+ * reason to owner-facing Chinese. Telegram's English description
+ * ('Bad Request: chat not found', 'Forbidden: bot was blocked by the
+ * user') and our own English-fallback templates
+ * ('telegram API HTTP ${status}', 'telegram API timeout after ${ms}ms',
+ * raw err.message) all leak operator vocabulary to owner's delivery
+ * audit. Map known shapes; unknown strings pass through
+ * safeOwnerErrorString for last-resort translation.
+ */
+export function mapChannelErrorToOwnerJargon(reason: string): string {
+  if (typeof reason !== "string") return "Telegram 接口调用失败"
+  // Pre-existing English fallback templates we wrote ourselves.
+  const httpMatch = /^telegram API HTTP (\d+)$/.exec(reason)
+  if (httpMatch) return `Telegram 接口返回错误（状态 ${httpMatch[1]}）`
+  const timeoutMatch = /^telegram API timeout after (\d+)ms$/.exec(reason)
+  if (timeoutMatch) return `Telegram 接口响应超时（${timeoutMatch[1]} 毫秒）`
+  // Upstream Telegram API description — translate the common patterns.
+  if (/^Bad Request: chat not found$/i.test(reason)) return "对话不存在或无法访问"
+  if (/^Forbidden: bot was blocked by the user$/i.test(reason)) return "用户已屏蔽此机器人"
+  if (/^Bad Request: message is not modified$/i.test(reason)) return "消息内容未变化"
+  if (/^Too Many Requests/i.test(reason)) return "调用频率过高，请稍后重试"
+  // Fallback: keep raw English out of owner surface.
+  return safeOwnerErrorString(reason, "Telegram 接口调用失败")
+}

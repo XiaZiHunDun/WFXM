@@ -12,6 +12,7 @@ import {
 import { makeToolName, type RunResult, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { recordChildRunDelegated } from "./project-state.js"
+import { safeOwnerErrorString } from "./owner-jargon.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
 import {
   makeReadFileTool,
@@ -571,7 +572,7 @@ export function makeRecallDurableMemoryTool(ctx: ButlerToolContext): ToolDefinit
   return makeTool("recall_durable_memory", "low", async (args) => {
     const store = ctx.durableMemoryStore
     if (!store) {
-      return { ok: false, reason: "durable memory store unavailable" }
+      return { ok: false, reason: "持久化记忆库暂不可用" }
     }
     const subject = (ctx.memorySubject ?? "").trim() || "owner"
     const query = typeof args["query"] === "string" ? args["query"] : ""
@@ -605,7 +606,7 @@ function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
   return makeTool("recall_document", "low", async (args) => {
     const store = ctx.documentStore
     if (!store) {
-      return { ok: false, reason: "document store unavailable" }
+      return { ok: false, reason: "文档库暂不可用" }
     }
     const subject = (ctx.memorySubject ?? "").trim() || "owner"
     const query = typeof args["query"] === "string" ? args["query"] : ""
@@ -635,7 +636,7 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
   return makeTool("recall_project_knowledge", "low", async (args) => {
     const store = ctx.projectKnowledgeStore
     if (!store) {
-      return { ok: false, reason: "project knowledge store unavailable" }
+      return { ok: false, reason: "项目知识库暂不可用" }
     }
     const {
       expandRecallProjectIds,
@@ -665,7 +666,7 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
       ...(allProjectIds === undefined ? {} : { allProjectIds }),
     })
     if (!expanded.ok) {
-      return { ok: false, reason: expanded.reason }
+      return { ok: false, reason: safeOwnerErrorString(expanded.reason) }
     }
     const query = typeof args["query"] === "string" ? args["query"] : ""
     const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 5

@@ -525,7 +525,7 @@ describe("weibutler tools", () => {
     const tool = makeRecallDurableMemoryTool({})
     const result = await runTool(tool, { query: "x" }, { timeoutMs: 1000 })
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.reason).toContain("store unavailable")
+    if (!result.ok) expect(result.reason).toContain("持久化记忆库暂不可用")
   })
 
   it("recall_durable_memory recalls only active confirmed records by substring", async () => {
@@ -672,6 +672,6 @@ describe("weibutler tools", () => {
     })
     const result = await runTool(tool, {}, { timeoutMs: 1000 })
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.reason).toContain("projectId is required")
+    if (!result.ok) expect(result.reason).toContain("缺少 projectId 参数")
   })
 })

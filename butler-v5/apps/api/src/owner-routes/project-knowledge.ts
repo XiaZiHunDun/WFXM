@@ -13,7 +13,7 @@ import {
   isProjectKnowledgeWatchEnabled,
 } from "../project-knowledge-sources-config.js"
 import { syncProjectKnowledgeFromManifest } from "../project-knowledge-sync.js"
-import { unauthorizedForOwner } from "../owner-jargon.js"
+import { safeOwnerErrorString, unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for project knowledge, including file-backed
@@ -39,7 +39,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   app.get("/v1/owner/project-knowledge/:itemId", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
-    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "项目知识库暂不可用" }, 503)
     const item = await store.get(c.req.param("itemId"))
     if (!item) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     return c.json({ ok: true, item })
@@ -48,7 +48,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   app.post("/v1/owner/project-knowledge", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
-    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "项目知识库暂不可用" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly projectId?: string
       readonly title?: string
@@ -58,12 +58,12 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
       readonly provenance?: Record<string, unknown>
     }
     const projectId = (body.projectId ?? "").trim()
-    if (!projectId) return c.json({ ok: false, reason: "projectId is required" }, 400)
+    if (!projectId) return c.json({ ok: false, reason: "缺少 projectId 参数" }, 400)
 
     const kindRaw = (body.kind ?? "manual_note").trim() as ProjectKnowledgeKind
     if (kindRaw === "ingested_document") {
       return c.json(
-        { ok: false, reason: "use promote-project-knowledge for ingested_document" },
+        { ok: false, reason: "该类型请改用 promote-project-knowledge 接口处理" },
         400,
       )
     }
@@ -110,7 +110,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
           }
         : {}),
     })
-    if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    if (!created.ok) return c.json({ ok: false, reason: safeOwnerErrorString(created.reason) }, 400)
     const saved = await store.create(created.value)
     // D59 T1 (audit #1 F-23): §13 audit completeness — manual project
     // knowledge POST creates durable state; mirror mcp.ts revoke-grants.
@@ -138,10 +138,10 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   app.post("/v1/owner/project-knowledge/sync", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
-    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "项目知识库暂不可用" }, 503)
     const loaded = loadProjectKnowledgeSourcesFromEnv(process.env)
     if (loaded.kind === "none") {
-      return c.json({ ok: false, reason: "no sources manifest configured" }, 400)
+      return c.json({ ok: false, reason: "未配置项目知识库源清单" }, 400)
     }
     if (loaded.kind === "error") {
       return c.json({ ok: false, reason: loaded.reason }, 400)
@@ -157,7 +157,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
   app.delete("/v1/owner/project-knowledge/:itemId", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.projectKnowledgeStore
-    if (!store) return c.json({ ok: false, reason: "project knowledge store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "项目知识库暂不可用" }, 503)
     const itemId = c.req.param("itemId")
     const ok = await store.delete(itemId)
     if (!ok) return c.json({ ok: false, reason: "未找到对应记录" }, 404)

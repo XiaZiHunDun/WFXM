@@ -12,7 +12,7 @@ import { createDurableMemoryRecord } from "@butler/domain/knowledge/durable-memo
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import type { makeDedupChecker } from "./memory-dedup.js"
-import { unauthorizedForOwner } from "../owner-jargon.js"
+import { safeOwnerErrorString, unauthorizedForOwner } from "../owner-jargon.js"
 
 export async function handlePromoteMemory(
   c: Context,
@@ -23,7 +23,7 @@ export async function handlePromoteMemory(
   const docs = wiring.documentStore
   const memories = wiring.durableMemoryStore
   if (!docs || !memories) {
-    return c.json({ ok: false, reason: "document or memory store unavailable" }, 503)
+    return c.json({ ok: false, reason: "文档库或记忆库暂不可用" }, 503)
   }
   // Route param is guaranteed by the registered route path
   // `/v1/owner/documents/:documentId/promote-memory`. `?? ""` mirrors
@@ -56,7 +56,7 @@ export async function handlePromoteMemory(
       note: `promoted from document ${doc.title}`,
     },
   })
-  if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+  if (!created.ok) return c.json({ ok: false, reason: safeOwnerErrorString(created.reason) }, 400)
   // G2 dedup guard (D41 T4): same threshold + force semantics as
   // POST /v1/owner/memories. Subject is doc.subject (the document owner),
   // not the calling owner — dedup is per-owner memory.

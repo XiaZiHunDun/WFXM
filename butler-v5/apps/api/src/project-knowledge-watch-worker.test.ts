@@ -80,7 +80,7 @@ describe("runProjectKnowledgeWatchTick", () => {
     if (workDir) rmSync(workDir, { recursive: true, force: true })
   })
 
-  it("returns ok:false 'no sources manifest configured' when BUTLER_V5_PROJECT_KNOWLEDGE_SOURCES_PATH points to a missing file", async () => {
+  it("returns ok:false '未配置项目知识库源清单' when BUTLER_V5_PROJECT_KNOWLEDGE_SOURCES_PATH points to a missing file", async () => {
     const result = await runProjectKnowledgeWatchTick({
       wiring,
       cwd: workDir,
@@ -89,7 +89,7 @@ describe("runProjectKnowledgeWatchTick", () => {
       },
     })
     expect(result.ok).toBe(false)
-    expect(result.reason).toMatch(/no sources manifest|no such file|cannot find/i)
+    expect(result.reason).toMatch(/未配置|no such file|cannot find/i)
     expect(mockedSync).not.toHaveBeenCalled()
   })
 

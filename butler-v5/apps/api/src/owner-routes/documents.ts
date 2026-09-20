@@ -8,7 +8,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { makeDedupChecker } from "./memory-dedup.js"
 import { handlePromoteMemory } from "./documents-promote-memory.js"
-import { unauthorizedForOwner } from "../owner-jargon.js"
+import { isAllowedSubject, safeOwnerErrorString, unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for documents, including document→memory and
@@ -22,7 +22,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/documents", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.documentStore
-    if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "文档库暂不可用" }, 503)
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
     const items = await store.listBySubject({ subject, limit: 100 })
     return c.json({
@@ -39,7 +39,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/documents/:documentId", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.documentStore
-    if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "文档库暂不可用" }, 503)
     const item = await store.get(c.req.param("documentId"))
     if (!item) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     return c.json({ ok: true, item })
@@ -48,7 +48,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/owner/documents", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.documentStore
-    if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "文档库暂不可用" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly subject?: string
       readonly title?: string
@@ -91,7 +91,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
           }
         : {}),
     })
-    if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    if (!created.ok) return c.json({ ok: false, reason: safeOwnerErrorString(created.reason) }, 400)
     const saved = await store.create(created.value)
     // D59 T1 (audit #1 F-24): §13 audit completeness — owner state
     // mutations must leave an audit_event row. Mirror mcp.ts revoke-grants.
@@ -105,7 +105,10 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       action: "document.created",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
       actor: 'owner-direct',
-      subject: body.subject ?? "owner",
+      // D74 T1 (audit #20 SO-007): subject allowlist — audit emit must
+      // reject attacker-controllable subjects at the boundary. Defaults
+      // to "owner" rather than echoing body.subject if disallowed.
+      subject: body.subject && isAllowedSubject(body.subject) ? body.subject : "owner",
       detail: { documentId: saved.id, title: saved.title },
       createdAt: new Date(),
     })
@@ -121,7 +124,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     const docs = wiring.documentStore
     const pk = wiring.projectKnowledgeStore
     if (!docs || !pk) {
-      return c.json({ ok: false, reason: "document or project knowledge store unavailable" }, 503)
+      return c.json({ ok: false, reason: "文档库或项目知识库暂不可用" }, 503)
     }
     const documentId = c.req.param("documentId")
     const doc = await docs.get(documentId)
@@ -131,13 +134,13 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       readonly title?: string
     }
     const projectId = (body.projectId ?? c.req.query("projectId") ?? "").trim()
-    if (!projectId) return c.json({ ok: false, reason: "projectId is required" }, 400)
+    if (!projectId) return c.json({ ok: false, reason: "缺少 projectId 参数" }, 400)
     const created = projectKnowledgeFromDocument({
       projectId,
       document: doc,
       ...(typeof body.title === "string" && body.title.trim() ? { title: body.title } : {}),
     })
-    if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    if (!created.ok) return c.json({ ok: false, reason: safeOwnerErrorString(created.reason) }, 400)
     const saved = await pk.create(created.value)
     // D59 T1 (audit #1 F-22): §13 audit completeness — document→project
     // knowledge promotion mutates durable state.
@@ -161,7 +164,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
   app.delete("/v1/owner/documents/:documentId", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.documentStore
-    if (!store) return c.json({ ok: false, reason: "document store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "文档库暂不可用" }, 503)
     const documentId = c.req.param("documentId")
     const ok = await store.delete(documentId)
     if (!ok) return c.json({ ok: false, reason: "未找到对应记录" }, 404)

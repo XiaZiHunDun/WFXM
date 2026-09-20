@@ -7,7 +7,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { loadMcpManifestFromEnv, resolveMcpManifestServer } from "../mcp-manifest.js"
 import { safeOwnerError } from "../safe-owner-error.js"
-import { unauthorizedForOwner } from "../owner-jargon.js"
+import { isAllowedSubject, unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for MCP status and scoped-grant revocation.
@@ -106,7 +106,10 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
       action: "mcp.grants_revoked",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
       actor: 'owner-direct',
-      subject: body.subject ?? "owner",
+      // D74 T1 (audit #20 SO-007): subject allowlist — audit emit must
+      // reject attacker-controllable subjects at the boundary. Defaults
+      // to "owner" rather than echoing body.subject if disallowed.
+      subject: body.subject && isAllowedSubject(body.subject) ? body.subject : "owner",
       detail: failureReason
         ? { serverId, revoked, failureReason }
         : { serverId, revoked },

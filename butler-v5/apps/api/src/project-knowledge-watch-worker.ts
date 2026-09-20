@@ -48,7 +48,7 @@ export async function runProjectKnowledgeWatchTick(args: {
   const logger = args.logger ?? defaultLogger
   const loaded = loadProjectKnowledgeSourcesFromEnv(env, cwd)
   if (loaded.kind === "none") {
-    return { ok: false, reason: "no sources manifest configured" }
+    return { ok: false, reason: "未配置项目知识库源清单" }
   }
   if (loaded.kind === "error") {
     return { ok: false, reason: loaded.reason }

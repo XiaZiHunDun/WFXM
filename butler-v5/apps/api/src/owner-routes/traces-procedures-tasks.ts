@@ -7,7 +7,7 @@ import {
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { handleTaskRun } from "./tasks-run.js"
-import { unauthorizedForOwner } from "../owner-jargon.js"
+import { isAllowedSubject, safeOwnerErrorString, unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for traces, procedures and tasks.
@@ -61,7 +61,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   app.post("/v1/owner/procedures", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.procedureStore
-    if (!store) return c.json({ ok: false, reason: "procedure store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "流程存储暂不可用" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly name?: string
       readonly version?: number
@@ -82,7 +82,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
           })
         : [],
     })
-    if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    if (!created.ok) return c.json({ ok: false, reason: safeOwnerErrorString(created.reason) }, 400)
     const saved = await store.create(created.value)
     // D59 T1 (audit #1 F-26 procedures): §13 audit completeness.
     // D63 T1 (audit #9 F-11): runtimeStore?. optional chaining silently
@@ -114,7 +114,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   app.get("/v1/owner/tasks", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.taskStore
-    if (!store) return c.json({ ok: false, reason: "task store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "任务存储暂不可用" }, 503)
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
     const statusRaw = (c.req.query("status") ?? "").trim()
     const status =
@@ -132,7 +132,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   app.post("/v1/owner/tasks", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.taskStore
-    if (!store) return c.json({ ok: false, reason: "task store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "任务存储暂不可用" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly subject?: string
       readonly title?: string
@@ -153,7 +153,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         ? { procedureStepIndex: body.procedureStepIndex }
         : {}),
     })
-    if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    if (!created.ok) return c.json({ ok: false, reason: safeOwnerErrorString(created.reason) }, 400)
     const saved = await store.create(created.value)
     // D59 T1 (audit #1 F-26 task): §13 audit completeness.
     // D63 T1 (audit #9 F-11): mirror D62 T1 F-12 pattern (memories.ts:137-154)
@@ -170,7 +170,10 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         action: "task.created",
         // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
         actor: 'owner-direct',
-        subject: body.subject ?? "owner",
+        // D74 T1 (audit #20 SO-007): subject allowlist — audit emit must
+        // reject attacker-controllable subjects at the boundary. Defaults
+        // to "owner" rather than echoing body.subject if disallowed.
+        subject: body.subject && isAllowedSubject(body.subject) ? body.subject : "owner",
         detail: { taskId: saved.id, title: saved.title },
         createdAt: new Date(),
       })
@@ -186,7 +189,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
   app.post("/v1/owner/tasks/:taskId/done", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.taskStore
-    if (!store) return c.json({ ok: false, reason: "task store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "任务存储暂不可用" }, 503)
     const existing = await store.get(c.req.param("taskId"))
     if (!existing) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
     const updated = await store.update({

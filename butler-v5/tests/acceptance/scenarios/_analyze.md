@@ -1,14 +1,14 @@
 # Acceptance Realistic Scenarios — 产品层行为分析
 
-生成时间：2026-09-11（41 场景自动跑出）
+生成时间：2026-09-20（55 场景自动跑出）
 
 ## 总览
 
-- 场景数：52
-- 通过：52 / 失败：0
+- 场景数：55
+- 通过：55 / 失败：0
 - 触发 approval：22 次
 - 工具调用总数：53
-- reply 字符总数：7091
+- reply 字符总数：6871
 
 ## 按类别汇总
 
@@ -43,7 +43,7 @@
 | B9 | owner 应该关心什么 | 0 | 0 | ✅ |
 | B10 | 1 周 focus | 0 | 0 | ✅ |
 
-### C-edge（17 场景，17 通过）
+### C-edge（20 场景，20 通过）
 
 | ID | 标题 | 工具 | 审批 | 状态 |
 |---|---|---|---|---|
@@ -64,6 +64,9 @@
 | C-F2-checklist-proceed | C-F2 sensitive 变体: send_wechat_file 不同 path 触发 checklist → owner 确认 → bridge 升级 ack | 1 | 1 | ✅ |
 | C-F3-replay-api | C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences | 0 | 0 | ✅ |
 | C-additional-1 | C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply | 0 | 0 | ✅ |
+| C-O-1 | C-O-1 GET /fatigue after 3 owner-direct events → 1 sequence | 0 | 0 | ✅ |
+| C-O-2 | C-O-2 POST /replay with reversible event_ids → replayed=[id] | 0 | 0 | ✅ |
+| C-O-3 | C-O-3 POST /replay with foreign-actor event → 403 cross-actor | 0 | 0 | ✅ |
 
 ### D-combo（14 场景，14 通过）
 
@@ -505,7 +508,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-jA55nS/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-VT4H85/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -619,9 +622,9 @@ _decision=Respond | toolCalls=0 | replyLen=37_
 
 > in: 我刚做的几次操作，能查 replay API 撤销吗？
 
-< replay 控制面在 owner HTTP API（路径以 /v1/owner/audit/fatigue 开头）,不在当前对话里集成。当前会话已记录 3 次操作审计，查询控制面可以看到可撤销候选。请直接打开控制面查看可撤销列表。
+< replay 控制面在 owner 控制面板，不在当前对话里集成。当前会话已记录 3 次操作审计，查询控制面可以看到可撤销候选。请直接打开控制面查看可撤销列表。
 
-_decision=Respond | toolCalls=0 | replyLen=116_
+_decision=Respond | toolCalls=0 | replyLen=80_
 
 ### C-F1-real-cooldown — C-F1 cooldown 变体: 3 个 read_file pre-inject + write_file plan 触发 REAL cooldown (工具类型无关)（C-edge）
 
@@ -723,9 +726,9 @@ _decision=Respond | toolCalls=0 | replyLen=37_
 
 > in: 我刚做的几次操作，能查 replay API 撤销吗？
 
-< replay/fatigue 走 HTTP 控制面 (GET/POST /v1/owner/audit/fatigue)，不在 butler chat surface 集成。当前 harness 注入 5 个 subagent audit events 跨 2 个 conversationId (3+2 分布) → reader sees 2 distinct sequences (而非 F3 的 1 个), sequences count=2 → degraded=false。可走 HTTP 客户端调 GET /fatigue 查多 sequence 的 replay 候选。
+< 我查了下，你刚才在两个会话里做了 5 次操作（会话 1: 3 次, 会话 2: 2 次）。重做/撤销需要到 owner 控制面板查看多 sequence 候选。
 
-_decision=Respond | toolCalls=0 | replyLen=292_
+_decision=Respond | toolCalls=0 | replyLen=80_
 
 ### C-additional-1 — C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply（C-edge）
 
@@ -738,9 +741,39 @@ _decision=Respond | toolCalls=0 | replyLen=292_
 - 修 bar.ts (queued)
 - 部署 v5.2 (blocked)
 
-如需详细状态，可用 /v1/owner/usage 查 owner-direct 接口。
+如需详细状态，可用 owner 用量面板查看。
 
-_decision=Respond | toolCalls=0 | replyLen=124_
+_decision=Respond | toolCalls=0 | replyLen=103_
+
+### C-O-1 — C-O-1 GET /fatigue after 3 owner-direct events → 1 sequence（C-edge）
+
+**turn 1**
+
+> in: 查一下最近的 audit/fatigue 状态
+
+< 你的操作记录在 owner 控制面板里可以看到（注入 3 个操作事件 → 面板显示 1 组，共 3 条，全部可重做）。
+
+_decision=Respond | toolCalls=0 | replyLen=59_
+
+### C-O-2 — C-O-2 POST /replay with reversible event_ids → replayed=[id]（C-edge）
+
+**turn 1**
+
+> in: 帮我撤销一些 owner 操作
+
+< 查了一下你的 owner 操作，发现 1 个写文件操作缺少必要字段，无法撤销。其余操作请到 owner 控制面板查看。
+
+_decision=Respond | toolCalls=0 | replyLen=59_
+
+### C-O-3 — C-O-3 POST /replay with foreign-actor event → 403 cross-actor（C-edge）
+
+**turn 1**
+
+> in: 查一下能不能撤销刚才的操作
+
+< 你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。
+
+_decision=Respond | toolCalls=0 | replyLen=35_
 
 ### D1 — 写 + 跑 test + 失败 + 修 + 再跑（D-combo）
 
@@ -778,9 +811,9 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=75_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 3 步）
-✅ /tmp/wb-accept-ws-jA55nS/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-jA55nS/test.ts → 还原为上版
-✅ /tmp/wb-accept-ws-jA55nS/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-VT4H85/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-VT4H85/test.ts → 还原为上版
+✅ /tmp/wb-accept-ws-VT4H85/helper.ts → 还原为上版
 
 以下 2 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -813,8 +846,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-jA55nS/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-jA55nS/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-VT4H85/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-VT4H85/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -843,7 +876,7 @@ _decision=Respond | toolCalls=0 | replyLen=96_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 1 步）
-✅ /tmp/wb-accept-ws-jA55nS/old.ts → 还原为上版
+✅ /tmp/wb-accept-ws-VT4H85/old.ts → 还原为上版
 
 _decision=Respond | toolCalls=0 | replyLen=55_
 
@@ -969,9 +1002,9 @@ _decision=Respond | toolCalls=0 | replyLen=72_
 
 > in: 查 owner-direct 用量
 
-< owner-direct 路径走 HTTP 控制面 (/v1/owner/usage), 不在 chat surface 集成。当前无 inbound run, audit correlationId=null。Phantom audit event (跨随机 convId) 不污染 chat reply。
+< 查了下当前用量统计，没看到新的 inbound run 触发。直接走 owner 用量面板查看即可。
 
-_decision=Respond | toolCalls=0 | replyLen=154_
+_decision=Respond | toolCalls=0 | replyLen=50_
 
 ### D-additional-2 — D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario（D-combo）
 

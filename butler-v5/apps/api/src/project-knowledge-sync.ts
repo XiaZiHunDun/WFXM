@@ -126,7 +126,7 @@ export async function syncProjectKnowledgeFromManifest(args: {
   const env = args.env ?? process.env
   const store = args.wiring.projectKnowledgeStore
   if (!store) {
-    return { scanned: 0, created: 0, updated: 0, skipped: 0, errors: ["project knowledge store unavailable"] }
+    return { scanned: 0, created: 0, updated: 0, skipped: 0, errors: ["项目知识库暂不可用"] }
   }
 
   const wsEnv = env["BUTLER_V5_WORKSPACE_ROOT"]
@@ -176,7 +176,7 @@ export async function syncProjectKnowledgeFromManifest(args: {
           continue
         }
         if (!documentStore) {
-          errors.push(`${file.relativePath}: document store unavailable`)
+          errors.push(`${file.relativePath}: 文档库暂不可用`)
           continue
         }
         const converted = await invokeMarkitdownTool(markitdownTool, resolved.path)

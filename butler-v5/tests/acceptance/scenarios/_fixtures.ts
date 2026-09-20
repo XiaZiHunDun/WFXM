@@ -759,9 +759,7 @@ export const scenariosC: readonly Scenario[] = [
         // owner-facing Chinese — mentions the control-plane location but
         // doesn't leak internal HTTP path conventions into the reply.
         text(
-          "replay 控制面在 owner HTTP API（路径以 /v1/owner/audit/fatigue 开头）," +
-            "不在当前对话里集成。当前会话已记录 3 次操作审计，查询控制面可以看到可撤销候选。" +
-            "请直接打开控制面查看可撤销列表。",
+          "replay 控制面在 owner 控制面板，不在当前对话里集成。当前会话已记录 3 次操作审计，查询控制面可以看到可撤销候选。请直接打开控制面查看可撤销列表。",
         ),
       ],
     },
@@ -776,8 +774,8 @@ export const scenariosC: readonly Scenario[] = [
     expect: {
       finalDecision: "Respond",
       minToolCalls: 0, // chat surface 不调 audit API, 无 tool execution
-      // reply 必须解释 HTTP 控制面 + 反映非空 audit state (T1b 后)
-      containsAll: ["HTTP", "audit/fatigue"],
+      // reply 必须解释 owner 控制面板 + 反映非空 audit state (T1b 后)
+      containsAll: ["owner 控制面板"],
       // T1b 后: 不再断言 "degraded" (因为 sequences 非空)
       containsNone: ["degraded"],
     },
@@ -878,14 +876,14 @@ export const scenariosC: readonly Scenario[] = [
     fixtures: {
       plan: [
         text(
-          "我查了下，你刚才在两个会话里做了 5 次操作（会话 1: 3 次, 会话 2: 2 次）。重做/撤销需要走 HTTP 控制面板查 /v1/owner/audit/fatigue 查多 sequence 候选。",
+          "我查了下，你刚才在两个会话里做了 5 次操作（会话 1: 3 次, 会话 2: 2 次）。重做/撤销需要到 owner 控制面板查看多 sequence 候选。",
         ),
       ],
     },
     setup: async (ctx) => {
       // D68 T2a: 与 F3 区别是 pre-injected events 跨 2 个 conversationId (3+2)。
       // → reader (listRecentAuditEvents) sees 2 distinct sequences。
-      // Reply 必须仍解释 HTTP 控制面 + 含 "audit/fatigue"。
+      // Reply 必须仍解释 owner 控制面板。
       const convId1 = `c-realistic-C-F3-replay-api-seq1`
       const convId2 = `c-realistic-C-F3-replay-api-seq2`
       for (let i = 0; i < 3; i += 1) {
@@ -898,10 +896,10 @@ export const scenariosC: readonly Scenario[] = [
     expect: {
       finalDecision: "Respond",
       minToolCalls: 0,
-      containsAll: ["HTTP", "audit/fatigue"],
+      containsAll: ["owner 控制面板"],
       // D68 T2 — dropped containsNone: ["degraded"] (stale fixture)。多 sequence 时
       // reader 仍可能 emit "degraded=" 在 plan text（如 fixture plan 解释 reader 行为时），
-      // 但 reply body 不应含 "degraded"；containsAll 已隐式锁 "HTTP" + "audit/fatigue"。
+      // 但 reply body 不应含 "degraded"；containsAll 已隐式锁 "owner 控制面板"。
     },
   },
   // C-additional-1: owner 直接查询路径 — phantom audit event (来自随机
@@ -918,7 +916,7 @@ export const scenariosC: readonly Scenario[] = [
     fixtures: {
       plan: [
         text(
-          "当前 active 任务：\n- 改 foo.ts (in progress)\n- 修 bar.ts (queued)\n- 部署 v5.2 (blocked)\n\n如需详细状态，可用 /v1/owner/usage 查 owner-direct 接口。",
+          "当前 active 任务：\n- 改 foo.ts (in progress)\n- 修 bar.ts (queued)\n- 部署 v5.2 (blocked)\n\n如需详细状态，可用 owner 用量面板查看。",
         ),
       ],
     },
@@ -958,13 +956,13 @@ export const scenariosC: readonly Scenario[] = [
       // which fails containsAll assertions.
       plan: [
         text(
-          "查 owner-direct audit/fatigue 走 HTTP 控制面板，注入 3 个 owner-direct audit events → reader sees 1 sequence (count=3, degraded=false)。",
+          "你的操作记录在 owner 控制面板里可以看到（注入 3 个操作事件 → 面板显示 1 组，共 3 条，全部可重做）。",
         ),
         text(
-          "查 owner-direct audit/fatigue 走 HTTP 控制面板，注入 3 个 owner-direct audit events → reader sees 1 sequence (count=3, degraded=false)。",
+          "你的操作记录在 owner 控制面板里可以看到（注入 3 个操作事件 → 面板显示 1 组，共 3 条，全部可重做）。",
         ),
         text(
-          "查 owner-direct audit/fatigue 走 HTTP 控制面板，注入 3 个 owner-direct audit events → reader sees 1 sequence (count=3, degraded=false)。",
+          "你的操作记录在 owner 控制面板里可以看到（注入 3 个操作事件 → 面板显示 1 组，共 3 条，全部可重做）。",
         ),
       ],
     },
@@ -989,7 +987,7 @@ export const scenariosC: readonly Scenario[] = [
     expect: {
       finalDecision: "Respond",
       minToolCalls: 0,
-      containsAll: ["HTTP", "audit/fatigue"],
+      containsAll: ["owner 控制面板"],
     },
   },
   // C-O-2: POST /v1/owner/audit/fatigue/replay with reversible write_file
@@ -1004,13 +1002,13 @@ export const scenariosC: readonly Scenario[] = [
     fixtures: {
       plan: [
         text(
-          "走 HTTP 控制面板 POST /v1/owner/audit/fatigue/replay，注入 1 个 owner-direct write_file event（detail 缺 path/workspaceRoot 标记为 non-reversible）→ replayed=[], failed=[error]。",
+          "查了一下你的 owner 操作，发现 1 个写文件操作缺少必要字段，无法撤销。其余操作请到 owner 控制面板查看。",
         ),
         text(
-          "走 HTTP 控制面板 POST /v1/owner/audit/fatigue/replay，注入 1 个 owner-direct write_file event（detail 缺 path/workspaceRoot 标记为 non-reversible）→ replayed=[], failed=[error]。",
+          "查了一下你的 owner 操作，发现 1 个写文件操作缺少必要字段，无法撤销。其余操作请到 owner 控制面板查看。",
         ),
         text(
-          "走 HTTP 控制面板 POST /v1/owner/audit/fatigue/replay，注入 1 个 owner-direct write_file event（detail 缺 path/workspaceRoot 标记为 non-reversible）→ replayed=[], failed=[error]。",
+          "查了一下你的 owner 操作，发现 1 个写文件操作缺少必要字段，无法撤销。其余操作请到 owner 控制面板查看。",
         ),
       ],
     },
@@ -1034,7 +1032,7 @@ export const scenariosC: readonly Scenario[] = [
     expect: {
       finalDecision: "Respond",
       minToolCalls: 0,
-      containsAll: ["HTTP", "audit/fatigue"],
+      containsAll: ["owner 控制面板"],
     },
   },
   // C-O-3: Cross-actor 403 — POST /replay with event from a non-owner
@@ -1049,13 +1047,13 @@ export const scenariosC: readonly Scenario[] = [
     fixtures: {
       plan: [
         text(
-          "注入 1 个 foreign-actor event（actor='other-user'）→ HTTP POST /v1/owner/audit/fatigue/replay 触发 cross-actor check → 403 拒绝跨账号操作。",
+          "你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。",
         ),
         text(
-          "注入 1 个 foreign-actor event（actor='other-user'）→ HTTP POST /v1/owner/audit/fatigue/replay 触发 cross-actor check → 403 拒绝跨账号操作。",
+          "你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。",
         ),
         text(
-          "注入 1 个 foreign-actor event（actor='other-user'）→ HTTP POST /v1/owner/audit/fatigue/replay 触发 cross-actor check → 403 拒绝跨账号操作。",
+          "你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。",
         ),
       ],
     },
@@ -1075,7 +1073,7 @@ export const scenariosC: readonly Scenario[] = [
     expect: {
       finalDecision: "Respond",
       minToolCalls: 0,
-      containsAll: ["HTTP", "audit/fatigue"],
+      containsAll: ["owner 控制面板"],
     },
   },
   // NOTE (D69 T5 deferred → D70 T1 closed → D72 T2 sweep applied):
@@ -1553,14 +1551,14 @@ export const scenariosD: readonly Scenario[] = [
     fixtures: {
       plan: [
         text(
-          "查了下当前用量统计，没看到新的 inbound run 触发。直接走 HTTP 控制面板 /v1/owner/usage 看 owner-direct 用量即可。",
+          "查了下当前用量统计，没看到新的 inbound run 触发。直接走 owner 用量面板查看即可。",
         ),
       ],
     },
     expect: {
       finalDecision: "Respond",
       minToolCalls: 0,
-      containsAll: ["HTTP", "/v1/owner/usage"],
+      containsAll: ["owner 用量面板"],
       containsNone: ["degraded"],
     },
     setup: async (ctx) => {

@@ -24,7 +24,7 @@ export async function handleRollbackAutoPromote(
 ): Promise<Response> {
   if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
   const store = wiring.durableMemoryStore
-  if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+  if (!store) return c.json({ ok: false, reason: "持久化记忆库暂不可用" }, 503)
   // Route param is guaranteed by the registered route path
   // `/v1/owner/memories/:memoryId/rollback-auto-promote`.
   const memoryId = c.req.param("memoryId") ?? ""

@@ -25,7 +25,7 @@ export async function runTaskGoal(args: {
   const env = args.env ?? process.env
   const tasks = args.wiring.taskStore
   const procedures = args.wiring.procedureStore
-  if (!tasks) throw new Error("task store unavailable")
+  if (!tasks) throw new Error("任务存储暂不可用")
 
   const task = await tasks.get(args.taskId)
   if (!task) throw new Error(`task not found: ${args.taskId}`)

@@ -12,7 +12,7 @@ import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { makeDedupChecker } from "./memory-dedup.js"
 import { handleRollbackAutoPromote } from "./memories-rollback.js"
-import { unauthorizedForOwner } from "../owner-jargon.js"
+import { isAllowedSubject, safeOwnerErrorString, unauthorizedForOwner } from "../owner-jargon.js"
 
 /**
  * Owner control-surface routes for durable memories, including batch
@@ -23,7 +23,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   app.get("/v1/owner/memories", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
-    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "持久化记忆库暂不可用" }, 503)
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
     const statusRaw = (c.req.query("status") ?? "").trim()
     const status: DurableMemoryStatus | undefined =
@@ -64,7 +64,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/owner/memories", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
-    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "持久化记忆库暂不可用" }, 503)
     const body = (await c.req.json().catch(() => ({}))) as {
       readonly subject?: string
       readonly content?: string
@@ -105,7 +105,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
         : {}),
       ...(body.expiresAt !== undefined ? { expiresAt: body.expiresAt } : {}),
     })
-    if (!created.ok) return c.json({ ok: false, reason: created.reason }, 400)
+    if (!created.ok) return c.json({ ok: false, reason: safeOwnerErrorString(created.reason) }, 400)
     // G2 dedup guard (D41 T4): block duplicates above threshold unless force=true.
     // Fail-open inside helper — DB errors fall through to create.
     const dedupHit = await checkDedup({
@@ -146,7 +146,10 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
         action: "memory.created",
         // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
         actor: 'owner-direct',
-        subject: body.subject ?? "owner",
+        // D74 T1 (audit #20 SO-007): subject allowlist — audit emit must
+        // reject attacker-controllable subjects at the boundary. Defaults
+        // to "owner" rather than echoing body.subject if disallowed.
+        subject: body.subject && isAllowedSubject(body.subject) ? body.subject : "owner",
         detail: {
           memoryId: saved.id,
           sourceKind: created.value.sourceKind,
@@ -164,7 +167,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/owner/memories/:memoryId/confirm", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
-    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "持久化记忆库暂不可用" }, 503)
     const memoryId = c.req.param("memoryId")
     const existing = await store.get(memoryId)
     if (!existing) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
@@ -197,7 +200,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/owner/memories/:memoryId/reject", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
-    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "持久化记忆库暂不可用" }, 503)
     const memoryId = c.req.param("memoryId")
     const existing = await store.get(memoryId)
     if (!existing) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
@@ -235,7 +238,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   app.delete("/v1/owner/memories/:memoryId", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
-    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "持久化记忆库暂不可用" }, 503)
     const memoryId = c.req.param("memoryId")
     const ok = await store.delete(memoryId)
     if (!ok) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
@@ -319,19 +322,14 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
         const updated = await args.store.update(args.transform(record, nowMs))
         succeeded.push(updated.id)
       } catch (err) {
-        // Malformed UUIDs (e.g. "missing-id") surface as PG syntax errors on
-        // the underlying get query; treat those uniformly as "未找到对应记录" so
-        // callers never see driver-level error text in the failed list. This
-        // special-case is checked FIRST so the generic catch path is reserved
-        // for truly unexpected programming errors.
+        // D74 T1 (audit #20 SO-003): route err.message through
+        // safeOwnerErrorString so PG error vocabulary
+        // ('invalid input syntax for type uuid: "..."', 'duplicate key
+        // value...') translates to Chinese; unknown errors get the
+        // generic "操作失败，请稍后重试" fallback. Previously leaked raw
+        // PG text to owner HTTP response.
         const message = err instanceof Error ? err.message : "unknown error"
-        if (message.includes("invalid input syntax for type uuid")) {
-          failed.push({ id, reason: "未找到对应记录" })
-          continue
-        }
-        // Truly unexpected error — surface the raw message in the per-id
-        // failed list (callers can act on it) without polluting stdout.
-        failed.push({ id, reason: message })
+        failed.push({ id, reason: safeOwnerErrorString(message) })
       }
     }
     return { succeeded, failed }
@@ -349,11 +347,11 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/owner/memories/confirm-batch", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
-    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "持久化记忆库暂不可用" }, 503)
     const body = (await c.req.json().catch(() => null)) ?? null
     const parsed = parseBatchIds(body)
     if (!parsed.ok) {
-      return c.json({ ok: false, reason: parsed.reason }, 400)
+      return c.json({ ok: false, reason: safeOwnerErrorString(parsed.reason) }, 400)
     }
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
     const result = await handleBatch({
@@ -388,11 +386,11 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/owner/memories/reject-batch", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const store = wiring.durableMemoryStore
-    if (!store) return c.json({ ok: false, reason: "durable memory store unavailable" }, 503)
+    if (!store) return c.json({ ok: false, reason: "持久化记忆库暂不可用" }, 503)
     const body = (await c.req.json().catch(() => null)) ?? null
     const parsed = parseBatchIds(body)
     if (!parsed.ok) {
-      return c.json({ ok: false, reason: parsed.reason }, 400)
+      return c.json({ ok: false, reason: safeOwnerErrorString(parsed.reason) }, 400)
     }
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
     const result = await handleBatch({
