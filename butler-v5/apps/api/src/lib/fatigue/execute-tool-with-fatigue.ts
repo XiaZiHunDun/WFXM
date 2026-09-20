@@ -8,15 +8,20 @@
  * - `cooldown` → caller sleeps for durationMs
  * - `checklist` → caller throws RunPauseForApproval with inline-rendered prompt
  *
+ * D74 T3 (audit #20 CQ-001): thread `signal` (count + window + last_n_actions)
+ * into the decision shape so audit emit at wechat-inbound-butler.ts:573
+ * can populate `detail.fatigue_signal` instead of dropping the upstream
+ * fatigue telemetry on the floor. 4 cycles of audit carry closed.
+ *
  * Exhaustive mapping of PolicyDecision; new actions require coordinated update.
  */
 import { evaluateInlineApproval } from "./policy"
-import type { AuditLogReader } from "./signal"
+import type { AuditLogReader, FatigueSignal } from "./signal"
 
 export type ToolExecutionDecision =
-  | { readonly kind: "allow" }
-  | { readonly kind: "cooldown"; readonly durationMs: number }
-  | { readonly kind: "checklist"; readonly items: readonly string[] }
+  | { readonly kind: "allow"; readonly signal?: FatigueSignal }
+  | { readonly kind: "cooldown"; readonly durationMs: number; readonly signal: FatigueSignal }
+  | { readonly kind: "checklist"; readonly items: readonly string[]; readonly signal: FatigueSignal }
 
 export async function executeToolWithFatigue(
   toolName: string,
@@ -28,9 +33,9 @@ export async function executeToolWithFatigue(
     case "allow":
       return { kind: "allow" }
     case "cooldown":
-      return { kind: "cooldown", durationMs: decision.duration_ms }
+      return { kind: "cooldown", durationMs: decision.duration_ms, signal: decision.signal }
     case "checklist":
-      return { kind: "checklist", items: decision.items }
+      return { kind: "checklist", items: decision.items, signal: decision.signal }
     default:
       throw new Error(`unhandled PolicyDecision action: ${(decision as { action: string }).action}`)
   }

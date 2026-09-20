@@ -760,6 +760,12 @@ export function runSubagentWorker(
   // D60 T1.2 (audit #1 F-01): close D58 T3 missed-sweep — track the timer
   // handle so stop() can cancel a pending tick that hasn't fired yet
   // (D58 T3 fixed the 3 sweepers; subagent-worker was the lone outlier).
+  // D74 audit #20 CQ-008 (extract scheduleNextTick + stopSubagentWorker)
+  // could not be applied: the static source-pattern test at
+  // subagent-worker.test.ts:753-757 asserts literal `let timer` /
+  // `timer = setTimeout(` / `clearTimeout(timer)` patterns. An extracted
+  // helper either becomes unused (lint warning) or breaks the test. The
+  // function-size cap is met; CQ-008 carried forward.
   let timer: ReturnType<typeof setTimeout> | null = null
 
   const tick = async (): Promise<void> => {
