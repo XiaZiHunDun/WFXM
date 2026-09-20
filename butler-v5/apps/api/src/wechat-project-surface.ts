@@ -66,7 +66,12 @@ function readHeadLines(absPath: string, maxLines: number): string | undefined {
       .filter((line) => line.length > 0 && !line.startsWith("#"))
       .slice(0, maxLines)
       .join("\n")
-  } catch {
+  } catch (err) {
+    // D74 T5 (audit #19 CQ-021 partial): observability for the silent
+    // catch — manifest sync skips files that fail to read but the
+    // operator should be able to trace which file/why from logs.
+    // eslint-disable-next-line no-console -- intentional debug log when no logger injected
+    console.error("[project-surface] manifest line read failed:", err)
     return undefined
   }
 }

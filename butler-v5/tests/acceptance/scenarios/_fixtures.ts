@@ -7,11 +7,11 @@
  * - 多 turn 时 fixtures 按 LLM 调用顺序消耗；counter 在 setFixtures 时重置
  * - 写文件触发 `WaitForApproval`；owner 后续「确认」走 inline approval
  *
- * 4 类共 52 场景（D67 T2a-2: +4 D 子分类场景 D-cross-channel-consistency /
- *   D-audit-correlation-continuity / D-owner-direct-no-inbound / D-additional-2）：
+ * 4 类共 55 场景（D67 T2a-2: +4 D 子分类场景 D-cross-channel-consistency /
+ *   D-audit-correlation-continuity / D-owner-direct-no-inbound / D-additional-2 + D73 T5: +3 C-O-*）：
  * A. 真实开发任务（具体可执行）— 11（含 A11-session-digest-idle-return）
  * B. 开放性任务（探索型）— 10
- * C. 边界 / 失败模式 — 16（含 F1-fatigue / F2-sensitive / F3-replay / D67 T2a-1 ×4）
+ * C. 边界 / 失败模式 — 20（含 F1-fatigue / F2-sensitive / F3-replay / D67 T2a-1 ×4 + C-additional-1 + C-O-1/2/3 ×3）
  * D. 跨场景组合 — 14（5 基础 + 5 chain-undo，D52 acceptance harness extension + D67 T2a-2 ×4）
  */
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
@@ -1091,7 +1091,7 @@ export const scenariosC: readonly Scenario[] = [
 ]
 
 // ============================================================================
-// D. 跨场景组合（5）
+// D. 跨场景组合（14）
 // ============================================================================
 
 export const scenariosD: readonly Scenario[] = [

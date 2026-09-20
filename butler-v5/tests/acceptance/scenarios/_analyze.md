@@ -508,7 +508,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-VT4H85/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-AxW2IU/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -811,9 +811,9 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=75_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 3 步）
-✅ /tmp/wb-accept-ws-VT4H85/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-VT4H85/test.ts → 还原为上版
-✅ /tmp/wb-accept-ws-VT4H85/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-AxW2IU/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-AxW2IU/test.ts → 还原为上版
+✅ /tmp/wb-accept-ws-AxW2IU/helper.ts → 还原为上版
 
 以下 2 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -846,8 +846,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-VT4H85/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-VT4H85/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-AxW2IU/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-AxW2IU/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -876,7 +876,7 @@ _decision=Respond | toolCalls=0 | replyLen=96_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 1 步）
-✅ /tmp/wb-accept-ws-VT4H85/old.ts → 还原为上版
+✅ /tmp/wb-accept-ws-AxW2IU/old.ts → 还原为上版
 
 _decision=Respond | toolCalls=0 | replyLen=55_
 

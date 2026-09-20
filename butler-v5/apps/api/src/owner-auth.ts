@@ -17,7 +17,13 @@ function remoteAddressFromContext(c: Context): string | undefined {
     const incoming = (bindings as { incoming?: { socket?: { remoteAddress?: string } } })
       .incoming
     return incoming?.socket?.remoteAddress
-  } catch {
+  } catch (err) {
+    // D74 T5 (audit #19 CQ-021 partial): observability for the silent
+    // catch — the auth bypass relies on remoteAddress being parsed, so
+    // a parse failure should leave a debug-level trail. Worst case the
+    // route falls back to caller-bind (existing behavior).
+    // eslint-disable-next-line no-console -- intentional debug log when no logger injected
+    console.error("[owner-auth] remoteAddress parse failed:", err)
     return undefined
   }
 }
