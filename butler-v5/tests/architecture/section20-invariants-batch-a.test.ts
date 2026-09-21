@@ -239,13 +239,17 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
     // Identify entry points: any .ts in apps/api/src/ that exposes a HTTP
     // route, an outbox handler, or a CLI command. The canonical
     // dispatch path is `runButlerLoop` (in wechat-inbound-butler.ts).
+    // D75 T1 (CQ-005): routes.ts now delegates to routes/inbound.ts (which
+    // is the actual LLM-driving entry point). The relative import path
+    // accepts both `./wechat-inbound-butler.js` (top-level) and
+    // `../wechat-inbound-butler.js` (nested in routes/ subdir).
     const KNOWN_ENTRY_POINTS: readonly string[] = [
       "cli-run.ts",
       "task-run.ts",
       "schedule-run.ts",
       "wechat-intake.ts",
       "channel-inbound.ts",
-      "routes.ts",
+      "routes/inbound.ts",
     ]
     for (const name of KNOWN_ENTRY_POINTS) {
       const path = join(APPS_SRC, name)
@@ -254,7 +258,7 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
       expect(
         src,
         `${name} must import runButlerLoop from ./wechat-inbound-butler.js (§20 #4)`,
-      ).toMatch(/import\s*\{[^}]*runButlerLoop[^}]*\}\s*from\s*["']\.\/wechat-inbound-butler\.js["']/)
+      ).toMatch(/import\s*\{[^}]*runButlerLoop[^}]*\}\s*from\s*["']\.{1,2}\/wechat-inbound-butler\.js["']/)
     }
   })
 
@@ -273,13 +277,14 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
     ).toEqual([BOOTSTRAP_WIRING])
     // All entry points should funnel through wiring.runEngine OR runButlerLoop
     // (runButlerLoop internally uses wiring.runEngine.executeInbound).
+    // D75 T1 (CQ-005): routes.ts now delegates to routes/inbound.ts.
     const KNOWN_ENTRY_POINTS: readonly string[] = [
       "cli-run.ts",
       "task-run.ts",
       "schedule-run.ts",
       "wechat-intake.ts",
       "channel-inbound.ts",
-      "routes.ts",
+      "routes/inbound.ts",
       "approval-resume.ts",
     ]
     for (const name of KNOWN_ENTRY_POINTS) {

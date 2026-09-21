@@ -23,9 +23,9 @@ import {
   undoChain,
   getUndoChainConversation,
   undoChain_listConversations,
-} from "./workspace-tools.js"
+  type ChainRevertResult,
+} from "./workspace-tools-undo.js"
 import { safeOwnerError } from "./safe-owner-error.js"
-import type { ChainRevertResult } from "./workspace-tools.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
 

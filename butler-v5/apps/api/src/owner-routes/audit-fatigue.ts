@@ -8,7 +8,7 @@ import {
   replayFatigueSequence,
   type UndoFn,
 } from "../lib/fatigue/replay.js"
-import { undoLastWrite } from "../workspace-tools.js"
+import { undoLastWrite } from "../workspace-tools-undo.js"
 import { unauthorizedForOwner } from "../owner-jargon.js"
 
 /**

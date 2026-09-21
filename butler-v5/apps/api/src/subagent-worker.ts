@@ -53,7 +53,6 @@ import { notifySubagentCompletion } from "./wechat-run-notify.js"
 import {
   isToolCallAllowed,
   llmToolsForCapabilities,
-  normalizeCapabilityNames,
 } from "./capability-guard.js"
 import { findTool, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
@@ -66,6 +65,12 @@ import { safeOwnerError } from "./safe-owner-error.js"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
 import { recordChildRunStatus } from "./project-state.js"
 import { resolveWechatUserFromConversation } from "./wechat-run-notify.js"
+// D75 T1 (CQ-002): handleOutboxMessage split — payload / rejection / stub
+// reply helpers extracted to their own modules so the orchestrator can
+// stay focused on policy + the main LLM path.
+import { parseDelegateOutboxPayload } from "./subagent-worker-payload.js"
+import { writeChildRunRejection } from "./subagent-worker-rejection.js"
+import { writeChildStubReply } from "./subagent-worker-stub.js"
 
 /**
  * D8-arch-align §20 #11: a no-op EventStorePort used to satisfy
@@ -116,7 +121,7 @@ async function markChildRunRunning(store: RuntimeStore, childRunId: string): Pro
   await store.transitionRunStatus(run.id, run.version, "running", new Date())
 }
 
-async function finalizeChildRun(
+export async function finalizeChildRun(
   store: RuntimeStore,
   childRunId: string,
   outcome: { readonly ok: boolean; readonly reply: string; readonly role: string },
@@ -168,7 +173,7 @@ export interface SubagentWorkerHandle {
  * consistent label when the subagent's reply shows up in
  * `recall_history`.
  */
-function prefixReply(role: string, content: string): string {
+export function prefixReply(role: string, content: string): string {
   return `[子代理 ${role} 的回复] ${content}`
 }
 
@@ -457,23 +462,14 @@ async function handleOutboxMessage(
   }
   logger.warn(`[subagent-worker] processing outbox msg ${msg.messageId} for stream ${msg.streamId}`)
   logger.warn(`[subagent-worker] ${execModelTrace(env)}`)
-  const payload = msg.payload as {
-    childConversationId?: unknown
-    role?: unknown
-    task?: unknown
-    capabilities?: unknown
-    childRunId?: unknown
-    parentRunId?: unknown
-    notifySubject?: unknown
-  }
-  const childConversationId =
-    typeof payload.childConversationId === "string" ? payload.childConversationId : ""
-  const role = typeof payload.role === "string" && payload.role.trim() ? payload.role : "general"
-  const task = typeof payload.task === "string" ? payload.task : ""
-  const capabilities = normalizeCapabilityNames(payload.capabilities)
-  const childRunId = typeof payload.childRunId === "string" ? payload.childRunId : null
-  const notifySubject =
-    typeof payload.notifySubject === "string" ? payload.notifySubject.trim() : ""
+  const {
+    childConversationId,
+    role,
+    task,
+    capabilities,
+    childRunId,
+    notifySubject,
+  } = parseDelegateOutboxPayload(msg)
   if (!childConversationId || !task) {
     logger.warn(
       `[subagent-worker] outbox msg ${msg.messageId} missing childConversationId or task; skipping`,
@@ -506,59 +502,28 @@ async function handleOutboxMessage(
   const allowedSet = new Set<string>(ALLOWED_CAPABILITIES)
   const invalidCap = capabilities.find((c) => !allowedSet.has(c))
   if (invalidCap !== undefined) {
-    const reason = `invalid capability: ${invalidCap} (allowed: ${ALLOWED_CAPABILITIES.join(", ")})`
-    logger.warn(`[subagent-worker] rejecting outbox msg ${msg.messageId}: ${reason}`)
-    writeSubagentAudit(runtimeStore, {
-      ts: new Date().toISOString(),
-      kind: "rejection",
-      parentConversationId: msg.streamId,
+    writeChildRunRejection({
+      runtimeStore,
+      msg,
       childConversationId,
       role,
       task,
       capabilities,
-      reason,
+      invalidCapability: invalidCap,
+      allowedCapabilities: ALLOWED_CAPABILITIES,
+      logger,
     })
     return
   }
   if (!adapter) {
-    logger.warn(
-      `[subagent-worker] no LLM adapter configured; writing stub reply for child ${childConversationId}`,
-    )
-    const stubContent = "（子代理未配置 LLM，无法执行）"
-    const stubEvent = {
-      streamId: msg.streamId,
-      eventId: crypto.randomUUID(),
-      eventType: "AssistantMessageProduced" as const,
-      correlationId: crypto.randomUUID(),
-      actor: { kind: "agent" as const, id: `subagent-${role}` },
-      event: {
-        _tag: "AssistantMessageProduced" as const,
-        content: prefixReply(role, stubContent),
-      },
-    }
-    await bridge.appendConversationEvent(stubEvent)
-    if (runtimeStore && childRunId) {
-      try {
-        await finalizeChildRun(runtimeStore, childRunId, {
-          ok: false,
-          reply: stubContent,
-          role,
-        })
-      } catch (err) {
-        logger.warn(
-          `[subagent-worker] failed to finalize child run ${childRunId}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        )
-      }
-    }
-    // R8.x.8: push the reply to any WS clients subscribed to the
-    // parent conversation. pushEventToSubscribers is a no-op when
-    // nobody is listening, so this is safe to call unconditionally.
-    pushEventToSubscribers(msg.streamId, {
-      eventType: stubEvent.eventType,
-      event: stubEvent.event,
-      eventId: stubEvent.eventId,
+    await writeChildStubReply({
+      bridge,
+      msg,
+      childConversationId,
+      role,
+      runtimeStore,
+      childRunId,
+      logger,
     })
     return
   }

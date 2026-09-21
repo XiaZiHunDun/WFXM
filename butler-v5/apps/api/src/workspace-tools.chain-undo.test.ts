@@ -5,11 +5,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import {
   makeRunCommandTool,
   makeWriteFileTool,
+} from "./workspace-tools.js"
+import {
   resetUndoChain,
   resetUndoStack,
   undoChain,
   UNDO_CHAIN_FOR_TEST,
-} from "./workspace-tools.js"
+} from "./workspace-tools-undo.js"
 
 let TMP: string
 let FILE_A: string
