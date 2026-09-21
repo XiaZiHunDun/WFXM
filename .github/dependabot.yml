@@ -1,0 +1,68 @@
+version: 2
+
+# Avoid release day (typically Friday/Saturday in WFXM pattern)
+# Weekly Monday 09:00 UTC — gives rest of week for review
+updates:
+  # --- npm: butler-v5 packages ---
+  - package-ecosystem: "npm"
+    directory: "/butler-v5"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "butler-v5"
+    groups:
+      butler-v5-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      butler-v5-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+    ignore:
+      # Critical packages: manual review even for patch
+      - dependency-name: "@anthropic-ai/sdk"
+      - dependency-name: "pnpm"
+      - dependency-name: "typescript"
+
+  # --- github-actions: workflow versions ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
+    groups:
+      actions-bump:
+        patterns:
+          - "*"
+
+  # --- docker: Dockerfile base images ---
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"
+    groups:
+      dockerfile-base:
+        patterns:
+          - "*"
