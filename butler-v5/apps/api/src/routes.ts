@@ -20,6 +20,7 @@ import { registerInboundRoutes } from "./routes/inbound.js"
 import { registerSlackEventsRoutes } from "./routes/slack-events.js"
 import { registerTelegramWebhookRoutes } from "./routes/telegram-webhook.js"
 import { registerWsSubscribeRoutes } from "./routes/ws-subscribe.js"
+import { registerHealthRoutes } from "./routes/health.js"
 
 /**
  * D71 T3 (audit #12 SEC-004 / SEC-005): parse a comma-separated
@@ -78,4 +79,6 @@ export function createRoutes(app: Hono, wiring: Wiring) {
   registerSlackEventsRoutes(app, wiring, parseAllowlist)
   registerTelegramWebhookRoutes(app, wiring, parseAllowlist)
   registerWsSubscribeRoutes(app)
+  // D77 T5 (DEPLOY-HEALTH): /health (readiness) + /health/live (liveness).
+  registerHealthRoutes(app, wiring)
 }

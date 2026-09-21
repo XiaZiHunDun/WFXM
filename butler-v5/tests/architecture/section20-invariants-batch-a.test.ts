@@ -243,6 +243,9 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
     // is the actual LLM-driving entry point). The relative import path
     // accepts both `./wechat-inbound-butler.js` (top-level) and
     // `../wechat-inbound-butler.js` (nested in routes/ subdir).
+    // D77 T5 (DEPLOY-HEALTH): /health is a non-LLM HTTP route — listed
+    // in NON_LLM_ENTRY_POINTS so the LLM-driving invariant does not
+    // apply to it. /health only reads wiring.db for the readiness probe.
     const KNOWN_ENTRY_POINTS: readonly string[] = [
       "cli-run.ts",
       "task-run.ts",
@@ -250,6 +253,9 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
       "wechat-intake.ts",
       "channel-inbound.ts",
       "routes/inbound.ts",
+    ]
+    const NON_LLM_ENTRY_POINTS: readonly string[] = [
+      "routes/health.ts",
     ]
     for (const name of KNOWN_ENTRY_POINTS) {
       const path = join(APPS_SRC, name)
@@ -259,6 +265,17 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
         src,
         `${name} must import runButlerLoop from ./wechat-inbound-butler.js (§20 #4)`,
       ).toMatch(/import\s*\{[^}]*runButlerLoop[^}]*\}\s*from\s*["']\.{1,2}\/wechat-inbound-butler\.js["']/)
+    }
+    // Non-LLM entry points (e.g. health probes) MUST NOT import runButlerLoop —
+    // they exist outside the canonical driving-adapter path.
+    for (const name of NON_LLM_ENTRY_POINTS) {
+      const path = join(APPS_SRC, name)
+      if (!existsSync(path)) continue
+      const src = readFileSync(path, "utf-8")
+      expect(
+        src.includes("runButlerLoop"),
+        `${name} must NOT import runButlerLoop (non-LLM entry point)`,
+      ).toBe(false)
     }
   })
 
@@ -278,6 +295,8 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
     // All entry points should funnel through wiring.runEngine OR runButlerLoop
     // (runButlerLoop internally uses wiring.runEngine.executeInbound).
     // D75 T1 (CQ-005): routes.ts now delegates to routes/inbound.ts.
+    // D77 T5 (DEPLOY-HEALTH): /health is a non-LLM entry point and is
+    // therefore exempt from the wiring.runEngine / runButlerLoop invariant.
     const KNOWN_ENTRY_POINTS: readonly string[] = [
       "cli-run.ts",
       "task-run.ts",
@@ -287,6 +306,10 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
       "routes/inbound.ts",
       "approval-resume.ts",
     ]
+    const NON_LLM_ENTRY_POINTS: readonly string[] = [
+      "routes/health.ts",
+    ]
+    const nonLlmSet = new Set(NON_LLM_ENTRY_POINTS)
     for (const name of KNOWN_ENTRY_POINTS) {
       const path = join(APPS_SRC, name)
       if (!existsSync(path)) continue
@@ -298,5 +321,20 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
         `${name} must reach RunEngine via wiring.runEngine.* or runButlerLoop(...) (composition-root dispatch)`,
       ).toBe(true)
     }
+    // Non-LLM entry points must not construct RunEngine directly.
+    for (const name of NON_LLM_ENTRY_POINTS) {
+      const path = join(APPS_SRC, name)
+      if (!existsSync(path)) continue
+      const src = readFileSync(path, "utf-8")
+      expect(
+        /new\s+RunEngine\s*\(/.test(src) ||
+          /\b(wiring|args\.wiring)\.runEngine\./.test(src) ||
+          /\brunButlerLoop\s*\(/.test(src),
+        `${name} (non-LLM entry point) must not construct or call RunEngine`,
+      ).toBe(false)
+    }
+    // Silence "unused" lint by referencing nonLlmSet so future test
+    // additions can extend the exemption without restructuring.
+    expect(nonLlmSet.size).toBeGreaterThan(0)
   })
 })
