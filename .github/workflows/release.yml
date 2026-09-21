@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v5.0.1)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (no push)'
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.extract.outputs.tag }}
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: extract
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Tag $TAG must match semver (vX.Y.Z[-prerelease])"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/xiazihundun/wfxm
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+      - name: Build and push
+        id: digest
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: ${{ !inputs.dry_run }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+      - name: Generate SBOM (CycloneDX)
+        if: ${{ !inputs.dry_run }}
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/xiazihundun/wfxm:${{ needs.validate.outputs.tag }}
+          format: cyclonedx-json
+          artifact-name: sbom-cyclonedx-${{ matrix.platform }}
+      - name: Upload SBOM artifact
+        if: ${{ !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.platform }}
+          path: sbom-cyclonedx-${{ matrix.platform }}.json
+          retention-days: 90
+      - name: Cosign keyless sign
+        if: ${{ !inputs.dry_run }}
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: |
+          IMAGE="ghcr.io/xiazihundun/wfxm@${{ steps.digest.outputs.digest }}"
+          echo "Signing $IMAGE"
+          cosign sign --yes "$IMAGE"
+
+  release:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.dry_run }}
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download SBOMs
+        uses: actions/download-artifact@v4
+        with:
+          path: sbom
+          merge-multiple: true
+      - name: Generate release notes
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | sed -n '2p')
+          if [[ -n "$PREV_TAG" ]]; then
+            RANGE="$PREV_TAG..${{ needs.validate.outputs.tag }}"
+          else
+            RANGE="${{ needs.validate.outputs.tag }}"
+          fi
+          {
+            echo "## What's Changed"
+            echo ""
+            git log "$RANGE" --pretty=format:"- %s (%h)" --no-merges | head -100
+            echo ""
+            echo ""
+            echo "## SBOM"
+            echo ""
+            echo "CycloneDX SBOM attached below for supply chain verification."
+          } > RELEASE_NOTES.md
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: "WFXM ${{ needs.validate.outputs.version }}"
+          body_path: RELEASE_NOTES.md
+          files: |
+            sbom/*.json
+          fail_on_unmatched_files: false
+          draft: false
+          prerelease: ${{ contains(needs.validate.outputs.tag, '-') }}
