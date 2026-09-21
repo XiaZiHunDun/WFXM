@@ -63,6 +63,7 @@
 | D-series 累计 + 未来候选 | [`docs/plans/active/ROADMAP.md`](docs/plans/active/ROADMAP.md) |
 | owner FAQ（D-series / audit-driven / 节奏） | [`docs/FAQ.md`](docs/FAQ.md) |
 | 视觉架构图（Mermaid 4 张） | [`docs/architecture/v5-current-state-diagrams.md`](docs/architecture/v5-current-state-diagrams.md) |
+| 生产加固指南（D77 T6） | [`docs/deployment/production-hardening.md`](docs/deployment/production-hardening.md) |
 | 文档索引卡片（"我要…"） | [`docs/README.md`](docs/README.md) |
 | 文档分层手册 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) |
 | 黑板快照 | [`.blackboard/state.md`](.blackboard/state.md) |
