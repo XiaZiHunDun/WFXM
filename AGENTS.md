@@ -205,6 +205,7 @@ PYTHONPATH=. pytest tests/test_env_parse_r8.py -q
 - **[CHANGELOG.md](CHANGELOG.md)** — 版本演进总览（v5.0.0 起）
 - **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — 社区行为规范（Contributor Covenant v2.1 中文版）
 - **[SECURITY.md](SECURITY.md)** — 漏洞披露政策（GitHub Security Advisories 主路径）
+- **[docs/deployment/production-hardening.md](docs/deployment/production-hardening.md)** — 生产加固指南（secrets + 容器 + 网络）
 
 Issue / PR 模板位于 `.github/ISSUE_TEMPLATE/` 与 `.github/PULL_REQUEST_TEMPLATE.md`。
 
