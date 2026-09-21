@@ -163,6 +163,7 @@ docs/                      架构、决策与路线图
 
 - 改 `butler-v5` 前请读 [AGENTS.md](AGENTS.md) 与 v5 本地规则
 - 贡献约定：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 治理：[CHANGELOG.md](CHANGELOG.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [SECURITY.md](SECURITY.md)
 - Cursor 规则：`.cursor/rules/`
 
 ---

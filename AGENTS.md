@@ -198,4 +198,16 @@ PYTHONPATH=. pytest tests/test_env_parse_r8.py -q
 
 改 CC 线束、外部对标模块、四/五报告能力、**ENG-15 层矩阵/allowlist** 或新增 `BUTLER_*` 时，同步 `v4-architecture`、`v4-layer-model`、`config/reference`、`.env.example`、对应 `*-capabilities` 与 [`CONTRIBUTING.md`](CONTRIBUTING.md)。细则见 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §6。
 
+## OSS 手册（开源对外门面）
+
+本仓库面向外部贡献者的治理文件：
+
+- **[CHANGELOG.md](CHANGELOG.md)** — 版本演进总览（v5.0.0 起）
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — 社区行为规范（Contributor Covenant v2.1 中文版）
+- **[SECURITY.md](SECURITY.md)** — 漏洞披露政策（GitHub Security Advisories 主路径）
+
+Issue / PR 模板位于 `.github/ISSUE_TEMPLATE/` 与 `.github/PULL_REQUEST_TEMPLATE.md`。
+
+> 详细架构与设计见 [`docs/architecture/`](docs/architecture/) 与 [`butler-v5/`](butler-v5/)。
+
 索引：[`docs/README.md`](docs/README.md)
