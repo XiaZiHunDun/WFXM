@@ -12,6 +12,7 @@ import {
   readMultiRoundEnv,
 } from "./multi-round.js"
 import { readFileSync, existsSync } from "node:fs"
+import { execSync } from "node:child_process"
 import { join } from "node:path"
 
 describe("D53a methodology", () => {
@@ -177,6 +178,70 @@ describe("D53a methodology", () => {
       // D53c Task 7 Drift 2: 补 6 placeholder (A11-session-digest + D1-D5 chain)
       // recordings/ 35 真实 metric + 6 placeholder (D52/A11 ship 后) = 41
       expect(Object.keys(data.scenarios).length).toBe(41)
+    })
+  })
+
+  // ----- M15 (D77 T7) — docker deploy artifacts 齐 + cross-link 一致 -----
+  describe("M15 — docker deploy artifacts 齐 + cross-link 一致", () => {
+    const repoRoot = "/home/ailearn/projects/WFXM"
+
+    const requiredFiles = [
+      "Dockerfile",
+      ".dockerignore",
+      ".github/workflows/release.yml",
+      ".github/dependabot.yml",
+      "butler-v5/docker-compose.yml",
+      "butler-v5/apps/api/src/routes/health.ts",
+      "docs/deployment/production-hardening.md",
+      "docs/deployment/README.md",
+      "tests/acceptance/scenarios_docker_deploy.md",
+    ]
+
+    it("all 9 docker deploy artifacts present", () => {
+      for (const f of requiredFiles) {
+        expect(existsSync(`${repoRoot}/${f}`), `missing ${f}`).toBe(true)
+      }
+    })
+
+    it("§20 NON_LLM_ENTRY_POINTS includes routes/health.ts", () => {
+      const result = execSync(
+        `grep -rln "routes/health\\.ts" ${repoRoot}/butler-v5/tests/architecture/ 2>/dev/null`,
+        { encoding: "utf-8" },
+      )
+      expect(result.trim().length, "§20 update missing").toBeGreaterThan(0)
+    })
+
+    it("AGENTS.md links to production-hardening", () => {
+      const agents = readFileSync(`${repoRoot}/AGENTS.md`, "utf-8")
+      expect(agents, "AGENTS.md link missing").toContain("production-hardening")
+    })
+
+    it("hardening.md Secret<T> cross-link points to real source", () => {
+      const doc = readFileSync(
+        `${repoRoot}/docs/deployment/production-hardening.md`,
+        "utf-8",
+      )
+      expect(doc, "Secret<T> link missing").toContain(
+        "@butler/adapters/wechat/secret.js",
+      )
+      expect(doc, "wrong cross-link still present").not.toContain("@butler/security")
+    })
+
+    it("hardening.md cross-links to SECURITY + production architecture", () => {
+      const doc = readFileSync(
+        `${repoRoot}/docs/deployment/production-hardening.md`,
+        "utf-8",
+      )
+      expect(doc).toMatch(/SECURITY\.md|v5-production-architecture/)
+    })
+
+    it("compose YAML valid + butler service + loopback only", () => {
+      const compose = readFileSync(
+        `${repoRoot}/butler-v5/docker-compose.yml`,
+        "utf-8",
+      )
+      expect(compose, "butler service missing").toMatch(/^ {2}butler:/m)
+      expect(compose, "0.0.0.0 binding present").not.toMatch(/"0\.0\.0\.0/)
     })
   })
 })
