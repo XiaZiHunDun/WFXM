@@ -1,28 +1,88 @@
+# Butler v5 docker-compose (development + production-ready)
+# Usage:
+#   Production: TAG=v5.0.1 docker compose up -d postgres butler
+#   Development: docker compose --profile dev up
+#
+# Image: ghcr.io/xiazihundun/wfxm (built by .github/workflows/release.yml)
+
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: butler-postgres
     environment:
       POSTGRES_DB: butler_v5
-      POSTGRES_USER: butler
-      POSTGRES_PASSWORD: butler_dev
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-butler}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U butler -d butler_v5"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-butler} -d butler_v5"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   wechat-mock:
     image: node:20-alpine
+    container_name: butler-wechat-mock
     working_dir: /app
     command: ["node", "wechat-mock.mjs"]
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     volumes:
-      - ./scripts/wechat-mock.mjs:/app/wechat-mock.mjs
+      - ./scripts/wechat-mock.mjs:/app/wechat-mock.mjs:ro
+    restart: unless-stopped
+    profiles: ["dev", "test"]
+    security_opt:
+      - no-new-privileges:true
+
+  butler:
+    image: ghcr.io/xiazihundun/wfxm:${TAG:-latest}
+    container_name: butler-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: butler_v5
+      DB_USER: ${POSTGRES_USER:-butler}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY required}
+      PORT: "3000"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.cache
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    volumes:
+      - butler-data:/app/data:rw
 
 volumes:
   pgdata:
+  butler-data:
