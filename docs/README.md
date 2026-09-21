@@ -141,3 +141,31 @@ BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/gateway/test_wechat_gateway
 bash scripts/butler-gateway-ops.sh status
 bash scripts/butler-pre-release-smoke.sh
 ```
+
+## 子目录速查（D78 新增）
+
+> 导航中心（仅索引，不重复内容）。详细分层与维护规则 → [`DOCUMENTATION.md`](DOCUMENTATION.md)
+
+| 子目录 | 权威指南 | 典型文件（D78 新增标 ⭐） | 何时来这 |
+|--------|----------|----------------------------|----------|
+| `architecture/` | [`v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | ⭐ [`v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) | 查生产调用链 / 视觉架构图 |
+| `plans/active/` | [`v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) | ⭐ [`../ROADMAP.md`](ROADMAP.md) | 看 D-series 累计 / 未来候选 |
+| `plans/decisions/` | — | [`v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) | 查 ADR / 产品边界决策 |
+| `guides/` | [`project-onboarding.md`](guides/project-onboarding.md) | [`maintainer-cheat-sheet-2026-07.md`](guides/maintainer-cheat-sheet-2026-07.md) | 维护者一页纸 / 操作 runbook |
+| `deployment/` | ⭐ [`production-hardening.md`](deployment/production-hardening.md) | — | 部署 + 加固（D77 T6） |
+| `config/` | [`config-surfaces.md`](config/config-surfaces.md) | — | env / yaml / secrets 配置面 |
+| `ops/` | [`diagnostic-entrypoints.md`](ops/diagnostic-entrypoints.md) | — | 诊断入口 / 阈值 |
+| `adr/` | — | [`2026-08-08-v4-to-v5-supersession.md`](adr/2026-08-08-v4-to-v5-supersession.md) | 架构决策记录 |
+| `reviews/` | — | [`project-deep-audit-2026-06.md`](reviews/project-deep-audit-2026-06.md) | 深度审计报告 |
+| `superpowers/` | [`README.md`](superpowers/README.md) | — | 旧五件套班次设计（superseded） |
+| `templates/` | [`README.md`](templates/README.md) | — | 模板集合 |
+| `history/` | [`README.md`](history/README.md) | — | v0.5–v3 历史（**勿作实现依据**） |
+| (root) | [`DOCUMENTATION.md`](DOCUMENTATION.md) | ⭐ [`ROADMAP.md`](ROADMAP.md) · ⭐ [`FAQ.md`](FAQ.md) | D-series 路线 / owner FAQ |
+
+**D78 cycle 24 新增 5 件套速查**：
+
+1. ⭐ [`ROADMAP.md`](ROADMAP.md) — D22→D78 累计（117 ship → 122 ship）+ 维度 2/3/4 候选
+2. ⭐ [`architecture/v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) — 4 张 Mermaid 视觉架构图
+3. ⭐ [`FAQ.md`](FAQ.md) — 10 段 owner 视角 FAQ
+4. ⭐ 本 §子目录速查 — 导航中心
+5. ⭐ [`../AGENTS.md`](../AGENTS.md) 整文件重写为索引 — 16K → < 200 行（D78 T5）
