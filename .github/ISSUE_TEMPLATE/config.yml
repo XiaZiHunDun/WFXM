@@ -1,0 +1,10 @@
+# GitHub Issue 选择器配置
+blank_issues_enabled: false  # 强制走模板
+
+contact_links:
+  - name: 🔒 安全漏洞披露
+    url: https://github.com/XiaZiHunDun/WFXM/blob/main/SECURITY.md
+    about: 请勿在公开 Issue 提交漏洞；走 GitHub Security Advisories 或邮件
+  - name: 📖 架构与设计文档
+    url: https://github.com/XiaZiHunDun/WFXM/tree/main/docs/architecture
+    about: 系统设计、ADR、layer-theory 等
