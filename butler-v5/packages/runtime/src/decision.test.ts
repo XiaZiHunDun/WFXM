@@ -147,4 +147,34 @@ describe("decodeDecision", () => {
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.reason).toMatch(/unknown tag/i)
   })
+
+  // D81 decode-fix: accept legacy "Delegate" decision shape and map to
+  // StartChildRun (delegate-runtime path). Real LLM emits this when the
+  // wechat-inbound-llm.ts closing mentions "Delegate"; fixtures mirror
+  // that real-LLM output (config/llm-fixtures/wechat/plan.json[1]).
+  it("decodes _tag:Delegate with role + task; maps to StartChildRun", () => {
+    const out = decodeDecision(
+      '{"_tag":"Delegate","role":"developer","task":"write butler-v5/tmp-product-contract.txt with content contract-ok"}',
+    )
+    expect(out.ok).toBe(true)
+    if (out.ok && out.value._tag === "StartChildRun") {
+      expect(out.value.role).toBe("developer")
+      expect(out.value.objective).toBe(
+        "write butler-v5/tmp-product-contract.txt with content contract-ok",
+      )
+      expect(out.value.grants).toBeUndefined()
+    }
+  })
+
+  it("rejects Delegate with missing role", () => {
+    const out = decodeDecision('{"_tag":"Delegate","task":"write x"}')
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.reason).toMatch(/Delegate\.role/i)
+  })
+
+  it("rejects Delegate with missing task", () => {
+    const out = decodeDecision('{"_tag":"Delegate","role":"developer"}')
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.reason).toMatch(/Delegate\.task/i)
+  })
 })

@@ -53,6 +53,23 @@ function parseModelDecisionObject(obj: Record<string, unknown>): DecodeResult {
           : { _tag: "StartChildRun", role, objective }
       return { ok: true, value: decision }
     }
+    case "Delegate": {
+      // D81 decode-fix: accept legacy "Delegate" decision shape and map to
+      // StartChildRun (same child-run path conversation-loop.ts:486 invokes
+      // `delegate_to_subagent` tool with task=objective, role=role). Real
+      // LLM emits this when wechat-inbound-llm.ts closing line 82-83 says
+      // "use Delegate"; fixtures mirror real-LLM output
+      // (config/llm-fixtures/wechat/plan.json[1]). Delegate.role → role,
+      // Delegate.task → objective. ModelDecision union is unchanged; this
+      // is a decoder-level alias only.
+      const role = obj["role"]
+      const task = obj["task"]
+      if (typeof role !== "string")
+        return { ok: false, reason: "Delegate.role must be string" }
+      if (typeof task !== "string")
+        return { ok: false, reason: "Delegate.task must be string" }
+      return { ok: true, value: { _tag: "StartChildRun", role, objective: task } }
+    }
     case "WaitForApproval": {
       const question = obj["question"]
       if (typeof question !== "string")
