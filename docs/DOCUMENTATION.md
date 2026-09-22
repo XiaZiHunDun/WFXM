@@ -232,6 +232,7 @@ L5  历史（勿作依据）    docs/history/、已 superseded 文档
 | **v5 测试覆盖 / arch + acceptance + unit** | **[`TESTS.md`](TESTS.md)**                                                                                |
 | **v5 TODO / deferral 视图** | **[`TODO_DEFERRED.md`](TODO_DEFERRED.md)**                                                                                |
 | **D-series audit findings 索引** | **[`AUDIT_FINDINGS.md`](AUDIT_FINDINGS.md)**                                                                          |
+| **Feedback lessons 索引（19 条）** | **[`FEEDBACK.md`](FEEDBACK.md)**                                                                                |
 | 理论—实现差距               | [`plans/decisions/theory-implementation-gap-register-2026-06.md`](plans/decisions/theory-implementation-gap-register-2026-06.md) |
 | Dev 能力上限（对标 CC CLI） | [`plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md`](plans/decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md)     |
 | P3 本机 CC 桥接（暂缓）     | [`plans/decisions/dev-cc-bridge-optional-2026-06.md`](plans/decisions/dev-cc-bridge-optional-2026-06.md)                         |
