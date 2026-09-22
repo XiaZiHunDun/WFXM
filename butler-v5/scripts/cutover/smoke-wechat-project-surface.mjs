@@ -11,6 +11,10 @@ if (apiEq) api = apiEq.slice("--api=".length)
 
 const base = api.replace(/\/$/, "")
 const fromUserId = `surface-smoke-${Date.now()}`
+// D81 (audit #27 fix): propagate BUTLER_V5_INBOUND_SHARED_SECRET as
+// x-inbound-secret header for D63/D72 FAIL-CLOSED auth. Env unset = no
+// header (backward-compat with pre-D63 prod gateway).
+const inboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
 
 function fail(step, detail) {
   console.error(`smoke FAIL [${step}]: ${detail}`)
@@ -18,9 +22,11 @@ function fail(step, detail) {
 }
 
 async function inbound(content) {
+  const headers = { "content-type": "application/json" }
+  if (inboundSecret) headers["x-inbound-secret"] = inboundSecret
   const res = await fetch(`${base}/v1/wechat/inbound`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify({
       apiVersion: "v1",
       fromUserId,
@@ -41,7 +47,9 @@ async function main() {
 
   const list = await inbound("/项目")
   if (!String(list.reply).includes("项目列表")) fail("/项目", list.reply)
-  if (!String(list.reply).includes("PK")) fail("/项目/pk", list.reply)
+  // D81 (audit #27 fix): old smoke asserted "PK" (Project Knowledge) label,
+  // new code spells it out as Chinese 知识库 in /项目 reply.
+  if (!String(list.reply).includes("知识库")) fail("/项目/pk", list.reply)
   console.log("smoke ok [/项目]: enriched list")
 
   const switched = await inbound("/切换 灵文1号")
@@ -50,7 +58,9 @@ async function main() {
   console.log("smoke ok [/切换]: includes tool profile")
 
   const status = await inbound("/状态")
-  if (!String(status.reply).includes("灵文1号")) fail("/状态", status.reply)
+  // D81 (audit #27 fix): old smoke asserted the alias "灵文1号" the user
+  // typed via /切换; new code resolves to the project NAME (LingWen).
+  if (!String(status.reply).includes("LingWen")) fail("/状态", status.reply)
   if (!String(status.reply).includes("工具")) fail("/状态/tools", status.reply)
   console.log("smoke ok [/状态]: enriched")
 

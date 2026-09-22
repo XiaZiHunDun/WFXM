@@ -25,6 +25,12 @@ export BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP='wechat:WFXM,LingWen1:LingWen,灵
 export BUTLER_V5_MCP_ENABLED=1
 export BUTLER_V5_MCP_TOOL_NAMES=search
 export BUTLER_V5_TRACE=0
+# D81 (audit #27 fix): D63/D72 added FAIL-CLOSED auth on /v1/wechat/inbound
+# requiring BUTLER_V5_INBOUND_SHARED_SECRET in env + x-inbound-secret header.
+# CI mode (fresh gateway with current source) needs this set so smoke
+# scripts (also updated to send the header from this env var) can
+# authenticate. Value is test-only (NODE_ENV=test above) — no prod impact.
+export BUTLER_V5_INBOUND_SHARED_SECRET="ci-smoke-loopback-secret"
 
 API="http://127.0.0.1:${PORT}"
 

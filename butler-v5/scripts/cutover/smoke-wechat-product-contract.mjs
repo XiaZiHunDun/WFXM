@@ -27,6 +27,10 @@ const mockOutbox =
 const fixtureDir =
   process.env.BUTLER_V5_LLM_FIXTURE_DIR ??
   join(repoRoot, "config/llm-fixtures/wechat")
+// D81 (audit #27 fix): propagate BUTLER_V5_INBOUND_SHARED_SECRET as
+// x-inout-secret header for D63/D72 FAIL-CLOSED auth. Env unset = no
+// header (backward-compat with pre-D63 prod gateway).
+const inboundSecret = (process.env.BUTLER_V5_INBOUND_SHARED_SECRET ?? "").trim()
 
 function fail(step, detail) {
   console.error(`product-contract FAIL [${step}]: ${detail}`)
@@ -46,9 +50,11 @@ function readOutbox() {
 }
 
 async function inbound(content) {
+  const headers = { "content-type": "application/json" }
+  if (inboundSecret) headers["x-inbound-secret"] = inboundSecret
   const res = await fetch(`${base}/v1/wechat/inbound`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify({
       apiVersion: "v1",
       fromUserId,

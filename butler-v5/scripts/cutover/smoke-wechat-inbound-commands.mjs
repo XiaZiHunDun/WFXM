@@ -8,6 +8,11 @@ const apiEq = process.argv.find((a) => a.startsWith("--api="))
 if (apiEq) api = apiEq.slice("--api=".length)
 const base = api.replace(/\/$/, "")
 const fromUserId = `cmd-smoke-${Date.now()}`
+// D81 (audit #27 fix): when gateway has BUTLER_V5_INBOUND_SHARED_SECRET set
+// (D63/D72 FAIL-CLOSED auth), propagate it as x-inbound-secret header so
+// smoke can authenticate. Env unset = no header (backward-compat with
+// pre-D63 prod gateway that skipped auth).
+const inboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
 
 function fail(step, detail) {
   console.error(`smoke FAIL [${step}]: ${detail}`)
@@ -15,9 +20,11 @@ function fail(step, detail) {
 }
 
 async function inbound(content) {
+  const headers = { "content-type": "application/json" }
+  if (inboundSecret) headers["x-inbound-secret"] = inboundSecret
   const res = await fetch(`${base}/v1/wechat/inbound`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify({
       apiVersion: "v1",
       fromUserId,
@@ -53,9 +60,12 @@ async function main() {
   if (!String(list.reply).includes(taskToken)) fail("/待办", list.reply)
   console.log("smoke ok [/待办]")
 
-  const done = await inbound(`/完成 ${taskToken}`)
-  if (!String(done.reply).includes("已标记完成")) fail("/完成", done.reply)
-  console.log("smoke ok [/完成]")
+  const donePending = await inbound(`/完成 ${taskToken}`)
+  if (!String(donePending.reply).includes("即将标记完成")) fail("/完成", donePending.reply)
+  console.log("smoke ok [/完成]: pending confirmation")
+  const done = await inbound(`/完成 ${taskToken} 确认`)
+  if (!String(done.reply).includes("已标记完成")) fail("/完成 confirm", done.reply)
+  console.log("smoke ok [/完成]: completed")
 
   const gate = await inbound("/验 surface-test")
   if (!String(gate.reply).includes("质量门禁")) fail("/验", gate.reply)
