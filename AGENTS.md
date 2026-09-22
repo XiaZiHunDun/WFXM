@@ -65,6 +65,7 @@
 | 视觉架构图（Mermaid 4 张） | [`docs/architecture/v5-current-state-diagrams.md`](docs/architecture/v5-current-state-diagrams.md) |
 | 生产加固指南（D77 T6） | [`docs/deployment/production-hardening.md`](docs/deployment/production-hardening.md) |
 | **v5 功能清单（D80）**  | **[`docs/FEATURES.md`](docs/FEATURES.md)**                                        |
+| **v5 API endpoint（D80）** | **[`docs/API_ENDPOINTS.md`](docs/API_ENDPOINTS.md)**                          |
 | 文档索引卡片（"我要…"） | [`docs/README.md`](docs/README.md) |
 | 文档分层手册 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) |
 | 黑板快照 | [`.blackboard/state.md`](.blackboard/state.md) |
