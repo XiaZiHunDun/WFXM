@@ -68,6 +68,7 @@
 | **v5 API endpoint（D80）** | **[`docs/API_ENDPOINTS.md`](docs/API_ENDPOINTS.md)**                          |
 | **v5 env vars（D80）**     | **[`docs/ENV.md`](docs/ENV.md)**                                                  |
 | **v5 测试覆盖（D80）**   | **[`docs/TESTS.md`](docs/TESTS.md)**                                              |
+| **v5 TODO / deferral（D80）** | **[`docs/TODO_DEFERRED.md`](docs/TODO_DEFERRED.md)**                                |
 | 文档索引卡片（"我要…"） | [`docs/README.md`](docs/README.md) |
 | 文档分层手册 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) |
 | 黑板快照 | [`.blackboard/state.md`](.blackboard/state.md) |
