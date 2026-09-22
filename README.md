@@ -156,6 +156,8 @@ docs/                      架构、决策与路线图
 | **提需求 / 边界** | [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md)                                                 |
 | **后续路线**      | [post-boundary roadmap](docs/plans/active/v5-post-boundary-roadmap-2026-08.md)                                                 |
 | **文档体系**      | [DOCUMENTATION.md](docs/DOCUMENTATION.md)                                                                                      |
+| **自托管**        | [docs/deployment/SELF-HOSTING.md](docs/deployment/SELF-HOSTING.md)                                                            |
+| **本地 zero-LLM 试玩** | `cd butler-v5 && pnpm demo`                                                                                              |
 
 ---
 

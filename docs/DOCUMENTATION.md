@@ -252,3 +252,4 @@ L5  历史（勿作依据）    docs/history/、已 superseded 文档
 | 2026-08-20 | v5 目标架构二次收敛：三模块五实体；Task/Procedure/独立记忆表延后；模型 Port 与副作用 Capability 分离                                                                                                                                         |
 | 2026-08-20 | 工程交接收成短 `state.md`；claims/backlog/log 冻结；旧黑板 spec superseded；Stop hard gate 待人工关闭 |
 | 2026-09-21 | **D78 docs-batch**：新增 [`ROADMAP.md`](ROADMAP.md) / [`v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) / [`FAQ.md`](FAQ.md)；[`docs/README.md`](README.md) §子目录速查；[`../AGENTS.md`](../AGENTS.md) 整文件重写为索引（214→78 行） |
+| 2026-09-22 | **D79 demo-batch**：新增 [`deployment/SELF-HOSTING.md`](deployment/SELF-HOSTING.md) 自托管指南（§0-§10）；`pnpm demo` zero-LLM CLI REPL（scripts/demo.ts）；3 个 E-demo acceptance scenarios；README × 4 文件 cross-link |

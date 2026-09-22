@@ -10,7 +10,11 @@ pnpm install
 pnpm test          # 运行全部测试（3062+ tests）
 pnpm typecheck     # 8 包类型检查
 pnpm lint          # 代码规范检查
+pnpm demo          # zero-LLM CLI REPL（无需 API key / Docker）
 ```
+
+`pnpm demo` 走 acceptance harness（脚本化 fixture LLM + 内存 PGlite），试玩 butler-v5 的核心交互流。
+真实 LLM 启动：`docker compose up -d postgres butler`（参见 [`../docs/deployment/SELF-HOSTING.md`](../docs/deployment/SELF-HOSTING.md)）。
 
 ## 项目结构
 

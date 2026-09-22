@@ -152,7 +152,7 @@ bash scripts/butler-pre-release-smoke.sh
 | `plans/active/` | [`v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) | ⭐ [`../ROADMAP.md`](ROADMAP.md) | 看 D-series 累计 / 未来候选 |
 | `plans/decisions/` | — | [`v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) | 查 ADR / 产品边界决策 |
 | `guides/` | [`project-onboarding.md`](guides/project-onboarding.md) | [`maintainer-cheat-sheet-2026-07.md`](guides/maintainer-cheat-sheet-2026-07.md) | 维护者一页纸 / 操作 runbook |
-| `deployment/` | ⭐ [`production-hardening.md`](deployment/production-hardening.md) | — | 部署 + 加固（D77 T6） |
+| `deployment/` | ⭐ [`production-hardening.md`](deployment/production-hardening.md) · ⭐ [`SELF-HOSTING.md`](deployment/SELF-HOSTING.md) | — | 部署 + 加固（D77 T6）/ 自托管完整指南（D79 T3） |
 | `config/` | [`config-surfaces.md`](config/config-surfaces.md) | — | env / yaml / secrets 配置面 |
 | `ops/` | [`diagnostic-entrypoints.md`](ops/diagnostic-entrypoints.md) | — | 诊断入口 / 阈值 |
 | `adr/` | — | [`2026-08-08-v4-to-v5-supersession.md`](adr/2026-08-08-v4-to-v5-supersession.md) | 架构决策记录 |
