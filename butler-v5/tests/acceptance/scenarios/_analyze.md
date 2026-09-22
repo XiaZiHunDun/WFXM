@@ -1,14 +1,14 @@
 # Acceptance Realistic Scenarios — 产品层行为分析
 
-生成时间：2026-09-21（55 场景自动跑出）
+生成时间：2026-09-22（58 场景自动跑出）
 
 ## 总览
 
-- 场景数：55
-- 通过：55 / 失败：0
-- 触发 approval：22 次
-- 工具调用总数：53
-- reply 字符总数：6871
+- 场景数：58
+- 通过：58 / 失败：0
+- 触发 approval：23 次
+- 工具调用总数：55
+- reply 字符总数：7033
 
 ## 按类别汇总
 
@@ -86,6 +86,14 @@
 | D-audit-correlation-continuity | D-audit-correlation 连续性: 5 连续 emit 共享同一 correlation_id, reader sees 1 sequence | 0 | 0 | ✅ |
 | D-owner-direct-no-inbound | D-owner-direct 无 inbound run: phantom audit (随机 convId) 不污染 chat reply | 0 | 0 | ✅ |
 | D-additional-2 | D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario | 2 | 1 | ✅ |
+
+### E-demo（3 场景，3 通过）
+
+| ID | 标题 | 工具 | 审批 | 状态 |
+|---|---|---|---|---|
+| E1-demo-cold-start | demo 冷启动：fresh convId → Respond | 0 | 0 | ✅ |
+| E2-demo-approval-flow | demo 审批流：write_file → approval → owner y → execute | 2 | 1 | ✅ |
+| E3-demo-multi-turn | demo 多轮：同 convId 跨 2 turn 不掉线 | 0 | 0 | ✅ |
 
 ## 每场景 reply 抓取（用于人工 review）
 
@@ -508,7 +516,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-OywjCC/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-HFYbwa/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -811,9 +819,9 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=75_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 3 步）
-✅ /tmp/wb-accept-ws-OywjCC/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-OywjCC/test.ts → 还原为上版
-✅ /tmp/wb-accept-ws-OywjCC/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-HFYbwa/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-HFYbwa/test.ts → 还原为上版
+✅ /tmp/wb-accept-ws-HFYbwa/helper.ts → 还原为上版
 
 以下 2 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -846,8 +854,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-OywjCC/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-OywjCC/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-HFYbwa/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-HFYbwa/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -876,7 +884,7 @@ _decision=Respond | toolCalls=0 | replyLen=96_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 1 步）
-✅ /tmp/wb-accept-ws-OywjCC/old.ts → 还原为上版
+✅ /tmp/wb-accept-ws-HFYbwa/old.ts → 还原为上版
 
 _decision=Respond | toolCalls=0 | replyLen=55_
 
@@ -1025,3 +1033,51 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=51_
 wrote bar.ts (13 chars)
 
 _decision=Respond | toolCalls=1 | replyLen=31_
+
+### E1-demo-cold-start — demo 冷启动：fresh convId → Respond（E-demo）
+
+**turn 1**
+
+> in: 你好
+
+< demo cold start 已收到。这是脚本化 LLM 应答。
+
+_decision=Respond | toolCalls=0 | replyLen=33_
+
+### E2-demo-approval-flow — demo 审批流：write_file → approval → owner y → execute（E-demo）
+
+**turn 1**
+
+> in: 帮我写个 demo-hello.txt
+
+< [待审批] 需要 write_file 操作 demo-hello.txt，请确认
+回复「确认」批准，或「拒绝」取消。
+
+_decision=WaitForApproval | toolCalls=1 | replyLen=59_
+
+**turn 2**
+
+> in: 确认
+
+< ✅ 文件已写入
+wrote demo-hello.txt (5 chars)
+
+_decision=Respond | toolCalls=1 | replyLen=38_
+
+### E3-demo-multi-turn — demo 多轮：同 convId 跨 2 turn 不掉线（E-demo）
+
+**turn 1**
+
+> in: 你好
+
+< demo turn 1: 在的。
+
+_decision=Respond | toolCalls=0 | replyLen=16_
+
+**turn 2**
+
+> in: 在吗
+
+< demo turn 1: 在的。
+
+_decision=Respond | toolCalls=0 | replyLen=16_

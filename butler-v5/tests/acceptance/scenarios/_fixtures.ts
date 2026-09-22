@@ -26,7 +26,7 @@ import {
 } from "@butler/api/workspace-tools.js"
 import type { AcceptanceApp, FixtureEntry } from "../harness.js"
 
-export type ScenarioCategory = "A-concrete" | "B-open" | "C-edge" | "D-combo"
+export type ScenarioCategory = "A-concrete" | "B-open" | "C-edge" | "D-combo" | "E-demo"
 
 export interface ScenarioExpect {
   /** reply 必须 match 的正则或子串（任一即可） */
@@ -1606,9 +1606,72 @@ export const scenariosD: readonly Scenario[] = [
   },
 ]
 
+// ============================================================================
+// D79 T2 — demo-specific acceptance scenarios (zero-LLM REPL demo flow)
+// ============================================================================
+
+/**
+ * demo 模式验证（D79 T2）：
+ * - E1 冷启动（fresh convId → Respond）
+ * - E2 审批流（write_file → WaitForApproval → owner 确认 → 执行）
+ * - E3 多轮同 convId 跨 3 turn
+ *
+ * 这 3 个场景直接给 `pnpm demo` 的核心路径兜底（acceptance harness = demo 的
+ * 真实 wiring；fixture LLM = demo 的内嵌脚本）。
+ */
+export const scenariosE: readonly Scenario[] = [
+  {
+    id: "E1-demo-cold-start",
+    category: "E-demo",
+    title: "demo 冷启动：fresh convId → Respond",
+    input: "你好",
+    fixtures: {
+      plan: [text("demo cold start 已收到。这是脚本化 LLM 应答。")],
+    },
+    expect: {
+      finalDecision: "Respond",
+      replyPattern: /demo|已收到/,
+    },
+  },
+  {
+    id: "E2-demo-approval-flow",
+    category: "E-demo",
+    title: "demo 审批流：write_file → approval → owner y → execute",
+    input: "帮我写个 demo-hello.txt",
+    followUps: [{ content: "确认" }],
+    fixtures: {
+      plan: [
+        tool("write_file", { path: "demo-hello.txt", content: "hello" }),
+        text("✅ demo: demo-hello.txt 已写入。"),
+      ],
+    },
+    expect: {
+      finalDecision: "WaitForApproval",
+      requireApproval: true,
+      followUpPatterns: [/已写入|hello|demo/i],
+    },
+  },
+  {
+    id: "E3-demo-multi-turn",
+    category: "E-demo",
+    title: "demo 多轮：同 convId 跨 2 turn 不掉线",
+    input: "你好",
+    followUps: [{ content: "在吗" }],
+    fixtures: {
+      plan: [
+        text("demo turn 1: 在的。"),
+      ],
+    },
+    expect: {
+      finalDecision: "Respond",
+    },
+  },
+]
+
 export const ALL_SCENARIOS: readonly Scenario[] = [
   ...scenariosA,
   ...scenariosB,
   ...scenariosC,
   ...scenariosD,
+  ...scenariosE,
 ]
