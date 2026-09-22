@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ---------- Stage 1: deps (pnpm fetch + install) ----------
-FROM node:20-bookworm-slim AS deps
+FROM node:26-bookworm-slim AS deps
 WORKDIR /repo
 
 # system deps for pnpm + native modules
@@ -32,7 +32,7 @@ RUN pnpm -r build
 
 
 # ---------- Stage 3: runtime (minimal final image) ----------
-FROM node:20-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 WORKDIR /app
 
 # Runtime system deps (postgres-client for healthcheck, tini for signal handling)
