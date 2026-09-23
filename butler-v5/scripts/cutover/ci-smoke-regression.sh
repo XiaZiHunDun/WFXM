@@ -17,6 +17,20 @@ export BUTLER_V5_LLM_FIXTURE_DIR="${ROOT}/config/llm-fixtures/wechat"
 export BUTLER_V5_INTAKE_LLM=0
 export BUTLER_V5_DEV_VERIFY_ENABLED=1
 export BUTLER_V5_DEV_VERIFY_CMD='["echo","ok"]'
+# F4 fix (D81): enable Slack + Telegram channels for smoke regression
+# coverage. Test secrets are mock values; outbound fetch will fail but
+# handlers return 200 regardless per slack-events.ts / telegram-webhook.ts.
+export BUTLER_V5_SLACK_ENABLED=1
+export BUTLER_V5_SLACK_SIGNING_SECRET="ci-smoke-slack-signing-secret"
+export BUTLER_V5_SLACK_BOT_TOKEN="xoxb-ci-smoke-test-token"
+export BUTLER_V5_TELEGRAM_ENABLED=1
+export BUTLER_V5_TELEGRAM_WEBHOOK_SECRET="ci-smoke-telegram-webhook-secret"
+export BUTLER_V5_TELEGRAM_BOT_TOKEN="ci-smoke-telegram-bot-token"
+# D63 T4 SEC-005: channel allowlist must be populated to pass
+# isChannelAllowed FAIL-CLOSED gate. For CI smoke regression we want
+# both slack + telegram accepted (wechat's "wechat" id is implicit via
+# the dedicated /v1/wechat/inbound route, not the generic channel intake).
+export BUTLER_V5_CHANNEL_ALLOWLIST="slack,telegram"
 export WS_PORT=3011
 export BUTLER_V5_SUBAGENT_WORKER_INTERVAL_MS=500
 export BUTLER_V5_TASK_RUN_ASYNC=1

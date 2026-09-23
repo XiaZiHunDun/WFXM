@@ -70,6 +70,10 @@ async function main() {
   runStep("product-contract", "smoke-wechat-product-contract.mjs")
   runStep("productivity", "smoke-wechat-productivity.mjs")
   runStep("notify", "smoke-wechat-notify-acceptance.mjs", ["--audit-only"])
+  // F4 fix (D81): 4 channel webhooks (wechat + slack + telegram + iLink).
+  // Smoke regression must cover all enabled channels.
+  runStep("slack", "smoke-slack-events.mjs")
+  runStep("telegram", "smoke-telegram-webhook.mjs")
 
   if (!quick) {
     runStep("pk", "smoke-project-knowledge.mjs")
