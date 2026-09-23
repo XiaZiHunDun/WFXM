@@ -31,8 +31,8 @@
 | **WeChat inline approval** | 回复 `y` / `👌` / `✅` / `👍` / `❌` / `👎` 真实恢复 Run | approval-runtime | [`apps/api/src/wechat-inline-approval.ts`](../butler-v5/apps/api/src/wechat-inline-approval.ts), [`wechat-approval-trigger.ts`](../butler-v5/apps/api/src/owner-approval-trigger.ts) | ✅ (D44 P0 `69dc924c`) |
 | **WeChat 多 tool chain 撤销** | 单条 `/撤销` 撤回整链 tool 调用 | workspace-tools-undo | [`apps/api/src/workspace-tools-undo.ts`](../butler-v5/apps/api/src/workspace-tools-undo.ts) | ✅ (D49 `45bb28f7`) |
 | **WeChat task digest (1h throttle)** | sweeper 自动 push 待处理 task 摘要 | sweeper-notify | [`apps/api/src/wechat-sweeper-notify.ts`](../butler-v5/apps/api/src/wechat-sweeper-notify.ts) | ✅ (P3 `71e0b44c`) |
-| **Slack 事件入站** | 通过 Slack 触发 Run（events API） | slack SDK + webhook | [`apps/api/src/routes/slack-events.ts`](../butler-v5/apps/api/src/routes/slack-events.ts), [`packages/adapters/src/slack/`](../butler-v5/packages/adapters/src/slack/) (5 文件) | 🟡 (skeleton, 经 channel-outbound 直连) |
-| **Telegram Webhook 入站** | 通过 Telegram 触发 Run | telegram webhook | [`apps/api/src/routes/telegram-webhook.ts`](../butler-v5/apps/api/src/routes/telegram-webhook.ts) | 📅 (no adapter dir) |
+| **Slack 事件入站** | 通过 Slack 触发 Run（events API） | slack SDK + webhook | [`apps/api/src/routes/slack-events.ts`](../butler-v5/apps/api/src/routes/slack-events.ts), [`packages/adapters/src/slack/`](../butler-v5/packages/adapters/src/slack/) (5 文件) | ✅ (D63 T4 signature FAIL-CLOSED + D71 T3 per-user allowlist + D74 T4 replay dedup + Secret unwrap) |
+| **Telegram Webhook 入站** | 通过 Telegram 触发 Run | telegram webhook | [`apps/api/src/routes/telegram-webhook.ts`](../butler-v5/apps/api/src/routes/telegram-webhook.ts), parser+deliverer 在 `apps/api/src/{channel-inbound,channel-outbound,channel-media}.ts` | ✅ (D62 T4 secret_token FAIL-CLOSED + D71 T3 per-user allowlist + D74 T4 replay dedup + Secret unwrap) |
 | **owner-direct CLI** | 本地命令行触发 Run / 调试 | cli + node:test | [`butler-v5/cli/src/index.ts`](../butler-v5/cli/src/index.ts), [`wechat-login.ts`](../butler-v5/cli/src/wechat-login.ts) | ✅ |
 | **HTTP `POST /v1/wechat/inbound`** | 内部 POST 触发（demo / 集成 / 测试） | `x-inbound-secret` | [`apps/api/src/routes/inbound.ts`](../butler-v5/apps/api/src/routes/inbound.ts) | ✅ |
 | **Owner HTTP API `/v1/owner/*`** | CRUD memories / tasks / procedures / projects / approvals / audit / usage | owner-routes | [`apps/api/src/owner-routes.ts`](../butler-v5/apps/api/src/owner-routes.ts) | ✅ |
@@ -90,14 +90,14 @@
 | **run_command (allowlist)** | 跑允许列表内命令（`ls/cat/grep/find/...`） | `ALLOWED_RUN_COMMANDS` | [`apps/api/src/workspace-tools.ts`](../butler-v5/apps/api/src/workspace-tools.ts) | ✅ |
 | **single-file undo** | 写文件可单步 undo | undo-stack | [`apps/api/src/workspace-tools-undo.ts`](../butler-v5/apps/api/src/workspace-tools-undo.ts) | ✅ |
 | **multi-tool chain undo** | `/撤销` 撤回整链 | undo-stack | [`apps/api/src/workspace-tools-undo.ts`](../butler-v5/apps/api/src/workspace-tools-undo.ts) | ✅ (D49) |
-| **Bubblewrap sandbox (partial)** | 高风险 sandbox profile 走 bubblewrap 隔离 | sandbox profiles | [`packages/adapters/src/sandbox/`](../butler-v5/packages/adapters/src/sandbox/), R16 | 🟡 |
+| **Bubblewrap sandbox** | 高风险 sandbox profile 走 bubblewrap 隔离 | sandbox profiles | [`packages/adapters/src/sandbox/`](../butler-v5/packages/adapters/src/sandbox/), R16 | ✅ (3 profiles + slirp network-allowlist + R16 readOnly + file quota + preflight + write stdin dispatch) |
 | **Host credentials** | `run_command` 注入凭证；fail-closed | credential-provider | [`packages/adapters/src/credentials/host-credentials.ts`](../butler-v5/packages/adapters/src/credentials/host-credentials.ts) | ✅ (R10 P2) |
 | **MCP provider bootstrap** | 远程副作用能力接入 | mcp-bootstrap | [`apps/api/src/mcp-bootstrap.ts`](../butler-v5/apps/api/src/mcp-bootstrap.ts) | ✅ |
 | **MCP readonly 政策** | MCP 工具分级 read-only | mcp-readonly-policy | [`apps/api/src/mcp-readonly-policy.ts`](../butler-v5/apps/api/src/mcp-readonly-policy.ts) | ✅ |
 | **MCP manifest** | 工具 manifest 描述 + 信任 | mcp-manifest | [`apps/api/src/mcp-manifest.ts`](../butler-v5/apps/api/src/mcp-manifest.ts) | ✅ |
 | **MCP tools dispatch** | 已注册 MCP 工具路由 | mcp-tools | [`apps/api/src/mcp-tools.ts`](../butler-v5/apps/api/src/mcp-tools.ts) | ✅ |
-| **Browser capability** | bubblewrap + Playwright 共享 session | sandbox | DESIGN §7.1 条件准入 | 🟡 (R16 partial) |
-| **Network allowlist (P2b)** | `ScopedGrant.networkAllowlist` 限制 workspace write 类跨网络出口 | governance | DESIGN §10.3 line 459 | 🟡 |
+| **Browser capability** | bubblewrap + Playwright 共享 session | sandbox | DESIGN §7.1 条件准入 | ❌ **未实现** (Playwright 0 dep + 0 source + 0 test; DESIGN §7.1 条件准入未触发; 不应标记为 "partial" 误导 owner) |
+| **Network allowlist (P2b)** | `ScopedGrant.networkAllowlist` 限制 workspace write 类跨网络出口 | governance | DESIGN §10.3 line 459 | ✅ (validateNetworkAllowlist + IDN/private-IP reject + ScopedGrant.networkAllowlist + 3 sandbox profiles wiring + approval-runtime elevateNetwork 互斥) |
 
 ## §5 权限与治理（Policy / Governance）
 
@@ -176,8 +176,8 @@
 | **Command Bus / Query Bus** | owner 实测同步耦合严重 | 📅 not trigger | DESIGN §11.4 |
 | **通用 Event Bus** | DESIGN §7 line 60 explicit 默认直调 | 📅 not trigger | DESIGN §11.4 |
 | **Kafka / Redis Stream / 独立 Broker** | 单进程故障隔离实测不足 | 📅 not trigger | DESIGN §11.4 |
-| **Telegram Channel 完整化** | wechat + slack 已承载；telegram 无触发 | 📅 not trigger | DESIGN §18 |
-| **浏览器 UI (第二 Loop)** | DESIGN §7.1 条件准入 | 📅 半 trigger (R16 partial) | DESIGN §7.1 |
+| **Telegram Channel 完整化** | wechat + slack + telegram 已承载；无新触发 | ✅ not relevant (已 ship; D62/D71/D74 hardening) | DESIGN §18 |
+| **浏览器 UI (第二 Loop)** | DESIGN §7.1 条件准入；Playwright 0 dep + 0 source code | 📅 not trigger (Browser capability 也未实现; 0 evidence 触发条件) | DESIGN §7.1 |
 | **外部 OTEL exporter** | 本地 trace 无法定位生产问题 | 📅 not trigger | DESIGN §18 |
 | **独立 worker 进程** | 同进程 Outbox worker 资源隔离不足 | 📅 not trigger | DESIGN §18 |
 | **LLM 输出质量量化** | temperature model 单 round 不可靠；multi-round methodology 待 owner 撞真问题 | ❌ declined | D51 + D53c |
