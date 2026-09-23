@@ -8,6 +8,10 @@ const apiEq = process.argv.find((a) => a.startsWith("--api="))
 if (apiEq) api = apiEq.slice("--api=".length)
 const base = api.replace(/\/$/, "")
 const fromUserId = `prod-smoke-${Date.now()}`
+// D81 (audit #27 carry): propagate BUTLER_V5_INBOUND_SHARED_SECRET as
+// x-inbound-secret header for D63/D72 FAIL-CLOSED auth. Env unset = no
+// header (backward-compat with pre-D63 prod gateway).
+const inboundSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
 
 function fail(step, detail) {
   console.error(`smoke FAIL [${step}]: ${detail}`)
@@ -15,9 +19,11 @@ function fail(step, detail) {
 }
 
 async function inbound(content) {
+  const headers = { "content-type": "application/json" }
+  if (inboundSecret) headers["x-inbound-secret"] = inboundSecret
   const res = await fetch(`${base}/v1/wechat/inbound`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify({
       apiVersion: "v1",
       fromUserId,
