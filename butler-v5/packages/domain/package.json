@@ -31,6 +31,6 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^20.11.5"
+    "@types/node": "^26.6.2"
   }
 }
