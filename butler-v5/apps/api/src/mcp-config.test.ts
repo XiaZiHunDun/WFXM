@@ -14,11 +14,22 @@ const httpManifestServer: McpManifestServer = {
   url: "http://127.0.0.1:7777/mcp",
 }
 
+/**
+ * D82 T1: the two cases below assert URL *precedence*, not SSRF
+ * policy — they use a loopback fixture purely as a placeholder
+ * address. D71 T2 (`isBlockedMcpHost`) correctly refuses loopback
+ * hosts unless the operator opts in, so these opt in explicitly
+ * rather than reaching for a URL the guard would also refuse
+ * (a non-resolvable hostname fails the DNS recheck instead).
+ */
+const PRIVATE_HOST_OPT_IN = { BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS: "1" }
+
 describe("parseMcpConnectionConfig", () => {
   it("uses manifest url when env url is unset", () => {
     const parsed = parseMcpConnectionConfig(
       {
         BUTLER_V5_MCP_ENABLED: "1",
+        ...PRIVATE_HOST_OPT_IN,
       },
       httpManifestServer,
     )
@@ -36,6 +47,7 @@ describe("parseMcpConnectionConfig", () => {
     const parsed = parseMcpConnectionConfig(
       {
         BUTLER_V5_MCP_ENABLED: "1",
+        ...PRIVATE_HOST_OPT_IN,
         BUTLER_V5_MCP_URL: "http://127.0.0.1:9999/mcp",
       },
       httpManifestServer,
@@ -44,6 +56,40 @@ describe("parseMcpConnectionConfig", () => {
     if (parsed.ok) {
       expect(parsed.value.url).toBe("http://127.0.0.1:9999/mcp")
     }
+  })
+
+  it("D82: rejects a loopback MCP host without the private-host opt-in", () => {
+    const parsed = parseMcpConnectionConfig({ BUTLER_V5_MCP_ENABLED: "1" }, httpManifestServer)
+    expect(parsed.ok).toBe(false)
+    if (!parsed.ok) {
+      expect(parsed.reason).toContain("private/loopback")
+    }
+  })
+
+  it("D82: accepts a loopback MCP host with the private-host opt-in", () => {
+    expect(
+      parseMcpConnectionConfig(
+        { BUTLER_V5_MCP_ENABLED: "1", ...PRIVATE_HOST_OPT_IN },
+        httpManifestServer,
+      ).ok,
+    ).toBe(true)
+  })
+
+  it("D82: accepts a loopback MCP host given by env url only when opted in", () => {
+    const withoutOptIn = parseMcpConnectionConfig(
+      { BUTLER_V5_MCP_ENABLED: "1", BUTLER_V5_MCP_URL: "http://127.0.0.1:9999/mcp" },
+      undefined,
+    )
+    expect(withoutOptIn.ok).toBe(false)
+    const withOptIn = parseMcpConnectionConfig(
+      {
+        BUTLER_V5_MCP_ENABLED: "1",
+        ...PRIVATE_HOST_OPT_IN,
+        BUTLER_V5_MCP_URL: "http://127.0.0.1:9999/mcp",
+      },
+      undefined,
+    )
+    expect(withOptIn.ok).toBe(true)
   })
 
   it("uses manifest transport when env transport is unset", () => {

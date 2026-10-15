@@ -42,19 +42,23 @@ function auditLogPath(): string {
 function ensureLogPath(): void {
   try {
     const dir = dirname(auditLogPath())
-    // D71 T4 (audit #12 SEC-007): set umask before mkdir so the
-    // parent directory and the JSONL file land with restrictive
-    // permissions (0o700 / 0o600) on multi-user hosts. The default
-    // umask 0o022 produces 0o755/0o644 which leaves audit data
-    // world-readable. 0o077 narrows to owner-only. Skip if the
-    // directory already exists; chmodSync only when mkdir created
-    // a fresh directory.
-    const previousUmask = process.umask(0o077)
-    try {
-      mkdirSync(dir, { recursive: true })
-    } finally {
-      process.umask(previousUmask)
-    }
+    // D71 T4 (audit #12 SEC-007): create the audit directory with
+    // owner-only permissions (0o700) so audit data is not
+    // world-readable on multi-user hosts.
+    //
+    // D82 T1: this used to toggle the process-wide umask
+    // (`process.umask(0o077)`). Two problems with that: umask is
+    // process-global state (any other thread creating a file
+    // concurrently inherits the narrowed mask), and `process.umask`
+    // throws ERR_WORKER_UNSUPPORTED_OPERATION inside worker threads —
+    // the throw was swallowed by the catch below, so mkdirSync never
+    // ran and every audit write silently no-op'd. Passing an explicit
+    // `mode` achieves the same permissions with no global state and
+    // no worker-thread hazard.
+    //
+    // `mode` only applies to directories this call creates; an
+    // existing directory keeps its current permissions.
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
   } catch {
     // swallow — we never want a broken filesystem to crash the route.
   }
@@ -85,7 +89,9 @@ export interface AuditEntry {
 export function appendAudit(entry: AuditEntry): void {
   ensureLogPath()
   try {
-    appendFileSync(auditLogPath(), JSON.stringify(entry) + "\n")
+    // D71 T4 (SEC-007) / D82 T1: owner-only mode for a freshly
+    // created JSONL file, replacing the old process-wide umask trick.
+    appendFileSync(auditLogPath(), JSON.stringify(entry) + "\n", { mode: 0o600 })
   } catch {
     // swallow
   }

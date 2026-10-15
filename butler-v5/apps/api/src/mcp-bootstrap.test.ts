@@ -61,6 +61,7 @@ describe("bootstrapMcpTools", () => {
       {
         BUTLER_V5_MCP_ENABLED: "1",
         BUTLER_V5_MCP_URL: "http://127.0.0.1:7777/mcp",
+        BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS: "1",
       },
       { fetch: fetchMock as typeof fetch },
     )
@@ -172,7 +173,13 @@ describe("bootstrapMcpTools", () => {
         jsonrpc: "2.0",
         id: body.id,
         result: {
-          tools: [{ name: "manifest-echo", description: "from manifest", inputSchema: { type: "object" } }],
+          tools: [
+            {
+              name: "manifest-echo",
+              description: "from manifest",
+              inputSchema: { type: "object" },
+            },
+          ],
         },
       })
     })
@@ -181,6 +188,7 @@ describe("bootstrapMcpTools", () => {
         BUTLER_V5_MCP_ENABLED: "1",
         BUTLER_V5_MCP_SERVER_ID: "tools.example.com",
         BUTLER_V5_MCP_MANIFEST_PATH: manifestPath,
+        BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS: "1",
       },
       { fetch: fetchMock as typeof fetch },
     )
@@ -257,6 +265,7 @@ describe("bootstrapMcpTools", () => {
       {
         BUTLER_V5_MCP_ENABLED: "1",
         BUTLER_V5_MCP_URL: "http://127.0.0.1:7777/mcp",
+        BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS: "1",
       },
       { fetch: fetchMock as typeof fetch },
     )
@@ -303,6 +312,7 @@ describe("bootstrapMcpTools", () => {
         BUTLER_V5_MCP_ENABLED: "1",
         BUTLER_V5_MCP_SERVER_ID: "secure.example.com",
         BUTLER_V5_MCP_MANIFEST_PATH: manifestPath,
+        BUTLER_V5_MCP_ALLOW_PRIVATE_HOSTS: "1",
       },
       { fetch: fetchMock as typeof fetch },
     )

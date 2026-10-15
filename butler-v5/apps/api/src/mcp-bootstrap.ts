@@ -78,6 +78,12 @@ function makeTransport(
     readonly fetch?: typeof fetch
     readonly session: McpSessionRef
     readonly audit?: ExecAuditContext
+    /** D82 T1: the injected env, not the ambient `process.env`. Every
+     *  other decision in this file (consent / manifest / parse /
+     *  fail-closed) reads the injected env; the fetch-time guard used
+     *  to read `process.env`, so a caller that injected a private-host
+     *  opt-in got it honoured at parse time but ignored at fetch time. */
+    readonly env: NodeJS.ProcessEnv
   },
 ): McpTransport {
   // D73 SEC-002: wrap the fetch with a DNS-recheck guard so each request
@@ -89,7 +95,7 @@ function makeTransport(
   const baseFetch = options.fetch ?? fetch
   const httpOrSse = conn.kind === "http" || conn.kind === "sse"
   const guardedFetch =
-    !httpOrSse || envAllowsPrivateMcpHosts(process.env)
+    !httpOrSse || envAllowsPrivateMcpHosts(options.env)
       ? baseFetch
       : makeGuardedFetch(baseFetch, conn.url, isBlockedMcpHost)
   switch (conn.kind) {
@@ -281,6 +287,7 @@ async function bootstrapSingleMcpServer(
       options.transport ??
       makeTransport(connection.value, {
         ...options,
+        env,
         session,
         ...(audit === undefined ? {} : { audit }),
       })

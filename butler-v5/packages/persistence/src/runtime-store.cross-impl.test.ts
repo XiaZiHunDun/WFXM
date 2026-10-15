@@ -116,10 +116,7 @@ function paritySuite(name: string, make: StoreFactory): void {
         })
         expect(appended.role).toBe("assistant")
 
-        expect((await store.listMessages(cid)).map((m) => m.role)).toEqual([
-          "user",
-          "assistant",
-        ])
+        expect((await store.listMessages(cid)).map((m) => m.role)).toEqual(["user", "assistant"])
 
         const convs = await store.listConversationsByProject({ projectId: "WFXM" })
         const match = convs.find((c) => c.id === cid)
@@ -136,9 +133,9 @@ function paritySuite(name: string, make: StoreFactory): void {
         const running = await store.transitionRunStatus(runId, 1, "running", t(1000))
         expect(running).toMatchObject({ status: "running", version: 2 })
 
-        await expect(
-          store.transitionRunStatus(runId, 1, "failed", t(2000)),
-        ).rejects.toThrow(/version/i)
+        await expect(store.transitionRunStatus(runId, 1, "failed", t(2000))).rejects.toThrow(
+          /version/i,
+        )
 
         const current = await store.getRun(runId)
         expect(current?.status).toBe("running")
@@ -167,9 +164,7 @@ function paritySuite(name: string, make: StoreFactory): void {
           createdAt: t(2000),
         })
         expect((await store.findChildRuns(runId)).map((r) => r.id)).toEqual([childId])
-        expect((await store.listRunsPastDeadline(t(6000))).map((r) => r.id)).toEqual([
-          childId,
-        ])
+        expect((await store.listRunsPastDeadline(t(6000))).map((r) => r.id)).toEqual([childId])
       })
     })
 
@@ -204,12 +199,10 @@ function paritySuite(name: string, make: StoreFactory): void {
           input: {},
           createdAt: t(3000),
         })
-        expect((await store.listWaitingApprovalSteps()).map((s) => s.id)).toEqual([
-          stillId,
-        ])
-        expect(
-          (await store.listWaitingApprovalStepsForConversation(cid)).map((s) => s.id),
-        ).toEqual([stillId])
+        expect((await store.listWaitingApprovalSteps()).map((s) => s.id)).toEqual([stillId])
+        expect((await store.listWaitingApprovalStepsForConversation(cid)).map((s) => s.id)).toEqual(
+          [stillId],
+        )
       })
     })
 
@@ -233,9 +226,7 @@ function paritySuite(name: string, make: StoreFactory): void {
           (await store.findActiveGrant({ ...base, digest: "d1", now: t0 }))?.remainingUses,
         ).toBe(2)
         expect(await store.findActiveGrant({ ...base, digest: "other", now: t0 })).toBeNull()
-        expect(
-          await store.findActiveGrant({ ...base, digest: "d1", now: t(60_001) }),
-        ).toBeNull()
+        expect(await store.findActiveGrant({ ...base, digest: "d1", now: t(60_001) })).toBeNull()
 
         await store.updateScopedGrantRemainingUses(grantId, 0)
         expect(await store.findActiveGrant({ ...base, digest: "d1", now: t0 })).toBeNull()
@@ -369,10 +360,7 @@ function paritySuite(name: string, make: StoreFactory): void {
           createdAt: t(3000),
         })
         expect(appendedAgain.id).toBe(appended.id)
-        expect((await store.listMessages(cid)).map((m) => m.role)).toEqual([
-          "user",
-          "assistant",
-        ])
+        expect((await store.listMessages(cid)).map((m) => m.role)).toEqual(["user", "assistant"])
       })
     })
 
@@ -415,9 +403,9 @@ function paritySuite(name: string, make: StoreFactory): void {
         })
         const expected = [approvalEarly, approvalLate]
         expect((await store.listWaitingApprovalSteps()).map((s) => s.id)).toEqual(expected)
-        expect(
-          (await store.listWaitingApprovalStepsForConversation(cid)).map((s) => s.id),
-        ).toEqual(expected)
+        expect((await store.listWaitingApprovalStepsForConversation(cid)).map((s) => s.id)).toEqual(
+          expected,
+        )
       })
     })
 
@@ -559,9 +547,7 @@ function paritySuite(name: string, make: StoreFactory): void {
           (await store.listConversationsByProject({ projectId: "WFXM", limit: 2 })).length,
         ).toBe(2)
         // query " WFXM " trimmed matches "WFXM"
-        expect(
-          (await store.listConversationsByProject({ projectId: " WFXM " })).length,
-        ).toBe(3)
+        expect((await store.listConversationsByProject({ projectId: " WFXM " })).length).toBe(3)
         // limit clamp [1,200]: 0 -> 1, 999 -> 3 (only 3 exist)
         expect(
           (await store.listConversationsByProject({ projectId: "WFXM", limit: 0 })).length,
@@ -652,9 +638,7 @@ describe("documented in-memory simplifications (契约以生产为准)", () => {
         createdAt: t(0),
       })
       const stored = (await store.listMessages(cid))[0]
-      expect(String((stored.content as Record<string, unknown>)["text"])).not.toContain(
-        "deadbeef",
-      )
+      expect(String((stored.content as Record<string, unknown>)["text"])).not.toContain("deadbeef")
       // in-memory 简化：原样存 input.content（脱敏属持久化耐久侧关切，测试/隔离用途可接受）。
     } finally {
       await db.close()
@@ -672,10 +656,13 @@ describe("documented in-memory simplifications (契约以生产为准)", () => {
 describe("listRecentAuditEvents parity", () => {
   /** Build the same fixture in any store and return the auditIds both impls
    * should return under each filter combo. */
-  async function buildFixture(
-    store: RuntimeStore,
-  ): Promise<{
-    readonly ids: { readonly aConv: string; readonly aRun: string; readonly aBare: string; readonly bBare: string }
+  async function buildFixture(store: RuntimeStore): Promise<{
+    readonly ids: {
+      readonly aConv: string
+      readonly aRun: string
+      readonly aBare: string
+      readonly bBare: string
+    }
   }> {
     const { conversationId, runId } = await seedConversationAndRun(store)
     const ids = {
@@ -696,6 +683,12 @@ describe("listRecentAuditEvents parity", () => {
       conversationId,
       action: "test",
       subject: "owner-A",
+      // D82 T1: D71 T1 split owner identity out of `subject` into the
+      // dedicated `actor` column. The query under test filters on
+      // `actor`, so the fixture has to set it — otherwise all four
+      // rows silently default to "owner" and the owner-A filter
+      // returns [] on both implementations.
+      actor: "owner-A",
       detail: {},
       createdAt: at(5_000),
     })
@@ -705,6 +698,7 @@ describe("listRecentAuditEvents parity", () => {
       conversationId: null,
       action: "test",
       subject: "owner-A",
+      actor: "owner-A",
       detail: {},
       createdAt: at(3_000),
     })
@@ -714,6 +708,7 @@ describe("listRecentAuditEvents parity", () => {
       conversationId: null,
       action: "test",
       subject: "owner-A",
+      actor: "owner-A",
       detail: {},
       createdAt: at(1_000),
     })
@@ -724,6 +719,7 @@ describe("listRecentAuditEvents parity", () => {
       conversationId: null,
       action: "test",
       subject: "owner-B",
+      actor: "owner-B",
       detail: {},
       createdAt: at(4_000),
     })
@@ -748,8 +744,16 @@ describe("listRecentAuditEvents parity", () => {
         actor: "owner-A",
         windowMs: 60_000,
       })
-      const expectedProd = byAuditId([{ auditId: p.ids.aConv }, { auditId: p.ids.aRun }, { auditId: p.ids.aBare }])
-      const expectedMem = byAuditId([{ auditId: m.ids.aConv }, { auditId: m.ids.aRun }, { auditId: m.ids.aBare }])
+      const expectedProd = byAuditId([
+        { auditId: p.ids.aConv },
+        { auditId: p.ids.aRun },
+        { auditId: p.ids.aBare },
+      ])
+      const expectedMem = byAuditId([
+        { auditId: m.ids.aConv },
+        { auditId: m.ids.aRun },
+        { auditId: m.ids.aBare },
+      ])
       expect(byAuditId(prodActor)).toEqual(expectedProd)
       expect(byAuditId(memActor)).toEqual(expectedMem)
       expect(prodActor.find((e) => e.auditId === p.ids.bBare)).toBeUndefined()
@@ -799,8 +803,8 @@ describe("listRecentAuditEvents parity", () => {
     const prod = await productionFactory()
     const mem = await memoryFactory()
     try {
-      const prodIds: string[] = [];
-      const memIds: string[] = [];
+      const prodIds: string[] = []
+      const memIds: string[] = []
       // Use timestamps within the windowMs window from now so both impls keep them.
       const now = Date.now()
       for (let i = 0; i < 5; i++) {

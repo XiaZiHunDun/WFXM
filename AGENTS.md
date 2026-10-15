@@ -11,7 +11,7 @@
 | 2 | [`docs/architecture/v5-production-architecture-2026-08.md`](docs/architecture/v5-production-architecture-2026-08.md) | 查当前生产 Loop / Gateway / 工具 / 数据 / 调用链 |
 | 3 | [`docs/architecture/v5-current-state-diagrams.md`](docs/architecture/v5-current-state-diagrams.md) | 视觉架构图（Mermaid 4 张） |
 | 4 | [`docs/plans/decisions/v5-product-boundaries-2026-08.md`](docs/plans/decisions/v5-product-boundaries-2026-08.md) | 提需求 / 否决 / 条件准入 / 立项 |
-| 5 | [`docs/plans/active/ROADMAP.md`](docs/plans/active/ROADMAP.md) | D-series 累计（117 ship）+ 维度 2/3/4 候选 |
+| 5 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | D-series 累计（117 ship）+ 维度 2/3/4 候选 |
 | 6 | [`docs/FAQ.md`](docs/FAQ.md) | owner 视角 FAQ（D-series / audit-driven / 节奏判据） |
 | 7 | [`butler-v5/AGENTS.md`](butler-v5/AGENTS.md) | v5 代码约束 + 包边界 + 测试 |
 | 8 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层与维护规则 |
@@ -28,10 +28,10 @@
 
 ## §3 撞点流程（5 步）
 
-1. **owner 撞点** → 查 [`MEMORY.md`](.blackboard/MEMORY.md) "Recent Sessions" 找最近 cycle memo
+1. **owner 撞点** → 查 [`state.md`](.blackboard/state.md) "上一班" + [`shifts/`](.blackboard/shifts/) 找最近 cycle memo
 2. **看 raw findings**: `.audit/Dxx/raw-findings.json`
 3. **ship 模板**: `ship Dxx Tn <findings-id> <files>`（per D77 7-ship 模式）
-4. **pause 模板**: `pause Dxx`（落 MEMORY.md + `project-pause-state-*.md`）
+4. **pause 模板**: `pause Dxx`（落 `state.md` + `shifts/project-pause-state-*.md`）
 5. **audit 模板**: `audit Dxx`（cycle 24+）
 
 ## §4 v4 legacy 兼容层
@@ -60,7 +60,7 @@
 | v4 保护层 / 钩子层 / 危险模式 | [`docs/architecture/v5-r10-handoff.md`](docs/architecture/v5-r10-handoff.md) §6 |
 | 交接规约（工程治理，非产品运行时） | [`docs/plans/decisions/v5-engineering-handoff-2026-08.md`](docs/plans/decisions/v5-engineering-handoff-2026-08.md) |
 | AI 守卫迁移清单 | [`docs/plans/archive/v5-ai-guard-migration-checklist-2026-08.md`](docs/plans/archive/v5-ai-guard-migration-checklist-2026-08.md) |
-| D-series 累计 + 未来候选 | [`docs/plans/active/ROADMAP.md`](docs/plans/active/ROADMAP.md) |
+| D-series 累计 + 未来候选 | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 | owner FAQ（D-series / audit-driven / 节奏） | [`docs/FAQ.md`](docs/FAQ.md) |
 | 视觉架构图（Mermaid 4 张） | [`docs/architecture/v5-current-state-diagrams.md`](docs/architecture/v5-current-state-diagrams.md) |
 | 生产加固指南（D77 T6） | [`docs/deployment/production-hardening.md`](docs/deployment/production-hardening.md) |
@@ -81,7 +81,7 @@
 
 本文件是 D78 T5 产物；其他 4 件套：
 
-1. [`docs/plans/active/ROADMAP.md`](docs/plans/active/ROADMAP.md) — D22→D78 累计
+1. [`docs/ROADMAP.md`](docs/ROADMAP.md) — D22→D78 累计
 2. [`docs/architecture/v5-current-state-diagrams.md`](docs/architecture/v5-current-state-diagrams.md) — 4 张 Mermaid
 3. [`docs/FAQ.md`](docs/FAQ.md) — 10 段 owner FAQ
 4. [`docs/README.md`](docs/README.md) §子目录速查 — 导航中心
