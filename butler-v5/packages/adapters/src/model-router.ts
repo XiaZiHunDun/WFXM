@@ -41,9 +41,14 @@ function buildAdapter(r: ResolvedModel, env: NodeJS.ProcessEnv): LLMAdapter {
       })
     case "deepseek": {
       const requestExtras = buildDeepSeekRequestExtras(env, r.model)
+      // D82 T3: honor DEEPSEEK_BASE_URL, matching the ANTHROPIC_BASE_URL
+      // escape hatch above. Without it the DeepSeek endpoint is baked in,
+      // so a self-hosted relay, a regional endpoint, or a compliance
+      // gateway cannot be reached without patching source.
+      const baseUrl = envTrim(env, "DEEPSEEK_BASE_URL") || "https://api.deepseek.com"
       return makeOpenAICompatibleAdapter({
         apiKey: envTrim(env, "DEEPSEEK_API_KEY"),
-        baseUrl: "https://api.deepseek.com",
+        baseUrl: openAiCompatibleBaseUrl(baseUrl),
         model: r.model,
         ...(requestExtras !== undefined ? { requestExtras } : {}),
       })

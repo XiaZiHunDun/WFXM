@@ -54,14 +54,16 @@ function parseModelDecisionObject(obj: Record<string, unknown>): DecodeResult {
       return { ok: true, value: decision }
     }
     case "Delegate": {
-      // D81 decode-fix: accept legacy "Delegate" decision shape and map to
-      // StartChildRun (same child-run path conversation-loop.ts:486 invokes
-      // `delegate_to_subagent` tool with task=objective, role=role). Real
-      // LLM emits this when wechat-inbound-llm.ts closing line 82-83 says
-      // "use Delegate"; fixtures mirror real-LLM output
-      // (config/llm-fixtures/wechat/plan.json[1]). Delegate.role → role,
-      // Delegate.task → objective. ModelDecision union is unchanged; this
-      // is a decoder-level alias only.
+      // D81 decode-fix, root cause closed in D82 T3: this alias exists because
+      // wechat-inbound-llm.ts's closing prose said "use Delegate" while the only
+      // tag it declared was StartChildRun, so a real LLM emitted
+      // `{"_tag":"Delegate"}` and this decoder rejected it. That prompt text now
+      // interpolates the same tag constants it declares its shapes with, so the
+      // mismatch can no longer occur. This alias is kept as a decoder-level
+      // belt-and-braces for already-recorded output: same child-run path
+      // conversation-loop.ts:486 invokes `delegate_to_subagent` with
+      // task=objective, role=role, and the plan.json fixture mirrors the real
+      // LLM output that triggered it. ModelDecision union is unchanged.
       const role = obj["role"]
       const task = obj["task"]
       if (typeof role !== "string") return { ok: false, reason: "Delegate.role must be string" }

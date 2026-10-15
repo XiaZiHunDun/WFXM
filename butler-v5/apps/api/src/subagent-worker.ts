@@ -16,9 +16,15 @@
  *     (no effect / promise lifecycle to manage). The interval is
  *     intentionally short (5s) so R8.x.7 e2e tests see the reply
  *     within a single test cycle.
- *   - Fork isolation: the worker calls `pickLLMProvider(env)` once per
- *     tick (cheap — no I/O). Any provider can be configured in the
- *     parent process; the worker just consumes the chosen adapter.
+ *   - Fork isolation: the adapter is resolved once per tick by the
+ *     injected `pickLLM` (the composition root passes
+ *     `(env) => pickLLMForRole(env, "exec")` — see index.ts). Any
+ *     provider can be configured in the parent process; the worker just
+ *     consumes the chosen adapter.
+ *     (D82 T3: this comment previously named `pickLLMProvider`, a
+ *     role-unaware function whose only caller was dead code. It has
+ *     been deleted, so the name here would have sent the next reader
+ *     to a function that no longer exists.)
  *   - Error containment: a single tick failure logs and continues;
  *     the outbox layer itself marks the message as failed and
  *     schedules a retry (we never lose work).

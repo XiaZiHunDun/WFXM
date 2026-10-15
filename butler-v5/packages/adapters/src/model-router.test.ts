@@ -155,4 +155,25 @@ describe("model-router", () => {
     const lastCall = mock.mock.calls.at(-1)?.[0]
     expect(lastCall?.baseUrl).toContain("deepseek.com")
   })
+
+  // D82 T3: DEEPSEEK_BASE_URL escape hatch. Without it a self-hosted relay,
+  // a regional endpoint, or a compliance gateway is unreachable without
+  // patching source — the endpoint was baked in. Mirrors ANTHROPIC_BASE_URL.
+  it("pickPlanLLM honors DEEPSEEK_BASE_URL", () => {
+    const mock = vi.mocked(makeOpenAICompatibleAdapter)
+    mock.mockClear()
+    pickPlanLLM({
+      DEEPSEEK_API_KEY: "sk-ds",
+      DEEPSEEK_BASE_URL: "https://relay.internal/v1",
+      ...emptyEnv,
+    })
+    expect(mock.mock.calls.at(-1)?.[0]?.baseUrl).toBe("https://relay.internal")
+  })
+
+  it("pickPlanLLM defaults DEEPSEEK_BASE_URL to api.deepseek.com when unset", () => {
+    const mock = vi.mocked(makeOpenAICompatibleAdapter)
+    mock.mockClear()
+    pickPlanLLM({ DEEPSEEK_API_KEY: "sk-ds", ...emptyEnv })
+    expect(mock.mock.calls.at(-1)?.[0]?.baseUrl).toBe("https://api.deepseek.com")
+  })
 })

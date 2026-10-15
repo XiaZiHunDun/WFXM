@@ -1,29 +1,14 @@
-import { Effect } from "effect"
-import { pickLLMProvider, type LLMMessage } from "@butler/adapters"
+import { type LLMMessage } from "@butler/adapters"
 import { shouldAdvertiseDelegate } from "./wechat-tool-profile.js"
 
-/**
- * How long to wait for a real LLM response before falling back to the
- * stub reply. Keeps the v5 inbound route from hanging if a provider
- * is slow or unreachable.
- */
-const LLM_TIMEOUT = "10 seconds" as const
-
-/**
- * Minimal logger surface — clean separation lets tests inject a
- * silent logger and production code use stderr. Avoids the project
- * no-console ESLint rule by going through a typed function.
- */
-export interface LLMReplyLogger {
-  error: (message: string, error: unknown) => void
-}
-
-const defaultLogger: LLMReplyLogger = {
-  error: (message, error) => {
-    // eslint-disable-next-line no-console -- intentional stderr log for operator debugging
-    console.error(message, error)
-  },
-}
+// D82 T3: `generateLLMReply` (and with it the LLM_TIMEOUT / LLMReplyLogger /
+// defaultLogger surface and the `pickLLMProvider` import) was deleted as dead
+// code. Nothing in the production path called it — the loop is driven by
+// runButlerLoop in wechat-inbound-butler.ts, which resolves its adapter via
+// pickLLMForRole(env, "plan") in the composition root. Keeping a second,
+// role-unaware provider picker alive was the trap: it does not know about the
+// MiniMax provider and does not honour the fixture override, so anyone
+// changing providers would have "fixed" a function nothing calls.
 
 /**
  * Build the minimal messages array for a wechat inbound turn.
@@ -43,12 +28,22 @@ export function buildWechatInboundMessages(
   const includeExecTools = opts.includeExecTools ?? false
   const fromUserId = opts.fromUserId
   const advertiseDelegate = shouldAdvertiseDelegate({ includeExecTools, env })
+  // D82 T3: single source of truth for the tag names used in this prompt.
+  // They must match the tags `decodeDecision` accepts (packages/runtime/
+  // decision.ts). They used to be spelled out separately in `decisionShapes`
+  // and again in prose (`closing`), where the prose said "CallTool" and
+  // "Delegate" — neither of which is a real tag. A real LLM took the prose
+  // literally, emitted `{"_tag":"Delegate"}`, and decodeDecision rejected it
+  // (the D81 decode bug). Everything below now interpolates these constants.
+  const RESPOND_TAG = "Respond"
+  const CALL_TAG = "CallCapability"
+  const DELEGATE_TAG = "StartChildRun"
   const decisionShapes = [
-    '- {"_tag":"Respond","content":"<your reply text>"}  — final answer to the user',
-    '- {"_tag":"CallCapability","name":"<capability>","arguments":{...},"callId":"<optional>"}  — request a Capability invocation (loop will run it and feed the result back)',
+    `- {"_tag":"${RESPOND_TAG}","content":"<your reply text>"}  — final answer to the user`,
+    `- {"_tag":"${CALL_TAG}","name":"<capability>","arguments":{...},"callId":"<optional>"}  — request a Capability invocation (loop will run it and feed the result back)`,
     ...(advertiseDelegate
       ? [
-          '- {"_tag":"StartChildRun","role":"<role>","objective":"<objective>","grants":[]}  — hand the task off to a subagent (runs in background; you may then Respond or CallCapability again)',
+          `- {"_tag":"${DELEGATE_TAG}","role":"<role>","objective":"<objective>","grants":[]}  — hand the task off to a subagent (runs in background; you may then ${RESPOND_TAG} or ${CALL_TAG} again)`,
         ]
       : []),
     '- {"_tag":"Finish","reason":"<short reason>"}  — task done, no reply needed',
@@ -72,18 +67,20 @@ export function buildWechatInboundMessages(
       ? [
           includeExecTools
             ? "- delegate_to_subagent(task, role?, capabilities?): delegate a task to a subagent (runs in background, returns later). Use when the user's request requires capabilities you don't have. Optional `capabilities` is an array of strings from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, write_file, run_command); defaults to ['general'] if unspecified."
-            : "- delegate_to_subagent(task, role?, capabilities?): delegate coding or shell work to a subagent (async). Prefer Delegate over direct write/run when the user asks to implement or change code.",
+            : "- delegate_to_subagent(task, role?, capabilities?): delegate coding or shell work to a subagent (async). Prefer StartChildRun over direct write/run when the user asks to implement or change code.",
         ]
       : []),
   ]
 
+  // D82 T3: the tags named here are interpolated from the same constants
+  // `decisionShapes` is declared with, so the two cannot drift apart.
   const closing = advertiseDelegate
     ? includeExecTools
-      ? "If the user just wants a reply, use Respond. If you need data the tools provide, use CallTool and wait for the tool result. Use Delegate when the work should happen asynchronously in a child agent and you want to keep replying to the user."
-      : "If the user just wants a reply, use Respond. For development tasks (write files, run commands), use Delegate to hand off to the exec subagent instead of CallTool for run_command/write_file."
+      ? `If the user just wants a reply, use ${RESPOND_TAG}. If you need data the tools provide, use ${CALL_TAG} (with the tool's name) and wait for the tool result. Use ${DELEGATE_TAG} when the work should happen asynchronously in a child agent and you want to keep replying to the user.`
+      : `If the user just wants a reply, use ${RESPOND_TAG}. For development tasks (write files, run commands), use ${DELEGATE_TAG} to hand off to the exec subagent instead of ${CALL_TAG} for run_command/write_file.`
     : includeExecTools
-      ? "If the user just wants a reply, use Respond. For write_file or run_command, use CallTool directly (dev session is active — no need to delegate)."
-      : "If the user just wants a reply, use Respond. Read-only tools are available; development writes/commands require dev session or explicit approval."
+      ? `If the user just wants a reply, use ${RESPOND_TAG}. For write_file or run_command, use ${CALL_TAG} directly (dev session is active — no need to delegate).`
+      : `If the user just wants a reply, use ${RESPOND_TAG}. Read-only tools are available; development writes/commands require dev session or explicit approval.`
 
   // P2 fix 2026-09-04: inject owner / project context so the model
   // answers "v5 有什么问题" with v5-specific context rather than asking
@@ -119,7 +116,7 @@ export function buildWechatInboundMessages(
         "Return exactly one JSON object (no prose, no markdown fence) using one of these shapes:",
         ...decisionShapes,
         "",
-        "Available tools (use the CallTool shape when you need them):",
+        `Available tools (to run one, emit a ${CALL_TAG} whose "name" is exactly the tool name below):`,
         ...toolLines,
         "",
         closing,
@@ -139,55 +136,4 @@ export function stubReply(_content: string, _fromUserId: string, _projectId: str
   // 'MVP stub reply' jargon (3x D48 §4 violation). Owner just needs
   // confirmation the message was received and is being processed.
   return "已收到，正在处理中。"
-}
-
-/**
- * Call the configured LLM provider and return its text reply.
- * Falls back to the stub reply on any failure (missing key, network
- * error, timeout, empty content). All failure modes are logged so
- * the operator can debug without breaking the route.
- *
- * Returned text is always non-empty (either LLM reply or stub).
- */
-export async function generateLLMReply(args: {
-  readonly content: string
-  readonly fromUserId: string
-  readonly projectId: string
-  readonly env?: NodeJS.ProcessEnv
-  readonly logger?: LLMReplyLogger
-}): Promise<string> {
-  const env = args.env ?? process.env
-  const logger = args.logger ?? defaultLogger
-  const adapter = pickLLMProvider(env)
-  if (!adapter) {
-    return stubReply(args.content, args.fromUserId, args.projectId)
-  }
-
-  const messages = buildWechatInboundMessages(args.content)
-
-  const outcome = await Effect.runPromise(
-    adapter.complete(messages).pipe(
-      Effect.timeout(LLM_TIMEOUT),
-      Effect.match({
-        onFailure: (err) => {
-          logger.error(
-            `[v5-wechat-inbound] LLM call failed (fromUserId=${args.fromUserId}); falling back to stub:`,
-            err,
-          )
-          // R8.x.4: adapter.complete now returns LLMAssistantResponse
-          // (content + toolCalls + stopReason). Return an empty response
-          // shape on failure so the route can fall back to the stub
-          // reply without breaking the typecheck.
-          return { content: "", toolCalls: [], stopReason: "stop" as const }
-        },
-        onSuccess: (msg) => msg,
-      }),
-    ),
-  )
-
-  const text = outcome.content.trim()
-  if (!text) {
-    return stubReply(args.content, args.fromUserId, args.projectId)
-  }
-  return text
 }

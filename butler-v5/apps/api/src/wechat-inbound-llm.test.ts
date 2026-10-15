@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import {
-  buildWechatInboundMessages,
-  generateLLMReply,
-  stubReply,
-  type LLMReplyLogger,
-} from "./wechat-inbound-llm.js"
+import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
+
+// D82 T3: the three generateLLMReply cases were removed with the function —
+// it was dead, and its "LLM call fails" cases made real outbound requests to
+// api.anthropic.com / api.deepseek.com with fake keys, so they were also the
+// only network-dependent tests in apps/api (source of an intermittent full-run
+// failure observed during D82 T1/T2 verification).
 
 const ORIGINAL_ENV = { ...process.env }
 
@@ -40,62 +41,72 @@ describe("wechat-inbound-llm", () => {
     expect(reply).toContain("已收到")
   })
 
-  it("generateLLMReply returns stub when no LLM key is configured", async () => {
-    const reply = await generateLLMReply({
-      content: "hi",
-      fromUserId: "u-1",
-      projectId: "wechat",
-      env: {},
+  // D82 T3: the prompt declared its shapes with tag `CallCapability` /
+  // `StartChildRun` but its closing prose told the model to "use CallTool" /
+  // "use Delegate". Neither is a real tag, so the model had to guess the
+  // mapping; a real LLM guessed literally and emitted `{"_tag":"Delegate"}`,
+  // which decodeDecision rejected (the D81 decode bug). These pin both halves
+  // of the contract so the prose cannot drift away from the declared shapes.
+  describe("decision-tag vocabulary", () => {
+    // advertiseDelegate = !includeExecTools && BUTLER_V5_SUBAGENT_ENABLED
+    // (shouldAdvertiseDelegate in wechat-tool-profile.ts), so the prompt has
+    // three shapes. Cover all three: each one used to name a pseudo-tag.
+    const WITH_DELEGATE: NodeJS.ProcessEnv = { BUTLER_V5_SUBAGENT_ENABLED: "1" }
+    const PROMPT_SHAPES = [
+      { name: "delegate advertised", env: WITH_DELEGATE, opts: { includeExecTools: false } },
+      { name: "exec tools, no delegate", env: {}, opts: { includeExecTools: true } },
+      { name: "read-only, no delegate", env: {}, opts: { includeExecTools: false } },
+    ] as const
+
+    const systemPrompt = (
+      env: NodeJS.ProcessEnv,
+      opts: { readonly includeExecTools: boolean },
+    ): string => buildWechatInboundMessages("hello", env, opts)[0]?.content ?? ""
+
+    it("names only real tags, never the old CallTool/Delegate pseudo-tags", () => {
+      for (const shape of PROMPT_SHAPES) {
+        const prompt = systemPrompt(shape.env, shape.opts)
+        expect(prompt, `shape: ${shape.name}`).not.toMatch(/\bCallTool\b/)
+        expect(prompt, `shape: ${shape.name}`).not.toMatch(/\buse Delegate\b/)
+        expect(prompt, `shape: ${shape.name}`).not.toMatch(/Prefer Delegate\b/)
+      }
     })
-    // D60 T2.1 (audit #3 F-02): owner-facing fallback no longer surfaces
-    // raw fromUserId / raw projectId / 'MVP stub reply' jargon.
-    expect(reply).not.toMatch(/MVP stub/)
-    expect(reply).not.toMatch(/u-1/)
-    expect(reply).not.toMatch(/project=/)
-    expect(reply).toContain("已收到")
-  })
 
-  it("generateLLMReply falls back to stub when LLM call fails (sanitized env)", async () => {
-    // No real API key; the adapter call will fail. The fallback
-    // contract is what we assert.
-    const silent: LLMReplyLogger = { error: () => undefined }
-    const reply = await generateLLMReply({
-      content: "hi",
-      fromUserId: "u-1",
-      projectId: "wechat",
-      env: { ANTHROPIC_API_KEY: "fail-key" },
-      logger: silent,
+    it("uses CallCapability and StartChildRun where the old pseudo-tags were", () => {
+      // The delegate-advertised closing used to say "use Delegate ... instead
+      // of CallTool"; the exec closing used to say "use CallTool directly".
+      const delegate = systemPrompt(WITH_DELEGATE, { includeExecTools: false })
+      expect(delegate).toContain("StartChildRun")
+      expect(delegate).toContain("CallCapability")
+
+      const exec = systemPrompt({}, { includeExecTools: true })
+      expect(exec).toContain("CallCapability")
     })
-    // D60 T2.1: same — owner-facing fallback doesn't echo internal jargon.
-    expect(reply).not.toMatch(/MVP stub/)
-    expect(reply).not.toMatch(/u-1/)
-    expect(reply).toContain("已收到")
-  })
 
-  it("generateLLMReply logs to the provided logger when LLM call fails", async () => {
-    const errorSpy = vi.fn()
-    const spyLogger: LLMReplyLogger = { error: errorSpy }
-    await generateLLMReply({
-      content: "hi",
-      fromUserId: "u-2",
-      projectId: "wechat",
-      env: { DEEPSEEK_API_KEY: "fail-key" },
-      logger: spyLogger,
+    it("advertises StartChildRun only when delegate is actually available", () => {
+      expect(systemPrompt(WITH_DELEGATE, { includeExecTools: false })).toContain(
+        '"_tag":"StartChildRun"',
+      )
+      // includeExecTools hides delegate regardless of the env flag.
+      expect(systemPrompt(WITH_DELEGATE, { includeExecTools: true })).not.toContain(
+        '"_tag":"StartChildRun"',
+      )
+      // subagent disabled hides it too.
+      expect(systemPrompt({}, { includeExecTools: false })).not.toContain('"_tag":"StartChildRun"')
     })
-    expect(errorSpy).toHaveBeenCalledTimes(1)
-    expect(errorSpy.mock.calls[0]?.[0]).toContain("u-2")
-  })
 
-  it("system prompt prefers read_file over run_command for file discovery", () => {
-    const msgs = buildWechatInboundMessages("hi", {}, { fromUserId: "u-1" })
-    const sys = msgs[0]?.content ?? ""
-    expect(sys).toMatch(/prefer read_file|read_file.*(优先|first|before).*run_command/i)
-    expect(sys).toMatch(/run_command/i)
-  })
-
-  it("system prompt instructs convergence after file discovery", () => {
-    const msgs = buildWechatInboundMessages("hi", {}, { fromUserId: "u-1" })
-    const sys = msgs[0]?.content ?? ""
-    expect(sys).toMatch(/convergence|commit.*plan|forward motion|1-2 file-discovery/i)
+    it("declares only real tags, so no shape can reference an undeclared one", () => {
+      for (const shape of PROMPT_SHAPES) {
+        const prompt = systemPrompt(shape.env, shape.opts)
+        const declared = [...prompt.matchAll(/"_tag":"(\w+)"/g)].map((m) => m[1])
+        expect(declared.length, `shape: ${shape.name}`).toBeGreaterThan(0)
+        for (const tag of declared) {
+          expect(
+            ["Respond", "CallCapability", "StartChildRun", "Finish", "WaitForApproval"],
+            `shape ${shape.name} declared unknown tag ${tag}`,
+          ).toContain(tag)
+        }
+      }
+    })
   })
 })

@@ -101,10 +101,12 @@ export function computeCostUsd(
  *
  * D44 (P5 Model Port): the active model comes from the SAME Model Port
  * resolution the execution path uses (`resolveModelForRole(env, "plan")`),
- * so accounting keys off the real routing — no more "mirrors
- * pickLLMProvider" drift (the previous implementation omitted MiniMax
+ * so accounting keys off the real routing — no more "mirrors the
+ * provider picker" drift (the previous implementation omitted MiniMax
  * and the `BUTLER_V5_MODEL_*` overrides). Returns `null` when no
  * provider env var is set (caller falls back to costUsd: null).
+ * (D82 T3: named the deleted `pickLLMProvider`; the surviving name is
+ * `resolveModelForRole`, as referenced above.)
  */
 export function resolveCurrentLlmModel(
   env: Readonly<NodeJS.ProcessEnv> = process.env,

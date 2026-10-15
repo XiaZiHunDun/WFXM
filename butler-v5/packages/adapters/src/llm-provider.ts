@@ -1,7 +1,4 @@
 import type { Effect } from "effect"
-import { makeAnthropicAdapter } from "./llm/anthropic.js"
-import { makeOpenAICompatibleAdapter } from "./llm/openai-compatible.js"
-import { buildDeepSeekRequestExtras } from "./llm/deepseek-request.js"
 
 /**
  * Minimal LLM message shape shared by all adapters.
@@ -133,41 +130,4 @@ export interface LLMAdapter {
     messages: readonly LLMMessage[],
     opts?: { readonly tools?: readonly LLMTool[] },
   ) => Effect.Effect<LLMAssistantResponse, Error>
-}
-
-/**
- * Pick an LLM provider based on env vars (priority order):
- *   1. ANTHROPIC_API_KEY → Anthropic Messages API
- *   2. DEEPSEEK_API_KEY  → DeepSeek (OpenAI-compatible)
- *   3. DASHSCOPE_API_KEY → DashScope Qwen (OpenAI-compatible)
- *   4. none set          → undefined (caller falls back to stub reply)
- *
- * Pure function: takes env as an argument so tests can inject values
- * and so the deployment / runtime decides which env to pass.
- */
-export function pickLLMProvider(env: NodeJS.ProcessEnv = process.env): LLMAdapter | undefined {
-  const anthropicKey = env["ANTHROPIC_API_KEY"]
-  if (anthropicKey) {
-    return makeAnthropicAdapter({ apiKey: anthropicKey })
-  }
-  const deepseekKey = env["DEEPSEEK_API_KEY"]
-  if (deepseekKey) {
-    const model = env["DEEPSEEK_MODEL"] ?? "deepseek-chat"
-    const requestExtras = buildDeepSeekRequestExtras(env, model)
-    return makeOpenAICompatibleAdapter({
-      apiKey: deepseekKey,
-      baseUrl: "https://api.deepseek.com",
-      model,
-      ...(requestExtras !== undefined ? { requestExtras } : {}),
-    })
-  }
-  const dashscopeKey = env["DASHSCOPE_API_KEY"]
-  if (dashscopeKey) {
-    return makeOpenAICompatibleAdapter({
-      apiKey: dashscopeKey,
-      baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      model: "qwen-turbo",
-    })
-  }
-  return undefined
 }
