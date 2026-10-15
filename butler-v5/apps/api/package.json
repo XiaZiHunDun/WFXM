@@ -25,10 +25,10 @@
     "@butler/ports": "workspace:*",
     "@butler/runtime": "workspace:*",
     "effect": "^3.10.0",
-    "hono": "^4.0.0",
-    "ws": "^8.18.0"
+    "hono": "^4.13.12",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.10"
+    "@types/ws": "^8.18.2"
   }
 }
