@@ -16,20 +16,21 @@
 
 ## File Structure
 
-| Type | Path | Responsibility |
-|---|---|---|
-| Modify | `apps/api/src/workspace-tools.ts` | + `UNDO_CHAIN` / `UNDO_CHAIN_CONV` / `safeGitHead` / `undoChain` / `resetUndoChain` / `ChainEntry` type / `ChainRevertResult` type; + `WorkspaceToolContext.chainId + conversationId`; write_file + run_command push |
-| Modify | `apps/api/src/wechat-undo-command.ts` | + `CHAIN_INTENT_REGEX`; chain 分支; `findRecentChainIdForConversation`; `formatChainReply` |
-| Modify | `apps/api/src/wiring.ts` (or existing wire path) | 透传 `chainId` + `conversationId` 到 `WorkspaceToolContext` |
-| Create | `apps/api/src/workspace-tools.chain-undo.test.ts` | C1-C4 (chain logic unit) |
-| Create | `apps/api/src/wechat-undo-command.chain.test.ts` | C5-C8 (intent + reply unit) |
-| Modify | `tests/acceptance/scenarios/_fixtures.ts` | + D1-chain-extension fixture |
+| Type   | Path                                              | Responsibility                                                                                                                                                                                                       |
+| ------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Modify | `apps/api/src/workspace-tools.ts`                 | + `UNDO_CHAIN` / `UNDO_CHAIN_CONV` / `safeGitHead` / `undoChain` / `resetUndoChain` / `ChainEntry` type / `ChainRevertResult` type; + `WorkspaceToolContext.chainId + conversationId`; write_file + run_command push |
+| Modify | `apps/api/src/wechat-undo-command.ts`             | + `CHAIN_INTENT_REGEX`; chain 分支; `findRecentChainIdForConversation`; `formatChainReply`                                                                                                                           |
+| Modify | `apps/api/src/wiring.ts` (or existing wire path)  | 透传 `chainId` + `conversationId` 到 `WorkspaceToolContext`                                                                                                                                                          |
+| Create | `apps/api/src/workspace-tools.chain-undo.test.ts` | C1-C4 (chain logic unit)                                                                                                                                                                                             |
+| Create | `apps/api/src/wechat-undo-command.chain.test.ts`  | C5-C8 (intent + reply unit)                                                                                                                                                                                          |
+| Modify | `tests/acceptance/scenarios/_fixtures.ts`         | + D1-chain-extension fixture                                                                                                                                                                                         |
 
 ---
 
 ## Task 1: UNDO_CHAIN data structure + write_file push (TDD)
 
 **Files:**
+
 - Create: `apps/api/src/workspace-tools.chain-undo.test.ts`
 - Modify: `apps/api/src/workspace-tools.ts:44-52` (WorkspaceToolContext), `:182-269` (write_file run), `:271-335` (UNDO_STACK section)
 
@@ -41,11 +42,7 @@ Create `apps/api/src/workspace-tools.chain-undo.test.ts`:
 import { describe, expect, it, beforeEach } from "vitest"
 import { writeFileSync, mkdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
-import {
-  makeWriteFileTool,
-  resetUndoStack,
-  resetUndoChain,
-} from "./workspace-tools.js"
+import { makeWriteFileTool, resetUndoStack, resetUndoChain } from "./workspace-tools.js"
 
 const TMP = join(process.cwd(), ".tmp-chain-undo-test")
 const FILE_A = join(TMP, "a.ts")
@@ -157,11 +154,8 @@ async function safeGitHead(cwd: string): Promise<string | null> {
   try {
     const { execFile } = await import("node:child_process")
     const out = await new Promise<string>((resolveP, rejectP) => {
-      execFile(
-        "git",
-        ["rev-parse", "HEAD"],
-        { cwd, timeout: 2000 },
-        (err, stdout) => (err ? rejectP(err) : resolveP(String(stdout).trim())),
+      execFile("git", ["rev-parse", "HEAD"], { cwd, timeout: 2000 }, (err, stdout) =>
+        err ? rejectP(err) : resolveP(String(stdout).trim()),
       )
     })
     GIT_HEAD_CACHE = out || null
@@ -274,6 +268,7 @@ git commit -m "feat(chain-undo): UNDO_CHAIN data + write_file push (D49 Task 1)"
 ## Task 2: run_command push + safeGitHead (TDD)
 
 **Files:**
+
 - Modify: `apps/api/src/workspace-tools.chain-undo.test.ts` (add C2)
 - Modify: `apps/api/src/workspace-tools.ts:337-441` (makeRunCommandTool)
 
@@ -343,7 +338,11 @@ For the sandboxed path (after `return` near line 438), restructure to capture th
 
 ```typescript
 const finalResult = sandboxed.ok
-  ? { ok: true as const, output: "stdout" in sandboxed ? sandboxed.stdout ?? "" : "sandboxed run returned no output", exitCode: 0 }
+  ? {
+      ok: true as const,
+      output: "stdout" in sandboxed ? (sandboxed.stdout ?? "") : "sandboxed run returned no output",
+      exitCode: 0,
+    }
   : { ok: false as const, reason: sandboxed.reason ?? "sandbox failed", exitCode: null }
 
 // D49: chain push
@@ -426,6 +425,7 @@ git commit -m "feat(chain-undo): run_command push captures argv/cwd/gitHead (D49
 ## Task 3: undoChain best-effort partial revert (TDD)
 
 **Files:**
+
 - Modify: `apps/api/src/workspace-tools.chain-undo.test.ts` (add C3)
 - Modify: `apps/api/src/workspace-tools.ts` (undoChain already impl'd; this task just locks test)
 
@@ -496,6 +496,7 @@ git commit -m "test(chain-undo): C3 partial revert best-effort + chain consumed 
 ## Task 4: resetUndoChain + conversation mapping (TDD)
 
 **Files:**
+
 - Modify: `apps/api/src/workspace-tools.chain-undo.test.ts` (add C4 + cross-conv helper)
 
 - [ ] **Step 1: Write failing test C4 (resetUndoChain)**
@@ -546,6 +547,7 @@ git commit -m "feat(chain-undo): resetUndoChain + cross-conv guard helper (D49 T
 ## Task 5: chain intent regex + chain 分支 + reply format (TDD)
 
 **Files:**
+
 - Create: `apps/api/src/wechat-undo-command.chain.test.ts`
 - Modify: `apps/api/src/wechat-undo-command.ts`
 
@@ -580,7 +582,15 @@ describe("D49 wechat-undo-command chain branch", () => {
   beforeEach(setup)
 
   it("C5: 5 chain phrases all match and route to chain branch", async () => {
-    const phrases = ["撤销这轮", "撤销本次", "撤销这次", "撤销这一轮", "/撤销这轮", "撤销这轮 ", "撤销这轮"]
+    const phrases = [
+      "撤销这轮",
+      "撤销本次",
+      "撤销这次",
+      "撤销这一轮",
+      "/撤销这轮",
+      "撤销这轮 ",
+      "撤销这轮",
+    ]
     for (const p of phrases) {
       const r = await tryWechatUndoCommand({
         wiring: stubWiring,
@@ -610,7 +620,15 @@ describe("D49 wechat-undo-command chain branch", () => {
     const { UNDO_CHAIN_FOR_TEST } = await import("./workspace-tools.js")
     UNDO_CHAIN_FOR_TEST.set("run-7", [
       { kind: "write", path: FILE_A, beforeContent: "OLD_A", tool: "write_file", pushedAt: 1 },
-      { kind: "command", argv: ["pnpm", "install", "lodash"], cwd: TMP, gitStatusBeforeHash: null, exit: 0, startedAt: 2, tool: "run_command" },
+      {
+        kind: "command",
+        argv: ["pnpm", "install", "lodash"],
+        cwd: TMP,
+        gitStatusBeforeHash: null,
+        exit: 0,
+        startedAt: 2,
+        tool: "run_command",
+      },
     ])
 
     const r = await tryWechatUndoCommand({
@@ -671,8 +689,7 @@ In `apps/api/src/wechat-undo-command.ts`, add at top (after existing UNDO_INTENT
 
 ```typescript
 // D49: chain intent (multi-tool turn undo). Match longest-first.
-const CHAIN_INTENT_REGEX =
-  /^(撤销这一轮|撤销这轮|撤销本次|撤销这次|\/撤销这轮)\s*$/i
+const CHAIN_INTENT_REGEX = /^(撤销这一轮|撤销这轮|撤销本次|撤销这次|\/撤销这轮)\s*$/i
 ```
 
 Extend `UNDO_INTENT_REGEX` to also match chain triggers (otherwise top-of-function `if (!UNDO_INTENT_REGEX.test(trimmed)) return null` rejects chain phrases):
@@ -700,44 +717,44 @@ import {
 Modify `tryWechatUndoCommand` `rest.length === 0` branch (around line 84). Insert chain branch BEFORE the existing `rest.length === 0` block:
 
 ```typescript
-  // D49: chain 分支 — 在 explicit 判断前先判 chain intent
-  if (CHAIN_INTENT_REGEX.test(trimmed)) {
-    const currentConv = env["BUTLER_V5_CONVERSATION_ID"]?.trim()
-    let chainId: string | undefined
-    if (currentConv) {
-      for (const [cid, conv] of undoChain_listConversations()) {
-        if (conv === currentConv) {
-          chainId = cid
-          break
-        }
+// D49: chain 分支 — 在 explicit 判断前先判 chain intent
+if (CHAIN_INTENT_REGEX.test(trimmed)) {
+  const currentConv = env["BUTLER_V5_CONVERSATION_ID"]?.trim()
+  let chainId: string | undefined
+  if (currentConv) {
+    for (const [cid, conv] of undoChain_listConversations()) {
+      if (conv === currentConv) {
+        chainId = cid
+        break
       }
     }
-    if (!chainId) {
-      chainId = undoChain_listChainIds().at(-1)
-    }
-    if (!chainId) return done("没有可撤销的轮次。")
-    if (currentConv) {
-      const stored = getUndoChainConversation(chainId)
-      if (stored && stored !== currentConv) {
-        return done("该轮次不属于当前对话。")
-      }
-    }
-    const result = undoChain(chainId)
-    if (!result) return done("当前轮次没有可撤销的操作。")
-    return done(formatChainReply(result))
   }
+  if (!chainId) {
+    chainId = undoChain_listChainIds().at(-1)
+  }
+  if (!chainId) return done("没有可撤销的轮次。")
+  if (currentConv) {
+    const stored = getUndoChainConversation(chainId)
+    if (stored && stored !== currentConv) {
+      return done("该轮次不属于当前对话。")
+    }
+  }
+  const result = undoChain(chainId)
+  if (!result) return done("当前轮次没有可撤销的操作。")
+  return done(formatChainReply(result))
+}
 
-  // existing logic unchanged
-  if (rest.length === 0) {
-    if (isExplicit) {
-      return done("请用 `/undo <path>` 指定要还原的文件路径。")
-    }
-    const most = popMostRecentWrite()
-    if (most === undefined) {
-      return done("没有可撤销的写操作。")
-    }
-    return restoreAndReply(most.path, most.path, most.content)
+// existing logic unchanged
+if (rest.length === 0) {
+  if (isExplicit) {
+    return done("请用 `/undo <path>` 指定要还原的文件路径。")
   }
+  const most = popMostRecentWrite()
+  if (most === undefined) {
+    return done("没有可撤销的写操作。")
+  }
+  return restoreAndReply(most.path, most.path, most.content)
+}
 ```
 
 Add to `workspace-tools.ts` exports (after `getUndoChainConversation`):
@@ -770,7 +787,9 @@ function formatChainReply(result: ChainRevertResult): string {
   }
   if (result.commandSideEffects.length > 0) {
     lines.push("")
-    lines.push(`以下 ${result.commandSideEffects.length} 个命令副作用需手工 reverse（无法自动 undo）：`)
+    lines.push(
+      `以下 ${result.commandSideEffects.length} 个命令副作用需手工 reverse（无法自动 undo）：`,
+    )
     for (const s of result.commandSideEffects) {
       lines.push(`• ${s.argv.join(" ")}`)
     }
@@ -806,6 +825,7 @@ git commit -m "feat(chain-undo): wechat chain intent + formatChainReply (D49 Tas
 ## Task 6: wiring chainId + conversationId 透传
 
 **Files:**
+
 - Modify: `apps/api/src/wiring.ts` (or wherever WorkspaceToolContext is constructed for wechat inbound)
 
 - [ ] **Step 1: Find where WorkspaceToolContext is constructed for wechat inbound tools**
@@ -849,6 +869,7 @@ git commit -m "feat(chain-undo): wire chainId + conversationId to WorkspaceToolC
 ## Task 7: D1-chain-extension realistic scenario
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/_fixtures.ts`
 
 - [ ] **Step 1: Locate D1 fixture**

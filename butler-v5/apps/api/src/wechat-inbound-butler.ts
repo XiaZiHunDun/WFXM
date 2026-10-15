@@ -4,11 +4,7 @@ import type { WorkingSetResult } from "@butler/runtime/working-set.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import type { ModelDecision } from "@butler/runtime/decision.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
-import {
-  computeCostUsd,
-  parseLlmPricing,
-  resolveCurrentLlmModel,
-} from "./llm-pricing.js"
+import { computeCostUsd, parseLlmPricing, resolveCurrentLlmModel } from "./llm-pricing.js"
 import {
   DEFAULT_MAX_LOOP_ITERATIONS,
   runConversationLoop,
@@ -28,11 +24,7 @@ import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import { isPendingApprovalOutcome, toRunResult } from "./approval-resume.js"
 import { ActiveMainRunConflict, RunPauseForApproval } from "@butler/runtime/run-engine.js"
-import {
-  pickLLMForRole,
-  type LLMAdapter,
-  type LLMMessage,
-} from "@butler/adapters"
+import { pickLLMForRole, type LLMAdapter, type LLMMessage } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
 import { isExecCapability } from "./wechat-tool-profile.js"
 import {
@@ -313,8 +305,7 @@ async function runButlerLoopBody(args: {
   }
 
   const allow = args.allowedToolNames ? new Set(args.allowedToolNames) : null
-  const includeExecTools =
-    allow !== null && [...allow].some((name) => isExecCapability(name))
+  const includeExecTools = allow !== null && [...allow].some((name) => isExecCapability(name))
 
   const base = buildWechatInboundMessages(args.content, env, {
     includeExecTools,
@@ -469,7 +460,9 @@ async function runButlerLoopBody(args: {
     maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
     initialTraces,
     ...(args.llmTimeoutMs !== undefined ? { llmTimeoutMs: args.llmTimeoutMs } : {}),
-    ...(args.stuckLoopThreshold !== undefined ? { stuckLoopThreshold: args.stuckLoopThreshold } : {}),
+    ...(args.stuckLoopThreshold !== undefined
+      ? { stuckLoopThreshold: args.stuckLoopThreshold }
+      : {}),
     ...(args.maxDecodeRetries !== undefined ? { maxDecodeRetries: args.maxDecodeRetries } : {}),
     ports: {
       logger,
@@ -574,16 +567,17 @@ async function runButlerLoopBody(args: {
         // preserves the upstream count + window + last_n_actions payload.
         // Previously this was dropped (signal payload never reached the
         // emit site after D64 T1 reduced ToolExecutionDecision shape).
-        const fatigueDetail: AuditFatigueDetail = toolDecision.kind === "cooldown"
-          ? {
-              cooldown_applied: { duration_ms: toolDecision.durationMs },
-              fatigue_signal: toolDecision.signal,
-            }
-          : toolDecision.kind === "checklist"
-            ? { checklist_required: true, fatigue_signal: toolDecision.signal }
-            : toolDecision.kind === "allow" && toolDecision.signal
-              ? { fatigue_signal: toolDecision.signal }
-              : {}
+        const fatigueDetail: AuditFatigueDetail =
+          toolDecision.kind === "cooldown"
+            ? {
+                cooldown_applied: { duration_ms: toolDecision.durationMs },
+                fatigue_signal: toolDecision.signal,
+              }
+            : toolDecision.kind === "checklist"
+              ? { checklist_required: true, fatigue_signal: toolDecision.signal }
+              : toolDecision.kind === "allow" && toolDecision.signal
+                ? { fatigue_signal: toolDecision.signal }
+                : {}
         await args.wiring.runtimeStore.appendAuditEvent({
           auditId: crypto.randomUUID(),
           runId: args.runId ?? null,
@@ -633,9 +627,7 @@ async function runButlerLoopBody(args: {
               iterations: 0,
               toolCalls: 0,
               finalDecision: "WaitForApproval" as ModelDecision["_tag"],
-              traces: [
-                `fatigue checklist ${toolName} items=${toolDecision.items.length}`,
-              ],
+              traces: [`fatigue checklist ${toolName} items=${toolDecision.items.length}`],
             } satisfies ButlerLoopResult)
           }
         }
@@ -649,9 +641,7 @@ async function runButlerLoopBody(args: {
             iterations: 0,
             toolCalls: 0,
             finalDecision: "WaitForApproval" as ModelDecision["_tag"],
-            traces: [
-              `waiting approval ${outcome.pendingApproval.stepId} for ${String(def.name)}`,
-            ],
+            traces: [`waiting approval ${outcome.pendingApproval.stepId} for ${String(def.name)}`],
           } satisfies ButlerLoopResult)
         }
         return toRunResult(outcome)

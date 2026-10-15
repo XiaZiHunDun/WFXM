@@ -39,10 +39,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 const LLM_PRICING = join(__dirname, "../../apps/api/src/llm-pricing.ts")
-const LOCAL_TRACE = join(
-  __dirname,
-  "../../packages/domain/src/observability/local-trace.ts",
-)
+const LOCAL_TRACE = join(__dirname, "../../packages/domain/src/observability/local-trace.ts")
 const WECHAT_INBOUND_BUTLER = join(__dirname, "../../apps/api/src/wechat-inbound-butler.ts")
 const SUBAGENT_WORKER = join(__dirname, "../../apps/api/src/subagent-worker.ts")
 const APPROVAL_RESUME = join(__dirname, "../../apps/api/src/approval-resume.ts")
@@ -75,9 +72,15 @@ describe("arch: §14 costUsd pricing batch (D24 — D23 reserved field activated
 
   it("wechat-inbound-butler imports all 3 pricing helpers and passes costUsd into step/llm_call trace", () => {
     const src = readFileSync(WECHAT_INBOUND_BUTLER, "utf-8")
-    expect(src).toMatch(/import\s*\{[^}]*parseLlmPricing[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
-    expect(src).toMatch(/import\s*\{[^}]*computeCostUsd[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
-    expect(src).toMatch(/import\s*\{[^}]*resolveCurrentLlmModel[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
+    expect(src).toMatch(
+      /import\s*\{[^}]*parseLlmPricing[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
+    expect(src).toMatch(
+      /import\s*\{[^}]*computeCostUsd[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
+    expect(src).toMatch(
+      /import\s*\{[^}]*resolveCurrentLlmModel[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
     // Helpers are invoked before the LLM call completes.
     expect(src).toMatch(/parseLlmPricing\(env\)/)
     expect(src).toMatch(/resolveCurrentLlmModel\(env\)/)
@@ -89,9 +92,15 @@ describe("arch: §14 costUsd pricing batch (D24 — D23 reserved field activated
 
   it("subagent-worker imports all 3 pricing helpers and passes costUsd into step/llm_call trace", () => {
     const src = readFileSync(SUBAGENT_WORKER, "utf-8")
-    expect(src).toMatch(/import\s*\{[^}]*parseLlmPricing[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
-    expect(src).toMatch(/import\s*\{[^}]*computeCostUsd[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
-    expect(src).toMatch(/import\s*\{[^}]*resolveCurrentLlmModel[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
+    expect(src).toMatch(
+      /import\s*\{[^}]*parseLlmPricing[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
+    expect(src).toMatch(
+      /import\s*\{[^}]*computeCostUsd[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
+    expect(src).toMatch(
+      /import\s*\{[^}]*resolveCurrentLlmModel[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
     expect(src).toMatch(/parseLlmPricing\(env\)/)
     expect(src).toMatch(/resolveCurrentLlmModel\(env\)/)
     expect(src).toMatch(/computeCostUsd\(resp\.usage,\s*currentModel,\s*pricing\)/)
@@ -100,9 +109,15 @@ describe("arch: §14 costUsd pricing batch (D24 — D23 reserved field activated
 
   it("approval-resume imports all 3 pricing helpers and passes costUsd into step/llm_call trace", () => {
     const src = readFileSync(APPROVAL_RESUME, "utf-8")
-    expect(src).toMatch(/import\s*\{[^}]*parseLlmPricing[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
-    expect(src).toMatch(/import\s*\{[^}]*computeCostUsd[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
-    expect(src).toMatch(/import\s*\{[^}]*resolveCurrentLlmModel[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/)
+    expect(src).toMatch(
+      /import\s*\{[^}]*parseLlmPricing[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
+    expect(src).toMatch(
+      /import\s*\{[^}]*computeCostUsd[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
+    expect(src).toMatch(
+      /import\s*\{[^}]*resolveCurrentLlmModel[^}]*\}\s*from\s*["']\.\/llm-pricing\.js["']/,
+    )
     // approval-resume passes `args.env` (not bare `env`) to the helpers.
     expect(src).toMatch(/parseLlmPricing\(args\.env\)/)
     expect(src).toMatch(/resolveCurrentLlmModel\(args\.env\)/)
@@ -114,15 +129,11 @@ describe("arch: §14 costUsd pricing batch (D24 — D23 reserved field activated
 
   it("TraceEvent still declares costUsd: number | null first-class (D23 invariant)", () => {
     const src = readFileSync(LOCAL_TRACE, "utf-8")
-    const traceEventMatch = src.match(
-      /export interface TraceEvent\s*\{([\s\S]*?)\n\}/,
-    )
+    const traceEventMatch = src.match(/export interface TraceEvent\s*\{([\s\S]*?)\n\}/)
     expect(traceEventMatch, "TraceEvent interface not found").not.toBeNull()
     const body = traceEventMatch?.[1] ?? ""
     expect(body).toMatch(/readonly\s+costUsd:\s*number\s*\|\s*null/)
-    const inputMatch = src.match(
-      /export interface CreateTraceEventInput\s*\{([\s\S]*?)\n\}/,
-    )
+    const inputMatch = src.match(/export interface CreateTraceEventInput\s*\{([\s\S]*?)\n\}/)
     expect(inputMatch, "CreateTraceEventInput interface not found").not.toBeNull()
     const inputBody = inputMatch?.[1] ?? ""
     expect(inputBody).toMatch(/readonly\s+costUsd\?:\s*number\s*\|\s*null/)

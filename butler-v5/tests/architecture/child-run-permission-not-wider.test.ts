@@ -21,19 +21,14 @@ import { describe, expect, it } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const DELEGATE_RUNTIME = join(
-  __dirname,
-  "../../packages/runtime/src/delegate-runtime.ts",
-)
+const DELEGATE_RUNTIME = join(__dirname, "../../packages/runtime/src/delegate-runtime.ts")
 const WEIBUTLER_TOOLS = join(__dirname, "../../apps/api/src/tools.ts")
 const WEIBUTLER_LOOP = join(__dirname, "../../apps/api/src/wechat-inbound-butler.ts")
 
 describe("arch: child Run permission ≤ parent Run (§20 #5)", () => {
   it("DelegateInput declares parentAllowlist field", () => {
     const src = readFileSync(DELEGATE_RUNTIME, "utf-8")
-    expect(src).toMatch(
-      /readonly\s+parentAllowlist\??:\s*readonly\s+Capability\[\]/,
-    )
+    expect(src).toMatch(/readonly\s+parentAllowlist\??:\s*readonly\s+Capability\[\]/)
   })
 
   it("delegate() body throws when child cap not in parent allowlist", () => {
@@ -64,9 +59,7 @@ describe("arch: child Run permission ≤ parent Run (§20 #5)", () => {
     // Tool context field exists (for future opt-in) but wechat-inbound-butler
     // explicitly leaves it undefined. Plan-mode → dev-child flow uses the
     // dev-session-grant chain, not the LLM tool allowlist.
-    expect(src).toMatch(
-      /makeWeibutlerTools\(\{[\s\S]+parentAllowedToolNames:\s*undefined/,
-    )
+    expect(src).toMatch(/makeWeibutlerTools\(\{[\s\S]+parentAllowedToolNames:\s*undefined/)
   })
 
   it("tools.ts has the wiring point (parentAllowedToolNames → parentAllowlist) for opt-in callers", () => {

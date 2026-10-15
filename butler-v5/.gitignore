@@ -12,3 +12,7 @@ pgdata/
 # runtime
 pgdata/
 .scratch/
+
+# smoke script artifacts written into the repo tree by the bot's
+# write_file capability (scripts/cutover/smoke-wechat-product-contract.mjs)
+tmp-*.txt

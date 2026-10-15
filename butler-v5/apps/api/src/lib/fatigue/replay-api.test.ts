@@ -9,7 +9,7 @@ function makeReader(
     tool_name: string
     actor: string
     ts: number
-    decision: 'allow'
+    decision: "allow"
   }[],
 ): AuditLogReader {
   return {
@@ -27,15 +27,63 @@ describe("listFatigueSequences", () => {
 
   test("R2: 2 separate sequences sorted DESC by start_ts", async () => {
     const reader = makeReader([
-      { event_id: "e1", tool_name: "read_file", actor: "owner", ts: now - 60_000, decision: "allow" },
-      { event_id: "e2", tool_name: "read_file", actor: "owner", ts: now - 50_000, decision: "allow" },
-      { event_id: "e3", tool_name: "read_file", actor: "owner", ts: now - 40_000, decision: "allow" },
+      {
+        event_id: "e1",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 60_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e2",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 50_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e3",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 40_000,
+        decision: "allow",
+      },
       // gap of 10s
-      { event_id: "e7", tool_name: "read_file", actor: "owner", ts: now - 20_000, decision: "allow" },
-      { event_id: "e8", tool_name: "read_file", actor: "owner", ts: now - 15_000, decision: "allow" },
-      { event_id: "e9", tool_name: "read_file", actor: "owner", ts: now - 10_000, decision: "allow" },
-      { event_id: "e10", tool_name: "read_file", actor: "owner", ts: now - 5_000, decision: "allow" },
-      { event_id: "e11", tool_name: "read_file", actor: "owner", ts: now - 1_000, decision: "allow" },
+      {
+        event_id: "e7",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 20_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e8",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 15_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e9",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 10_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e10",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 5_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e11",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 1_000,
+        decision: "allow",
+      },
     ])
     const result = await listFatigueSequences(reader, "owner", 60)
     expect(result.sequences).toHaveLength(2)
@@ -67,11 +115,16 @@ describe("replayFatigueSequence", () => {
     const reader = makeReader([
       { event_id: "e-write", tool_name: "write_file", actor: "owner", ts: now, decision: "allow" },
     ])
-    const undo = async () => ({ ok: false as const, reason: "no undo implementation for write_file at this site" })
+    const undo = async () => ({
+      ok: false as const,
+      reason: "no undo implementation for write_file at this site",
+    })
     const result = await replayFatigueSequence(reader, ["e-write"], "owner", undo)
     expect(result.replayed).toEqual([])
     expect(result.irreversible).toEqual([])
-    expect(result.failed).toEqual([{ event_id: "e-write", reason: "no undo implementation for write_file at this site" }])
+    expect(result.failed).toEqual([
+      { event_id: "e-write", reason: "no undo implementation for write_file at this site" },
+    ])
   })
 
   test("R3c: undo dispatcher NOT called for irreversible tools", async () => {
@@ -94,8 +147,8 @@ describe("replayFatigueSequence", () => {
       { event_id: "e1", tool_name: "write_file", actor: "owner-A", ts: now, decision: "allow" },
     ])
     const undo = async () => ({ ok: true as const })
-    await expect(
-      replayFatigueSequence(reader, ["e1"], "owner-B", undo)
-    ).rejects.toThrow(/cross-actor|not owner/i)
+    await expect(replayFatigueSequence(reader, ["e1"], "owner-B", undo)).rejects.toThrow(
+      /cross-actor|not owner/i,
+    )
   })
 })

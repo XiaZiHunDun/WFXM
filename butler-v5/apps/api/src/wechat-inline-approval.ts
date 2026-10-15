@@ -66,17 +66,14 @@ export async function tryWechatInlineApproval(args: {
   // approval-resume handler for the next turn if needed).
   const pending = parsePendingCapabilityInput(step.input)
   const fatigueInput = step.input as
-    | { readonly reason?: unknown; readonly toolName?: unknown }
-    | undefined
+    { readonly reason?: unknown; readonly toolName?: unknown } | undefined
   if (
     pending === null &&
     fatigueInput !== undefined &&
     fatigueInput["reason"] === "fatigue_checklist"
   ) {
     const toolName =
-      typeof fatigueInput["toolName"] === "string"
-        ? fatigueInput["toolName"]
-        : "操作"
+      typeof fatigueInput["toolName"] === "string" ? fatigueInput["toolName"] : "操作"
     if (intent === "deny") {
       await args.wiring.runtimeStore.updateStep({
         stepId: step.id,
@@ -137,9 +134,7 @@ export async function tryWechatInlineApproval(args: {
     return {
       // D60 T2.6 (audit #3 F-10): drop raw capability name (write_file, etc.)
       // from owner-facing reply. Operator tool id, not catalog id.
-      reply: deny.alreadyProcessed
-        ? "该操作已处理，无需重复操作。"
-        : "已拒绝待审批操作。",
+      reply: deny.alreadyProcessed ? "该操作已处理，无需重复操作。" : "已拒绝待审批操作。",
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",
@@ -148,11 +143,7 @@ export async function tryWechatInlineApproval(args: {
   }
 
   try {
-    const decision = await approveWaitingStep(
-      args.wiring.runtimeStore,
-      step.id,
-      args.fromUserId,
-    )
+    const decision = await approveWaitingStep(args.wiring.runtimeStore, step.id, args.fromUserId)
     if (decision._tag === "alreadyProcessed") {
       return {
         reply: "该操作已处理，无需重复审批。",

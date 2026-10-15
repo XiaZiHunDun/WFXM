@@ -7,9 +7,7 @@
  */
 export const SANDBOX_PROFILE_NETWORK_DENY = "workspace-write-network-deny" as const
 export const SANDBOX_PROFILE_NETWORK_ALLOW = "workspace-write-network-allow" as const
-export {
-  SANDBOX_PROFILE_NETWORK_ALLOWLIST,
-} from "@butler/domain/governance/network-allowlist.js"
+export { SANDBOX_PROFILE_NETWORK_ALLOWLIST } from "@butler/domain/governance/network-allowlist.js"
 
 import { SANDBOX_PROFILE_NETWORK_ALLOWLIST } from "@butler/domain/governance/network-allowlist.js"
 

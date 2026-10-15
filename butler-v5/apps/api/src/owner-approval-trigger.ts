@@ -1,8 +1,4 @@
-import {
-  buildApiRunTrigger,
-  validateRunTrigger,
-  type RunTrigger,
-} from "@butler/domain/runtime.js"
+import { buildApiRunTrigger, validateRunTrigger, type RunTrigger } from "@butler/domain/runtime.js"
 
 export function buildOwnerApprovalRunTrigger(input: {
   readonly subject: string

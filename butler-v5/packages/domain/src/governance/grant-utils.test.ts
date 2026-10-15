@@ -88,17 +88,28 @@ describe("actionRequiresNetworkGrant", () => {
 describe("grantAllowsNetworkHost", () => {
   it("denies everything when the grant scope does not allow the network", () => {
     expect(
-      grantAllowsNetworkHost(makeGrant({ scope: { digest: "a", network: "deny" } }), "api.example.com"),
+      grantAllowsNetworkHost(
+        makeGrant({ scope: { digest: "a", network: "deny" } }),
+        "api.example.com",
+      ),
     ).toBe(false)
-    expect(grantAllowsNetworkHost(makeGrant({ scope: { digest: "a" } }), "api.example.com")).toBe(false)
+    expect(grantAllowsNetworkHost(makeGrant({ scope: { digest: "a" } }), "api.example.com")).toBe(
+      false,
+    )
   })
 
   it("allows any host when network is allowed without a host allowlist", () => {
     expect(
-      grantAllowsNetworkHost(makeGrant({ scope: { digest: "a", network: "allow" } }), "any.host.com"),
+      grantAllowsNetworkHost(
+        makeGrant({ scope: { digest: "a", network: "allow" } }),
+        "any.host.com",
+      ),
     ).toBe(true)
     expect(
-      grantAllowsNetworkHost(makeGrant({ scope: { digest: "a", network: "allow", networkHosts: [] } }), "any.host.com"),
+      grantAllowsNetworkHost(
+        makeGrant({ scope: { digest: "a", network: "allow", networkHosts: [] } }),
+        "any.host.com",
+      ),
     ).toBe(true)
   })
 

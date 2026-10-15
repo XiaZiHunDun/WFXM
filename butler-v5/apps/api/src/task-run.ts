@@ -4,10 +4,7 @@ import {
   resolveTaskRunGoal,
   type TaskRecord,
 } from "@butler/domain/knowledge/task-procedure.js"
-import {
-  buildTaskRunTrigger,
-  validateRunTrigger,
-} from "@butler/domain/runtime.js"
+import { buildTaskRunTrigger, validateRunTrigger } from "@butler/domain/runtime.js"
 import { runButlerLoop, type ButlerLoopResult } from "./wechat-inbound-butler.js"
 import type { Wiring } from "./wiring.js"
 
@@ -30,8 +27,7 @@ export async function runTaskGoal(args: {
   const task = await tasks.get(args.taskId)
   if (!task) throw new Error(`task not found: ${args.taskId}`)
 
-  const procedure =
-    task.procedureId && procedures ? await procedures.get(task.procedureId) : null
+  const procedure = task.procedureId && procedures ? await procedures.get(task.procedureId) : null
   const resolved = resolveTaskRunGoal(task, procedure)
   if (!resolved.ok) throw new Error(resolved.reason)
 

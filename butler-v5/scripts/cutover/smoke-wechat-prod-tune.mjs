@@ -9,8 +9,7 @@ let api = defaultApi
 const apiEq = process.argv.find((a) => a.startsWith("--api="))
 if (apiEq) api = apiEq.slice("--api=".length)
 const base = api.replace(/\/$/, "")
-const fromUserId =
-  (process.env.BUTLER_OWNER_WECHAT_ID ?? "").trim() || `prod-tune-${Date.now()}`
+const fromUserId = (process.env.BUTLER_OWNER_WECHAT_ID ?? "").trim() || `prod-tune-${Date.now()}`
 const conversationId = `c-wechat-prod-tune-${Date.now()}`
 
 function fail(step, detail) {
@@ -59,9 +58,7 @@ async function main() {
   console.log("prod-tune ok [/状态]")
 
   const t0 = Date.now()
-  const devTask = await inbound(
-    "帮我写入 butler-v5/tmp-prod-tune.txt 内容为 prod-tune-ok",
-  )
+  const devTask = await inbound("帮我写入 butler-v5/tmp-prod-tune.txt 内容为 prod-tune-ok")
   const elapsed = Date.now() - t0
   const traces = devTask.meta?.traces ?? []
   if (traces.some((t) => String(t).startsWith("write_file@"))) {

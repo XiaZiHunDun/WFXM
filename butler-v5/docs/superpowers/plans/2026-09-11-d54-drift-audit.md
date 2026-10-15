@@ -5,6 +5,7 @@
 **Goal:** 闭环 D49 ship claim vs impl drift + D52 acceptance observed drift + memory "invertible flag" formalize + 3 knip FPs + 3 devDeps 误报。lock D54 audit 全部 6+1 items。
 
 **Architecture:**
+
 - 3 新 ChainEntry types (edit_file + apply_patch + delete_file) — 扩 workspace-tools.ts:311-327 union
 - 1 新 phrase "撤销这批" — 扩 chain intent regex
 - spec formalize: "invertible: true" 描述改成实际行为
@@ -17,12 +18,14 @@
 **Handoff:** `butler-v5/docs/superpowers/notes/2026-09-11-d54-drift-audit-entry.md` (commit `8b2df053`)
 
 **Owner decisions (2026-09-11):**
+
 1. D49 5-type: **implement 3 new ChainEntry types** (edit_file + apply_patch + delete_file)
 2. D49 6-phrase: **implement 1 new phrase** ("撤销这批")
 3. memory "invertible flag": **formalize** (spec remove, replace with actual behavior description)
 4. 3 knip FPs + 3 devDeps: **knip.json config update** (ignoreExports + ignoreDependencies)
 
 **WFXM 协议提醒:**
+
 - Push-to-main: feature → main 直接 push
 - Pre-commit hook: new commit 用 `--no-verify`; amend 用 probe + `--no-verify`
 - Bash backtick: commit message 用 single quote
@@ -33,21 +36,22 @@
 
 ## File Structure
 
-| 类型 | 路径 | 责任 |
-|---|---|---|
-| 改 | `butler-v5/apps/api/src/workspace-tools.ts` | +3 ChainEntry types (edit_file / apply_patch / delete_file) + chain push + revert logic |
-| 改 | `butler-v5/apps/api/src/wechat-session-state.ts` (或 chain_intent handler) | + "撤销这批" phrase 匹配 + handler |
-| 改 | `butler-v5/DESIGN.md` 或 fix-memory docs | spec formalize "invertible" → 实际行为描述 |
-| 改 | `butler-v5/knip.json` | +ignoreExports 3 数组 + ignoreDependencies 3 数组 |
-| 新 | `butler-v5/tests/acceptance/scenarios/recordings/` (auto-gen) | 5 new chain-undo scenarios 跑出 recordings |
-| 改 | `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json` | (如果新 scenario 加到 baseline) |
-| 改 | `butler-v5/tests/acceptance/scenarios/_fixtures.ts` (可能) | 新 scenario definition |
-| 改 | `butler-v5/tests/acceptance/methodology.test.ts` | (可能 baseline count if changes) |
-| 改 | `butler-v5/tools/deadcode-report.md` | update post-D54 (knip 6 → 0, FP 减到 0) |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D54-drift-audit-2026-09-11.md` | fix-memory (auto-memory) |
-| 改 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md` | +1 索引行 |
+| 类型 | 路径                                                                                              | 责任                                                                                    |
+| ---- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 改   | `butler-v5/apps/api/src/workspace-tools.ts`                                                       | +3 ChainEntry types (edit_file / apply_patch / delete_file) + chain push + revert logic |
+| 改   | `butler-v5/apps/api/src/wechat-session-state.ts` (或 chain_intent handler)                        | + "撤销这批" phrase 匹配 + handler                                                      |
+| 改   | `butler-v5/DESIGN.md` 或 fix-memory docs                                                          | spec formalize "invertible" → 实际行为描述                                              |
+| 改   | `butler-v5/knip.json`                                                                             | +ignoreExports 3 数组 + ignoreDependencies 3 数组                                       |
+| 新   | `butler-v5/tests/acceptance/scenarios/recordings/` (auto-gen)                                     | 5 new chain-undo scenarios 跑出 recordings                                              |
+| 改   | `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json`                                 | (如果新 scenario 加到 baseline)                                                         |
+| 改   | `butler-v5/tests/acceptance/scenarios/_fixtures.ts` (可能)                                        | 新 scenario definition                                                                  |
+| 改   | `butler-v5/tests/acceptance/methodology.test.ts`                                                  | (可能 baseline count if changes)                                                        |
+| 改   | `butler-v5/tools/deadcode-report.md`                                                              | update post-D54 (knip 6 → 0, FP 减到 0)                                                 |
+| 新   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D54-drift-audit-2026-09-11.md` | fix-memory (auto-memory)                                                                |
+| 改   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`                                 | +1 索引行                                                                               |
 
 **设计原则:**
+
 - 每个 ChainEntry type 必须有 test (TDD): 至少 1 chain-push test + 1 revert test
 - 每个 phrase pattern 必须有 test
 - invertibility 不传 type 系统, 改 spec text only (formalize)
@@ -59,6 +63,7 @@
 ## Task 1: Add ChainEntry `edit_file` type (TDD)
 
 **Files:**
+
 - Modify: `butler-v5/apps/api/src/workspace-tools.ts`
 - Modify: `butler-v5/apps/api/src/workspace-tools.test.ts` (or chain-undo related test file)
 
@@ -75,6 +80,7 @@ Look at how `kind: "write"` and `kind: "command"` are exercised in the test file
 - [ ] **Step 2: Write failing test for `edit_file` ChainEntry**
 
 Add a test that:
+
 - Pushes an `edit_file` ChainEntry (kind: "edit", path, beforeContent, afterContent, tool: "edit_file")
 - Verifies chain entry stored
 - Verifies revert restores beforeContent
@@ -108,14 +114,14 @@ type ChainEntry =
       readonly tool: "run_command"
     }
   | {
-      readonly kind: "edit"  // NEW
+      readonly kind: "edit" // NEW
       readonly path: string
       readonly beforeContent: string | null
-      readonly afterContent: string | null  // NEW field
-      readonly tool: "edit_file"  // NEW
+      readonly afterContent: string | null // NEW field
+      readonly tool: "edit_file" // NEW
       readonly pushedAt: number
     }
-  // (apply_patch + delete_file added in T2 + T3)
+// (apply_patch + delete_file added in T2 + T3)
 ```
 
 - [ ] **Step 5: Add chain push helper for `edit_file`**
@@ -185,6 +191,7 @@ Same pattern as T1.
 - [ ] **Step 1: Write failing test for `apply_patch`**
 
 Test that:
+
 - Pushes an `apply_patch` ChainEntry (kind: "patch", path, beforeHash, patchContent, tool: "apply_patch")
 - Verifies chain entry stored
 - Verifies revert (best-effort: try `git apply -R`, fallback to no-op)
@@ -192,6 +199,7 @@ Test that:
 - [ ] **Step 2-7: TDD cycle (similar to T1)**
 
 Add to ChainEntry type:
+
 ```typescript
 | {
     readonly kind: "patch"
@@ -222,6 +230,7 @@ Same pattern.
 - [ ] **Step 1-7: TDD cycle**
 
 Add to ChainEntry type:
+
 ```typescript
 | {
     readonly kind: "delete"
@@ -247,6 +256,7 @@ git commit --no-verify -m 'feat(chain): D54 add delete_file ChainEntry type (D49
 ## Task 4: Add "撤销这批" phrase (TDD)
 
 **Files:**
+
 - Modify: `butler-v5/apps/api/src/wechat-session-state.ts` (or wherever phrase regex lives)
 
 - [ ] **Step 1: Find chain intent phrase regex**
@@ -261,6 +271,7 @@ Look for the regex/list of chain undo phrases.
 - [ ] **Step 2: Write failing test for "撤销这批"**
 
 Test that:
+
 - User message "撤销这批" is matched as chain undo intent
 - Triggers chain undo flow (revert last chain)
 
@@ -296,6 +307,7 @@ git commit --no-verify -m 'feat(phrase): D54 add "撤销这批" chain undo inten
 ## Task 5: Formalize "invertible flag" in spec
 
 **Files:**
+
 - Modify: `butler-v5/docs/superpowers/notes/2026-09-09-d49-multi-tool-chain-undo-design.md` (or wherever "invertible" appears)
 - Modify: `butler-v5/DESIGN.md` if it mentions "invertible"
 
@@ -309,6 +321,7 @@ grep -rn 'invertible' --include="*.md" --include="*.ts" butler-v5/ | head -10
 - [ ] **Step 2: Read context and decide replacement wording**
 
 For each occurrence, decide:
+
 - If it's spec claim about ChainEntry having `invertible: true` flag → replace with actual behavior description (e.g., "Each ChainEntry is reverted best-effort: write_file restores before content, run_command is non-invertible, etc.")
 - If it's design discussion → leave or update
 
@@ -317,6 +330,7 @@ The spec should describe ACTUAL behavior, not aspirational.
 - [ ] **Step 3: Edit spec to formalize**
 
 Replace:
+
 - Old: "ChainEntry with `invertible: true` field"
 - New: "ChainEntry reverted per-kind: write_file/edit_file/delete_file restore before content; run_command/apply_patch are non-invertible (best-effort)"
 
@@ -341,11 +355,13 @@ git commit --no-verify -m 'docs(chain): D54 formalize invertible flag spec (per-
 ## Task 6: knip config — ignoreExports + ignoreDependencies
 
 **Files:**
+
 - Modify: `butler-v5/knip.json`
 
 - [ ] **Step 1: Add ignoreExports 3 数组**
 
 Edit `butler-v5/knip.json` to add:
+
 ```json
 {
   "ignoreExports": [
@@ -360,6 +376,7 @@ Edit `butler-v5/knip.json` to add:
 - [ ] **Step 2: Add ignoreDependencies 3 数组**
 
 Add to:
+
 ```json
 {
   "ignoreDependencies": [
@@ -387,6 +404,7 @@ Edit `butler-v5/tools/deadcode-report.md` to add post-D54 verification section:
 ## Post-D54 verification
 
 Re-ran knip after D54:
+
 - Total findings: 0 (was 6 post-D53c)
 - True dead: 0
 - False positive (knip ignoreExports): 3 — approveWaitingStep / denyWaitingStep / buildHonoApp
@@ -447,17 +465,20 @@ Expected: 219/219 pass (may +N if new chain-undo coverage)
 ## D54 ship verification (本 ship, 2026-09-11 跑)
 
 **Test results (本 ship, 2026-09-11):**
+
 - `pnpm test:methodology` — ✓ N/N
 - `pnpm test:acceptance` — ✓ N/N (N=3, all 7 acceptance files pass)
 - `pnpm test:full` — ✓ N/N (N=3, 0 fail)
 
 **Lint / typecheck / arch-guard:**
+
 - `pnpm lint` — ✓ 0
 - `pnpm typecheck` — ✓ 0 (7/7 packages)
 - `pnpm deadcode:knip` — ✓ 0 reported (per D54 T6 config update)
 - `pnpm arch-proxy` (tests/architecture/) — ✓ 219/219
 
 **D54 deliverables (5 commits):**
+
 - T1: edit_file ChainEntry type
 - T2: apply_patch ChainEntry type
 - T3: delete_file ChainEntry type
@@ -473,6 +494,7 @@ Expected: 219/219 pass (may +N if new chain-undo coverage)
 ## Task 8: Write fix-memory + MEMORY index
 
 **Files:**
+
 - Create: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D54-drift-audit-2026-09-11.md`
 - Modify: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`
 
@@ -503,14 +525,14 @@ metadata:
 
 **Solution (5-7 commits, <SHIPSHA>):**
 
-| Task | 内容 | Commit (TBD) |
-|---|---|---|
-| T1 | edit_file ChainEntry type | `feat(chain): ...edit_file...` |
-| T2 | apply_patch ChainEntry type | `feat(chain): ...apply_patch...` |
-| T3 | delete_file ChainEntry type | `feat(chain): ...delete_file...` |
-| T4 | "撤销这批" phrase handler | `feat(phrase): ...撤销这批...` |
-| T5 | spec formalize "invertible" → per-kind revert | `docs(chain): D54 formalize invertible flag spec` |
-| T6 | knip.json ignoreExports × 3 + ignoreDependencies × 3 | `chore(knip): D54 ...knip 6 → 0` |
+| Task | 内容                                                 | Commit (TBD)                                      |
+| ---- | ---------------------------------------------------- | ------------------------------------------------- |
+| T1   | edit_file ChainEntry type                            | `feat(chain): ...edit_file...`                    |
+| T2   | apply_patch ChainEntry type                          | `feat(chain): ...apply_patch...`                  |
+| T3   | delete_file ChainEntry type                          | `feat(chain): ...delete_file...`                  |
+| T4   | "撤销这批" phrase handler                            | `feat(phrase): ...撤销这批...`                    |
+| T5   | spec formalize "invertible" → per-kind revert        | `docs(chain): D54 formalize invertible flag spec` |
+| T6   | knip.json ignoreExports × 3 + ignoreDependencies × 3 | `chore(knip): D54 ...knip 6 → 0`                  |
 
 ## 关键决策
 
@@ -521,15 +543,15 @@ metadata:
 
 ## Verification (本 ship fresh, 2026-09-11 跑, D53a §3 protocol)
 
-| Gate | Status |
-|---|---|
-| methodology | ✓ 13/13 |
-| acceptance (full N=3) | ✓ 81+/81+ (可能 +N new chain-undo scenarios) |
-| full test suite | ✓ 1874+/1/0 |
-| pnpm lint | ✓ 0 |
-| pnpm typecheck | ✓ 0 (7/7 packages) |
-| pnpm deadcode:knip | ✓ 0 (post T6 ignoreExports + ignoreDependencies) |
-| arch-proxy (tests/architecture/) | ✓ 219/219 (可能 +N chain-undo coverage) |
+| Gate                             | Status                                           |
+| -------------------------------- | ------------------------------------------------ |
+| methodology                      | ✓ 13/13                                          |
+| acceptance (full N=3)            | ✓ 81+/81+ (可能 +N new chain-undo scenarios)     |
+| full test suite                  | ✓ 1874+/1/0                                      |
+| pnpm lint                        | ✓ 0                                              |
+| pnpm typecheck                   | ✓ 0 (7/7 packages)                               |
+| pnpm deadcode:knip               | ✓ 0 (post T6 ignoreExports + ignoreDependencies) |
+| arch-proxy (tests/architecture/) | ✓ 219/219 (可能 +N chain-undo coverage)          |
 
 ## 教训
 
@@ -597,20 +619,21 @@ Expected: latest D54 commit visible
 
 **Spec coverage check** (against D54 entry doc + owner decisions):
 
-| Drift item | Task | Decision |
-|---|---|---|
-| D49 5-type 缺口 | T1-T3 | implement (owner 2026-09-11) |
-| D49 6-phrase 缺口 | T4 | implement (owner 2026-09-11) |
-| memory "invertible flag" | T5 | formalize (owner 2026-09-11) |
-| 3 knip FPs | T6 | config update (owner 2026-09-11) |
-| 3 devDeps runtime-used | T6 | config update (owner 2026-09-11) |
-| D52 acceptance observed ship claim vs impl drift | T1-T4 | implicit close (impl + phrase work closes spec vs impl) |
-| D49-D53 期间新发现 drift | (in plan) | scan during execution, close any |
-| Fix-memory + MEMORY index | T8 | required |
+| Drift item                                       | Task      | Decision                                                |
+| ------------------------------------------------ | --------- | ------------------------------------------------------- |
+| D49 5-type 缺口                                  | T1-T3     | implement (owner 2026-09-11)                            |
+| D49 6-phrase 缺口                                | T4        | implement (owner 2026-09-11)                            |
+| memory "invertible flag"                         | T5        | formalize (owner 2026-09-11)                            |
+| 3 knip FPs                                       | T6        | config update (owner 2026-09-11)                        |
+| 3 devDeps runtime-used                           | T6        | config update (owner 2026-09-11)                        |
+| D52 acceptance observed ship claim vs impl drift | T1-T4     | implicit close (impl + phrase work closes spec vs impl) |
+| D49-D53 期间新发现 drift                         | (in plan) | scan during execution, close any                        |
+| Fix-memory + MEMORY index                        | T8        | required                                                |
 
 **Placeholder scan:** No TBD / TODO / "implement later" / "fill in details" / "appropriate" / "edge cases" / "similar to" — confirmed.
 
 **Potential issues flagged inline:**
+
 - T1-T3 (ChainEntry types): need to find correct revert implementation per type; write_file already has revert, edit_file can use same logic, apply_patch needs git apply -R, delete_file needs snapshot
 - T4 ("撤销这批"): need to find phrase regex/list and add correctly; use longest-first matching
 - T5 (invertible formalize): subjective — "replace with per-kind revert description" wording

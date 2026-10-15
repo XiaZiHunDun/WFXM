@@ -59,7 +59,7 @@ export interface DurableMemoryStore {
     readonly now: Date
   }) => Promise<{
     readonly id: string
-    readonly status: 'candidate'
+    readonly status: "candidate"
     readonly updatedAt: number
     readonly rolledBackBy: string
     readonly rolledBackAt: number
@@ -214,12 +214,7 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
         const updated = await db
           .update(durableMemories)
           .set({ status: "expired", updatedAt: sql`NOW()` })
-          .where(
-            and(
-              eq(durableMemories.memoryId, id),
-              eq(durableMemories.status, "candidate"),
-            ),
-          )
+          .where(and(eq(durableMemories.memoryId, id), eq(durableMemories.status, "candidate")))
           .returning()
         results.push({ id, updated: updated.length > 0 })
       }
@@ -260,12 +255,7 @@ export function createDurableMemoryStore(db: ButlerDb): DurableMemoryStore {
           createdAt: durableMemories.createdAt,
         })
         .from(durableMemories)
-        .where(
-          and(
-            eq(durableMemories.status, "candidate"),
-            lt(durableMemories.createdAt, cutoff),
-          ),
-        )
+        .where(and(eq(durableMemories.status, "candidate"), lt(durableMemories.createdAt, cutoff)))
         .orderBy(asc(durableMemories.createdAt))
         .limit(input.limit)
       return rows

@@ -22,9 +22,5 @@ export {
   verifyBackfillParity,
 } from "./runtime-backfill.js"
 export type { BackfillStats } from "./runtime-backfill.js"
-export {
-  applyMigrations,
-  listMigrationFiles,
-  migrationSql,
-} from "./migrations/run-migrations.js"
+export { applyMigrations, listMigrationFiles, migrationSql } from "./migrations/run-migrations.js"
 export type { MigrationFileName } from "./migrations/run-migrations.js"

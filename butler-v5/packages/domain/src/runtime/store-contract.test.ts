@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  DEFAULT_READ_MODEL_SOURCE,
-  resolveReadModelSource,
-} from "./store-contract.js"
+import { DEFAULT_READ_MODEL_SOURCE, resolveReadModelSource } from "./store-contract.js"
 import { ACTIVE_MAIN_RUN_STATUSES, isActiveMainRunStatus } from "./store-contract.js"
 
 describe("resolveReadModelSource", () => {
@@ -38,8 +35,11 @@ describe("isActiveMainRunStatus (main-run concurrency lock set)", () => {
   })
 
   it("exposes exactly the active main-run status set", () => {
-    expect(ACTIVE_MAIN_RUN_STATUSES).toEqual(
-      ["queued", "running", "waiting_approval", "waiting_external"],
-    )
+    expect(ACTIVE_MAIN_RUN_STATUSES).toEqual([
+      "queued",
+      "running",
+      "waiting_approval",
+      "waiting_external",
+    ])
   })
 })

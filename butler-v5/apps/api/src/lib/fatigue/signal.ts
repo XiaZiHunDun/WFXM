@@ -7,7 +7,7 @@ export interface AuditEventSummary {
   readonly tool_name: string
   readonly actor: string
   readonly ts: number
-  readonly decision: 'allow' | 'checklist' | 'cooldown'
+  readonly decision: "allow" | "checklist" | "cooldown"
 }
 
 export interface AuditLogReader {

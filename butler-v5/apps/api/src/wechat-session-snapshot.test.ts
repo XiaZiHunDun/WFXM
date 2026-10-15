@@ -6,10 +6,7 @@ import { makeTestDb } from "@butler/persistence/testing.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import {
-  createDurableMemoryStore,
-  createTaskStore,
-} from "@butler/persistence"
+import { createDurableMemoryStore, createTaskStore } from "@butler/persistence"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { captureWechatSessionSnapshot } from "./wechat-session-snapshot.js"
 import { readWechatSessionState } from "./wechat-session-state.js"

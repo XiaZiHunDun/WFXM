@@ -71,10 +71,7 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
 
   describe("computeCostUsd", () => {
     const pricing: ReadonlyMap<string, ModelPricing> = new Map([
-      [
-        "claude-sonnet-4-20250514",
-        { inputPriceUsdPerMTok: 3, outputPriceUsdPerMTok: 15 },
-      ],
+      ["claude-sonnet-4-20250514", { inputPriceUsdPerMTok: 3, outputPriceUsdPerMTok: 15 }],
     ])
 
     it("computes cost from inputTokens × inputPrice + outputTokens × outputPrice / 1M", () => {
@@ -120,9 +117,9 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
 
   describe("resolveCurrentLlmModel", () => {
     it("returns Anthropic default when ANTHROPIC_API_KEY is set", () => {
-      expect(
-        resolveCurrentLlmModel({ ANTHROPIC_API_KEY: "sk-1234" }),
-      ).toBe("claude-sonnet-4-20250514")
+      expect(resolveCurrentLlmModel({ ANTHROPIC_API_KEY: "sk-1234" })).toBe(
+        "claude-sonnet-4-20250514",
+      )
     })
 
     it("honors ANTHROPIC_MODEL override", () => {
@@ -135,15 +132,11 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
     })
 
     it("returns DeepSeek default when only DEEPSEEK_API_KEY is set", () => {
-      expect(
-        resolveCurrentLlmModel({ DEEPSEEK_API_KEY: "ds-1234" }),
-      ).toBe("deepseek-chat")
+      expect(resolveCurrentLlmModel({ DEEPSEEK_API_KEY: "ds-1234" })).toBe("deepseek-chat")
     })
 
     it("returns DashScope default when only DASHSCOPE_API_KEY is set", () => {
-      expect(
-        resolveCurrentLlmModel({ DASHSCOPE_API_KEY: "dq-1234" }),
-      ).toBe("qwen-turbo")
+      expect(resolveCurrentLlmModel({ DASHSCOPE_API_KEY: "dq-1234" })).toBe("qwen-turbo")
     })
 
     it("returns null when no provider env var is set", () => {
@@ -152,7 +145,10 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
 
     it("honors BUTLER_V5_MODEL_PLAN override (D44 Model Port routing)", () => {
       expect(
-        resolveCurrentLlmModel({ DEEPSEEK_API_KEY: "ds-1234", BUTLER_V5_MODEL_PLAN: "deepseek-v4-x" }),
+        resolveCurrentLlmModel({
+          DEEPSEEK_API_KEY: "ds-1234",
+          BUTLER_V5_MODEL_PLAN: "deepseek-v4-x",
+        }),
       ).toBe("deepseek-v4-x")
     })
 

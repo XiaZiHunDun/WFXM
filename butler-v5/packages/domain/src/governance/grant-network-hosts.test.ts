@@ -58,9 +58,9 @@ describe("grant network hosts", () => {
   })
 
   it("extracts MCP hostname from env", () => {
-    expect(
-      mcpServerHostnameFromEnv({ BUTLER_V5_MCP_URL: "http://127.0.0.1:7777/mcp" }),
-    ).toBe("127.0.0.1")
+    expect(mcpServerHostnameFromEnv({ BUTLER_V5_MCP_URL: "http://127.0.0.1:7777/mcp" })).toBe(
+      "127.0.0.1",
+    )
   })
 
   it("deduplicates merged hosts", () => {

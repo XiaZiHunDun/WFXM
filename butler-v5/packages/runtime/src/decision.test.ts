@@ -112,16 +112,14 @@ describe("decodeDecision", () => {
   })
 
   it("decodes JSON wrapped in markdown code fence", () => {
-    const fenced =
-      "```json\n{\"_tag\":\"CallCapability\",\"name\":\"read_file\",\"arguments\":{}}\n```"
+    const fenced = '```json\n{"_tag":"CallCapability","name":"read_file","arguments":{}}\n```'
     const out = decodeDecision(fenced)
     expect(out.ok).toBe(true)
     if (out.ok && out.value._tag === "CallCapability") expect(out.value.name).toBe("read_file")
   })
 
   it("decodes JSON with trailing commas (LLM deviation)", () => {
-    const trailing =
-      '{"_tag":"CallCapability","name":"read_file","arguments":{"path":"/ws",},}'
+    const trailing = '{"_tag":"CallCapability","name":"read_file","arguments":{"path":"/ws",},}'
     const out = decodeDecision(trailing)
     expect(out.ok).toBe(true)
     if (out.ok && out.value._tag === "CallCapability") {

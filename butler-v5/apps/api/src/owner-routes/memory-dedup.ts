@@ -14,14 +14,11 @@ export function makeDedupChecker(): (opts: {
   readonly subject: string
   readonly content: string
   readonly force: boolean | undefined
-}) => Promise<
-  | {
-      readonly existingMemoryId: string
-      readonly similarity: number
-      readonly status: DurableMemoryStatus
-    }
-  | null
-> {
+}) => Promise<{
+  readonly existingMemoryId: string
+  readonly similarity: number
+  readonly status: DurableMemoryStatus
+} | null> {
   // G2 dedup — module-scoped env-driven config (D41 T3 dedup-config).
   const dedupCfg = parseDedupConfig(process.env)
 
@@ -30,14 +27,11 @@ export function makeDedupChecker(): (opts: {
     readonly subject: string
     readonly content: string
     readonly force: boolean | undefined
-  }): Promise<
-    | {
-        readonly existingMemoryId: string
-        readonly similarity: number
-        readonly status: DurableMemoryStatus
-      }
-    | null
-  > {
+  }): Promise<{
+    readonly existingMemoryId: string
+    readonly similarity: number
+    readonly status: DurableMemoryStatus
+  } | null> {
     if (!dedupCfg.enabled) return null
     if (opts.force === true) {
       // eslint-disable-next-line no-console -- operator log when no logger injected

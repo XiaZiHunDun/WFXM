@@ -3,10 +3,7 @@ import { eq } from "drizzle-orm"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { runs, steps } from "@butler/persistence/schema.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
-import {
-  approveWaitingStep,
-  createWaitingApprovalStep,
-} from "@butler/runtime/approval-runtime.js"
+import { approveWaitingStep, createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { resumeApprovedCapability } from "./approval-resume.js"
@@ -99,6 +96,10 @@ describe("resumeApprovedCapability (A1 same-Run resume)", () => {
     const resultStep = runSteps.find((s) => s.kind === "result")
     expect(resultStep).toBeTruthy()
     const input = resultStep?.input as { source?: string } | null
-    expect(input?.source === "tool_fallback" || input?.source === "conversation_loop" || input?.source === "exec_direct").toBe(true)
+    expect(
+      input?.source === "tool_fallback" ||
+        input?.source === "conversation_loop" ||
+        input?.source === "exec_direct",
+    ).toBe(true)
   })
 })

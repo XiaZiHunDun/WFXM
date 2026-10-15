@@ -21,7 +21,11 @@ import type { AuditLogReader, FatigueSignal } from "./signal"
 export type ToolExecutionDecision =
   | { readonly kind: "allow"; readonly signal?: FatigueSignal }
   | { readonly kind: "cooldown"; readonly durationMs: number; readonly signal: FatigueSignal }
-  | { readonly kind: "checklist"; readonly items: readonly string[]; readonly signal: FatigueSignal }
+  | {
+      readonly kind: "checklist"
+      readonly items: readonly string[]
+      readonly signal: FatigueSignal
+    }
 
 export async function executeToolWithFatigue(
   toolName: string,

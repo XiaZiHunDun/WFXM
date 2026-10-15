@@ -7,7 +7,12 @@ import { makeTestDb } from "@butler/persistence/testing.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import { createProjectKnowledgeStore, createTaskStore, type TaskRecord, type TaskStore } from "@butler/persistence"
+import {
+  createProjectKnowledgeStore,
+  createTaskStore,
+  type TaskRecord,
+  type TaskStore,
+} from "@butler/persistence"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { setWechatActiveProjectId } from "./wechat-active-project.js"
 import type * as TaskRunBackgroundModule from "./task-run-background.js"
@@ -16,9 +21,7 @@ import { tryWechatTaskCommand } from "./wechat-task-commands.js"
 // Stub the background-task-runner so async /运行 is exercised without a real LLM loop.
 // Sync /运行 is also stubbed via the same module boundary.
 vi.mock("./task-run-background.js", async () => {
-  const actual = await vi.importActual<typeof TaskRunBackgroundModule>(
-    "./task-run-background.js",
-  )
+  const actual = await vi.importActual<typeof TaskRunBackgroundModule>("./task-run-background.js")
   return {
     ...actual,
     scheduleBackgroundTaskRun: vi.fn(() => ({ ok: true })),
@@ -70,7 +73,10 @@ describe("tryWechatTaskCommand", () => {
     storeDir = mkdtempSync(join(tmpdir(), "butler-task-cmd-"))
     env = {
       BUTLER_V5_WECHAT_ACTIVE_PROJECT_STORE: join(storeDir, "active.json"),
-      BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH: join(process.cwd(), "config/wechat-tool-allowlist.json"),
+      BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH: join(
+        process.cwd(),
+        "config/wechat-tool-allowlist.json",
+      ),
       BUTLER_V5_WECHAT_PROJECT_PATHS: join(process.cwd(), "config/wechat-project-paths.json"),
       BUTLER_V5_WORKSPACE_ROOT: join(process.cwd(), ".."),
       BUTLER_V5_TASK_RUN_ASYNC: "0",

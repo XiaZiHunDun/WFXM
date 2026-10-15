@@ -146,9 +146,7 @@ describe("acceptance/product-regressions (微信产品层回归：/undo + 垃圾
     // 且所有匹配事件的 status 都是 ok。fixture 不携带 usage，故不验证
     // `token` 字段（D23 §14 observability 留口，legacy fixture 可 null）。
     const events = tracer.list({ conversationId: convId })
-    const llmCalls = events.filter(
-      (event) => event.kind === "step" && event.name === "llm_call",
-    )
+    const llmCalls = events.filter((event) => event.kind === "step" && event.name === "llm_call")
     expect(llmCalls.length).toBeGreaterThan(0)
     expect(llmCalls.every((event) => event.status === "ok")).toBe(true)
   }, 30_000)

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  createProcedureRecord,
-  createTaskRecord,
-} from "@butler/domain/knowledge/task-procedure.js"
+import { createProcedureRecord, createTaskRecord } from "@butler/domain/knowledge/task-procedure.js"
 import { createProcedureStore, createTaskStore } from "./task-procedure-store.js"
 import { makeTestDb } from "./testing.js"
 
@@ -71,7 +68,13 @@ describe("taskProcedureStore", () => {
       expect(got?.procedureStepIndex).toBe(1)
       expect(got?.goal).toBe("gb")
 
-      await tasks.update({ ...task.value, goal: "gb", procedureStepIndex: 1, status: "done", updatedAt: 4 })
+      await tasks.update({
+        ...task.value,
+        goal: "gb",
+        procedureStepIndex: 1,
+        status: "done",
+        updatedAt: 4,
+      })
       expect(await tasks.listBySubject({ subject: "owner", status: "open" })).toHaveLength(0)
       expect(await tasks.listBySubject({ subject: "owner", status: "done" })).toHaveLength(1)
       expect(await tasks.get("ffffffff-ffff-ffff-ffff-ffffffffffff")).toBeNull()

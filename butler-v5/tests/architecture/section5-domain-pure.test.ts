@@ -107,9 +107,7 @@ describe("arch: §5 Domain 纯规则层 (D25 audit — pure + impure fallback pa
       const src = readFileSync(file, "utf-8")
       // Strip block + line comments so doc-comment references to
       // LLMAdapter (e.g. local-trace.ts:15) do not count.
-      const stripped = src
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "")
+      const stripped = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
       if (importRe.test(stripped)) {
         violations.push(file)
       }
@@ -184,9 +182,6 @@ describe("arch: §5 Domain 纯规则层 (D25 audit — pure + impure fallback pa
         if (re.test(src)) violations.push(`${file}: ${re}`)
       }
     }
-    expect(
-      violations,
-      `Domain cross-package infra imports: ${violations.join(", ")}`,
-    ).toEqual([])
+    expect(violations, `Domain cross-package infra imports: ${violations.join(", ")}`).toEqual([])
   })
 })

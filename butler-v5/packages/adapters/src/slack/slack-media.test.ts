@@ -60,7 +60,9 @@ describe("describeSlackFiles", () => {
   })
 
   it("classifies video mimetype as video kind", () => {
-    const parsed = describeSlackFiles([{ name: "movie.mp4", mimetype: "video/mp4", size: 1_000_000 }])
+    const parsed = describeSlackFiles([
+      { name: "movie.mp4", mimetype: "video/mp4", size: 1_000_000 },
+    ])
     expect(parsed?.media[0]?.kind).toBe("video")
     expect(parsed?.content).toContain("[slack video")
   })

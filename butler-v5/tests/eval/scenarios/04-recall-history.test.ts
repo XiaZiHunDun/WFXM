@@ -6,19 +6,13 @@
  */
 import { describe, expect, it } from "vitest"
 import { runEvalScenario, formatMetricLine } from "../harness.js"
-import {
-  makeScriptedAdapter,
-  textResponse,
-  toolCallResponse,
-} from "../mock-llm-scripted.js"
+import { makeScriptedAdapter, textResponse, toolCallResponse } from "../mock-llm-scripted.js"
 
 describe("eval/04 recall-history (native tool call)", () => {
   it("owner: '昨天聊了什么' → LLM calls recall_history → Respond with summary", async () => {
     const adapter = makeScriptedAdapter({
       responses: [
-        toolCallResponse([
-          { id: "tc-1", name: "recall_history", args: { limit: 20 } },
-        ]),
+        toolCallResponse([{ id: "tc-1", name: "recall_history", args: { limit: 20 } }]),
         textResponse(
           JSON.stringify({
             _tag: "Respond",

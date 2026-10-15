@@ -57,9 +57,7 @@ export async function assertPublicHost(
     // Already a literal — no DNS resolution needed, but still validate
     // against the blocklist (handles e.g. ::1, 127.0.0.1, 169.254.169.254).
     if (isBlockedHost(hostname)) {
-      throw new Error(
-        `DNS recheck: host ${hostname} is on the private-network deny list`,
-      )
+      throw new Error(`DNS recheck: host ${hostname} is on the private-network deny list`)
     }
     return
   }

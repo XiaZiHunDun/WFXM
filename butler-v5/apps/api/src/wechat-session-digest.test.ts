@@ -26,9 +26,7 @@ describe("wechat-session-digest", () => {
   })
 
   it("returns null when no snapshot exists", () => {
-    expect(
-      buildSessionOpenDigest({ userId: "u-1", now: Date.now(), env }),
-    ).toBeNull()
+    expect(buildSessionOpenDigest({ userId: "u-1", now: Date.now(), env })).toBeNull()
   })
 
   it("returns null when last reply is within the idle window (30 min default)", () => {
@@ -62,24 +60,32 @@ describe("wechat-session-digest", () => {
 
   it("failed run renders as '1 失败'", () => {
     const now = 1_000_000
-    writeWechatSessionState("u-1", {
-      openTaskCount: 0,
-      candidateCount: 0,
-      lastRunStatus: "fail",
-      lastReplyAt: now - ONE_HOUR,
-    }, env)
+    writeWechatSessionState(
+      "u-1",
+      {
+        openTaskCount: 0,
+        candidateCount: 0,
+        lastRunStatus: "fail",
+        lastReplyAt: now - ONE_HOUR,
+      },
+      env,
+    )
     const digest = buildSessionOpenDigest({ userId: "u-1", now, env })
     expect(digest?.text).toContain("1 失败")
   })
 
   it("null counts render as '?'", () => {
     const now = 1_000_000
-    writeWechatSessionState("u-1", {
-      openTaskCount: null,
-      candidateCount: null,
-      lastRunStatus: "none",
-      lastReplyAt: now - ONE_HOUR,
-    }, env)
+    writeWechatSessionState(
+      "u-1",
+      {
+        openTaskCount: null,
+        candidateCount: null,
+        lastRunStatus: "none",
+        lastReplyAt: now - ONE_HOUR,
+      },
+      env,
+    )
     const digest = buildSessionOpenDigest({ userId: "u-1", now, env })
     expect(digest?.text).toContain("? 任务在跑")
     expect(digest?.text).toContain("? 候选待审")
@@ -87,21 +93,29 @@ describe("wechat-session-digest", () => {
 
   it("elapsed formatter: hours and days", () => {
     const now = 1_000_000
-    writeWechatSessionState("u-1", {
-      openTaskCount: 0,
-      candidateCount: 0,
-      lastRunStatus: "none",
-      lastReplyAt: now - 3 * ONE_HOUR, // 3h ago
-    }, env)
+    writeWechatSessionState(
+      "u-1",
+      {
+        openTaskCount: 0,
+        candidateCount: 0,
+        lastRunStatus: "none",
+        lastReplyAt: now - 3 * ONE_HOUR, // 3h ago
+      },
+      env,
+    )
     const digest = buildSessionOpenDigest({ userId: "u-1", now, env })
     expect(digest?.text).toContain("约 3h 前")
 
-    writeWechatSessionState("u-2", {
-      openTaskCount: 0,
-      candidateCount: 0,
-      lastRunStatus: "none",
-      lastReplyAt: now - 26 * ONE_HOUR, // ~1d ago
-    }, env)
+    writeWechatSessionState(
+      "u-2",
+      {
+        openTaskCount: 0,
+        candidateCount: 0,
+        lastRunStatus: "none",
+        lastReplyAt: now - 26 * ONE_HOUR, // ~1d ago
+      },
+      env,
+    )
     const d2 = buildSessionOpenDigest({ userId: "u-2", now, env })
     expect(d2?.text).toContain("约 1d 前")
   })
@@ -114,12 +128,16 @@ describe("wechat-session-digest", () => {
     }
     expect(sessionDigestIdleMs(shortEnv)).toBe(2 * ONE_MIN)
     // With 2-min threshold, a 5-min-old snapshot should produce a digest
-    writeWechatSessionState("u-1", {
-      openTaskCount: 0,
-      candidateCount: 0,
-      lastRunStatus: "none",
-      lastReplyAt: now - 5 * ONE_MIN,
-    }, shortEnv)
+    writeWechatSessionState(
+      "u-1",
+      {
+        openTaskCount: 0,
+        candidateCount: 0,
+        lastRunStatus: "none",
+        lastReplyAt: now - 5 * ONE_MIN,
+      },
+      shortEnv,
+    )
     const digest = buildSessionOpenDigest({ userId: "u-1", now, env: shortEnv })
     expect(digest).not.toBeNull()
   })
@@ -147,12 +165,16 @@ describe("wechat-session-digest", () => {
 
   it("maybePrependSessionDigest: 5 min ago → reply unchanged", () => {
     const now = 1_000_000
-    writeWechatSessionState("u-fresh", {
-      openTaskCount: 1,
-      candidateCount: 0,
-      lastRunStatus: "none",
-      lastReplyAt: now - 5 * ONE_MIN,
-    }, env)
+    writeWechatSessionState(
+      "u-fresh",
+      {
+        openTaskCount: 1,
+        candidateCount: 0,
+        lastRunStatus: "none",
+        lastReplyAt: now - 5 * ONE_MIN,
+      },
+      env,
+    )
     const out = maybePrependSessionDigest({
       reply: "fresh reply",
       userId: "u-fresh",
@@ -165,12 +187,16 @@ describe("wechat-session-digest", () => {
 
   it("maybePrependSessionDigest: 30 min ago → digest prepended with \\n\\n", () => {
     const now = 1_000_000
-    writeWechatSessionState("u-stale", {
-      openTaskCount: 2,
-      candidateCount: 4,
-      lastRunStatus: "success",
-      lastReplyAt: now - 45 * ONE_MIN,
-    }, env)
+    writeWechatSessionState(
+      "u-stale",
+      {
+        openTaskCount: 2,
+        candidateCount: 4,
+        lastRunStatus: "success",
+        lastReplyAt: now - 45 * ONE_MIN,
+      },
+      env,
+    )
     const out = maybePrependSessionDigest({
       reply: "stale reply",
       userId: "u-stale",
@@ -186,12 +212,16 @@ describe("wechat-session-digest", () => {
 
   it("maybePrependSessionDigest: failed run shows '1 失败'", () => {
     const now = 1_000_000
-    writeWechatSessionState("u-fail", {
-      openTaskCount: 0,
-      candidateCount: 0,
-      lastRunStatus: "fail",
-      lastReplyAt: now - ONE_HOUR,
-    }, env)
+    writeWechatSessionState(
+      "u-fail",
+      {
+        openTaskCount: 0,
+        candidateCount: 0,
+        lastRunStatus: "fail",
+        lastReplyAt: now - ONE_HOUR,
+      },
+      env,
+    )
     const out = maybePrependSessionDigest({
       reply: "ok",
       userId: "u-fail",

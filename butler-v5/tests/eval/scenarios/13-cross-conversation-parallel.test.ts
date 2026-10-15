@@ -12,11 +12,7 @@
  */
 import { describe, expect, it } from "vitest"
 import { runEvalConcurrent, formatMetricLine } from "../harness.js"
-import {
-  decisionResponse,
-  makeScriptedAdapter,
-  toolCallResponse,
-} from "../mock-llm-scripted.js"
+import { decisionResponse, makeScriptedAdapter, toolCallResponse } from "../mock-llm-scripted.js"
 
 describe("eval/13 cross-conversation-parallel", () => {
   it("3 conversations × 1 turn each, runButlerLoop in parallel", { timeout: 30_000 }, async () => {

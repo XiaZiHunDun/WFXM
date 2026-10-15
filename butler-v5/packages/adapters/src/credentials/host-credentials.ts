@@ -10,7 +10,9 @@ import type { CredentialProvider } from "@butler/ports/core/credential-provider.
 import { isValidCredentialName } from "@butler/ports/core/credential-provider.js"
 
 /** Parse `name→value` map from a JSON string. Returns null when unset/not JSON. */
-export function parseHostCredentials(raw: string | undefined): Readonly<Record<string, string>> | null {
+export function parseHostCredentials(
+  raw: string | undefined,
+): Readonly<Record<string, string>> | null {
   if (raw === undefined || raw.trim() === "") return null
   try {
     const parsed = JSON.parse(raw)
@@ -27,7 +29,9 @@ export function parseHostCredentials(raw: string | undefined): Readonly<Record<s
 
 export function createHostCredentialProvider(
   env: Readonly<Record<string, string | undefined>> = {},
-  loader: (raw: string | undefined) => Readonly<Record<string, string>> | null = parseHostCredentials,
+  loader: (
+    raw: string | undefined,
+  ) => Readonly<Record<string, string>> | null = parseHostCredentials,
 ): CredentialProvider {
   return {
     async availableCredentials() {
@@ -65,7 +69,10 @@ export async function injectRunCommandCredentials(opts: {
   readonly requestedNames: readonly string[]
   readonly allowlist: readonly string[]
   readonly baseEnv: Readonly<Record<string, string>>
-}): Promise<{ readonly ok: true; readonly env: Record<string, string> } | { readonly ok: false; readonly reason: string }> {
+}): Promise<
+  | { readonly ok: true; readonly env: Record<string, string> }
+  | { readonly ok: false; readonly reason: string }
+> {
   const requested = [...new Set(opts.requestedNames)]
   if (requested.length === 0) {
     return { ok: true, env: { ...opts.baseEnv } }

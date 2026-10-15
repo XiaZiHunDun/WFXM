@@ -30,12 +30,7 @@ import type { McpToolBundle } from "./mcp-bootstrap.js"
 import type { Wiring } from "./wiring.js"
 
 export type WechatIntentKind =
-  | "chat"
-  | "dev_task"
-  | "dev_session"
-  | "switch_project"
-  | "continue_dev"
-  | "task_digest"
+  "chat" | "dev_task" | "dev_session" | "switch_project" | "continue_dev" | "task_digest"
 
 export type WechatIntent = {
   readonly kind: WechatIntentKind

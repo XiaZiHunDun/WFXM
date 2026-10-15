@@ -21,9 +21,7 @@ describe("wechat-sweeper-notify", () => {
     })
 
     it("isSweeperNotifyEnabled: true when BUTLER_V5_SWEEPER_NOTIFY_ENABLED=1", () => {
-      expect(isSweeperNotifyEnabled({ BUTLER_V5_SWEEPER_NOTIFY_ENABLED: "1" })).toBe(
-        true,
-      )
+      expect(isSweeperNotifyEnabled({ BUTLER_V5_SWEEPER_NOTIFY_ENABLED: "1" })).toBe(true)
     })
 
     it("resolveSweeperNotifyOwner: returns null when env unset", () => {
@@ -31,9 +29,9 @@ describe("wechat-sweeper-notify", () => {
     })
 
     it("resolveSweeperNotifyOwner: returns trimmed value when set", () => {
-      expect(
-        resolveSweeperNotifyOwner({ BUTLER_V5_SWEEPER_NOTIFY_OWNER: "  owner-1  " }),
-      ).toBe("owner-1")
+      expect(resolveSweeperNotifyOwner({ BUTLER_V5_SWEEPER_NOTIFY_OWNER: "  owner-1  " })).toBe(
+        "owner-1",
+      )
     })
   })
 
@@ -43,23 +41,19 @@ describe("wechat-sweeper-notify", () => {
     })
 
     it("env override (ms)", () => {
-      expect(
-        sweeperNotifyThrottleMs({ BUTLER_V5_SWEEPER_NOTIFY_THROTTLE_MS: "5000" }),
-      ).toBe(5000)
+      expect(sweeperNotifyThrottleMs({ BUTLER_V5_SWEEPER_NOTIFY_THROTTLE_MS: "5000" })).toBe(5000)
     })
 
     it("invalid → default", () => {
-      expect(
-        sweeperNotifyThrottleMs({ BUTLER_V5_SWEEPER_NOTIFY_THROTTLE_MS: "garbage" }),
-      ).toBe(60 * 60 * 1000)
+      expect(sweeperNotifyThrottleMs({ BUTLER_V5_SWEEPER_NOTIFY_THROTTLE_MS: "garbage" })).toBe(
+        60 * 60 * 1000,
+      )
     })
   })
 
   describe("format helpers", () => {
     it("candidate_expires: 0 expired → empty (skip push)", () => {
-      expect(
-        formatCandidateExpiresNotify({ expired: 0, scanned: 5 }),
-      ).toBe("")
+      expect(formatCandidateExpiresNotify({ expired: 0, scanned: 5 })).toBe("")
     })
 
     it("candidate_expires: N expired → digest with N + scanned", () => {

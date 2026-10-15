@@ -3,7 +3,9 @@
  * 真机手测（loopback 模拟微信）：开发模式 → 委派 → run_command pending → Owner approve。
  * 使用 BUTLER_OWNER_WECHAT_ID，与 iLink 入站同路径。
  */
-const base = (process.argv.find((a) => a.startsWith("--api="))?.slice(7) ?? "http://127.0.0.1:3000").replace(/\/$/, "")
+const base = (
+  process.argv.find((a) => a.startsWith("--api="))?.slice(7) ?? "http://127.0.0.1:3000"
+).replace(/\/$/, "")
 const fromUserId = (process.env.BUTLER_OWNER_WECHAT_ID ?? "").trim()
 if (!fromUserId) {
   console.error("hand-test FAIL: BUTLER_OWNER_WECHAT_ID unset")
@@ -39,14 +41,17 @@ async function inbound(content) {
   const text = await res.text()
   if (!res.ok) fail("inbound", `${res.status} ${text}`)
   const body = JSON.parse(text)
-  log("inbound", `«${content.slice(0, 40)}…» → ${String(body.reply).slice(0, 120).replace(/\n/g, " ")}`)
+  log(
+    "inbound",
+    `«${content.slice(0, 40)}…» → ${String(body.reply).slice(0, 120).replace(/\n/g, " ")}`,
+  )
   return body
 }
 
 async function listApprovals() {
   const res = await fetch(`${base}/v1/owner/approvals`)
   if (!res.ok) fail("approvals", `${res.status}`)
-  return (JSON.parse(await res.text()).items ?? [])
+  return JSON.parse(await res.text()).items ?? []
 }
 
 async function approve(stepId) {
@@ -70,7 +75,7 @@ async function main() {
   const task = await inbound(
     [
       "请委派子代理 developer 完成以下任务（禁止主循环直接 write_file/run_command）：",
-      "执行 shell：python3 -c \"print(888)\"",
+      '执行 shell：python3 -c "print(888)"',
       "子代理必须调用 run_command，不要用 write_file。",
     ].join("\n"),
   )
@@ -95,7 +100,7 @@ async function main() {
 
   if (!stepId) {
     log("warn", "no run_command pending — trying follow-up nudge")
-    await inbound("子代理请立即 run_command：python3 -c \"print(888)\"")
+    await inbound('子代理请立即 run_command：python3 -c "print(888)"')
     for (let i = 0; i < 12; i++) {
       await sleep(2500)
       lastPending = (await listApprovals()).filter((r) => r?.input?.capability === "run_command")
@@ -111,7 +116,10 @@ async function main() {
   }
 
   const approved = await approve(stepId)
-  log("ok", `[grant] profile=${approved.grant?.sandboxProfile} allowlist=${JSON.stringify(approved.grant?.networkAllowlist)}`)
+  log(
+    "ok",
+    `[grant] profile=${approved.grant?.sandboxProfile} allowlist=${JSON.stringify(approved.grant?.networkAllowlist)}`,
+  )
   if (!approved.ok) fail("resume", approved.reason ?? JSON.stringify(approved))
 
   const out = String(approved.output ?? "")

@@ -8,7 +8,6 @@ import {
   sendWechatProactiveNotify,
 } from "./wechat-run-notify.js"
 
-
 /** Background /运行 when 1 or when run notify is enabled. */
 export function isTaskRunAsyncEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_TASK_RUN_ASYNC"]) || isRunNotifyEnabled(env)

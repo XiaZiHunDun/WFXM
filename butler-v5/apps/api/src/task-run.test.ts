@@ -3,11 +3,7 @@ import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import {
-  createProcedureStore,
-  createRuntimeStore,
-  createTaskStore,
-} from "@butler/persistence"
+import { createProcedureStore, createRuntimeStore, createTaskStore } from "@butler/persistence"
 import { runs } from "@butler/persistence/schema.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { makeWiring, type Wiring } from "./wiring.js"

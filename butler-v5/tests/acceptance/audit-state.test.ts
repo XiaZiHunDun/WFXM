@@ -7,10 +7,7 @@
  */
 import { describe, expect, it, afterAll, beforeAll } from "vitest"
 import { eq } from "drizzle-orm"
-import {
-  eventStore,
-  scopedGrants,
-} from "@butler/persistence/schema.js"
+import { eventStore, scopedGrants } from "@butler/persistence/schema.js"
 import { mkdtempSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
@@ -43,10 +40,7 @@ describe("acceptance/audit-state (微信审计 + 跨重启恢复)", () => {
     expect(res.conversationId).toBeTypeOf("string")
 
     const streamId = res.conversationId as string
-    const rows = await app.db
-      .select()
-      .from(eventStore)
-      .where(eq(eventStore.streamId, streamId))
+    const rows = await app.db.select().from(eventStore).where(eq(eventStore.streamId, streamId))
     expect(rows.length).toBeGreaterThan(0)
     // 至少一条 ConversationStarted 事件
     const started = rows.filter((r) => r.eventType === "ConversationStarted")
@@ -61,9 +55,7 @@ describe("acceptance/audit-state (微信审计 + 跨重启恢复)", () => {
 
   it("write_file 审批通过后 scoped_grants 表写入 grant 行（capability 审计可追溯）", async () => {
     app.setFixtures({
-      plan: [
-        toolCallEntry("write_file", { path: "grant-audit.txt", content: "x" }),
-      ],
+      plan: [toolCallEntry("write_file", { path: "grant-audit.txt", content: "x" })],
     })
     const first = await sendWechatMessage(app, {
       content: "帮我写 grant-audit.txt 内容是 x",
@@ -78,9 +70,7 @@ describe("acceptance/audit-state (微信审计 + 跨重启恢复)", () => {
     expect(second.status).toBe(201)
 
     // 审批后应该至少有一条 scoped_grants 记录写入（capability 授予的审计可追溯）
-    const grantRows = await app.db
-      .select()
-      .from(scopedGrants)
+    const grantRows = await app.db.select().from(scopedGrants)
     expect(grantRows.length).toBeGreaterThan(0)
   }, 30_000)
 

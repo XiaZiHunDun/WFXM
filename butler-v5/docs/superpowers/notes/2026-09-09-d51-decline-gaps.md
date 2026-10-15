@@ -12,11 +12,11 @@
 
 D48 §3 列出 3 项 owner 视角下结构性 gap：
 
-| 项 | 状态 |
-|---|---|
-| §3.1 approval 羊群效应 | ✅ declined (D51, 2026-09-09) |
-| §3.2 LLM 质量量化不可达 | ✅ declined (D51, 2026-09-09) |
-| §3.3 multi-tool chain 撤销 | ✅ shipped (D49, 2026-09-09) |
+| 项                         | 状态                          |
+| -------------------------- | ----------------------------- |
+| §3.1 approval 羊群效应     | ✅ declined (D51, 2026-09-09) |
+| §3.2 LLM 质量量化不可达    | ✅ declined (D51, 2026-09-09) |
+| §3.3 multi-tool chain 撤销 | ✅ shipped (D49, 2026-09-09)  |
 
 D51 = 把 §3.1/§3.2 从"未识别结构问题"显式转为"accepted gap"，按 D-series owner-撞点协议不再主动 hypothetical 推进。
 
@@ -42,10 +42,10 @@ D51 = 把 §3.1/§3.2 从"未识别结构问题"显式转为"accepted gap"，按
 
 ## 3. DESIGN.md 集成位置
 
-| § | 行号 | 改动 |
-|---|---|---|
-| §18 | line 815-816 | +2 row (信任模式 + LLM 质量量化) |
-| §11.4 | line 572 | +1 row (LLM 质量量化方法论基础设施) |
+| §     | 行号         | 改动                                |
+| ----- | ------------ | ----------------------------------- |
+| §18   | line 815-816 | +2 row (信任模式 + LLM 质量量化)    |
+| §11.4 | line 572     | +1 row (LLM 质量量化方法论基础设施) |
 
 引用：[`../../../DESIGN.md`](../../../DESIGN.md)（从 `docs/superpowers/notes/` 上溯三级）
 
@@ -53,12 +53,12 @@ D51 = 把 §3.1/§3.2 从"未识别结构问题"显式转为"accepted gap"，按
 
 ## 4. D48 doc status flip
 
-| § | 原状态 | D51 后状态 |
-|---|---|---|
-| §3.1 line 83 | 未识别 | decline (2026-09-09 D51, handoff doc) |
-| §3.2 line 92 | 未识别 / v8 candidate 待做 | decline (2026-09-09 D51, handoff doc) |
-| §6 触发表 line 176 | ⬜ 等触发 | × declined (D51) |
-| §6 触发表 line 177 | ⬜ 等触发 | × declined (D51) |
+| §                  | 原状态                     | D51 后状态                            |
+| ------------------ | -------------------------- | ------------------------------------- |
+| §3.1 line 83       | 未识别                     | decline (2026-09-09 D51, handoff doc) |
+| §3.2 line 92       | 未识别 / v8 candidate 待做 | decline (2026-09-09 D51, handoff doc) |
+| §6 触发表 line 176 | ⬜ 等触发                  | × declined (D51)                      |
+| §6 触发表 line 177 | ⬜ 等触发                  | × declined (D51)                      |
 
 引用：[`./2026-09-08-d48-owner-perspective.md`](./2026-09-08-d48-owner-perspective.md)
 

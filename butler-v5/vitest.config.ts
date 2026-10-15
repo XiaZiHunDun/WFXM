@@ -104,7 +104,10 @@ export default defineConfig({
       },
       {
         find: "@butler/domain/knowledge/project-knowledge-sources.js",
-        replacement: resolve(__dirname, "packages/domain/src/knowledge/project-knowledge-sources.ts"),
+        replacement: resolve(
+          __dirname,
+          "packages/domain/src/knowledge/project-knowledge-sources.ts",
+        ),
       },
       {
         find: "@butler/domain/knowledge/task-procedure.js",
@@ -142,8 +145,14 @@ export default defineConfig({
         replacement: resolve(__dirname, "packages/adapters/src/mcp/session.ts"),
       },
       { find: "@butler/migration", replacement: resolve(__dirname, "packages/migration/src") },
-      { find: "@butler/api/bootstrap-wiring.js", replacement: resolve(__dirname, "apps/api/src/bootstrap-wiring.ts") },
-      { find: "@butler/api/cli-run.js", replacement: resolve(__dirname, "apps/api/src/cli-run.ts") },
+      {
+        find: "@butler/api/bootstrap-wiring.js",
+        replacement: resolve(__dirname, "apps/api/src/bootstrap-wiring.ts"),
+      },
+      {
+        find: "@butler/api/cli-run.js",
+        replacement: resolve(__dirname, "apps/api/src/cli-run.ts"),
+      },
       { find: "@butler/api", replacement: resolve(__dirname, "apps/api/src") },
       { find: "@butler/cli", replacement: resolve(__dirname, "cli/src") },
     ],

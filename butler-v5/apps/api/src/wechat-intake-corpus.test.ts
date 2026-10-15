@@ -34,13 +34,10 @@ const subagentEnv = {
 describe("wechat-intake-corpus (T1)", () => {
   const corpus = loadCorpus()
 
-  it.each(corpus.cases.map((c) => [c.id, c] as const))(
-    "rules classify %s",
-    (_id, item) => {
-      const intent = classifyWechatIntent(item.utterance)
-      expect(intent.kind).toBe(item.expect.intent)
-    },
-  )
+  it.each(corpus.cases.map((c) => [c.id, c] as const))("rules classify %s", (_id, item) => {
+    const intent = classifyWechatIntent(item.utterance)
+    expect(intent.kind).toBe(item.expect.intent)
+  })
 
   it.each(
     corpus.cases

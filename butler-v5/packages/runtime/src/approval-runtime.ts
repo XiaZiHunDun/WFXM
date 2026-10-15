@@ -12,10 +12,7 @@ import { outboundNetworkHostsForCapability } from "./grant-network.js"
 import { mcpServerIdForCapability } from "./mcp-consent.js"
 import { transitionRunToTerminal } from "./run-lifecycle.js"
 import type { RuntimeStore, StoredStep } from "@butler/domain/runtime.js"
-import {
-  parseSandboxProfileName,
-  sandboxProfileForApprovedCapability,
-} from "./sandbox/profiles.js"
+import { parseSandboxProfileName, sandboxProfileForApprovedCapability } from "./sandbox/profiles.js"
 
 export interface PendingCapabilityInput {
   readonly _tag: "PendingCapability"
@@ -105,9 +102,7 @@ export function parsePendingCapabilityInput(
     digest,
     kind,
     risk,
-    ...(typeof input["wechatUserId"] === "string"
-      ? { wechatUserId: input["wechatUserId"] }
-      : {}),
+    ...(typeof input["wechatUserId"] === "string" ? { wechatUserId: input["wechatUserId"] } : {}),
     ...(typeof input["wechatContextToken"] === "string"
       ? { wechatContextToken: input["wechatContextToken"] }
       : {}),
@@ -228,7 +223,11 @@ export async function approveWaitingStep(
     throw new Error(`run not found for step ${stepId}`)
   }
   const env = options.env ?? process.env
-  if (options.elevateNetwork === true && options.networkAllowlist && options.networkAllowlist.length > 0) {
+  if (
+    options.elevateNetwork === true &&
+    options.networkAllowlist &&
+    options.networkAllowlist.length > 0
+  ) {
     throw new Error("elevateNetwork and networkAllowlist are mutually exclusive")
   }
   let normalizedAllowlist: readonly string[] | null = null

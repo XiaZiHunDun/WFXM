@@ -135,7 +135,8 @@ export function ingestDocumentRecord(input: IngestDocumentInput): DocumentValida
 export function matchDocumentQuery(record: DocumentRecord, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  const hay = `${record.title}\n${record.extractedText}\n${record.provenance.note ?? ""}`.toLowerCase()
+  const hay =
+    `${record.title}\n${record.extractedText}\n${record.provenance.note ?? ""}`.toLowerCase()
   return hay.includes(q)
 }
 

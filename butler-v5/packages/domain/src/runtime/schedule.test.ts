@@ -21,7 +21,9 @@ const baseJob = (): ScheduleJobSpec => ({
   enabled: true,
 })
 
-function tick(overrides: Partial<ScheduleTickInput> & { job: ScheduleJobSpec }): ScheduleTickDecision {
+function tick(
+  overrides: Partial<ScheduleTickInput> & { job: ScheduleJobSpec },
+): ScheduleTickDecision {
   return evaluateScheduleTick({
     lastAttemptMs: null,
     conversationBusy: false,
@@ -71,13 +73,12 @@ describe("schedule tick math", () => {
   })
 
   it("skips during cooldown and after same-window fire", () => {
-    expect(
-      tick({ job: baseJob(), nowMs: 125_000, lastAttemptMs: 110_000 })._tag,
-    ).toBe("skip")
+    expect(tick({ job: baseJob(), nowMs: 125_000, lastAttemptMs: 110_000 })._tag).toBe("skip")
 
-    expect(
-      tick({ job: baseJob(), nowMs: 150_000, lastAttemptMs: 120_000 }),
-    ).toMatchObject({ _tag: "skip", reason: "already fired this window" })
+    expect(tick({ job: baseJob(), nowMs: 150_000, lastAttemptMs: 120_000 })).toMatchObject({
+      _tag: "skip",
+      reason: "already fired this window",
+    })
   })
 
   it("skips on validation failures (disabled, empty id/goal, non-positive everyMs)", () => {

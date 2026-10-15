@@ -106,9 +106,9 @@ describe("P3 MCP contract (architecture)", () => {
   })
 
   it("revoke helper targets grants by normalized server id", () => {
-    expect(scopedGrantScopeTargetsMcpServer({ mcp: { serverId: "Todoist", toolName: "x" } }, "todoist")).toBe(
-      true,
-    )
+    expect(
+      scopedGrantScopeTargetsMcpServer({ mcp: { serverId: "Todoist", toolName: "x" } }, "todoist"),
+    ).toBe(true)
     expect(defaultMcpProviderMetadata("Demo").serverId).toBe("demo")
   })
 })

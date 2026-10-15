@@ -23,7 +23,12 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
     // approvals list. The pending tool `args` are needed only for resume and stay
     // inside the Step; the list exposes capability/resource/question/digest etc.
     const items = rows.map((step) => {
-      const base = { id: step.id, runId: step.runId, status: step.status, createdAt: step.createdAt }
+      const base = {
+        id: step.id,
+        runId: step.runId,
+        status: step.status,
+        createdAt: step.createdAt,
+      }
       const pending = parsePendingCapabilityInput(step.input)
       if (!pending) return base
       return {
@@ -49,7 +54,11 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
     const stepId = c.req.param("stepId")
     try {
       const deny = await denyWaitingStep(wiring.runtimeStore, stepId, "owner")
-      return c.json({ ok: true, stepId, ...(deny.alreadyProcessed ? { alreadyProcessed: true } : {}) })
+      return c.json({
+        ok: true,
+        stepId,
+        ...(deny.alreadyProcessed ? { alreadyProcessed: true } : {}),
+      })
     } catch (err) {
       return c.json(
         {

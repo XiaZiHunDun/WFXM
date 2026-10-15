@@ -10,7 +10,7 @@ export const DEFAULT_CHECKLIST_ITEMS: readonly string[] = [
   "我确认目标对象正确（recipient / path / target）。",
 ]
 
-export type SensitivityLevel = 'high' | 'normal'
+export type SensitivityLevel = "high" | "normal"
 
 export interface SensitivityMatch {
   readonly level: SensitivityLevel

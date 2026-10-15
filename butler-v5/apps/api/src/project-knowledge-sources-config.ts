@@ -14,17 +14,13 @@ export type ProjectKnowledgeSourcesLoadResult =
   | { readonly kind: "loaded"; readonly manifest: ProjectKnowledgeSourcesManifest }
   | { readonly kind: "error"; readonly reason: string }
 
-function projectKnowledgeSourcesPathFromEnv(
-  env: NodeJS.ProcessEnv = process.env,
-): string | null {
+function projectKnowledgeSourcesPathFromEnv(env: NodeJS.ProcessEnv = process.env): string | null {
   const raw = (env["BUTLER_V5_PROJECT_KNOWLEDGE_SOURCES_PATH"] ?? "").trim()
   if (raw) return raw
   return "config/project-knowledge-sources.json"
 }
 
-function loadProjectKnowledgeSourcesFromPath(
-  path: string,
-): ProjectKnowledgeSourcesLoadResult {
+function loadProjectKnowledgeSourcesFromPath(path: string): ProjectKnowledgeSourcesLoadResult {
   try {
     const abs = resolve(path)
     const raw = readFileSync(abs, "utf8")
@@ -49,7 +45,6 @@ export function loadProjectKnowledgeSourcesFromEnv(
   if (!path) return { kind: "none" }
   return loadProjectKnowledgeSourcesFromPath(resolve(cwd, path))
 }
-
 
 export interface ProjectKnowledgeWatchConfig {
   readonly enabled: boolean

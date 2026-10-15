@@ -43,10 +43,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 const SUBPROCESS_RUNNERS: readonly string[] = [
-  join(
-    __dirname,
-    "../../packages/adapters/src/sandbox/bubblewrap-runner.ts",
-  ),
+  join(__dirname, "../../packages/adapters/src/sandbox/bubblewrap-runner.ts"),
   join(__dirname, "../../packages/adapters/src/sandbox/slirp-egress.ts"),
   join(__dirname, "../../apps/api/src/mcp-spawn.ts"),
   join(__dirname, "../../_archive/packages/migration/src/shadow-runner.ts"),
@@ -74,16 +71,15 @@ const FORBIDDEN_IMPORT_PATTERNS: readonly RegExp[] = [
 /** Each subprocess runner is allowed these imports (legitimate boundary
  *  config). Anything else needs review. */
 const ALLOWED_IMPORT_SUBSTRINGS: Readonly<Record<string, readonly RegExp[]>> = {
-  [join(__dirname, "../../packages/adapters/src/sandbox/bubblewrap-runner.ts")]:
-    [
-      /@butler\/domain\/governance\/network-allowlist/, // governance config
-      /@butler\/runtime\/sandbox/, // sandbox profile helpers
-      /@butler\/adapters\/sandbox\//, // sibling sandbox primitives
-      /@butler\/domain\/governance\/mcp-tool-capability/, // mcp gating
-      /node:child_process/,
-      /node:fs/,
-      /node:path/,
-    ],
+  [join(__dirname, "../../packages/adapters/src/sandbox/bubblewrap-runner.ts")]: [
+    /@butler\/domain\/governance\/network-allowlist/, // governance config
+    /@butler\/runtime\/sandbox/, // sandbox profile helpers
+    /@butler\/adapters\/sandbox\//, // sibling sandbox primitives
+    /@butler\/domain\/governance\/mcp-tool-capability/, // mcp gating
+    /node:child_process/,
+    /node:fs/,
+    /node:path/,
+  ],
   [join(__dirname, "../../packages/adapters/src/sandbox/slirp-egress.ts")]: [
     /@butler\/adapters\/sandbox\//, // sibling sandbox primitives
     /node:child_process/,

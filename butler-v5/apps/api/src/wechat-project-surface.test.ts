@@ -46,16 +46,30 @@ describe("wechat project surface", () => {
   it("summarizes per-project MCP profiles", () => {
     const e = env()
     const allowlistPath = join(process.cwd(), "config/wechat-tool-allowlist.json")
-    expect(loadWechatToolAllowlistFromPath(allowlistPath)?.projects?.["灵文1号"]?.mcpTools).toHaveLength(2)
+    expect(
+      loadWechatToolAllowlistFromPath(allowlistPath)?.projects?.["灵文1号"]?.mcpTools,
+    ).toHaveLength(2)
     const lingwen = summarizeWechatToolProfile({
       projectId: "灵文1号",
       env: { ...e, BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH: allowlistPath },
       mcpBundle: {
         mode: "multi",
         runtimeTools: [
-          { name: "mcp_markitdown_convert_to_markdown" as never, risk: "low", run: async () => ({ ok: true, output: "" }) },
-          { name: "mcp_firecrawl_firecrawl_scrape" as never, risk: "low", run: async () => ({ ok: true, output: "" }) },
-          { name: "mcp_github_search_code" as never, risk: "low", run: async () => ({ ok: true, output: "" }) },
+          {
+            name: "mcp_markitdown_convert_to_markdown" as never,
+            risk: "low",
+            run: async () => ({ ok: true, output: "" }),
+          },
+          {
+            name: "mcp_firecrawl_firecrawl_scrape" as never,
+            risk: "low",
+            run: async () => ({ ok: true, output: "" }),
+          },
+          {
+            name: "mcp_github_search_code" as never,
+            risk: "low",
+            run: async () => ({ ok: true, output: "" }),
+          },
         ],
         llmTools: [],
         discovered: [],
@@ -95,7 +109,10 @@ describe("tryWechatProjectCommand integration", () => {
     testEnv = {
       BUTLER_V5_WECHAT_ACTIVE_PROJECT_STORE: join(storeDir, "active.json"),
       BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP: "wechat:WFXM,LingWen1:LingWen",
-      BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH: join(process.cwd(), "config/wechat-tool-allowlist.json"),
+      BUTLER_V5_WECHAT_TOOL_ALLOWLIST_PATH: join(
+        process.cwd(),
+        "config/wechat-tool-allowlist.json",
+      ),
       BUTLER_V5_WECHAT_PROJECT_PATHS: join(process.cwd(), "config/wechat-project-paths.json"),
       BUTLER_V5_WORKSPACE_ROOT: join(process.cwd(), ".."),
     }

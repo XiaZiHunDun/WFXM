@@ -139,7 +139,11 @@ describe("document ingest pure helpers", () => {
   })
 
   it("matches document by substring query across title/text/note", () => {
-    const d = doc({ title: "README", extractedText: "install via npm", provenance: { note: "guide" } })
+    const d = doc({
+      title: "README",
+      extractedText: "install via npm",
+      provenance: { note: "guide" },
+    })
     expect(matchDocumentQuery(d, "npm")).toBe(true)
     expect(matchDocumentQuery(d, "guide")).toBe(true)
     expect(matchDocumentQuery(d, "missing")).toBe(false)

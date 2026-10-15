@@ -48,25 +48,13 @@ const ACTIVE_STATUSES: readonly RunStatus[] = [
   "waiting_external",
 ]
 
-const TERMINAL_STATUSES: readonly RunStatus[] = [
-  "succeeded",
-  "failed",
-  "cancelled",
-  "expired",
-]
+const TERMINAL_STATUSES: readonly RunStatus[] = ["succeeded", "failed", "cancelled", "expired"]
 
 // Exhaustive from/to rules of the Run state machine (the frozen contract spec).
 // Every entry below must hold; any drift from transitions.ts is an inconsistency.
 const EXPECTED_LEGAL: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
   queued: ["running", "cancelled", "expired"],
-  running: [
-    "waiting_approval",
-    "waiting_external",
-    "succeeded",
-    "failed",
-    "cancelled",
-    "expired",
-  ],
+  running: ["waiting_approval", "waiting_external", "succeeded", "failed", "cancelled", "expired"],
   waiting_approval: ["running", "failed", "cancelled", "expired"],
   waiting_external: ["running", "failed", "cancelled", "expired"],
   succeeded: [],
@@ -85,9 +73,7 @@ describe("runtime Run transitions", () => {
     (from) => {
       const expected = EXPECTED_LEGAL[from]
       for (const to of ALL_STATUSES) {
-        expect(canTransitionRun(from, to), `${from} -> ${to}`).toBe(
-          expected.includes(to),
-        )
+        expect(canTransitionRun(from, to), `${from} -> ${to}`).toBe(expected.includes(to))
       }
     },
   )

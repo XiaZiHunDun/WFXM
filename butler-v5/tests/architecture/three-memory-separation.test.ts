@@ -38,10 +38,7 @@ const PROJECT_KNOWLEDGE_STORE = join(
   __dirname,
   "../../packages/persistence/src/project-knowledge-store.ts",
 )
-const RUNTIME_STORE = join(
-  __dirname,
-  "../../packages/persistence/src/runtime-store.ts",
-)
+const RUNTIME_STORE = join(__dirname, "../../packages/persistence/src/runtime-store.ts")
 const DURABLE_MEMORY_DOMAIN = join(
   __dirname,
   "../../packages/domain/src/knowledge/durable-memory.ts",
@@ -50,10 +47,7 @@ const PROJECT_KNOWLEDGE_DOMAIN = join(
   __dirname,
   "../../packages/domain/src/knowledge/project-knowledge.ts",
 )
-const SCHEMA = join(
-  __dirname,
-  "../../packages/persistence/src/schema.ts",
-)
+const SCHEMA = join(__dirname, "../../packages/persistence/src/schema.ts")
 
 function importsFrom(src: string, regex: RegExp): readonly string[] {
   return src.match(regex) ?? []

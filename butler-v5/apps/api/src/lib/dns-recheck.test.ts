@@ -48,16 +48,16 @@ describe("assertPublicHost (D73 SEC-002 DNS rebinding defense)", () => {
 
   it("rejects when DNS lookup throws", async () => {
     mockLookup.mockRejectedValueOnce(new Error("ENOTFOUND"))
-    await expect(
-      assertPublicHost("https://nope.example.com/foo", () => false),
-    ).rejects.toThrow(/lookup failed/)
+    await expect(assertPublicHost("https://nope.example.com/foo", () => false)).rejects.toThrow(
+      /lookup failed/,
+    )
   })
 
   it("rejects when DNS returns zero addresses", async () => {
     mockLookup.mockResolvedValueOnce([] as never)
-    await expect(
-      assertPublicHost("https://empty.example.com/foo", () => false),
-    ).rejects.toThrow(/no addresses/)
+    await expect(assertPublicHost("https://empty.example.com/foo", () => false)).rejects.toThrow(
+      /no addresses/,
+    )
   })
 })
 
@@ -83,9 +83,7 @@ describe("makeGuardedFetch (D73 SEC-002 wrapper)", () => {
       "https://metadata.example.com/v1",
       (h) => h === "169.254.169.254",
     )
-    await expect(guarded("https://metadata.example.com/v1")).rejects.toThrow(
-      /blocked|deny list/,
-    )
+    await expect(guarded("https://metadata.example.com/v1")).rejects.toThrow(/blocked|deny list/)
     expect(baseFetch).not.toHaveBeenCalled()
   })
 })

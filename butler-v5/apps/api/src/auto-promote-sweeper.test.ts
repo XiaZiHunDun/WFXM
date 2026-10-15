@@ -167,7 +167,13 @@ describe("runAutoPromoteTick", () => {
     const result = await runAutoPromoteTick({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub
       wiring: wiring as any,
-      config: { enabled: true, windowMs: 1000, sweepLimit: 500, sweepIntervalMs: 3_600_000, rollbackWindowMs: 7 * 24 * 3_600_000 },
+      config: {
+        enabled: true,
+        windowMs: 1000,
+        sweepLimit: 500,
+        sweepIntervalMs: 3_600_000,
+        rollbackWindowMs: 7 * 24 * 3_600_000,
+      },
       logger,
       now: () => new Date(1000),
     })
@@ -316,9 +322,7 @@ describe("runAutoPromoteTick", () => {
     expect(result.promoted).toBe(2)
     expect(result.scanned).toBe(2)
     expect(notify).toHaveBeenCalledTimes(1)
-    expect(notify).toHaveBeenCalledWith(
-      expect.objectContaining({ promoted: 2, scanned: 2 }),
-    )
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ promoted: 2, scanned: 2 }))
   })
 
   it("catches notify throw, logs error, still returns tick stats", async () => {

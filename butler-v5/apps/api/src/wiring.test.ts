@@ -498,7 +498,11 @@ describe("v5 wiring", () => {
         }),
       })
       expect(res.status).toBe(201)
-      const body = (await res.json()) as { conversationId: string; reply: string; channelId: string }
+      const body = (await res.json()) as {
+        conversationId: string
+        reply: string
+        channelId: string
+      }
       expect(body.conversationId).toBe("c-ch-api-owner-1")
       expect(body.channelId).toBe("api")
       expect(body.reply).toBe("stub-reply")

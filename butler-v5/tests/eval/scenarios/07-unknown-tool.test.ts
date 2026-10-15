@@ -18,9 +18,7 @@ describe("eval/07 unknown-tool", () => {
   it("LLM emits tool_call for non-existent tool → loop recovers with Respond", async () => {
     const adapter = makeScriptedAdapter({
       responses: [
-        toolCallResponse([
-          { id: "tc-1", name: "definitely_does_not_exist", args: { foo: "bar" } },
-        ]),
+        toolCallResponse([{ id: "tc-1", name: "definitely_does_not_exist", args: { foo: "bar" } }]),
         textResponse(
           JSON.stringify({
             _tag: "Respond",

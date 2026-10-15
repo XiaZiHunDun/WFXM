@@ -63,7 +63,9 @@ describe("MCP consent", () => {
 
     it("uses the command basename for stdio servers", () => {
       expect(mcpServerIdFromEnv({ BUTLER_V5_MCP_COMMAND: "/usr/bin/npx" })).toBe("npx")
-      expect(mcpServerIdFromEnv({ BUTLER_V5_MCP_COMMAND: "C:\\tools\\server.exe" })).toBe("server.exe")
+      expect(mcpServerIdFromEnv({ BUTLER_V5_MCP_COMMAND: "C:\\tools\\server.exe" })).toBe(
+        "server.exe",
+      )
     })
 
     it("falls back to mcp-default", () => {

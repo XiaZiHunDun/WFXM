@@ -68,9 +68,11 @@ const parseInt10 = (v: string | undefined, fallback: number): number => {
 
 /** 从 process.env（或传入的 env map）加载 AppConfig，应用 defaultConfig 作为兜底。 */
 export function loadConfig(
-  env: Readonly<Record<string, string | undefined>> = (globalThis as unknown as {
-    process?: { env?: Record<string, string | undefined> }
-  }).process?.env ?? {},
+  env: Readonly<Record<string, string | undefined>> = (
+    globalThis as unknown as {
+      process?: { env?: Record<string, string | undefined> }
+    }
+  ).process?.env ?? {},
 ): AppConfig {
   const merged = env as Record<string, string | undefined>
   return {

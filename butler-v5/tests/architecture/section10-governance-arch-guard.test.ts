@@ -77,33 +77,19 @@ import { join } from "node:path"
 
 const GOV_TYPES = join(__dirname, "../../packages/domain/src/governance/types.ts")
 const APPROVAL_RUNTIME = join(__dirname, "../../packages/runtime/src/approval-runtime.ts")
-const SCOPED_GRANT_SERVICE = join(
-  __dirname,
-  "../../packages/runtime/src/scoped-grant-service.ts",
-)
-const SANDBOX_PROFILES = join(
-  __dirname,
-  "../../packages/runtime/src/sandbox/profiles.ts",
-)
-const CAPABILITY_BOUNDARY = join(
-  __dirname,
-  "../../packages/runtime/src/capability-boundary.ts",
-)
+const SCOPED_GRANT_SERVICE = join(__dirname, "../../packages/runtime/src/scoped-grant-service.ts")
+const SANDBOX_PROFILES = join(__dirname, "../../packages/runtime/src/sandbox/profiles.ts")
+const CAPABILITY_BOUNDARY = join(__dirname, "../../packages/runtime/src/capability-boundary.ts")
 const POLICY_GATE = join(__dirname, "../../packages/runtime/src/policy-gate.ts")
 const LLM_PROVIDER = join(__dirname, "../../packages/adapters/src/llm-provider.ts")
-const PERSISTENCE_SCHEMA = join(
-  __dirname,
-  "../../packages/persistence/src/schema.ts",
-)
+const PERSISTENCE_SCHEMA = join(__dirname, "../../packages/persistence/src/schema.ts")
 
 describe("arch: §10 Governance 与副作用咽喉 (D27 audit)", () => {
   // ── §10 主体: ActionRequest → Policy → Approval → Grant → Execution → Audit ──
 
   it("§10 主体: ActionRequest carries the 7 current fields (text vs impl drift acknowledged)", () => {
     const src = readFileSync(GOV_TYPES, "utf-8")
-    const actionRequestMatch = src.match(
-      /export interface ActionRequest\s*\{([\s\S]*?)\n\}/,
-    )
+    const actionRequestMatch = src.match(/export interface ActionRequest\s*\{([\s\S]*?)\n\}/)
     expect(actionRequestMatch, "ActionRequest interface not found").not.toBeNull()
     const body = actionRequestMatch?.[1] ?? ""
     for (const field of [
@@ -124,9 +110,7 @@ describe("arch: §10 Governance 与副作用咽喉 (D27 audit)", () => {
 
   it("§10 主体: ActionKind covers 'read' / 'write' / 'command' / 'delegate' / 'outbound' / 'model' (model included for traceability — model calls bypass Policy per §10 line 385)", () => {
     const src = readFileSync(GOV_TYPES, "utf-8")
-    const actionKindMatch = src.match(
-      /export type ActionKind\s*=\s*([\s\S]*?)\n\nexport/,
-    )
+    const actionKindMatch = src.match(/export type ActionKind\s*=\s*([\s\S]*?)\n\nexport/)
     expect(actionKindMatch, "ActionKind type not found").not.toBeNull()
     const body = actionKindMatch?.[1] ?? ""
     for (const kind of ["read", "write", "command", "delegate", "outbound", "model"]) {
@@ -138,9 +122,7 @@ describe("arch: §10 Governance 与副作用咽喉 (D27 audit)", () => {
 
   it("§10.1: PolicyDecision ADT covers Allow | Deny(reason) | Ask(question, expiresAtMs)", () => {
     const src = readFileSync(GOV_TYPES, "utf-8")
-    const policyDecisionMatch = src.match(
-      /export type PolicyDecision\s*=\s*([\s\S]*?)\n\nexport/,
-    )
+    const policyDecisionMatch = src.match(/export type PolicyDecision\s*=\s*([\s\S]*?)\n\nexport/)
     expect(policyDecisionMatch, "PolicyDecision type not found").not.toBeNull()
     const body = policyDecisionMatch?.[1] ?? ""
     expect(body).toMatch(/_tag:\s*["']Allow["']/)
@@ -186,9 +168,7 @@ describe("arch: §10 Governance 与副作用咽喉 (D27 audit)", () => {
 
   it("§10.2: PendingApprovalRequest persists only the action digest + resource + context, not raw secrets", () => {
     const src = readFileSync(APPROVAL_RUNTIME, "utf-8")
-    const match = src.match(
-      /export interface PendingApprovalRequest\s*\{([\s\S]*?)\n\}/,
-    )
+    const match = src.match(/export interface PendingApprovalRequest\s*\{([\s\S]*?)\n\}/)
     expect(match, "PendingApprovalRequest interface not found").not.toBeNull()
     const body = match?.[1] ?? ""
     // §10.2 line 405 "凭证、完整敏感参数和原始 secret 不进入审批记录"
@@ -210,9 +190,7 @@ describe("arch: §10 Governance 与副作用咽喉 (D27 audit)", () => {
 
   it("§10.3: ScopedGrantRecord carries all 12 current fields (8 §10.3 required + 3 DB plumbing + 1 first-class capability column)", () => {
     const src = readFileSync(GOV_TYPES, "utf-8")
-    const match = src.match(
-      /export interface ScopedGrantRecord\s*\{([\s\S]*?)\n\}/,
-    )
+    const match = src.match(/export interface ScopedGrantRecord\s*\{([\s\S]*?)\n\}/)
     expect(match, "ScopedGrantRecord interface not found").not.toBeNull()
     const body = match?.[1] ?? ""
     for (const field of [
@@ -240,9 +218,7 @@ describe("arch: §10 Governance 与副作用咽喉 (D27 audit)", () => {
 
   it("§10.4: sandboxProfileForApprovedCapability resolves sandbox profile for approval-lifted Grants", () => {
     const profilesSrc = readFileSync(SANDBOX_PROFILES, "utf-8")
-    expect(profilesSrc).toMatch(
-      /export\s+function\s+sandboxProfileForApprovedCapability\b/,
-    )
+    expect(profilesSrc).toMatch(/export\s+function\s+sandboxProfileForApprovedCapability\b/)
     // Both approval-runtime + scoped-grant-service consume this resolver.
     const approvalSrc = readFileSync(APPROVAL_RUNTIME, "utf-8")
     const grantSrc = readFileSync(SCOPED_GRANT_SERVICE, "utf-8")

@@ -44,7 +44,9 @@ function extractMarkitdownText(output: unknown): string | null {
 async function invokeMarkitdownTool(
   tool: ToolDefinition,
   absolutePath: string,
-): Promise<{ readonly ok: true; readonly text: string } | { readonly ok: false; readonly reason: string }> {
+): Promise<
+  { readonly ok: true; readonly text: string } | { readonly ok: false; readonly reason: string }
+> {
   const uri = absolutePath.startsWith("file://") ? absolutePath : `file://${absolutePath}`
   for (const args of [{ uri }, { path: absolutePath }, { filepath: absolutePath }]) {
     const result = await tool.run(args)
@@ -134,7 +136,8 @@ export async function syncProjectKnowledgeFromManifest(args: {
     ...(wsEnv === undefined ? {} : { workspaceRoot: wsEnv }),
   })
   const documentStore = args.wiring.documentStore
-  const markitdownTool = args.wiring.mcp.runtimeTools.find((t) => t.name === MARKITDOWN_TOOL) ?? null
+  const markitdownTool =
+    args.wiring.mcp.runtimeTools.find((t) => t.name === MARKITDOWN_TOOL) ?? null
 
   const files = resolveManifestSourceFiles({
     manifest: args.manifest,
@@ -159,9 +162,7 @@ export async function syncProjectKnowledgeFromManifest(args: {
       stat = statSync(resolved.path)
       if (!stat.isFile()) continue
     } catch (err) {
-      errors.push(
-        `${file.relativePath}: ${err instanceof Error ? err.message : String(err)}`,
-      )
+      errors.push(`${file.relativePath}: ${err instanceof Error ? err.message : String(err)}`)
       continue
     }
 

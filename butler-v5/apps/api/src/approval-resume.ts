@@ -14,11 +14,7 @@ import {
 import { RunPauseForApproval } from "@butler/runtime/run-engine.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import type { ToolExecutionOutcome } from "@butler/runtime/capability-boundary.js"
-import {
-  computeCostUsd,
-  parseLlmPricing,
-  resolveCurrentLlmModel,
-} from "./llm-pricing.js"
+import { computeCostUsd, parseLlmPricing, resolveCurrentLlmModel } from "./llm-pricing.js"
 import type { RunResult } from "@butler/runtime/tool-runtime.js"
 import { Effect } from "effect"
 import { pickLLMForRole } from "@butler/adapters"
@@ -35,9 +31,7 @@ export function isPendingApprovalOutcome(
   outcome: ToolExecutionOutcome,
 ): outcome is Extract<ToolExecutionOutcome, { pendingApproval: unknown }> {
   return (
-    outcome.ok === false &&
-    "pendingApproval" in outcome &&
-    outcome.pendingApproval !== undefined
+    outcome.ok === false && "pendingApproval" in outcome && outcome.pendingApproval !== undefined
   )
 }
 
@@ -185,11 +179,11 @@ async function continueLoopAfterCapability(args: {
     actor: { kind: "agent", id: "approval-resume" },
   })
   // D60 T2.7 (audit #3 F-11): the raw capability name stays in the kernel
-// user_content (LLM uses it to know context) but the kernel output is no
-// longer echoing the operator tool id to the owner via the LLM reply.
-// Approval trace (`approval-resume: approved ${stepId} cap=${args.capability}`)
-// preserves it for §14 observability.
-const userContent =
+  // user_content (LLM uses it to know context) but the kernel output is no
+  // longer echoing the operator tool id to the owner via the LLM reply.
+  // Approval trace (`approval-resume: approved ${stepId} cap=${args.capability}`)
+  // preserves it for §14 observability.
+  const userContent =
     `已批准并执行该步，结果：\n${args.toolOutput}\n` +
     `请用中文继续完成用户目标；需要时可调用工具。`
   try {

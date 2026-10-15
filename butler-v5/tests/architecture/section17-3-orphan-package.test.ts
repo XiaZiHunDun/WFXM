@@ -73,11 +73,7 @@ function listProductionTsFiles(root: string): string[] {
           continue
         }
         walk(p)
-      } else if (
-        entry.endsWith(".ts") &&
-        !entry.endsWith(".test.ts") &&
-        !entry.endsWith(".d.ts")
-      ) {
+      } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) {
         out.push(p)
       }
     }
@@ -90,10 +86,7 @@ describe("arch: §17.3 脚手架修剪 (no orphan workspace packages)", () => {
   it("every workspace package under packages/* (excluding _archive) has ≥1 production importer", () => {
     const pkgs = listPackageNames(PACKAGES_ROOT)
     expect(pkgs.length).toBeGreaterThan(0)
-    const prodFiles = [
-      ...listProductionTsFiles(PACKAGES_ROOT),
-      ...listProductionTsFiles(APPS_ROOT),
-    ]
+    const prodFiles = [...listProductionTsFiles(PACKAGES_ROOT), ...listProductionTsFiles(APPS_ROOT)]
     const newOrphans: string[] = []
     for (const pkg of pkgs) {
       let importers = 0
@@ -115,12 +108,6 @@ describe("arch: §17.3 脚手架修剪 (no orphan workspace packages)", () => {
 
   it("post-D19 workspace has exactly the 5 active packages (adapters / domain / persistence / ports / runtime)", () => {
     const pkgs = listPackageNames(PACKAGES_ROOT).sort()
-    expect(pkgs).toEqual([
-      "adapters",
-      "domain",
-      "persistence",
-      "ports",
-      "runtime",
-    ])
+    expect(pkgs).toEqual(["adapters", "domain", "persistence", "ports", "runtime"])
   })
 })

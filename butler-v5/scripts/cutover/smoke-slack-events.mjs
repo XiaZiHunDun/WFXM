@@ -73,10 +73,7 @@ async function main() {
     fail("url-verification", `expected 200, got ${challengeResult.status}: ${challengeResult.text}`)
   }
   if (challengeResult.json?.challenge !== "smoke-test-challenge-D81-F4") {
-    fail(
-      "url-verification",
-      `expected challenge echo, got ${JSON.stringify(challengeResult.json)}`,
-    )
+    fail("url-verification", `expected challenge echo, got ${JSON.stringify(challengeResult.json)}`)
   }
   console.log("slack ok [url-verification]")
 
@@ -103,10 +100,7 @@ async function main() {
     "x-slack-request-timestamp": timestamp,
   })
   if (eventResult.status !== 200) {
-    fail(
-      "event-callback",
-      `expected 200, got ${eventResult.status}: ${eventResult.text}`,
-    )
+    fail("event-callback", `expected 200, got ${eventResult.status}: ${eventResult.text}`)
   }
   if (!eventResult.json?.ok) {
     fail("event-callback", `expected ok=true: ${eventResult.text}`)

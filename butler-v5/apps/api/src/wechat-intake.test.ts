@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  classifyWechatIntent,
-  resolveIntakeLoopOptions,
-} from "./wechat-intake.js"
+import { classifyWechatIntent, resolveIntakeLoopOptions } from "./wechat-intake.js"
 import { resolveToolNamesForIntake } from "./wechat-tool-profile.js"
 
 describe("wechat-intake", () => {
@@ -28,7 +25,7 @@ describe("wechat-intake", () => {
 
   it("classifies write_file / run_command literals as dev_task", () => {
     expect(classifyWechatIntent("write_file 写入 a.txt 内容 hi").kind).toBe("dev_task")
-    expect(classifyWechatIntent("run_command argv=[\"pwd\"]").kind).toBe("dev_task")
+    expect(classifyWechatIntent('run_command argv=["pwd"]').kind).toBe("dev_task")
   })
 
   it("plan mode hides exec tools", () => {

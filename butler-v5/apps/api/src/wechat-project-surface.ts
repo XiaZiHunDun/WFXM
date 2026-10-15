@@ -160,8 +160,7 @@ async function buildProjectListReply(args: {
 }): Promise<string> {
   const active = getWechatActiveProjectId(args.fromUserId, args.env)
   const activeLabel =
-    parseWechatProjectCatalog(args.env).find((item) => item.id === active)?.label ??
-    active
+    parseWechatProjectCatalog(args.env).find((item) => item.id === active)?.label ?? active
   const lines: string[] = [`项目列表（当前：${activeLabel}）`]
   for (const item of parseWechatProjectCatalog(args.env)) {
     const pkCount = await pkCountForInbound(args.wiring, item.id, args.env)

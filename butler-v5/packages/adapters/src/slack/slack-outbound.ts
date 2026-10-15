@@ -7,8 +7,7 @@
  */
 
 export type SlackOutboundResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: string }
+  { readonly ok: true } | { readonly ok: false; readonly reason: string }
 
 export interface SlackOutboundConfig {
   readonly token: string

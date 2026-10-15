@@ -17,15 +17,10 @@ import {
   type EventStoreRow,
 } from "./event-store.js"
 
-import {
-  applyProjection,
-  registerProjection,
-  rebuildProjection,
-} from "./projections.js"
+import { applyProjection, registerProjection, rebuildProjection } from "./projections.js"
 import { loadSnapshot, saveSnapshot } from "./snapshot.js"
 import { runWorkerOnce } from "./worker.js"
 import type { EventStorePort } from "@butler/ports/core/event-store.js"
-
 
 export interface EventBridgeConfig {
   readonly db: ButlerDb

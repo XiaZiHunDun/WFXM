@@ -4,9 +4,7 @@ import { sendSlackOutboundMessage } from "@butler/adapters/slack/index.js"
 
 describe("channel outbound", () => {
   it("posts slack chat.postMessage", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({ ok: true, ts: "123.456" }),
-    )
+    const fetchMock = vi.fn(async () => Response.json({ ok: true, ts: "123.456" }))
     const result = await sendSlackOutboundMessage({
       token: "xoxb-test",
       channel: "C123",

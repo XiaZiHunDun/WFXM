@@ -54,7 +54,9 @@ async function main() {
   if (!health.ok) fail("healthz", `${health.status}`)
   console.log("smoke ok [healthz]")
 
-  const pkList = await fetch(`${base}/v1/owner/project-knowledge?projectId=${encodeURIComponent(projectId)}`)
+  const pkList = await fetch(
+    `${base}/v1/owner/project-knowledge?projectId=${encodeURIComponent(projectId)}`,
+  )
   const pkText = await pkList.text()
   if (!pkList.ok) fail("project-knowledge/list", `${pkList.status} ${pkText}`)
   const pkBody = JSON.parse(pkText)
@@ -97,13 +99,15 @@ async function main() {
   )
 
   // Real ilink path uses projectId=wechat; PK store is WFXM (default inbound map)
-  const wechatInjectQ =
-    "WFXM Project Knowledge 立项状态？只回答 Accepted、Draft 或 Pending 之一。"
+  const wechatInjectQ = "WFXM Project Knowledge 立项状态？只回答 Accepted、Draft 或 Pending 之一。"
   const wechatRes = await postInbound(wechatInjectQ, `pk-smoke-wechat-${Date.now()}`, "wechat")
   assertInjectTraces(wechatRes.meta, "wechat/inject/traces")
   const wechatReply = String(wechatRes.reply ?? "")
   if (!/accepted/i.test(wechatReply)) {
-    fail("wechat/inject/reply", `expected Accepted via wechat→WFXM map, got: ${wechatReply.slice(0, 400)}`)
+    fail(
+      "wechat/inject/reply",
+      `expected Accepted via wechat→WFXM map, got: ${wechatReply.slice(0, 400)}`,
+    )
   }
   console.log(`smoke ok [wechat→WFXM inject]: toolCalls=${wechatRes.meta?.toolCalls ?? "?"}`)
 
@@ -126,7 +130,10 @@ async function main() {
   assertInjectTraces(lwRes.meta, "LingWen1/inject/traces")
   const lwReply = String(lwRes.reply ?? "")
   if (!/维护态/.test(lwReply)) {
-    fail("LingWen1/inject/reply", `expected 维护态 via LingWen1→LingWen map, got: ${lwReply.slice(0, 400)}`)
+    fail(
+      "LingWen1/inject/reply",
+      `expected 维护态 via LingWen1→LingWen map, got: ${lwReply.slice(0, 400)}`,
+    )
   }
   console.log(`smoke ok [LingWen1→LingWen inject]: toolCalls=${lwRes.meta?.toolCalls ?? "?"}`)
 

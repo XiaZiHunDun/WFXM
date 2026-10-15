@@ -27,9 +27,13 @@ describe("project-knowledge-sources.json (production manifest)", () => {
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
     const globs = parsed.manifest.projects["LingWen"]?.globs ?? []
-    expect(globs).toContain("projects/LingWen1/novel-factory/references/03-plot-timeline-foreshadowing.md")
+    expect(globs).toContain(
+      "projects/LingWen1/novel-factory/references/03-plot-timeline-foreshadowing.md",
+    )
     expect(globs).toContain("projects/LingWen1/novel-factory/references/06-locations-atlas-vol1.md")
-    expect(globs).toContain("projects/LingWen1/novel-factory/references/09-character-relationships-timeline.md")
+    expect(globs).toContain(
+      "projects/LingWen1/novel-factory/references/09-character-relationships-timeline.md",
+    )
     expect(globs).toContain("projects/LingWen1/docs/pilot-setup.md")
     expect(globs.length).toBeGreaterThanOrEqual(20)
   })

@@ -18,9 +18,7 @@ describe("eval/12 idempotent-replay", () => {
     const firstMessageIdInput = crypto.randomUUID()
     const secondMessageIdInput = crypto.randomUUID()
     const adapter = makeScriptedAdapter({
-      responses: [
-        decisionResponse({ _tag: "Respond", content: "ok" }),
-      ],
+      responses: [decisionResponse({ _tag: "Respond", content: "ok" })],
     })
     let firstResult = ""
     let secondResult = ""

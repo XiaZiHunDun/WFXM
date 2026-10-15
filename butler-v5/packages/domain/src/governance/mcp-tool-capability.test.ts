@@ -14,14 +14,22 @@ import {
   toMcpCapabilityName,
   toMcpCapabilityNameForServer,
 } from "./mcp-tool-capability.js"
-import { isMcpCapability, MCP_CAPABILITY_PREFIX, normalizeMcpServerId, normalizeMcpToolName, resolveMcpServerIdFromCapability } from "./mcp-tool-capability.js"
+import {
+  isMcpCapability,
+  MCP_CAPABILITY_PREFIX,
+  normalizeMcpServerId,
+  normalizeMcpToolName,
+  resolveMcpServerIdFromCapability,
+} from "./mcp-tool-capability.js"
 
 describe("P3-3 named registry / untrusted descriptions", () => {
   it("treats tool descriptions as untrusted: server default risk is authoritative", () => {
-    expect(
-      resolveMcpToolRisk({ id: "s", defaultRisk: "high", tools: [] }, { risk: "low" }),
-    ).toBe("high")
-    expect(resolveMcpToolRisk({ id: "s", defaultRisk: "low", tools: [] }, { risk: "high" })).toBe("low")
+    expect(resolveMcpToolRisk({ id: "s", defaultRisk: "high", tools: [] }, { risk: "low" })).toBe(
+      "high",
+    )
+    expect(resolveMcpToolRisk({ id: "s", defaultRisk: "low", tools: [] }, { risk: "high" })).toBe(
+      "low",
+    )
   })
 
   it("scales a refused risk up to the fail-closed default when server omits it", () => {
@@ -48,9 +56,26 @@ describe("P3-3 named registry / untrusted descriptions", () => {
 
 describe("P3-3 remote OAuth audience binding / no token passthrough", () => {
   it("derives audience only for remote servers with an explicit oauthAudience", () => {
-    expect(resolveMcpOAuthAudience({ id: "x", transport: "http", url: "https://api.example.com", oauthAudience: "api.example.com", tools: [] })).toBe("api.example.com")
-    expect(resolveMcpOAuthAudience({ id: "x", transport: "http", url: "https://api.example.com", tools: [] })).toBeNull()
-    expect(resolveMcpOAuthAudience({ id: "x", transport: "stdio", command: "node", tools: [] })).toBeNull()
+    expect(
+      resolveMcpOAuthAudience({
+        id: "x",
+        transport: "http",
+        url: "https://api.example.com",
+        oauthAudience: "api.example.com",
+        tools: [],
+      }),
+    ).toBe("api.example.com")
+    expect(
+      resolveMcpOAuthAudience({
+        id: "x",
+        transport: "http",
+        url: "https://api.example.com",
+        tools: [],
+      }),
+    ).toBeNull()
+    expect(
+      resolveMcpOAuthAudience({ id: "x", transport: "stdio", command: "node", tools: [] }),
+    ).toBeNull()
   })
 
   it("rejects tokenish args to a remote server without audience (no passthrough)", () => {
@@ -61,7 +86,13 @@ describe("P3-3 remote OAuth audience binding / no token passthrough", () => {
   })
 
   it("allows tokenish args once an explicit oauthAudience is bound", () => {
-    const bound = { id: "x", transport: "sse", url: "https://mcp.example.com/sse", oauthAudience: "mcp.example.com", tools: [] }
+    const bound = {
+      id: "x",
+      transport: "sse",
+      url: "https://mcp.example.com/sse",
+      oauthAudience: "mcp.example.com",
+      tools: [],
+    }
     expect(rejectMcpTokenPassthrough(bound, { token: "aud-bound" })).toEqual({ ok: true })
   })
 })
@@ -87,12 +118,12 @@ describe("mcp tool capability", () => {
       mcp: { serverId: "my-server", toolName: "search" },
       network: "allow" as const,
     }
-    expect(
-      grantScopeMatchesMcpTool(scope, { capability: "mcp_search", toolName: "search" }),
-    ).toBe(true)
-    expect(
-      grantScopeMatchesMcpTool(scope, { capability: "mcp_fetch", toolName: "fetch" }),
-    ).toBe(false)
+    expect(grantScopeMatchesMcpTool(scope, { capability: "mcp_search", toolName: "search" })).toBe(
+      true,
+    )
+    expect(grantScopeMatchesMcpTool(scope, { capability: "mcp_fetch", toolName: "fetch" })).toBe(
+      false,
+    )
     expect(scopedGrantScopeTargetsMcpServer(scope, "my-server")).toBe(true)
     expect(scopedGrantScopeTargetsMcpServer(scope, "other")).toBe(false)
   })
@@ -103,9 +134,9 @@ describe("mcp tool capability", () => {
       digest: "d1",
       network: "allow" as const,
     }
-    expect(
-      grantScopeMatchesMcpTool(scope, { capability: "mcp_search", toolName: "search" }),
-    ).toBe(true)
+    expect(grantScopeMatchesMcpTool(scope, { capability: "mcp_search", toolName: "search" })).toBe(
+      true,
+    )
     expect(scopedGrantScopeTargetsMcpServer(scope, "any")).toBe(false)
   })
 

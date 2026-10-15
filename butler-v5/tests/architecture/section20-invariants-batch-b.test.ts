@@ -66,32 +66,19 @@ import { describe, expect, it } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const RUNTIME_STORE = join(
-  __dirname,
-  "../../packages/persistence/src/runtime-store.ts",
-)
-const STORE_CONTRACT = join(
-  __dirname,
-  "../../packages/domain/src/runtime/store-contract.ts",
-)
+const RUNTIME_STORE = join(__dirname, "../../packages/persistence/src/runtime-store.ts")
+const STORE_CONTRACT = join(__dirname, "../../packages/domain/src/runtime/store-contract.ts")
 const RUN_ENGINE = join(__dirname, "../../packages/runtime/src/run-engine.ts")
-const RUN_COORDINATOR = join(
-  __dirname,
-  "../../packages/runtime/src/run-coordinator.ts",
-)
+const RUN_COORDINATOR = join(__dirname, "../../packages/runtime/src/run-coordinator.ts")
 const SCHEMA = join(__dirname, "../../packages/persistence/src/schema.ts")
-const WECHAT_INBOUND_BUTLER = join(
-  __dirname,
-  "../../apps/api/src/wechat-inbound-butler.ts",
-)
+const WECHAT_INBOUND_BUTLER = join(__dirname, "../../apps/api/src/wechat-inbound-butler.ts")
 
 describe("arch: §20 #6+#13+#15 invariants batch B (D26B)", () => {
   // ── §20 #6: 当前状态可直接读取，不依赖全量事件重放 ──────────
 
   it("#6: RuntimeStore exposes current-state reads (listMessages + getRun + findActiveMainRun)", () => {
     const src = readFileSync(RUNTIME_STORE, "utf-8")
-    expect(
-      src).toMatch(/async\s+listMessages\s*\(/)
+    expect(src).toMatch(/async\s+listMessages\s*\(/)
     expect(src).toMatch(/async\s+getRun\s*\(/)
     expect(src).toMatch(/async\s+findActiveMainRun\s*\(/)
   })
@@ -115,20 +102,14 @@ describe("arch: §20 #6+#13+#15 invariants batch B (D26B)", () => {
     expect(runEngineSrc).toMatch(/new\s+ActiveMainRunConflict\s*\(/)
     // The coordinator implements the lock primitive.
     const coordSrc = readFileSync(RUN_COORDINATOR, "utf-8")
-    expect(coordSrc).toMatch(
-      /withConversationLock\s*<T>\s*\(\s*conversationId/,
-    )
+    expect(coordSrc).toMatch(/withConversationLock\s*<T>\s*\(\s*conversationId/)
   })
 
   it("#13: ActiveMainRunConflict class is declared exactly once (run-engine.ts)", () => {
     const src = readFileSync(RUN_ENGINE, "utf-8")
-    expect(src).toMatch(
-      /^export\s+class\s+ActiveMainRunConflict\s+extends\s+Error\b/m,
-    )
+    expect(src).toMatch(/^export\s+class\s+ActiveMainRunConflict\s+extends\s+Error\b/m)
     // Single declaration; no parallel conflict class elsewhere.
-    const declCount = (
-      src.match(/^export\s+class\s+ActiveMainRunConflict\b/gm) ?? []
-    ).length
+    const declCount = (src.match(/^export\s+class\s+ActiveMainRunConflict\b/gm) ?? []).length
     expect(declCount).toBe(1)
   })
 

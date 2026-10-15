@@ -125,10 +125,13 @@ export function buildCapabilityRegistryFromTools(
 ): CapabilityRegistry {
   const registry = new CapabilityRegistry()
   for (const def of tools) {
-    const definition = capabilityDefinitionFromTool(def, { timeoutMs: timeoutMsFor(def.name as string) })
+    const definition = capabilityDefinitionFromTool(def, {
+      timeoutMs: timeoutMsFor(def.name as string),
+    })
     registry.register(definition, {
       name: definition.name,
-      execute: async (request) => runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
+      execute: async (request) =>
+        runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
     })
   }
   return registry
@@ -145,10 +148,7 @@ export function createProductionCapabilityRegistry(args: {
   readonly timeoutMsFor?: (toolName: string) => number
   readonly extraProviders?: readonly CapabilityProviderRegistration[]
 }): CapabilityRegistry {
-  const registry = buildCapabilityRegistryFromTools(
-    args.tools,
-    args.timeoutMsFor ?? (() => 5_000),
-  )
+  const registry = buildCapabilityRegistryFromTools(args.tools, args.timeoutMsFor ?? (() => 5_000))
   for (const entry of args.extraProviders ?? []) {
     registry.register(entry.definition, entry.provider)
   }
@@ -209,7 +209,9 @@ export function mcpCapabilityProvidersFromTools(
   if (options.mcpEnabled === false) return []
   const timeoutMsFor = options.timeoutMsFor ?? (() => 5_000)
   return tools.map((def) => {
-    const definition = capabilityDefinitionFromTool(def, { timeoutMs: timeoutMsFor(def.name as string) })
+    const definition = capabilityDefinitionFromTool(def, {
+      timeoutMs: timeoutMsFor(def.name as string),
+    })
     return {
       definition,
       provider: {

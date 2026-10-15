@@ -59,7 +59,10 @@ function checkLayerViolations(filePath: string): string[] {
     }
 
     // infrastructure/ 不能导入 application/
-    if (rel.includes("packages/infrastructure/") || rel.includes("_archive/packages/infrastructure/")) {
+    if (
+      rel.includes("packages/infrastructure/") ||
+      rel.includes("_archive/packages/infrastructure/")
+    ) {
       if (content.includes("@butler/application")) {
         violations.push(`infrastructure 层导入 @butler/application`)
       }

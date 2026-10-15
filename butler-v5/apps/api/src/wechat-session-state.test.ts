@@ -38,18 +38,26 @@ describe("wechat-session-state", () => {
   })
 
   it("isolates state across multiple users in the same store", () => {
-    writeWechatSessionState("u-1", {
-      openTaskCount: 1,
-      candidateCount: 0,
-      lastRunStatus: "none",
-      lastReplyAt: 100,
-    }, env)
-    writeWechatSessionState("u-2", {
-      openTaskCount: 99,
-      candidateCount: 7,
-      lastRunStatus: "fail",
-      lastReplyAt: 200,
-    }, env)
+    writeWechatSessionState(
+      "u-1",
+      {
+        openTaskCount: 1,
+        candidateCount: 0,
+        lastRunStatus: "none",
+        lastReplyAt: 100,
+      },
+      env,
+    )
+    writeWechatSessionState(
+      "u-2",
+      {
+        openTaskCount: 99,
+        candidateCount: 7,
+        lastRunStatus: "fail",
+        lastReplyAt: 200,
+      },
+      env,
+    )
     expect(readWechatSessionState("u-1", env)?.openTaskCount).toBe(1)
     expect(readWechatSessionState("u-2", env)?.openTaskCount).toBe(99)
     expect(readWechatSessionState("u-2", env)?.lastRunStatus).toBe("fail")
@@ -57,12 +65,16 @@ describe("wechat-session-state", () => {
 
   it("atomic write: no .tmp file left behind after success", () => {
     const path = wechatSessionStatePath(env)
-    writeWechatSessionState("u-1", {
-      openTaskCount: 0,
-      candidateCount: 0,
-      lastRunStatus: "none",
-      lastReplyAt: 0,
-    }, env)
+    writeWechatSessionState(
+      "u-1",
+      {
+        openTaskCount: 0,
+        candidateCount: 0,
+        lastRunStatus: "none",
+        lastReplyAt: 0,
+      },
+      env,
+    )
     // The final store should exist; the temp file should not.
     expect(existsSync(path)).toBe(true)
     expect(existsSync(`${path}.tmp`)).toBe(false)
@@ -85,18 +97,26 @@ describe("wechat-session-state", () => {
   })
 
   it("write replaces existing state for same user (no duplication)", () => {
-    writeWechatSessionState("u-1", {
-      openTaskCount: 1,
-      candidateCount: 0,
-      lastRunStatus: "none",
-      lastReplyAt: 100,
-    }, env)
-    writeWechatSessionState("u-1", {
-      openTaskCount: 5,
-      candidateCount: 0,
-      lastRunStatus: "success",
-      lastReplyAt: 200,
-    }, env)
+    writeWechatSessionState(
+      "u-1",
+      {
+        openTaskCount: 1,
+        candidateCount: 0,
+        lastRunStatus: "none",
+        lastReplyAt: 100,
+      },
+      env,
+    )
+    writeWechatSessionState(
+      "u-1",
+      {
+        openTaskCount: 5,
+        candidateCount: 0,
+        lastRunStatus: "success",
+        lastReplyAt: 200,
+      },
+      env,
+    )
     const s = readWechatSessionState("u-1", env)
     expect(s?.openTaskCount).toBe(5)
     expect(s?.lastReplyAt).toBe(200)

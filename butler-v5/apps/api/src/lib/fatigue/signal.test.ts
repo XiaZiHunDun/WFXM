@@ -6,7 +6,7 @@ function makeReader(events: readonly AuditEventSummary[]): AuditLogReader {
   return {
     readRecent: vi.fn(async (windowMs: number) => {
       const cutoff = Date.now() - windowMs
-      return events.filter(e => e.ts >= cutoff)
+      return events.filter((e) => e.ts >= cutoff)
     }),
   }
 }
@@ -46,7 +46,9 @@ describe("computeFatigueSignal", () => {
 
   test("F4: audit log failure returns degraded signal", async () => {
     const reader: AuditLogReader = {
-      readRecent: vi.fn(async () => { throw new Error("DB down") }),
+      readRecent: vi.fn(async () => {
+        throw new Error("DB down")
+      }),
     }
     const signal = await computeFatigueSignal(reader)
     expect(signal.degraded).toBe(true)

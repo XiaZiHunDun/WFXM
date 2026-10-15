@@ -511,7 +511,9 @@ describe("runButlerLoop", () => {
     expect(result.iterations).toBe(3)
     expect(result.reply).toContain("已收到")
     expect(
-      result.traces.some((t) => /stuck-loop: get_current_time invoked 3x with same args; aborting/.test(t)),
+      result.traces.some((t) =>
+        /stuck-loop: get_current_time invoked 3x with same args; aborting/.test(t),
+      ),
     ).toBe(true)
     // No loop-exhausted trace — we short-circuit earlier.
     expect(result.traces.some((t) => t.includes("loop exhausted"))).toBe(false)
@@ -853,7 +855,9 @@ describe("runButlerLoop", () => {
     const systemTexts = capturedMessages
       .filter((m) => m["role"] === "system")
       .map((m) => String(m["content"] ?? ""))
-    expect(systemTexts.some((t) => t.includes("Project Knowledge") && t.includes(marker))).toBe(true)
+    expect(systemTexts.some((t) => t.includes("Project Knowledge") && t.includes(marker))).toBe(
+      true,
+    )
   })
 
   it("injects WFXM project knowledge when inbound projectId is wechat", async () => {

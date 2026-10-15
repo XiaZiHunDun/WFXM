@@ -53,10 +53,7 @@ import { describe, expect, it } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const LOCAL_TRACE = join(
-  __dirname,
-  "../../packages/domain/src/observability/local-trace.ts",
-)
+const LOCAL_TRACE = join(__dirname, "../../packages/domain/src/observability/local-trace.ts")
 
 /** §14 fields that MUST appear as first-class fields on both
  *  `TraceEvent` (the read shape) and `CreateTraceEventInput`
@@ -81,35 +78,25 @@ const REQUIRED_TOP_LEVEL_FIELDS: readonly string[] = [
 describe("arch: §14 可观测字段 (TraceEvent carries DESIGN §14 fields as top-level fields)", () => {
   it("TraceEvent interface declares every required §14 field as a top-level readonly field", () => {
     const src = readFileSync(LOCAL_TRACE, "utf-8")
-    const traceEventMatch = src.match(
-      /export interface TraceEvent\s*\{([\s\S]*?)\n\}/,
-    )
+    const traceEventMatch = src.match(/export interface TraceEvent\s*\{([\s\S]*?)\n\}/)
     expect(traceEventMatch, "TraceEvent interface not found").not.toBeNull()
     const body = traceEventMatch?.[1] ?? ""
     for (const field of REQUIRED_TOP_LEVEL_FIELDS) {
       // Match `readonly <field>: ...` (the field declaration).
       const re = new RegExp(`readonly\\s+${field}\\b`, "m")
-      expect(
-        re.test(body),
-        `TraceEvent missing top-level field: ${field}`,
-      ).toBe(true)
+      expect(re.test(body), `TraceEvent missing top-level field: ${field}`).toBe(true)
     }
   })
 
   it("CreateTraceEventInput interface declares every required §14 field so callers must provide them", () => {
     const src = readFileSync(LOCAL_TRACE, "utf-8")
-    const inputMatch = src.match(
-      /export interface CreateTraceEventInput\s*\{([\s\S]*?)\n\}/,
-    )
+    const inputMatch = src.match(/export interface CreateTraceEventInput\s*\{([\s\S]*?)\n\}/)
     expect(inputMatch, "CreateTraceEventInput interface not found").not.toBeNull()
     const body = inputMatch?.[1] ?? ""
     for (const field of REQUIRED_TOP_LEVEL_FIELDS) {
       // The input uses optional `readonly <field>?: ...` or `readonly <field>: ... | null`.
       const re = new RegExp(`readonly\\s+${field}\\b`, "m")
-      expect(
-        re.test(body),
-        `CreateTraceEventInput missing field: ${field}`,
-      ).toBe(true)
+      expect(re.test(body), `CreateTraceEventInput missing field: ${field}`).toBe(true)
     }
   })
 

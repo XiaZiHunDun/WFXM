@@ -30,11 +30,7 @@ export {
   resolveReadModelSource,
 } from "./store-contract.js"
 export { inferProjectIdFromConversationId } from "./project-id.js"
-export {
-  type ModelDecision,
-  type ModelDecisionTag,
-  type DecodeResult,
-} from "./decision.js"
+export { type ModelDecision, type ModelDecisionTag, type DecodeResult } from "./decision.js"
 export {
   canTransitionRun,
   isTerminalRunStatus,

@@ -5,7 +5,9 @@ import { join } from "node:path"
 describe("unwired packages archival", () => {
   it("application package moved to root _archive, not in packages tree", () => {
     expect(
-      existsSync(join(process.cwd(), "_archive/packages/application/_archive/delegate-task/index.ts")),
+      existsSync(
+        join(process.cwd(), "_archive/packages/application/_archive/delegate-task/index.ts"),
+      ),
     ).toBe(true)
     expect(
       existsSync(join(process.cwd(), "_archive/packages/application/_archive/run-loop/index.ts")),

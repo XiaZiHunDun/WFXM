@@ -78,9 +78,9 @@ export async function executeToolWithFatigue(
 ): Promise<ToolExecutionDecision>
 
 export type ToolExecutionDecision =
-  | { readonly kind: 'allow' }
-  | { readonly kind: 'cooldown'; readonly durationMs: number }
-  | { readonly kind: 'checklist'; readonly items: readonly string[] }
+  | { readonly kind: "allow" }
+  | { readonly kind: "cooldown"; readonly durationMs: number }
+  | { readonly kind: "checklist"; readonly items: readonly string[] }
 ```
 
 **Caller changes:** `wechat-inbound-butler.ts` `runButlerLoopBody` calls `executeToolWithFatigue` instead of inline fatigue decision block. ~50 lines removed from caller; ~50 lines added to new file.
@@ -88,12 +88,14 @@ export type ToolExecutionDecision =
 ### 2.2 T2: 4 owner-routes partial splits
 
 **Candidates (sorted by line count):**
+
 - `apps/api/src/owner-routes/memories.ts` (503 lines) — extract largest handler(s)
 - `apps/api/src/owner-routes/traces-procedures-tasks.ts` (255 lines)
 - `apps/api/src/owner-routes/documents.ts` (255 lines)
 - `apps/api/src/owner-routes/approvals-runs.ts` (222 lines)
 
 **Split pattern (mirrors existing per-file convention):**
+
 - Identify largest handler function in each file (>50 lines)
 - Extract to new file (e.g., `owner-routes/memories-{handler}.ts`)
 - Re-export from original file (backward compat)
@@ -103,23 +105,24 @@ export type ToolExecutionDecision =
 
 **6 array-type fixes:**
 
-| File | Line | Before | After |
-|---|---|---|---|
-| checklist.ts | 1, 8, 17 | `ReadonlyArray<string>` | `readonly string[]` |
-| signal.ts | 14, 20 | `ReadonlyArray<AuditEventSummary>` | `readonly AuditEventSummary[]` |
-| signal.test.ts | 5 | `ReadonlyArray<AuditEventSummary>` | `readonly AuditEventSummary[]` |
+| File           | Line     | Before                             | After                          |
+| -------------- | -------- | ---------------------------------- | ------------------------------ |
+| checklist.ts   | 1, 8, 17 | `ReadonlyArray<string>`            | `readonly string[]`            |
+| signal.ts      | 14, 20   | `ReadonlyArray<AuditEventSummary>` | `readonly AuditEventSummary[]` |
+| signal.test.ts | 5        | `ReadonlyArray<AuditEventSummary>` | `readonly AuditEventSummary[]` |
 
 **1 unused-vars fix:**
 
-| File | Line | Before | After |
-|---|---|---|---|
-| inline-approval-wiring.ts | 28 | `ctx: ChannelContext` (never used) | `_ctx: ChannelContext` (or remove if unneeded) |
+| File                      | Line | Before                             | After                                          |
+| ------------------------- | ---- | ---------------------------------- | ---------------------------------------------- |
+| inline-approval-wiring.ts | 28   | `ctx: ChannelContext` (never used) | `_ctx: ChannelContext` (or remove if unneeded) |
 
 **Fix strategy:** Use `pnpm eslint --fix` for auto-fixable array-type. Manual review for unused-vars (decide prefix vs remove).
 
 ### 2.4 T4: D63 T2 owner-jargon 5 sites revert
 
 **Files identified with owner-jargon usage** (6 candidates, pick 5):
+
 - `apps/api/src/wechat-task-commands.ts`
 - `apps/api/src/dev-quality-gate.ts`
 - `apps/api/src/wechat-task-digest-reply.ts`
@@ -157,6 +160,7 @@ wechat-inbound-butler.ts:runButlerLoopBody
 ```
 
 **Key invariants preserved:**
+
 - Fatigue check happens AFTER inline-approval y/👌 resolution (D44 1-token preserved)
 - D63 audit_event emit pattern unchanged (no audit emit added in T1)
 - D49 UNDO_CHAIN not invoked (no undo logic in extracted function)
@@ -165,12 +169,12 @@ wechat-inbound-butler.ts:runButlerLoopBody
 
 ## 4. Error Handling
 
-| Failure | T1 behavior | T2-T5 behavior |
-|---|---|---|
-| Reader throws | `degraded: true` → policy `allow` → tool executes (D48 §4.3) | unchanged |
-| ESLint `--fix` fails on a file | manual fix per warning type | N/A |
-| Existing test fails after split | revert the split + investigate | N/A |
-| D63 T2 revert breaks reply-string test | update test same batch (memory) | N/A |
+| Failure                                | T1 behavior                                                  | T2-T5 behavior |
+| -------------------------------------- | ------------------------------------------------------------ | -------------- |
+| Reader throws                          | `degraded: true` → policy `allow` → tool executes (D48 §4.3) | unchanged      |
+| ESLint `--fix` fails on a file         | manual fix per warning type                                  | N/A            |
+| Existing test fails after split        | revert the split + investigate                               | N/A            |
+| D63 T2 revert breaks reply-string test | update test same batch (memory)                              | N/A            |
 
 **Critical:** T1 extraction must not change observable behavior. All D64 acceptance scenarios (44/44) must still pass without modification.
 
@@ -182,11 +186,11 @@ wechat-inbound-butler.ts:runButlerLoopBody
 
 **File:** `apps/api/src/lib/fatigue/execute-tool-with-fatigue.test.ts` (NEW)
 
-| Case | Description | Assertion |
-|---|---|---|
-| F1 | `allow` decision → execute tool | `result.kind === 'allow'`, tool executed |
-| F2 | `cooldown` decision → return duration | `result.kind === 'cooldown'`, `durationMs === 3000` |
-| F3 | `checklist` decision → return items | `result.kind === 'checklist'`, items.length === 2 |
+| Case | Description                           | Assertion                                           |
+| ---- | ------------------------------------- | --------------------------------------------------- |
+| F1   | `allow` decision → execute tool       | `result.kind === 'allow'`, tool executed            |
+| F2   | `cooldown` decision → return duration | `result.kind === 'cooldown'`, `durationMs === 3000` |
+| F3   | `checklist` decision → return items   | `result.kind === 'checklist'`, items.length === 2   |
 
 ### 5.2 Integration (cross-channel, reuse D64 cross-channel.test.ts)
 
@@ -211,23 +215,23 @@ No new tests — T1 extraction is internal refactor. Existing cross-channel.test
 
 ## 6. Files Changed (预估)
 
-| Track | File | Change |
-|---|---|---|
-| T1 | `apps/api/src/lib/fatigue/execute-tool-with-fatigue.ts` | NEW (~60 lines) |
-| T1 | `apps/api/src/wechat-inbound-butler.ts` | -50 lines (extract block) |
-| T1 | `apps/api/src/lib/fatigue/execute-tool-with-fatigue.test.ts` | NEW (~40 lines, 3 tests) |
-| T2 | `apps/api/src/owner-routes/memories.ts` | extract largest handler (~50-100 lines removed) |
-| T2 | `apps/api/src/owner-routes/memories-{handler}.ts` | NEW (extracted handler) |
-| T2 | (similar for traces-procedures-tasks / documents / approvals-runs) | pattern × 3 |
-| T3 | `apps/api/src/lib/fatigue/checklist.ts` | -3 lines +0 (ReadonlyArray → readonly) |
-| T3 | `apps/api/src/lib/fatigue/signal.ts` | -2 lines +0 |
-| T3 | `apps/api/src/lib/fatigue/signal.test.ts` | -1 line +0 |
-| T3 | `apps/api/src/lib/fatigue/inline-approval-wiring.ts` | -1 char (ctx → _ctx) |
-| T4 | 5 of 6 wechat-*.ts files | reply-string revert |
-| T4 | 5 corresponding *.test.ts files | assertion update same batch |
-| T5 | (sweep pass) | minor cleanup if any |
-| post-fix | `.audit/D65/{summary.md, protocol-compliance.md}` | NEW |
-| post-fix | MEMORY.md | update Current State |
+| Track    | File                                                               | Change                                          |
+| -------- | ------------------------------------------------------------------ | ----------------------------------------------- |
+| T1       | `apps/api/src/lib/fatigue/execute-tool-with-fatigue.ts`            | NEW (~60 lines)                                 |
+| T1       | `apps/api/src/wechat-inbound-butler.ts`                            | -50 lines (extract block)                       |
+| T1       | `apps/api/src/lib/fatigue/execute-tool-with-fatigue.test.ts`       | NEW (~40 lines, 3 tests)                        |
+| T2       | `apps/api/src/owner-routes/memories.ts`                            | extract largest handler (~50-100 lines removed) |
+| T2       | `apps/api/src/owner-routes/memories-{handler}.ts`                  | NEW (extracted handler)                         |
+| T2       | (similar for traces-procedures-tasks / documents / approvals-runs) | pattern × 3                                     |
+| T3       | `apps/api/src/lib/fatigue/checklist.ts`                            | -3 lines +0 (ReadonlyArray → readonly)          |
+| T3       | `apps/api/src/lib/fatigue/signal.ts`                               | -2 lines +0                                     |
+| T3       | `apps/api/src/lib/fatigue/signal.test.ts`                          | -1 line +0                                      |
+| T3       | `apps/api/src/lib/fatigue/inline-approval-wiring.ts`               | -1 char (ctx → _ctx)                            |
+| T4       | 5 of 6 wechat-*.ts files                                           | reply-string revert                             |
+| T4       | 5 corresponding *.test.ts files                                    | assertion update same batch                     |
+| T5       | (sweep pass)                                                       | minor cleanup if any                            |
+| post-fix | `.audit/D65/{summary.md, protocol-compliance.md}`                  | NEW                                             |
+| post-fix | MEMORY.md                                                          | update Current State                            |
 
 预估 net: -150 / +250 lines (split + extraction reduce nesting)
 
@@ -256,14 +260,14 @@ No new tests — T1 extraction is internal refactor. Existing cross-channel.test
 
 ## 9. Acceptance Gates (N=3 fresh verify)
 
-| Gate | Baseline | D65 expected |
-|---|---|---|
-| lint (fatigue/*.ts) | 7 warnings | 0 warnings |
-| typecheck | 0 errors | 0 new errors |
-| test:full | 1990 pass 6 pre-existing fail | 1990+ pass, 6 unchanged, 0 new fail |
-| acceptance | 44/44 | 44/44 unchanged |
-| methodology | 13/13 | 13/13 unchanged |
-| knip | 0 deadcode | 0 new deadcode |
+| Gate                | Baseline                      | D65 expected                        |
+| ------------------- | ----------------------------- | ----------------------------------- |
+| lint (fatigue/*.ts) | 7 warnings                    | 0 warnings                          |
+| typecheck           | 0 errors                      | 0 new errors                        |
+| test:full           | 1990 pass 6 pre-existing fail | 1990+ pass, 6 unchanged, 0 new fail |
+| acceptance          | 44/44                         | 44/44 unchanged                     |
+| methodology         | 13/13                         | 13/13 unchanged                     |
+| knip                | 0 deadcode                    | 0 new deadcode                      |
 
 ---
 

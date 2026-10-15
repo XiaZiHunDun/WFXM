@@ -59,15 +59,15 @@ export type ChainEntry =
       readonly tool: "run_command"
     }
   | {
-      readonly kind: "patch"  // D54 T2: apply_patch ChainEntry
+      readonly kind: "patch" // D54 T2: apply_patch ChainEntry
       readonly path: string
       readonly beforeContent: string | null
-      readonly patchContent: string  // unified diff format
+      readonly patchContent: string // unified diff format
       readonly tool: "apply_patch"
       readonly pushedAt: number
     }
   | {
-      readonly kind: "delete"  // D54 T3: delete_file ChainEntry
+      readonly kind: "delete" // D54 T3: delete_file ChainEntry
       readonly path: string
       readonly beforeContent: string | null
       readonly tool: "delete_file"
@@ -118,11 +118,8 @@ async function _safeGitHead(cwd: string): Promise<string | null> {
   if (GIT_HEAD_CACHE !== undefined) return GIT_HEAD_CACHE
   try {
     const out = await new Promise<string>((resolveP, rejectP) => {
-      execFile(
-        "git",
-        ["rev-parse", "HEAD"],
-        { cwd, timeout: 2000 },
-        (err, stdout) => (err ? rejectP(err) : resolveP(String(stdout).trim())),
+      execFile("git", ["rev-parse", "HEAD"], { cwd, timeout: 2000 }, (err, stdout) =>
+        err ? rejectP(err) : resolveP(String(stdout).trim()),
       )
     })
     GIT_HEAD_CACHE = out || null

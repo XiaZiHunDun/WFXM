@@ -38,8 +38,7 @@ const UNDO_INTENT_REGEX =
 
 // D49: chain intent (multi-tool turn undo). Match longest-first.
 // D54 T4: add "撤销这批" (6th phrase from D49 6-phrase spec → 6 of 6 impl, FULL ✓).
-const CHAIN_INTENT_REGEX =
-  /^(撤销这一轮|撤销这轮|撤销这批|撤销本次|撤销这次|\/撤销这轮)\s*$/i
+const CHAIN_INTENT_REGEX = /^(撤销这一轮|撤销这轮|撤销这批|撤销本次|撤销这次|\/撤销这轮)\s*$/i
 
 // "Explicit" form: leading `/undo` or `/撤销` (slash prefix). The full match
 // (no trailing path) triggers the graceful "请用 /undo <path>" fallback.
@@ -115,7 +114,9 @@ function formatChainReply(result: ChainRevertResult): string {
   }
   if (result.commandSideEffects.length > 0) {
     lines.push("")
-    lines.push(`以下 ${result.commandSideEffects.length} 个命令副作用需手工 reverse（无法自动 undo）：`)
+    lines.push(
+      `以下 ${result.commandSideEffects.length} 个命令副作用需手工 reverse（无法自动 undo）：`,
+    )
     for (const s of result.commandSideEffects) {
       lines.push(`• ${s.argv.join(" ")}`)
     }
@@ -139,8 +140,7 @@ export async function tryWechatUndoCommand(args: {
     return null
   }
 
-  const workspaceRoot =
-    (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim() || process.cwd()
+  const workspaceRoot = (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim() || process.cwd()
   const rest = trimmed.replace(UNDO_INTENT_REGEX, "").trim()
   const isExplicit = EXPLICIT_UNDO_REGEX.test(trimmed)
 

@@ -70,7 +70,7 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
     const app = makeHonoWithAuditFatigue(wiring)
     const res = await app.request("/v1/owner/audit/fatigue?window_seconds=120")
     expect(res.status).toBe(200)
-    expect((await res.json())).toMatchObject({ sequences: [] })
+    expect(await res.json()).toMatchObject({ sequences: [] })
   })
 
   test("GET falls back to 60s window when query param is invalid", async () => {
@@ -78,7 +78,7 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
     const app = makeHonoWithAuditFatigue(wiring)
     const res = await app.request("/v1/owner/audit/fatigue?window_seconds=-5")
     expect(res.status).toBe(200)
-    expect((await res.json())).toMatchObject({ sequences: [] })
+    expect(await res.json()).toMatchObject({ sequences: [] })
   })
 
   test("POST rejects non-object body", async () => {
@@ -198,7 +198,12 @@ describe("/v1/owner/audit/fatigue — HTTP surface (D70 T1 SO-005)", () => {
     const call = appendAuditEvent.mock.calls[0]?.[0] as {
       action: string
       subject: string
-      detail: { sequence_event_ids: string[]; replayed: number; irreversible: number; failed: number }
+      detail: {
+        sequence_event_ids: string[]
+        replayed: number
+        irreversible: number
+        failed: number
+      }
     }
     expect(call.action).toBe("owner.replay")
     // D73 T4 (audit #19 SO-011): subject now mirrors ownerActor sentinel

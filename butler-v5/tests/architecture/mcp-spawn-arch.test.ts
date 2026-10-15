@@ -12,10 +12,7 @@ import { join } from "node:path"
 
 describe("R16 architecture: MCP spawn must gate on isSandboxEnabled", () => {
   it("mcp-spawn.ts calls isSandboxEnabled before bare child_process.spawn(command, ...)", () => {
-    const src = readFileSync(
-      join(process.cwd(), "apps/api/src/mcp-spawn.ts"),
-      "utf8",
-    )
+    const src = readFileSync(join(process.cwd(), "apps/api/src/mcp-spawn.ts"), "utf8")
     // 静态检查：`isSandboxEnabled(hostEnv)` 调用必须先于裸 spawn 分支
     // （`spawn(command, ...)`，非 `spawn("bwrap", ...)`）
     const sandboxCallIdx = src.indexOf("isSandboxEnabled(")

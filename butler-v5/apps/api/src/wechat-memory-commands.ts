@@ -197,10 +197,7 @@ export async function tryWechatMemoryCommand(args: {
     const baseReply = `已记住（${shortId(saved.id)}）：${text.slice(0, 120)}${text.length > 120 ? "…" : ""}`
     if (dedupHit.kind === "error") {
       const reply = `${baseReply}\n（注：去重检查失败：${dedupHit.reason}，记忆已保存但未做重复检查）`
-      return done(reply, [
-        "wechat-memory: dedup failed",
-        `wechat-memory: remember ${saved.id}`,
-      ])
+      return done(reply, ["wechat-memory: dedup failed", `wechat-memory: remember ${saved.id}`])
     }
     return done(baseReply, [`wechat-memory: remember ${saved.id}`])
   }
@@ -235,7 +232,9 @@ export async function tryWechatMemoryCommand(args: {
     }
     const lines = [`记忆（${resolveProjectLabel(active, env)}，最近 ${items.length} 条）:`]
     for (const item of items) {
-      lines.push(`• ${shortId(item.id)} ${item.content.slice(0, 100)}${item.content.length > 100 ? "…" : ""}`)
+      lines.push(
+        `• ${shortId(item.id)} ${item.content.slice(0, 100)}${item.content.length > 100 ? "…" : ""}`,
+      )
     }
     return done(lines.join("\n"), ["wechat-memory: list"])
   }
@@ -252,10 +251,7 @@ export async function tryWechatMemoryCommand(args: {
         return done("没有待审的记忆。", ["wechat-memory: confirm none"])
       }
       const updated = await store.update(confirmDurableMemory(record, Date.now()))
-      return done(
-        `已确认记忆 ${shortId(updated.id)}。`,
-        [`wechat-memory: confirm ${updated.id}`],
-      )
+      return done(`已确认记忆 ${shortId(updated.id)}。`, [`wechat-memory: confirm ${updated.id}`])
     }
 
     if (!tokenRaw.includes(",")) {
@@ -303,12 +299,9 @@ export async function tryWechatMemoryCommand(args: {
       confirmed.push(shortId(updated.id))
     }
 
-    const okLine =
-      confirmed.length > 0 ? `已确认 ${confirmed.length} 条记忆。` : null
+    const okLine = confirmed.length > 0 ? `已确认 ${confirmed.length} 条记忆。` : null
     const failLine =
-      failed.length > 0
-        ? `${failed.length} 条未确认（${shortenReasons(failed)}）。`
-        : null
+      failed.length > 0 ? `${failed.length} 条未确认（${shortenReasons(failed)}）。` : null
     const parts = [okLine, failLine].filter((p): p is string => p !== null)
     // 注：tokens.length===0 已在 line 133 early-return，targets/failed 至少一个非空 ⇒ summary 必非空。
     const summary = parts.join("；")

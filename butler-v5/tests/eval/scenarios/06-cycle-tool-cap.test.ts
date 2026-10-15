@@ -42,7 +42,9 @@ describe("eval/06 cycle-tool-cap", () => {
     expect(result.metrics.finalDecision).toBe("Finish")
     // Stuck-loop trace should be present.
     expect(
-      result.metrics.traces.some((t) => /stuck-loop: get_current_time invoked 3x with same args; aborting/.test(t)),
+      result.metrics.traces.some((t) =>
+        /stuck-loop: get_current_time invoked 3x with same args; aborting/.test(t),
+      ),
     ).toBe(true)
     // Detection categorized as info (not warning/issue).
     const categories = result.painPoints.map((p) => p.category)

@@ -1,5 +1,9 @@
 import type { RunTrigger, RuntimeStore, StoredRun } from "@butler/domain/runtime.js"
-import { isActiveMainRunStatus, runBudgetWithTrigger, validateRunTrigger } from "@butler/domain/runtime.js"
+import {
+  isActiveMainRunStatus,
+  runBudgetWithTrigger,
+  validateRunTrigger,
+} from "@butler/domain/runtime.js"
 import { RunCoordinator } from "./run-coordinator.js"
 import { resumeFromWaitingExternal, transitionRunToTerminal } from "./run-lifecycle.js"
 import { buildWorkingSet, type WorkingSetResult } from "./working-set.js"
@@ -76,10 +80,7 @@ function isTrustedInboundTrigger(trigger: RunTrigger | undefined): boolean {
   return level === "trusted" || level === "owner"
 }
 
-function resolveInboundWorkingSetMode(
-  input: InboundRunInput,
-  run?: StoredRun,
-): WorkingSetMode {
+function resolveInboundWorkingSetMode(input: InboundRunInput, run?: StoredRun): WorkingSetMode {
   if (input.workingSetMode) return input.workingSetMode
   const fromInputTrigger = workingSetModeFromTriggerPayload(input.trigger?.payload)
   if (fromInputTrigger === "dev") return "dev"
@@ -255,9 +256,9 @@ export class RunEngine {
     const env = process.env
     const workingSetMode =
       args.workingSetMode ??
-      workingSetModeFromTriggerPayload(args.run.budget?.["triggerPayload"] as
-        | Readonly<Record<string, unknown>>
-        | undefined)
+      workingSetModeFromTriggerPayload(
+        args.run.budget?.["triggerPayload"] as Readonly<Record<string, unknown>> | undefined,
+      )
     let messages = await this.store.listMessages(args.conversationId)
     if (workingSetMode === "dev") {
       messages = filterDevHistoryNoise(messages)

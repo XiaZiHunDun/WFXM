@@ -18,7 +18,11 @@ import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { delegate, type Capability } from "@butler/runtime/delegate-runtime.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { enqueueOutbox } from "@butler/persistence/outbox.js"
-import { runSubagentWorker, buildPauseForApprovalReply, type SubagentWorkerLogger } from "./subagent-worker.js"
+import {
+  runSubagentWorker,
+  buildPauseForApprovalReply,
+  type SubagentWorkerLogger,
+} from "./subagent-worker.js"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
 import { clearAllSubscribers, subscribers } from "./ws-routes.js"
 import type { WebSocket as WsWebSocket } from "ws"
@@ -745,10 +749,7 @@ describe("subagent worker stop() (D60 T1.2)", () => {
       // Source-level assertion: the captured `timer` handle from the initial
       // setTimeout must be cleared in stop(). Reading the source is more
       // reliable than spinning up a full worker + outbox + bridge here.
-      const src = readFileSync(
-        join(process.cwd(), "apps/api/src/subagent-worker.ts"),
-        "utf8",
-      )
+      const src = readFileSync(join(process.cwd(), "apps/api/src/subagent-worker.ts"), "utf8")
       // Captured handle declaration.
       expect(src).toMatch(/let timer:\s*ReturnType<typeof setTimeout>\s*\|\s*null\s*=\s*null/)
       // Timer handle stored at the initial fire site.

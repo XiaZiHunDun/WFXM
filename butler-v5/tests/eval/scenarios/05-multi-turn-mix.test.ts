@@ -11,11 +11,7 @@
  */
 import { describe, expect, it } from "vitest"
 import { runEvalScenario, makeEvalHarness, closeEvalHarness, formatMetricLine } from "../harness.js"
-import {
-  decisionResponse,
-  makeScriptedAdapter,
-  toolCallResponse,
-} from "../mock-llm-scripted.js"
+import { decisionResponse, makeScriptedAdapter, toolCallResponse } from "../mock-llm-scripted.js"
 
 describe("eval/05 multi-turn-mix (heterogeneous capabilities)", () => {
   // 4 turns × ~1.5s setup + DB tear-down; default 10s testTimeout is too tight under

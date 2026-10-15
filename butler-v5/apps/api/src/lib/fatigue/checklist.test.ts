@@ -25,12 +25,7 @@ describe("matchSensitivity", () => {
 
 describe("HIGH_SENSITIVITY_TOOLS", () => {
   test("includes 4 patterns", () => {
-    expect(HIGH_SENSITIVITY_TOOLS).toEqual([
-      "send_*",
-      "delete_*",
-      "external_write",
-      "broadcast_*",
-    ])
+    expect(HIGH_SENSITIVITY_TOOLS).toEqual(["send_*", "delete_*", "external_write", "broadcast_*"])
   })
 })
 

@@ -5,13 +5,14 @@
 > 设计参考：[`DESIGN.md`](DESIGN.md)
 
 ---
+
 ## 0. 三层事实（生产 vs 脚手架）
 
-| 层 | 文档/代码 | Agent 怎么用 |
-| --- | --- | --- |
-| **生产** | `docs/architecture/v5-production-architecture-2026-08.md` + `apps/api` + `packages/runtime` + `packages/persistence` | 改功能、查调用链 |
-| **脚手架（未接线）** | `_archive/packages/application/`、`_archive/packages/infrastructure/` | 不要当已实现；不要用其单测声称能力已交付 |
-| **目标架构** | `DESIGN.md`、Policy/ScopedGrant/Sandbox | 规划用，不等于生产已有 |
+| 层                   | 文档/代码                                                                                                            | Agent 怎么用                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **生产**             | `docs/architecture/v5-production-architecture-2026-08.md` + `apps/api` + `packages/runtime` + `packages/persistence` | 改功能、查调用链                         |
+| **脚手架（未接线）** | `_archive/packages/application/`、`_archive/packages/infrastructure/`                                                | 不要当已实现；不要用其单测声称能力已交付 |
+| **目标架构**         | `DESIGN.md`、Policy/ScopedGrant/Sandbox                                                                              | 规划用，不等于生产已有                   |
 
 **修改 butler-v5/ 后必跑：** `cd butler-v5 && pnpm test`（默认不含 `_archive` 脚手架测试；需时用 `pnpm test:archived`）
 
@@ -21,20 +22,19 @@
 
 ---
 
-
 ## 一、项目概述
 
 Butler v5 是微信编码管家的**模块化单体**，采用 TypeScript，目标架构为**六边形（端口-适配器）**：内核 Domain→Application→Ports 单向分层，Driving/Driven 适配器走两条接缝。生产 delivery shell 为 async/await + RunEngine（见生产架构文档）。Effect-TS 是可选实现工具，只在生命周期/并发/cancel 语义处使用。目标架构见 [`DESIGN.md`](DESIGN.md) §1–§17。
 
-| 包带 | 包 | 职责 | 依赖方向 |
-| --- | --- | --- | --- |
-| Core 内核 | `runtime` | Application 编排（RunEngine / PolicyGate / 审批 / working-set） | → ports + domain |
-| Core 内核 | `domain` | 纯规则 / 聚合 / 状态机（零依赖） | 不 import 任何项目包 |
-| Ports | `ports` | 端口接口定义（Repository / Model / Capability / Channel / Clock） | 只依赖 domain 类型 |
-| Driven 适配器 | `persistence` | 唯一 schema + repo（runtime-store / event-store / outbox） | → ports + domain |
-| Driven 适配器 | `adapters` | LLM / Channel / 沙箱 / MCP | → ports + domain + 协议 SDK |
-| Driving 适配器 | `apps/*`、`cli` | HTTP / WS / CLI 入口 + Composition Root（wiring） | → Core.Ports → Core |
-| 配置/共享（可选瘦身） | `config`、`shared` | 精简后的零依赖纯工具 | 零项目依赖 |
+| 包带                  | 包                 | 职责                                                              | 依赖方向                    |
+| --------------------- | ------------------ | ----------------------------------------------------------------- | --------------------------- |
+| Core 内核             | `runtime`          | Application 编排（RunEngine / PolicyGate / 审批 / working-set）   | → ports + domain            |
+| Core 内核             | `domain`           | 纯规则 / 聚合 / 状态机（零依赖）                                  | 不 import 任何项目包        |
+| Ports                 | `ports`            | 端口接口定义（Repository / Model / Capability / Channel / Clock） | 只依赖 domain 类型          |
+| Driven 适配器         | `persistence`      | 唯一 schema + repo（runtime-store / event-store / outbox）        | → ports + domain            |
+| Driven 适配器         | `adapters`         | LLM / Channel / 沙箱 / MCP                                        | → ports + domain + 协议 SDK |
+| Driving 适配器        | `apps/*`、`cli`    | HTTP / WS / CLI 入口 + Composition Root（wiring）                 | → Core.Ports → Core         |
+| 配置/共享（可选瘦身） | `config`、`shared` | 精简后的零依赖纯工具                                              | 零项目依赖                  |
 
 > `_archive/packages/application`、`_archive/packages/infrastructure` 是**未接线脚手架**（根 `_archive/`），不在生产调用链；不要用其单测声称能力已交付。
 
@@ -67,27 +67,27 @@ Butler v5 是微信编码管家的**模块化单体**，采用 TypeScript，目�
 
 **R17 (2026-08-28) 退役 v5 AI guard hook**（DESIGN §19 工程治理 ≠ 目标架构）后，原"BLOCK：绝不允许 AI 直接修改"链路已移除。下表文件**仍需人工 review**，但不再被强制 block —— AI 工具可改，commit review + 5 gate + architecture tests 兜底。
 
-| 文件                              | 风险                                   |
-| --------------------------------- | -------------------------------------- |
-| `packages/domain/src/errors.ts`   | 全局错误 ADT，contract test 兜底       |
-| `packages/ports/src/index.ts`     | Effect Tag 接口（thin barrel），package-membership.test 兜底 |
-| `.cursorrules`                    | AI 行为规则，由 .blackboard/state.md 不要做段兜底 |
-| `AGENTS.md`                       | 本文件，由 .blackboard/state.md 顶部班段兜底 |
+| 文件                            | 风险                                                         |
+| ------------------------------- | ------------------------------------------------------------ |
+| `packages/domain/src/errors.ts` | 全局错误 ADT，contract test 兜底                             |
+| `packages/ports/src/index.ts`   | Effect Tag 接口（thin barrel），package-membership.test 兜底 |
+| `.cursorrules`                  | AI 行为规则，由 .blackboard/state.md 不要做段兜底            |
+| `AGENTS.md`                     | 本文件，由 .blackboard/state.md 顶部班段兜底                 |
 
 承重文件保护历史 ADR：`docs/adr/2026-08-08-hook-path-fix-manual-override.md`（R17 退役前最后修复）。
-| `.butler/scope-boundaries.json`   | 安全边界配置                           |
-| `.butler/load-bearing-marks.json` | 承重代码标记                           |
+| `.butler/scope-boundaries.json` | 安全边界配置 |
+| `.butler/load-bearing-marks.json` | 承重代码标记 |
 
 ## 五、工程约束
 
-| 约束        | 阈值                  | 行为                       |
-| ----------- | --------------------- | -------------------------- |
-| 单文件行数  | >800                  | 警告（建议拆分）           |
-| 单文件行数  | >1200                 | 阻止（必须拆分）           |
+| 约束        | 阈值                                                            | 行为                        |
+| ----------- | --------------------------------------------------------------- | --------------------------- |
+| 单文件行数  | >800                                                            | 警告（建议拆分）            |
+| 单文件行数  | >1200                                                           | 阻止（必须拆分）            |
 | 跨层 import | Core（runtime/domain）→ 具体适配器（persistence/adapters 实现） | 阻止（违反端口化/依赖方向） |
-| 危险模式    | `import *`            | 阻止                       |
-| 全局副作用  | 模块级 `new Map()`    | 警告（应放 Layer 内）      |
-| 死代码      | 未使用的导出          | 警告（`ts-prune` CI 检查） |
+| 危险模式    | `import *`                                                      | 阻止                        |
+| 全局副作用  | 模块级 `new Map()`                                              | 警告（应放 Layer 内）       |
+| 死代码      | 未使用的导出                                                    | 警告（`ts-prune` CI 检查）  |
 
 ## 六、Scope 边界（四栏表）
 

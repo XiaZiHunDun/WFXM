@@ -74,7 +74,13 @@ function listTsFiles(dir: string): string[] {
     const path = join(dir, entry)
     const stat = statSync(path)
     if (stat.isDirectory()) {
-      if (entry === "node_modules" || entry === "dist" || entry === "coverage" || entry === "_archive") continue
+      if (
+        entry === "node_modules" ||
+        entry === "dist" ||
+        entry === "coverage" ||
+        entry === "_archive"
+      )
+        continue
       out.push(...listTsFiles(path))
     } else if (entry.endsWith(".ts")) {
       out.push(path)
@@ -89,7 +95,8 @@ describe("§7.1 Port snapshot refresh (D37, 2026-08-31)", () => {
   // 用；production code 引它会重新引入 R2 Effect Tag 注入面（DESIGN
   // §7 + invariant 16 共同违规）。
   it("production v5 code does not import @butler/ports/r2-shim (§7.1 + invariant 16)", () => {
-    const FORBIDDEN = /from\s+["']@butler\/ports\/r2-shim["']|require\(["']@butler\/ports\/r2-shim["']\)/
+    const FORBIDDEN =
+      /from\s+["']@butler\/ports\/r2-shim["']|require\(["']@butler\/ports\/r2-shim["']\)/
     const candidateDirs = [
       join(PACKAGES_SRC, "domain/src"),
       join(PACKAGES_SRC, "runtime/src"),

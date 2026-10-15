@@ -5,6 +5,7 @@
 **Goal:** 诚实重新评估 v5 deferral state (D38 → D53 期间 trigger 状态) + 闭环 3 已知 drift items + 给 D54 (drift 对账) 准备 entry。Doc-only batch。
 
 **Architecture:**
+
 - 1 deferral reeval doc (8 段: §18 / §11.4 / D48 3 gaps / 自检 / verify / lessons / D54 handoff)
 - 1 DESIGN.md §18 + §11.4 链接 + evidence refresh
 - 1 D48 doc evidence 補 (3.3 + §6 触发表)
@@ -17,6 +18,7 @@
 **Spec:** `butler-v5/docs/superpowers/specs/2026-09-10-d53-v5-meta-audit-design.md` §3.3
 
 **WFXM 协议提醒:**
+
 - Push-to-main: feature → main 直接 push
 - Pre-commit hook: new commit 用 `--no-verify`; amend 用 probe + `--no-verify`
 - Bash backtick: commit message 用 single quote
@@ -27,19 +29,20 @@
 
 ## File Structure
 
-| 类型 | 路径 | 责任 |
-|---|---|---|
-| 新 | `butler-v5/docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md` | 8 段 reeval (Context / §18 / §11.4 / D48 3 / 自检 / Verify / Lessons / D54) |
-| 改 | `butler-v5/DESIGN.md` | §18 / §11.4 evidence 列加 D39-D52 + D53a/b SHA + link refresh |
-| 改 | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md` | §3.3 evidence 補 (D49 + D52 SHA + 计数); §6 触发表 加 D53c re-eval 日期 |
-| 新 | `butler-v5/docs/superpowers/notes/2026-09-11-d54-drift-audit-entry.md` | D54 handoff doc (1-2 段 + evidence 引用) |
-| 改 (drift 1) | `butler-v5/tests/acceptance/scenarios/realistic.test.ts` | 修文件头 + describe 行的 "35 个场景" → 实际数字 (41), preserve commit semantics |
-| 改 (drift 2) | `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json` | 加 5 D52 scenario + 1 A11 的 placeholder entries (snapshot 数字对齐 41), 标 "no recording" |
-| 改 (drift 3) | `butler-v5/vitest.config.ts` | coverage.include 扩到 6 packages (api / domain / ports / persistence / runtime / adapters), 重跑 coverage baseline update |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53c-deferral-reeval-2026-09-11.md` | fix-memory (auto-memory, no git commit) |
-| 改 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md` | +1 索引行 |
+| 类型         | 路径                                                                                                   | 责任                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| 新           | `butler-v5/docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md`                                  | 8 段 reeval (Context / §18 / §11.4 / D48 3 / 自检 / Verify / Lessons / D54)                                               |
+| 改           | `butler-v5/DESIGN.md`                                                                                  | §18 / §11.4 evidence 列加 D39-D52 + D53a/b SHA + link refresh                                                             |
+| 改           | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md`                                 | §3.3 evidence 補 (D49 + D52 SHA + 计数); §6 触发表 加 D53c re-eval 日期                                                   |
+| 新           | `butler-v5/docs/superpowers/notes/2026-09-11-d54-drift-audit-entry.md`                                 | D54 handoff doc (1-2 段 + evidence 引用)                                                                                  |
+| 改 (drift 1) | `butler-v5/tests/acceptance/scenarios/realistic.test.ts`                                               | 修文件头 + describe 行的 "35 个场景" → 实际数字 (41), preserve commit semantics                                           |
+| 改 (drift 2) | `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json`                                      | 加 5 D52 scenario + 1 A11 的 placeholder entries (snapshot 数字对齐 41), 标 "no recording"                                |
+| 改 (drift 3) | `butler-v5/vitest.config.ts`                                                                           | coverage.include 扩到 6 packages (api / domain / ports / persistence / runtime / adapters), 重跑 coverage baseline update |
+| 新           | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53c-deferral-reeval-2026-09-11.md` | fix-memory (auto-memory, no git commit)                                                                                   |
+| 改           | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`                                      | +1 索引行                                                                                                                 |
 
 **设计原则:**
+
 - 3 drift items 每个有 explicit decision (fix 或 formalize accepted gap)
 - 不重 trigger 任何 §18 / §11.4 项 (D51 协议, 等 owner 撞点)
 - D48 3 gaps 状态与 D49/D51/D52 现状一致
@@ -74,6 +77,7 @@ If you find evidence, the item is now triggered. If not, state remains unchanged
 - [ ] **Step 3: Build the §18 re-eval table**
 
 For each item, document:
+
 - Item name
 - D38 state
 - New evidence (D39-D53b SHAs that mention the item, OR "no new evidence")
@@ -82,10 +86,10 @@ For each item, document:
 
 **Format:**
 
-| Item | D38 state | New evidence | D53 state | Action |
-|---|---|---|---|---|
-| Durable Memory | not trigger | D43 PK recall SHA | unchanged | keep |
-| ... | ... | ... | ... | ... |
+| Item           | D38 state   | New evidence      | D53 state | Action |
+| -------------- | ----------- | ----------------- | --------- | ------ |
+| Durable Memory | not trigger | D43 PK recall SHA | unchanged | keep   |
+| ...            | ...         | ...               | ...       | ...    |
 
 Save this table for use in Task 4 (the reeval doc).
 
@@ -125,7 +129,7 @@ Get the 3 gaps: 3.1 approval 羊群, 3.2 LLM 量化, 3.3 chain 撤销.
 
 - [ ] **Step 2: For each gap, find status updates**
 
-- **3.1 approval 羊群**: D44 P0 inline-approval 闭环 y/👌, but 没触及 羊群. Status: not撞. 
+- **3.1 approval 羊群**: D44 P0 inline-approval 闭环 y/👌, but 没触及 羊群. Status: not撞.
   - Evidence: D44 commit 69dc924c (inline-approval y/👌) — 修相邻, 3.1 仍待撞点
   - D51 decline row in DESIGN.md
 
@@ -139,17 +143,18 @@ Get the 3 gaps: 3.1 approval 羊群, 3.2 LLM 量化, 3.3 chain 撤销.
 
 - [ ] **Step 3: Build the D48 3 gaps re-eval table**
 
-| Gap | Status | Evidence | D53 state | Action |
-|---|---|---|---|---|
-| 3.1 approval 羊群 | not撞 | D44 69dc924c, D51 decline | not撞 (unchanged) | keep decline |
-| 3.2 LLM 质量量化 | not撞 | v8 3/3 REVERT, D47, D53a protocol | not撞 (unchanged) | keep decline |
-| 3.3 chain 撤销 | partial closure | D49 2/5 ChainEntry, 5/6 phrases; D52 5 chain-undo scenarios | partial closure (unchanged) | keep (D51 protocol) |
+| Gap               | Status          | Evidence                                                    | D53 state                   | Action              |
+| ----------------- | --------------- | ----------------------------------------------------------- | --------------------------- | ------------------- |
+| 3.1 approval 羊群 | not撞           | D44 69dc924c, D51 decline                                   | not撞 (unchanged)           | keep decline        |
+| 3.2 LLM 质量量化  | not撞           | v8 3/3 REVERT, D47, D53a protocol                           | not撞 (unchanged)           | keep decline        |
+| 3.3 chain 撤销    | partial closure | D49 2/5 ChainEntry, 5/6 phrases; D52 5 chain-undo scenarios | partial closure (unchanged) | keep (D51 protocol) |
 
 ---
 
 ## Task 4: Write d53c-deferral-reeval.md (8 段 reeval doc)
 
 **Files:**
+
 - Create: `butler-v5/docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md`
 
 - [ ] **Step 1: Write the 8-section doc**
@@ -286,6 +291,7 @@ D22 §11.4 arch guard 保持。owner 撞性能 latency 之前不评估任何 1 �
 ### §4.4 D54 (drift 对账) entry
 
 D54 scope 已清晰 (D53c handoff doc Task 7):
+
 - D49 5-type 缺口 (impl 2 类, spec 5 类)
 - D49 6→5 phrases 缺口
 - memory "invertible flag" 不存在
@@ -300,6 +306,7 @@ D54 spec 写: drift 闭环, doc review + impl fix。
 ## §5 Verification gate
 
 D53c ship gates:
+
 - 2 docs committed (reeval + D54 entry)
 - 0 drift items closed (3 drift items explicit decision per task 8)
 - `pnpm test:full` (1862 + 0 new) N=3 all pass (doc-only regression check)
@@ -339,6 +346,7 @@ D53c ship gates:
 ## §7 D54 handoff
 
 D54 spec 必须 cover:
+
 - D49 5-type 缺口 (impl 2 类, spec 5 类) — close gap
 - D49 6→5 phrases 缺口 — close gap
 - memory "invertible flag" 不存在 — formalize 或 implement
@@ -370,6 +378,7 @@ git commit --no-verify -m 'docs(reeval): D53c deferral reeval 8 sections (§18 /
 ## Task 5: Update DESIGN.md + D48 doc (link refresh + evidence)
 
 **Files:**
+
 - Modify: `butler-v5/DESIGN.md`
 - Modify: `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md`
 
@@ -390,6 +399,7 @@ Read the relevant sections.
 For each §18 row, add evidence SHA(s) for the D39-D53b period. The current evidence column shows D38截止; update to D53c截止.
 
 For each row:
+
 - Existing: `D38 截止 evidence`
 - New: `D38 + D39-D53b evidence` (include D49/D51/D52 + D53a/b/c relevant SHAs)
 
@@ -402,6 +412,7 @@ Same as Step 2 for §11.4 (5 items). Most likely 0 new evidence for these (perfo
 - [ ] **Step 4: Update D48 doc §3.3 line 95 evidence**
 
 Read `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md` §3.3 (line 95-104). Add:
+
 - D49 ship commit SHAs (8 commits: 74da29c4 → 45bb28f7)
 - D52 acceptance harness 5 chain-undo scenarios SHA
 - Specific counts: "impl 2 类 ChainEntry (write_file + edit_file), 5 phrases (撤销刚才/撤销本次/撤销这次/撤销刚那一轮/撤销这批 缺), not fix per D51 协议"
@@ -411,6 +422,7 @@ Read `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md` §3.
 Add D53c re-eval date column: `2026-09-11 re-eval (D53c)` for the 3.3 row.
 
 For 3.1 and 3.2 rows, the table already shows "× declined (D51)". Add D53c re-eval date for clarity:
+
 - 3.1: × declined (D51) — 2026-09-11 re-eval (D53c) — unchanged
 - 3.2: × declined (D51) — 2026-09-11 re-eval (D53c) — unchanged
 - 3.3: (existing ⬜) — 2026-09-11 re-eval (D53c) — partial closure (D49)
@@ -428,6 +440,7 @@ git commit --no-verify -m 'docs(reeval): D53c DESIGN.md §18/§11.4 + D48 doc ev
 ## Task 6: Write D54 handoff entry doc
 
 **Files:**
+
 - Create: `butler-v5/docs/superpowers/notes/2026-09-11-d54-drift-audit-entry.md`
 
 - [ ] **Step 1: Write the entry doc**
@@ -510,6 +523,7 @@ git commit --no-verify -m 'docs(handoff): D53c D54 drift-audit entry (8 drift it
 ## Task 7: Address 3 drift items (explicit decisions)
 
 **Files:**
+
 - Modify: `butler-v5/tests/acceptance/scenarios/realistic.test.ts`
 - Modify: `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json`
 - Modify: `butler-v5/vitest.config.ts`
@@ -521,6 +535,7 @@ Read line 4 + line 45 (describe block). Current: "35 个场景". New: "41 个场
 - [ ] **Step 2: Drift 2 — recordings/ 35 vs 41**
 
 The D52 5 chain-undo scenarios + 1 A11 session-digest don't have recordings. Options:
+
 - **Option A (fix)**: Generate the 6 missing recordings (1 commit per scenario + tooling)
 - **Option B (formalize)**: Update the baseline to include 6 placeholder entries (status=0, toolCalls=0, etc.) with note "no recording captured"
 
@@ -543,6 +558,7 @@ If your JSON structure doesn't have a comment field, add a `_meta` key:
 - [ ] **Step 3: Drift 3 — vitest coverage scope**
 
 Current config: `coverage.include: ["packages/domain/src/**/*.ts"]`. Options:
+
 - **Option A (expand)**: Include all 6 packages for full coverage visibility
 - **Option B (formalize)**: Document the choice (domain is the policy layer, most testable, D54 may expand)
 
@@ -551,13 +567,17 @@ D53c decision: **Option A (expand)**. Reason: D53b coverage baseline is more val
 Edit `butler-v5/vitest.config.ts` coverage block:
 
 Before:
+
 ```ts
-coverage: { include: ["packages/domain/src/**/*.ts"] }
+coverage: {
+  include: ["packages/domain/src/**/*.ts"]
+}
 ```
 
 After:
+
 ```ts
-coverage: { 
+coverage: {
   include: [
     "packages/domain/src/**/*.ts",
     "packages/ports/src/**/*.ts",
@@ -654,17 +674,20 @@ Combine outputs:
 ## D53c ship verification (本 ship, 2026-09-11 跑)
 
 **Test results (本 ship, 2026-09-11):**
+
 - `pnpm test:methodology` — ✓ 13/13
 - `pnpm test:acceptance` — ✓ 81/81 (N=3, all 7 acceptance files pass)
 - `pnpm test:full` — ✓ 1874/1/0 (N=3, 0 fail, pre-existing skip)
 
 **Lint / typecheck / arch-guard:**
+
 - `pnpm lint` — ✓ 0
 - `pnpm typecheck` — ✓ 0 (7/7 packages)
 - `pnpm deadcode:knip` — ✓ 3 FPs only
 - `pnpm arch-proxy` (tests/architecture/) — ✓ 219/219
 
 **D53c deliverables (3 doc commits + 1 drift commit):**
+
 - 8-段 deferral reeval doc
 - DESIGN.md §18/§11.4 evidence refresh
 - D48 doc §3.3 evidence補 + §6 触发表 reeval date
@@ -679,6 +702,7 @@ Combine outputs:
 ## Task 9: Write fix-memory + MEMORY index
 
 **Files:**
+
 - Create: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53c-deferral-reeval-2026-09-11.md`
 - Modify: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`
 
@@ -709,15 +733,15 @@ metadata:
 
 **Solution (1 spec → 1 ship, <SHIPSHA>):**
 
-| 文件 | 角色 |
-|---|---|
-| `butler-v5/docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md` | 8 段 reeval (Context / §18 / §11.4 / D48 3 / 自检 / Verify / Lessons / D54 handoff) |
-| `butler-v5/DESIGN.md` | §18 / §11.4 evidence 列加 D39-D53 SHA + link refresh |
+| 文件                                                                   | 角色                                                                                           |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `butler-v5/docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md`  | 8 段 reeval (Context / §18 / §11.4 / D48 3 / 自检 / Verify / Lessons / D54 handoff)            |
+| `butler-v5/DESIGN.md`                                                  | §18 / §11.4 evidence 列加 D39-D53 SHA + link refresh                                           |
 | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md` | §3.3 evidence 補 (D49 2/5 types, 5/6 phrases, D52 5 scenarios); §6 触发表 加 D53c re-eval 日期 |
-| `butler-v5/docs/superpowers/notes/2026-09-11-d54-drift-audit-entry.md` | D54 handoff (8 drift items scope) |
-| `butler-v5/tests/acceptance/scenarios/realistic.test.ts` | 文件头 + describe 行 "35" → "41" |
-| `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json` | + 6 placeholder entries (D52 5 + A11) |
-| `butler-v5/vitest.config.ts` + `coverage-baseline.json` | coverage scope 扩到 6 packages + 重跑 baseline |
+| `butler-v5/docs/superpowers/notes/2026-09-11-d54-drift-audit-entry.md` | D54 handoff (8 drift items scope)                                                              |
+| `butler-v5/tests/acceptance/scenarios/realistic.test.ts`               | 文件头 + describe 行 "35" → "41"                                                               |
+| `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json`      | + 6 placeholder entries (D52 5 + A11)                                                          |
+| `butler-v5/vitest.config.ts` + `coverage-baseline.json`                | coverage scope 扩到 6 packages + 重跑 baseline                                                 |
 
 ## 关键决策
 
@@ -734,16 +758,16 @@ metadata:
 
 ## Verification (本 ship fresh, 2026-09-11 跑)
 
-| Gate | Status | Notes |
-|---|---|---|
-| methodology | ✓ 13/13 | unchanged |
-| acceptance (realistic N=3) | ✓ 41/41 | unchanged |
-| acceptance (full N=3) | ✓ 81/81 | 7 files ALL pass |
-| full test suite | ✓ 1874/1/0 | unchanged from D53b |
-| pnpm lint | ✓ 0 | exit 0 |
-| pnpm typecheck | ✓ 0 | 7/7 packages clean |
-| pnpm deadcode:knip | ✓ 3 FPs | unchanged from D53b |
-| arch-proxy (tests/architecture/) | ✓ 219/219 | unchanged |
+| Gate                             | Status     | Notes               |
+| -------------------------------- | ---------- | ------------------- |
+| methodology                      | ✓ 13/13    | unchanged           |
+| acceptance (realistic N=3)       | ✓ 41/41    | unchanged           |
+| acceptance (full N=3)            | ✓ 81/81    | 7 files ALL pass    |
+| full test suite                  | ✓ 1874/1/0 | unchanged from D53b |
+| pnpm lint                        | ✓ 0        | exit 0              |
+| pnpm typecheck                   | ✓ 0        | 7/7 packages clean  |
+| pnpm deadcode:knip               | ✓ 3 FPs    | unchanged from D53b |
+| arch-proxy (tests/architecture/) | ✓ 219/219  | unchanged           |
 
 ## 教训
 
@@ -797,6 +821,7 @@ Expected: fix-memory file exists, MEMORY.md has the new line
 
 Run: `cd /home/ailearn/projects/WFXM && git log --oneline -10`
 Expected: at least 4 new D53c commits:
+
 - 8-section reeval doc
 - DESIGN.md + D48 doc
 - D54 entry
@@ -825,20 +850,21 @@ Expected: latest D53c commit visible
 
 **Spec coverage check** (against D53 spec §3.3):
 
-| Spec requirement | Task |
-|---|---|
-| §3.3.1 d53c-deferral-reeval.md (8 段) | Task 4 ✓ |
-| §3.3.2 DESIGN.md §18/§11.4 link refresh | Task 5 ✓ |
-| §3.3.3 D48 doc evidence 補 | Task 5 ✓ |
-| §3.3.4 d54-drift-audit-entry.md | Task 6 ✓ |
-| §3.3.5 D53c ship gates | Task 8 ✓ |
-| 3 drift items closure (D53b fix-memory deferred) | Task 7 ✓ |
-| Fix-memory | Task 9 ✓ |
-| Push | Task 10 ✓ |
+| Spec requirement                                 | Task      |
+| ------------------------------------------------ | --------- |
+| §3.3.1 d53c-deferral-reeval.md (8 段)            | Task 4 ✓  |
+| §3.3.2 DESIGN.md §18/§11.4 link refresh          | Task 5 ✓  |
+| §3.3.3 D48 doc evidence 補                       | Task 5 ✓  |
+| §3.3.4 d54-drift-audit-entry.md                  | Task 6 ✓  |
+| §3.3.5 D53c ship gates                           | Task 8 ✓  |
+| 3 drift items closure (D53b fix-memory deferred) | Task 7 ✓  |
+| Fix-memory                                       | Task 9 ✓  |
+| Push                                             | Task 10 ✓ |
 
 **Placeholder scan:** No TBD / TODO / "implement later" / "fill in details" / "appropriate" / "edge cases" / "similar to" — confirmed.
 
 **Potential issues flagged inline:**
+
 - Task 1-3: research tasks, output is tables for use in Task 4
 - Task 7 Drift 2: D53c decision is **formalize** (not generate 6 new recordings) — fixture harness is SSOT
 - Task 7 Drift 3: D53c decision is **expand** to 6 packages (D53b was too narrow)

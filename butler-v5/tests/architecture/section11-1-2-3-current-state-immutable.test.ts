@@ -76,16 +76,10 @@ import { join } from "node:path"
 
 const SCHEMA = join(__dirname, "../../packages/persistence/src/schema.ts")
 const RUNTIME_STORE = join(__dirname, "../../packages/persistence/src/runtime-store.ts")
-const STORE_CONTRACT = join(
-  __dirname,
-  "../../packages/domain/src/runtime/store-contract.ts",
-)
+const STORE_CONTRACT = join(__dirname, "../../packages/domain/src/runtime/store-contract.ts")
 const RUN_LIFECYCLE = join(__dirname, "../../packages/runtime/src/run-lifecycle.ts")
 const EVENT_STORE = join(__dirname, "../../packages/persistence/src/event-store.ts")
-const CAPABILITY_BOUNDARY = join(
-  __dirname,
-  "../../packages/runtime/src/capability-boundary.ts",
-)
+const CAPABILITY_BOUNDARY = join(__dirname, "../../packages/runtime/src/capability-boundary.ts")
 
 describe("arch: §11.1 Current State + §11.2 Append-only + §11.3 Outbox (D28)", () => {
   // ── §11.1 Current State ────────────────────────────────────────
@@ -99,25 +93,19 @@ describe("arch: §11.1 Current State + §11.2 Append-only + §11.3 Outbox (D28)"
       /export const messages = pgTable\s*\(\s*["']messages["'][\s\S]*?\n\)\s*\n/,
     )
     expect(messagesMatch, "messages pgTable not found").not.toBeNull()
-    expect(
-      messagesMatch?.[0],
-      "messages must declare idempotencyUniq uniqueIndex",
-    ).toMatch(/idempotencyUniq:\s*uniqueIndex\(/)
-    const runsMatch = src.match(
-      /export const runs = pgTable\s*\(\s*["']runs["'][\s\S]*?\n\)\s*\n/,
+    expect(messagesMatch?.[0], "messages must declare idempotencyUniq uniqueIndex").toMatch(
+      /idempotencyUniq:\s*uniqueIndex\(/,
     )
+    const runsMatch = src.match(/export const runs = pgTable\s*\(\s*["']runs["'][\s\S]*?\n\)\s*\n/)
     expect(runsMatch, "runs pgTable not found").not.toBeNull()
-    expect(
-      runsMatch?.[0],
-      "runs must declare idempotencyUniq uniqueIndex",
-    ).toMatch(/idempotencyUniq:\s*uniqueIndex\(/)
+    expect(runsMatch?.[0], "runs must declare idempotencyUniq uniqueIndex").toMatch(
+      /idempotencyUniq:\s*uniqueIndex\(/,
+    )
   })
 
   it("§11.1: runs declares `version: integer(...).default(1)` for optimistic concurrency", () => {
     const src = readFileSync(SCHEMA, "utf-8")
-    const runsMatch = src.match(
-      /export const runs = pgTable\s*\(\s*["']runs["'][\s\S]*?\n\)\s*\n/,
-    )
+    const runsMatch = src.match(/export const runs = pgTable\s*\(\s*["']runs["'][\s\S]*?\n\)\s*\n/)
     expect(runsMatch, "runs pgTable not found").not.toBeNull()
     expect(runsMatch?.[0]).toMatch(
       /version:\s*integer\s*\(\s*["']version["']\s*\)\.notNull\(\)\.default\(1\)/,
@@ -133,9 +121,7 @@ describe("arch: §11.1 Current State + §11.2 Append-only + §11.3 Outbox (D28)"
     expect(implSrc).toMatch(/async\s+withTransaction\s*\(/)
     // run-lifecycle should wrap enough paths in transactions.
     const lifecycleSrc = readFileSync(RUN_LIFECYCLE, "utf-8")
-    const txCount = (
-      lifecycleSrc.match(/store\.withTransaction\s*\(/g) ?? []
-    ).length
+    const txCount = (lifecycleSrc.match(/store\.withTransaction\s*\(/g) ?? []).length
     expect(
       txCount,
       `run-lifecycle.ts uses store.withTransaction(...) in ${txCount} paths; want ≥ 4 (cancel/succeed/fail/resume)`,
@@ -158,37 +144,28 @@ describe("arch: §11.1 Current State + §11.2 Append-only + §11.3 Outbox (D28)"
       if (re.test(contractSrc)) violations.push(`store-contract.ts: ${re}`)
       if (re.test(implSrc)) violations.push(`runtime-store.ts: ${re}`)
     }
-    expect(
-      violations,
-      `messages update API leaked into store: ${violations.join(", ")}`,
-    ).toEqual([])
+    expect(violations, `messages update API leaked into store: ${violations.join(", ")}`).toEqual(
+      [],
+    )
   })
 
   it("§11.2: audit_events table + appendEventAndEnqueueOutbox function exist (immutable audit log)", () => {
     const schemaSrc = readFileSync(SCHEMA, "utf-8")
     expect(
-      /export\s+const\s+auditEvents\s*=\s*pgTable\s*\(\s*["']audit_events["']/.test(
-        schemaSrc,
-      ),
+      /export\s+const\s+auditEvents\s*=\s*pgTable\s*\(\s*["']audit_events["']/.test(schemaSrc),
       "audit_events pgTable must exist (D6 audit tx atomicity companion)",
     ).toBe(true)
     const eventStoreSrc = readFileSync(EVENT_STORE, "utf-8")
-    expect(eventStoreSrc).toMatch(
-      /export\s+(async\s+)?function\s+appendEventAndEnqueueOutbox\s*\(/,
-    )
+    expect(eventStoreSrc).toMatch(/export\s+(async\s+)?function\s+appendEventAndEnqueueOutbox\s*\(/)
   })
 
   // ── §11.3 Outbox ────────────────────────────────────────────────
 
   it("§11.3: outbox pgTable + appendEventAndEnqueueOutbox (single enqueue point per §20 #7)", () => {
     const schemaSrc = readFileSync(SCHEMA, "utf-8")
-    expect(schemaSrc).toMatch(
-      /export\s+const\s+outbox\s*=\s*pgTable\s*\(\s*["']outbox["']/,
-    )
+    expect(schemaSrc).toMatch(/export\s+const\s+outbox\s*=\s*pgTable\s*\(\s*["']outbox["']/)
     const eventStoreSrc = readFileSync(EVENT_STORE, "utf-8")
-    expect(eventStoreSrc).toMatch(
-      /export\s+(async\s+)?function\s+appendEventAndEnqueueOutbox\s*\(/,
-    )
+    expect(eventStoreSrc).toMatch(/export\s+(async\s+)?function\s+appendEventAndEnqueueOutbox\s*\(/)
   })
 
   // ── §11.2: 成功的低风险工具结果只写 Step，不双写 audit_events ──

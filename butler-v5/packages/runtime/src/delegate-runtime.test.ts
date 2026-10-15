@@ -173,8 +173,8 @@ describe("D5-arch-align: delegate child-cap ⊆ parent-allowlist", () => {
       notifySubject: "  owner-1  ",
     })
     expect(out.childRunId).toBeTruthy()
-    
-    expect(out.childConversationId).toMatch(/^child-/) 
+
+    expect(out.childConversationId).toMatch(/^child-/)
     const msgs = await store.listMessages(out.childConversationId)
     expect(msgs).toHaveLength(1)
     expect(msgs[0]?.content).toEqual({ text: "write a summary" })

@@ -85,14 +85,11 @@ export async function formatTaskDigestReply(args: {
   const statusReason = reasonOf(settled[0])
   const tasksReason = reasonOf(settled[1])
   const candidatesReason = reasonOf(settled[2])
-  const statusText =
-    settled[0].status === "fulfilled" ? settled[0].value : FAILURE_FALLBACK.status
+  const statusText = settled[0].status === "fulfilled" ? settled[0].value : FAILURE_FALLBACK.status
   const tasksText =
     settled[1].status === "fulfilled" ? settled[1].value.text : FAILURE_FALLBACK.tasks
   const candidatesText =
-    settled[2].status === "fulfilled"
-      ? settled[2].value.text
-      : FAILURE_FALLBACK.candidates
+    settled[2].status === "fulfilled" ? settled[2].value.text : FAILURE_FALLBACK.candidates
   const failedCount =
     (settled[0].status === "rejected" ? 1 : 0) +
     (settled[1].status === "rejected" ? 1 : 0) +

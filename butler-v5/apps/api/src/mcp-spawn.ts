@@ -1,7 +1,10 @@
 import { spawn } from "node:child_process"
 import type { StdioSpawnFn } from "@butler/adapters/mcp/stdio-transport.js"
 import { isSandboxEnabled, currentSandboxProfileName } from "@butler/runtime/sandbox/index.js"
-import { buildBubblewrapArgs, resolveSandboxProfile } from "@butler/adapters/sandbox/bubblewrap-runner.js"
+import {
+  buildBubblewrapArgs,
+  resolveSandboxProfile,
+} from "@butler/adapters/sandbox/bubblewrap-runner.js"
 import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
 
 /**

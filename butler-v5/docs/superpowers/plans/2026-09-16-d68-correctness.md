@@ -14,14 +14,14 @@
 
 ## File Structure
 
-| Track | File | Change |
-|---|---|---|
-| T1 | `tests/acceptance/scenarios/realistic.test.ts:202-229` | +5 / -3 lines (capture + assert) |
-| T2a | `apps/api/src/wechat-inbound-butler.ts:62-78` | +15 / -10 lines (reader swap + call site) |
-| T2a | `apps/api/src/wechat-inbound-butler.test.ts` | 0 new (existing F1/F2/F3 tests now verify REAL cooldown) |
-| T2b | `docs/superpowers/specs/2026-09-16-d67-acceptance-design.md` §2.2 | -10 lines (remove JSONL bridge note) |
-| post-fix | `.audit/D68/{summary.md, protocol-compliance.md}` | NEW |
-| post-fix | `MEMORY.md` | Current State update |
+| Track    | File                                                              | Change                                                   |
+| -------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| T1       | `tests/acceptance/scenarios/realistic.test.ts:202-229`            | +5 / -3 lines (capture + assert)                         |
+| T2a      | `apps/api/src/wechat-inbound-butler.ts:62-78`                     | +15 / -10 lines (reader swap + call site)                |
+| T2a      | `apps/api/src/wechat-inbound-butler.test.ts`                      | 0 new (existing F1/F2/F3 tests now verify REAL cooldown) |
+| T2b      | `docs/superpowers/specs/2026-09-16-d67-acceptance-design.md` §2.2 | -10 lines (remove JSONL bridge note)                     |
+| post-fix | `.audit/D68/{summary.md, protocol-compliance.md}`                 | NEW                                                      |
+| post-fix | `MEMORY.md`                                                       | Current State update                                     |
 
 预估 net: -50 / +30 lines (mostly net removal of workaround code + spec cleanup).
 
@@ -29,19 +29,20 @@
 
 ## Commit Plan
 
-| Task | Track | Commit |
-|---|---|---|
-| Task 1 | T1: Harness bug fix | `fix(acceptance): T1 harness bug fix capture runMultiRound result.passed` |
-| Task 2 | T2: Fix 12 stale fixtures (NEW — D68 T1 surfaced these) | `fix(acceptance): T2 fix 12 stale fixtures surfaced by harness bug fix` |
-| Task 3 | T2a: D64 reader swap | `feat(audit): T3 D64 reader swap subagentAuditAsFatigueReader → listRecentAuditEvents` |
-| Task 4 | T2b: Spec drift fix | `docs(spec): T4 D67 §2.2 remove JSONL bridge note (now matches reality)` |
-| Task 5 | post-fix: drift + raw findings | `fix(drift): D68 close` + `docs(audit): D68 archive` |
+| Task   | Track                                                   | Commit                                                                                 |
+| ------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Task 1 | T1: Harness bug fix                                     | `fix(acceptance): T1 harness bug fix capture runMultiRound result.passed`              |
+| Task 2 | T2: Fix 12 stale fixtures (NEW — D68 T1 surfaced these) | `fix(acceptance): T2 fix 12 stale fixtures surfaced by harness bug fix`                |
+| Task 3 | T2a: D64 reader swap                                    | `feat(audit): T3 D64 reader swap subagentAuditAsFatigueReader → listRecentAuditEvents` |
+| Task 4 | T2b: Spec drift fix                                     | `docs(spec): T4 D67 §2.2 remove JSONL bridge note (now matches reality)`               |
+| Task 5 | post-fix: drift + raw findings                          | `fix(drift): D68 close` + `docs(audit): D68 archive`                                   |
 
 ---
 
 ## Task 1: T1 Harness bug fix
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/realistic.test.ts:202-229` (+5 / -3 lines)
 
 ### Step 1: Run baseline tests
@@ -68,11 +69,7 @@ Edit `tests/acceptance/scenarios/realistic.test.ts:202`. Change:
 
 ```typescript
 // Before:
-await runMultiRound(
-  scenario,
-  ctx,
-  { iterations: 3, scenarioId: scenario.id }
-)
+await runMultiRound(scenario, ctx, { iterations: 3, scenarioId: scenario.id })
 // runMultiRound aggregation.all 已校验 3 round 全 pass → 走到这里说明全过
 metrics.push({
   scenarioId: scenario.id,
@@ -81,11 +78,7 @@ metrics.push({
 })
 
 // After:
-const result = await runMultiRound(
-  scenario,
-  ctx,
-  { iterations: 3, scenarioId: scenario.id }
-)
+const result = await runMultiRound(scenario, ctx, { iterations: 3, scenarioId: scenario.id })
 // D68 T1 — harness bug fix: assert result.passed (multi-round.ts:78-79 contract)
 expect(result.passed).toBe(true)
 metrics.push({
@@ -131,6 +124,7 @@ Use `--no-verify` if pre-commit hook flakes.
 ## Task 2: T2 Fix 12 stale fixtures
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/realistic.test.ts` (per-round convId)
 - Modify: `tests/acceptance/scenarios/_fixtures.ts` (3 chain env vars + C-F3 containsNone drop)
 
@@ -138,11 +132,11 @@ Use `--no-verify` if pre-commit hook flakes.
 
 D68 T1 harness bug fix exposed 12 silent failures. Triage: 9 stale fixtures + 3 spec drift + 0 real regressions.
 
-| Category | Scenarios | Root cause | Fix |
-|---|---|---|---|
-| Stale fixtures (per-round isolation) | A2, A5, A6, F2, C-F2, D3-no-followup, D1, D5 | Shared convId + PGlite state leaks from prior rounds | Per-round convId at `realistic.test.ts:192` |
-| Spec drift (D59 T5 chain fixture) | D1-chain-extension, D3-chain-commands, D4-chain-cross-conv | D59 T5 removed most-recent chainId fallback; fixtures pre-date | Add `process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-dN"` in setup |
-| Stale fixture (fixture text conflict) | C-F3-replay-api | `containsNone: ["degraded"]` violated by fixture text containing literal `degraded=false` | Drop `containsNone: ["degraded"]` |
+| Category                              | Scenarios                                                  | Root cause                                                                                | Fix                                                                 |
+| ------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Stale fixtures (per-round isolation)  | A2, A5, A6, F2, C-F2, D3-no-followup, D1, D5               | Shared convId + PGlite state leaks from prior rounds                                      | Per-round convId at `realistic.test.ts:192`                         |
+| Spec drift (D59 T5 chain fixture)     | D1-chain-extension, D3-chain-commands, D4-chain-cross-conv | D59 T5 removed most-recent chainId fallback; fixtures pre-date                            | Add `process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-dN"` in setup |
+| Stale fixture (fixture text conflict) | C-F3-replay-api                                            | `containsNone: ["degraded"]` violated by fixture text containing literal `degraded=false` | Drop `containsNone: ["degraded"]`                                   |
 
 ### Step 1: Run baseline tests (expect 40/52 from T1)
 
@@ -176,19 +170,19 @@ For each of the 3 chain scenarios, add `process.env["BUTLER_V5_CONVERSATION_ID"]
 // At the start of setup() in:
 // D1-chain-extension (around _fixtures.ts:1024)
 setup: () => {
-  process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d1"  // ← D68 T2 D59 T5 carry-over
+  process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d1" // ← D68 T2 D59 T5 carry-over
   // ... existing setup ...
 }
 
 // D3-chain-commands (around _fixtures.ts:1160)
 setup: () => {
-  process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d3"  // ← D68 T2 D59 T5 carry-over
+  process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d3" // ← D68 T2 D59 T5 carry-over
   // ... existing setup ...
 }
 
 // D4-chain-cross-conv (around _fixtures.ts:1213)
 setup: () => {
-  process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d4"  // ← D68 T2 D59 T5 carry-over
+  process.env["BUTLER_V5_CONVERSATION_ID"] = "conv-d4" // ← D68 T2 D59 T5 carry-over
   // ... existing setup ...
 }
 ```
@@ -238,6 +232,7 @@ Use `--no-verify` if pre-commit hook flakes.
 ## Task 2: T2a D64 reader swap
 
 **Files:**
+
 - Modify: `apps/api/src/wechat-inbound-butler.ts:62-78` (+15 / -10 lines)
 - Modify: `apps/api/src/wechat-inbound-butler.test.ts` (0 new — existing F1/F2/F3 tests now verify REAL cooldown)
 
@@ -261,6 +256,7 @@ grep -n "subagentAuditAsFatigueReader\|readRecentSubagentAudit" apps/api/src/wec
 ```
 
 Confirm:
+
 - Current reader reads JSONL via `readRecentSubagentAudit(50, env)`
 - Call sites construct reader with `subagentAuditAsFatigueReader(env)` — need to thread `runtimeStore` too
 
@@ -298,7 +294,7 @@ export function subagentAuditAsFatigueReader(
       return events.map((e): AuditEventSummary => ({
         event_id: e.auditId,
         tool_name: e.subject,
-        actor: "owner",  // D58 T1 convention: subject = actor
+        actor: "owner", // D58 T1 convention: subject = actor
         ts: e.createdAt.getTime(),
         decision: "allow" as const,
       }))
@@ -352,6 +348,7 @@ Use `--no-verify` if pre-commit hook flakes. **`wechat-inbound-butler.ts` is a p
 ## Task 3: T2b Spec drift fix
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-09-16-d67-acceptance-design.md` §2.2 (-10 lines)
 
 ### Step 1: Read current §2.2
@@ -383,6 +380,7 @@ Use `--no-verify` if pre-commit hook flakes.
 ## Task 4: post-fix drift closure + raw findings archive
 
 **Files:**
+
 - Modify: `.audit/D68/{summary.md, protocol-compliance.md}` (NEW)
 - Modify: `MEMORY.md` (update Current State)
 - Any drift fixes (if found)
@@ -400,6 +398,7 @@ pnpm knip 2>&1 | tail -5
 ```
 
 Expected gates:
+
 - lint (fatigue/*.ts): 0 warnings
 - typecheck: 0 errors
 - test:full: 2015+ pass, 5 unchanged pre-existing, 0 new
@@ -499,6 +498,7 @@ git push origin main
 ### Step 5: Update MEMORY.md
 
 Update Current State section:
+
 - HEAD: new SHA after T4 commit
 - State: PAUSED post-D68
 - Gates: N=3 fresh verify
@@ -509,14 +509,14 @@ Update Current State section:
 
 ## Acceptance Gates (N=3 fresh verify)
 
-| Gate | Baseline | D68 expected |
-|---|---|---|
-| lint (fatigue/*.ts) | 0 warnings | 0 unchanged |
-| typecheck | 0 errors | 0 new |
-| test:full | 2015 pass / 5 pre-existing | 2015+ pass, 5 unchanged, 0 new |
-| acceptance | 52/52 | 52/52 (now via audit_events table) |
-| methodology | 13/13 | 13/13 unchanged |
-| knip | 0 new deadcode | 0 new |
+| Gate                | Baseline                   | D68 expected                       |
+| ------------------- | -------------------------- | ---------------------------------- |
+| lint (fatigue/*.ts) | 0 warnings                 | 0 unchanged                        |
+| typecheck           | 0 errors                   | 0 new                              |
+| test:full           | 2015 pass / 5 pre-existing | 2015+ pass, 5 unchanged, 0 new     |
+| acceptance          | 52/52                      | 52/52 (now via audit_events table) |
+| methodology         | 13/13                      | 13/13 unchanged                    |
+| knip                | 0 new deadcode             | 0 new                              |
 
 ---
 

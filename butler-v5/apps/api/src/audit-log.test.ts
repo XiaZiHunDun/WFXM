@@ -10,7 +10,12 @@ import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { appendAudit, readRecentSubagentAudit, resolveSubagentAuditLogPath, type AuditEntry } from "./audit-log.js"
+import {
+  appendAudit,
+  readRecentSubagentAudit,
+  resolveSubagentAuditLogPath,
+  type AuditEntry,
+} from "./audit-log.js"
 
 const ORIGINAL_HOME = process.env["HOME"]
 const ORIGINAL_AUDIT_PATH = process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]

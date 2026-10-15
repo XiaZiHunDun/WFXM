@@ -121,7 +121,6 @@ describe.skipIf(!bwrapAvailable)("makeRunCommandTool under bubblewrap", () => {
     300_000,
   )
 
-
   it("runs python3 inside bwrap (distro python via ro-bind /etc/alternatives)", async () => {
     writeFileSync(join(root, "x.txt"), "1")
     const tool = makeRunCommandTool({ workspaceRoot: root })

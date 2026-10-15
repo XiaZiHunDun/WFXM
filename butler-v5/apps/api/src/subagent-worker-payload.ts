@@ -45,7 +45,6 @@ export function parseDelegateOutboxPayload(msg: OutboxMessage): ParsedDelegatePa
     task: typeof payload.task === "string" ? payload.task : "",
     capabilities: normalizeCapabilityNames(payload.capabilities),
     childRunId: typeof payload.childRunId === "string" ? payload.childRunId : null,
-    notifySubject:
-      typeof payload.notifySubject === "string" ? payload.notifySubject.trim() : "",
+    notifySubject: typeof payload.notifySubject === "string" ? payload.notifySubject.trim() : "",
   }
 }

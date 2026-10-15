@@ -45,9 +45,9 @@ describe("toFixSuggestion", () => {
     expect(toFixSuggestion({ _tag: "OwnerOfflineTimeout", since: 60000 })).toBe(
       "Owner 离线超时（60000ms），任务已暂停",
     )
-    expect(toFixSuggestion({ _tag: "PersistenceFailed", operation: "upsert_run", cause: "db down" })).toBe(
-      "持久化操作 upsert_run 失败：db down",
-    )
+    expect(
+      toFixSuggestion({ _tag: "PersistenceFailed", operation: "upsert_run", cause: "db down" }),
+    ).toBe("持久化操作 upsert_run 失败：db down")
   })
 
   it("unwraps nested workflow failures recursively", () => {
@@ -64,32 +64,56 @@ describe("toFixSuggestion", () => {
     expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "MissingEvidence" } })).toBe(
       "缺少 IntentReceipt，请补充 evidenceFiles [G-1]",
     )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "LoadBearingTouched", path: "core/loop.py" } })).toContain(
-      "core/loop.py",
-    )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "OwnerOffline", action: "write_file" } })).toContain(
-      "write_file",
-    )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "InvalidHumanSig", field: "ownerSig" } })).toContain(
-      "ownerSig",
-    )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "ChainIncomplete", missing: ["a.ts", "b.ts"] } })).toBe(
-      "多文件链路缺失：a.ts, b.ts [G-5]",
-    )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "VerificationLevelNotMet", required: "Standard" } })).toBe(
-      "需要 Standard 级验证 [G-6]",
-    )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "RoleConflict", author: "me", reviewer: "me" } })).toContain(
-      "me",
-    )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "HealFailed", layer: "fallback" } })).toContain(
-      "fallback",
-    )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "AntiPatternDetected", pattern: "pony" } })).toBe(
-      "检测到反模式：pony [G-9]",
-    )
-    expect(toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "ChaosFailure", scenario: "net-partition" } })).toBe(
-      "混沌演练失败：net-partition [G-10]",
-    )
+    expect(
+      toFixSuggestion({
+        _tag: "GuardRejected",
+        reason: { _tag: "LoadBearingTouched", path: "core/loop.py" },
+      }),
+    ).toContain("core/loop.py")
+    expect(
+      toFixSuggestion({
+        _tag: "GuardRejected",
+        reason: { _tag: "OwnerOffline", action: "write_file" },
+      }),
+    ).toContain("write_file")
+    expect(
+      toFixSuggestion({
+        _tag: "GuardRejected",
+        reason: { _tag: "InvalidHumanSig", field: "ownerSig" },
+      }),
+    ).toContain("ownerSig")
+    expect(
+      toFixSuggestion({
+        _tag: "GuardRejected",
+        reason: { _tag: "ChainIncomplete", missing: ["a.ts", "b.ts"] },
+      }),
+    ).toBe("多文件链路缺失：a.ts, b.ts [G-5]")
+    expect(
+      toFixSuggestion({
+        _tag: "GuardRejected",
+        reason: { _tag: "VerificationLevelNotMet", required: "Standard" },
+      }),
+    ).toBe("需要 Standard 级验证 [G-6]")
+    expect(
+      toFixSuggestion({
+        _tag: "GuardRejected",
+        reason: { _tag: "RoleConflict", author: "me", reviewer: "me" },
+      }),
+    ).toContain("me")
+    expect(
+      toFixSuggestion({ _tag: "GuardRejected", reason: { _tag: "HealFailed", layer: "fallback" } }),
+    ).toContain("fallback")
+    expect(
+      toFixSuggestion({
+        _tag: "GuardRejected",
+        reason: { _tag: "AntiPatternDetected", pattern: "pony" },
+      }),
+    ).toBe("检测到反模式：pony [G-9]")
+    expect(
+      toFixSuggestion({
+        _tag: "GuardRejected",
+        reason: { _tag: "ChaosFailure", scenario: "net-partition" },
+      }),
+    ).toBe("混沌演练失败：net-partition [G-10]")
   })
 })

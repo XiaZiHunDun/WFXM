@@ -36,10 +36,7 @@ function slackMediaKind(mimeType: string): ChannelMediaKind {
   return "file"
 }
 
-export function describeSlackFiles(
-  files: unknown,
-  textFallback = "",
-): ChannelMediaContent | null {
+export function describeSlackFiles(files: unknown, textFallback = ""): ChannelMediaContent | null {
   if (!Array.isArray(files) || files.length === 0) return null
   const media: ChannelInboundMedia[] = []
   const lines: string[] = []
@@ -47,7 +44,8 @@ export function describeSlackFiles(
     if (!entry || typeof entry !== "object") continue
     const rec = entry as Record<string, unknown>
     const name = (typeof rec["name"] === "string" ? rec["name"].trim() : "") || "attachment"
-    const mimeType = typeof rec["mimetype"] === "string" ? rec["mimetype"] : "application/octet-stream"
+    const mimeType =
+      typeof rec["mimetype"] === "string" ? rec["mimetype"] : "application/octet-stream"
     const url = typeof rec["url_private"] === "string" ? rec["url_private"] : undefined
     const sizeBytes = typeof rec["size"] === "number" ? rec["size"] : undefined
     const kind = slackMediaKind(mimeType)
@@ -62,8 +60,6 @@ export function describeSlackFiles(
   }
   if (media.length === 0) return null
   const caption = textFallback.trim()
-  const content = caption
-    ? `${caption}\n${lines.join("\n")}`
-    : lines.join("\n")
+  const content = caption ? `${caption}\n${lines.join("\n")}` : lines.join("\n")
   return { content, media }
 }

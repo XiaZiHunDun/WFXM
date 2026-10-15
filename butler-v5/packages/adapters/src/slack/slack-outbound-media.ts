@@ -38,7 +38,10 @@ export async function sendSlackOutboundFile(config: {
       body: form,
       signal: controller.signal,
     })
-    const parsed = JSON.parse(await res.text()) as { readonly ok?: boolean; readonly error?: string }
+    const parsed = JSON.parse(await res.text()) as {
+      readonly ok?: boolean
+      readonly error?: string
+    }
     if (!res.ok || !parsed.ok) {
       return { ok: false, reason: parsed.error ?? `slack files.upload HTTP ${res.status}` }
     }

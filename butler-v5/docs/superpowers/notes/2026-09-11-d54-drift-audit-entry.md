@@ -74,6 +74,7 @@
 D54 = B (drift) sub-track of D53 meta-audit. 必在 D (D53a ship) 之后启, 当前 D53a ship 已 ≥ 1 周, 风险低。
 
 依赖链:
+
 - D53a protocol (multi-round + prompt-freeze + fresh verify) → 必要
 - D53b code health baseline → 必要 (clean codebase for D54 work)
 - D53c deferral reeval → 必要 (drift 状态已 SSOT-locked)
@@ -84,6 +85,7 @@ D54 = B (drift) sub-track of D53 meta-audit. 必在 D (D53a ship) 之后启, 当
 ## D54 spec 范围 (D53a-style)
 
 D54 spec 应包含:
+
 - D53a protocol §3 fresh verification 引用 (每 ship claim 必须本 ship verify, 不复用 D53c green)
 - D49 5-type 修的设计 (是否扩大 scope)
 - memory "invertible flag" 决策 (formalize vs implement)
@@ -92,6 +94,7 @@ D54 spec 应包含:
 - 0 new drift 防御 (D49 5-type/6-phrase 修可能引入新 drift, N=3 verify)
 
 D54 spec 不应包含:
+
 - §18 / §11.4 / §11 任何 1 项重启 (D53c 闭环 0 trigger 撤销, D54 不重启)
 - D48 3 gaps closure (3.1/3.2 declined, 3.3 partial closure shipped)
 - 新 feature / 架构变更 / 性能优化

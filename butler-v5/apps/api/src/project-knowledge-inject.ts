@@ -9,7 +9,6 @@ import {
 import { envTruthy } from "./env-util.js"
 import type { ProjectKnowledgeStore } from "@butler/persistence"
 
-
 function isProjectKnowledgeInjectEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_PROJECT_KNOWLEDGE"])
 }

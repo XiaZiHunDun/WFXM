@@ -80,11 +80,7 @@ const text = (content: string): FixtureEntry => ({
   stopReason: "end_turn",
 })
 
-const tool = (
-  name: string,
-  args: Record<string, unknown>,
-  id = "tc-1",
-): FixtureEntry => ({
+const tool = (name: string, args: Record<string, unknown>, id = "tc-1"): FixtureEntry => ({
   content: "",
   toolCalls: [{ id, name, args }],
   stopReason: "tool_use",
@@ -222,10 +218,7 @@ export const scenariosA: readonly Scenario[] = [
     fixtures: {
       plan: [
         tool("read_file", { path: "packages/domain/src/foo.ts" }),
-        ...writeForApproval(
-          "packages/domain/src/foo.ts",
-          "// removed unused import\n...",
-        ),
+        ...writeForApproval("packages/domain/src/foo.ts", "// removed unused import\n..."),
       ],
     },
     expect: {
@@ -605,10 +598,7 @@ export const scenariosC: readonly Scenario[] = [
     title: "两个 task 一起",
     input: "帮我看 foo.ts 顺便把 bar.ts 也改了",
     fixtures: {
-      plan: [
-        tool("read_file", { path: "foo.ts" }),
-        text("先看 foo.ts。bar.ts 你想改什么？"),
-      ],
+      plan: [tool("read_file", { path: "foo.ts" }), text("先看 foo.ts。bar.ts 你想改什么？")],
     },
     expect: { finalDecision: "Respond", minToolCalls: 1, replyPattern: /bar/ },
   },
@@ -622,10 +612,7 @@ export const scenariosC: readonly Scenario[] = [
     },
     expect: { finalDecision: "WaitForApproval" },
     // 后续 turn 验证 idempotent — 第二次「确认」会返回 alreadyProcessed
-    followUps: [
-      { content: "确认" },
-      { content: "确认" },
-    ],
+    followUps: [{ content: "确认" }, { content: "确认" }],
     followUpPatterns: [/^[^没有]/, /已处理|无需重复/],
   },
   {
@@ -652,7 +639,11 @@ export const scenariosC: readonly Scenario[] = [
         text("Quick summary: v5 is a WeChat-based coding assistant (Effect-TS, functional arch)."),
       ],
     },
-    expect: { finalDecision: "Respond", minToolCalls: 1, replyPattern: /summary|assistant|WeChat/i },
+    expect: {
+      finalDecision: "Respond",
+      minToolCalls: 1,
+      replyPattern: /summary|assistant|WeChat/i,
+    },
   },
   // D67 T1b (audit #9 F-01 acceptance rewrite): F1-fatigue — owner 60s 内
   // 连续 y 4 个 normal tool，第 4 个走 fatigue policy.cooldown 分支。验证链：
@@ -665,7 +656,8 @@ export const scenariosC: readonly Scenario[] = [
   {
     id: "F1-fatigue",
     category: "C-edge",
-    title: "F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 REAL fatigue cooldown (audit injection)",
+    title:
+      "F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 REAL fatigue cooldown (audit injection)",
     input: "改 foo.ts 加 log",
     fixtures: {
       plan: writeForApproval("foo.ts", "// added log\n"),
@@ -687,13 +679,13 @@ export const scenariosC: readonly Scenario[] = [
       }
     },
     followUps: [
-      { content: "y" },          // approve 1 → tool execute (count=3 in log)
-      { content: "改 bar.ts" },  // write 2 → WaitForApproval
-      { content: "y" },          // approve 2 → tool execute
-      { content: "改 baz.ts" },  // write 3 → WaitForApproval
-      { content: "y" },          // approve 3 → tool execute
-      { content: "改 qux.ts" },  // write 4 → WaitForApproval
-      { content: "y" },          // approve 4 → fatigue.cooldown 路径 (3s sleep inline)
+      { content: "y" }, // approve 1 → tool execute (count=3 in log)
+      { content: "改 bar.ts" }, // write 2 → WaitForApproval
+      { content: "y" }, // approve 2 → tool execute
+      { content: "改 baz.ts" }, // write 3 → WaitForApproval
+      { content: "y" }, // approve 3 → tool execute
+      { content: "改 qux.ts" }, // write 4 → WaitForApproval
+      { content: "y" }, // approve 4 → fatigue.cooldown 路径 (3s sleep inline)
     ],
     followUpPatterns: [
       /^[^没有]/, // approve 1 成功
@@ -910,8 +902,7 @@ export const scenariosC: readonly Scenario[] = [
   {
     id: "C-additional-1",
     category: "C-edge",
-    title:
-      "C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply",
+    title: "C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply",
     input: "列出所有 active 的任务",
     fixtures: {
       plan: [
@@ -1046,15 +1037,9 @@ export const scenariosC: readonly Scenario[] = [
     input: "查一下能不能撤销刚才的操作",
     fixtures: {
       plan: [
-        text(
-          "你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。",
-        ),
-        text(
-          "你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。",
-        ),
-        text(
-          "你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。",
-        ),
+        text("你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。"),
+        text("你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。"),
+        text("你这次操作涉及其他账号的事件，owner 控制面板拒绝执行跨账号操作。"),
       ],
     },
     setup: async (ctx) => {
@@ -1215,10 +1200,7 @@ export const scenariosD: readonly Scenario[] = [
       // turn 2 "确认" resume 后 reply 不锁；turn 3 "撤销这轮" 必须含 ✅ + helper.ts。
       followUpPatterns: [/.*/, /✅|helper\.ts|还原/],
     },
-    followUps: [
-      { content: "确认" },
-      { content: "撤销这轮" },
-    ],
+    followUps: [{ content: "确认" }, { content: "撤销这轮" }],
     setup: (ctx) => {
       resetUndoChain()
       const helperPath = join(ctx.workspaceRoot, "helper.ts")
@@ -1308,7 +1290,7 @@ export const scenariosD: readonly Scenario[] = [
     expect: {
       finalDecision: "Respond",
       containsAll: ["无法自动 undo", "pnpm install lodash", "pnpm test", "git add -A"],
-      containsNone: ["✅"],  // 0 个 write revert → 无 ✅
+      containsNone: ["✅"], // 0 个 write revert → 无 ✅
     },
     verify: () => {
       // 全 non-invertible: UNDO_CHAIN 应已被清空（undoChain 末尾 delete）。
@@ -1405,9 +1387,7 @@ export const scenariosD: readonly Scenario[] = [
       ],
     },
     expect: { finalDecision: "Respond", minToolCalls: 1 },
-    followUps: [
-      { content: "owner-routes/memories.ts" },
-    ],
+    followUps: [{ content: "owner-routes/memories.ts" }],
     followUpPatterns: [/memories/],
   },
   {
@@ -1460,10 +1440,7 @@ export const scenariosD: readonly Scenario[] = [
       ],
     },
     expect: { finalDecision: "WaitForApproval" },
-    followUps: [
-      { content: "确认" },
-      { content: "它安全吗" },
-    ],
+    followUps: [{ content: "确认" }, { content: "它安全吗" }],
     followUpPatterns: [/^[^没有]/, /安全|risk|capability/i],
   },
   // D67 T2a-2 (arch boundary edge case #1): D-cross-channel-consistency —
@@ -1515,9 +1492,7 @@ export const scenariosD: readonly Scenario[] = [
     input: "列出 plan 给我看",
     fixtures: {
       plan: [
-        text(
-          "5 步 plan: read index → edit config → run test → commit → push。已列出, 待你确认。",
-        ),
+        text("5 步 plan: read index → edit config → run test → commit → push。已列出, 待你确认。"),
       ],
     },
     expect: {
@@ -1545,14 +1520,11 @@ export const scenariosD: readonly Scenario[] = [
   {
     id: "D-owner-direct-no-inbound",
     category: "D-combo",
-    title:
-      "D-owner-direct 无 inbound run: phantom audit (随机 convId) 不污染 chat reply",
+    title: "D-owner-direct 无 inbound run: phantom audit (随机 convId) 不污染 chat reply",
     input: "查 owner-direct 用量",
     fixtures: {
       plan: [
-        text(
-          "查了下当前用量统计，没看到新的 inbound run 触发。直接走 owner 用量面板查看即可。",
-        ),
+        text("查了下当前用量统计，没看到新的 inbound run 触发。直接走 owner 用量面板查看即可。"),
       ],
     },
     expect: {
@@ -1581,8 +1553,7 @@ export const scenariosD: readonly Scenario[] = [
   {
     id: "D-additional-2",
     category: "D-combo",
-    title:
-      "D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario",
+    title: "D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario",
     input: "改 bar.ts 加 log",
     fixtures: {
       plan: writeForApproval("bar.ts", "// added log\n"),
@@ -1597,8 +1568,7 @@ export const scenariosD: readonly Scenario[] = [
       // recursive 但中间层级无写权限时 mkdir 失败 → appendFileSync 抛 EACCES
       // → appendAudit catch swallow (audit-log.ts:76-78) → silent fail, scenario
       // 不受影响。
-      process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] =
-        "/nonexistent/readonly/dir/audit.jsonl"
+      process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] = "/nonexistent/readonly/dir/audit.jsonl"
       void ctx
     },
     followUps: [{ content: "确认" }],
@@ -1658,9 +1628,7 @@ export const scenariosE: readonly Scenario[] = [
     input: "你好",
     followUps: [{ content: "在吗" }],
     fixtures: {
-      plan: [
-        text("demo turn 1: 在的。"),
-      ],
+      plan: [text("demo turn 1: 在的。")],
     },
     expect: {
       finalDecision: "Respond",

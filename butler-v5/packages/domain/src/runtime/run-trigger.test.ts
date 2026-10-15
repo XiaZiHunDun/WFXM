@@ -55,9 +55,10 @@ describe("RunTrigger builders", () => {
       idempotencyKey: "k1",
     })
     expect(validateRunTrigger(trigger)).toEqual({ ok: true })
-    expect(
-      validateRunTrigger({ ...trigger, idempotencyKey: "" }),
-    ).toEqual({ ok: false, reason: "idempotencyKey is required" })
+    expect(validateRunTrigger({ ...trigger, idempotencyKey: "" })).toEqual({
+      ok: false,
+      reason: "idempotencyKey is required",
+    })
   })
 
   it("merges trigger metadata into run budget", () => {
@@ -142,10 +143,7 @@ describe("RunTrigger normalization boundaries", () => {
   it("enforces conversationRef only for channel/webhook full-run entry, not other sources", () => {
     const noRef = { subject: "u", idempotencyKey: "k" } as const
     for (const source of ["channel", "webhook"] as const) {
-      expect(
-        validateRunTrigger(buildRunTrigger({ ...noRef, source })),
-        source,
-      ).toEqual({
+      expect(validateRunTrigger(buildRunTrigger({ ...noRef, source })), source).toEqual({
         ok: false,
         reason: "conversationRef is required for channel/webhook triggers",
       })

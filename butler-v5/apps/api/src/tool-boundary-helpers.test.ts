@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import type { ScopedGrantRecord } from "@butler/domain/governance/types.js"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
-import {
-  markGrantConsumed,
-  resolveOwnerSubject,
-} from "./tool-boundary-helpers.js"
+import { markGrantConsumed, resolveOwnerSubject } from "./tool-boundary-helpers.js"
 
 describe("tool-boundary-helpers (D58 T2 cycle break)", () => {
   it("module loads cleanly — no TDZ from broken cycle", async () => {

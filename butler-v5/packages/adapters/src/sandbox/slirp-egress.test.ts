@@ -29,7 +29,7 @@ describe("slirp egress", () => {
     })
     expect(script).toContain("slirp4netns --configure")
     expect(script).toContain("trap cleanup EXIT INT TERM HUP")
-    expect(script).toContain("wait \"$SLIRP_PID\"")
+    expect(script).toContain('wait "$SLIRP_PID"')
     expect(script).toContain("$IPTABLES -w 5 -P OUTPUT DROP")
     expect(script).toContain("--share-net")
     expect(script).toContain("echo")

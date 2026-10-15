@@ -5,6 +5,7 @@
 **Goal:** Ship code health baseline (knip deadcode + vitest coverage + 0 lint/typecheck drift + TODO classification) + 修 subagent-multiturn flake (D53a route 来的), 锁住 v5 卫生基线供 D53c/D54+ 引用。
 
 **Architecture:**
+
 - 1 deadcode audit (knip) 替换 ts-prune (D45 教训 784 行假阳)
 - 1 coverage baseline (vitest --coverage → JSON)
 - 1 lint-typecheck 0-drift confirm
@@ -18,6 +19,7 @@
 **Spec:** `butler-v5/docs/superpowers/specs/2026-09-10-d53-v5-meta-audit-design.md` §3.2
 
 **WFXM 协议提醒:**
+
 - Push-to-main: feature → main 直接 push（`feedback-wfxm-push-to-main`）
 - Pre-commit hook: new commit 用 `--no-verify` 防误报; amend 用 probe + `--no-verify`
 - Bash backtick: commit message 用 single quote
@@ -28,20 +30,21 @@
 
 ## File Structure
 
-| 类型 | 路径 | 责任 |
-|---|---|---|
-| 改 | `butler-v5/package.json` | +knip devDep + `deadcode:knip` script |
-| 新 | `butler-v5/knip.json` (or `knip.config.ts`) | knip config (include 6 packages, exclude test fixtures) |
-| 新 | `butler-v5/tools/deadcode-report.md` | knip 结果分类 (true dead / false positive / fixture / cross-pkg re-export) |
-| 新 | `butler-v5/tools/coverage-baseline.json` | vitest --coverage 全量结果 (per package + low coverage modules) |
-| 新 | `butler-v5/tools/lint-typecheck-report.md` | 0-drift confirm (lint / typecheck / arch-proxy) |
-| 新 | `butler-v5/tools/todo-inventory.md` | TODO / FIXME / XXX / HACK 分类 |
-| 改 | `butler-v5/tests/acceptance/subagent-multiturn.test.ts` | D50 env isolation pattern 修 flake |
-| 多 commit | (true dead code 删除) | per file / per package 1 commit |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53b-code-health-2026-09-11.md` | fix-memory |
-| 改 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md` | +1 索引行 |
+| 类型      | 路径                                                                                               | 责任                                                                       |
+| --------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 改        | `butler-v5/package.json`                                                                           | +knip devDep + `deadcode:knip` script                                      |
+| 新        | `butler-v5/knip.json` (or `knip.config.ts`)                                                        | knip config (include 6 packages, exclude test fixtures)                    |
+| 新        | `butler-v5/tools/deadcode-report.md`                                                               | knip 结果分类 (true dead / false positive / fixture / cross-pkg re-export) |
+| 新        | `butler-v5/tools/coverage-baseline.json`                                                           | vitest --coverage 全量结果 (per package + low coverage modules)            |
+| 新        | `butler-v5/tools/lint-typecheck-report.md`                                                         | 0-drift confirm (lint / typecheck / arch-proxy)                            |
+| 新        | `butler-v5/tools/todo-inventory.md`                                                                | TODO / FIXME / XXX / HACK 分类                                             |
+| 改        | `butler-v5/tests/acceptance/subagent-multiturn.test.ts`                                            | D50 env isolation pattern 修 flake                                         |
+| 多 commit | (true dead code 删除)                                                                              | per file / per package 1 commit                                            |
+| 新        | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53b-code-health-2026-09-11.md` | fix-memory                                                                 |
+| 改        | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`                                  | +1 索引行                                                                  |
 
 **设计原则:**
+
 - `tools/` 是新 dir, 放 audit 产物, 不放 source code
 - knip config 必须 exclude test fixtures (D45 教训: ts-prune 把 fixtures 当 dead code 报 784 行假阳)
 - True dead 删除前必须 sample review ≥5 case, 防止 R2 (knip 误报) 风险
@@ -53,6 +56,7 @@
 ## Task 1: Install knip + add pnpm script
 
 **Files:**
+
 - Modify: `butler-v5/package.json`
 
 - [ ] **Step 1: Install knip as devDep**
@@ -124,10 +128,7 @@ Create `butler-v5/knip.json`:
     "**/_meta/**",
     "**/recordings/**"
   ],
-  "ignoreDependencies": [
-    "turbo",
-    "pnpm"
-  ]
+  "ignoreDependencies": ["turbo", "pnpm"]
 }
 ```
 
@@ -153,6 +154,7 @@ git commit --no-verify -m 'chore(deadcode): D53b add knip (replaces ts-prune 784
 ## Task 2: Run knip + generate deadcode-report.md
 
 **Files:**
+
 - Create: `butler-v5/tools/deadcode-report.md`
 
 - [ ] **Step 1: Run knip and save raw output**
@@ -170,6 +172,7 @@ Expected: dozens to hundreds of lines; sections for "Unused files", "Unused expo
 The raw output is unverified — knip may report false positives (especially for cross-package re-exports, dynamic imports, test fixtures). For at least 5 different "Unused files" or "Unused exports" entries:
 
 For each candidate, run:
+
 ```bash
 cd butler-v5
 # Check if the file/export is referenced anywhere
@@ -184,6 +187,7 @@ If grep finds references that knip missed, the entry is a **false positive** (li
 - [ ] **Step 4: Classify all entries into 4 buckets**
 
 Categorize each knip finding into one of:
+
 - **true dead** (no references found): candidate for deletion
 - **false positive** (grep finds references knip missed): keep, mark in report
 - **fixture** (in _fixtures/, recordings/, scripts/): keep, knip config should have ignored but verify
@@ -205,40 +209,40 @@ Create the file with this structure (adapt counts based on actual results):
 
 ## Summary
 
-| Category | Count | Action |
-|---|---|---|
-| Total knip findings | <N> | — |
-| True dead (no references) | <N> | Delete in Task 3 |
-| False positive (knip missed refs) | <N> | Keep, mark |
-| Fixture (test fixture, knip should have ignored) | <N> | Keep, fix knip config |
-| Cross-package re-export (referenced by another pkg) | <N> | Keep, mark |
-| Infrastructure (build script, entry, etc) | <N> | Keep |
+| Category                                            | Count | Action                |
+| --------------------------------------------------- | ----- | --------------------- |
+| Total knip findings                                 | <N>   | —                     |
+| True dead (no references)                           | <N>   | Delete in Task 3      |
+| False positive (knip missed refs)                   | <N>   | Keep, mark            |
+| Fixture (test fixture, knip should have ignored)    | <N>   | Keep, fix knip config |
+| Cross-package re-export (referenced by another pkg) | <N>   | Keep, mark            |
+| Infrastructure (build script, entry, etc)           | <N>   | Keep                  |
 
 ## True Dead Candidates (for Task 3 deletion)
 
-| File / Export | Path | Verification grep |
-|---|---|---|
-| `<name>` | `<path>` | `grep -rn "<name>" butler-v5 --include="*.ts"` → 0 results |
-| ... | ... | ... |
+| File / Export | Path     | Verification grep                                          |
+| ------------- | -------- | ---------------------------------------------------------- |
+| `<name>`      | `<path>` | `grep -rn "<name>" butler-v5 --include="*.ts"` → 0 results |
+| ...           | ...      | ...                                                        |
 
 ## False Positives (kept)
 
-| File / Export | Path | Why false positive |
-|---|---|---|
-| `<name>` | `<path>` | Referenced by `<other-file>` (knip config gap) |
-| ... | ... | ... |
+| File / Export | Path     | Why false positive                             |
+| ------------- | -------- | ---------------------------------------------- |
+| `<name>`      | `<path>` | Referenced by `<other-file>` (knip config gap) |
+| ...           | ...      | ...                                            |
 
 ## Fixture (kept)
 
 | File | Path | Why kept |
-|---|---|---|
-| ... | ... | ... |
+| ---- | ---- | -------- |
+| ...  | ...  | ...      |
 
 ## Cross-package re-export (kept)
 
 | File / Export | Path | Referenced by |
-|---|---|---|
-| ... | ... | ... |
+| ------------- | ---- | ------------- |
+| ...           | ...  | ...           |
 
 ## Sample Review Trail
 
@@ -277,6 +281,7 @@ From the deadcode-report.md "True Dead Candidates" table, get the list. If 0 tru
 - [ ] **Step 2: For each true dead file: pre-delete verification**
 
 For each file in the list:
+
 ```bash
 cd butler-v5
 # Final grep — must show 0 references (other than the file itself and its test)
@@ -289,6 +294,7 @@ If grep finds unexpected references, reclassify as false positive and update dea
 - [ ] **Step 3: For each true dead file: delete + N=3 verify**
 
 For each file:
+
 ```bash
 cd butler-v5
 # Delete the file
@@ -299,6 +305,7 @@ pnpm vitest run tests/acceptance 2>&1 | tail -10
 ```
 
 If N=3 fails after deletion:
+
 - The file was NOT actually dead (latent import or dynamic reference)
 - Restore the file: `git checkout <file-path>`
 - Update deadcode-report.md: reclassify as false positive
@@ -307,6 +314,7 @@ If N=3 fails after deletion:
 - [ ] **Step 4: Commit deletions (1 commit per file or batched per package)**
 
 For each successful deletion:
+
 ```bash
 cd /home/ailearn/projects/WFXM
 git add -A
@@ -314,6 +322,7 @@ git commit --no-verify -m 'chore(deadcode): D53b delete <file-basename> (knip tr
 ```
 
 Or batched per package (e.g., all dead code in packages/domain/ in 1 commit):
+
 ```bash
 git commit --no-verify -m 'chore(deadcode): D53b delete N files in packages/domain (knip true dead, N=3 verified)'
 ```
@@ -335,6 +344,7 @@ Edit `butler-v5/tools/deadcode-report.md` to add a "Post-deletion verification" 
 ## Post-deletion verification (Task 3)
 
 Re-ran knip after deletion:
+
 - Total findings: <N> (was <N>)
 - True dead: 0 (was <N>)
 - False positive: <N> (unchanged or fixed)
@@ -355,6 +365,7 @@ git commit --no-verify -m 'docs(audit): D53b deadcode report post-deletion (true
 ## Task 4: Run vitest --coverage + generate coverage-baseline.json
 
 **Files:**
+
 - Create: `butler-v5/tools/coverage-baseline.json`
 
 - [ ] **Step 1: Check current coverage config**
@@ -377,50 +388,56 @@ Expected: coverage-summary.json or coverage-final.json somewhere in coverage/
 Write a small parser script `butler-v5/tools/parse-coverage.mjs` (one-shot, not committed to scripts/):
 
 ```javascript
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs"
 
-const summary = JSON.parse(readFileSync("coverage/coverage-summary.json", "utf8"));
+const summary = JSON.parse(readFileSync("coverage/coverage-summary.json", "utf8"))
 const baseline = {
   snapshotDate: "2026-09-11",
   shipEvent: "D53b",
   total: summary.total,
   // per-file detail, optionally grouped by package
   files: {},
-};
+}
 for (const [file, data] of Object.entries(summary)) {
-  if (file === "total") continue;
+  if (file === "total") continue
   // Extract package from file path
-  const match = file.match(/(?:apps|packages)\/([^/]+)\//);
-  const pkg = match ? match[1] : "other";
-  if (!baseline[pkg]) baseline[pkg] = { files: 0, lines: 0, branches: 0, functions: 0, statements: 0 };
-  baseline[pkg].files += 1;
-  baseline[pkg].lines += data.lines?.pct ?? 0;
-  baseline[pkg].branches += data.branches?.pct ?? 0;
-  baseline[pkg].functions += data.functions?.pct ?? 0;
-  baseline[pkg].statements += data.statements?.pct ?? 0;
-  baseline.files[file] = data;
+  const match = file.match(/(?:apps|packages)\/([^/]+)\//)
+  const pkg = match ? match[1] : "other"
+  if (!baseline[pkg])
+    baseline[pkg] = { files: 0, lines: 0, branches: 0, functions: 0, statements: 0 }
+  baseline[pkg].files += 1
+  baseline[pkg].lines += data.lines?.pct ?? 0
+  baseline[pkg].branches += data.branches?.pct ?? 0
+  baseline[pkg].functions += data.functions?.pct ?? 0
+  baseline[pkg].statements += data.statements?.pct ?? 0
+  baseline.files[file] = data
 }
 // Average per package
 for (const pkg of Object.keys(baseline)) {
-  if (pkg === "snapshotDate" || pkg === "shipEvent" || pkg === "total" || pkg === "files") continue;
-  const f = baseline[pkg].files;
+  if (pkg === "snapshotDate" || pkg === "shipEvent" || pkg === "total" || pkg === "files") continue
+  const f = baseline[pkg].files
   if (f > 0) {
-    baseline[pkg].lines /= f;
-    baseline[pkg].branches /= f;
-    baseline[pkg].functions /= f;
-    baseline[pkg].statements /= f;
+    baseline[pkg].lines /= f
+    baseline[pkg].branches /= f
+    baseline[pkg].functions /= f
+    baseline[pkg].statements /= f
   }
 }
 // Find low-coverage modules (< 50% lines)
 const lowCoverage = Object.entries(summary)
   .filter(([file, data]) => file !== "total" && (data.lines?.pct ?? 100) < 50)
-  .map(([file, data]) => ({ file, lines: data.lines?.pct, branches: data.branches?.pct }));
-baseline.lowCoverageModules = lowCoverage;
-writeFileSync("tools/coverage-baseline.json", JSON.stringify(baseline, null, 2) + "\n");
-console.log("Written coverage-baseline.json");
-console.log("Total:", baseline.total);
-console.log("Packages:", Object.keys(baseline).filter(k => !["snapshotDate","shipEvent","total","files","lowCoverageModules"].includes(k)));
-console.log("Low coverage modules (< 50%):", lowCoverage.length);
+  .map(([file, data]) => ({ file, lines: data.lines?.pct, branches: data.branches?.pct }))
+baseline.lowCoverageModules = lowCoverage
+writeFileSync("tools/coverage-baseline.json", JSON.stringify(baseline, null, 2) + "\n")
+console.log("Written coverage-baseline.json")
+console.log("Total:", baseline.total)
+console.log(
+  "Packages:",
+  Object.keys(baseline).filter(
+    (k) => !["snapshotDate", "shipEvent", "total", "files", "lowCoverageModules"].includes(k),
+  ),
+)
+console.log("Low coverage modules (< 50%):", lowCoverage.length)
 ```
 
 Run: `cd butler-v5 && node tools/parse-coverage.mjs`
@@ -446,6 +463,7 @@ git commit --no-verify -m 'docs(audit): D53b coverage baseline (vitest --coverag
 ## Task 5: Run lint/typecheck/arch-proxy + generate lint-typecheck-report.md
 
 **Files:**
+
 - Create: `butler-v5/tools/lint-typecheck-report.md`
 
 - [ ] **Step 1: Run lint**
@@ -526,11 +544,13 @@ git commit --no-verify -m 'docs(audit): D53b lint-typecheck-arch 0-drift confirm
 ## Task 6: Grep TODO/FIXME + generate todo-inventory.md
 
 **Files:**
+
 - Create: `butler-v5/tools/todo-inventory.md`
 
 - [ ] **Step 1: Grep for TODO/FIXME/XXX/HACK markers**
 
 Run:
+
 ```bash
 cd butler-v5
 grep -rn "TODO\|FIXME\|XXX\|HACK" --include="*.ts" --include="*.md" \
@@ -545,6 +565,7 @@ Expected: dozens to hundreds of matches. Don't filter further yet.
 - [ ] **Step 2: Inspect and classify**
 
 For each match, determine:
+
 - **active** (referenced in a D# batch — D39, D40, D41, D42, D43, D44, D45, D46, D48, D49, D50, D51, D52, D53, D54): keep, mark which D# addresses
 - **stale** (no D# reference, code looks abandoned): candidate for delete or move to D53c deferral
 - **infrastructure** (CI scripts, pre-commit hooks, build): keep
@@ -564,37 +585,38 @@ Create the file with this structure (adapt counts based on actual results):
 
 ## Classification summary
 
-| Category | Count | Action |
-|---|---|---|
-| Active (D# referenced) | <N> | Keep, mark D# |
-| Stale (no D# ref, no recent activity) | <N> | Delete or D53c deferral |
-| Infrastructure (CI, pre-commit, build) | <N> | Keep |
-| False positive (regex matched in string literal, not a TODO) | <N> | Keep (no action) |
+| Category                                                     | Count | Action                  |
+| ------------------------------------------------------------ | ----- | ----------------------- |
+| Active (D# referenced)                                       | <N>   | Keep, mark D#           |
+| Stale (no D# ref, no recent activity)                        | <N>   | Delete or D53c deferral |
+| Infrastructure (CI, pre-commit, build)                       | <N>   | Keep                    |
+| False positive (regex matched in string literal, not a TODO) | <N>   | Keep (no action)        |
 
 ## Active TODOs (D# tracked)
 
-| File | Line | Marker | D# tracking | Status |
-|---|---|---|---|---|
-| `<file>` | `<line>` | `TODO` | D39 | In progress |
-| ... | ... | ... | ... | ... |
+| File     | Line     | Marker | D# tracking | Status      |
+| -------- | -------- | ------ | ----------- | ----------- |
+| `<file>` | `<line>` | `TODO` | D39         | In progress |
+| ...      | ...      | ...    | ...         | ...         |
 
 ## Stale TODOs (candidate for delete or D53c deferral)
 
-| File | Line | Marker | Last modified | Recommended action |
-|---|---|---|---|---|
-| `<file>` | `<line>` | `TODO` | <date> | Delete (no owner, no D#) |
-| ... | ... | ... | ... | ... |
+| File     | Line     | Marker | Last modified | Recommended action       |
+| -------- | -------- | ------ | ------------- | ------------------------ |
+| `<file>` | `<line>` | `TODO` | <date>        | Delete (no owner, no D#) |
+| ...      | ...      | ...    | ...           | ...                      |
 
 ## Infrastructure TODOs (kept)
 
-| File | Line | Marker | Why kept |
-|---|---|---|---|
+| File                     | Line     | Marker | Why kept                               |
+| ------------------------ | -------- | ------ | -------------------------------------- |
 | `<pre-commit hook file>` | `<line>` | `TODO` | Pre-commit infrastructure, intentional |
-| ... | ... | ... | ... |
+| ...                      | ...      | ...    | ...                                    |
 
 ## Action items for D53b
 
 For each stale TODO, decide:
+
 - **Delete now** (if clearly abandoned, no regression risk): delete + commit
 - **Move to D53c deferral** (if borderline, might be relevant for owner hits): add to D53c evidence list
 ```
@@ -602,6 +624,7 @@ For each stale TODO, decide:
 - [ ] **Step 4: For "Delete now" stale TODOs: actually delete them**
 
 If the inventory recommends deleting specific TODOs, do so. For each:
+
 ```bash
 cd butler-v5
 # Open the file, find the TODO comment, delete or update it
@@ -625,9 +648,11 @@ git commit --no-verify -m 'docs(audit): D53b TODO inventory (active / stale / in
 ## Task 7: Fix subagent-multiturn flake (D53a route 来的)
 
 **Files:**
+
 - Modify: `butler-v5/tests/acceptance/subagent-multiturn.test.ts`
 
 **Background:** D53a fix-memory documented this flake:
+
 - `subagent-multiturn.test.ts:40` expects 201, got 500
 - Passes in isolation (2/2 PASS in 3.86s)
 - Fails in full acceptance suite
@@ -649,6 +674,7 @@ Run: `cd butler-v5 && pnpm vitest run tests/acceptance/ --reporter=verbose 2>&1 
 Look for: which test file runs immediately before subagent-multiturn in the alphabetical/discovery order, AND fails or leaves state.
 
 Alternative: run acceptance tests in pairs to bisect:
+
 ```bash
 cd butler-v5
 # Run subagent-multiturn + one other test
@@ -660,6 +686,7 @@ Repeat with different `<other>` until you find the polluter.
 - [ ] **Step 3: Apply D50 env isolation pattern**
 
 Look at how D50 fixed a similar flake. Check git log for D50 commits:
+
 ```bash
 cd /home/ailearn/projects/WFXM
 git log --oneline --grep="wechat session state" -10
@@ -738,6 +765,7 @@ Expected: only false positives / fixture / cross-pkg re-export remaining; true d
 - [ ] **Step 7: Capture verification output for ship claim**
 
 Record:
+
 - methodology pass count
 - acceptance pass count (41/41)
 - full pass count (1862+)
@@ -754,6 +782,7 @@ These go into Task 9 fix-memory and final ship claim.
 ## Task 9: Write fix-memory + update MEMORY index
 
 **Files:**
+
 - Create: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53b-code-health-2026-09-11.md`
 - Modify: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`
 
@@ -784,16 +813,16 @@ metadata:
 
 **Solution (1 spec → 1 ship, <SHIPSHA>):**
 
-| 文件 | 角色 |
-|---|---|
-| `butler-v5/package.json` | +knip devDep + `deadcode:knip` script |
-| `butler-v5/knip.json` | knip config (6 packages + scripts/ entries, ignore fixtures/recordings) |
-| `butler-v5/tools/deadcode-report.md` | knip 4-bucket 分类 (true dead / false positive / fixture / cross-pkg re-export) + sample review trail |
-| `butler-v5/tools/coverage-baseline.json` | vitest --coverage per-package averages + low-coverage modules list |
-| `butler-v5/tools/lint-typecheck-report.md` | 0-drift confirm (lint / typecheck / arch-proxy 219/219) |
-| `butler-v5/tools/todo-inventory.md` | TODO / FIXME / XXX / HACK 分类 (active / stale / infrastructure) |
-| (true dead 删除 commits) | per file / per package: <FILES_DELETED> |
-| `butler-v5/tests/acceptance/subagent-multiturn.test.ts` | D50 env isolation pattern (mkdtempSync per-test session state) — 修 D53a route 来的 flake |
+| 文件                                                    | 角色                                                                                                  |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `butler-v5/package.json`                                | +knip devDep + `deadcode:knip` script                                                                 |
+| `butler-v5/knip.json`                                   | knip config (6 packages + scripts/ entries, ignore fixtures/recordings)                               |
+| `butler-v5/tools/deadcode-report.md`                    | knip 4-bucket 分类 (true dead / false positive / fixture / cross-pkg re-export) + sample review trail |
+| `butler-v5/tools/coverage-baseline.json`                | vitest --coverage per-package averages + low-coverage modules list                                    |
+| `butler-v5/tools/lint-typecheck-report.md`              | 0-drift confirm (lint / typecheck / arch-proxy 219/219)                                               |
+| `butler-v5/tools/todo-inventory.md`                     | TODO / FIXME / XXX / HACK 分类 (active / stale / infrastructure)                                      |
+| (true dead 删除 commits)                                | per file / per package: <FILES_DELETED>                                                               |
+| `butler-v5/tests/acceptance/subagent-multiturn.test.ts` | D50 env isolation pattern (mkdtempSync per-test session state) — 修 D53a route 来的 flake             |
 
 ## 关键决策
 
@@ -805,16 +834,16 @@ metadata:
 
 ## Verification (本 ship fresh, 2026-09-11 跑)
 
-| Gate | Status | Notes |
-|---|---|---|
-| methodology | ✓ 13/13 | D53a 协议 verifier unchanged |
-| acceptance (realistic N=3) | ✓ 41/41 | unchanged from D53a |
-| acceptance (full N=3) | ✓ ALL pass | **subagent-multiturn now passes** (was failing in D53a) |
-| full test suite | ✓ N/N | 1862+ tests, 0 fail (subagent-multiturn flake fixed) |
-| pnpm lint | ✓ 0 | exit 0 |
-| pnpm typecheck | ✓ 0 | 7/7 packages clean |
-| pnpm deadcode:knip | ✓ true dead = 0 | D45 ts-prune 假阳教训避坑 |
-| arch-proxy (tests/architecture/) | ✓ 219/219 | unchanged |
+| Gate                             | Status          | Notes                                                   |
+| -------------------------------- | --------------- | ------------------------------------------------------- |
+| methodology                      | ✓ 13/13         | D53a 协议 verifier unchanged                            |
+| acceptance (realistic N=3)       | ✓ 41/41         | unchanged from D53a                                     |
+| acceptance (full N=3)            | ✓ ALL pass      | **subagent-multiturn now passes** (was failing in D53a) |
+| full test suite                  | ✓ N/N           | 1862+ tests, 0 fail (subagent-multiturn flake fixed)    |
+| pnpm lint                        | ✓ 0             | exit 0                                                  |
+| pnpm typecheck                   | ✓ 0             | 7/7 packages clean                                      |
+| pnpm deadcode:knip               | ✓ true dead = 0 | D45 ts-prune 假阳教训避坑                               |
+| arch-proxy (tests/architecture/) | ✓ 219/219       | unchanged                                               |
 
 ## Realistic N=3 cost 数据
 
@@ -870,6 +899,7 @@ ls -la ~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53b-co
 
 Run: `cd /home/ailearn/projects/WFXM && git log --oneline -15`
 Expected: at least 8-10 new D53b commits:
+
 - knip install + config
 - deadcode report
 - N true dead deletions
@@ -904,27 +934,29 @@ Expected: latest D53b commit visible
 
 **Spec coverage check** (against D53 spec §3.2):
 
-| Spec requirement | Task |
-|---|---|
-| §3.2.1 deadcode-report.md (knip 4-bucket classification) | Task 2 ✓ |
-| §3.2.2 coverage-baseline.json (vitest --coverage, per-package) | Task 4 ✓ |
-| §3.2.3 lint-typecheck-report.md (0-drift confirm) | Task 5 ✓ |
-| §3.2.4 todo-inventory.md (TODO / FIXME / XXX / HACK classification) | Task 6 ✓ |
-| §3.2.5 true dead code deletion (per file, N=3 verify) | Task 3 ✓ |
-| §3.2.6 D53b ship gates (4 audit docs / knip true dead = 0 / coverage / test:full N=3 / lint/typecheck/arch-proxy 0) | Task 8 ✓ |
-| D53a route: subagent-multiturn flake fix | Task 7 ✓ |
-| Fix-memory | Task 9 ✓ |
-| Push to origin/main | Task 10 ✓ |
+| Spec requirement                                                                                                    | Task      |
+| ------------------------------------------------------------------------------------------------------------------- | --------- |
+| §3.2.1 deadcode-report.md (knip 4-bucket classification)                                                            | Task 2 ✓  |
+| §3.2.2 coverage-baseline.json (vitest --coverage, per-package)                                                      | Task 4 ✓  |
+| §3.2.3 lint-typecheck-report.md (0-drift confirm)                                                                   | Task 5 ✓  |
+| §3.2.4 todo-inventory.md (TODO / FIXME / XXX / HACK classification)                                                 | Task 6 ✓  |
+| §3.2.5 true dead code deletion (per file, N=3 verify)                                                               | Task 3 ✓  |
+| §3.2.6 D53b ship gates (4 audit docs / knip true dead = 0 / coverage / test:full N=3 / lint/typecheck/arch-proxy 0) | Task 8 ✓  |
+| D53a route: subagent-multiturn flake fix                                                                            | Task 7 ✓  |
+| Fix-memory                                                                                                          | Task 9 ✓  |
+| Push to origin/main                                                                                                 | Task 10 ✓ |
 
 **Placeholder scan:** No TBD / TODO / "implement later" / "fill in details" / "appropriate" / "edge cases" / "similar to" — confirmed.
 
 **Type consistency check:**
+
 - knip config schema: matches knip 5.x schema reference
 - coverage-baseline.json structure: matches spec format
 - lint-typecheck-report.md structure: matches other audit docs
 - todo-inventory.md structure: matches other audit docs
 
 **Potential issues flagged inline:**
+
 - Task 1 Step 4: knip config may need adjustment based on actual entry points; implementer should run `pnpm exec knip --include-entry-exports` first to discover
 - Task 2 Step 4: If 0 true dead findings, skip Task 3 entirely (just commit the report showing true dead = 0)
 - Task 3 Step 3: If N=3 fails after deletion, restore + reclassify (don't force-delete)

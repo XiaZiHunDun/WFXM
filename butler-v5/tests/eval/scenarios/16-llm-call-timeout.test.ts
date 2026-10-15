@@ -10,39 +10,38 @@
  */
 import { describe, expect, it } from "vitest"
 import { runEvalScenario, formatMetricLine } from "../harness.js"
-import {
-  makeScriptedAdapter,
-  textResponse,
-} from "../mock-llm-scripted.js"
+import { makeScriptedAdapter, textResponse } from "../mock-llm-scripted.js"
 
 describe("eval/16 llm-call-timeout (B-09 fix verification)", () => {
-  it("LLM 5000ms latency, llmTimeoutMs=200 → loop surfaces timeout stub", { timeout: 30_000 }, async () => {
-    const adapter = makeScriptedAdapter({
-      latencyMs: 5000, // way over the 200ms timeout
-      responses: [textResponse("")] // never reached
-    })
-    const result = await runEvalScenario({
-      name: "16-llm-call-timeout",
-      content: "请回答",
-      fromUserId: "owner-1",
-      projectId: "p-1",
-      adapter,
-      llmTimeoutMs: 200,
-    })
+  it(
+    "LLM 5000ms latency, llmTimeoutMs=200 → loop surfaces timeout stub",
+    { timeout: 30_000 },
+    async () => {
+      const adapter = makeScriptedAdapter({
+        latencyMs: 5000, // way over the 200ms timeout
+        responses: [textResponse("")], // never reached
+      })
+      const result = await runEvalScenario({
+        name: "16-llm-call-timeout",
+        content: "请回答",
+        fromUserId: "owner-1",
+        projectId: "p-1",
+        adapter,
+        llmTimeoutMs: 200,
+      })
 
-    // eslint-disable-next-line no-console -- eval scenarios log metrics to stdout
-    console.log(formatMetricLine(result.metrics))
+      // eslint-disable-next-line no-console -- eval scenarios log metrics to stdout
+      console.log(formatMetricLine(result.metrics))
 
-    expect(result.metrics.success).toBe(true)
-    expect(result.metrics.iterations).toBe(1)
-    expect(result.metrics.finalDecision).toBe("Finish")
-    // trace must surface the timeout reason
-    expect(
-      result.metrics.traces.some((t) => /LLM timeout after 200ms/.test(t)),
-    ).toBe(true)
-    // The reply is the stub (wechat stub fallback) — owner gets "已收到"
-    expect(result.metrics.reply).toContain("已收到")
-    // Loop ran in ≤ 1s (timeout 200ms + JSDOM overhead)
-    expect(result.metrics.loopMs).toBeLessThan(2000)
-  })
+      expect(result.metrics.success).toBe(true)
+      expect(result.metrics.iterations).toBe(1)
+      expect(result.metrics.finalDecision).toBe("Finish")
+      // trace must surface the timeout reason
+      expect(result.metrics.traces.some((t) => /LLM timeout after 200ms/.test(t))).toBe(true)
+      // The reply is the stub (wechat stub fallback) — owner gets "已收到"
+      expect(result.metrics.reply).toContain("已收到")
+      // Loop ran in ≤ 1s (timeout 200ms + JSDOM overhead)
+      expect(result.metrics.loopMs).toBeLessThan(2000)
+    },
+  )
 })

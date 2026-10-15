@@ -1087,10 +1087,9 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     // sweeper promotes at baseMs + 10s
     await store.markAutoPromoted({ ids: [made.value.id], now: new Date(baseMs + 10_000) })
 
-    const res = await postJSON(
-      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
-      { reason: "looks wrong" },
-    )
+    const res = await postJSON(`/v1/owner/memories/${made.value.id}/rollback-auto-promote`, {
+      reason: "looks wrong",
+    })
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       memory: {
@@ -1115,10 +1114,9 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
   })
 
   it("returns 404 when memoryId does not exist", async () => {
-    const res = await postJSON(
-      "/v1/owner/memories/nonexistent/rollback-auto-promote",
-      { reason: "test" },
-    )
+    const res = await postJSON("/v1/owner/memories/nonexistent/rollback-auto-promote", {
+      reason: "test",
+    })
     expect(res.status).toBe(404)
     const body = (await res.json()) as { ok: boolean; reason: string }
     expect(body).toEqual({ ok: false, reason: "未找到对应记录" })
@@ -1137,10 +1135,9 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     await store.create(made.value)
     // No markAutoPromoted — status remains 'candidate'
 
-    const res = await postJSON(
-      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
-      { reason: "test" },
-    )
+    const res = await postJSON(`/v1/owner/memories/${made.value.id}/rollback-auto-promote`, {
+      reason: "test",
+    })
     expect(res.status).toBe(409)
     const body = (await res.json()) as { ok: boolean; error: string; currentStatus: string }
     expect(body.ok).toBe(false)
@@ -1163,10 +1160,9 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     // does not set promotedBy. So this exercises the not-auto-promoted branch
     // (promotedBy is not 'sweeper', regardless of whether it's null or 'owner').
 
-    const res = await postJSON(
-      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
-      { reason: "test" },
-    )
+    const res = await postJSON(`/v1/owner/memories/${made.value.id}/rollback-auto-promote`, {
+      reason: "test",
+    })
     expect(res.status).toBe(409)
     const body = (await res.json()) as { ok: boolean; error: string }
     expect(body.ok).toBe(false)
@@ -1191,10 +1187,9 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     // vi.useFakeTimers() is already set by the describe-level beforeEach.
     vi.setSystemTime(new Date(baseMs + 8 * 24 * 3_600_000))
 
-    const res = await postJSON(
-      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
-      { reason: "too late" },
-    )
+    const res = await postJSON(`/v1/owner/memories/${made.value.id}/rollback-auto-promote`, {
+      reason: "too late",
+    })
     expect(res.status).toBe(409)
     const body = (await res.json()) as {
       ok: boolean
@@ -1234,10 +1229,9 @@ describe("POST /v1/owner/memories/:memoryId/rollback-auto-promote (G4)", () => {
     // persistence adapter's UPDATE.
     vi.spyOn(store, "rollbackAutoPromoted").mockResolvedValue(null)
 
-    const res = await postJSON(
-      `/v1/owner/memories/${made.value.id}/rollback-auto-promote`,
-      { reason: "test" },
-    )
+    const res = await postJSON(`/v1/owner/memories/${made.value.id}/rollback-auto-promote`, {
+      reason: "test",
+    })
     expect(res.status).toBe(409)
     const body = (await res.json()) as { ok: boolean; error: string }
     expect(body.ok).toBe(false)
@@ -1372,10 +1366,9 @@ describe("memory routes audit_events (D58 T4 §13 audit completeness)", () => {
       now: new Date(baseMs + 10_000),
     })
     const { events } = captureAuditEvents()
-    const res = await postJSON(
-      `/v1/owner/memories/${created.id}/rollback-auto-promote`,
-      { reason: "test" },
-    )
+    const res = await postJSON(`/v1/owner/memories/${created.id}/rollback-auto-promote`, {
+      reason: "test",
+    })
     expect(res.status).toBe(200)
     const found = events.find((e) => e.action === "memory.rollback")
     expect(found).toBeDefined()
@@ -1542,9 +1535,7 @@ describe("document / project-knowledge / procedure / task routes audit_events (D
       {},
     )
     expect(res.status).toBe(200)
-    const found = events.find(
-      (e) => e.action === "project_knowledge.created_from_document",
-    )
+    const found = events.find((e) => e.action === "project_knowledge.created_from_document")
     expect(found).toBeDefined()
     expect((found?.detail as { documentId?: string }).documentId).toBe(id)
   })

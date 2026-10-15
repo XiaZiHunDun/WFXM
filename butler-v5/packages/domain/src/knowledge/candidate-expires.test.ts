@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  expireOldCandidates,
-  DEFAULT_EXPIRE_TTL_MS,
-} from "./candidate-expires.js"
+import { expireOldCandidates, DEFAULT_EXPIRE_TTL_MS } from "./candidate-expires.js"
 
 describe("expireOldCandidates", () => {
   const baseMs = Date.parse("2026-09-01T00:00:00Z")
@@ -10,10 +7,7 @@ describe("expireOldCandidates", () => {
     candidates: { id: string; createdAtMs: number }[],
     markExpiredResult?: Map<string, boolean>,
   ) => {
-    const listExpiredCandidates = async (input: {
-      olderThanMs: number
-      limit?: number
-    }) => {
+    const listExpiredCandidates = async (input: { olderThanMs: number; limit?: number }) => {
       return candidates
         .filter((c) => c.createdAtMs < input.olderThanMs)
         .slice(0, input.limit ?? 1000)

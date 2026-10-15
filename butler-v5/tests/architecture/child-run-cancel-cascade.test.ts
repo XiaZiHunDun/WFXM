@@ -18,14 +18,8 @@ import { describe, expect, it } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const RUNTIME_LIFECYCLE = join(
-  __dirname,
-  "../../packages/runtime/src/run-lifecycle.ts",
-)
-const STORE_CONTRACT = join(
-  __dirname,
-  "../../packages/domain/src/runtime/store-contract.ts",
-)
+const RUNTIME_LIFECYCLE = join(__dirname, "../../packages/runtime/src/run-lifecycle.ts")
+const STORE_CONTRACT = join(__dirname, "../../packages/domain/src/runtime/store-contract.ts")
 import { readOwnerRoutesSource } from "./owner-routes-source.js"
 
 describe("arch: cancelRun cascade to descendants (§20 #7)", () => {
@@ -37,18 +31,14 @@ describe("arch: cancelRun cascade to descendants (§20 #7)", () => {
   it("cancelRunCascade calls findChildRuns for recursive descent", () => {
     const src = readFileSync(RUNTIME_LIFECYCLE, "utf-8")
     // Locate function body and check it calls store.findChildRuns at least once.
-    const fnMatch = src.match(
-      /export\s+async\s+function\s+cancelRunCascade[\s\S]+?\n\}\n/,
-    )
+    const fnMatch = src.match(/export\s+async\s+function\s+cancelRunCascade[\s\S]+?\n\}\n/)
     expect(fnMatch, "cancelRunCascade function body not found").toBeTruthy()
     expect(fnMatch?.[0] ?? "").toMatch(/findChildRuns/)
   })
 
   it("cancelRunCascade audit reason differs from owner cancel (distinguishable cascade from direct cancel)", () => {
     const src = readFileSync(RUNTIME_LIFECYCLE, "utf-8")
-    const fnMatch = src.match(
-      /export\s+async\s+function\s+cancelRunCascade[\s\S]+?\n\}\n/,
-    )
+    const fnMatch = src.match(/export\s+async\s+function\s+cancelRunCascade[\s\S]+?\n\}\n/)
     const body = fnMatch?.[0] ?? ""
     // Cascade default reason must NOT be the plain "owner_cancel" used by
     // cancelRun; it must call out the cascade so audit lineage is readable.
@@ -69,7 +59,9 @@ describe("arch: cancelRun cascade to descendants (§20 #7)", () => {
     // Find cancel-run route handler and verify it uses the cascade variant.
     // Heuristic: look for the cancelRun import and assert cancelRunCascade
     // is also imported + the route's POST handler calls the cascade variant.
-    expect(src).toMatch(/import\s+\{[^}]*cancelRunCascade[^}]*\}\s+from\s+"@butler\/runtime\/run-lifecycle\.js"/)
+    expect(src).toMatch(
+      /import\s+\{[^}]*cancelRunCascade[^}]*\}\s+from\s+"@butler\/runtime\/run-lifecycle\.js"/,
+    )
     // The cancel-Run HTTP route should call cancelRunCascade inside its try-block.
     const routeMatches = src.match(/app\.post\(\s*"\/v1\/owner\/runs\/[^"]+"[\s\S]+?c\.json\(/g)
     expect(routeMatches, "no cancel-Run route handler found").toBeTruthy()

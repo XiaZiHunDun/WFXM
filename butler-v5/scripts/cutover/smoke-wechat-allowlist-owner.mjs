@@ -61,7 +61,7 @@ async function listApprovals() {
   const res = await fetch(`${base}/v1/owner/approvals`)
   const text = await res.text()
   if (!res.ok) fail("owner/approvals", `${res.status} ${text}`)
-  return (JSON.parse(text).items ?? [])
+  return JSON.parse(text).items ?? []
 }
 
 async function approveStep(stepId, networkAllowlist) {
@@ -79,8 +79,7 @@ async function approveStep(stepId, networkAllowlist) {
 }
 
 function createPendingRunCommand(subject) {
-  const goal =
-    '直接 CallTool run_command argv=["python3","-c","print(123)"]，不要委派子代理'
+  const goal = '直接 CallTool run_command argv=["python3","-c","print(123)"]，不要委派子代理'
   const result = spawnSync(
     "pnpm",
     ["exec", "tsx", "cli/src/index.ts", "run", "--subject", subject, goal],
@@ -147,9 +146,7 @@ async function main() {
     console.log("allowlist-owner ok [wechat/scheme-b-delegate]")
   }
 
-  let pending = (await listApprovals()).filter(
-    (row) => row?.input?.capability === "run_command",
-  )
+  let pending = (await listApprovals()).filter((row) => row?.input?.capability === "run_command")
   if (pending.length === 0) {
     console.log("allowlist-owner info [wechat]: no run_command pending (expected under Scheme B)")
   }
@@ -185,7 +182,10 @@ async function main() {
         runAllowlistPnpmProbe()
         console.log("allowlist-owner ok [allowlist-pnpm probe fallback]")
       } catch (err) {
-        fail("resume/exec", `${reason}; probe fallback: ${err instanceof Error ? err.message : String(err)}`)
+        fail(
+          "resume/exec",
+          `${reason}; probe fallback: ${err instanceof Error ? err.message : String(err)}`,
+        )
       }
     } else if (!approved.ok) {
       fail("owner/approve exec", reason || JSON.stringify(approved))

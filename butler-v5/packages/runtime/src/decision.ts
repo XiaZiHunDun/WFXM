@@ -64,10 +64,8 @@ function parseModelDecisionObject(obj: Record<string, unknown>): DecodeResult {
       // is a decoder-level alias only.
       const role = obj["role"]
       const task = obj["task"]
-      if (typeof role !== "string")
-        return { ok: false, reason: "Delegate.role must be string" }
-      if (typeof task !== "string")
-        return { ok: false, reason: "Delegate.task must be string" }
+      if (typeof role !== "string") return { ok: false, reason: "Delegate.role must be string" }
+      if (typeof task !== "string") return { ok: false, reason: "Delegate.task must be string" }
       return { ok: true, value: { _tag: "StartChildRun", role, objective: task } }
     }
     case "WaitForApproval": {

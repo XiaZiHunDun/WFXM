@@ -118,30 +118,33 @@ program
   .action(
     async (
       stepId: string,
-      opts: { api: string; capability: string; elevateNetwork?: boolean; networkAllowlist?: string },
-    ) => {
-    const networkAllowlist = opts.networkAllowlist
-      ?.split(",")
-      .map((part) => part.trim())
-      .filter((part) => part.length > 0)
-    const res = await fetch(
-      `${opts.api}/v1/owner/approvals/${encodeURIComponent(stepId)}/approve`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          capabilities: [opts.capability],
-          ...(opts.elevateNetwork ? { elevateNetwork: true } : {}),
-          ...(networkAllowlist && networkAllowlist.length > 0
-            ? { networkAllowlist }
-            : {}),
-        }),
+      opts: {
+        api: string
+        capability: string
+        elevateNetwork?: boolean
+        networkAllowlist?: string
       },
-    )
-    console.log(await res.text())
-  },
+    ) => {
+      const networkAllowlist = opts.networkAllowlist
+        ?.split(",")
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0)
+      const res = await fetch(
+        `${opts.api}/v1/owner/approvals/${encodeURIComponent(stepId)}/approve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            capabilities: [opts.capability],
+            ...(opts.elevateNetwork ? { elevateNetwork: true } : {}),
+            ...(networkAllowlist && networkAllowlist.length > 0 ? { networkAllowlist } : {}),
+          }),
+        },
+      )
+      console.log(await res.text())
+    },
   )
 
 program
@@ -232,9 +235,7 @@ program
     const result = await preflightBubblewrap(opts.bwrap)
     if (!result.ok) {
       console.error(result.reason)
-      console.error(
-        "Install bubblewrap (e.g. apt install bubblewrap) or unset BUTLER_V5_SANDBOX.",
-      )
+      console.error("Install bubblewrap (e.g. apt install bubblewrap) or unset BUTLER_V5_SANDBOX.")
       process.exit(1)
     }
     console.log(`bubblewrap ok: ${result.bwrapPath} (${result.version})`)
@@ -248,14 +249,14 @@ program
   .option("--workspace <path>", "workspace root for bwrap bind")
   .option("--probe-url <url>", "HTTP URL to fetch inside sandbox", "http://127.0.0.1:3000/healthz")
   .action(async (opts: { workspace?: string; probeUrl: string }) => {
-    const {
-      createDefaultProcessRunner,
-      probeSandboxNetworkIsolation,
-    } = await import("@butler/adapters/sandbox/sandbox-probe.js")
-    const workspaceRoot =
-      (opts.workspace ?? process.env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim()
-    const productionEnabled =
-      (process.env["BUTLER_V5_SANDBOX"] ?? "").trim() === "bubblewrap"
+    const { createDefaultProcessRunner, probeSandboxNetworkIsolation } =
+      await import("@butler/adapters/sandbox/sandbox-probe.js")
+    const workspaceRoot = (
+      opts.workspace ??
+      process.env["BUTLER_V5_WORKSPACE_ROOT"] ??
+      process.cwd()
+    ).trim()
+    const productionEnabled = (process.env["BUTLER_V5_SANDBOX"] ?? "").trim() === "bubblewrap"
     const result = await probeSandboxNetworkIsolation({
       workspaceRoot,
       env: { ...process.env, BUTLER_V5_SANDBOX: "bubblewrap" },
@@ -282,12 +283,13 @@ program
   .description("Verify Grant networkAllowlist egress proxy allows/blocks host:port (P2c)")
   .option("--workspace <path>", "workspace root for bwrap bind")
   .action(async (opts: { workspace?: string }) => {
-    const {
-      createDefaultProcessRunner,
-      probeSandboxAllowlistEgress,
-    } = await import("@butler/adapters/sandbox/sandbox-probe.js")
-    const workspaceRoot =
-      (opts.workspace ?? process.env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim()
+    const { createDefaultProcessRunner, probeSandboxAllowlistEgress } =
+      await import("@butler/adapters/sandbox/sandbox-probe.js")
+    const workspaceRoot = (
+      opts.workspace ??
+      process.env["BUTLER_V5_WORKSPACE_ROOT"] ??
+      process.cwd()
+    ).trim()
     const result = await probeSandboxAllowlistEgress({
       workspaceRoot,
       runner: createDefaultProcessRunner(),
@@ -307,12 +309,13 @@ program
   .description("Verify P2d slirp netns blocks raw socket bypass (needs slirp4netns + unshare)")
   .option("--workspace <path>", "workspace root for bwrap bind")
   .action(async (opts: { workspace?: string }) => {
-    const {
-      createDefaultProcessRunner,
-      probeSandboxAllowlistSlirpIsolation,
-    } = await import("@butler/adapters/sandbox/sandbox-probe.js")
-    const workspaceRoot =
-      (opts.workspace ?? process.env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim()
+    const { createDefaultProcessRunner, probeSandboxAllowlistSlirpIsolation } =
+      await import("@butler/adapters/sandbox/sandbox-probe.js")
+    const workspaceRoot = (
+      opts.workspace ??
+      process.env["BUTLER_V5_WORKSPACE_ROOT"] ??
+      process.cwd()
+    ).trim()
     const result = await probeSandboxAllowlistSlirpIsolation({
       workspaceRoot,
       env: {
@@ -349,14 +352,14 @@ program
   .description("Live npm registry HTTPS fetch via allowlist egress proxy (needs network)")
   .option("--workspace <path>", "workspace root for bwrap bind")
   .action(async (opts: { workspace?: string }) => {
-    const { probeAllowlistPnpmRegistry } = await import(
-      "@butler/adapters/sandbox/sandbox-probe.js"
-    )
-    const { probeSandboxAllowlistEgress, createDefaultProcessRunner } = await import(
-      "@butler/adapters/sandbox/sandbox-probe.js"
-    )
-    const workspaceRoot =
-      (opts.workspace ?? process.env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim()
+    const { probeAllowlistPnpmRegistry } = await import("@butler/adapters/sandbox/sandbox-probe.js")
+    const { probeSandboxAllowlistEgress, createDefaultProcessRunner } =
+      await import("@butler/adapters/sandbox/sandbox-probe.js")
+    const workspaceRoot = (
+      opts.workspace ??
+      process.env["BUTLER_V5_WORKSPACE_ROOT"] ??
+      process.cwd()
+    ).trim()
     const local = await probeSandboxAllowlistEgress({
       workspaceRoot,
       runner: createDefaultProcessRunner(),
@@ -380,58 +383,60 @@ program
   .argument("[arg]", "content for add, or memoryId for confirm/reject/delete")
   .option("--api <url>", "API base URL", "http://127.0.0.1:3000")
   .option("--subject <id>", "memory subject", "owner")
-  .action(async (action: string, arg: string | undefined, opts: { api: string; subject: string }) => {
-    const headers = {
-      "content-type": "application/json",
-    }
-    if (action === "list") {
-      const res = await fetch(
-        `${opts.api}/v1/owner/memories?subject=${encodeURIComponent(opts.subject)}`,
-        { headers },
-      )
-      console.log(await res.text())
-      if (!res.ok) process.exit(1)
-      return
-    }
-    if (action === "add") {
-      if (!arg?.trim()) {
-        console.error("usage: butler memory add <content>")
-        process.exit(1)
+  .action(
+    async (action: string, arg: string | undefined, opts: { api: string; subject: string }) => {
+      const headers = {
+        "content-type": "application/json",
       }
-      const res = await fetch(`${opts.api}/v1/owner/memories`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          subject: opts.subject,
-          content: arg,
-          sourceKind: "owner",
-        }),
-      })
-      console.log(await res.text())
-      if (!res.ok) process.exit(1)
-      return
-    }
-    if (action === "confirm" || action === "reject" || action === "delete") {
-      if (!arg?.trim()) {
-        console.error(`usage: butler memory ${action} <memoryId>`)
-        process.exit(1)
+      if (action === "list") {
+        const res = await fetch(
+          `${opts.api}/v1/owner/memories?subject=${encodeURIComponent(opts.subject)}`,
+          { headers },
+        )
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
       }
-      const res = await fetch(
-        action === "delete"
-          ? `${opts.api}/v1/owner/memories/${arg}`
-          : `${opts.api}/v1/owner/memories/${arg}/${action}`,
-        {
-          method: action === "delete" ? "DELETE" : "POST",
+      if (action === "add") {
+        if (!arg?.trim()) {
+          console.error("usage: butler memory add <content>")
+          process.exit(1)
+        }
+        const res = await fetch(`${opts.api}/v1/owner/memories`, {
+          method: "POST",
           headers,
-        },
-      )
-      console.log(await res.text())
-      if (!res.ok) process.exit(1)
-      return
-    }
-    console.error("action must be list | add | confirm | reject | delete")
-    process.exit(1)
-  })
+          body: JSON.stringify({
+            subject: opts.subject,
+            content: arg,
+            sourceKind: "owner",
+          }),
+        })
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      if (action === "confirm" || action === "reject" || action === "delete") {
+        if (!arg?.trim()) {
+          console.error(`usage: butler memory ${action} <memoryId>`)
+          process.exit(1)
+        }
+        const res = await fetch(
+          action === "delete"
+            ? `${opts.api}/v1/owner/memories/${arg}`
+            : `${opts.api}/v1/owner/memories/${arg}/${action}`,
+          {
+            method: action === "delete" ? "DELETE" : "POST",
+            headers,
+          },
+        )
+        console.log(await res.text())
+        if (!res.ok) process.exit(1)
+        return
+      }
+      console.error("action must be list | add | confirm | reject | delete")
+      process.exit(1)
+    },
+  )
 
 program
   .command("project-knowledge")
@@ -452,7 +457,9 @@ program
       const headers = { "content-type": "application/json" }
       const base = `${opts.api}/v1/owner/project-knowledge`
       if (action === "list") {
-        const res = await fetch(`${base}?projectId=${encodeURIComponent(opts.project)}`, { headers })
+        const res = await fetch(`${base}?projectId=${encodeURIComponent(opts.project)}`, {
+          headers,
+        })
         console.log(await res.text())
         if (!res.ok) process.exit(1)
         return
@@ -729,9 +736,7 @@ program
             subject: opts.subject,
             title: arg,
             goal: opts.goal,
-            ...(opts.procedureId
-              ? { procedureId: opts.procedureId, procedureStepIndex: 0 }
-              : {}),
+            ...(opts.procedureId ? { procedureId: opts.procedureId, procedureStepIndex: 0 } : {}),
           }),
         })
         console.log(await res.text())

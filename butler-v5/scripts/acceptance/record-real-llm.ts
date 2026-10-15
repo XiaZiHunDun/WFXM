@@ -23,9 +23,18 @@
 import { writeFileSync, mkdirSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_SCENARIOS } from "../../tests/acceptance/scenarios/_fixtures.js"
-import { makeAcceptanceApp, sendWechatMessage, type AcceptanceApp } from "../../tests/acceptance/harness.js"
+import {
+  makeAcceptanceApp,
+  sendWechatMessage,
+  type AcceptanceApp,
+} from "../../tests/acceptance/harness.js"
 
-const OUT_DIR = join(import.meta.dirname ?? ".", "..", "..", "tests/acceptance/scenarios/recordings")
+const OUT_DIR = join(
+  import.meta.dirname ?? ".",
+  "..",
+  "..",
+  "tests/acceptance/scenarios/recordings",
+)
 
 interface TurnRecord {
   readonly input: string
@@ -136,7 +145,9 @@ async function main(): Promise<void> {
         turns: turns.length,
         totalLatencyMs: Date.now() - totalStart,
       })
-      process.stdout.write(`  ✓ ${scenario.id} (${turns.length} turns, ${turns.reduce((s, t) => s + t.latencyMs, 0)}ms)\n`)
+      process.stdout.write(
+        `  ✓ ${scenario.id} (${turns.length} turns, ${turns.reduce((s, t) => s + t.latencyMs, 0)}ms)\n`,
+      )
     }
   } finally {
     await app.close()
@@ -161,7 +172,9 @@ async function main(): Promise<void> {
     ...summary.map((s) => `| ${s.id} | ${s.turns} | ${s.totalLatencyMs} |`),
   ]
   writeFileSync(join(OUT_DIR, "_summary.md"), summaryLines.join("\n") + "\n", "utf8")
-  console.log(`\n[record-real-llm] done: ${summary.length} scenarios, ${totalTurns} turns, ${totalMs}ms total`)
+  console.log(
+    `\n[record-real-llm] done: ${summary.length} scenarios, ${totalTurns} turns, ${totalMs}ms total`,
+  )
   console.log(`[record-real-llm] recordings in ${OUT_DIR}`)
   console.log(`[record-real-llm] summary: ${join(OUT_DIR, "_summary.md")}`)
 }

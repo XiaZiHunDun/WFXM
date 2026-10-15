@@ -49,17 +49,10 @@ export interface CapabilityProvider {
  * kill switch hard-stops these regardless of grants; reads (`read`) and model
  * calls (`model`) are observation-only and continue to be allowed.
  */
-export const SIDE_EFFECT_KINDS: readonly ActionKind[] = [
-  "write",
-  "command",
-  "outbound",
-  "delegate",
-]
+export const SIDE_EFFECT_KINDS: readonly ActionKind[] = ["write", "command", "outbound", "delegate"]
 
 /** Parse `BUTLER_V5_KILL_SWITCH` (1/true/yes ⇒ on; default off). */
-export function readKillSwitch(
-  env: Readonly<Record<string, string | undefined>> = {},
-): boolean {
+export function readKillSwitch(env: Readonly<Record<string, string | undefined>> = {}): boolean {
   const raw = (env["BUTLER_V5_KILL_SWITCH"] ?? "").trim().toLowerCase()
   return raw === "1" || raw === "true" || raw === "yes"
 }
@@ -206,9 +199,7 @@ export function actionRequestFromTool(
 ): ActionRequest {
   // Task 2: read-only run_command argv bypasses approval.
   const risk =
-    toolName === "run_command"
-      ? classifyRunCommandArgvRisk(args["argv"])
-      : definition.risk
+    toolName === "run_command" ? classifyRunCommandArgvRisk(args["argv"]) : definition.risk
   return {
     kind: definition.kind,
     capability: toolName,

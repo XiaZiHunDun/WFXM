@@ -64,7 +64,7 @@ export interface FatigueSignal {
     readonly tool_name: string
     readonly actor: string
     readonly ts: number // ms epoch
-    readonly decision: 'allow' | 'checklist' | 'cooldown'
+    readonly decision: "allow" | "checklist" | "cooldown"
   }>
   readonly degraded?: true // 读 audit log 失败时设置
 }
@@ -81,12 +81,16 @@ export function computeFatigueSignal(
 ### 2.2 新增类型（`lib/fatigue/policy.ts`）
 
 ```typescript
-export type SensitivityLevel = 'high' | 'normal'
+export type SensitivityLevel = "high" | "normal"
 
 export type PolicyDecision =
-  | { readonly action: 'allow' }
-  | { readonly action: 'cooldown'; readonly duration_ms: number; readonly signal: FatigueSignal }
-  | { readonly action: 'checklist'; readonly items: ReadonlyArray<string>; readonly signal: FatigueSignal }
+  | { readonly action: "allow" }
+  | { readonly action: "cooldown"; readonly duration_ms: number; readonly signal: FatigueSignal }
+  | {
+      readonly action: "checklist"
+      readonly items: ReadonlyArray<string>
+      readonly signal: FatigueSignal
+    }
 
 export interface ToolSensitivity {
   readonly tool_name: string
@@ -105,12 +109,12 @@ export function evaluateInlineApproval(
 
 **决策矩阵**：
 
-| tool.sensitivity | signal.count ≥ 3 (60s) | decision (单次 evaluate 返回) |
-|---|---|---|
-| high | yes | `cooldown` (3s) — caller sleep + re-evaluate |
-| high | no | `checklist` |
-| normal | yes | `cooldown` (3s) |
-| normal | no | `allow` |
+| tool.sensitivity | signal.count ≥ 3 (60s) | decision (单次 evaluate 返回)                |
+| ---------------- | ---------------------- | -------------------------------------------- |
+| high             | yes                    | `cooldown` (3s) — caller sleep + re-evaluate |
+| high             | no                     | `checklist`                                  |
+| normal           | yes                    | `cooldown` (3s)                              |
+| normal           | no                     | `allow`                                      |
 
 注: high + count≥3 走两轮 — 第 1 次 evaluate 返回 `cooldown`（caller sleep 3s 后再调），第 2 次 evaluate 因 count 已滚出 window 或不变返回 `checklist`。这样 checklist 拦截单独可见、audit_event 两个字段都填（cooldown_applied + checklist_required）。
 
@@ -118,10 +122,10 @@ export function evaluateInlineApproval(
 
 ```typescript
 export const HIGH_SENSITIVITY_TOOLS: ReadonlyArray<string> = [
-  'send_*',         // send_email / send_message / send_wechat / send_telegram
-  'delete_*',       // delete_file / delete_record / delete_candidate
-  'external_write', // post / patch / put to external API
-  'broadcast_*',    // broadcast_notice / broadcast_wechat / broadcast_telegram
+  "send_*", // send_email / send_message / send_wechat / send_telegram
+  "delete_*", // delete_file / delete_record / delete_candidate
+  "external_write", // post / patch / put to external API
+  "broadcast_*", // broadcast_notice / broadcast_wechat / broadcast_telegram
 ]
 
 /**
@@ -134,8 +138,8 @@ export function matchSensitivity(
 ): { readonly level: SensitivityLevel; readonly items: ReadonlyArray<string> } | null
 
 export const DEFAULT_CHECKLIST_ITEMS = [
-  '我已读此操作的后果，且操作不可撤销。',
-  '我确认目标对象正确（recipient / path / target）。',
+  "我已读此操作的后果，且操作不可撤销。",
+  "我确认目标对象正确（recipient / path / target）。",
 ]
 ```
 
@@ -148,7 +152,7 @@ export interface AuditEvent {
   readonly correlation_id: string // D63 — unchanged
   readonly actor: string
   readonly tool_name: string
-  readonly decision: 'allow' | 'deny'
+  readonly decision: "allow" | "deny"
   readonly ts: number
   readonly metadata?: Record<string, unknown>
   // ... D63 其他字段不变
@@ -217,11 +221,11 @@ inbound message (wechat / telegram / CLI)
 
 ### 3.2 跨 Channel 一致性
 
-| Channel | 入口 | 共享组件 |
-|---|---|---|
-| wechat | `apps/api/src/wechat-inbound-butler.ts` (existing) | `lib/fatigue/policy.ts` |
-| telegram | `apps/api/src/channel-inbound.ts` (existing) | 同 |
-| CLI | `apps/api/src/cli-inline-approval.ts` (existing / new) | 同 |
+| Channel  | 入口                                                   | 共享组件                |
+| -------- | ------------------------------------------------------ | ----------------------- |
+| wechat   | `apps/api/src/wechat-inbound-butler.ts` (existing)     | `lib/fatigue/policy.ts` |
+| telegram | `apps/api/src/channel-inbound.ts` (existing)           | 同                      |
+| CLI      | `apps/api/src/cli-inline-approval.ts` (existing / new) | 同                      |
 
 每个 channel 在 `tryApprove` 入口前统一调 `evaluateInlineApproval` — 不在 channel handler 内重复实现 detection / cooldown / checklist 逻辑。
 
@@ -252,6 +256,7 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 ```
 
 **关键不变量**：
+
 - replay 不修改 audit_event（不可变 — D63 lock）— 仅追加 `metadata.replayed_by: [event_id]`
 - replay 一次只能 replay 一个 sequence（owner 主动确认）
 - irreversible entry 不阻塞 sequence replay — 仅在 reply 列表说明
@@ -282,38 +287,38 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 
 ### 4.1 FatigueSignal 计算失败
 
-| 场景 | 行为 |
-|---|---|
-| audit log DB 不可达 | signal.degraded=true + count=0 → decision 退化为 allow（保 owner 不被 lock out） |
-| audit log 超时 (5s) | 同上 |
-| window_seconds 非法 (≤0 / NaN) | throw Error "invalid window_seconds"（开发期捕获；prod 走 degrade 路径） |
-| last_n_actions 截断 (>100) | 仅保留最近 100 条；audit_event.fatigue_signal.last_n_actions 标 truncated=true |
+| 场景                           | 行为                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| audit log DB 不可达            | signal.degraded=true + count=0 → decision 退化为 allow（保 owner 不被 lock out） |
+| audit log 超时 (5s)            | 同上                                                                             |
+| window_seconds 非法 (≤0 / NaN) | throw Error "invalid window_seconds"（开发期捕获；prod 走 degrade 路径）         |
+| last_n_actions 截断 (>100)     | 仅保留最近 100 条；audit_event.fatigue_signal.last_n_actions 标 truncated=true   |
 
 **设计原则**：degraded signal 永远降级为 allow — 不替 owner 决定（D48 §4.3 advice-not-action）。
 
 ### 4.2 Cooldown 被打断
 
-| 场景 | 行为 |
-|---|---|
-| owner 发 /cancel during 3s wait | audit_event.cooldown_applied.interrupted=true → proceed |
-| owner 发其他 command | 同 /cancel 处理 |
-| 系统 timeout (e.g. ws 断) | audit_event.cooldown_applied.interrupted=true → 放弃当前 approve |
+| 场景                            | 行为                                                             |
+| ------------------------------- | ---------------------------------------------------------------- |
+| owner 发 /cancel during 3s wait | audit_event.cooldown_applied.interrupted=true → proceed          |
+| owner 发其他 command            | 同 /cancel 处理                                                  |
+| 系统 timeout (e.g. ws 断)       | audit_event.cooldown_applied.interrupted=true → 放弃当前 approve |
 
 ### 4.3 Checklist 超时 / 取消
 
-| 场景 | 行为 |
-|---|---|
-| 60s 内未勾完 | default deny（保守） + audit_event.decision='deny' + reason='checklist_timeout' |
-| owner 发 /cancel | 同 default deny + reason='checklist_cancelled' |
-| 部分勾选 → 全部勾 → proceed | audit_event.checklist_required=true（记录曾拦截） |
+| 场景                        | 行为                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| 60s 内未勾完                | default deny（保守） + audit_event.decision='deny' + reason='checklist_timeout' |
+| owner 发 /cancel            | 同 default deny + reason='checklist_cancelled'                                  |
+| 部分勾选 → 全部勾 → proceed | audit_event.checklist_required=true（记录曾拦截）                               |
 
 ### 4.4 /v1/owner/audit/fatigue 错误
 
-| 场景 | 行为 |
-|---|---|
-| DB 不可达 | 200 + `{ sequences: [], degraded: true }`（不抛 5xx；response 顶层 degraded 字段标识） |
-| sequence_event_ids 找不到 | 200 + `{ replayed: [], irreversible: [], missing: [event_id...] }` |
-| replay 中途 undo 失败 | 200 + `{ replayed: [...], failed: [{ event_id, reason }] }`（已 undo 不回滚） |
+| 场景                      | 行为                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| DB 不可达                 | 200 + `{ sequences: [], degraded: true }`（不抛 5xx；response 顶层 degraded 字段标识） |
+| sequence_event_ids 找不到 | 200 + `{ replayed: [], irreversible: [], missing: [event_id...] }`                     |
+| replay 中途 undo 失败     | 200 + `{ replayed: [...], failed: [{ event_id, reason }] }`（已 undo 不回滚）          |
 
 ### 4.5 Replay 安全边界
 
@@ -329,82 +334,85 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 
 **File**: `apps/api/src/lib/fatigue/signal.test.ts` (new)
 
-| Case | 描述 | 断言 |
-|---|---|---|
-| **F1. 0 actions in window** | audit log empty | count=0, last_n_actions=[] |
-| **F2. 3 actions in 60s** | 3 approve events at t=10,20,30 | count=3, last_n_actions.length=3 |
-| **F3. window 边界** | events at t=10,20,80 (window=60) | count=2 (t=80 不在 60s 内) |
-| **F4. degraded signal** | audit log reader throws | degraded=true, count=0 |
-| **F5. truncated last_n_actions** | 150 events in window | last_n_actions.length=100, truncated=true |
+| Case                             | 描述                             | 断言                                      |
+| -------------------------------- | -------------------------------- | ----------------------------------------- |
+| **F1. 0 actions in window**      | audit log empty                  | count=0, last_n_actions=[]                |
+| **F2. 3 actions in 60s**         | 3 approve events at t=10,20,30   | count=3, last_n_actions.length=3          |
+| **F3. window 边界**              | events at t=10,20,80 (window=60) | count=2 (t=80 不在 60s 内)                |
+| **F4. degraded signal**          | audit log reader throws          | degraded=true, count=0                    |
+| **F5. truncated last_n_actions** | 150 events in window             | last_n_actions.length=100, truncated=true |
 
 **File**: `apps/api/src/lib/fatigue/policy.test.ts` (new)
 
-| Case | 描述 | 断言 |
-|---|---|---|
-| **F6. allow low-signal normal tool** | signal.count=1, tool=read_file | action='allow' |
-| **F7. cooldown high-signal normal tool** | signal.count=3, tool=read_file | action='cooldown', duration_ms=3000 |
-| **F8. checklist high-sensitivity low-signal** | signal.count=0, tool=send_email | action='checklist', items.length=2 |
+| Case                                                        | 描述                            | 断言                                                     |
+| ----------------------------------------------------------- | ------------------------------- | -------------------------------------------------------- |
+| **F6. allow low-signal normal tool**                        | signal.count=1, tool=read_file  | action='allow'                                           |
+| **F7. cooldown high-signal normal tool**                    | signal.count=3, tool=read_file  | action='cooldown', duration_ms=3000                      |
+| **F8. checklist high-sensitivity low-signal**               | signal.count=0, tool=send_email | action='checklist', items.length=2                       |
 | **F9. cooldown → checklist (high-sensitivity high-signal)** | signal.count=3, tool=send_email | action='checklist'（先 cooldown 后 checklist，节省交互） |
-| **F10. degraded signal always allow** | degraded=true, tool=send_email | action='allow'（不替 owner 决定） |
+| **F10. degraded signal always allow**                       | degraded=true, tool=send_email  | action='allow'（不替 owner 决定）                        |
 
 **File**: `apps/api/src/lib/fatigue/checklist.test.ts` (new)
 
-| Case | 描述 | 断言 |
-|---|---|---|
-| **F11. match send_*** | tool_name='send_email' | level='high', items.length=2 |
-| **F12. match delete_*** | tool_name='delete_file' | level='high' |
-| **F13. no match read_file** | tool_name='read_file' | null（normal） |
-| **F14. glob pattern coverage** | broadcast_telegram / external_write_patch | level='high' |
+| Case                           | 描述                                      | 断言                         |
+| ------------------------------ | ----------------------------------------- | ---------------------------- |
+| **F11. match send_***          | tool_name='send_email'                    | level='high', items.length=2 |
+| **F12. match delete_***        | tool_name='delete_file'                   | level='high'                 |
+| **F13. no match read_file**    | tool_name='read_file'                     | null（normal）               |
+| **F14. glob pattern coverage** | broadcast_telegram / external_write_patch | level='high'                 |
 
 ### 5.2 Integration (cross-channel)
 
 **File**: `apps/api/src/lib/fatigue/cross-channel.test.ts` (new)
 
-| Case | 描述 | 断言 |
-|---|---|---|
-| **X1. wechat high-signal send_email** | wechat inbound → 3 此前 approve → send_email | checklist 拦截 + 同一 audit_event shape |
+| Case                                     | 描述                                            | 断言                                    |
+| ---------------------------------------- | ----------------------------------------------- | --------------------------------------- |
+| **X1. wechat high-signal send_email**    | wechat inbound → 3 此前 approve → send_email    | checklist 拦截 + 同一 audit_event shape |
 | **X2. telegram high-signal delete_file** | telegram inbound → 3 此前 approve → delete_file | checklist 拦截 + 同一 audit_event shape |
-| **X3. CLI high-signal normal tool** | CLI inbound → 3 此前 approve → read_file | cooldown 拦截 + 同一 audit_event shape |
+| **X3. CLI high-signal normal tool**      | CLI inbound → 3 此前 approve → read_file        | cooldown 拦截 + 同一 audit_event shape  |
 
 ### 5.3 API integration
 
 **File**: `apps/api/src/lib/fatigue/replay-api.test.ts` (new)
 
-| Case | 描述 | 断言 |
-|---|---|---|
-| **R1. GET empty** | audit log 没有连续序列 | sequences=[] |
-| **R2. GET 2 sequences** | audit log 2 个独立序列 | sequences.length=2, sorted DESC by start_ts |
-| **R3. POST replay mixed** | sequence 含 write + send_email | replayed=[write event], irreversible=[send_email event] |
-| **R4. POST replay cross-actor reject** | sequence_event_ids 含其他 actor 的 event | 403 / replayed=[]（防越权） |
+| Case                                   | 描述                                     | 断言                                                    |
+| -------------------------------------- | ---------------------------------------- | ------------------------------------------------------- |
+| **R1. GET empty**                      | audit log 没有连续序列                   | sequences=[]                                            |
+| **R2. GET 2 sequences**                | audit log 2 个独立序列                   | sequences.length=2, sorted DESC by start_ts             |
+| **R3. POST replay mixed**              | sequence 含 write + send_email           | replayed=[write event], irreversible=[send_email event] |
+| **R4. POST replay cross-actor reject** | sequence_event_ids 含其他 actor 的 event | 403 / replayed=[]（防越权）                             |
 
 ### 5.4 Acceptance scenarios (D52 harness +3)
 
 **File**: `tests/acceptance/scenarios/_fixtures.ts` 新增 F1, F2, F3
 
-| Scenario | 描述 |
-|---|---|
+| Scenario       | 描述                                                                           |
+| -------------- | ------------------------------------------------------------------------------ |
 | **F1-fatigue** | owner 在 60s 内连续 y 3 个 normal tool，第 4 个 flow 通过（cooldown 不真触发） | 4 approvals + 4 write_file 全部成功执行 |
 
 > **Note (gap documented):** 接受 harness 通过 subagent audit log reader（`wechat-inbound-butler.ts:62-78` `subagentAuditAsFatigueReader`）读取疲劳信号，但 harness 不写 subagent events → `count=0` → fatigue 返回 `allow`。F1 是 flow smoke test，验证 4 approvals + 4 write_file 工具调用成功。**Cooldown 触发逻辑 + audit_event shape 在 unit + integration 层验证**：
+>
 > - Unit: `policy.test.ts` F7（high-signal normal tool → cooldown `duration_ms=3000`）
 > - Integration: `cross-channel.test.ts` X1/X2/X3（cooldown path with mocked reader）
 >
 > 真 cooldown 验证在 acceptance 层需要 D65+：`audit_events` table 加 `listRecentAuditEvents` read method 后，subagent log reader 替换 + harness 支持写 audit events。 |
-| **F2-sensitive** | owner 触发 sensitive tool → checklist intercept + reply 「不可撤销」+ 工具名 | 4 approval + 1 tool call 在 WaitForApproval 拦截 |
+> | **F2-sensitive** | owner 触发 sensitive tool → checklist intercept + reply 「不可撤销」+ 工具名 | 4 approval + 1 tool call 在 WaitForApproval 拦截 |
 
 > **Note (gap documented):** F2 acceptance verifies checklist intercept + reply content
 > (「不可撤销」+ 工具名). 但 acceptance harness 同样受限：checklist path 不在
 > runtimeStore.createStep (只 throw payload) → owner 后「确认」找不到 pending step
 > → reply「没有待审批的操作」(这是 F2 的 followUpPatterns: /没有待审批/ 显式断言的)。
 > 真实 checklist-on-resume + audit_event.checklist_required=true 在 unit + integration 验证：
+>
 > - Unit: `policy.test.ts` F8 (high-sensitivity low-signal → checklist)
 > - Integration: `cross-channel.test.ts` X1/X2 (wechat + telegram 高敏感高信号 → checklist)
 >
 > 真 checklist-on-resume 验证在 acceptance 层需要 D64+：checklist path 需要 `runtimeStore.createStep` 支持，让 owner ack 能 resume 到 checklist 等待。 |
-| **F3-replay** | owner 询问 replay API，butler chat surface 不直连, 提示走 HTTP 控制面 | reply 含 HTTP / audit/fatigue / degraded |
+> | **F3-replay** | owner 询问 replay API，butler chat surface 不直连, 提示走 HTTP 控制面 | reply 含 HTTP / audit/fatigue / degraded |
 
 > **Note (gap documented):** F3 acceptance verifies owner 在 chat surface 询问 replay 时 butler 不崩, reply 明确指向 HTTP 控制面（`/v1/owner/audit/fatigue`）+ 暴露 harness 限制（sequences 空 + degraded=true）。但 acceptance harness 走 `/v1/wechat/inbound` butler loop, 不经 HTTP routing, 不能直接调 `/v1/owner/audit/fatigue` list/replay。
 > 真实 replay 验证在 unit 层：
+>
 > - `replay-api.test.ts` R1-R4: `listFatigueSequences`（empty / 2-seq）+ `replayFatigueSequence`（mixed reversible + irreversible / cross-actor reject）
 >
 > 不在 acceptance harness scope。真 acceptance-level replay E2E 需要 D65+：harness 支持写 subagent audit events + chat surface 接 HTTP routing 跳转。 |
@@ -429,23 +437,23 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 
 ## 6. Files Changed (预估)
 
-| 类型 | 路径 | 改动 |
-|---|---|---|
-| 新 | `apps/api/src/lib/fatigue/signal.ts` | computeFatigueSignal + DEFAULT_* |
-| 新 | `apps/api/src/lib/fatigue/policy.ts` | evaluateInlineApproval + DEFAULT_COOLDOWN_MS |
-| 新 | `apps/api/src/lib/fatigue/checklist.ts` | matchSensitivity + HIGH_SENSITIVITY_TOOLS + DEFAULT_CHECKLIST_ITEMS |
-| 新 | `apps/api/src/lib/fatigue/audit-event.ts` | AuditEventFatigue 扩展 type |
-| 新 | `apps/api/src/lib/fatigue/replay.ts` | /v1/owner/audit/fatigue handler |
-| 改 | `apps/api/src/wechat-inbound-butler.ts` | 入口调 evaluateInlineApproval (existing) |
-| 改 | `apps/api/src/channel-inbound.ts` | 同 |
-| 改 | `apps/api/src/cli-inline-approval.ts` | 同 |
-| 改 | `apps/api/src/audit-event.ts` | +fatigue_signal / +cooldown_applied / +checklist_required 字段 (optional) |
-| 新 | `apps/api/src/lib/fatigue/signal.test.ts` | 5 unit |
-| 新 | `apps/api/src/lib/fatigue/policy.test.ts` | 5 unit |
-| 新 | `apps/api/src/lib/fatigue/checklist.test.ts` | 4 unit |
-| 新 | `apps/api/src/lib/fatigue/cross-channel.test.ts` | 3 integration |
-| 新 | `apps/api/src/lib/fatigue/replay-api.test.ts` | 4 API |
-| 改 | `tests/acceptance/scenarios/_fixtures.ts` | +F1-fatigue +F2-sensitive +F3-replay scenarios |
+| 类型 | 路径                                             | 改动                                                                      |
+| ---- | ------------------------------------------------ | ------------------------------------------------------------------------- |
+| 新   | `apps/api/src/lib/fatigue/signal.ts`             | computeFatigueSignal + DEFAULT_*                                          |
+| 新   | `apps/api/src/lib/fatigue/policy.ts`             | evaluateInlineApproval + DEFAULT_COOLDOWN_MS                              |
+| 新   | `apps/api/src/lib/fatigue/checklist.ts`          | matchSensitivity + HIGH_SENSITIVITY_TOOLS + DEFAULT_CHECKLIST_ITEMS       |
+| 新   | `apps/api/src/lib/fatigue/audit-event.ts`        | AuditEventFatigue 扩展 type                                               |
+| 新   | `apps/api/src/lib/fatigue/replay.ts`             | /v1/owner/audit/fatigue handler                                           |
+| 改   | `apps/api/src/wechat-inbound-butler.ts`          | 入口调 evaluateInlineApproval (existing)                                  |
+| 改   | `apps/api/src/channel-inbound.ts`                | 同                                                                        |
+| 改   | `apps/api/src/cli-inline-approval.ts`            | 同                                                                        |
+| 改   | `apps/api/src/audit-event.ts`                    | +fatigue_signal / +cooldown_applied / +checklist_required 字段 (optional) |
+| 新   | `apps/api/src/lib/fatigue/signal.test.ts`        | 5 unit                                                                    |
+| 新   | `apps/api/src/lib/fatigue/policy.test.ts`        | 5 unit                                                                    |
+| 新   | `apps/api/src/lib/fatigue/checklist.test.ts`     | 4 unit                                                                    |
+| 新   | `apps/api/src/lib/fatigue/cross-channel.test.ts` | 3 integration                                                             |
+| 新   | `apps/api/src/lib/fatigue/replay-api.test.ts`    | 4 API                                                                     |
+| 改   | `tests/acceptance/scenarios/_fixtures.ts`        | +F1-fatigue +F2-sensitive +F3-replay scenarios                            |
 
 预估 +500/-30 行；0 业务逻辑改动到现有 inline-approval / UNDO_CHAIN / audit_event correlation_id 路径。
 
@@ -463,14 +471,14 @@ owner: POST /v1/owner/audit/fatigue/replay { sequence_event_ids }
 
 ## 8. D64 Ship Cycle（沿用 D55-D63 协议, 10th cycle）
 
-| Track | 内容 | Commit |
-|---|---|---|
-| **T1** | signal + policy + checklist (lib/fatigue/{signal,policy,checklist}.ts + tests) | T1 commit |
-| **T2** | audit_event schema 扩展 (audit-event.ts +3 optional fields + correlation_id 不动) | T2 commit |
-| **T3** | cross-channel 接入 (wechat + telegram + CLI 共享 evaluateInlineApproval) | T3 commit |
-| **T4** | /v1/owner/audit/fatigue replay API | T4 commit |
-| **T5** | acceptance scenarios (F1-fatigue + F2-sensitive + F3-replay) | T5 commit |
-| **post-fix** | drift closure (D50 protocol — fresh N=3 verify, 不信 last batch) | post-fix commit |
+| Track        | 内容                                                                              | Commit          |
+| ------------ | --------------------------------------------------------------------------------- | --------------- |
+| **T1**       | signal + policy + checklist (lib/fatigue/{signal,policy,checklist}.ts + tests)    | T1 commit       |
+| **T2**       | audit_event schema 扩展 (audit-event.ts +3 optional fields + correlation_id 不动) | T2 commit       |
+| **T3**       | cross-channel 接入 (wechat + telegram + CLI 共享 evaluateInlineApproval)          | T3 commit       |
+| **T4**       | /v1/owner/audit/fatigue replay API                                                | T4 commit       |
+| **T5**       | acceptance scenarios (F1-fatigue + F2-sensitive + F3-replay)                      | T5 commit       |
+| **post-fix** | drift closure (D50 protocol — fresh N=3 verify, 不信 last batch)                  | post-fix commit |
 
 预期 6 commits（D55-D63 cycle 形态），push-to-main 默认（D62 D63 同模式）。
 

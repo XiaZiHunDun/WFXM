@@ -75,7 +75,12 @@ describe("normalizeWechatInbound", () => {
       projectId: "  proj A  ",
       nowMs: 1,
     })
-    const blank = normalizeWechatInbound({ fromUserId: "u1", content: "x", projectId: "   ", nowMs: 1 })
+    const blank = normalizeWechatInbound({
+      fromUserId: "u1",
+      content: "x",
+      projectId: "   ",
+      nowMs: 1,
+    })
     expect(trimmed.ok).toBe(true)
     if (trimmed.ok) expect(trimmed.value.projectId).toBe("proj A")
     expect(blank.ok).toBe(true)

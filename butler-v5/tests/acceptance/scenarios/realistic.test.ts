@@ -15,11 +15,7 @@ import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_SCENARIOS, type ScenarioSetupCtx } from "./_fixtures.js"
 import { resetUndoStack } from "@butler/api/workspace-tools.js"
-import {
-  makeAcceptanceApp,
-  sendWechatMessage,
-  type AcceptanceApp,
-} from "../harness.js"
+import { makeAcceptanceApp, sendWechatMessage, type AcceptanceApp } from "../harness.js"
 import { runMultiRound } from "../multi-round.js"
 
 interface TurnMetric {
@@ -53,11 +49,7 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
   afterAll(async () => {
     await app.close()
     // 写 _analyze.md
-    writeFileSync(
-      join(import.meta.dirname ?? ".", "_analyze.md"),
-      renderAnalyze(metrics),
-      "utf8",
-    )
+    writeFileSync(join(import.meta.dirname ?? ".", "_analyze.md"), renderAnalyze(metrics), "utf8")
   })
 
   // D53a: 把原 it() 主体（除 state init + metrics.push）抽出，给 runMultiRound N=3 wrap 用。
@@ -176,7 +168,8 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
         if (fuPattern) {
           const text = rN.reply ?? ""
           const ok = fuPattern instanceof RegExp ? fuPattern.test(text) : text.includes(fuPattern)
-          if (!ok) notes.push(`followUp[${i}] 不 match ${fuPattern}，实际："${text.slice(0, 80)}..."`)
+          if (!ok)
+            notes.push(`followUp[${i}] 不 match ${fuPattern}，实际："${text.slice(0, 80)}..."`)
           expect(ok).toBe(true)
         }
       }
@@ -220,7 +213,11 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
           const notes: string[] = []
           const turns: TurnMetric[] = []
           const { approvalCount, totalToolCalls } = await runScenario(
-            scenario, convId, ctx, notes, turns,
+            scenario,
+            convId,
+            ctx,
+            notes,
+            turns,
           )
           // 记录 last round 数据 (per-scenario metrics 而非 per-round, 避免 _analyze.md 3× 重复)
           lastTurns = turns

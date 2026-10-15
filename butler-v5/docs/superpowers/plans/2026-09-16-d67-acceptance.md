@@ -14,16 +14,16 @@
 
 ## File Structure
 
-| Track | File | Change |
-|---|---|---|
-| T1a | `apps/api/src/wechat-inbound-butler.ts` | +~15 lines at checklist case（line 622-637） |
-| T1a | `apps/api/src/wechat-inbound-butler.test.ts` | +3 unit tests |
-| T1b | `tests/acceptance/scenarios/_fixtures.ts` | +injectAuditEvent helper + F1/F2/F3 rewrite |
-| T1b | `tests/acceptance/scenarios/realistic.test.ts` | harness support (if needed) |
-| T2a-1 | `tests/acceptance/scenarios/_fixtures.ts` | +4 C scenarios |
-| T2a-2 | `tests/acceptance/scenarios/_fixtures.ts` | +4 D scenarios |
-| post-fix | `.audit/D67/{summary.md, protocol-compliance.md}` | NEW |
-| post-fix | `MEMORY.md` | Current State update |
+| Track    | File                                              | Change                                       |
+| -------- | ------------------------------------------------- | -------------------------------------------- |
+| T1a      | `apps/api/src/wechat-inbound-butler.ts`           | +~15 lines at checklist case（line 622-637） |
+| T1a      | `apps/api/src/wechat-inbound-butler.test.ts`      | +3 unit tests                                |
+| T1b      | `tests/acceptance/scenarios/_fixtures.ts`         | +injectAuditEvent helper + F1/F2/F3 rewrite  |
+| T1b      | `tests/acceptance/scenarios/realistic.test.ts`    | harness support (if needed)                  |
+| T2a-1    | `tests/acceptance/scenarios/_fixtures.ts`         | +4 C scenarios                               |
+| T2a-2    | `tests/acceptance/scenarios/_fixtures.ts`         | +4 D scenarios                               |
+| post-fix | `.audit/D67/{summary.md, protocol-compliance.md}` | NEW                                          |
+| post-fix | `MEMORY.md`                                       | Current State update                         |
 
 预估 net: +400 lines (mostly new scenarios + F1/F2/F3 rewrites).
 
@@ -31,19 +31,20 @@
 
 ## Commit Plan
 
-| Task | Track | Commit |
-|---|---|---|
-| Task 1 | T1a: createStep at fatigue checklist | `feat(fatigue): T1a createStep at fatigue checklist branch` |
+| Task   | Track                                        | Commit                                                                    |
+| ------ | -------------------------------------------- | ------------------------------------------------------------------------- |
+| Task 1 | T1a: createStep at fatigue checklist         | `feat(fatigue): T1a createStep at fatigue checklist branch`               |
 | Task 2 | T1b: harness audit writes + F1/F2/F3 rewrite | `feat(acceptance): T1b harness audit writes + F1/F2/F3 real verification` |
-| Task 3 | T2a-1: 4 new C scenarios | `feat(acceptance): T2a-1 4 new C scenarios (fatigue/cooldown/replay)` |
-| Task 4 | T2a-2: 4 new D scenarios | `feat(acceptance): T2a-2 4 new D scenarios (arch boundary edge cases)` |
-| Task 5 | post-fix: drift + raw findings archive | `fix(drift): D67 close` + `docs(audit): D67 archive` |
+| Task 3 | T2a-1: 4 new C scenarios                     | `feat(acceptance): T2a-1 4 new C scenarios (fatigue/cooldown/replay)`     |
+| Task 4 | T2a-2: 4 new D scenarios                     | `feat(acceptance): T2a-2 4 new D scenarios (arch boundary edge cases)`    |
+| Task 5 | post-fix: drift + raw findings archive       | `fix(drift): D67 close` + `docs(audit): D67 archive`                      |
 
 ---
 
 ## Task 1: T1a runtimeStore.createStep at fatigue checklist
 
 **Files:**
+
 - Modify: `apps/api/src/wechat-inbound-butler.ts` (+~15 lines at checklist case)
 - Modify: `apps/api/src/wechat-inbound-butler.test.ts` (+3 unit tests)
 
@@ -165,6 +166,7 @@ Use `--no-verify` if pre-commit hook flakes. **`wechat-inbound-butler.ts` is a p
 ## Task 2: T1b acceptance harness audit writes + F1/F2/F3 rewrite
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/_fixtures.ts` (+injectAuditEvent helper + F1/F2/F3 rewrite)
 - Modify: `tests/acceptance/scenarios/realistic.test.ts` (harness support if needed)
 
@@ -311,6 +313,7 @@ Use `--no-verify` if pre-commit hook flakes.
 ## Task 3: T2a-1 4 new C category scenarios
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/_fixtures.ts` (+4 new C scenarios)
 
 ### Step 1: Read existing scenariosC
@@ -393,6 +396,7 @@ Use `--no-verify` if pre-commit hook flakes.
 ## Task 4: T2a-2 4 new D category scenarios
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/_fixtures.ts` (+4 new D scenarios)
 
 ### Step 1: Read existing scenariosD
@@ -475,6 +479,7 @@ Use `--no-verify` if pre-commit hook flakes.
 ## Task 5: post-fix drift closure + raw findings archive
 
 **Files:**
+
 - Modify: `.audit/D67/{summary.md, protocol-compliance.md}` (NEW)
 - Modify: `MEMORY.md` (update Current State)
 - Any drift fixes (if found)
@@ -495,6 +500,7 @@ pnpm knip 2>&1 | tail -5
 ```
 
 Expected gates:
+
 - lint (fatigue/*.ts): 0 warnings
 - typecheck: 0 errors (4 projects)
 - test:full: 1994+ pass, 5 unchanged pre-existing fail, 0 new fail
@@ -576,6 +582,7 @@ git push origin main
 ### Step 5: Update MEMORY.md
 
 Update Current State section:
+
 - HEAD: new SHA after T5 commit
 - State: PAUSED post-D67
 - Gates: N=3 fresh verify
@@ -586,14 +593,14 @@ Update Current State section:
 
 ## Acceptance Gates (N=3 fresh verify)
 
-| Gate | Baseline | D67 expected |
-|---|---|---|
-| lint (fatigue/*.ts) | 0 warnings | 0 unchanged |
-| typecheck | 0 errors | 0 new |
-| test:full | 1994 pass / 5 pre-existing | 1994+ pass, 5 unchanged, 0 new fail |
-| acceptance | 44/44 | 52+/52+ (44 baseline + 8 new) |
-| methodology | 13/13 | 13/13 unchanged |
-| knip | 0 new deadcode | 0 new |
+| Gate                | Baseline                   | D67 expected                        |
+| ------------------- | -------------------------- | ----------------------------------- |
+| lint (fatigue/*.ts) | 0 warnings                 | 0 unchanged                         |
+| typecheck           | 0 errors                   | 0 new                               |
+| test:full           | 1994 pass / 5 pre-existing | 1994+ pass, 5 unchanged, 0 new fail |
+| acceptance          | 44/44                      | 52+/52+ (44 baseline + 8 new)       |
+| methodology         | 13/13                      | 13/13 unchanged                     |
+| knip                | 0 new deadcode             | 0 new                               |
 
 ---
 

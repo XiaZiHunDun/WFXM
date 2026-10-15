@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  isChannelAllowed,
-  isChannelApiEnabled,
-  parseAllowedChannelIds,
-} from "./channel-config.js"
+import { isChannelAllowed, isChannelApiEnabled, parseAllowedChannelIds } from "./channel-config.js"
 
 describe("channel-config", () => {
   it("channel api is off by default", () => {

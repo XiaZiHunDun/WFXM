@@ -27,11 +27,17 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
     const subject = (c.req.query("subject") ?? "owner").trim() || "owner"
     const statusRaw = (c.req.query("status") ?? "").trim()
     const status: DurableMemoryStatus | undefined =
-      statusRaw === "candidate" || statusRaw === "confirmed" || statusRaw === "rejected" || statusRaw === "expired"
+      statusRaw === "candidate" ||
+      statusRaw === "confirmed" ||
+      statusRaw === "rejected" ||
+      statusRaw === "expired"
         ? statusRaw
         : undefined
     if (statusRaw && !status) {
-      return c.json({ ok: false, reason: "状态参数无效（必须是 candidate/confirmed/rejected/expired）" }, 400)
+      return c.json(
+        { ok: false, reason: "状态参数无效（必须是 candidate/confirmed/rejected/expired）" },
+        400,
+      )
     }
     const limitRaw = c.req.query("limit")
     const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 20
@@ -145,7 +151,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
         correlationId: null,
         action: "memory.created",
         // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-        actor: 'owner-direct',
+        actor: "owner-direct",
         // D74 T1 (audit #20 SO-007): subject allowlist — audit emit must
         // reject attacker-controllable subjects at the boundary. Defaults
         // to "owner" rather than echoing body.subject if disallowed.
@@ -189,7 +195,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       correlationId: null,
       action: "memory.confirmed",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       subject: "owner",
       detail: { memoryId },
       createdAt: new Date(),
@@ -221,7 +227,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       correlationId: null,
       action: "memory.rejected",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       subject: "owner",
       detail: { memoryId },
       createdAt: new Date(),
@@ -252,7 +258,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
       correlationId: null,
       action: "memory.deleted",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       subject: "owner",
       detail: { memoryId },
       createdAt: new Date(),
@@ -373,7 +379,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
           correlationId: null,
           action: "memory.confirmed",
           // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-          actor: 'owner-direct',
+          actor: "owner-direct",
           subject,
           detail: { memoryId, batch: true },
           createdAt: now,
@@ -412,7 +418,7 @@ export function registerMemoriesRoutes(app: Hono, wiring: Wiring): void {
           correlationId: null,
           action: "memory.rejected",
           // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-          actor: 'owner-direct',
+          actor: "owner-direct",
           subject,
           detail: { memoryId, batch: true },
           createdAt: now,

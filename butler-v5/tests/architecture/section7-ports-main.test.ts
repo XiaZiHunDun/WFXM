@@ -84,19 +84,11 @@ function listPortsFiles(root: string): string[] {
       const p = join(dir, entry)
       const st = statSync(p)
       if (st.isDirectory()) {
-        if (
-          entry === "node_modules" ||
-          entry === "dist" ||
-          entry.startsWith(".")
-        ) {
+        if (entry === "node_modules" || entry === "dist" || entry.startsWith(".")) {
           continue
         }
         walk(p)
-      } else if (
-        entry.endsWith(".ts") &&
-        !entry.endsWith(".test.ts") &&
-        !entry.endsWith(".d.ts")
-      ) {
+      } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) {
         out.push(p)
       }
     }
@@ -113,14 +105,12 @@ describe("arch: §7 Ports 主体 (D31 — thin barrel + zero impl + zero upward 
     // Thin barrel: re-export each core/*.js file individually
     // (the v5 ports barrel uses explicit per-file re-exports so that
     // archived R2 shim entries stay scoped under r2-shim.js).
-    expect(
-      src,
-      "ports/index.ts must re-export from './core/*.js' (thin barrel pattern)",
-    ).toMatch(/export\s*\*\s*from\s*["']\.\/core\/\w+\.js["']/)
+    expect(src, "ports/index.ts must re-export from './core/*.js' (thin barrel pattern)").toMatch(
+      /export\s*\*\s*from\s*["']\.\/core\/\w+\.js["']/,
+    )
     // Sanity: at least one core/* re-export present.
-    const reExportCount = (
-      src.match(/export\s*\*\s*from\s*["']\.\/core\/\w+\.js["']/g) ?? []
-    ).length
+    const reExportCount = (src.match(/export\s*\*\s*from\s*["']\.\/core\/\w+\.js["']/g) ?? [])
+      .length
     expect(
       reExportCount,
       `ports/index.ts should re-export from core/*.js ≥ 1 time; got ${reExportCount}`,
@@ -148,7 +138,9 @@ describe("arch: §7 Ports 主体 (D31 — thin barrel + zero impl + zero upward 
 
   it("§7: ports/core/*.ts files declare interfaces only — zero class implementations, zero fetch/DB/IO", () => {
     const coreFiles = listPortsFiles(PORTS_CORE)
-    expect(coreFiles.length, "ports/core must contain at least 1 port file").toBeGreaterThanOrEqual(1)
+    expect(coreFiles.length, "ports/core must contain at least 1 port file").toBeGreaterThanOrEqual(
+      1,
+    )
     const FORBIDDEN_IMPL_PATTERNS: readonly (readonly [string, RegExp])[] = [
       ["class implements", /^\s*(?:export\s+)?class\s+\w+\s+(?:extends|implements)\s+\w+/m],
       ["fetch call", /(?<!\w)fetch\s*\(\s*["'`]/],
@@ -174,10 +166,7 @@ describe("arch: §7 Ports 主体 (D31 — thin barrel + zero impl + zero upward 
 
   it("§7: ports/src/** does NOT import @butler/adapters or packages/adapters (依赖方向向内)", () => {
     const files = listPortsFiles(PORTS_SRC)
-    const FORBIDDEN = [
-      /from\s+["']@butler\/adapters\b/,
-      /from\s+["'][^"']*packages\/adapters\b/,
-    ]
+    const FORBIDDEN = [/from\s+["']@butler\/adapters\b/, /from\s+["'][^"']*packages\/adapters\b/]
     const violations: string[] = []
     for (const file of files) {
       const src = readFileSync(file, "utf-8")
@@ -194,9 +183,7 @@ describe("arch: §7 Ports 主体 (D31 — thin barrel + zero impl + zero upward 
   // ── 4. §7 ports/core 7 Port interface 完整 ─ ─────────────────────
 
   it("§7: ports/core/ has the canonical Port set (Repository/Model/Capability/Channel/Clock/EventStore/CredentialProvider snapshot — §7 + D11)", () => {
-    const coreFiles = listPortsFiles(PORTS_CORE).map((f) =>
-      f.split("/").slice(-1)[0],
-    )
+    const coreFiles = listPortsFiles(PORTS_CORE).map((f) => f.split("/").slice(-1)[0])
     // Per D11 §7.1 snapshot, ports/core covers: Channel / Clock /
     // Repository / Model / Projection / EventStore / CredentialProvider /
     // Snapshot / Outbox. Repository materialized in ports/core in D46

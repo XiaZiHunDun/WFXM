@@ -46,15 +46,15 @@ import { join } from "node:path"
 
 const LLM_PROVIDER = join(__dirname, "../../packages/adapters/src/llm-provider.ts")
 const ANTHROPIC_ADAPTER = join(__dirname, "../../packages/adapters/src/llm/anthropic.ts")
-const OPENAI_COMPAT_ADAPTER = join(__dirname, "../../packages/adapters/src/llm/openai-compatible.ts")
+const OPENAI_COMPAT_ADAPTER = join(
+  __dirname,
+  "../../packages/adapters/src/llm/openai-compatible.ts",
+)
 const CONVERSATION_LOOP = join(
   __dirname,
   "../../packages/runtime/src/execution/conversation-loop.ts",
 )
-const LOCAL_TRACE = join(
-  __dirname,
-  "../../packages/domain/src/observability/local-trace.ts",
-)
+const LOCAL_TRACE = join(__dirname, "../../packages/domain/src/observability/local-trace.ts")
 const WECHAT_INBOUND_BUTLER = join(__dirname, "../../apps/api/src/wechat-inbound-butler.ts")
 const SUBAGENT_WORKER = join(__dirname, "../../apps/api/src/subagent-worker.ts")
 const APPROVAL_RESUME = join(__dirname, "../../apps/api/src/approval-resume.ts")
@@ -83,7 +83,9 @@ describe("arch: §14 token/cost LLM-usage tracking (D23 — D21 gap closed)", ()
     // parseAnthropicResponse normalizes to LLMUsage with totalTokens.
     expect(src).toMatch(/inputTokens:\s*data\.usage\.input_tokens/)
     expect(src).toMatch(/outputTokens:\s*data\.usage\.output_tokens/)
-    expect(src).toMatch(/totalTokens:\s*data\.usage\.input_tokens\s*\+\s*data\.usage\.output_tokens/)
+    expect(src).toMatch(
+      /totalTokens:\s*data\.usage\.input_tokens\s*\+\s*data\.usage\.output_tokens/,
+    )
     // parseAnthropicResponse attaches usage via conditional spread.
     expect(src).toMatch(/\.\.\.\(usage\s*!==\s*undefined\s*\?\s*\{\s*usage\s*\}\s*:\s*\{\}\)/)
   })
@@ -118,25 +120,37 @@ describe("arch: §14 token/cost LLM-usage tracking (D23 — D21 gap closed)", ()
   it("wechat-inbound-butler forwards resp.usage and emits step/llm_call trace with token", () => {
     const src = readFileSync(WECHAT_INBOUND_BUTLER, "utf-8")
     // Forwards usage into the loop response shape.
-    expect(src).toMatch(/\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*usage:\s*resp\.usage\s*\}\s*:\s*\{\}\)/)
+    expect(src).toMatch(
+      /\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*usage:\s*resp\.usage\s*\}\s*:\s*\{\}\)/,
+    )
     // Emits llm_call step trace in both onSuccess and onFailure branches.
     expect(src).toMatch(/kind:\s*"step",\s*\n\s*name:\s*"llm_call"/)
     // Carries token first-class on success.
-    expect(src).toMatch(/\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*token:\s*resp\.usage\s*\}\s*:\s*\{\}\)/)
+    expect(src).toMatch(
+      /\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*token:\s*resp\.usage\s*\}\s*:\s*\{\}\)/,
+    )
   })
 
   it("subagent-worker forwards resp.usage and emits step/llm_call trace with token", () => {
     const src = readFileSync(SUBAGENT_WORKER, "utf-8")
-    expect(src).toMatch(/\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*usage:\s*resp\.usage\s*\}\s*:\s*\{\}\)/)
+    expect(src).toMatch(
+      /\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*usage:\s*resp\.usage\s*\}\s*:\s*\{\}\)/,
+    )
     expect(src).toMatch(/kind:\s*"step",\s*\n\s*name:\s*"llm_call"/)
-    expect(src).toMatch(/\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*token:\s*resp\.usage\s*\}\s*:\s*\{\}\)/)
+    expect(src).toMatch(
+      /\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*token:\s*resp\.usage\s*\}\s*:\s*\{\}\)/,
+    )
   })
 
   it("approval-resume forwards resp.usage and emits step/llm_call trace with token", () => {
     const src = readFileSync(APPROVAL_RESUME, "utf-8")
-    expect(src).toMatch(/\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*usage:\s*resp\.usage\s*\}\s*:\s*\{\}\)/)
+    expect(src).toMatch(
+      /\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*usage:\s*resp\.usage\s*\}\s*:\s*\{\}\)/,
+    )
     expect(src).toMatch(/kind:\s*"step",\s*\n\s*name:\s*"llm_call"/)
-    expect(src).toMatch(/\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*token:\s*resp\.usage\s*\}\s*:\s*\{\}\)/)
+    expect(src).toMatch(
+      /\.\.\.\(resp\.usage\s*!==\s*undefined\s*\?\s*\{\s*token:\s*resp\.usage\s*\}\s*:\s*\{\}\)/,
+    )
   })
 
   // ── 6. TraceEvent first-class token + costUsd + OTLP emit ────
@@ -149,17 +163,13 @@ describe("arch: §14 token/cost LLM-usage tracking (D23 — D21 gap closed)", ()
     expect(src).toMatch(/readonly\s+outputTokens:\s*number/)
     expect(src).toMatch(/readonly\s+totalTokens:\s*number/)
     // TraceEvent fields.
-    const traceEventMatch = src.match(
-      /export interface TraceEvent\s*\{([\s\S]*?)\n\}/,
-    )
+    const traceEventMatch = src.match(/export interface TraceEvent\s*\{([\s\S]*?)\n\}/)
     expect(traceEventMatch, "TraceEvent interface not found").not.toBeNull()
     const body = traceEventMatch?.[1] ?? ""
     expect(body).toMatch(/readonly\s+token:\s*TraceTokenUsage\s*\|\s*null/)
     expect(body).toMatch(/readonly\s+costUsd:\s*number\s*\|\s*null/)
     // CreateTraceEventInput carries the same fields.
-    const inputMatch = src.match(
-      /export interface CreateTraceEventInput\s*\{([\s\S]*?)\n\}/,
-    )
+    const inputMatch = src.match(/export interface CreateTraceEventInput\s*\{([\s\S]*?)\n\}/)
     expect(inputMatch, "CreateTraceEventInput interface not found").not.toBeNull()
     const inputBody = inputMatch?.[1] ?? ""
     expect(inputBody).toMatch(/readonly\s+token\?:\s*TraceTokenUsage\s*\|\s*null/)

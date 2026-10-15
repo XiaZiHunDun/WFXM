@@ -86,7 +86,13 @@ function listTsFiles(dir: string, excludeTests = true): string[] {
     const path = join(dir, entry)
     const stat = statSync(path)
     if (stat.isDirectory()) {
-      if (entry === "node_modules" || entry === "dist" || entry === "coverage" || entry === "_archive") continue
+      if (
+        entry === "node_modules" ||
+        entry === "dist" ||
+        entry === "coverage" ||
+        entry === "_archive"
+      )
+        continue
       out.push(...listTsFiles(path, excludeTests))
     } else if (entry.endsWith(".ts")) {
       if (excludeTests && entry.endsWith(".test.ts")) continue
@@ -97,14 +103,17 @@ function listTsFiles(dir: string, excludeTests = true): string[] {
 }
 
 function readAllSrc(dir: string, excludeTests = true): string {
-  return listTsFiles(dir, excludeTests).map((f) => readFileSync(f, "utf8")).join("\n")
+  return listTsFiles(dir, excludeTests)
+    .map((f) => readFileSync(f, "utf8"))
+    .join("\n")
 }
 
 describe("§0+§1+§1.1+§2+§19 sweep (D35)", () => {
   // C1 §0 #1 + §2 非目标：manifests 无 K8s / Temporal / LangGraph /
   // ContextGraph / CQRS / Celery / Airflow / Dagster deps。
   it("manifests do not pull non-target orchestrators / DAG / CQRS / K8s deps (§0 #1 + §2)", () => {
-    const NON_TARGET = /\b(temporal|langgraph|contextgraph|cqrs|celery|airflow|dagster|kubernetes|helm\.js|k8s\.js)\b/i
+    const NON_TARGET =
+      /\b(temporal|langgraph|contextgraph|cqrs|celery|airflow|dagster|kubernetes|helm\.js|k8s\.js)\b/i
     const manifests = [
       join(BUTLER_V5, "package.json"),
       join(BUTLER_V5, "cli/package.json"),
@@ -157,7 +166,8 @@ describe("§0+§1+§1.1+§2+§19 sweep (D35)", () => {
   it("Core and apps do not embed engineering governance as product logic (§2 + §19)", () => {
     // 1. Core 不 import AGENTS.md / .cursorrules / hooks 路径作为模块。
     // 2. apps 也不允许（delivery shell 已是 policy boundary 之上）。
-    const FORBIDDEN_IMPORT = /from\s+["'][^"']*(AGENTS\.md|\.cursorrules|hooks\/v5-ai-guard|pre_commit_hook)[^"']*["']/i
+    const FORBIDDEN_IMPORT =
+      /from\s+["'][^"']*(AGENTS\.md|\.cursorrules|hooks\/v5-ai-guard|pre_commit_hook)[^"']*["']/i
     const candidateDirs = [
       join(PACKAGES_SRC, "domain/src"),
       join(PACKAGES_SRC, "runtime/src"),
@@ -218,10 +228,7 @@ describe("§0+§1+§1.1+§2+§19 sweep (D35)", () => {
 
   // C9 §19 工程治理文件存在：仓库根 + butler-v5 根双层 AGENTS.md。
   it("AGENTS.md exists at repo root + butler-v5 root (§19 governance surface)", () => {
-    const candidates = [
-      join(REPO_ROOT, "AGENTS.md"),
-      join(BUTLER_V5, "AGENTS.md"),
-    ]
+    const candidates = [join(REPO_ROOT, "AGENTS.md"), join(BUTLER_V5, "AGENTS.md")]
     const missing = candidates.filter((f) => !existsSync(f)).map((f) => relative(REPO_ROOT, f))
     expect(missing).toEqual([])
   })
@@ -239,7 +246,10 @@ describe("§0+§1+§1.1+§2+§19 sweep (D35)", () => {
     for (const d of candidateDirs) {
       for (const f of listTsFiles(d)) {
         const src = readFileSync(f, "utf8")
-        if (/from\s+["'][^"']*DESIGN\.md["']/.test(src) || /require\(["'][^"']*DESIGN\.md["']\)/.test(src)) {
+        if (
+          /from\s+["'][^"']*DESIGN\.md["']/.test(src) ||
+          /require\(["'][^"']*DESIGN\.md["']\)/.test(src)
+        ) {
           violations.push(relative(REPO_ROOT, f))
         }
       }

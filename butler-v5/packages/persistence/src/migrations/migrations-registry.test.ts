@@ -23,7 +23,7 @@ describe("migrations registry", () => {
     expect(files).toContain("0011_scoped_grant_capability_column.sql")
     const sql = migrationSql()
     expect(sql).toContain("ALTER TABLE scoped_grants")
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS capability')
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS capability")
     expect(sql).toContain("scoped_grants_capability_idx")
   })
 })

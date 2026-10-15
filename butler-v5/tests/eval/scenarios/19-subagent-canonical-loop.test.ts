@@ -22,11 +22,7 @@
  */
 import { describe, expect, it } from "vitest"
 import { runEvalScenario, formatMetricLine } from "../harness.js"
-import {
-  decisionResponse,
-  makeScriptedAdapter,
-  textResponse,
-} from "../mock-llm-scripted.js"
+import { decisionResponse, makeScriptedAdapter, textResponse } from "../mock-llm-scripted.js"
 
 describe("eval/19 subagent-canonical-loop (§20 #11 D8 regression)", () => {
   it(
@@ -41,9 +37,7 @@ describe("eval/19 subagent-canonical-loop (§20 #11 D8 regression)", () => {
             role: "researcher",
             objective: "find docs about Foo",
           }),
-          textResponse(
-            JSON.stringify({ _tag: "Respond", content: "已委派给 researcher 子代理" }),
-          ),
+          textResponse(JSON.stringify({ _tag: "Respond", content: "已委派给 researcher 子代理" })),
         ],
       })
       const result = await runEvalScenario({

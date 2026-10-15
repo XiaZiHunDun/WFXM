@@ -83,16 +83,18 @@ describe("local trace", () => {
     })
     const line = JSON.parse(formatOtelStdoutLine(ev)) as {
       resourceSpans: {
-        scopeSpans: { spans: {
-          traceId: string
-          spanId: string
-          name: string
-          kind: number
-          startTimeUnixNano: string
-          endTimeUnixNano: string
-          status: { code: number }
-          attributes: { key: string; value: { stringValue: string } }[]
-        }[] }[]
+        scopeSpans: {
+          spans: {
+            traceId: string
+            spanId: string
+            name: string
+            kind: number
+            startTimeUnixNano: string
+            endTimeUnixNano: string
+            status: { code: number }
+            attributes: { key: string; value: { stringValue: string } }[]
+          }[]
+        }[]
       }[]
     }
     const span = expectDefined(line.resourceSpans[0]?.scopeSpans[0]?.spans[0])

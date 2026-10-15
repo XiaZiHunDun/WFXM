@@ -26,9 +26,7 @@ export function autoPromoteOldCandidates(
   input: AutoPromoteOldCandidatesInput,
 ): AutoPromoteOldCandidatesResult {
   const cutoffMs = input.now.getTime() - input.windowMs
-  const toPromote = input.candidates.filter(
-    (c) => c.createdAt.getTime() < cutoffMs,
-  )
+  const toPromote = input.candidates.filter((c) => c.createdAt.getTime() < cutoffMs)
   return { toPromote }
 }
 
@@ -40,8 +38,8 @@ export function autoPromoteOldCandidates(
 
 export interface RollbackAutoPromotedCandidateMemory {
   readonly id: string
-  readonly status: 'confirmed'
-  readonly promotedBy: 'sweeper'
+  readonly status: "confirmed"
+  readonly promotedBy: "sweeper"
   readonly promotedAt: Date
 }
 
@@ -56,7 +54,7 @@ export interface RollbackAutoPromotedCandidateInput {
 
 export interface UpdatedMemory {
   readonly id: string
-  readonly status: 'candidate'
+  readonly status: "candidate"
   readonly updatedAt: Date
   readonly rolledBackBy: string
   readonly rolledBackAt: Date
@@ -67,31 +65,27 @@ export type RollbackAutoPromotedCandidateResult =
   | { readonly ok: true; readonly updated: UpdatedMemory }
   | {
       readonly ok: false
-      readonly reason:
-        | 'not-confirmed'
-        | 'not-auto-promoted'
-        | 'rollback-window-expired'
+      readonly reason: "not-confirmed" | "not-auto-promoted" | "rollback-window-expired"
     }
 
 export function rollbackAutoPromotedCandidate(
   input: RollbackAutoPromotedCandidateInput,
 ): RollbackAutoPromotedCandidateResult {
-  if (input.memory.status !== 'confirmed') {
-    return { ok: false, reason: 'not-confirmed' }
+  if (input.memory.status !== "confirmed") {
+    return { ok: false, reason: "not-confirmed" }
   }
-  if (input.memory.promotedBy !== 'sweeper') {
-    return { ok: false, reason: 'not-auto-promoted' }
+  if (input.memory.promotedBy !== "sweeper") {
+    return { ok: false, reason: "not-auto-promoted" }
   }
-  const rollbackDeadlineMs =
-    input.memory.promotedAt.getTime() + input.rollbackWindowMs
+  const rollbackDeadlineMs = input.memory.promotedAt.getTime() + input.rollbackWindowMs
   if (input.now.getTime() > rollbackDeadlineMs) {
-    return { ok: false, reason: 'rollback-window-expired' }
+    return { ok: false, reason: "rollback-window-expired" }
   }
   return {
     ok: true,
     updated: {
       id: input.memory.id,
-      status: 'candidate',
+      status: "candidate",
       updatedAt: input.now,
       rolledBackBy: input.ownerId,
       rolledBackAt: input.now,

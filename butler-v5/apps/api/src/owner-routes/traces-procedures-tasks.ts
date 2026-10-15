@@ -1,9 +1,9 @@
 import type { Hono } from "hono"
-import { getSharedLocalTracer, resetSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import {
-  createProcedureRecord,
-  createTaskRecord,
-} from "@butler/domain/knowledge/task-procedure.js"
+  getSharedLocalTracer,
+  resetSharedLocalTracer,
+} from "@butler/runtime/observability/local-tracer.js"
+import { createProcedureRecord, createTaskRecord } from "@butler/domain/knowledge/task-procedure.js"
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { handleTaskRun } from "./tasks-run.js"
@@ -99,7 +99,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         correlationId: null,
         action: "procedure.created",
         // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-        actor: 'owner-direct',
+        actor: "owner-direct",
         subject: "owner",
         detail: { procedureId: saved.id, name: saved.name },
         createdAt: new Date(),
@@ -145,9 +145,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
       subject: body.subject ?? "owner",
       title: body.title ?? "",
       goal: body.goal ?? "",
-      ...(typeof body.conversationId === "string"
-        ? { conversationId: body.conversationId }
-        : {}),
+      ...(typeof body.conversationId === "string" ? { conversationId: body.conversationId } : {}),
       ...(typeof body.procedureId === "string" ? { procedureId: body.procedureId } : {}),
       ...(typeof body.procedureStepIndex === "number"
         ? { procedureStepIndex: body.procedureStepIndex }
@@ -169,7 +167,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         correlationId: null,
         action: "task.created",
         // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-        actor: 'owner-direct',
+        actor: "owner-direct",
         // D74 T1 (audit #20 SO-007): subject allowlist — audit emit must
         // reject attacker-controllable subjects at the boundary. Defaults
         // to "owner" rather than echoing body.subject if disallowed.
@@ -212,7 +210,7 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         correlationId: null,
         action: "task.done",
         // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-        actor: 'owner-direct',
+        actor: "owner-direct",
         subject: existing.subject,
         detail: { taskId: existing.id, fromStatus: existing.status },
         createdAt: new Date(),

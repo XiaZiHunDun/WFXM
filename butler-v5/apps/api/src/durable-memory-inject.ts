@@ -9,7 +9,6 @@ import {
 import { envTruthy } from "./env-util.js"
 import type { DurableMemoryStore } from "@butler/persistence"
 
-
 function isDurableMemoryInjectEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_DURABLE_MEMORY"])
 }

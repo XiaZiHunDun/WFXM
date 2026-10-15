@@ -93,10 +93,7 @@ describe("arch: §6 Application 编排层 (RunEngine is the sole orchestrator)",
         }
       }
     }
-    expect(
-      violations,
-      `forbidden orchestrator classes found: ${violations.join(", ")}`,
-    ).toEqual([])
+    expect(violations, `forbidden orchestrator classes found: ${violations.join(", ")}`).toEqual([])
   })
 
   it("AgentKernel is a Run-state primitive, not a parallel orchestrator (only one engine exists)", () => {

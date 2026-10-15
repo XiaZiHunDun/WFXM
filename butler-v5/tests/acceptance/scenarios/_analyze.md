@@ -1,6 +1,6 @@
 # Acceptance Realistic Scenarios — 产品层行为分析
 
-生成时间：2026-09-22（58 场景自动跑出）
+生成时间：2026-10-15（58 场景自动跑出）
 
 ## 总览
 
@@ -14,86 +14,86 @@
 
 ### A-concrete（11 场景，11 通过）
 
-| ID | 标题 | 工具 | 审批 | 状态 |
-|---|---|---|---|---|
-| A1 | 读 README | 1 | 0 | ✅ |
-| A2 | 改 user 路由支持手机号登录 | 2 | 1 | ✅ |
-| A3 | 跑 pnpm test | 1 | 0 | ✅ |
-| A4 | 昨天我们改了什么 | 0 | 0 | ✅ |
-| A5 | 删 dead import | 2 | 1 | ✅ |
-| A6 | timeout 可配 | 2 | 1 | ✅ |
-| A7 | git log -5 | 1 | 0 | ✅ |
-| A8 | 生成 PR 描述 | 1 | 0 | ✅ |
-| A9 | 跑 typecheck | 1 | 0 | ✅ |
-| A10 | 加 unit test | 1 | 0 | ✅ |
-| A11-session-digest-idle-return | A11 owner idle 返回开口，digest prepend | 0 | 0 | ✅ |
+| ID                             | 标题                                    | 工具 | 审批 | 状态 |
+| ------------------------------ | --------------------------------------- | ---- | ---- | ---- |
+| A1                             | 读 README                               | 1    | 0    | ✅   |
+| A2                             | 改 user 路由支持手机号登录              | 2    | 1    | ✅   |
+| A3                             | 跑 pnpm test                            | 1    | 0    | ✅   |
+| A4                             | 昨天我们改了什么                        | 0    | 0    | ✅   |
+| A5                             | 删 dead import                          | 2    | 1    | ✅   |
+| A6                             | timeout 可配                            | 2    | 1    | ✅   |
+| A7                             | git log -5                              | 1    | 0    | ✅   |
+| A8                             | 生成 PR 描述                            | 1    | 0    | ✅   |
+| A9                             | 跑 typecheck                            | 1    | 0    | ✅   |
+| A10                            | 加 unit test                            | 1    | 0    | ✅   |
+| A11-session-digest-idle-return | A11 owner idle 返回开口，digest prepend | 0    | 0    | ✅   |
 
 ### B-open（10 场景，10 通过）
 
-| ID | 标题 | 工具 | 审批 | 状态 |
-|---|---|---|---|---|
-| B1 | v5 现在有什么问题 | 0 | 0 | ✅ |
-| B2 | 下一步该做什么 | 0 | 0 | ✅ |
-| B3 | 新接手导览 | 0 | 0 | ✅ |
-| B4 | 最近 3 天做了什么 | 0 | 0 | ✅ |
-| B5 | 架构 risk | 0 | 0 | ✅ |
-| B6 | 我撞过哪些坑 | 0 | 0 | ✅ |
-| B7 | 设计哲学 | 0 | 0 | ✅ |
-| B8 | 我没用过的功能 | 0 | 0 | ✅ |
-| B9 | owner 应该关心什么 | 0 | 0 | ✅ |
-| B10 | 1 周 focus | 0 | 0 | ✅ |
+| ID  | 标题               | 工具 | 审批 | 状态 |
+| --- | ------------------ | ---- | ---- | ---- |
+| B1  | v5 现在有什么问题  | 0    | 0    | ✅   |
+| B2  | 下一步该做什么     | 0    | 0    | ✅   |
+| B3  | 新接手导览         | 0    | 0    | ✅   |
+| B4  | 最近 3 天做了什么  | 0    | 0    | ✅   |
+| B5  | 架构 risk          | 0    | 0    | ✅   |
+| B6  | 我撞过哪些坑       | 0    | 0    | ✅   |
+| B7  | 设计哲学           | 0    | 0    | ✅   |
+| B8  | 我没用过的功能     | 0    | 0    | ✅   |
+| B9  | owner 应该关心什么 | 0    | 0    | ✅   |
+| B10 | 1 周 focus         | 0    | 0    | ✅   |
 
 ### C-edge（20 场景，20 通过）
 
-| ID | 标题 | 工具 | 审批 | 状态 |
-|---|---|---|---|---|
-| C1 | y 当确认 | 0 | 0 | ✅ |
-| C2 | 好的 当确认 | 0 | 0 | ✅ |
-| C3 | 👌 当确认 | 0 | 0 | ✅ |
-| C4 | 长消息 spam | 0 | 0 | ✅ |
-| C5 | 模糊 优化 | 0 | 0 | ✅ |
-| C6 | 跨天 上次聊到哪 | 0 | 0 | ✅ |
-| C7 | 两个 task 一起 | 1 | 0 | ✅ |
-| C8 | 重复确认 | 2 | 1 | ✅ |
-| C9 | 撤销刚才 | 0 | 0 | ✅ |
-| C10 | 多语言混合 | 1 | 0 | ✅ |
-| F1-fatigue | F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 REAL fatigue cooldown (audit injection) | 8 | 4 | ✅ |
-| F2-sensitive | F2 sensitive tool checklist 拦截 → owner 确认 → consume-path bridge 升级 ack | 1 | 1 | ✅ |
-| F3-replay | F3 owner 询问 replay API, harness pre-injects 3 audit events, reader sees real data | 0 | 0 | ✅ |
-| C-F1-real-cooldown | C-F1 cooldown 变体: 3 个 read_file pre-inject + write_file plan 触发 REAL cooldown (工具类型无关) | 8 | 4 | ✅ |
-| C-F2-checklist-proceed | C-F2 sensitive 变体: send_wechat_file 不同 path 触发 checklist → owner 确认 → bridge 升级 ack | 1 | 1 | ✅ |
-| C-F3-replay-api | C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences | 0 | 0 | ✅ |
-| C-additional-1 | C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply | 0 | 0 | ✅ |
-| C-O-1 | C-O-1 GET /fatigue after 3 owner-direct events → 1 sequence | 0 | 0 | ✅ |
-| C-O-2 | C-O-2 POST /replay with reversible event_ids → replayed=[id] | 0 | 0 | ✅ |
-| C-O-3 | C-O-3 POST /replay with foreign-actor event → 403 cross-actor | 0 | 0 | ✅ |
+| ID                     | 标题                                                                                              | 工具 | 审批 | 状态 |
+| ---------------------- | ------------------------------------------------------------------------------------------------- | ---- | ---- | ---- |
+| C1                     | y 当确认                                                                                          | 0    | 0    | ✅   |
+| C2                     | 好的 当确认                                                                                       | 0    | 0    | ✅   |
+| C3                     | 👌 当确认                                                                                         | 0    | 0    | ✅   |
+| C4                     | 长消息 spam                                                                                       | 0    | 0    | ✅   |
+| C5                     | 模糊 优化                                                                                         | 0    | 0    | ✅   |
+| C6                     | 跨天 上次聊到哪                                                                                   | 0    | 0    | ✅   |
+| C7                     | 两个 task 一起                                                                                    | 1    | 0    | ✅   |
+| C8                     | 重复确认                                                                                          | 2    | 1    | ✅   |
+| C9                     | 撤销刚才                                                                                          | 0    | 0    | ✅   |
+| C10                    | 多语言混合                                                                                        | 1    | 0    | ✅   |
+| F1-fatigue             | F1 owner 60s 内连续 y 4 个 normal tool, 第 4 个走 REAL fatigue cooldown (audit injection)         | 8    | 4    | ✅   |
+| F2-sensitive           | F2 sensitive tool checklist 拦截 → owner 确认 → consume-path bridge 升级 ack                      | 1    | 1    | ✅   |
+| F3-replay              | F3 owner 询问 replay API, harness pre-injects 3 audit events, reader sees real data               | 0    | 0    | ✅   |
+| C-F1-real-cooldown     | C-F1 cooldown 变体: 3 个 read_file pre-inject + write_file plan 触发 REAL cooldown (工具类型无关) | 8    | 4    | ✅   |
+| C-F2-checklist-proceed | C-F2 sensitive 变体: send_wechat_file 不同 path 触发 checklist → owner 确认 → bridge 升级 ack     | 1    | 1    | ✅   |
+| C-F3-replay-api        | C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences    | 0    | 0    | ✅   |
+| C-additional-1         | C-additional owner 直接查询: phantom audit event (跨 conversationId) 不干扰 reply                 | 0    | 0    | ✅   |
+| C-O-1                  | C-O-1 GET /fatigue after 3 owner-direct events → 1 sequence                                       | 0    | 0    | ✅   |
+| C-O-2                  | C-O-2 POST /replay with reversible event_ids → replayed=[id]                                      | 0    | 0    | ✅   |
+| C-O-3                  | C-O-3 POST /replay with foreign-actor event → 403 cross-actor                                     | 0    | 0    | ✅   |
 
 ### D-combo（14 场景，14 通过）
 
-| ID | 标题 | 工具 | 审批 | 状态 |
-|---|---|---|---|---|
-| D1 | 写 + 跑 test + 失败 + 修 + 再跑 | 3 | 2 | ✅ |
-| D1-chain-extension | D1 5 步链撤销（多 tool undo） | 0 | 0 | ✅ |
-| D2-chain-approval | D2 chain 跨 WaitForApproval 撤销 | 3 | 1 | ✅ |
-| D3-chain-commands | D3 chain 全 run_command 无 auto-undo | 0 | 0 | ✅ |
-| D4-chain-cross-conv | D4 同 conv 2 chains, first-match wins (D59 T5) | 0 | 0 | ✅ |
-| D5-chain-restart | D5 restart 后 chain 丢失, honest reply | 0 | 0 | ✅ |
-| D2 | 看看 后续追问 | 2 | 0 | ✅ |
-| D3 | 先 read 现在改 | 2 | 1 | ✅ |
-| D4 | 被打断 resume | 2 | 0 | ✅ |
-| D5 | 写完 问安全吗 | 3 | 2 | ✅ |
-| D-cross-channel-consistency | D-cross-channel 一致性: 同一 conv 跨 wechat+telegram+CLI 注入 3 audit events, 第 4 个写触发 cooldown | 2 | 1 | ✅ |
-| D-audit-correlation-continuity | D-audit-correlation 连续性: 5 连续 emit 共享同一 correlation_id, reader sees 1 sequence | 0 | 0 | ✅ |
-| D-owner-direct-no-inbound | D-owner-direct 无 inbound run: phantom audit (随机 convId) 不污染 chat reply | 0 | 0 | ✅ |
-| D-additional-2 | D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario | 2 | 1 | ✅ |
+| ID                             | 标题                                                                                                 | 工具 | 审批 | 状态 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- | ---- | ---- | ---- |
+| D1                             | 写 + 跑 test + 失败 + 修 + 再跑                                                                      | 3    | 2    | ✅   |
+| D1-chain-extension             | D1 5 步链撤销（多 tool undo）                                                                        | 0    | 0    | ✅   |
+| D2-chain-approval              | D2 chain 跨 WaitForApproval 撤销                                                                     | 3    | 1    | ✅   |
+| D3-chain-commands              | D3 chain 全 run_command 无 auto-undo                                                                 | 0    | 0    | ✅   |
+| D4-chain-cross-conv            | D4 同 conv 2 chains, first-match wins (D59 T5)                                                       | 0    | 0    | ✅   |
+| D5-chain-restart               | D5 restart 后 chain 丢失, honest reply                                                               | 0    | 0    | ✅   |
+| D2                             | 看看 后续追问                                                                                        | 2    | 0    | ✅   |
+| D3                             | 先 read 现在改                                                                                       | 2    | 1    | ✅   |
+| D4                             | 被打断 resume                                                                                        | 2    | 0    | ✅   |
+| D5                             | 写完 问安全吗                                                                                        | 3    | 2    | ✅   |
+| D-cross-channel-consistency    | D-cross-channel 一致性: 同一 conv 跨 wechat+telegram+CLI 注入 3 audit events, 第 4 个写触发 cooldown | 2    | 1    | ✅   |
+| D-audit-correlation-continuity | D-audit-correlation 连续性: 5 连续 emit 共享同一 correlation_id, reader sees 1 sequence              | 0    | 0    | ✅   |
+| D-owner-direct-no-inbound      | D-owner-direct 无 inbound run: phantom audit (随机 convId) 不污染 chat reply                         | 0    | 0    | ✅   |
+| D-additional-2                 | D-additional-2 audit emit 失败 graceful continue: invalid path 不 crash scenario                     | 2    | 1    | ✅   |
 
 ### E-demo（3 场景，3 通过）
 
-| ID | 标题 | 工具 | 审批 | 状态 |
-|---|---|---|---|---|
-| E1-demo-cold-start | demo 冷启动：fresh convId → Respond | 0 | 0 | ✅ |
-| E2-demo-approval-flow | demo 审批流：write_file → approval → owner y → execute | 2 | 1 | ✅ |
-| E3-demo-multi-turn | demo 多轮：同 convId 跨 2 turn 不掉线 | 0 | 0 | ✅ |
+| ID                    | 标题                                                   | 工具 | 审批 | 状态 |
+| --------------------- | ------------------------------------------------------ | ---- | ---- | ---- |
+| E1-demo-cold-start    | demo 冷启动：fresh convId → Respond                    | 0    | 0    | ✅   |
+| E2-demo-approval-flow | demo 审批流：write_file → approval → owner y → execute | 2    | 1    | ✅   |
+| E3-demo-multi-turn    | demo 多轮：同 convId 跨 2 turn 不掉线                  | 0    | 0    | ✅   |
 
 ## 每场景 reply 抓取（用于人工 review）
 
@@ -137,6 +137,7 @@ _decision=Respond | toolCalls=1 | replyLen=47_
 > in: 昨天我们改了什么
 
 < 昨天（2026-09-03）我们 7 个 commit：
+
 1. test(acceptance) wechat end-to-end harness
 2. docs(plans) fix broken doc links
 3. chore gitignore .trae
@@ -191,12 +192,15 @@ _decision=Respond | toolCalls=1 | replyLen=131_
 > in: 帮我写个 PR 描述，把最近 7 个 commit 整理出来
 
 < PR 描述草稿：
+
 ## 摘要
+
 - 新增微信端到端模拟验收 harness（4 acceptance 文件 / 11 用例）
 - 修复 doc 链接 + 清理 spec placeholder
 - CI 纳入 acceptance + pre-commit hook 同步闭环
 
 ## 测试
+
 - 全量回归 266/1712/1skip pass
 - typecheck/lint 0 警
 
@@ -219,6 +223,7 @@ _decision=Respond | toolCalls=1 | replyLen=24_
 > in: 给 packages/runtime/src/run-engine.ts 加个 unit test 覆盖 conflict 路径
 
 < 看了 run-engine.test.ts，已经有 ActiveMainRunConflict 测试（line 271 + 448）。如要补充，建议加：
+
 - 并发 2 个 inbound 到同 convId 验证第二个抛
 - resumeRun 错误状态（已 terminal）抛错
 
@@ -245,6 +250,7 @@ _decision=Respond | toolCalls=0 | replyLen=49_
 > in: v5 现在有什么问题？
 
 < 按我目前观察，v5 production-ready 但有几类未消化项：
+
 - §18 20 项延后触发（等真实场景撞）
 - 真实 LLM 输出质量未量化（scripted harness 只能验 wiring）
 - WeChat 端 UX 未 owner 实测过（移动端格式 / 长消息）
@@ -261,6 +267,7 @@ _decision=Respond | toolCalls=0 | replyLen=173_
 > in: 下一步该做什么？
 
 < 按你刚扫完代码卫生 + 验收基建 + hook sync 闭环的状态，建议：
+
 1. 跑 realistic scenarios 找真痛点（这批）
 2. 看 owner 实测 1 周后输出 owner 视角笔记
 3. 加延迟 + 失败可观测埋点
@@ -277,12 +284,14 @@ _decision=Respond | toolCalls=0 | replyLen=135_
 
 < v5 = 函数式架构微信编码管家（Effect-TS）。
 核心概念：
+
 - 6 个 Port + 7 个核心（runtime/persistence/llm）
 - Acceptance 走 runButlerLoop（INTAKE_ENABLED=0）
 - 副作用咽喉 = policy-gate + capability-boundary
 - 3 层记忆 = Transcript / Durable Memory / Project Knowledge
 
 入口：
+
 - DEV：`pnpm dev`
 - TEST：`pnpm vitest run tests/acceptance --pool=forks`
 - 微信：POST /v1/wechat/inbound
@@ -298,6 +307,7 @@ _decision=Respond | toolCalls=0 | replyLen=341_
 > in: 最近 3 天你帮我做了什么
 
 < 本会话 7 commit：
+
 1. 微信端到端模拟验收 harness（4 文件 / 11 用例）
 2. doc 链接修复 + .trae/ gitignore
 3. specs/ placeholder 日期清理
@@ -317,11 +327,13 @@ _decision=Respond | toolCalls=0 | replyLen=213_
 > in: 架构上有什么 risk
 
 < 按 DESIGN §13 + §20 现状：
+
 - 高 risk：Core 不反向依赖 adapters（已锁）；Effect TS 边界（6 LLM callsite timeout 已加）
 - 中 risk：MCP token-passthrough 走 manifest oauthAudience fail-closed；approval runtime hardening 已闭环
 - 低 risk：文档 hygiene（最近扫过）
 
 真实 risk：
+
 - LLM 真实输出质量未量化（scripted fixture 测不出）
 - 20 §18 延后项未撞（不是 bug，是产品 gap）
 
@@ -334,6 +346,7 @@ _decision=Respond | toolCalls=0 | replyLen=299_
 > in: 我撞过哪些坑？
 
 < 近期已知 issue：
+
 - ① healthzUp 集成测试 skipIf 在异步 beforeAll 求值 → 4 双向网络守卫从未真跑（已修）
 - ② runButlerLoop 异常丢消息（已修：catch 降级 reply）
 - ③ pre-commit hook 源/安装副本漂移（已闭环 install+postinstall+CI drift）
@@ -349,6 +362,7 @@ _decision=Respond | toolCalls=0 | replyLen=291_
 > in: 项目的设计哲学是什么？
 
 < v5 核心原则：
+
 - Effect-TS 严格边界：纯函数 + 端口注入
 - 显式承认 vs 修复：D-series 30+ 承认项（arch guard 防再犯）
 - 触发条件式设计：§18 trigger 制度，20 延后项等真撞
@@ -364,6 +378,7 @@ _decision=Respond | toolCalls=0 | replyLen=211_
 > in: 哪些功能是我没用过的
 
 < （诚实回答）我没有使用率埋点，所以无法直接告诉你哪些真没用。但按设计意图，以下能力可能还没在你身上落地：
+
 - /记住 + durable memory candidate（除非你显式确认才转 confirmed）
 - project knowledge recall（除非你喂资料）
 - 跨 project recall（G5 工具，需要多 project）
@@ -379,6 +394,7 @@ _decision=Respond | toolCalls=0 | replyLen=206_
 > in: 作为 owner 我应该关心什么
 
 < 你该关心的（按频率/影响）：
+
 - 每天：bot reply 是否真帮上忙（最直接）
 - 每周：哪些命令在用、哪些 dead；哪类请求 bot 答得不对
 - 每月：架构 §18 20 项是否撞到；MCP / approval / memory 是否有边界 case
@@ -393,6 +409,7 @@ _decision=Respond | toolCalls=0 | replyLen=166_
 > in: 接下来 1 周我该 focus 什么
 
 < 建议本周 focus 顺序：
+
 1. 跑完 realistic scenarios 35 个，写分析
 2. 选 1-2 个最痛的格式 / 延迟 / approval 边界问题修
 3. 加 LLM 真实质量记录（fixture-recording）
@@ -448,6 +465,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 > in: 优化一下
 
 < 优化什么？范围很大。常见的方向：
+
 - 代码质量（lint / typecheck / deadcode）
 - 性能（profile + 找热点）
 - UX（reply 格式 / 延迟）
@@ -464,6 +482,7 @@ _decision=Respond | toolCalls=0 | replyLen=125_
 > in: 上次我们聊到哪
 
 < （按当前会话）最近我们：
+
 - 完成了 acceptance harness 收口
 - doc 卫生 + hook sync 闭环
 - state.md + MEMORY.md 同步
@@ -516,7 +535,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-HFYbwa/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-NumT1r/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -611,6 +630,7 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 > in: 把 README.md 发到我微信
 
 < 此操作 [send_wechat_file] 不可撤销，请确认：
+
 1. 我已读此操作的后果，且操作不可撤销。
 2. 我确认目标对象正确（recipient / path / target）。
 
@@ -715,6 +735,7 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 > in: 把 owner-default project memory 发到我微信
 
 < 此操作 [send_wechat_file] 不可撤销，请确认：
+
 1. 我已读此操作的后果，且操作不可撤销。
 2. 我确认目标对象正确（recipient / path / target）。
 
@@ -745,6 +766,7 @@ _decision=Respond | toolCalls=0 | replyLen=80_
 > in: 列出所有 active 的任务
 
 < 当前 active 任务：
+
 - 改 foo.ts (in progress)
 - 修 bar.ts (queued)
 - 部署 v5.2 (blocked)
@@ -819,9 +841,9 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=75_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 3 步）
-✅ /tmp/wb-accept-ws-HFYbwa/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-HFYbwa/test.ts → 还原为上版
-✅ /tmp/wb-accept-ws-HFYbwa/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-NumT1r/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-NumT1r/test.ts → 还原为上版
+✅ /tmp/wb-accept-ws-NumT1r/helper.ts → 还原为上版
 
 以下 2 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -854,8 +876,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-HFYbwa/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-HFYbwa/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-NumT1r/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-NumT1r/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -884,7 +906,7 @@ _decision=Respond | toolCalls=0 | replyLen=96_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 1 步）
-✅ /tmp/wb-accept-ws-HFYbwa/old.ts → 还原为上版
+✅ /tmp/wb-accept-ws-NumT1r/old.ts → 还原为上版
 
 _decision=Respond | toolCalls=0 | replyLen=55_
 

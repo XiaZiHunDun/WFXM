@@ -26,7 +26,11 @@ function makeStore(opts: {
   const appendImpl =
     opts.appendImpl ??
     (async (input) => {
-      events.push({ action: input.action, subject: input.subject, conversationId: input.conversationId })
+      events.push({
+        action: input.action,
+        subject: input.subject,
+        conversationId: input.conversationId,
+      })
     })
   const store = {
     appendAuditEvent: appendImpl,

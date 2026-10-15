@@ -11,7 +11,6 @@ import { envTruthy } from "./env-util.js"
 import { resolve } from "node:path"
 import type { ScheduleJobSpec } from "@butler/domain/runtime.js"
 
-
 function asPositiveInt(raw: unknown, fallback: number): number {
   const n = typeof raw === "number" ? raw : Number(raw)
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback
@@ -36,8 +35,7 @@ function parseJob(raw: unknown): ScheduleJobSpec | null {
     deadlineRaw === null || deadlineRaw === undefined
       ? 120_000
       : asPositiveInt(deadlineRaw, 120_000)
-  const quietSuccess =
-    obj["quietSuccess"] === undefined ? true : Boolean(obj["quietSuccess"])
+  const quietSuccess = obj["quietSuccess"] === undefined ? true : Boolean(obj["quietSuccess"])
   const enabled = obj["enabled"] === undefined ? true : Boolean(obj["enabled"])
   const conversationId =
     typeof obj["conversationId"] === "string" && obj["conversationId"].trim()

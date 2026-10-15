@@ -3,13 +3,7 @@
  * Default: structured local events. OTEL exporter is optional, not a runtime dep.
  */
 
-export type TraceKind =
-  | "run"
-  | "step"
-  | "capability"
-  | "policy"
-  | "grant"
-  | "approval"
+export type TraceKind = "run" | "step" | "capability" | "policy" | "grant" | "approval"
 
 /**
  * D23: provider-agnostic token usage surfaced by `LLMAdapter.complete`.
@@ -200,9 +194,7 @@ export function formatOtelStdoutLine(event: TraceEvent): string {
                 name: `${event.kind}:${event.name}`,
                 kind: 1,
                 startTimeUnixNano: String(event.createdAt * 1_000_000),
-                endTimeUnixNano: String(
-                  (event.createdAt + (event.durationMs ?? 0)) * 1_000_000,
-                ),
+                endTimeUnixNano: String((event.createdAt + (event.durationMs ?? 0)) * 1_000_000),
                 attributes: [
                   { key: "butler.kind", value: { stringValue: event.kind } },
                   { key: "butler.status", value: { stringValue: event.status } },

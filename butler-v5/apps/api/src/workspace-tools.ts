@@ -139,12 +139,10 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
       // R16 sandbox 扩面：当 BUTLER_V5_SANDBOX=bubblewrap 时，read_file 走
       // bwrap cat-equivalent（readOnly=true → workspace --ro-bind）。否则
       // fall back 到进程内 path-escape 约束（保持现状，避免 bwrap 不在的环境回退破坏）。
-      const { executeArgvInSandbox, createDefaultProcessRunner } = await import(
-        "@butler/adapters/sandbox/bubblewrap-runner.js"
-      )
-      const { currentNetworkAllowlist, currentSandboxProfileName } = await import(
-        "@butler/runtime/sandbox/index.js"
-      )
+      const { executeArgvInSandbox, createDefaultProcessRunner } =
+        await import("@butler/adapters/sandbox/bubblewrap-runner.js")
+      const { currentNetworkAllowlist, currentSandboxProfileName } =
+        await import("@butler/runtime/sandbox/index.js")
       const started = Date.now()
       const sandboxed = await executeArgvInSandbox({
         argv: ["cat", "--", resolved.path],
@@ -170,10 +168,21 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
           // safeOwnerError so the owner sees a Chinese fallback ("读取文件失败")
           // rather than `EACCES: permission denied, open '/etc/...'`. The
           // detailed error stays in operator logs via safeOwnerError.
-          return { ok: false, reason: safeOwnerError(err, "读取文件失败", { operation: "read_file", path: resolved.path }) }
+          return {
+            ok: false,
+            reason: safeOwnerError(err, "读取文件失败", {
+              operation: "read_file",
+              path: resolved.path,
+            }),
+          }
         }
       } else {
-        const result = sandboxed as { readonly ok: boolean; readonly stdout?: string; readonly stderr?: string; readonly reason?: string }
+        const result = sandboxed as {
+          readonly ok: boolean
+          readonly stdout?: string
+          readonly stderr?: string
+          readonly reason?: string
+        }
         await recordExecAudit(ctx.audit, {
           cmd: ["cat", "--", resolved.path].join(" "),
           cwd: sandboxWorkspaceRootFrom(ctx),
@@ -227,12 +236,9 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
 
       // R16 sandbox 扩面：write_file 走 bwrap tee-equivalent（stdin 透传 +
       // workspace --bind RW）。disabled 模式 fall back 到进程内 fs writeFileSync。
-      const { executeArgvInSandbox } = await import(
-        "@butler/adapters/sandbox/bubblewrap-runner.js"
-      )
-      const { currentNetworkAllowlist, currentSandboxProfileName } = await import(
-        "@butler/runtime/sandbox/index.js"
-      )
+      const { executeArgvInSandbox } = await import("@butler/adapters/sandbox/bubblewrap-runner.js")
+      const { currentNetworkAllowlist, currentSandboxProfileName } =
+        await import("@butler/runtime/sandbox/index.js")
       const started = Date.now()
       const sandboxed = await executeArgvInSandbox({
         argv: ["tee", resolved.path],
@@ -254,7 +260,12 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
           return { ok: false, reason: err instanceof Error ? err.message : String(err) }
         }
       } else {
-        const result = sandboxed as { readonly ok: boolean; readonly stdout?: string; readonly stderr?: string; readonly reason?: string }
+        const result = sandboxed as {
+          readonly ok: boolean
+          readonly stdout?: string
+          readonly stderr?: string
+          readonly reason?: string
+        }
         await recordExecAudit(ctx.audit, {
           cmd: ["tee", resolved.path].join(" "),
           cwd: sandboxWorkspaceRootFrom(ctx),
@@ -341,19 +352,16 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         return { ok: false, reason: "aborted" }
       }
       const cwd = sandboxWorkspaceRootFrom(ctx)
-      const { executeArgvInSandbox, createDefaultProcessRunner } = await import(
-        "@butler/adapters/sandbox/bubblewrap-runner.js"
-      )
-      const { currentNetworkAllowlist, currentSandboxProfileName } = await import(
-        "@butler/runtime/sandbox/index.js"
-      )
+      const { executeArgvInSandbox, createDefaultProcessRunner } =
+        await import("@butler/adapters/sandbox/bubblewrap-runner.js")
+      const { currentNetworkAllowlist, currentSandboxProfileName } =
+        await import("@butler/runtime/sandbox/index.js")
       const sandboxRunner = createDefaultProcessRunner()
       // P2 credential host-injection: resolve + merge allowed named credentials.
       const requestedCred = normalizeCredentialNames(args["credentials"])
       let injectedEnv: Readonly<Record<string, string>> = {}
       if (requestedCred.length > 0) {
-        const provider =
-          ctx.credentialProvider ?? createHostCredentialProvider(process.env)
+        const provider = ctx.credentialProvider ?? createHostCredentialProvider(process.env)
         const allowlist =
           ctx.credentialAllowlist ??
           (process.env["BUTLER_V5_RUN_COMMAND_CREDENTIALS"] ?? "")
@@ -408,9 +416,7 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         ? {
             ok: true,
             output:
-              "stdout" in sandboxed
-                ? sandboxed.stdout ?? ""
-                : "sandboxed run returned no output",
+              "stdout" in sandboxed ? (sandboxed.stdout ?? "") : "sandboxed run returned no output",
             exitCode: null,
           }
         : { ok: false, reason: sandboxed.reason ?? "sandbox failed", exitCode: null }

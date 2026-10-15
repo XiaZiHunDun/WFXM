@@ -29,9 +29,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       items: items.map((d) => ({
         ...d,
         extractedText:
-          d.extractedText.length > 500
-            ? `${d.extractedText.slice(0, 500)}…`
-            : d.extractedText,
+          d.extractedText.length > 500 ? `${d.extractedText.slice(0, 500)}…` : d.extractedText,
       })),
     })
   })
@@ -60,10 +58,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     }
     const format = parseDocumentFormat(body.format ?? "plaintext")
     if (!format) {
-      return c.json(
-        { ok: false, reason: "不支持的文档格式（plaintext/markdown/pdf）" },
-        400,
-      )
+      return c.json({ ok: false, reason: "不支持的文档格式（plaintext/markdown/pdf）" }, 400)
     }
     const created = ingestDocumentRecord({
       subject: body.subject ?? "owner",
@@ -104,7 +99,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       correlationId: null,
       action: "document.created",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       // D74 T1 (audit #20 SO-007): subject allowlist — audit emit must
       // reject attacker-controllable subjects at the boundary. Defaults
       // to "owner" rather than echoing body.subject if disallowed.
@@ -153,7 +148,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       correlationId: null,
       action: "project_knowledge.created_from_document",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       subject: "owner",
       detail: { itemId: saved.id, projectId: saved.projectId, documentId: doc.id },
       createdAt: new Date(),
@@ -168,8 +163,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
     const documentId = c.req.param("documentId")
     const ok = await store.delete(documentId)
     if (!ok) return c.json({ ok: false, reason: "未找到对应记录" }, 404)
-    const cascaded =
-      (await wiring.durableMemoryStore?.deleteBySourceDocumentId(documentId)) ?? 0
+    const cascaded = (await wiring.durableMemoryStore?.deleteBySourceDocumentId(documentId)) ?? 0
     const cascadedProjectKnowledge =
       (await wiring.projectKnowledgeStore?.deleteBySourceDocumentId(documentId)) ?? 0
     // D59 T1 (audit #1 F-25 + F-28): §13 audit completeness — document
@@ -184,7 +178,7 @@ export function registerDocumentsRoutes(app: Hono, wiring: Wiring): void {
       correlationId: null,
       action: "document.deleted",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       subject: "owner",
       detail: {
         documentId,

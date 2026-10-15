@@ -2,9 +2,7 @@ import { describe, test, expect, vi } from "vitest"
 import { auditFatigueReader } from "./audit-reader"
 import type { AuditEventRecord, RuntimeStore } from "@butler/domain/runtime.js"
 
-function makeStore(
-  rows: readonly AuditEventRecord[],
-): RuntimeStore {
+function makeStore(rows: readonly AuditEventRecord[]): RuntimeStore {
   return {
     listRecentAuditEvents: vi.fn(async () => rows),
   } as unknown as RuntimeStore
@@ -25,7 +23,9 @@ const baseEvent = (overrides: Partial<AuditEventRecord> = {}): AuditEventRecord 
 describe("auditFatigueReader", () => {
   test("R1: maps AuditEventRecord fields to AuditEventSummary", async () => {
     const created = new Date("2026-09-17T10:00:00Z")
-    const store = makeStore([baseEvent({ auditId: "a1", subject: "write_file", createdAt: created })])
+    const store = makeStore([
+      baseEvent({ auditId: "a1", subject: "write_file", createdAt: created }),
+    ])
     const reader = auditFatigueReader(store)
     const result = await reader.readRecent(60_000)
     expect(result).toEqual([
@@ -69,6 +69,6 @@ describe("auditFatigueReader", () => {
     ])
     const reader = auditFatigueReader(store)
     const result = await reader.readRecent(60_000)
-    expect(result.map(e => e.tool_name)).toEqual(["send_email", "read_file", "run_command"])
+    expect(result.map((e) => e.tool_name)).toEqual(["send_email", "read_file", "run_command"])
   })
 })

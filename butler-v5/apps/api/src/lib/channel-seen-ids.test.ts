@@ -3,10 +3,7 @@
  * cache. Locks the first-sight / duplicate / TTL semantics.
  */
 import { describe, expect, it, beforeEach } from "vitest"
-import {
-  _resetChannelSeenForTest,
-  markChannelSeen,
-} from "./channel-seen-ids.js"
+import { _resetChannelSeenForTest, markChannelSeen } from "./channel-seen-ids.js"
 
 describe("markChannelSeen", () => {
   beforeEach(() => {

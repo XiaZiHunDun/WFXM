@@ -1,9 +1,5 @@
 import type { McpTransport } from "./client.js"
-import {
-  captureMcpSessionId,
-  isMcpNotification,
-  type McpSessionRef,
-} from "./session.js"
+import { captureMcpSessionId, isMcpNotification, type McpSessionRef } from "./session.js"
 import { DEFAULT_MCP_TIMEOUT_MS } from "../defaults.js"
 
 export interface McpSseTransportConfig {

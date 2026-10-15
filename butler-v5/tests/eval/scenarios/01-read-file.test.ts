@@ -5,22 +5,14 @@
  */
 import { describe, expect, it } from "vitest"
 import { runEvalScenario, formatMetricLine } from "../harness.js"
-import {
-  makeScriptedAdapter,
-  textResponse,
-  toolCallResponse,
-} from "../mock-llm-scripted.js"
+import { makeScriptedAdapter, textResponse, toolCallResponse } from "../mock-llm-scripted.js"
 
 describe("eval/01 read-file (happy path, native tool call)", () => {
   it("owner: '读 /ws/README.md' → LLM calls read_file → final Respond", async () => {
     const adapter = makeScriptedAdapter({
       responses: [
-        toolCallResponse([
-          { id: "tc-1", name: "read_file", args: { path: "/ws/README.md" } },
-        ]),
-        textResponse(
-          JSON.stringify({ _tag: "Respond", content: "文件已读：" }),
-        ),
+        toolCallResponse([{ id: "tc-1", name: "read_file", args: { path: "/ws/README.md" } }]),
+        textResponse(JSON.stringify({ _tag: "Respond", content: "文件已读：" })),
       ],
     })
     const result = await runEvalScenario({

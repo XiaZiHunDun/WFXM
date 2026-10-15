@@ -112,9 +112,6 @@ describe("makeDedupChecker", () => {
       force: undefined,
     })
     expect(result).toBeNull()
-    expect(stderrSpy).toHaveBeenCalledWith(
-      "[memory-dedup] check failed:",
-      "DB connection lost",
-    )
+    expect(stderrSpy).toHaveBeenCalledWith("[memory-dedup] check failed:", "DB connection lost")
   })
 })

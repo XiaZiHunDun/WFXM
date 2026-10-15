@@ -46,7 +46,10 @@ describe("P2 run_command credential injection gate", () => {
       allowlist: ["REGISTRY_TOKEN"],
       baseEnv: {},
     })
-    expect(ok).toEqual({ ok: false, reason: "credential not authorized for run_command: NOT_ALLOWED" })
+    expect(ok).toEqual({
+      ok: false,
+      reason: "credential not authorized for run_command: NOT_ALLOWED",
+    })
   })
 
   it("injects authorized credential value into child env", async () => {

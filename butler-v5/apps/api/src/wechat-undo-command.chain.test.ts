@@ -125,7 +125,15 @@ describe("D49 wechat-undo-command chain branch", () => {
     const { UNDO_CHAIN_FOR_TEST: _ } = await import("./workspace-tools-undo.js")
     UNDO_CHAIN_FOR_TEST.set("run-7", [
       { kind: "write", path: FILE_A, beforeContent: "OLD_A", tool: "write_file", pushedAt: 1 },
-      { kind: "command", argv: ["pnpm", "install", "lodash"], cwd: TMP, gitStatusBeforeHash: null, exit: 0, startedAt: 2, tool: "run_command" },
+      {
+        kind: "command",
+        argv: ["pnpm", "install", "lodash"],
+        cwd: TMP,
+        gitStatusBeforeHash: null,
+        exit: 0,
+        startedAt: 2,
+        tool: "run_command",
+      },
     ])
     UNDO_CHAIN_CONV_FOR_TEST.set("run-7", "conv-7")
 
@@ -151,7 +159,8 @@ describe("D49 wechat-undo-command chain branch", () => {
   })
 
   it("C8: cross-conversation chain is rejected", async () => {
-    const { UNDO_CHAIN_FOR_TEST, UNDO_CHAIN_CONV_FOR_TEST } = await import("./workspace-tools-undo.js")
+    const { UNDO_CHAIN_FOR_TEST, UNDO_CHAIN_CONV_FOR_TEST } =
+      await import("./workspace-tools-undo.js")
     UNDO_CHAIN_FOR_TEST.set("run-8", [
       { kind: "write", path: FILE_A, beforeContent: "OLD_A", tool: "write_file", pushedAt: 1 },
     ])
@@ -179,7 +188,8 @@ describe("D49 wechat-undo-command chain branch", () => {
 
   // D54 follow-up: formatChainReply must render non-write kinds (was MEDIUM bug — silent drop)
   it("D54-followup: formatChainReply renders edit_file reverted entry (no silent drop)", async () => {
-    const { UNDO_CHAIN_FOR_TEST, UNDO_CHAIN_CONV_FOR_TEST } = await import("./workspace-tools-undo.js")
+    const { UNDO_CHAIN_FOR_TEST, UNDO_CHAIN_CONV_FOR_TEST } =
+      await import("./workspace-tools-undo.js")
     // Simulate: edit_file was just run, replacing OLD with NEW
     writeFileSync(FILE_A, "NEW_EDIT", "utf8")
     UNDO_CHAIN_FOR_TEST.set("run-edit", [

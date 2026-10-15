@@ -18,8 +18,7 @@ const apiEq = process.argv.find((a) => a.startsWith("--api="))
 if (apiEq) api = apiEq.slice("--api=".length)
 const base = api.replace(/\/$/, "")
 
-const fromUserId =
-  (process.env.BUTLER_OWNER_WECHAT_ID ?? "").trim() || `scheme-b-${Date.now()}`
+const fromUserId = (process.env.BUTLER_OWNER_WECHAT_ID ?? "").trim() || `scheme-b-${Date.now()}`
 const conversationId = `c-scheme-b-allowlist-${Date.now()}`
 const REGISTRY_ALLOWLIST = "registry.npmjs.org:443"
 
@@ -54,7 +53,7 @@ async function listApprovals() {
   const res = await fetch(`${base}/v1/owner/approvals`)
   const text = await res.text()
   if (!res.ok) fail("owner/approvals", `${res.status} ${text}`)
-  return (JSON.parse(text).items ?? [])
+  return JSON.parse(text).items ?? []
 }
 
 async function listRunTraces(conversationId) {
@@ -63,7 +62,7 @@ async function listRunTraces(conversationId) {
   )
   const text = await res.text()
   if (!res.ok) fail("owner/traces", `${res.status} ${text}`)
-  return (JSON.parse(text).items ?? [])
+  return JSON.parse(text).items ?? []
 }
 
 async function approveStep(stepId) {
@@ -89,12 +88,13 @@ async function main() {
   console.log("scheme-b-allowlist ok [dev-session]")
 
   const task = await inbound(
-    "委派子代理 developer：必须 CallTool run_command argv=[\"python3\",\"-c\",\"print(888)\"]，不要 write_file",
+    '委派子代理 developer：必须 CallTool run_command argv=["python3","-c","print(888)"]，不要 write_file',
   )
   const delegated =
     String(task.reply).includes("子代理") ||
     (task.meta?.traces ?? []).some((t) => String(t).startsWith("delegate_to_subagent@"))
-  if (!delegated) fail("delegate", `no delegate trace: ${JSON.stringify(task.meta?.traces ?? []).slice(0, 200)}`)
+  if (!delegated)
+    fail("delegate", `no delegate trace: ${JSON.stringify(task.meta?.traces ?? []).slice(0, 200)}`)
   console.log("scheme-b-allowlist ok [delegate]")
 
   let stepId = null
@@ -146,7 +146,9 @@ async function main() {
   if (approved.ok && String(approved.output ?? "").includes("888")) {
     console.log("scheme-b-allowlist ok [approve+resume]: python under allowlist grant")
   } else if (approved.ok) {
-    console.log(`scheme-b-allowlist ok [approve+resume]: ${String(approved.output ?? "").slice(0, 80)}`)
+    console.log(
+      `scheme-b-allowlist ok [approve+resume]: ${String(approved.output ?? "").slice(0, 80)}`,
+    )
   } else {
     const reason = String(approved.reason ?? "")
     if (/slirp sandbox exit/i.test(reason) && approved.grant?.sandboxProfile) {

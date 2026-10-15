@@ -7,10 +7,7 @@ import type { DocumentRecord } from "./document-ingest.js"
 export type ProjectKnowledgeId = string
 
 export type ProjectKnowledgeKind =
-  | "file_snapshot"
-  | "memory_md"
-  | "manual_note"
-  | "ingested_document"
+  "file_snapshot" | "memory_md" | "manual_note" | "ingested_document"
 
 export const PROJECT_KNOWLEDGE_KINDS: readonly ProjectKnowledgeKind[] = [
   "file_snapshot",
@@ -72,7 +69,9 @@ export function resolveProjectKnowledgeInboundProjectId(
 ): string {
   const id = normalizeProjectId(inboundProjectId)
   if (!id) return id
-  const mapRaw = (env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"] ?? DEFAULT_PROJECT_KNOWLEDGE_INBOUND_MAP).trim()
+  const mapRaw = (
+    env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"] ?? DEFAULT_PROJECT_KNOWLEDGE_INBOUND_MAP
+  ).trim()
   if (!mapRaw) return id
   for (const pair of mapRaw.split(",")) {
     const colon = pair.indexOf(":")
@@ -103,8 +102,7 @@ export function createProjectKnowledgeRecord(
   }
 
   const nowMs = input.nowMs ?? Date.now()
-  const body =
-    bodyRaw.length > maxBody ? `${bodyRaw.slice(0, maxBody)}\n…[truncated]` : bodyRaw
+  const body = bodyRaw.length > maxBody ? `${bodyRaw.slice(0, maxBody)}\n…[truncated]` : bodyRaw
 
   return {
     ok: true,
@@ -150,7 +148,8 @@ export function projectKnowledgeFromDocument(input: {
 export function matchProjectKnowledgeQuery(record: ProjectKnowledgeRecord, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  const hay = `${record.title}\n${record.body}\n${record.provenance.note ?? ""}\n${record.provenance.sourcePath ?? ""}`.toLowerCase()
+  const hay =
+    `${record.title}\n${record.body}\n${record.provenance.note ?? ""}\n${record.provenance.sourcePath ?? ""}`.toLowerCase()
   return hay.includes(q)
 }
 
@@ -182,9 +181,11 @@ export function selectProjectKnowledgeForWorkingSet(input: {
   return [...input.records].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, Math.max(0, limit))
 }
 
-export function formatProjectKnowledgeSnippet(record: ProjectKnowledgeRecord, maxChars = 800): string {
-  const body =
-    record.body.length <= maxChars ? record.body : `${record.body.slice(0, maxChars)}…`
+export function formatProjectKnowledgeSnippet(
+  record: ProjectKnowledgeRecord,
+  maxChars = 800,
+): string {
+  const body = record.body.length <= maxChars ? record.body : `${record.body.slice(0, maxChars)}…`
   const path = record.provenance.sourcePath ? ` path=${record.provenance.sourcePath}` : ""
   return `[${record.kind}] ${record.title}${path}\n${body}`
 }
@@ -193,9 +194,7 @@ export function formatProjectKnowledgePrefix(
   records: readonly ProjectKnowledgeRecord[],
 ): string | null {
   if (records.length === 0) return null
-  const lines = records.map(
-    (r, i) => `${i + 1}. ${formatProjectKnowledgeSnippet(r, 400)}`,
-  )
+  const lines = records.map((r, i) => `${i + 1}. ${formatProjectKnowledgeSnippet(r, 400)}`)
   return `Project Knowledge (confirmed ingest, substring recall):\n${lines.join("\n\n")}`
 }
 
@@ -233,8 +232,7 @@ export function expandRecallProjectIds(input: {
     if (ids.length === 0) return { ok: false, reason: "no valid project ids in projects" }
     return { ok: true, projectIds: ids }
   }
-  const id =
-    (input.requestedProjectId ?? "").trim() || (input.contextProjectId ?? "").trim()
+  const id = (input.requestedProjectId ?? "").trim() || (input.contextProjectId ?? "").trim()
   if (!id) return { ok: false, reason: "projectId is required for project knowledge recall" }
   return { ok: true, projectIds: [id] }
 }

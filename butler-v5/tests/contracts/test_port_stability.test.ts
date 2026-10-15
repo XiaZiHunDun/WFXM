@@ -45,14 +45,8 @@ describe("v5 Core Port 模块可导入（DESIGN §7）", () => {
 
 describe("v5 Core Port 总数", () => {
   it("DESIGN §7.1 物化 6 个 Core Port", () => {
-    const total = [
-      clockMod,
-      credentialMod,
-      eventStoreMod,
-      outboxMod,
-      snapshotMod,
-      projectionMod,
-    ].length
+    const total = [clockMod, credentialMod, eventStoreMod, outboxMod, snapshotMod, projectionMod]
+      .length
     expect(total).toBe(6)
   })
 })

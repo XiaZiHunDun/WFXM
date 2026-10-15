@@ -23,14 +23,8 @@ import { describe, expect, it } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const SUBAGENT_WORKER = join(
-  __dirname,
-  "../../apps/api/src/subagent-worker.ts",
-)
-const SCHEDULE_WORKER = join(
-  __dirname,
-  "../../apps/api/src/schedule-worker.ts",
-)
+const SUBAGENT_WORKER = join(__dirname, "../../apps/api/src/subagent-worker.ts")
+const SCHEDULE_WORKER = join(__dirname, "../../apps/api/src/schedule-worker.ts")
 const MCP_BOOTSTRAP = join(__dirname, "../../apps/api/src/mcp-bootstrap.ts")
 const PROJECT_KNOWLEDGE_WATCH = join(
   __dirname,

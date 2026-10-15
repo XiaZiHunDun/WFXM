@@ -22,9 +22,7 @@ describe("eval/11 active-main-blocks-inbound", () => {
     const conversationId = "c-eval-conflict-1"
     const existingActiveRunId = crypto.randomUUID()
     const adapter = makeScriptedAdapter({
-      responses: [
-        decisionResponse({ _tag: "Respond", content: "this will not be reached" }),
-      ],
+      responses: [decisionResponse({ _tag: "Respond", content: "this will not be reached" })],
     })
     const result = await runEvalScenario({
       name: "11-active-main-blocks-inbound",
@@ -67,12 +65,9 @@ describe("eval/11 active-main-blocks-inbound", () => {
     expect(result.metrics.iterations).toBe(0)
     expect(result.metrics.finalDecision).toBe("Finish")
     expect(
-      result.metrics.reply.includes("进行中的 Run") ||
-        result.metrics.reply.includes("未完成"),
+      result.metrics.reply.includes("进行中的 Run") || result.metrics.reply.includes("未完成"),
     ).toBe(true)
-    expect(
-      result.metrics.traces.some((t) => /active-main-run-conflict/.test(t)),
-    ).toBe(true)
+    expect(result.metrics.traces.some((t) => /active-main-run-conflict/.test(t))).toBe(true)
     // Per design — this is graceful handling, not a pain point.
     expect(
       result.painPoints.filter((p) => p.severity === "warning" || p.severity === "issue"),

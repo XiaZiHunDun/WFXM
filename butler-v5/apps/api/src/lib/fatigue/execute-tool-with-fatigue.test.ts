@@ -11,7 +11,7 @@ function makeReader(count: number): AuditLogReader {
         actor: "owner",
         ts: Date.now() - i * 1000,
         decision: "allow",
-      }))
+      })),
     ),
   }
 }

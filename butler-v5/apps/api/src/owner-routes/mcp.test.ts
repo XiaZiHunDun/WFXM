@@ -13,10 +13,7 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 describe("owner-routes/mcp.ts revoke-grants audit_event (D60 T1.3)", () => {
-  const src = readFileSync(
-    join(process.cwd(), "apps/api/src/owner-routes/mcp.ts"),
-    "utf8",
-  )
+  const src = readFileSync(join(process.cwd(), "apps/api/src/owner-routes/mcp.ts"), "utf8")
 
   it("wraps revokeScopedGrantsForMcpServer in try/catch", () => {
     // The revoke call must be inside a try block — without it, a throw

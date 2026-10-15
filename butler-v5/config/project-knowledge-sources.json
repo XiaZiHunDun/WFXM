@@ -28,10 +28,7 @@
         "docs/plans/active/v5-ai-guard-migration-checklist-2026-08.md",
         "docs/plans/active/v5-unwired-packages-inventory-2026-08.md"
       ],
-      "markitdownGlobs": [
-        "tests/fixtures/ext5/*.pdf",
-        "docs/**/*.pdf"
-      ]
+      "markitdownGlobs": ["tests/fixtures/ext5/*.pdf", "docs/**/*.pdf"]
     },
     "LingWen": {
       "globs": [

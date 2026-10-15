@@ -93,9 +93,7 @@ describe("durable memory", () => {
     expect(rejected.status).toBe("rejected")
     expect(rejected.confirmedAt).toBeNull()
     expect(isDurableMemoryActive(rejected, 30)).toBe(false)
-    expect(
-      selectDurableMemoriesForWorkingSet({ records: [rejected], nowMs: 30 }).length,
-    ).toBe(0)
+    expect(selectDurableMemoriesForWorkingSet({ records: [rejected], nowMs: 30 }).length).toBe(0)
   })
 
   it("expired confirmed memory is excluded despite matching query", () => {

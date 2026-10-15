@@ -10,8 +10,7 @@ import { Secret } from "@butler/adapters/wechat/secret.js"
 import { mapChannelErrorToOwnerJargon } from "./owner-jargon.js"
 
 export type ChannelOutboundResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: string }
+  { readonly ok: true } | { readonly ok: false; readonly reason: string }
 
 export interface TelegramOutboundConfig {
   readonly token: string
@@ -83,9 +82,15 @@ export async function sendTelegramOutboundMessage(
     return { ok: true }
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      return { ok: false, reason: mapChannelErrorToOwnerJargon(`telegram API timeout after ${timeoutMs}ms`) }
+      return {
+        ok: false,
+        reason: mapChannelErrorToOwnerJargon(`telegram API timeout after ${timeoutMs}ms`),
+      }
     }
-    return { ok: false, reason: mapChannelErrorToOwnerJargon(err instanceof Error ? err.message : String(err)) }
+    return {
+      ok: false,
+      reason: mapChannelErrorToOwnerJargon(err instanceof Error ? err.message : String(err)),
+    }
   } finally {
     clearTimeout(timer)
   }
@@ -240,14 +245,10 @@ export async function deliverTelegramChannelReply(config: {
  * construction). The verbose call site is intentional — every
  * `.unwrap()` is a code-review signal.
  */
-export function slackBotToken(
-  env: NodeJS.ProcessEnv = process.env,
-): Secret<string> {
+export function slackBotToken(env: NodeJS.ProcessEnv = process.env): Secret<string> {
   return Secret.create((env["BUTLER_V5_SLACK_BOT_TOKEN"] ?? "").trim())
 }
 
-export function telegramBotToken(
-  env: NodeJS.ProcessEnv = process.env,
-): Secret<string> {
+export function telegramBotToken(env: NodeJS.ProcessEnv = process.env): Secret<string> {
   return Secret.create((env["BUTLER_V5_TELEGRAM_BOT_TOKEN"] ?? "").trim())
 }

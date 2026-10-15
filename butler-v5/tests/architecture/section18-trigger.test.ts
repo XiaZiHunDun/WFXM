@@ -54,43 +54,25 @@ import { describe, expect, it } from "vitest"
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 
-const PROJECTION_PORT = join(
-  __dirname,
-  "../../packages/ports/src/core/projection.ts",
-)
-const SNAPSHOT_MODULE = join(
-  __dirname,
-  "../../packages/persistence/src/snapshot.ts",
-)
-const MEMORY_TYPES = join(
-  __dirname,
-  "../../packages/domain/src/memory/types.ts",
-)
+const PROJECTION_PORT = join(__dirname, "../../packages/ports/src/core/projection.ts")
+const SNAPSHOT_MODULE = join(__dirname, "../../packages/persistence/src/snapshot.ts")
+const MEMORY_TYPES = join(__dirname, "../../packages/domain/src/memory/types.ts")
 const POSTGRES_PROJECTION_IMPL = join(
   __dirname,
   "../../packages/adapters/src/postgres/postgres-projection.ts",
 )
 
-const EVENT_BRIDGE = join(
-  __dirname,
-  "../../packages/persistence/src/event-bridge.ts",
-)
+const EVENT_BRIDGE = join(__dirname, "../../packages/persistence/src/event-bridge.ts")
 
 const DURABLE_MEMORY_STORE = join(
   __dirname,
   "../../packages/persistence/src/durable-memory-store.ts",
 )
 const API_TOOLS = join(__dirname, "../../apps/api/src/tools.ts")
-const DURABLE_MEMORY_INJECT = join(
-  __dirname,
-  "../../apps/api/src/durable-memory-inject.ts",
-)
+const DURABLE_MEMORY_INJECT = join(__dirname, "../../apps/api/src/durable-memory-inject.ts")
 const OWNER_ROUTES = join(__dirname, "../../apps/api/src/owner-routes.ts")
 import { readOwnerRoutesSource } from "./owner-routes-source.js"
-const WECHAT_MEMORY_COMMANDS = join(
-  __dirname,
-  "../../apps/api/src/wechat-memory-commands.ts",
-)
+const WECHAT_MEMORY_COMMANDS = join(__dirname, "../../apps/api/src/wechat-memory-commands.ts")
 
 /** Module path fragments that wrap §18-deferred APIs passively. */
 const PASSIVE_WRAP_FILES: ReadonlySet<string> = new Set([EVENT_BRIDGE])
@@ -112,11 +94,7 @@ function listProductionTsFiles(root: string): string[] {
           continue
         }
         walk(p)
-      } else if (
-        entry.endsWith(".ts") &&
-        !entry.endsWith(".test.ts") &&
-        !entry.endsWith(".d.ts")
-      ) {
+      } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) {
         out.push(p)
       }
     }
@@ -231,15 +209,9 @@ describe("arch: §18 trigger guard (no premature activation of deferred features
       WECHAT_MEMORY_COMMANDS,
     ] as const
     for (const f of FILES) {
-      expect(
-        existsSync(f),
-        `§18 row 3 MVP foundation file missing: ${f}`,
-      ).toBe(true)
+      expect(existsSync(f), `§18 row 3 MVP foundation file missing: ${f}`).toBe(true)
       const text = readFileSync(f, "utf-8")
-      expect(
-        text.length,
-        `§18 row 3 MVP foundation file is empty: ${f}`,
-      ).toBeGreaterThan(0)
+      expect(text.length, `§18 row 3 MVP foundation file is empty: ${f}`).toBeGreaterThan(0)
     }
   })
 
@@ -279,10 +251,9 @@ describe("arch: §18 trigger guard (no premature activation of deferred features
 
   it("§18 row 3 wechat batch commands — /记忆候选 + /确认记忆 batch wired (D39 G3)", () => {
     const src = readFileSync(WECHAT_MEMORY_COMMANDS, "utf-8")
-    expect(
-      src.includes("/记忆候选"),
-      "wechat-memory-commands must handle /记忆候选 command",
-    ).toBe(true)
+    expect(src.includes("/记忆候选"), "wechat-memory-commands must handle /记忆候选 command").toBe(
+      true,
+    )
     expect(
       src.includes("/确认记忆"),
       "wechat-memory-commands must handle /确认记忆 batch command",

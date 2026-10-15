@@ -10,15 +10,15 @@ scenario) + `_summary.md`. The `*.json` files are **gitignored** (real
 LLM output + apiKeyMask); the `README.md` per subdir IS tracked as the
 index.
 
-| Version | Source | What changed | Date |
-| --- | --- | --- | --- |
-| v1-pre-context-fix | first recording | basic prompt, no context yet | 2026-09-04 |
-| v2-pre-style-fix | before style commit | context injected, no reply-style yet | 2026-09-04 |
-| v3-post-style-fix | (lost — never backed up) | context + reply-style baseline | 2026-09-04 |
-| v4-pre-read-file-first | before P2 fix | + P1 loop-exhausted clarification | 2026-09-04 |
-| v5-pre-pnpm-flag | before A9 | + read_file-first prompt | 2026-09-04 |
-| v6-pre-bounded-find | before D4 turn 2 fix | + firstNonFlagArg for pnpm/git | 2026-09-07 |
-| v7-current | current `recordings/` | + bounded find (-maxdepth ≤ 3) + convergence prompt | 2026-09-07 |
+| Version                | Source                   | What changed                                        | Date       |
+| ---------------------- | ------------------------ | --------------------------------------------------- | ---------- |
+| v1-pre-context-fix     | first recording          | basic prompt, no context yet                        | 2026-09-04 |
+| v2-pre-style-fix       | before style commit      | context injected, no reply-style yet                | 2026-09-04 |
+| v3-post-style-fix      | (lost — never backed up) | context + reply-style baseline                      | 2026-09-04 |
+| v4-pre-read-file-first | before P2 fix            | + P1 loop-exhausted clarification                   | 2026-09-04 |
+| v5-pre-pnpm-flag       | before A9                | + read_file-first prompt                            | 2026-09-04 |
+| v6-pre-bounded-find    | before D4 turn 2 fix     | + firstNonFlagArg for pnpm/git                      | 2026-09-07 |
+| v7-current             | current `recordings/`    | + bounded find (-maxdepth ≤ 3) + convergence prompt | 2026-09-07 |
 
 ## Why per-version
 

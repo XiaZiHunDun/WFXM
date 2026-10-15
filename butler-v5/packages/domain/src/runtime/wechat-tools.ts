@@ -36,10 +36,8 @@ export function buildWechatAllowedToolNames(input: {
   readonly includeSubagent?: boolean
 }): readonly string[] {
   const projectKey = input.projectId.trim()
-  const projectEntry =
-    (projectKey.length > 0 ? input.config.projects?.[projectKey] : undefined) ??
-    input.config.default ??
-    { mcpTools: [] as readonly string[] }
+  const projectEntry = (projectKey.length > 0 ? input.config.projects?.[projectKey] : undefined) ??
+    input.config.default ?? { mcpTools: [] as readonly string[] }
   const core = input.includeSubagent
     ? [...WECHAT_CORE_TOOL_NAMES, WECHAT_SUBAGENT_TOOL_NAME]
     : [...WECHAT_CORE_TOOL_NAMES]

@@ -7,9 +7,7 @@ describe("AuditFatigueFields type contract", () => {
       fatigue_signal: {
         count: 3,
         window_seconds: 60,
-        last_n_actions: [
-          { event_id: "e0", tool_name: "read_file", ts: Date.now() - 1000 },
-        ],
+        last_n_actions: [{ event_id: "e0", tool_name: "read_file", ts: Date.now() - 1000 }],
       },
     }
     expect(fields.fatigue_signal?.count).toBe(3)

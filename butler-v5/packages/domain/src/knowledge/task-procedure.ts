@@ -177,10 +177,12 @@ export function createTaskRecord(input: CreateTaskInput): TaskValidation {
 export function resolveTaskRunGoal(
   task: TaskRecord,
   procedure: ProcedureRecord | null,
-): { readonly ok: true; readonly goal: string; readonly stepKey: string | null } | {
-  readonly ok: false
-  readonly reason: string
-} {
+):
+  | { readonly ok: true; readonly goal: string; readonly stepKey: string | null }
+  | {
+      readonly ok: false
+      readonly reason: string
+    } {
   if (task.status !== "open") return { ok: false, reason: `task is ${task.status}` }
   if (!task.procedureId || !procedure) {
     return { ok: true, goal: task.goal, stepKey: null }

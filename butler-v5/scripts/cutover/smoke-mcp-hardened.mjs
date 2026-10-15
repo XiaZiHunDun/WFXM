@@ -90,9 +90,7 @@ async function main() {
 
   if (skipGrant) {
     const tools = mcp.tools ?? []
-    console.log(
-      `smoke ok [mcp/status]: mode=${mcp.mode}, tools=${tools.length} (--skip-grant)`,
-    )
+    console.log(`smoke ok [mcp/status]: mode=${mcp.mode}, tools=${tools.length} (--skip-grant)`)
     console.log("smoke SKIP [grant]: --skip-grant")
     console.log("smoke PASS")
     return
@@ -120,7 +118,9 @@ async function main() {
   console.log("smoke ok [mcp/github]: 14 read-only tools")
 
   const manifest = JSON.parse(readFileSync(join(repoRoot, "config/mcp-manifest.json"), "utf8"))
-  const allowlist = JSON.parse(readFileSync(join(repoRoot, "config/wechat-tool-allowlist.json"), "utf8"))
+  const allowlist = JSON.parse(
+    readFileSync(join(repoRoot, "config/wechat-tool-allowlist.json"), "utf8"),
+  )
   const manifestCaps = new Set(manifestCapabilities(manifest))
   const wechatMcp = allowlist.projects?.wechat?.mcpTools ?? []
   if (allowlist.default?.mcpTools?.length !== 0) {
@@ -155,8 +155,7 @@ async function main() {
     const toolCalls = inbound.meta?.toolCalls ?? 0
     const directExec =
       toolCalls > 0 &&
-      (/mcp_todoist_lst-projects|Inbox|Todoist|项目/i.test(reply) ||
-        /lst-projects/i.test(reply))
+      (/mcp_todoist_lst-projects|Inbox|Todoist|项目/i.test(reply) || /lst-projects/i.test(reply))
     if (directExec) {
       console.log(
         `smoke ok [grant/readonly-auto]: owner low-risk MCP executed without Ask (toolCalls=${toolCalls})`,
@@ -164,17 +163,17 @@ async function main() {
       console.log("smoke PASS")
       return
     }
-    fail(
-      "grant/pending",
-      `no waiting approval for ${MCP_CAPABILITY}; reply=${reply.slice(0, 400)}`,
-    )
+    fail("grant/pending", `no waiting approval for ${MCP_CAPABILITY}; reply=${reply.slice(0, 400)}`)
   }
 
-  const approveRes = await fetch(`${base}/v1/owner/approvals/${encodeURIComponent(stepId)}/approve`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ subject: "owner" }),
-  })
+  const approveRes = await fetch(
+    `${base}/v1/owner/approvals/${encodeURIComponent(stepId)}/approve`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ subject: "owner" }),
+    },
+  )
   const approveText = await approveRes.text()
   let approved
   try {

@@ -37,22 +37,19 @@ export async function handlePromoteMemory(
     readonly status?: string
     readonly force?: boolean
   }
-  const content =
-    (typeof body.content === "string" && body.content.trim()
+  const content = (
+    typeof body.content === "string" && body.content.trim()
       ? body.content.trim()
       : `${doc.title}: ${doc.extractedText}`
-    ).slice(0, 4000)
+  ).slice(0, 4000)
   const created = createDurableMemoryRecord({
     subject: doc.subject,
     content,
     sourceKind: "document",
-    status:
-      body.status === "confirmed" || body.status === "candidate" ? body.status : "candidate",
+    status: body.status === "confirmed" || body.status === "candidate" ? body.status : "candidate",
     provenance: {
       documentId: doc.id,
-      ...(doc.provenance.conversationId
-        ? { conversationId: doc.provenance.conversationId }
-        : {}),
+      ...(doc.provenance.conversationId ? { conversationId: doc.provenance.conversationId } : {}),
       note: `promoted from document ${doc.title}`,
     },
   })

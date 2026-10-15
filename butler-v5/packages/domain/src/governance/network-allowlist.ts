@@ -4,11 +4,7 @@ export const MAX_NETWORK_ALLOWLIST_ENTRIES = 8
 
 export const DEFAULT_NETWORK_ALLOWLIST_PORT = 443
 
-const PRIVATE_IPV4_PREFIXES = [
-  "127.",
-  "10.",
-  "192.168.",
-] as const
+const PRIVATE_IPV4_PREFIXES = ["127.", "10.", "192.168."] as const
 
 function isPrivateIpv4Host(host: string): boolean {
   if (host === "localhost") return true
@@ -74,7 +70,9 @@ export function normalizeNetworkAllowlistEntry(
 export function validateNetworkAllowlist(
   entries: readonly string[],
   options: { readonly allowPrivateEgress?: boolean } = {},
-): { readonly ok: true; readonly normalized: readonly string[] } | { readonly ok: false; readonly reason: string } {
+):
+  | { readonly ok: true; readonly normalized: readonly string[] }
+  | { readonly ok: false; readonly reason: string } {
   if (entries.length === 0) {
     return { ok: false, reason: "networkAllowlist must not be empty" }
   }
@@ -108,9 +106,7 @@ export function validateNetworkAllowlist(
 // node:crypto. Direct callers (runtime/approval-runtime) update their
 // import path accordingly.
 
-export function hostnamesFromNetworkAllowlist(
-  entries: readonly string[],
-): readonly string[] {
+export function hostnamesFromNetworkAllowlist(entries: readonly string[]): readonly string[] {
   const hosts = new Set<string>()
   for (const entry of entries) {
     const host = entry.split(":")[0]?.trim().toLowerCase()

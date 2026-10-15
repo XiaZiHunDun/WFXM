@@ -97,10 +97,7 @@ export function hasRepeatedTokens(content: string): string | null {
       maxToken = t
     }
   }
-  if (
-    maxCount > TOKEN_REPEAT_THRESHOLD &&
-    maxCount / tokens.length >= TOKEN_REPEAT_RATIO_MAX
-  ) {
+  if (maxCount > TOKEN_REPEAT_THRESHOLD && maxCount / tokens.length >= TOKEN_REPEAT_RATIO_MAX) {
     const display = maxToken.length > 20 ? `${maxToken.slice(0, 20)}...` : maxToken
     return `检测到 token「${display}」重复 ${maxCount} 次。请发具体需求。`
   }

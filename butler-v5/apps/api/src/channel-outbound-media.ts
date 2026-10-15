@@ -25,7 +25,6 @@ export interface ParsedChannelOutbound {
   readonly attachments: readonly ChannelOutboundAttachment[]
 }
 
-
 export function channelOutboundMediaEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_CHANNEL_OUTBOUND_MEDIA"])
 }
@@ -104,16 +103,14 @@ export function isAllowedOutboundMediaPathReal(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   const real = resolveRealpath(filePath)
-  return allowedOutboundMediaRoots(env).some(
-    (root) => {
-      try {
-        const realRoot = realpathSync(root)
-        return real === realRoot || real.startsWith(`${realRoot}/`)
-      } catch {
-        return real === root || real.startsWith(`${root}/`)
-      }
-    },
-  )
+  return allowedOutboundMediaRoots(env).some((root) => {
+    try {
+      const realRoot = realpathSync(root)
+      return real === realRoot || real.startsWith(`${realRoot}/`)
+    } catch {
+      return real === root || real.startsWith(`${root}/`)
+    }
+  })
 }
 
 export async function resolveOutboundAttachment(

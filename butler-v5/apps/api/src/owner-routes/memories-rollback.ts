@@ -62,10 +62,8 @@ export async function handleRollbackAutoPromote(
     memory: {
       id: memory.id,
       status: (memory.status === "confirmed" ? "confirmed" : "candidate") as "confirmed",
-      promotedBy:
-        (memory.promotedBy === "sweeper" ? "sweeper" : "owner") as "sweeper",
-      promotedAt:
-        memory.promotedAt !== null ? new Date(memory.promotedAt) : new Date(0),
+      promotedBy: (memory.promotedBy === "sweeper" ? "sweeper" : "owner") as "sweeper",
+      promotedAt: memory.promotedAt !== null ? new Date(memory.promotedAt) : new Date(0),
     },
     ownerId: "owner",
     reason: body.reason,
@@ -85,11 +83,11 @@ export async function handleRollbackAutoPromote(
     // for programmatic clients (tests, analytics, owner replay queries).
     // Mirrors D63 T1 pattern in approvals-approve.ts:69-77 for
     // alreadyProcessed. Full reason stays in the operator log above.
-    const ownerReason = safeOwnerError(
-      validation.reason,
-      "回滚不可用",
-      { operation: "memory-rollback", memoryId, domainReason: validation.reason },
-    )
+    const ownerReason = safeOwnerError(validation.reason, "回滚不可用", {
+      operation: "memory-rollback",
+      memoryId,
+      domainReason: validation.reason,
+    })
     return c.json(
       {
         ok: false,
@@ -97,10 +95,7 @@ export async function handleRollbackAutoPromote(
         domainReason: validation.reason,
         currentStatus: memory.status,
         promotedBy: memory.promotedBy,
-        promotedAt:
-          memory.promotedAt !== null
-            ? new Date(memory.promotedAt).toISOString()
-            : null,
+        promotedAt: memory.promotedAt !== null ? new Date(memory.promotedAt).toISOString() : null,
         rollbackDeadline:
           memory.promotedAt !== null
             ? new Date(memory.promotedAt + rollbackWindowMs).toISOString()
@@ -126,9 +121,7 @@ export async function handleRollbackAutoPromote(
   }
 
   // eslint-disable-next-line no-console -- operator log when no logger injected
-  console.error(
-    `[memory-rollback] ok owner=owner id=${memoryId} reason=${body.reason ?? "none"}`,
-  )
+  console.error(`[memory-rollback] ok owner=owner id=${memoryId} reason=${body.reason ?? "none"}`)
   // D58 T4 (audit #3 F-02): rollback mutated durable state with only
   // stderr logging before. Now mirror mcp.ts revoke-grants and write
   // an audit_event row so owner queries on audit_events find rollbacks.
@@ -141,7 +134,7 @@ export async function handleRollbackAutoPromote(
     correlationId: null,
     action: "memory.rollback",
     // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-    actor: 'owner-direct',
+    actor: "owner-direct",
     subject: "owner",
     detail: { memoryId, reason: body.reason ?? null },
     createdAt: now,

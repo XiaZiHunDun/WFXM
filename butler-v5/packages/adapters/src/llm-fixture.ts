@@ -51,7 +51,10 @@ export function makeFixtureLLMAdapter(args: {
   }
   const key = fixtureKey(args.fixtureDir, args.role)
   return {
-    complete: (_messages: readonly LLMMessage[], _opts?: { readonly tools?: readonly LLMTool[] }) => {
+    complete: (
+      _messages: readonly LLMMessage[],
+      _opts?: { readonly tools?: readonly LLMTool[] },
+    ) => {
       const index = counters.get(key) ?? 0
       counters.set(key, index + 1)
       const entry = responses[index] ?? {

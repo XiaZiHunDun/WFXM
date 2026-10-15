@@ -34,14 +34,18 @@ describe("verifySlackSignature", () => {
     const raw = '{"type":"event_callback"}'
     const ts = "1700000000"
     // 6 minutes after timestamp
-    expect(verifySlackSignature(secret, ts, sign(raw, ts), raw, 1_700_000_000_000 + 6 * 60_000)).toBe(false)
+    expect(
+      verifySlackSignature(secret, ts, sign(raw, ts), raw, 1_700_000_000_000 + 6 * 60_000),
+    ).toBe(false)
   })
 
   it("rejects timestamp more than 5 minutes in the future", () => {
     const raw = '{"type":"event_callback"}'
     const ts = "1700000000"
     // 6 minutes before timestamp
-    expect(verifySlackSignature(secret, ts, sign(raw, ts), raw, 1_700_000_000_000 - 6 * 60_000)).toBe(false)
+    expect(
+      verifySlackSignature(secret, ts, sign(raw, ts), raw, 1_700_000_000_000 - 6 * 60_000),
+    ).toBe(false)
   })
 
   it("rejects signature with wrong secret", () => {
@@ -55,7 +59,9 @@ describe("verifySlackSignature", () => {
     const raw = '{"type":"event_callback"}'
     const ts = "1700000000"
     const sig = sign(raw, ts)
-    expect(verifySlackSignature(secret, ts, sig, '{"type":"DIFFERENT"}', 1_700_000_000_000)).toBe(false)
+    expect(verifySlackSignature(secret, ts, sig, '{"type":"DIFFERENT"}', 1_700_000_000_000)).toBe(
+      false,
+    )
   })
 
   it("rejects signature with different length (constant-time guard)", () => {
@@ -86,9 +92,18 @@ describe("parseSlackEventPayload", () => {
   })
 
   it("returns invalid for non-object body", () => {
-    expect(parseSlackEventPayload(null)).toEqual({ kind: "invalid", reason: "body must be an object" })
-    expect(parseSlackEventPayload("string")).toEqual({ kind: "invalid", reason: "body must be an object" })
-    expect(parseSlackEventPayload(42)).toEqual({ kind: "invalid", reason: "body must be an object" })
+    expect(parseSlackEventPayload(null)).toEqual({
+      kind: "invalid",
+      reason: "body must be an object",
+    })
+    expect(parseSlackEventPayload("string")).toEqual({
+      kind: "invalid",
+      reason: "body must be an object",
+    })
+    expect(parseSlackEventPayload(42)).toEqual({
+      kind: "invalid",
+      reason: "body must be an object",
+    })
   })
 
   it("returns ignore for unknown event type", () => {
@@ -142,7 +157,14 @@ describe("parseSlackEventPayload", () => {
   it("uses thread_ts when present, not parent ts", () => {
     const parsed = parseSlackEventPayload({
       type: "event_callback",
-      event: { type: "message", user: "U1", channel: "C99", text: "reply", ts: "2.000", thread_ts: "1.000" },
+      event: {
+        type: "message",
+        user: "U1",
+        channel: "C99",
+        text: "reply",
+        ts: "2.000",
+        thread_ts: "1.000",
+      },
     })
     if (parsed.kind !== "message") throw new Error("expected message")
     expect(parsed.threadTs).toBe("1.000")

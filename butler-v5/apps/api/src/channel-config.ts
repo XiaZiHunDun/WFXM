@@ -1,7 +1,6 @@
 import { parseCsvIds } from "./ilink-config.js"
 import { envTruthy } from "./env-util.js"
 
-
 /** Opt-in generic channel intake (second channel seam). Default off. */
 export function isChannelApiEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_CHANNEL_API_ENABLED"])

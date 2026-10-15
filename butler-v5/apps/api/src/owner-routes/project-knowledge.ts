@@ -62,10 +62,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
 
     const kindRaw = (body.kind ?? "manual_note").trim() as ProjectKnowledgeKind
     if (kindRaw === "ingested_document") {
-      return c.json(
-        { ok: false, reason: "该类型请改用 promote-project-knowledge 接口处理" },
-        400,
-      )
+      return c.json({ ok: false, reason: "该类型请改用 promote-project-knowledge 接口处理" }, 400)
     }
 
     let text = typeof body.text === "string" ? body.text : ""
@@ -123,7 +120,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
       correlationId: null,
       action: "project_knowledge.created",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       subject: "owner",
       detail: {
         itemId: saved.id,
@@ -171,7 +168,7 @@ export function registerProjectKnowledgeRoutes(app: Hono, wiring: Wiring): void 
       correlationId: null,
       action: "project_knowledge.deleted",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       subject: "owner",
       detail: { itemId },
       createdAt: new Date(),

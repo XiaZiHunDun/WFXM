@@ -50,10 +50,7 @@ import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { pushEventToSubscribers } from "./ws-routes.js"
 import { writeSubagentAudit } from "./audit-service.js"
 import { notifySubagentCompletion } from "./wechat-run-notify.js"
-import {
-  isToolCallAllowed,
-  llmToolsForCapabilities,
-} from "./capability-guard.js"
+import { isToolCallAllowed, llmToolsForCapabilities } from "./capability-guard.js"
 import { findTool, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
@@ -285,9 +282,7 @@ async function runChildLlm(
         // LLMTool structurally (root-cause widening), so no cast is needed.
         const opts = tools.length > 0 ? { tools } : undefined
         const resp = await Effect.runPromise(
-          adapter
-            .complete(msgs, opts)
-            .pipe(Effect.timeout(LLM_TIMEOUT_MS)),
+          adapter.complete(msgs, opts).pipe(Effect.timeout(LLM_TIMEOUT_MS)),
         )
         // D23: emit llm_call step trace with token usage.
         // D24: fills costUsd when env-driven pricing is available.
@@ -462,14 +457,8 @@ async function handleOutboxMessage(
   }
   logger.warn(`[subagent-worker] processing outbox msg ${msg.messageId} for stream ${msg.streamId}`)
   logger.warn(`[subagent-worker] ${execModelTrace(env)}`)
-  const {
-    childConversationId,
-    role,
-    task,
-    capabilities,
-    childRunId,
-    notifySubject,
-  } = parseDelegateOutboxPayload(msg)
+  const { childConversationId, role, task, capabilities, childRunId, notifySubject } =
+    parseDelegateOutboxPayload(msg)
   if (!childConversationId || !task) {
     logger.warn(
       `[subagent-worker] outbox msg ${msg.messageId} missing childConversationId or task; skipping`,

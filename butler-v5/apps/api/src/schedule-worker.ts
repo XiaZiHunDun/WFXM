@@ -69,8 +69,7 @@ export async function runScheduleTick(deps: ScheduleTickDeps): Promise<ScheduleT
   const firedJobIds: string[] = []
 
   for (const job of deps.jobs) {
-    const conversationId =
-      job.conversationId?.trim() || `schedule-${job.id}`
+    const conversationId = job.conversationId?.trim() || `schedule-${job.id}`
     let conversationBusy = false
     try {
       const active = await deps.wiring.runtimeStore.findActiveMainRun(conversationId)
@@ -184,10 +183,7 @@ export function startScheduleWorkerIfEnabled(args: {
         logger,
       })
     } catch (err) {
-      logger.error(
-        "[schedule] tick failed:",
-        err instanceof Error ? err.message : String(err),
-      )
+      logger.error("[schedule] tick failed:", err instanceof Error ? err.message : String(err))
     }
     // D58 T3 (audit #1 F-08): same lifetime pattern as auto-promote-sweeper
     // and candidate-expires-sweeper — explicit early-return after the
@@ -200,9 +196,7 @@ export function startScheduleWorkerIfEnabled(args: {
     }, config.tickMs)
   }
 
-  logger.info(
-    `[schedule] worker started jobs=${config.jobs.length} tickMs=${config.tickMs}`,
-  )
+  logger.info(`[schedule] worker started jobs=${config.jobs.length} tickMs=${config.tickMs}`)
   void tick()
 
   return {

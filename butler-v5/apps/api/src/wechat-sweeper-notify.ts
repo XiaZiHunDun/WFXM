@@ -84,8 +84,7 @@ export type PushSweeperNotifyDeps = {
 }
 
 export type PushSweeperNotifyResult =
-  | { readonly sent: true }
-  | { readonly sent: false; readonly reason: string }
+  { readonly sent: true } | { readonly sent: false; readonly reason: string }
 
 export async function pushSweeperNotify(
   args: PushSweeperNotifyDeps,

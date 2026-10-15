@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { Effect } from "effect"
 import { join } from "node:path"
-import {
-  makeFixtureLLMAdapter,
-  resetFixtureLLMCounters,
-  fixtureLLMPath,
-} from "./llm-fixture.js"
+import { makeFixtureLLMAdapter, resetFixtureLLMCounters, fixtureLLMPath } from "./llm-fixture.js"
 
 describe("llm-fixture", () => {
   const fixtureDir = join(process.cwd(), "config/llm-fixtures/wechat")

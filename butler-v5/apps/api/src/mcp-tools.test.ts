@@ -35,7 +35,9 @@ describe("mcp-tools opt-in", () => {
     const tools = loadMcpToolDefinitions(
       { BUTLER_V5_MCP_ENABLED: "1" },
       {
-        discovered: [{ name: "weather", inputSchema: { type: "object", city: { type: "string" } } }],
+        discovered: [
+          { name: "weather", inputSchema: { type: "object", city: { type: "string" } } },
+        ],
         invoke,
       },
     )
@@ -53,7 +55,9 @@ describe("mcp-tools opt-in", () => {
     const tools = loadMcpToolDefinitions(
       { BUTLER_V5_MCP_ENABLED: "1" },
       {
-        discovered: [{ name: "weather", inputSchema: { type: "object" }, outputSchema: { type: "object" } }],
+        discovered: [
+          { name: "weather", inputSchema: { type: "object" }, outputSchema: { type: "object" } },
+        ],
         invoke,
       },
     )

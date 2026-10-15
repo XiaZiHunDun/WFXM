@@ -37,7 +37,10 @@ function loadEnvFile() {
       if (eq <= 0) continue
       const key = trimmed.slice(0, eq)
       let val = trimmed.slice(eq + 1)
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
         val = val.slice(1, -1)
       }
       if (process.env[key] === undefined) process.env[key] = val
@@ -96,7 +99,11 @@ async function main() {
   }
   const token = (process.env["WECHAT_TOKEN"] ?? "").trim()
   if (!token) fail("config", "WECHAT_TOKEN missing")
-  const baseUrl = (process.env["WECHAT_BASE_URL"] ?? process.env["ILINK_BASE_URL"] ?? DEFAULT_BASE).trim()
+  const baseUrl = (
+    process.env["WECHAT_BASE_URL"] ??
+    process.env["ILINK_BASE_URL"] ??
+    DEFAULT_BASE
+  ).trim()
 
   const updates = await ilinkPost(
     baseUrl,
@@ -141,7 +148,9 @@ async function main() {
     }
     console.log(`ilink smoke ok [send-ping]: to=${to}`)
   } else {
-    console.log("ilink smoke skip [send-ping]: use --send-ping + BUTLER_V5_ILINK_PING_TO for outbound probe")
+    console.log(
+      "ilink smoke skip [send-ping]: use --send-ping + BUTLER_V5_ILINK_PING_TO for outbound probe",
+    )
   }
 
   console.log("ilink smoke PASS")

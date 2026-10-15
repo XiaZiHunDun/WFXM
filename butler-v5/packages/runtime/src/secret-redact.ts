@@ -41,11 +41,9 @@ export function redactSecretText(text: string): string {
     out = out.replace(/\b(gh[pousr]_[A-Za-z0-9_]{30,})\b/g, REDACTED_PLACEHOLDER)
     // Generic JSON-ish key:value where key looks secret-bearing
     out = out.replace(
-      new RegExp(
-        `(["'])(?:${TOKEN_KEY_PATTERN.source})\\1\\s*:\\s*(["'])([^"']{4,})\\2`,
-        "gi",
-      ),
-      (_match, q1: string, q2: string) => `${q1}${TOKEN_KEY_PATTERN.source.split("|")[0]}${q1}:${q2}${REDACTED_PLACEHOLDER}${q2}`,
+      new RegExp(`(["'])(?:${TOKEN_KEY_PATTERN.source})\\1\\s*:\\s*(["'])([^"']{4,})\\2`, "gi"),
+      (_match, q1: string, q2: string) =>
+        `${q1}${TOKEN_KEY_PATTERN.source.split("|")[0]}${q1}:${q2}${REDACTED_PLACEHOLDER}${q2}`,
     )
     return out
   } catch {

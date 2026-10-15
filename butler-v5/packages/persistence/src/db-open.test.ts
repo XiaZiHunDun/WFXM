@@ -38,7 +38,11 @@ const postgresRoundTrip = (await probePostgres(process.env)) ? it : it.skip
 
 describe("openButlerDatabase", () => {
   it("opens pglite and applies schema", async () => {
-    const opened = await openButlerDatabase({ BUTLER_V5_DB: "pglite", VITEST: "true", NODE_ENV: "test" })
+    const opened = await openButlerDatabase({
+      BUTLER_V5_DB: "pglite",
+      VITEST: "true",
+      NODE_ENV: "test",
+    })
     expect(opened.ok).toBe(true)
     if (!opened.ok) return
     expect(opened.value.kind).toBe("pglite")

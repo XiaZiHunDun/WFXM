@@ -110,19 +110,43 @@ export function compareBaseline(
     if (!c) continue
     // status: 跳过 baseline.status=0 (placeholder, recordings JSON 不含 HTTP status)
     if (b.status !== 0 && b.status !== c.status) {
-      diffs.push({ scenarioId: id, field: "status", baseline: b.status, current: c.status, severity: "critical" })
+      diffs.push({
+        scenarioId: id,
+        field: "status",
+        baseline: b.status,
+        current: c.status,
+        severity: "critical",
+      })
     }
     if (b.replyLen > 0) {
       const drift = Math.abs(c.replyLen - b.replyLen) / b.replyLen
       if (drift >= 0.5) {
-        diffs.push({ scenarioId: id, field: "replyLen", baseline: b.replyLen, current: c.replyLen, severity: "info" })
+        diffs.push({
+          scenarioId: id,
+          field: "replyLen",
+          baseline: b.replyLen,
+          current: c.replyLen,
+          severity: "info",
+        })
       }
     }
     if (b.toolCalls !== c.toolCalls) {
-      diffs.push({ scenarioId: id, field: "toolCalls", baseline: b.toolCalls, current: c.toolCalls, severity: "info" })
+      diffs.push({
+        scenarioId: id,
+        field: "toolCalls",
+        baseline: b.toolCalls,
+        current: c.toolCalls,
+        severity: "info",
+      })
     }
     if (b.approvalCount !== c.approvalCount) {
-      diffs.push({ scenarioId: id, field: "approvalCount", baseline: b.approvalCount, current: c.approvalCount, severity: "info" })
+      diffs.push({
+        scenarioId: id,
+        field: "approvalCount",
+        baseline: b.approvalCount,
+        current: c.approvalCount,
+        severity: "info",
+      })
     }
   }
   return diffs

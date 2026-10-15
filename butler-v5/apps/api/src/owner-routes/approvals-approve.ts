@@ -47,9 +47,7 @@ export async function handleApproveStep(c: Context, wiring: Wiring): Promise<Res
       body.subject ?? "owner",
       {
         ...(body.elevateNetwork === true ? { elevateNetwork: true } : {}),
-        ...(typeof body.sandboxProfile === "string"
-          ? { sandboxProfile: body.sandboxProfile }
-          : {}),
+        ...(typeof body.sandboxProfile === "string" ? { sandboxProfile: body.sandboxProfile } : {}),
         ...(Array.isArray(body.networkAllowlist) && body.networkAllowlist.length > 0
           ? { networkAllowlist: body.networkAllowlist }
           : {}),

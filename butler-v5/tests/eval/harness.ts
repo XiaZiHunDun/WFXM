@@ -147,8 +147,7 @@ export async function runEvalScenario(input: RunScenarioInput): Promise<EvalResu
     }
     const result = await runButlerLoop({
       wiring,
-      conversationId:
-        input.conversationId ?? `c-eval-${Math.random().toString(36).slice(2, 10)}`,
+      conversationId: input.conversationId ?? `c-eval-${Math.random().toString(36).slice(2, 10)}`,
       content: input.content,
       fromUserId: input.fromUserId ?? "owner-eval",
       projectId: input.projectId ?? "p-eval",
@@ -267,8 +266,12 @@ export async function runEvalConcurrent(
         adapter: input.adapter.adapter,
         ...(input.allowedToolNames ? { allowedToolNames: input.allowedToolNames } : {}),
         ...(input.llmTimeoutMs !== undefined ? { llmTimeoutMs: input.llmTimeoutMs } : {}),
-        ...(input.stuckLoopThreshold !== undefined ? { stuckLoopThreshold: input.stuckLoopThreshold } : {}),
-        ...(input.maxDecodeRetries !== undefined ? { maxDecodeRetries: input.maxDecodeRetries } : {}),
+        ...(input.stuckLoopThreshold !== undefined
+          ? { stuckLoopThreshold: input.stuckLoopThreshold }
+          : {}),
+        ...(input.maxDecodeRetries !== undefined
+          ? { maxDecodeRetries: input.maxDecodeRetries }
+          : {}),
       })
       const capabilityCalls = capabilitiesFromTraces(result.traces)
       const capabilitiesByName: Record<string, number> = {}

@@ -71,11 +71,12 @@ export interface AcceptanceApp {
   readonly close: () => Promise<void>
 }
 
-const FIXTURE_DEFS: readonly { readonly role: string; readonly key: "plan" | "exec" | "intake" }[] = [
-  { role: "plan", key: "plan" },
-  { role: "exec", key: "exec" },
-  { role: "intake", key: "intake" },
-]
+const FIXTURE_DEFS: readonly { readonly role: string; readonly key: "plan" | "exec" | "intake" }[] =
+  [
+    { role: "plan", key: "plan" },
+    { role: "exec", key: "exec" },
+    { role: "intake", key: "intake" },
+  ]
 
 /**
  * 构造生产 wiring + 全新 Hono 路由，走脚本化 LLM fixture。
@@ -254,11 +255,13 @@ export async function sendWechatMessage(
     }),
   })
   const text = await res.text()
-  let parsed: {
-    conversationId?: string
-    meta?: { finalDecision?: string; toolCalls?: number }
-    reply?: string
-  } | undefined
+  let parsed:
+    | {
+        conversationId?: string
+        meta?: { finalDecision?: string; toolCalls?: number }
+        reply?: string
+      }
+    | undefined
   try {
     parsed = JSON.parse(text) as typeof parsed
   } catch {

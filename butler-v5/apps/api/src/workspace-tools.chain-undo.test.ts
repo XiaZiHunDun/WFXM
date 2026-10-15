@@ -1,11 +1,16 @@
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs"
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import {
-  makeRunCommandTool,
-  makeWriteFileTool,
-} from "./workspace-tools.js"
+import { makeRunCommandTool, makeWriteFileTool } from "./workspace-tools.js"
 import {
   resetUndoChain,
   resetUndoStack,
@@ -50,7 +55,7 @@ describe("D49 chain undo — write_file push", () => {
     if (first?.entry.kind === "write") {
       expect(first.entry.path).toBe(FILE_B)
     }
-    expect(result.reverted.every(r => r.ok)).toBe(true)
+    expect(result.reverted.every((r) => r.ok)).toBe(true)
 
     // Read-back: verify file content actually restored
     expect(readFileSync(FILE_A, "utf8")).toBe("OLD_A")

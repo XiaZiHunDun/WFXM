@@ -91,11 +91,11 @@ describe("telegram channel adapter", () => {
   })
 
   it("checks optional webhook secret header", () => {
-    expect(
-      telegramWebhookAuthorized({ BUTLER_V5_TELEGRAM_WEBHOOK_SECRET: "tok" }, "tok"),
-    ).toBe(true)
-    expect(
-      telegramWebhookAuthorized({ BUTLER_V5_TELEGRAM_WEBHOOK_SECRET: "tok" }, "bad"),
-    ).toBe(false)
+    expect(telegramWebhookAuthorized({ BUTLER_V5_TELEGRAM_WEBHOOK_SECRET: "tok" }, "tok")).toBe(
+      true,
+    )
+    expect(telegramWebhookAuthorized({ BUTLER_V5_TELEGRAM_WEBHOOK_SECRET: "tok" }, "bad")).toBe(
+      false,
+    )
   })
 })

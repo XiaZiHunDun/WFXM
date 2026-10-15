@@ -33,8 +33,8 @@ function parseAllowlist(raw: string | undefined): ReadonlySet<string> | null {
   if (raw === undefined) return null
   const parts = raw
     .split(",")
-    .map(s => s.trim())
-    .filter(s => s.length > 0)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
   if (parts.length === 0) return null
   return new Set(parts)
 }

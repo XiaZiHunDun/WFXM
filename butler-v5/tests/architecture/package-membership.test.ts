@@ -45,7 +45,12 @@ function walk(dir: string, out: string[] = []): string[] {
       continue
     }
     if (st.isDirectory()) {
-      if (name === "node_modules" || name === "_archive" || name === "dist" || name === "coverage") {
+      if (
+        name === "node_modules" ||
+        name === "_archive" ||
+        name === "dist" ||
+        name === "coverage"
+      ) {
         continue
       }
       walk(full, out)
@@ -60,9 +65,7 @@ function walk(dir: string, out: string[] = []): string[] {
 
 /** strip line/block comments so doc references don't trip the detector */
 function stripComments(text: string): string {
-  return text
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/[^\n]*/g, "")
+  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")
 }
 
 /** real code-level reference into _archive/ (after comments stripped) */
@@ -116,10 +119,7 @@ describe("package-membership (DESIGN invariant 16)", () => {
   })
 
   it("(4) ports/src/index.ts thin barrel — R2 Effect Tag classes 已经归档（R12, 2026-08-28）", () => {
-    const ix = readFileSync(
-      join(BUTLER_V5, "packages/ports/src/index.ts"),
-      "utf8",
-    )
+    const ix = readFileSync(join(BUTLER_V5, "packages/ports/src/index.ts"), "utf8")
     // R12: 全部 14 R2 Effect Tag 类与 postgres 适配器一并清理；本测试断言反例。
     expect(ix, "EventStoreService must NOT be present (R12 archived to _archive)").not.toMatch(
       /export class EventStoreService/,

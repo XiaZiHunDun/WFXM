@@ -55,7 +55,7 @@ export function tryAcquireOwnerSlot(key: string, env: NodeJS.ProcessEnv): boolea
   const max = ownerRateLimitMax(env)
   const now = Date.now()
   const cutoff = now - windowMs
-  const prior = (recentRequestMs.get(key) ?? []).filter(ts => ts > cutoff)
+  const prior = (recentRequestMs.get(key) ?? []).filter((ts) => ts > cutoff)
   if (prior.length >= max) {
     recentRequestMs.set(key, prior)
     return false

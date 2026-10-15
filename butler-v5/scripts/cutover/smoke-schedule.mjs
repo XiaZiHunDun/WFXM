@@ -31,7 +31,9 @@ async function main() {
   }
   if (!tick.ok) fail("schedule/tick", `${tick.status} ${tickText}`)
   const body = JSON.parse(tickText)
-  console.log(`smoke ok [schedule/tick]: stats=${JSON.stringify(body.stats)} jobs=${JSON.stringify(body.jobs)}`)
+  console.log(
+    `smoke ok [schedule/tick]: stats=${JSON.stringify(body.stats)} jobs=${JSON.stringify(body.jobs)}`,
+  )
   console.log("smoke PASS")
 }
 

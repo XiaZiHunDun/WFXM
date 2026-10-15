@@ -16,10 +16,7 @@ import type { Wiring } from "../wiring.js"
 import { isSlackChannelEnabled } from "../channel-config.js"
 import { ChannelInboundError, handleChannelInbound } from "../channel-inbound.js"
 import { deliverSlackChannelReply, slackBotToken } from "../channel-outbound.js"
-import {
-  parseSlackEventPayload,
-  verifySlackSignature,
-} from "@butler/adapters/slack/index.js"
+import { parseSlackEventPayload, verifySlackSignature } from "@butler/adapters/slack/index.js"
 
 export function registerSlackEventsRoutes(
   app: Hono,

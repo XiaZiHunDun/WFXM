@@ -14,18 +14,12 @@ import { join } from "node:path"
 
 describe("R16 architecture: workspace read_file / write_file dispatch through bwrap", () => {
   it("workspace-tools.ts imports bubblewrap-runner.js inside read_file path", () => {
-    const src = readFileSync(
-      join(process.cwd(), "apps/api/src/workspace-tools.ts"),
-      "utf8",
-    )
+    const src = readFileSync(join(process.cwd(), "apps/api/src/workspace-tools.ts"), "utf8")
     expect(src).toMatch(/@butler\/adapters\/sandbox\/bubblewrap-runner\.js/)
   })
 
   it("workspace-tools.ts makeReadFileTool invokes executeArgvInSandbox", () => {
-    const src = readFileSync(
-      join(process.cwd(), "apps/api/src/workspace-tools.ts"),
-      "utf8",
-    )
+    const src = readFileSync(join(process.cwd(), "apps/api/src/workspace-tools.ts"), "utf8")
     // 简化：在 makeReadFileTool 块范围内需引用 executeArgvInSandbox
     const readFileIdx = src.indexOf("makeReadFileTool")
     const writeFileIdx = src.indexOf("makeWriteFileTool")
@@ -37,10 +31,7 @@ describe("R16 architecture: workspace read_file / write_file dispatch through bw
   })
 
   it("workspace-tools.ts makeWriteFileTool invokes executeArgvInSandbox with stdinContent", () => {
-    const src = readFileSync(
-      join(process.cwd(), "apps/api/src/workspace-tools.ts"),
-      "utf8",
-    )
+    const src = readFileSync(join(process.cwd(), "apps/api/src/workspace-tools.ts"), "utf8")
     const writeFileIdx = src.indexOf("makeWriteFileTool")
     expect(writeFileIdx).toBeGreaterThan(-1)
     // 看 makeWriteFileTool 块范围内是否有 stdinContent 字段（write 走 tee-equivalent）

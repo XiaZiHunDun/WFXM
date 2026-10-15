@@ -9,14 +9,14 @@ const SEVEN_DAYS_MS = 7 * 24 * 3_600_000
 
 const makeMemory = (
   overrides: Partial<{
-    status: 'confirmed'
-    promotedBy: 'sweeper'
+    status: "confirmed"
+    promotedBy: "sweeper"
     promotedAt: Date
   }> = {},
 ): RollbackAutoPromotedCandidateMemory => ({
   id: "test-id",
-  status: 'confirmed' as const,
-  promotedBy: 'sweeper' as const,
+  status: "confirmed" as const,
+  promotedBy: "sweeper" as const,
   promotedAt: new Date(baseMs),
   ...overrides,
 })
@@ -32,7 +32,7 @@ describe("rollbackAutoPromotedCandidate", () => {
     })
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("expected ok")
-    expect(result.updated.status).toBe('candidate')
+    expect(result.updated.status).toBe("candidate")
     expect(result.updated.id).toBe("test-id")
     expect(result.updated.rolledBackBy).toBe("owner-123")
     expect(result.updated.rollbackReason).toBe("looks wrong")
@@ -42,8 +42,8 @@ describe("rollbackAutoPromotedCandidate", () => {
     // Cast to bypass literal type check (the runtime validates)
     const memory = {
       id: "x",
-      status: 'candidate' as 'confirmed',
-      promotedBy: 'sweeper' as const,
+      status: "candidate" as "confirmed",
+      promotedBy: "sweeper" as const,
       promotedAt: new Date(baseMs),
     }
     const result = rollbackAutoPromotedCandidate({
@@ -55,12 +55,12 @@ describe("rollbackAutoPromotedCandidate", () => {
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("expected not ok")
-    expect(result.reason).toBe('not-confirmed')
+    expect(result.reason).toBe("not-confirmed")
   })
 
   it("returns not-auto-promoted when promotedBy != 'sweeper'", () => {
     const result = rollbackAutoPromotedCandidate({
-      memory: makeMemory({ promotedBy: 'owner' as 'sweeper' }),
+      memory: makeMemory({ promotedBy: "owner" as "sweeper" }),
       ownerId: "owner-123",
       reason: "test",
       now: new Date(baseMs + 1000),
@@ -68,7 +68,7 @@ describe("rollbackAutoPromotedCandidate", () => {
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("expected not ok")
-    expect(result.reason).toBe('not-auto-promoted')
+    expect(result.reason).toBe("not-auto-promoted")
   })
 
   it("returns rollback-window-expired when past deadline", () => {
@@ -81,7 +81,7 @@ describe("rollbackAutoPromotedCandidate", () => {
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("expected not ok")
-    expect(result.reason).toBe('rollback-window-expired')
+    expect(result.reason).toBe("rollback-window-expired")
   })
 
   it("handles no reason (undefined)", () => {

@@ -24,10 +24,7 @@ function listTsFiles(dir: string): string[] {
   return out
 }
 
-const SCAN_ROOTS = [
-  join(process.cwd(), "apps"),
-  join(process.cwd(), "cli"),
-]
+const SCAN_ROOTS = [join(process.cwd(), "apps"), join(process.cwd(), "cli")]
 
 function productionFiles(): { file: string; src: string }[] {
   const out: { file: string; src: string }[] = []
@@ -71,9 +68,7 @@ describe("P3 seam guard (architecture)", () => {
   })
 
   it("the engine chokepoint rejects an invalid RunTrigger (behavioral)", async () => {
-    const { buildWechatRunTrigger, validateRunTrigger } = await import(
-      "@butler/domain/runtime.js"
-    )
+    const { buildWechatRunTrigger, validateRunTrigger } = await import("@butler/domain/runtime.js")
     const valid = buildWechatRunTrigger({
       userId: "owner-1",
       conversationId: "c1",

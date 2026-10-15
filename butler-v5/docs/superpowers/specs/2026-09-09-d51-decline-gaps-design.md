@@ -14,17 +14,18 @@
 
 按 `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md` §3：
 
-| 项 | D48 自判 | 触发条件 |
-|---|---|---|
-| §3.1 approval 羊群效应 | "设计权衡，残余摩擦"。结构根因：policy-gate 无 trust 模式。 | owner 撞 1 次"误点 delete" |
-| §3.2 LLM 质量量化不可达 | "方法论限制"。结构根因：temperature model + 单 round snapshot 不稳定；多 round + prompt freeze 4 min × N round 成本。 | owner 实测撞 "B 类某场景答错了" |
-| §3.3 multi-tool chain 撤销 | D49 ship ✅ | — |
+| 项                         | D48 自判                                                                                                              | 触发条件                        |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| §3.1 approval 羊群效应     | "设计权衡，残余摩擦"。结构根因：policy-gate 无 trust 模式。                                                           | owner 撞 1 次"误点 delete"      |
+| §3.2 LLM 质量量化不可达    | "方法论限制"。结构根因：temperature model + 单 round snapshot 不稳定；多 round + prompt freeze 4 min × N round 成本。 | owner 实测撞 "B 类某场景答错了" |
+| §3.3 multi-tool chain 撤销 | D49 ship ✅                                                                                                           | —                               |
 
 ### 1.2 决策
 
 **两项均 decline**：fixture harness 样本盲点 / 方法论限制；扩 fixture 成本高于潜在价值；等 owner 真撞 + multi-round methodology 固化后再评估。
 
 **依据**：
+
 - D48 笔记 §6 触发表 + §7 lessons 1-3
 - v8 PRD candidate A/B/C 3/3 REVERT 实证（temperature model 单 round 不可靠）
 - D-series owner-撞点触发协议（[`project-deferred-trigger-conditions-2026-09-01.md`](../../../../.claude/projects/-home-ailearn-projects-WFXM/memory/project-deferred-trigger-conditions-2026-09-01.md)）
@@ -91,15 +92,15 @@ memory entry (新增)
 
 新建 `butler-v5/docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`，7 段结构：
 
-| § | 内容 | 来源 |
-|---|---|---|
-| 0 | Context + D48 自判 + D51 决策 | D48 §3.1/§3.2 + 本 spec §1 |
-| 1 | §3.1 decline 理由（4 条：fixture harness 覆盖 / 9 次非 read-only approval 已实证 / 扩 fixture 成本 / trust mode 工程性假设无 owner 撞点验证） | D48 §3.1 + D44 P1-A 数据 |
-| 2 | §3.2 decline 理由（4 条：temperature model 实证 / 4 min × N round 成本 / D47 fixture-recording 同源风险 / v8 3/3 REVERT） | D48 §3.2 + D47 + v8 PRD |
-| 3 | DESIGN.md 集成位置 + 行号 | 本 spec §3.1 + §3.2 |
-| 4 | D48 doc status flip + §6 触发表 row 状态 | 本 spec §3.3 |
-| 5 | Verification gate（grep 行号 / D48 trigger 表完整性 / handoff doc 引用交叉对得上） | — |
-| 6 | Lessons（fixture harness 样本盲点 ≠ 团队盲点 / 文档化 decline 是 closure 而非延后 / D-series owner-撞点协议再次验证） | D48 §7 |
+| §   | 内容                                                                                                                                          | 来源                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| 0   | Context + D48 自判 + D51 决策                                                                                                                 | D48 §3.1/§3.2 + 本 spec §1 |
+| 1   | §3.1 decline 理由（4 条：fixture harness 覆盖 / 9 次非 read-only approval 已实证 / 扩 fixture 成本 / trust mode 工程性假设无 owner 撞点验证） | D48 §3.1 + D44 P1-A 数据   |
+| 2   | §3.2 decline 理由（4 条：temperature model 实证 / 4 min × N round 成本 / D47 fixture-recording 同源风险 / v8 3/3 REVERT）                     | D48 §3.2 + D47 + v8 PRD    |
+| 3   | DESIGN.md 集成位置 + 行号                                                                                                                     | 本 spec §3.1 + §3.2        |
+| 4   | D48 doc status flip + §6 触发表 row 状态                                                                                                      | 本 spec §3.3               |
+| 5   | Verification gate（grep 行号 / D48 trigger 表完整性 / handoff doc 引用交叉对得上）                                                            | —                          |
+| 6   | Lessons（fixture harness 样本盲点 ≠ 团队盲点 / 文档化 decline 是 closure 而非延后 / D-series owner-撞点协议再次验证）                         | D48 §7                     |
 
 ### 3.5 memory entry
 
@@ -129,13 +130,13 @@ memory entry (新增)
 
 ## 5. Files Changed (预估)
 
-| 类型 | 路径 | 改动 |
-|---|---|---|
-| 改 | `butler-v5/DESIGN.md` | +3 row（§18 × 2 + §11.4 × 1） |
-| 改 | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md` | §3.1/§3.2 status flip + §6 触发表 row 状态 |
-| 新 | `butler-v5/docs/superpowers/notes/2026-09-09-d51-decline-gaps.md` | 7 段 handoff doc |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D51-decline-gaps-2026-09-09.md` | memory entry |
-| 改 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md` | +1 索引行 |
+| 类型 | 路径                                                                                               | 改动                                       |
+| ---- | -------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 改   | `butler-v5/DESIGN.md`                                                                              | +3 row（§18 × 2 + §11.4 × 1）              |
+| 改   | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md`                             | §3.1/§3.2 status flip + §6 触发表 row 状态 |
+| 新   | `butler-v5/docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`                                  | 7 段 handoff doc                           |
+| 新   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D51-decline-gaps-2026-09-09.md` | memory entry                               |
+| 改   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`                                  | +1 索引行                                  |
 
 预估 +60/-5 行（doc + memory），0 业务代码改动。
 

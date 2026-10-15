@@ -123,20 +123,14 @@ export function createDurableMemoryRecord(
   }
 }
 
-export function isDurableMemoryActive(
-  record: DurableMemoryRecord,
-  nowMs: number,
-): boolean {
+export function isDurableMemoryActive(record: DurableMemoryRecord, nowMs: number): boolean {
   if (record.status !== "confirmed") return false
   if (record.expiresAt !== null && record.expiresAt <= nowMs) return false
   return true
 }
 
 /** Case-insensitive substring search over content + provenance note. */
-export function matchDurableMemoryQuery(
-  record: DurableMemoryRecord,
-  query: string,
-): boolean {
+export function matchDurableMemoryQuery(record: DurableMemoryRecord, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   const hay = `${record.content}\n${record.provenance.note ?? ""}`.toLowerCase()
@@ -158,9 +152,7 @@ export function selectDurableMemoriesForWorkingSet(input: {
 }
 
 /** Format selected memories as a system prefix block (not Transcript). */
-export function formatDurableMemoryPrefix(
-  records: readonly DurableMemoryRecord[],
-): string | null {
+export function formatDurableMemoryPrefix(records: readonly DurableMemoryRecord[]): string | null {
   if (records.length === 0) return null
   const lines = records.map((r) => {
     const conf = Math.round(r.confidence * 100)

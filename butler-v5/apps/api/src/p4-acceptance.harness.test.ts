@@ -106,10 +106,7 @@ describe("P4 acceptance harness", () => {
     expect(wxBody.reply.length).toBeGreaterThan(0)
     expect(wxBody.meta.finalDecision).toBeTruthy()
 
-    const [wxRun] = await db
-      .select()
-      .from(runs)
-      .where(eq(runs.conversationId, wxConversationId))
+    const [wxRun] = await db.select().from(runs).where(eq(runs.conversationId, wxConversationId))
     expect(wxRun?.triggerSource).toBe("channel")
     expect(wxRun?.subject).toBe("wx-owner-1")
 
@@ -196,11 +193,7 @@ describe("P4 acceptance harness", () => {
     expect(taskRun?.triggerSource).toBe("task")
 
     // 4) Traces visible via Owner API for each conversation
-    for (const conversationId of [
-      wxConversationId,
-      scheduleConversationId,
-      taskConversationId,
-    ]) {
+    for (const conversationId of [wxConversationId, scheduleConversationId, taskConversationId]) {
       const tr = await app.request(
         `/v1/owner/traces?conversationId=${encodeURIComponent(conversationId)}`,
       )

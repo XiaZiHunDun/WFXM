@@ -11,12 +11,14 @@
 ## §0 Scope
 
 **本协议适用对象**:
+
 - `butler-v5/tests/acceptance/**/*.test.ts` 任何跑 LLM-driven acceptance 的 test
 - `butler-v5/tests/e2e/**/*.test.ts` 任何触 LLM call 的 e2e
 - `butler-v5/apps/cli/**/*.test.ts` 任何用 `--llm` 模式的 CLI test
 - 任何 future ship (D# / P# / B# / C# / D5x+) 引入的新 LLM test 必须协议-compliant 才能 ship
 
 **不适用**:
+
 - 纯 unit test (`packages/*/src/**/*.test.ts` 纯函数逻辑, 不调 LLM)
 - 纯 typecheck / lint / arch-guard
 - 文档 / memory 改动 (虽然 D53c 走协议 verification, 但 verification 的是 impl 不变前提)
@@ -28,19 +30,23 @@
 **规则**: LLM-driven test 必须跑 N≥3 round, 聚合后才算 verdict。
 
 **聚合规则**:
+
 - **all** (默认): 3/3 round 都 pass 才算 pass。任何 round fail = test fail。
 - **majority** (opt-in via `BUTLER_V5_AGGREGATION=majority`): ≥ ⌈N/2⌉ round pass 就算 pass (2/3 pass 算 pass)。
 
 **环境变量**:
+
 - `BUTLER_V5_MULTI_ROUND=N` — 显式指定 round 数 (默认 3)
 - `BUTLER_V5_MULTI_ROUND=0` — opt-out, 跑 1 round (仅 fast iteration 临时用, ship 前必须 0→3)
 - `BUTLER_V5_AGGREGATION=majority` — opt-in 多数规则 (默认 all)
 
 **Rationale**:
+
 - D47 实证: v8 PRD 3 round 都不同 verdict, 单 round verdict 不可靠
 - N=3 是 cost / reliability sweet spot (D54+ 评估 per-scenario 是否需要 N=5)
 
 **Anti-pattern**:
+
 - ❌ 永远跑 1 round 然后 "看着对就过"
 - ❌ N=3 但用 majority 默认 (应在 ship gate 用 all, fast iteration 才 majority)
 
@@ -51,15 +57,18 @@
 **规则**: 一个 ship 期间, system prompt 在 ship 起点 snapshot 后冻结, 整 ship 不变。
 
 **具体**:
+
 - Ship 起点: `git rev-parse HEAD:apps/api/src/system-prompt.ts` (或对应文件) 记录为 baseline
 - Ship 期间: 任何 `system-prompt.ts` / `system-prompt*.ts` / `prompts/*.ts` 改动 = ship 失败 (pre-commit hook 拦截)
 - 中途要改 prompt: 拆为新 ship, 重新跑 baseline + verification
 
 **Rationale**:
+
 - Recordings 是 baseline; prompt 变了 baseline 失效, 比较无意义
 - 防止 "我顺便修了个 prompt" 导致 acceptance 数字变化但无法归因
 
 **Anti-pattern**:
+
 - ❌ "system prompt 小改应该没事" → 拆 ship
 - ❌ "把 prompt 改了顺便跑 acceptance" → 拆 ship
 
@@ -75,11 +84,13 @@
 ## D53a ship verification
 
 **Test results (本 ship, 2026-09-10 跑):**
+
 - `pnpm test:methodology` — ✓ N/N
 - `pnpm test:acceptance` — ✓ 41/41 N=3
 - `pnpm test:full` — ✓ (1862 + ~20 new) N=3
 
 **Lint / typecheck / arch-guard:**
+
 - `pnpm lint` — ✓ 0
 - `pnpm typecheck` — ✓ 0
 - `pnpm arch-guard` — ✓ 0
@@ -89,10 +100,12 @@
 ```
 
 **Rationale**:
+
 - D50 教训: D49 ship claim 引用了 last batch green (实际有 1 test fail + 1 pre-existing typecheck)
 - 必须本 ship 自身的 fresh output 才能 ship
 
 **Anti-pattern**:
+
 - ❌ "上次 ship 是绿的, 这次改动小应该没事" → 必须 fresh verify
 - ❌ Ship claim 写 "复用 D52 验证" → 必须本 ship 自己的 verification
 
@@ -120,10 +133,12 @@
 ```
 
 **生成**:
+
 - 首次 (D53a): baseline-generator 跑全 41 scenarios, 录当前状态, 写入 `.baseline-2026-09-10.json`
 - 后续 ship: compareBaseline() 读 baseline + 跑当前, diff 输出
 
 **比较规则**:
+
 - `status` 变化 = 必报 (critical)
 - `replyLen` 偏离 ≥ 50% = 报 (info)
 - `toolCalls` / `approvalCount` 变化 = 报 (info)
@@ -152,10 +167,7 @@ it(`${scenario.id}`, async () => {
 
 // After
 it(`${scenario.id}`, async () => {
-  await runMultiRound(
-    () => runScenario(scenario, app, ctx),
-    { rounds: 3, aggregation: "all" }
-  )
+  await runMultiRound(() => runScenario(scenario, app, ctx), { rounds: 3, aggregation: "all" })
 })
 ```
 

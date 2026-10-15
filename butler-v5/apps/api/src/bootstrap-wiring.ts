@@ -18,13 +18,16 @@ import { createWechatChannelPort } from "@butler/adapters"
 import { makeWiring, type Wiring } from "./wiring.js"
 import { bootstrapMcpTools, type McpToolBundle } from "./mcp-bootstrap.js"
 
-
 /** Build the ChannelPort registry from env. Empty when no channel is enabled. */
 function buildChannelPorts(env: NodeJS.ProcessEnv): ReadonlyMap<ChannelKind, ChannelPort> {
   const ports = new Map<ChannelKind, ChannelPort>()
   if (envTruthy(env["BUTLER_V5_ILINK_ENABLED"])) {
     const token = (env["WECHAT_TOKEN"] ?? "").trim()
-    const baseUrl = (env["WECHAT_BASE_URL"] ?? env["ILINK_BASE_URL"] ?? "https://api.weixin.qq.com").trim()
+    const baseUrl = (
+      env["WECHAT_BASE_URL"] ??
+      env["ILINK_BASE_URL"] ??
+      "https://api.weixin.qq.com"
+    ).trim()
     if (token) {
       ports.set("wechat", createWechatChannelPort({ baseUrl, token }))
     }

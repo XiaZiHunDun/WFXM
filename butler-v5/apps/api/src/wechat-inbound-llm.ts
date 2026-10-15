@@ -134,11 +134,7 @@ export function buildWechatInboundMessages(
  * the LLM call fails / times out. Keeps the v4 → v5 → v4 contract intact
  * (the user always gets a `reply` field back).
  */
-export function stubReply(
-  _content: string,
-  _fromUserId: string,
-  _projectId: string,
-): string {
+export function stubReply(_content: string, _fromUserId: string, _projectId: string): string {
   // D60 T2.1 (audit #3 F-02): drop raw fromUserId + raw projectId +
   // 'MVP stub reply' jargon (3x D48 §4 violation). Owner just needs
   // confirmation the message was received and is being processed.

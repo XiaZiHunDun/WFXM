@@ -212,16 +212,17 @@ async function safeApplyDecision(
 async function completeWithTimeout(
   invoke: () => ReturnType<ConversationLoopPorts["complete"]>,
   timeoutMs: number,
-): Promise<Awaited<ReturnType<ConversationLoopPorts["complete"]>> | { readonly ok: false; readonly reason: string }> {
+): Promise<
+  | Awaited<ReturnType<ConversationLoopPorts["complete"]>>
+  | { readonly ok: false; readonly reason: string }
+> {
   let timer: NodeJS.Timeout | undefined
-  const timeoutPromise = new Promise<{ readonly ok: false; readonly reason: string }>(
-    (resolve) => {
-      timer = setTimeout(
-        () => resolve({ ok: false, reason: `LLM timeout after ${timeoutMs}ms` }),
-        timeoutMs,
-      )
-    },
-  )
+  const timeoutPromise = new Promise<{ readonly ok: false; readonly reason: string }>((resolve) => {
+    timer = setTimeout(
+      () => resolve({ ok: false, reason: `LLM timeout after ${timeoutMs}ms` }),
+      timeoutMs,
+    )
+  })
   try {
     return await Promise.race([invoke(), timeoutPromise])
   } finally {
@@ -387,7 +388,9 @@ export async function runConversationLoop(input: {
         )
         toolResultMessages.push({
           role: "tool",
-          content: toolResult.ok ? formatToolOutput(toolResult.output) : `[error] ${toolResult.reason}`,
+          content: toolResult.ok
+            ? formatToolOutput(toolResult.output)
+            : `[error] ${toolResult.reason}`,
           toolCallId: tc.id,
           toolName: tc.name,
         })
@@ -535,7 +538,9 @@ export async function runConversationLoop(input: {
         })
         messages.push({
           role: "tool",
-          content: toolResult.ok ? formatToolOutput(toolResult.output) : `[error] ${toolResult.reason}`,
+          content: toolResult.ok
+            ? formatToolOutput(toolResult.output)
+            : `[error] ${toolResult.reason}`,
           toolCallId,
           toolName: "delegate_to_subagent",
         })
@@ -587,7 +592,9 @@ export async function runConversationLoop(input: {
         })
         messages.push({
           role: "tool",
-          content: toolResult.ok ? formatToolOutput(toolResult.output) : `[error] ${toolResult.reason}`,
+          content: toolResult.ok
+            ? formatToolOutput(toolResult.output)
+            : `[error] ${toolResult.reason}`,
           toolCallId: decision.callId ?? `json-${iteration}-${decision.name}`,
           toolName: decision.name,
         })

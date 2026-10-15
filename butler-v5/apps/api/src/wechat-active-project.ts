@@ -54,9 +54,7 @@ function writeStore(path: string, store: ActiveProjectStore): void {
 export function parseWechatProjectCatalog(
   env: NodeJS.ProcessEnv = process.env,
 ): readonly { readonly id: string; readonly label: string }[] {
-  const mapRaw = (
-    env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"] ?? "wechat:WFXM"
-  ).trim()
+  const mapRaw = (env["BUTLER_V5_PROJECT_KNOWLEDGE_INBOUND_MAP"] ?? "wechat:WFXM").trim()
   const seen = new Set<string>()
   const items: { id: string; label: string }[] = []
   const add = (id: string, label?: string) => {

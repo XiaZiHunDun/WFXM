@@ -46,7 +46,9 @@ async function main() {
   const listText = await list.text()
   if (!list.ok) fail("memories/list", `${list.status} ${listText}`)
   const listed = JSON.parse(listText)
-  const hit = (listed.items ?? []).find((m) => m.content === marker || m.content?.includes?.(marker))
+  const hit = (listed.items ?? []).find(
+    (m) => m.content === marker || m.content?.includes?.(marker),
+  )
   if (!hit) fail("memories/list", `marker not found in ${listText}`)
 
   const del = await fetch(`${base}/v1/owner/memories/${memoryId}`, { method: "DELETE" })

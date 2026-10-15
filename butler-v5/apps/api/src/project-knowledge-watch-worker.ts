@@ -42,7 +42,11 @@ export async function runProjectKnowledgeWatchTick(args: {
   readonly env?: NodeJS.ProcessEnv
   readonly cwd?: string
   readonly logger?: ProjectKnowledgeWatchLogger
-}): Promise<{ readonly ok: boolean; readonly reason?: string; readonly stats?: Awaited<ReturnType<typeof syncProjectKnowledgeFromManifest>> }> {
+}): Promise<{
+  readonly ok: boolean
+  readonly reason?: string
+  readonly stats?: Awaited<ReturnType<typeof syncProjectKnowledgeFromManifest>>
+}> {
   const env = args.env ?? process.env
   const cwd = args.cwd ?? process.cwd()
   const logger = args.logger ?? defaultLogger
@@ -59,7 +63,10 @@ export async function runProjectKnowledgeWatchTick(args: {
     env,
   })
   if (stats.errors.length > 0) {
-    logger.warn(`[project-knowledge-watch] sync errors=${stats.errors.length}`, stats.errors.slice(0, 3))
+    logger.warn(
+      `[project-knowledge-watch] sync errors=${stats.errors.length}`,
+      stats.errors.slice(0, 3),
+    )
   }
   logger.info(
     `[project-knowledge-watch] scanned=${stats.scanned} created=${stats.created} updated=${stats.updated} skipped=${stats.skipped}`,

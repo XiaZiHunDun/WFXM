@@ -31,13 +31,7 @@ export async function cancelRun(
     if (!canTransitionRun(run.status, "cancelled")) {
       throw new IllegalRunTransitionError(run.id, run.status, "cancelled")
     }
-    const cancelled = await store.transitionRunStatusInTx(
-      tx,
-      run.id,
-      run.version,
-      "cancelled",
-      now,
-    )
+    const cancelled = await store.transitionRunStatusInTx(tx, run.id, run.version, "cancelled", now)
     await store.appendAuditEventInTx(tx, {
       auditId: crypto.randomUUID(),
       runId: cancelled.id,
@@ -100,13 +94,7 @@ export async function cancelRunCascade(
       if (!canTransitionRun(run.status, "cancelled")) {
         throw new IllegalRunTransitionError(run.id, run.status, "cancelled")
       }
-      const c = await store.transitionRunStatusInTx(
-        tx,
-        run.id,
-        run.version,
-        "cancelled",
-        now,
-      )
+      const c = await store.transitionRunStatusInTx(tx, run.id, run.version, "cancelled", now)
       await store.appendAuditEventInTx(tx, {
         auditId: crypto.randomUUID(),
         runId: c.id,
@@ -161,13 +149,7 @@ export async function expireRun(
     if (!canTransitionRun(run.status, "expired")) {
       throw new IllegalRunTransitionError(run.id, run.status, "expired")
     }
-    const expired = await store.transitionRunStatusInTx(
-      tx,
-      run.id,
-      run.version,
-      "expired",
-      now,
-    )
+    const expired = await store.transitionRunStatusInTx(tx, run.id, run.version, "expired", now)
     await store.appendAuditEventInTx(tx, {
       auditId: crypto.randomUUID(),
       runId: expired.id,
@@ -360,13 +342,7 @@ export async function resumeFromWaitingExternal(
     if (!canTransitionRun(run.status, "running")) {
       throw new IllegalRunTransitionError(run.id, run.status, "running")
     }
-    const resumed = await store.transitionRunStatusInTx(
-      tx,
-      run.id,
-      run.version,
-      "running",
-      now,
-    )
+    const resumed = await store.transitionRunStatusInTx(tx, run.id, run.version, "running", now)
     await store.appendAuditEventInTx(tx, {
       auditId: crypto.randomUUID(),
       runId,

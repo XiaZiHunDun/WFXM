@@ -8,15 +8,15 @@
 
 ## 0. 视角与证据源
 
-| 证据 | 路径 | 用途 |
-|---|---|---|
-| recordings v7-current (35 真实 LLM 录音) | `tests/acceptance/scenarios/recordings/` | owner 真撞的输入与系统反应 (model=MiniMax-M3[1m]) |
-| recordings-archive (7 baseline 演化) | `tests/acceptance/scenarios/recordings-archive/` | v1-pre-context-fix → v7-current 7 轮 fix 实证 |
-| 35 场景人工分析 | `tests/acceptance/scenarios/_analysis.md` | judgment 层 gap 分类（P0/P1/P2/P3） |
-| 35 场景 fixture 定义 | `tests/acceptance/scenarios/_fixtures.ts` | owner 视角输入 + v5 wrap-around 反应 |
-| D46 P2 batch spec/plan | `docs/superpowers/specs/2026-09-08-v5-p2-batch-design.md` + `plans/2026-09-08-v5-p2-batch.md` | owner 真撞痛点 ④+⑤ 的承诺 |
-| D44 product-layer-followups commit chain | `854c16ee..6b40d69d` | owner 真撞痛点 ①+②+③ 的实现 |
-| v8 PRD 3/3 REVERT 实证 | `plans/v5-real-llm-v8-iteration-2026-09.md` | temperature model 单 round 验证不可靠 |
+| 证据                                     | 路径                                                                                          | 用途                                              |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| recordings v7-current (35 真实 LLM 录音) | `tests/acceptance/scenarios/recordings/`                                                      | owner 真撞的输入与系统反应 (model=MiniMax-M3[1m]) |
+| recordings-archive (7 baseline 演化)     | `tests/acceptance/scenarios/recordings-archive/`                                              | v1-pre-context-fix → v7-current 7 轮 fix 实证     |
+| 35 场景人工分析                          | `tests/acceptance/scenarios/_analysis.md`                                                     | judgment 层 gap 分类（P0/P1/P2/P3）               |
+| 35 场景 fixture 定义                     | `tests/acceptance/scenarios/_fixtures.ts`                                                     | owner 视角输入 + v5 wrap-around 反应              |
+| D46 P2 batch spec/plan                   | `docs/superpowers/specs/2026-09-08-v5-p2-batch-design.md` + `plans/2026-09-08-v5-p2-batch.md` | owner 真撞痛点 ④+⑤ 的承诺                         |
+| D44 product-layer-followups commit chain | `854c16ee..6b40d69d`                                                                          | owner 真撞痛点 ①+②+③ 的实现                       |
+| v8 PRD 3/3 REVERT 实证                   | `plans/v5-real-llm-v8-iteration-2026-09.md`                                                   | temperature model 单 round 验证不可靠             |
 
 **Owner 视角定义**：owner = v5 唯一真实用户（非 owner 不是目标用户）。从 owner 一周真实对话录音 + 35 场景产品层行为分析中推断"owner 关心什么 / 真撞了什么 / 没识别什么"。
 
@@ -153,6 +153,7 @@
 ### 5.3 owner 撞出真 bug 的概率
 
 按 7 轮 recordings baseline 演化：
+
 - **v1 → v2** = context injection 修 B1 类
 - **v2 → v3** = reply-style 修 mobile readability
 - **v3 → v4** = loop-exhausted clarification 修 D1 degradation
@@ -168,16 +169,16 @@
 
 按 §18 trigger guard + §11 row 5 + §11.4 deferred-trigger-conditions 协议：
 
-| 触发源 | 协议 | 状态 |
-|---|---|---|
-| Owner 真撞 P0/P1/P2/P3 新 gap | `pnpm diff:real-llm` 跑出 aggregate 退化 → 启动 D49 | ⬜ 等触发 |
-| B10/D5 owner 视角个性化撞点 | §18 row 3 (low ROI) | ⬜ 等 owner 撞 |
-| multi-tool chain 撤销 (3.3) | owner 撞 1 次"撤销 5 步" | ✅ shipped (D49, 2026-09-09) — D53c re-eval (2026-09-11) |
-| approval 羊群效应 (3.1) | owner 撞 1 次"误点确认" | × declined (D51, 2026-09-09) — D53c re-eval (2026-09-11) unchanged |
-| 真实 LLM 质量量化 (3.2) | owner 撞 1 次"答错了" | × declined (D51, 2026-09-09) — D53c re-eval (2026-09-11) unchanged |
-| D47 fixture-recording | 同源风险 v8 3/3 REVERT | ⚠️ 需固化 multi-round + prompt freeze |
-| D48 owner 实测 1 周笔记 | v8 candidate D (本笔记第 5 节) | ✅ 当前 |
-| §18 5 项延后 | trigger guard | ⬜ 等 owner |
+| 触发源                        | 协议                                                | 状态                                                               |
+| ----------------------------- | --------------------------------------------------- | ------------------------------------------------------------------ |
+| Owner 真撞 P0/P1/P2/P3 新 gap | `pnpm diff:real-llm` 跑出 aggregate 退化 → 启动 D49 | ⬜ 等触发                                                          |
+| B10/D5 owner 视角个性化撞点   | §18 row 3 (low ROI)                                 | ⬜ 等 owner 撞                                                     |
+| multi-tool chain 撤销 (3.3)   | owner 撞 1 次"撤销 5 步"                            | ✅ shipped (D49, 2026-09-09) — D53c re-eval (2026-09-11)           |
+| approval 羊群效应 (3.1)       | owner 撞 1 次"误点确认"                             | × declined (D51, 2026-09-09) — D53c re-eval (2026-09-11) unchanged |
+| 真实 LLM 质量量化 (3.2)       | owner 撞 1 次"答错了"                               | × declined (D51, 2026-09-09) — D53c re-eval (2026-09-11) unchanged |
+| D47 fixture-recording         | 同源风险 v8 3/3 REVERT                              | ⚠️ 需固化 multi-round + prompt freeze                              |
+| D48 owner 实测 1 周笔记       | v8 candidate D (本笔记第 5 节)                      | ✅ 当前                                                            |
+| §18 5 项延后                  | trigger guard                                       | ⬜ 等 owner                                                        |
 
 **当前 D48 = owner 视角观察性笔记，不修任何代码。下批按 owner 真撞顺序启动 D49+。**
 

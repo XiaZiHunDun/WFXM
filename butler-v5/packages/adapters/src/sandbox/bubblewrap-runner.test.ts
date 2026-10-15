@@ -213,9 +213,9 @@ describe("bubblewrap runner", () => {
   })
 
   it("resolveSandboxFileQuotaBytes returns a positive cap", () => {
-    expect(
-      resolveSandboxFileQuotaBytes({ BUTLER_V5_SANDBOX_MAX_FILE_BYTES: "8388608" }),
-    ).toBe(8388608)
+    expect(resolveSandboxFileQuotaBytes({ BUTLER_V5_SANDBOX_MAX_FILE_BYTES: "8388608" })).toBe(
+      8388608,
+    )
   })
 
   it("wrapWithFileSizeLimit prefixes prlimit only when capped", () => {
@@ -227,11 +227,7 @@ describe("bubblewrap runner", () => {
       "--",
       "echo",
     ])
-    expect(wrapWithFileSizeLimit(["bwrap", "--", "echo"], null)).toEqual([
-      "bwrap",
-      "--",
-      "echo",
-    ])
+    expect(wrapWithFileSizeLimit(["bwrap", "--", "echo"], null)).toEqual(["bwrap", "--", "echo"])
   })
 
   it("runInBubblewrap wraps bwrap with prlimit when quota is set", async () => {

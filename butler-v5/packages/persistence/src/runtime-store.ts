@@ -85,9 +85,7 @@ function toScopedGrant(row: typeof scopedGrants.$inferSelect): ScopedGrantRecord
   // D2.2: capability column is source-of-truth; legacy rows (pre-migration) may still have
   // scope.capabilities as a string array — fall back to index 0 if column is NULL.
   const legacyCapability =
-    Array.isArray(scope.capabilities) && scope.capabilities.length > 0
-      ? scope.capabilities[0]
-      : ""
+    Array.isArray(scope.capabilities) && scope.capabilities.length > 0 ? scope.capabilities[0] : ""
   return {
     id: row.grantId,
     capability: row.capability ?? legacyCapability,
@@ -285,15 +283,13 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
         .where(eq(conversations.projectId, input.projectId.trim()))
         .orderBy(desc(conversations.updatedAt))
         .limit(limit)
-      return rows.map(
-        (row): StoredConversation => ({
-          id: row.conversationId,
-          projectId: row.projectId,
-          subject: row.subject,
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
-        }),
-      )
+      return rows.map((row): StoredConversation => ({
+        id: row.conversationId,
+        projectId: row.projectId,
+        subject: row.subject,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }))
     },
 
     async appendMessage(input) {
@@ -481,7 +477,11 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       // D69 T2 (audit #10 F-08): runtime guard — a non-Drizzle tx would
       // previously surface as a confusing Drizzle internal error. Throw a
       // typed diagnostic at the seam instead.
-      if (tx === null || typeof tx !== "object" || typeof (tx as { insert?: unknown }).insert !== "function") {
+      if (
+        tx === null ||
+        typeof tx !== "object" ||
+        typeof (tx as { insert?: unknown }).insert !== "function"
+      ) {
         throw new TypeError("appendAuditEventInTx: tx must be a Drizzle-compatible transaction")
       }
       const t = tx as unknown as DbTx
@@ -502,7 +502,11 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
 
     async transitionRunStatusInTx(tx, runId, expectedVersion, to, updatedAt) {
       // D69 T2 (audit #10 F-08): same runtime guard as appendAuditEventInTx.
-      if (tx === null || typeof tx !== "object" || typeof (tx as { update?: unknown }).update !== "function") {
+      if (
+        tx === null ||
+        typeof tx !== "object" ||
+        typeof (tx as { update?: unknown }).update !== "function"
+      ) {
         throw new TypeError("transitionRunStatusInTx: tx must be a Drizzle-compatible transaction")
       }
       const t = tx as unknown as DbTx
@@ -523,17 +527,11 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
     },
 
     async updateScopedGrantRemainingUses(grantId, remainingUses) {
-      await db
-        .update(scopedGrants)
-        .set({ remainingUses })
-        .where(eq(scopedGrants.grantId, grantId))
+      await db.update(scopedGrants).set({ remainingUses }).where(eq(scopedGrants.grantId, grantId))
     },
 
     async revokeScopedGrantsForMcpServer(serverId, now) {
-      const rows = await db
-        .select()
-        .from(scopedGrants)
-        .where(gt(scopedGrants.expiresAt, now))
+      const rows = await db.select().from(scopedGrants).where(gt(scopedGrants.expiresAt, now))
       let revoked = 0
       for (const row of rows) {
         const grant = toScopedGrant(row)
@@ -553,10 +551,7 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
     },
 
     async countActiveScopedGrantsForMcpServer(serverId, now) {
-      const rows = await db
-        .select()
-        .from(scopedGrants)
-        .where(gt(scopedGrants.expiresAt, now))
+      const rows = await db.select().from(scopedGrants).where(gt(scopedGrants.expiresAt, now))
       let count = 0
       for (const row of rows) {
         const grant = toScopedGrant(row)
@@ -574,12 +569,7 @@ export function createRuntimeStore(db: ButlerDb): RuntimeStore {
       const rows = await db
         .select()
         .from(scopedGrants)
-        .where(
-          and(
-            gt(scopedGrants.expiresAt, now),
-            eq(scopedGrants.capability, capability),
-          ),
-        )
+        .where(and(gt(scopedGrants.expiresAt, now), eq(scopedGrants.capability, capability)))
       let revoked = 0
       for (const row of rows) {
         if (row.remainingUses !== null && row.remainingUses <= 0) {

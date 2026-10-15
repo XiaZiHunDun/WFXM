@@ -17,10 +17,7 @@ import { parseWechatProjectCatalog } from "./wechat-active-project.js"
  * entry for the id, fall back to the raw id (better than silent `?? "?"`
  * which loses information).
  */
-export function resolveProjectLabel(
-  projectId: string,
-  env: NodeJS.ProcessEnv,
-): string {
+export function resolveProjectLabel(projectId: string, env: NodeJS.ProcessEnv): string {
   const catalog = parseWechatProjectCatalog(env)
   return catalog.find((item) => item.id === projectId)?.label ?? projectId
 }
@@ -108,7 +105,9 @@ export function describeEnvKnob(envVarName: string): string {
  * the c.text() 401 path is a separate Hono pattern. Centralizing here
  * so future owner-routes can call this helper directly.
  */
-export function unauthorizedForOwner(c: { text: (body: string, status: number) => Response }): Response {
+export function unauthorizedForOwner(c: {
+  text: (body: string, status: number) => Response
+}): Response {
   return c.text("未授权", 401)
 }
 
@@ -206,11 +205,7 @@ export function safeOwnerErrorString(reason: string, fallback?: string): string 
  * hardens "who can write this column" with an explicit allowlist rather
  * than trusting request body. 9 owner-route sites apply this check.
  */
-export const ALLOWED_SUBJECTS: ReadonlySet<string> = new Set([
-  "owner",
-  "assistant",
-  "system",
-])
+export const ALLOWED_SUBJECTS: ReadonlySet<string> = new Set(["owner", "assistant", "system"])
 
 export function isAllowedSubject(s: unknown): s is "owner" | "assistant" | "system" {
   return typeof s === "string" && ALLOWED_SUBJECTS.has(s)

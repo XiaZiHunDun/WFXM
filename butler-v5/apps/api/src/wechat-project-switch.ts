@@ -6,7 +6,10 @@ export function normalizeWechatSwitchCommand(content: string): string | null {
     stripped.startsWith("切换") &&
     !switchPrefixes.some((prefix) => stripped.startsWith(prefix))
   ) {
-    const name = stripped.slice("切换".length).trim().replace(/[。.!！?？]+$/u, "")
+    const name = stripped
+      .slice("切换".length)
+      .trim()
+      .replace(/[。.!！?？]+$/u, "")
     if (name && !name.startsWith("/")) {
       return `/切换 ${name}`
     }
@@ -24,12 +27,18 @@ export function normalizeWechatSwitchCommand(content: string): string | null {
     "把项目切回",
   ]) {
     if (stripped.startsWith(prefix)) {
-      const name = stripped.slice(prefix.length).trim().replace(/[。.!！?？]+$/u, "")
+      const name = stripped
+        .slice(prefix.length)
+        .trim()
+        .replace(/[。.!！?？]+$/u, "")
       if (name) return `/切换 ${name}`
     }
   }
   if (stripped.startsWith("切回去")) {
-    const name = stripped.slice("切回去".length).trim().replace(/[。.!！?？]+$/u, "")
+    const name = stripped
+      .slice("切回去".length)
+      .trim()
+      .replace(/[。.!！?？]+$/u, "")
     if (name) return `/切换 ${name}`
   }
   return null

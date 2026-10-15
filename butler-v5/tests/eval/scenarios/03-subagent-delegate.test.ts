@@ -20,9 +20,7 @@ describe("eval/03 subagent-delegate (StartChildRun JSON-decision)", () => {
           role: "researcher",
           objective: "find docs about Foo",
         }),
-        textResponse(
-          JSON.stringify({ _tag: "Respond", content: "已委派给 researcher 子代理" }),
-        ),
+        textResponse(JSON.stringify({ _tag: "Respond", content: "已委派给 researcher 子代理" })),
       ],
     })
     const result = await runEvalScenario({

@@ -19,13 +19,13 @@
 
 ## Comparison with previous
 
-| Version | decision match | latency | A10/C10 | D4 t2 |
-| --- | --- | --- | --- | --- |
-| v3 (lost, MEMORY ref) | 72% | 240s | broken | broken |
-| v4 (post-P1) | 72% | 240s | broken | broken |
-| v5 (post-P2) | 81% | 171s | **fixed** | broken |
-| v6 (post-A9) | 78% | 151s | fixed | broken |
-| v7 (post-D4 t2) | **88%** | **178s** | fixed | **fixed** |
+| Version               | decision match | latency  | A10/C10   | D4 t2     |
+| --------------------- | -------------- | -------- | --------- | --------- |
+| v3 (lost, MEMORY ref) | 72%            | 240s     | broken    | broken    |
+| v4 (post-P1)          | 72%            | 240s     | broken    | broken    |
+| v5 (post-P2)          | 81%            | 171s     | **fixed** | broken    |
+| v6 (post-A9)          | 78%            | 151s     | fixed     | broken    |
+| v7 (post-D4 t2)       | **88%**        | **178s** | fixed     | **fixed** |
 
 ## Rotation policy
 

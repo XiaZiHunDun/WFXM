@@ -20,14 +20,8 @@ import { describe, expect, it } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const STORE_CONTRACT = join(
-  __dirname,
-  "../../packages/domain/src/runtime/store-contract.ts",
-)
-const RUNTIME_LIFECYCLE = join(
-  __dirname,
-  "../../packages/runtime/src/run-lifecycle.ts",
-)
+const STORE_CONTRACT = join(__dirname, "../../packages/domain/src/runtime/store-contract.ts")
+const RUNTIME_LIFECYCLE = join(__dirname, "../../packages/runtime/src/run-lifecycle.ts")
 
 const ATOMIC_FUNCTIONS = [
   "cancelRun",
@@ -49,7 +43,9 @@ describe("arch: audit + state-change atomic (§20 #7)", () => {
     const src = readFileSync(RUNTIME_LIFECYCLE, "utf-8")
     // cancelRunCascade's inner function calls store.withTransaction(...)
     // before calling transitionRunStatusInTx + appendAuditEventInTx.
-    expect(src).toMatch(/store\.withTransaction\(async\s*\(tx\)\s*=>\s*\{[\s\S]+transitionRunStatusInTx[\s\S]+appendAuditEventInTx/)
+    expect(src).toMatch(
+      /store\.withTransaction\(async\s*\(tx\)\s*=>\s*\{[\s\S]+transitionRunStatusInTx[\s\S]+appendAuditEventInTx/,
+    )
   })
 
   for (const fn of ATOMIC_FUNCTIONS) {

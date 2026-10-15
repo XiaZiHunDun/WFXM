@@ -44,7 +44,7 @@ describe("autoPromoteOldCandidates", () => {
   })
 
   it("handles boundary age = window (exclusive)", () => {
-    const candidates = [makeCandidate(7000)]  // age = 3000ms = windowMs
+    const candidates = [makeCandidate(7000)] // age = 3000ms = windowMs
     const result = autoPromoteOldCandidates({
       candidates,
       now: new Date(baseMs + 10000),

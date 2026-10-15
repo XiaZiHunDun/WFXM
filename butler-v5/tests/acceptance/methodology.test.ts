@@ -57,24 +57,13 @@ describe("D53a methodology", () => {
 
   describe("aggregateResults", () => {
     it("all: requires all rounds pass", () => {
-      const all = aggregateResults(
-        [
-          { passed: true },
-          { passed: true },
-          { passed: false },
-        ],
-        "all",
-      )
+      const all = aggregateResults([{ passed: true }, { passed: true }, { passed: false }], "all")
       expect(all).toBe(false)
     })
 
     it("majority: requires >=ceil(N/2) pass", () => {
       const m = aggregateResults(
-        [
-          { passed: true },
-          { passed: false },
-          { passed: true },
-        ],
+        [{ passed: true }, { passed: false }, { passed: true }],
         "majority",
       )
       expect(m).toBe(true)
@@ -166,11 +155,7 @@ describe("D53a methodology", () => {
 
   describe("baseline file present", () => {
     it("D53a baseline JSON exists at expected path with 35 scenarios", () => {
-      const path = join(
-        import.meta.dirname ?? ".",
-        "recordings",
-        ".baseline-2026-09-10.json",
-      )
+      const path = join(import.meta.dirname ?? ".", "recordings", ".baseline-2026-09-10.json")
       expect(existsSync(path)).toBe(true)
       const data = JSON.parse(readFileSync(path, "utf8"))
       expect(data.shipEvent).toBe("D53a")
@@ -217,29 +202,18 @@ describe("D53a methodology", () => {
     })
 
     it("hardening.md Secret<T> cross-link points to real source", () => {
-      const doc = readFileSync(
-        `${repoRoot}/docs/deployment/production-hardening.md`,
-        "utf-8",
-      )
-      expect(doc, "Secret<T> link missing").toContain(
-        "@butler/adapters/wechat/secret.js",
-      )
+      const doc = readFileSync(`${repoRoot}/docs/deployment/production-hardening.md`, "utf-8")
+      expect(doc, "Secret<T> link missing").toContain("@butler/adapters/wechat/secret.js")
       expect(doc, "wrong cross-link still present").not.toContain("@butler/security")
     })
 
     it("hardening.md cross-links to SECURITY + production architecture", () => {
-      const doc = readFileSync(
-        `${repoRoot}/docs/deployment/production-hardening.md`,
-        "utf-8",
-      )
+      const doc = readFileSync(`${repoRoot}/docs/deployment/production-hardening.md`, "utf-8")
       expect(doc).toMatch(/SECURITY\.md|v5-production-architecture/)
     })
 
     it("compose YAML valid + butler service + loopback only", () => {
-      const compose = readFileSync(
-        `${repoRoot}/butler-v5/docker-compose.yml`,
-        "utf-8",
-      )
+      const compose = readFileSync(`${repoRoot}/butler-v5/docker-compose.yml`, "utf-8")
       expect(compose, "butler service missing").toMatch(/^ {2}butler:/m)
       expect(compose, "0.0.0.0 binding present").not.toMatch(/"0\.0\.0\.0/)
     })

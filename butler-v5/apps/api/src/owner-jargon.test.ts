@@ -67,9 +67,7 @@ describe("owner-jargon helpers", () => {
 
   describe("describeEnvKnob", () => {
     it("translates known BUTLER_V5_* knobs", () => {
-      expect(describeEnvKnob("BUTLER_V5_CANDIDATE_EXPIRES_TTL_MS")).toBe(
-        "候选过期时长",
-      )
+      expect(describeEnvKnob("BUTLER_V5_CANDIDATE_EXPIRES_TTL_MS")).toBe("候选过期时长")
       expect(describeEnvKnob("BUTLER_V5_SCHEDULE_ENABLED")).toBe("定时任务开关")
     })
 
@@ -83,28 +81,28 @@ describe("owner-jargon helpers", () => {
   describe("safeOwnerErrorString", () => {
     it("maps known domain validator reasons to Chinese", () => {
       expect(safeOwnerErrorString("projectId is required")).toBe("缺少 projectId 参数")
-      expect(safeOwnerErrorString("projectId is required for project knowledge recall")).toBe("缺少 projectId 参数")
+      expect(safeOwnerErrorString("projectId is required for project knowledge recall")).toBe(
+        "缺少 projectId 参数",
+      )
       expect(safeOwnerErrorString("subject is required")).toBe("缺少 subject 参数")
-      expect(safeOwnerErrorString("content exceeds 4000 chars")).toBe("内容超出长度限制（最多 4000 字）")
+      expect(safeOwnerErrorString("content exceeds 4000 chars")).toBe(
+        "内容超出长度限制（最多 4000 字）",
+      )
       expect(safeOwnerErrorString("name is required")).toBe("缺少名称参数")
       expect(safeOwnerErrorString("unsupported format")).toBe("不支持的文档格式")
     })
 
     it("maps PG error substrings (SO-003) to Chinese", () => {
+      expect(safeOwnerErrorString('invalid input syntax for type uuid: "missing-id"')).toBe(
+        "未找到对应记录",
+      )
       expect(
-        safeOwnerErrorString('invalid input syntax for type uuid: "missing-id"'),
-      ).toBe("未找到对应记录")
-      expect(
-        safeOwnerErrorString(
-          'duplicate key value violates unique constraint "memories_pkey"',
-        ),
+        safeOwnerErrorString('duplicate key value violates unique constraint "memories_pkey"'),
       ).toBe("与已有记录重复")
     })
 
     it("uses generic fallback for unknown reasons", () => {
-      expect(safeOwnerErrorString("totally unknown reason")).toBe(
-        "操作失败，请稍后重试",
-      )
+      expect(safeOwnerErrorString("totally unknown reason")).toBe("操作失败，请稍后重试")
       expect(safeOwnerErrorString("unknown", "自定义兜底")).toBe("自定义兜底")
     })
 

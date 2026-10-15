@@ -102,11 +102,7 @@ function listProductionTs(root: string): string[] {
           continue
         }
         walk(p)
-      } else if (
-        entry.endsWith(".ts") &&
-        !entry.endsWith(".test.ts") &&
-        !entry.endsWith(".d.ts")
-      ) {
+      } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) {
         out.push(p)
       }
     }
@@ -139,9 +135,7 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
     const decls = files.filter((f) =>
       /^export\s+class\s+CapabilityRegistry\b/m.test(readFileSync(f, "utf-8")),
     )
-    expect(decls, `CapabilityRegistry declared in: ${decls.join(", ")}`).toEqual([
-      POLICY_GATE,
-    ])
+    expect(decls, `CapabilityRegistry declared in: ${decls.join(", ")}`).toEqual([POLICY_GATE])
     // Exactly one `new CapabilityRegistry(` across production runtime.
     const ctorSites = files.filter((f) =>
       /new\s+CapabilityRegistry\s*\(/.test(readFileSync(f, "utf-8")),
@@ -166,9 +160,9 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
     const runEngineInstances = appsFiles.filter((f) =>
       /new\s+RunEngine\s*\(/.test(readFileSync(f, "utf-8")),
     )
-    expect(runEngineInstances, `new RunEngine( sites: ${runEngineInstances.join(", ")}`).toEqual(
-      [BOOTSTRAP_WIRING],
-    )
+    expect(runEngineInstances, `new RunEngine( sites: ${runEngineInstances.join(", ")}`).toEqual([
+      BOOTSTRAP_WIRING,
+    ])
     const capabilityRegistryInstances = appsFiles.filter((f) =>
       /createProductionCapabilityRegistry\s*\(/.test(readFileSync(f, "utf-8")),
     )
@@ -191,8 +185,7 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
 
   it("#2: Core (domain + runtime + persistence + ports) does NOT import @butler/adapters or packages/adapters", () => {
     const violations: string[] = []
-    const re =
-      /from\s+["']@butler\/adapters\b|from\s+["'][^"']*packages\/adapters\b/
+    const re = /from\s+["']@butler\/adapters\b|from\s+["'][^"']*packages\/adapters\b/
     for (const dir of CORE_DIRS) {
       for (const file of listProductionTs(dir)) {
         if (re.test(readFileSync(file, "utf-8"))) {
@@ -200,10 +193,7 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
         }
       }
     }
-    expect(
-      violations,
-      `Core files importing adapters: ${violations.join(", ")}`,
-    ).toEqual([])
+    expect(violations, `Core files importing adapters: ${violations.join(", ")}`).toEqual([])
   })
 
   // ── §20 #3: 模型调用走独立 Model Port（apps/api 不直 fetch upstream LLM） ──
@@ -220,9 +210,7 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
     for (const file of files) {
       const src = readFileSync(file, "utf-8")
       // Strip block + line comments so doc-comment references do not count.
-      const stripped = src
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "")
+      const stripped = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
       for (const re of FORBIDDEN) {
         if (re.test(stripped)) violations.push(`${file}: ${re}`)
       }
@@ -254,9 +242,7 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
       "channel-inbound.ts",
       "routes/inbound.ts",
     ]
-    const NON_LLM_ENTRY_POINTS: readonly string[] = [
-      "routes/health.ts",
-    ]
+    const NON_LLM_ENTRY_POINTS: readonly string[] = ["routes/health.ts"]
     for (const name of KNOWN_ENTRY_POINTS) {
       const path = join(APPS_SRC, name)
       if (!existsSync(path)) continue
@@ -264,7 +250,9 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
       expect(
         src,
         `${name} must import runButlerLoop from ./wechat-inbound-butler.js (§20 #4)`,
-      ).toMatch(/import\s*\{[^}]*runButlerLoop[^}]*\}\s*from\s*["']\.{1,2}\/wechat-inbound-butler\.js["']/)
+      ).toMatch(
+        /import\s*\{[^}]*runButlerLoop[^}]*\}\s*from\s*["']\.{1,2}\/wechat-inbound-butler\.js["']/,
+      )
     }
     // Non-LLM entry points (e.g. health probes) MUST NOT import runButlerLoop —
     // they exist outside the canonical driving-adapter path.
@@ -306,9 +294,7 @@ describe("arch: §20 #1+#2+#3+#4 invariants batch A (D26A)", () => {
       "routes/inbound.ts",
       "approval-resume.ts",
     ]
-    const NON_LLM_ENTRY_POINTS: readonly string[] = [
-      "routes/health.ts",
-    ]
+    const NON_LLM_ENTRY_POINTS: readonly string[] = ["routes/health.ts"]
     const nonLlmSet = new Set(NON_LLM_ENTRY_POINTS)
     for (const name of KNOWN_ENTRY_POINTS) {
       const path = join(APPS_SRC, name)

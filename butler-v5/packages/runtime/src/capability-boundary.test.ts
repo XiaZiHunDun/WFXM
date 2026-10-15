@@ -30,7 +30,10 @@ describe("capability-boundary", () => {
     expect(registry.isRegistered("read_file")).toBe(true)
     const first = await unregisterCapability({ registry, name: "read_file", store })
     expect(first).toEqual({ removed: true, revokedGrants: 2 })
-    expect(store.revokeScopedGrantsForCapability).toHaveBeenCalledWith("read_file", expect.any(Date))
+    expect(store.revokeScopedGrantsForCapability).toHaveBeenCalledWith(
+      "read_file",
+      expect.any(Date),
+    )
     expect(registry.isRegistered("read_file")).toBe(false)
     // No provider -> no store call on a second attempt.
     const second = await unregisterCapability({ registry, name: "read_file", store })

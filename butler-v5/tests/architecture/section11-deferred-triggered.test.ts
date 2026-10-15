@@ -79,7 +79,9 @@ describe("arch: §11 deferred items — D22 trigger state (3 triggered, 2 not)",
     expect(src).toMatch(/createProcedureStore\s*\(/)
     expect(src).toMatch(/createTaskStore\s*\(/)
     // And the makeWiring payload must carry them so owner-routes can consume.
-    expect(src).toMatch(/documentStore,?\s*\n\s*projectKnowledgeStore,?\s*\n\s*procedureStore,?\s*\n\s*taskStore/)
+    expect(src).toMatch(
+      /documentStore,?\s*\n\s*projectKnowledgeStore,?\s*\n\s*procedureStore,?\s*\n\s*taskStore/,
+    )
   })
 
   it("owner-routes.ts exposes 12 owner HTTP endpoint registrations (6 documents + 2 procedures + 4 tasks)", () => {
@@ -87,9 +89,12 @@ describe("arch: §11 deferred items — D22 trigger state (3 triggered, 2 not)",
     // Count endpoint registrations: `app.{method}("/v1/owner/<kind>/..."`
     // Method-agnostic — a single path with multiple methods counts per
     // method (e.g. /v1/owner/documents/:documentId has both GET and DELETE).
-    const docRoutes = src.match(/app\.(get|post|delete|put)\s*\(\s*"\/v1\/owner\/documents[^"',)\s]*/g) ?? []
-    const procRoutes = src.match(/app\.(get|post|delete|put)\s*\(\s*"\/v1\/owner\/procedures[^"',)\s]*/g) ?? []
-    const taskRoutes = src.match(/app\.(get|post|delete|put)\s*\(\s*"\/v1\/owner\/tasks[^"',)\s]*/g) ?? []
+    const docRoutes =
+      src.match(/app\.(get|post|delete|put)\s*\(\s*"\/v1\/owner\/documents[^"',)\s]*/g) ?? []
+    const procRoutes =
+      src.match(/app\.(get|post|delete|put)\s*\(\s*"\/v1\/owner\/procedures[^"',)\s]*/g) ?? []
+    const taskRoutes =
+      src.match(/app\.(get|post|delete|put)\s*\(\s*"\/v1\/owner\/tasks[^"',)\s]*/g) ?? []
     // 6 documents: list (GET) + create (POST) + :id (GET) + :id (DELETE)
     //                    + :id/promote-memory (POST) + :id/promote-project-knowledge (POST)
     expect(
@@ -125,5 +130,4 @@ describe("arch: §11 deferred items — D22 trigger state (3 triggered, 2 not)",
       "schema.ts must NOT contain `pgTable('approvals', ...)` — §11 line 438 不默认建设; approval 字段路径在 waiting_approval Step 上",
     ).toBe(false)
   })
-
-  })
+})

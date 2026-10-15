@@ -58,6 +58,7 @@ readonly listRecentAuditEvents: (input: {
 ```
 
 **AuditEventRecord type** (already exists in `packages/persistence/src/memory/runtime-store.ts:34`):
+
 ```typescript
 interface AuditEventRecord {
   readonly auditId: string
@@ -67,16 +68,18 @@ interface AuditEventRecord {
   readonly subject: string
   readonly detail: Readonly<Record<string, unknown>>
   readonly createdAt: Date
-  readonly correlationId?: string | null  // D63 T3 — already optional
+  readonly correlationId?: string | null // D63 T3 — already optional
 }
 ```
 
 **Implementation in `MemoryRuntimeStore`** (`packages/persistence/src/memory/runtime-store.ts`):
+
 - Query audit_events table with optional actor / conversationId / limit filters
 - Sort by createdAt DESC
 - Return ReadonlyArray<AuditEventRecord>
 
 **Wrapper in audit-service** (`apps/api/src/audit-service.ts`):
+
 ```typescript
 export async function listRecentAuditEvents(
   store: RuntimeStore,
@@ -98,6 +101,7 @@ export async function listRecentAuditEvents(
 For each emit site, pass `correlationId: ctx.runId ?? ctx.correlationId` from existing wiring context.
 
 **Emit sites** (~25, from grep):
+
 - `apps/api/src/audit-service.ts:12`
 - `apps/api/src/exec-audit.ts:53`
 - `apps/api/src/owner-routes/tasks-run.ts:37`
@@ -112,6 +116,7 @@ For each emit site, pass `correlationId: ctx.runId ?? ctx.correlationId` from ex
 - `packages/runtime/src/{delegate-runtime,approval-runtime,run-lifecycle,capability-boundary}.ts` (~5 sites)
 
 **Pattern for each site:**
+
 ```typescript
 // Before:
 await wiring.runtimeStore.appendAuditEvent({
@@ -140,19 +145,21 @@ await wiring.runtimeStore.appendAuditEvent({
 ### 2.3 T1c: AuditFatigueDetail threading
 
 **Sites where fatigue runs:**
+
 - `apps/api/src/wechat-inbound-butler.ts:executeTool` chokepoint（after D65 T1 extraction）
 
 **Pattern:**
+
 ```typescript
 // Import AuditFatigueDetail type
 import type { AuditFatigueDetail } from "./lib/fatigue/audit-event"
 
 // In executeTool, after fatigue decision:
 const detail: AuditFatigueDetail = {
-  fatigue_signal: toolDecision.kind !== "allow" 
+  fatigue_signal: toolDecision.kind !== "allow"
     ? { count: 3, window_seconds: 60, last_n_actions: [...] }
     : undefined,
-  cooldown_applied: toolDecision.kind === "cooldown" 
+  cooldown_applied: toolDecision.kind === "cooldown"
     ? { duration_ms: toolDecision.durationMs }
     : undefined,
   checklist_required: toolDecision.kind === "checklist",
@@ -205,12 +212,12 @@ audit_events table row has detail.fatigue_signal / detail.cooldown_applied / det
 
 ## 4. Error Handling
 
-| Failure | T1a behavior | T1b/T1c behavior |
-|---|---|---|
-| MemoryRuntimeStore throws | propagate to caller (same as existing appendAuditEvent) | N/A |
-| query audit_events fails | log + return empty array (graceful degrade per D48 §4.3) | N/A |
-| correlationId undefined | already optional; no breakage | N/A |
-| Existing appendAuditEvent tests | unchanged (optional field) | regression-safe |
+| Failure                         | T1a behavior                                             | T1b/T1c behavior |
+| ------------------------------- | -------------------------------------------------------- | ---------------- |
+| MemoryRuntimeStore throws       | propagate to caller (same as existing appendAuditEvent)  | N/A              |
+| query audit_events fails        | log + return empty array (graceful degrade per D48 §4.3) | N/A              |
+| correlationId undefined         | already optional; no breakage                            | N/A              |
+| Existing appendAuditEvent tests | unchanged (optional field)                               | regression-safe  |
 
 ---
 
@@ -220,18 +227,18 @@ audit_events table row has detail.fatigue_signal / detail.cooldown_applied / det
 
 **File:** `apps/api/src/audit-service.test.ts` (extend existing)
 
-| Case | Description | Assertion |
-|---|---|---|
-| L1 | listRecentAuditEvents with actor filter | returns matching events |
-| L2 | listRecentAuditEvents with windowMs filter | returns events within window |
-| L3 | listRecentAuditEvents with limit | returns ≤ limit events |
-| L4 | listRecentAuditEvents on empty store | returns empty array |
+| Case | Description                                | Assertion                    |
+| ---- | ------------------------------------------ | ---------------------------- |
+| L1   | listRecentAuditEvents with actor filter    | returns matching events      |
+| L2   | listRecentAuditEvents with windowMs filter | returns events within window |
+| L3   | listRecentAuditEvents with limit           | returns ≤ limit events       |
+| L4   | listRecentAuditEvents on empty store       | returns empty array          |
 
 ### 5.2 Unit (T1a + 5.3 Unit T1c — combined in audit-event.test.ts extension)
 
-| Case | Description | Assertion |
-|---|---|---|
-| L5 | audit-event shape accepts AuditFatigueDetail embedded in `detail` | structural compatibility |
+| Case | Description                                                       | Assertion                |
+| ---- | ----------------------------------------------------------------- | ------------------------ |
+| L5   | audit-event shape accepts AuditFatigueDetail embedded in `detail` | structural compatibility |
 
 ### 5.3 Existing tests — no regression
 
@@ -245,18 +252,18 @@ All existing tests must pass unchanged (1994 pass baseline; 5 pre-existing fail 
 
 ## 6. Files Changed (预估)
 
-| Track | File | Change |
-|---|---|---|
-| T1a | `packages/domain/src/runtime/store-contract.ts` | +listRecentAuditEvents method (~10 lines) |
-| T1a | `packages/persistence/src/memory/runtime-store.ts` | +listRecentAuditEvents impl (~20 lines) |
-| T1a | `apps/api/src/audit-service.ts` | +listRecentAuditEvents wrapper (~10 lines) |
-| T1a | `apps/api/src/audit-service.test.ts` | +4 unit tests |
-| T1b | ~12 apps/api/src files | +correlationId per emit site (~25 sites, 1 line each) |
-| T1b | ~4 packages/runtime/src files | +correlationId per emit site (~5 sites, 1 line each) |
-| T1c | `apps/api/src/wechat-inbound-butler.ts` | +AuditFatigueDetail at chokepoint (~20 lines) |
-| T1c | `apps/api/src/lib/fatigue/audit-event.test.ts` | +1-2 unit tests |
-| post-fix | `.audit/D66/{summary.md, protocol-compliance.md}` | NEW |
-| post-fix | `MEMORY.md` | Current State update |
+| Track    | File                                               | Change                                                |
+| -------- | -------------------------------------------------- | ----------------------------------------------------- |
+| T1a      | `packages/domain/src/runtime/store-contract.ts`    | +listRecentAuditEvents method (~10 lines)             |
+| T1a      | `packages/persistence/src/memory/runtime-store.ts` | +listRecentAuditEvents impl (~20 lines)               |
+| T1a      | `apps/api/src/audit-service.ts`                    | +listRecentAuditEvents wrapper (~10 lines)            |
+| T1a      | `apps/api/src/audit-service.test.ts`               | +4 unit tests                                         |
+| T1b      | ~12 apps/api/src files                             | +correlationId per emit site (~25 sites, 1 line each) |
+| T1b      | ~4 packages/runtime/src files                      | +correlationId per emit site (~5 sites, 1 line each)  |
+| T1c      | `apps/api/src/wechat-inbound-butler.ts`            | +AuditFatigueDetail at chokepoint (~20 lines)         |
+| T1c      | `apps/api/src/lib/fatigue/audit-event.test.ts`     | +1-2 unit tests                                       |
+| post-fix | `.audit/D66/{summary.md, protocol-compliance.md}`  | NEW                                                   |
+| post-fix | `MEMORY.md`                                        | Current State update                                  |
 
 预估 net: +150/-30 lines (mostly new method + threading additions).
 
@@ -284,14 +291,14 @@ All existing tests must pass unchanged (1994 pass baseline; 5 pre-existing fail 
 
 ## 9. Acceptance Gates (N=3 fresh verify)
 
-| Gate | Baseline | D66 expected |
-|---|---|---|
-| lint | 0 fatigue warnings | 0 unchanged |
-| typecheck | 0 errors | 0 new |
-| test:full | 1994 pass / 5 pre-existing fail | 1994+ pass, 5 unchanged, 0 new fail |
-| acceptance | 44/44 | 44/44 unchanged |
-| methodology | 13/13 | 13/13 unchanged |
-| knip | 0 new deadcode | 0 new |
+| Gate        | Baseline                        | D66 expected                        |
+| ----------- | ------------------------------- | ----------------------------------- |
+| lint        | 0 fatigue warnings              | 0 unchanged                         |
+| typecheck   | 0 errors                        | 0 new                               |
+| test:full   | 1994 pass / 5 pre-existing fail | 1994+ pass, 5 unchanged, 0 new fail |
+| acceptance  | 44/44                           | 44/44 unchanged                     |
+| methodology | 13/13                           | 13/13 unchanged                     |
+| knip        | 0 new deadcode                  | 0 new                               |
 
 ---
 

@@ -83,20 +83,21 @@ D53 整体无业务逻辑变更, 不动 packages/ 任何源码 (除 D53a realist
 
 8 段 protocol doc (§0 Scope + §1-7 内容):
 
-| § | 内容 |
-|---|---|
-| 0 | Scope — 适用 D# / P# / B# / C# / D5x 任何触 LLM code path 的 batch |
-| 1 | **multi-round** — LLM test 跑 N≥3 round; 聚合规则 majority-or-all 可配 (默认 all = 3/3 pass 才算 pass; opt-in majority via env) |
-| 2 | **prompt-freeze** — ship 期间 system prompt 在 ship 起点 snapshot 后冻结, 整 ship 不变; 中途要改 = 新 ship |
-| 3 | **fresh verification** — ship claim 必须引用 "本 ship" 的 full verify 输出, 显式 pre-ship checklist 步骤 |
-| 4 | baseline recording — 每个 protocol-compliant run 产 recordings/ baseline; 后续 run diff |
-| 5 | retrofit checklist — 6-8 步把现有 test 升级为 protocol-compliant |
-| 6 | anti-patterns — 禁单 round verdict / 禁 "信任 last batch green" / 禁 "prompt 中途改" |
-| 7 | D47/D50 post-mortem — protocol 如何防这 2 个具体失败 (v8 PRD 3/3 REVERT 实证 + D50 ship-claim miss) |
+| §   | 内容                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | Scope — 适用 D# / P# / B# / C# / D5x 任何触 LLM code path 的 batch                                                              |
+| 1   | **multi-round** — LLM test 跑 N≥3 round; 聚合规则 majority-or-all 可配 (默认 all = 3/3 pass 才算 pass; opt-in majority via env) |
+| 2   | **prompt-freeze** — ship 期间 system prompt 在 ship 起点 snapshot 后冻结, 整 ship 不变; 中途要改 = 新 ship                      |
+| 3   | **fresh verification** — ship claim 必须引用 "本 ship" 的 full verify 输出, 显式 pre-ship checklist 步骤                        |
+| 4   | baseline recording — 每个 protocol-compliant run 产 recordings/ baseline; 后续 run diff                                         |
+| 5   | retrofit checklist — 6-8 步把现有 test 升级为 protocol-compliant                                                                |
+| 6   | anti-patterns — 禁单 round verdict / 禁 "信任 last batch green" / 禁 "prompt 中途改"                                            |
+| 7   | D47/D50 post-mortem — protocol 如何防这 2 个具体失败 (v8 PRD 3/3 REVERT 实证 + D50 ship-claim miss)                             |
 
 #### 3.1.2 `tests/acceptance/recordings/.baseline-2026-09-10.json` (新)
 
 D53a ship 时 recordings/ 状态 snapshot。结构:
+
 ```json
 {
   "snapshotDate": "2026-09-10",
@@ -114,6 +115,7 @@ D53a ship 时 recordings/ 状态 snapshot。结构:
 #### 3.1.3 `tests/acceptance/methodology.test.ts` (新)
 
 Verify 协议本身:
+
 - N=3 round runner 存在 + wire
 - baseline 对比函数能 work
 - ship-claim 模板强引 "本 ship fresh verify output"
@@ -123,11 +125,13 @@ Verify 协议本身:
 #### 3.1.4 `tests/acceptance/scenarios/realistic.test.ts` (retrofitted)
 
 41 scenarios wrap 进 N=3 runner:
+
 - 默认 N=3 (改 BUTLER_V5_MULTI_ROUND=0 fast iteration)
 - 默认 all 聚合 (改 BUTLER_V5_AGGREGATION=majority)
 - 渐进 retro: 1 demo scenario first (D2-chain-approval), 全量 41 在 ship 前
 
 #### 3.1.5 D53a ship gates
+
 - 4 files committed
 - `pnpm test:methodology` passes (新增 ~10-20 case)
 - `pnpm test:acceptance` 41/41 N=3 all pass
@@ -137,6 +141,7 @@ Verify 协议本身:
 - 1 fix-memory: `project-fix-D53a-methodology-2026-09-10.md`
 
 #### 3.1.6 D53a NOT in scope (留 D54+ 后续)
+
 - Per-scenario cost 优化 (N=1 简单 / N=5 critical) — D54+ 评估
 - Cross-ship baseline 多版本追踪 — D54+ 有 data 后
 - Auto-revert on regression — D54+ ship 后
@@ -146,6 +151,7 @@ Verify 协议本身:
 #### 3.2.1 `tools/deadcode-report.md` (新)
 
 knip 扫描结果分类:
+
 - **true dead** (无 caller): 删
 - **false positive** (knip 误报, 实际跨包 re-export): 标 archive, 不动
 - **fixture** (test fixture, 看似 dead): 标 protected, 不动
@@ -154,6 +160,7 @@ knip 扫描结果分类:
 #### 3.2.2 `tools/coverage-baseline.json` (新)
 
 vitest --coverage 全量结果:
+
 ```json
 {
   "snapshotDate": "2026-09-10",
@@ -175,6 +182,7 @@ D53b 不设硬阈值 (还没稳定 baseline); D54+ 才有数据设。
 #### 3.2.3 `tools/lint-typecheck-report.md` (新)
 
 确认 0 drift (D45 后是 0, fresh verify):
+
 - `pnpm lint` 输出 0
 - `pnpm typecheck` 输出 0
 - `pnpm arch-guard` 输出 0
@@ -184,6 +192,7 @@ D53b 不设硬阈值 (还没稳定 baseline); D54+ 才有数据设。
 #### 3.2.4 `tools/todo-inventory.md` (新)
 
 grep TODO / FIXME / XXX / HACK 全 repo, 分类:
+
 - **active (有 D# 编号)**: 保留
 - **stale (无关联, age > 30d)**: 删 或 移 D53c deferral
 - **infrastructure (CI / pre-commit)**: 保留
@@ -191,11 +200,13 @@ grep TODO / FIXME / XXX / HACK 全 repo, 分类:
 #### 3.2.5 True dead code 删 (多 commit)
 
 按 3.2.1 分类, true dead 删:
+
 - 删前 grep 引用 + import
 - 删后 N=3 跑 (catch flake from missing import)
 - 按文件 1 commit / 文件, 或 batched per package
 
 #### 3.2.6 D53b ship gates
+
 - 4 audit docs committed
 - `pnpm deadcode` (knip) true dead = 0 after fix
 - `pnpm coverage` baseline `tools/coverage-baseline.json`
@@ -209,16 +220,16 @@ grep TODO / FIXME / XXX / HACK 全 repo, 分类:
 
 7-8 段重评 doc:
 
-| § | 内容 | 来源 |
-|---|---|---|
-| 0 | Context + D38/D22/D48 起点 | D38 / D22 / D48 笔记 |
-| 1 | §18 20 items D38→D53 重判 (逐项 evidence SHA) | D38 §18 表 + D39-D52 commits |
-| 2 | §11.4 5 items 重判 (无新 trigger evidence) | D22 §11.4 表 |
-| 3 | D48 3 gaps D53 重判 (3.1 / 3.2 / 3.3 evidence 补) | D48 §3 + D49 / D52 commits |
-| 4 | D53a/b/c 自检 + D54 entry | 本 spec §1.3 / §4 |
-| 5 | Verification gate (D53c 自身 + cross-link 一致) | — |
-| 6 | Lessons (诚实 record 协议 / D48 3.1/3.2/3.3 状态如何) | D48 §7 + D51 协议 |
-| 7 | D54 handoff 引用 | D54 entry doc |
+| §   | 内容                                                  | 来源                         |
+| --- | ----------------------------------------------------- | ---------------------------- |
+| 0   | Context + D38/D22/D48 起点                            | D38 / D22 / D48 笔记         |
+| 1   | §18 20 items D38→D53 重判 (逐项 evidence SHA)         | D38 §18 表 + D39-D52 commits |
+| 2   | §11.4 5 items 重判 (无新 trigger evidence)            | D22 §11.4 表                 |
+| 3   | D48 3 gaps D53 重判 (3.1 / 3.2 / 3.3 evidence 补)     | D48 §3 + D49 / D52 commits   |
+| 4   | D53a/b/c 自检 + D54 entry                             | 本 spec §1.3 / §4            |
+| 5   | Verification gate (D53c 自身 + cross-link 一致)       | —                            |
+| 6   | Lessons (诚实 record 协议 / D48 3.1/3.2/3.3 状态如何) | D48 §7 + D51 协议            |
+| 7   | D54 handoff 引用                                      | D54 entry doc                |
 
 #### 3.3.2 `DESIGN.md` §18 / §11.4 链接 refresh (modify)
 
@@ -229,6 +240,7 @@ grep TODO / FIXME / XXX / HACK 全 repo, 分类:
 #### 3.3.3 D48 doc evidence 补 (modify)
 
 修改 `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md`:
+
 - §3.3 (line 95 段): "D49 partial closure (2 类 / 5 phrase)" evidence 加 D52 SHA + 计数细节
 - §6 触发表 (line 167): D53c 重评日期标注 "2026-09-10 re-eval (D53c)"
 
@@ -237,11 +249,13 @@ grep TODO / FIXME / XXX / HACK 全 repo, 分类:
 #### 3.3.4 `docs/superpowers/notes/2026-09-10-d54-drift-audit-entry.md` (新)
 
 D54 handoff doc, 1-2 段:
+
 - 引用 D52 acceptance harness (41 scenarios 含 5 D52 新 + D49 ship claim vs impl drift)
 - 引用 D53c §18 / D48 重新评估 evidence
 - D54 范围清晰: drift 闭环, doc review + impl fix (D49 5-type / 6→5 phrases / memory invertible flag / 新发现的)
 
 #### 3.3.5 D53c ship gates
+
 - 2 docs committed (reeval + D54 entry)
 - `pnpm test:full` (1862 + 0 new) N=3 all pass (doc-only regression check)
 - `pnpm lint` / `pnpm typecheck` / `pnpm arch-guard` 0 drift
@@ -255,6 +269,7 @@ D54 handoff doc, 1-2 段:
 ### 4.1 D53a protocol applied to D53 itself
 
 每个 sub-track ship 走 D53a 确立的协议:
+
 - **D53a ship**: protocol 是新的, verification = spec-defined ship gates (3.1.5)
 - **D53b ship**: 用 D53a protocol — N=3 round on 41 scenarios (防删死代码时回归), fresh full verify
 - **D53c ship**: 用 D53a protocol — N=3 round (doc-only 不应破但 verify), fresh full verify
@@ -269,24 +284,24 @@ D54 handoff doc, 1-2 段:
 
 ### 4.3 Per-sub-track ship gates (汇总)
 
-| Sub-track | test:methodology | test:acceptance N=3 | test:full N=3 | lint | typecheck | arch-guard | audit docs | fix-memory |
-|---|---|---|---|---|---|---|---|---|
-| D53a | ✓ (~20 new) | ✓ (41/41) | ✓ (1862+20 new) | 0 | 0 | 0 | methodology.md | D53a |
-| D53b | ✓ (no new) | — | ✓ (1862) | 0 | 0 | 0 | 4 audit | D53b |
-| D53c | ✓ (no new) | — | ✓ (1862) | 0 | 0 | 0 | 2 docs | D53c |
+| Sub-track | test:methodology | test:acceptance N=3 | test:full N=3   | lint | typecheck | arch-guard | audit docs     | fix-memory |
+| --------- | ---------------- | ------------------- | --------------- | ---- | --------- | ---------- | -------------- | ---------- |
+| D53a      | ✓ (~20 new)      | ✓ (41/41)           | ✓ (1862+20 new) | 0    | 0         | 0          | methodology.md | D53a       |
+| D53b      | ✓ (no new)       | —                   | ✓ (1862)        | 0    | 0         | 0          | 4 audit        | D53b       |
+| D53c      | ✓ (no new)       | —                   | ✓ (1862)        | 0    | 0         | 0          | 2 docs         | D53c       |
 
 ### 4.4 Risk register
 
-| # | Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|---|
-| R1 | D53a N=3 cost 涨 (41×3 vs 41) | High | Medium — CI +2x | 默认 N=3, fast iteration opt-out env; D54+ 评估 per-scenario N |
-| R2 | D53b knip false positive (D45 ts-prune 教训 784 行假阳) | High | Medium — 修过头破架构 | sample review ≥ 5 case 才动; true dead 才删, false positive 标 archive |
-| R3 | D53b 删 true dead 触发 latent import | Medium | High — test fail | 删前 grep 引用; 删后 N=3 跑 (catch flake) |
-| R4 | D53c 评估主观 — "未撞" 边界 | Medium | Low — D51 协议不修 | 列 evidence SHA + counter; owner 可推翻 |
-| R5 | D53a retrofit realistic 引入新 flake | Medium | Medium — protocol bug | 渐进 retro: 1 demo scenario first, 全量后置 |
-| R6 | 跨 sub-track baseline 漂移 | Low | High — D53b 用错 baseline | D53a ship 立即 commit baseline; D53b 显式 verify 引用 |
-| R7 | D47 REVERT 复发 (protocol 不彻底) | Low | High | D53a §7 显式列 v8 PRD REVERT 实证; methodology.test.ts 验 |
-| R8 | D50 ship-claim miss 复发 | Low | High | pre-ship checklist 强引 "本 ship fresh verify"; methodology.test.ts 验 |
+| #   | Risk                                                    | Likelihood | Impact                    | Mitigation                                                             |
+| --- | ------------------------------------------------------- | ---------- | ------------------------- | ---------------------------------------------------------------------- |
+| R1  | D53a N=3 cost 涨 (41×3 vs 41)                           | High       | Medium — CI +2x           | 默认 N=3, fast iteration opt-out env; D54+ 评估 per-scenario N         |
+| R2  | D53b knip false positive (D45 ts-prune 教训 784 行假阳) | High       | Medium — 修过头破架构     | sample review ≥ 5 case 才动; true dead 才删, false positive 标 archive |
+| R3  | D53b 删 true dead 触发 latent import                    | Medium     | High — test fail          | 删前 grep 引用; 删后 N=3 跑 (catch flake)                              |
+| R4  | D53c 评估主观 — "未撞" 边界                             | Medium     | Low — D51 协议不修        | 列 evidence SHA + counter; owner 可推翻                                |
+| R5  | D53a retrofit realistic 引入新 flake                    | Medium     | Medium — protocol bug     | 渐进 retro: 1 demo scenario first, 全量后置                            |
+| R6  | 跨 sub-track baseline 漂移                              | Low        | High — D53b 用错 baseline | D53a ship 立即 commit baseline; D53b 显式 verify 引用                  |
+| R7  | D47 REVERT 复发 (protocol 不彻底)                       | Low        | High                      | D53a §7 显式列 v8 PRD REVERT 实证; methodology.test.ts 验              |
+| R8  | D50 ship-claim miss 复发                                | Low        | High                      | pre-ship checklist 强引 "本 ship fresh verify"; methodology.test.ts 验 |
 
 ### 4.5 Anti-patterns (D53a §6) applied to D53
 
@@ -300,28 +315,29 @@ D54 handoff doc, 1-2 段:
 
 ## 5. Files Changed (预估)
 
-| 类型 | 路径 | 改动 | Sub-track |
-|---|---|---|---|
-| 新 | `butler-v5/docs/superpowers/specs/2026-09-10-d53-v5-meta-audit-design.md` | 本 spec | (整体) |
-| 新 | `butler-v5/docs/superpowers/notes/2026-09-10-d53a-methodology.md` | 7 段 protocol | D53a |
-| 新 | `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json` | baseline snapshot | D53a |
-| 新 | `butler-v5/tests/acceptance/methodology.test.ts` | 协议 verify | D53a |
-| 改 | `butler-v5/tests/acceptance/scenarios/realistic.test.ts` | N=3 wrap | D53a |
-| 新 | `butler-v5/tools/deadcode-report.md` | knip 分类 | D53b |
-| 新 | `butler-v5/tools/coverage-baseline.json` | vitest coverage | D53b |
-| 新 | `butler-v5/tools/lint-typecheck-report.md` | 0-drift confirm | D53b |
-| 新 | `butler-v5/tools/todo-inventory.md` | TODO 分类 | D53b |
-| 改 | (true dead code 删除) | 多 commit | D53b |
-| 新 | `butler-v5/docs/superpowers/notes/2026-09-10-d53c-deferral-reeval.md` | 7-8 段重评 | D53c |
-| 改 | `butler-v5/DESIGN.md` | §18 / §11.4 链接 + evidence | D53c |
-| 改 | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md` | §3.3 evidence 补 + §6 标 D53c | D53c |
-| 新 | `butler-v5/docs/superpowers/notes/2026-09-10-d54-drift-audit-entry.md` | D54 handoff | D53c |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53a-methodology-2026-09-10.md` | memory | D53a |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53b-code-health-2026-09-10.md` | memory | D53b |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53c-deferral-reeval-2026-09-10.md` | memory | D53c |
-| 改 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md` | +3 索引行 | 整体 |
+| 类型 | 路径                                                                                                   | 改动                          | Sub-track |
+| ---- | ------------------------------------------------------------------------------------------------------ | ----------------------------- | --------- |
+| 新   | `butler-v5/docs/superpowers/specs/2026-09-10-d53-v5-meta-audit-design.md`                              | 本 spec                       | (整体)    |
+| 新   | `butler-v5/docs/superpowers/notes/2026-09-10-d53a-methodology.md`                                      | 7 段 protocol                 | D53a      |
+| 新   | `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json`                                      | baseline snapshot             | D53a      |
+| 新   | `butler-v5/tests/acceptance/methodology.test.ts`                                                       | 协议 verify                   | D53a      |
+| 改   | `butler-v5/tests/acceptance/scenarios/realistic.test.ts`                                               | N=3 wrap                      | D53a      |
+| 新   | `butler-v5/tools/deadcode-report.md`                                                                   | knip 分类                     | D53b      |
+| 新   | `butler-v5/tools/coverage-baseline.json`                                                               | vitest coverage               | D53b      |
+| 新   | `butler-v5/tools/lint-typecheck-report.md`                                                             | 0-drift confirm               | D53b      |
+| 新   | `butler-v5/tools/todo-inventory.md`                                                                    | TODO 分类                     | D53b      |
+| 改   | (true dead code 删除)                                                                                  | 多 commit                     | D53b      |
+| 新   | `butler-v5/docs/superpowers/notes/2026-09-10-d53c-deferral-reeval.md`                                  | 7-8 段重评                    | D53c      |
+| 改   | `butler-v5/DESIGN.md`                                                                                  | §18 / §11.4 链接 + evidence   | D53c      |
+| 改   | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md`                                 | §3.3 evidence 补 + §6 标 D53c | D53c      |
+| 新   | `butler-v5/docs/superpowers/notes/2026-09-10-d54-drift-audit-entry.md`                                 | D54 handoff                   | D53c      |
+| 新   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53a-methodology-2026-09-10.md`     | memory                        | D53a      |
+| 新   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53b-code-health-2026-09-10.md`     | memory                        | D53b      |
+| 新   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53c-deferral-reeval-2026-09-10.md` | memory                        | D53c      |
+| 改   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`                                      | +3 索引行                     | 整体      |
 
 预估:
+
 - D53a: 4 文件 + memory + MEMORY 索引 = 5-7 commit (含 retrofit 渐进)
 - D53b: 4 audit docs + true dead 删除多 commit + memory + 索引 = 5-15 commit (取决于 dead code 数量)
 - D53c: 2 docs + DESIGN modify + D48 modify + memory + 索引 = 3-5 commit
@@ -344,17 +360,20 @@ D54 handoff doc, 1-2 段:
 按 WFXM doc-batch 模式 (D51 协议: doc batch + memory 分开 commit):
 
 ### D53a (1 ship)
+
 1. commit 1 (code): realistic.test.ts retrofit + methodology.test.ts
 2. commit 2 (data): baseline-2026-09-10.json
 3. commit 3 (doc): d53a-methodology.md
 4. commit 4 (memory): project-fix-D53a-methodology-2026-09-10.md + MEMORY.md 索引
 
 ### D53b (1 ship)
+
 1. commit 1 (audit doc batch): 4 audit docs
 2. commit 2...N (code): true dead 删除 per file / per package
 3. commit N+1 (memory): project-fix-D53b-code-health-2026-09-10.md + MEMORY.md 索引
 
 ### D53c (1 ship)
+
 1. commit 1 (doc batch): d53c-deferral-reeval.md + d54-drift-audit-entry.md + DESIGN.md + D48 doc
 2. commit 2 (memory): project-fix-D53c-deferral-reeval-2026-09-10.md + MEMORY.md 索引
 

@@ -50,7 +50,11 @@ export function parseWechatToolAllowlistJson(text: string): WechatToolAllowlistC
     config.default = defaultEntry
   }
 
-  if (root["projects"] && typeof root["projects"] === "object" && !Array.isArray(root["projects"])) {
+  if (
+    root["projects"] &&
+    typeof root["projects"] === "object" &&
+    !Array.isArray(root["projects"])
+  ) {
     const projects: Record<string, { readonly mcpTools: readonly string[] | "*" }> = {}
     for (const [key, value] of Object.entries(root["projects"] as Record<string, unknown>)) {
       const entry = parseProjectEntry(value)
@@ -96,7 +100,9 @@ export function resolveWechatAllowedToolNames(args: {
   if (!config) return undefined
 
   const mcpBundle = args.mcpBundle
-  const availableMcpCapabilities = (mcpBundle?.runtimeTools ?? []).map((tool) => tool.name as string)
+  const availableMcpCapabilities = (mcpBundle?.runtimeTools ?? []).map(
+    (tool) => tool.name as string,
+  )
   return buildWechatAllowedToolNames({
     config,
     projectId: args.projectId,

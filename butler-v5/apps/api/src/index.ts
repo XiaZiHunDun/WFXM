@@ -70,12 +70,9 @@ app.use("*", async (c, next) => {
   c.res.headers.set("Referrer-Policy", "no-referrer")
   c.res.headers.set("X-Frame-Options", "DENY")
   c.res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-  c.res.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=()",
-  )
+  c.res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
   // Minimal CSP — control surface returns JSON only. Allowing 'self'
-    // covers any future local asset; default-deny for everything else.
+  // covers any future local asset; default-deny for everything else.
   c.res.headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
   // Strip the default Hono/server fingerprint.
   c.res.headers.delete("server")

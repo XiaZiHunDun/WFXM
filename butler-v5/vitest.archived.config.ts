@@ -23,7 +23,10 @@ export default defineConfig({
       { find: "@butler/config", replacement: resolve(__dirname, "_archive/packages/config/src") },
       { find: "@butler/shared", replacement: resolve(__dirname, "_archive/packages/shared/src") },
       { find: "@butler/adapters", replacement: resolve(__dirname, "packages/adapters/src") },
-      { find: "@butler/migration", replacement: resolve(__dirname, "_archive/packages/migration/src") },
+      {
+        find: "@butler/migration",
+        replacement: resolve(__dirname, "_archive/packages/migration/src"),
+      },
     ],
   },
 })

@@ -21,7 +21,9 @@ function shortChildId(id: string): string {
   return id.slice(-8)
 }
 
-function parseDelegateCommand(content: string): { readonly role: string; readonly task: string } | null {
+function parseDelegateCommand(
+  content: string,
+): { readonly role: string; readonly task: string } | null {
   const trimmed = content.trim()
   if (!trimmed.startsWith("/委派")) return null
   const rest = trimmed.slice("/委派".length).trim()
@@ -46,10 +48,9 @@ export async function tryWechatSubagentCommand(args: {
   if (!trimmed.startsWith("/委派")) return null
 
   if (!isSubagentEnabled(env)) {
-    return done(
-      "Subagent 未启用。运行 scripts/cutover/enable-subagent-prod.sh 后重启 gateway。",
-      ["wechat-subagent: disabled"],
-    )
+    return done("Subagent 未启用。运行 scripts/cutover/enable-subagent-prod.sh 后重启 gateway。", [
+      "wechat-subagent: disabled",
+    ])
   }
 
   const subject = args.fromUserId.trim()

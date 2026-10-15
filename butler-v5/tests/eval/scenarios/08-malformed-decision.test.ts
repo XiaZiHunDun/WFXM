@@ -23,7 +23,7 @@ describe("eval/08 malformed-decision", () => {
     const adapter = makeScriptedAdapter({
       responses: [
         toolCallResponse([{ id: "tc-1", name: "get_current_time", args: {} }]),
-        textResponse('{"_tag":"Respond","content":"hi'),  // truncated
+        textResponse('{"_tag":"Respond","content":"hi'), // truncated
       ],
     })
     const result = await runEvalScenario({

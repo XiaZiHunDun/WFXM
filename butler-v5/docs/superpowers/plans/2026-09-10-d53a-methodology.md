@@ -5,6 +5,7 @@
 **Goal:** Ship multi-round (N≥3) + prompt-freeze + fresh verification 协议 as 一等公民 (4 files + 1 fix-memory), 解决 D47 REVERT + D50 ship-claim miss 复发风险。
 
 **Architecture:**
+
 - 1 protocol doc (8 段) 描述规则
 - 1 N=3 runner (vitest helper) 强制 41 scenarios 跑 N=3 + 聚合
 - 1 baseline JSON 锁定 D53a ship 时 recordings 状态
@@ -16,6 +17,7 @@
 **Spec:** `butler-v5/docs/superpowers/specs/2026-09-10-d53-v5-meta-audit-design.md` §3.1
 
 **WFXM 协议提醒:**
+
 - Push-to-main: feature → main 直接 push（`feedback-wfxm-push-to-main`）
 - Pre-commit hook: new commit 用 `--no-verify` 防误报（`feedback-precommit-hook-flakiness`）
 - Bash backtick: commit message 用 single quote（`feedback-bash-backtick-in-commit-message`）
@@ -25,17 +27,18 @@
 
 ## File Structure
 
-| 类型 | 路径 | 责任 |
-|---|---|---|
-| 新 | `butler-v5/docs/superpowers/notes/2026-09-10-d53a-methodology.md` | 8 段 protocol doc |
-| 新 | `butler-v5/tests/acceptance/multi-round.ts` | N=3 runner + aggregate + baseline compare + ship-claim template + env handlers |
-| 新 | `butler-v5/tests/acceptance/methodology.test.ts` | 协议本身可执行性验证 (~10 case) |
-| 新 | `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json` | D53a ship 时 recordings snapshot |
-| 改 | `butler-v5/tests/acceptance/scenarios/realistic.test.ts` | 41 scenarios wrap 进 `runMultiRound` |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53a-methodology-2026-09-10.md` | fix-memory |
-| 改 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md` | +1 索引行 |
+| 类型 | 路径                                                                                               | 责任                                                                           |
+| ---- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 新   | `butler-v5/docs/superpowers/notes/2026-09-10-d53a-methodology.md`                                  | 8 段 protocol doc                                                              |
+| 新   | `butler-v5/tests/acceptance/multi-round.ts`                                                        | N=3 runner + aggregate + baseline compare + ship-claim template + env handlers |
+| 新   | `butler-v5/tests/acceptance/methodology.test.ts`                                                   | 协议本身可执行性验证 (~10 case)                                                |
+| 新   | `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json`                                  | D53a ship 时 recordings snapshot                                               |
+| 改   | `butler-v5/tests/acceptance/scenarios/realistic.test.ts`                                           | 41 scenarios wrap 进 `runMultiRound`                                           |
+| 新   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53a-methodology-2026-09-10.md` | fix-memory                                                                     |
+| 改   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`                                  | +1 索引行                                                                      |
 
 **设计原则:**
+
 - `multi-round.ts` 是纯 helper, 无 vitest 依赖 (only node:fs/path), 易于 unit test
 - `methodology.test.ts` 是协议 verifier, 不依赖 41 scenarios
 - `realistic.test.ts` 改动只在 `it()` callback 外面包一层, 不动 scenario 内部逻辑
@@ -46,13 +49,14 @@
 ## Task 1: Draft protocol doc
 
 **Files:**
+
 - Create: `butler-v5/docs/superpowers/notes/2026-09-10-d53a-methodology.md`
 
 - [ ] **Step 1: Write the 8-section protocol doc**
 
 Create the file with this exact content:
 
-```markdown
+````markdown
 # D53a — Methodology Protocol (multi-round + prompt-freeze + fresh verification)
 
 > **目的:** 解决 D47 (v8 PRD 3/3 REVERT, LLM temperature variance) + D50 (ship-claim miss) 复发风险, 把 verification 协议提升为一等公民。
@@ -66,12 +70,14 @@ Create the file with this exact content:
 ## §0 Scope
 
 **本协议适用对象**:
+
 - `butler-v5/tests/acceptance/**/*.test.ts` 任何跑 LLM-driven acceptance 的 test
 - `butler-v5/tests/e2e/**/*.test.ts` 任何触 LLM call 的 e2e
 - `butler-v5/apps/cli/**/*.test.ts` 任何用 `--llm` 模式的 CLI test
 - 任何 future ship (D# / P# / B# / C# / D5x+) 引入的新 LLM test 必须协议-compliant 才能 ship
 
 **不适用**:
+
 - 纯 unit test (`packages/*/src/**/*.test.ts` 纯函数逻辑, 不调 LLM)
 - 纯 typecheck / lint / arch-guard
 - 文档 / memory 改动 (虽然 D53c 走协议 verification, 但 verification 的是 impl 不变前提)
@@ -83,19 +89,23 @@ Create the file with this exact content:
 **规则**: LLM-driven test 必须跑 N≥3 round, 聚合后才算 verdict。
 
 **聚合规则**:
+
 - **all** (默认): 3/3 round 都 pass 才算 pass。任何 round fail = test fail。
 - **majority** (opt-in via `BUTLER_V5_AGGREGATION=majority`): ≥ ⌈N/2⌉ round pass 就算 pass (2/3 pass 算 pass)。
 
 **环境变量**:
+
 - `BUTLER_V5_MULTI_ROUND=N` — 显式指定 round 数 (默认 3)
 - `BUTLER_V5_MULTI_ROUND=0` — opt-out, 跑 1 round (仅 fast iteration 临时用, ship 前必须 0→3)
 - `BUTLER_V5_AGGREGATION=majority` — opt-in 多数规则 (默认 all)
 
 **Rationale**:
+
 - D47 实证: v8 PRD 3 round 都不同 verdict, 单 round verdict 不可靠
 - N=3 是 cost / reliability sweet spot (D54+ 评估 per-scenario 是否需要 N=5)
 
 **Anti-pattern**:
+
 - ❌ 永远跑 1 round 然后 "看着对就过"
 - ❌ N=3 但用 majority 默认 (应在 ship gate 用 all, fast iteration 才 majority)
 
@@ -106,15 +116,18 @@ Create the file with this exact content:
 **规则**: 一个 ship 期间, system prompt 在 ship 起点 snapshot 后冻结, 整 ship 不变。
 
 **具体**:
+
 - Ship 起点: `git rev-parse HEAD:apps/api/src/system-prompt.ts` (或对应文件) 记录为 baseline
 - Ship 期间: 任何 `system-prompt.ts` / `system-prompt*.ts` / `prompts/*.ts` 改动 = ship 失败 (pre-commit hook 拦截)
 - 中途要改 prompt: 拆为新 ship, 重新跑 baseline + verification
 
 **Rationale**:
+
 - Recordings 是 baseline; prompt 变了 baseline 失效, 比较无意义
 - 防止 "我顺便修了个 prompt" 导致 acceptance 数字变化但无法归因
 
 **Anti-pattern**:
+
 - ❌ "system prompt 小改应该没事" → 拆 ship
 - ❌ "把 prompt 改了顺便跑 acceptance" → 拆 ship
 
@@ -130,11 +143,13 @@ Create the file with this exact content:
 ## D53a ship verification
 
 **Test results (本 ship, 2026-09-10 跑):**
+
 - `pnpm test:methodology` — ✓ N/N
 - `pnpm test:acceptance` — ✓ 41/41 N=3
 - `pnpm test:full` — ✓ (1862 + ~20 new) N=3
 
 **Lint / typecheck / arch-guard:**
+
 - `pnpm lint` — ✓ 0
 - `pnpm typecheck` — ✓ 0
 - `pnpm arch-guard` — ✓ 0
@@ -142,12 +157,15 @@ Create the file with this exact content:
 **Files changed:** <列出本 ship 实际 commit SHA 与文件>
 **No reference to:** D52 ship green / D49 ship green (严禁)
 ```
+````
 
 **Rationale**:
+
 - D50 教训: D49 ship claim 引用了 last batch green (实际有 1 test fail + 1 pre-existing typecheck)
 - 必须本 ship 自身的 fresh output 才能 ship
 
 **Anti-pattern**:
+
 - ❌ "上次 ship 是绿的, 这次改动小应该没事" → 必须 fresh verify
 - ❌ Ship claim 写 "复用 D52 验证" → 必须本 ship 自己的 verification
 
@@ -175,10 +193,12 @@ Create the file with this exact content:
 ```
 
 **生成**:
+
 - 首次 (D53a): baseline-generator 跑全 41 scenarios, 录当前状态, 写入 `.baseline-2026-09-10.json`
 - 后续 ship: compareBaseline() 读 baseline + 跑当前, diff 输出
 
 **比较规则**:
+
 - `status` 变化 = 必报 (critical)
 - `replyLen` 偏离 ≥ 50% = 报 (info)
 - `toolCalls` / `approvalCount` 变化 = 报 (info)
@@ -207,10 +227,7 @@ it(`${scenario.id}`, async () => {
 
 // After
 it(`${scenario.id}`, async () => {
-  await runMultiRound(
-    () => runScenario(scenario, app, ctx),
-    { rounds: 3, aggregation: "all" }
-  )
+  await runMultiRound(() => runScenario(scenario, app, ctx), { rounds: 3, aggregation: "all" })
 })
 ```
 
@@ -247,7 +264,8 @@ it(`${scenario.id}`, async () => {
 ---
 
 **End D53a methodology protocol.**
-```
+
+````
 
 - [ ] **Step 2: Verify file created**
 
@@ -265,7 +283,7 @@ Expected: `8` (8 sections: §0-§7)
 cd /home/ailearn/projects/WFXM
 git add butler-v5/docs/superpowers/notes/2026-09-10-d53a-methodology.md
 git commit --no-verify -m 'docs(methodology): D53a 8-section protocol (multi-round + prompt-freeze + fresh verification + baseline + retrofit + anti-patterns + D47/D50 post-mortem)'
-```
+````
 
 Expected: 1 file changed, ~200+ insertions. Commit SHA noted for ship claim.
 
@@ -274,6 +292,7 @@ Expected: 1 file changed, ~200+ insertions. Commit SHA noted for ship claim.
 ## Task 2: Generate baseline snapshot
 
 **Files:**
+
 - Create: `butler-v5/tests/acceptance/recordings/.baseline-2026-09-10.json`
 
 - [ ] **Step 1: Verify recordings/ directory exists**
@@ -392,6 +411,7 @@ Expected: 1 file changed, baseline.json created. Commit SHA noted for ship claim
 ## Task 3: Write methodology.test.ts (failing tests)
 
 **Files:**
+
 - Create: `butler-v5/tests/acceptance/methodology.test.ts`
 
 - [ ] **Step 1: Write the failing tests**
@@ -457,24 +477,13 @@ describe("D53a methodology", () => {
 
   describe("aggregateResults", () => {
     it("all: requires all rounds pass", () => {
-      const all = aggregateResults(
-        [
-          { passed: true },
-          { passed: true },
-          { passed: false },
-        ],
-        "all",
-      )
+      const all = aggregateResults([{ passed: true }, { passed: true }, { passed: false }], "all")
       expect(all).toBe(false)
     })
 
     it("majority: requires >=ceil(N/2) pass", () => {
       const m = aggregateResults(
-        [
-          { passed: true },
-          { passed: false },
-          { passed: true },
-        ],
+        [{ passed: true }, { passed: false }, { passed: true }],
         "majority",
       )
       expect(m).toBe(true)
@@ -557,11 +566,7 @@ describe("D53a methodology", () => {
 
   describe("baseline file present", () => {
     it("D53a baseline JSON exists at expected path", () => {
-      const path = join(
-        import.meta.dirname ?? ".",
-        "recordings",
-        ".baseline-2026-09-10.json",
-      )
+      const path = join(import.meta.dirname ?? ".", "recordings", ".baseline-2026-09-10.json")
       expect(existsSync(path)).toBe(true)
       const data = JSON.parse(readFileSync(path, "utf8"))
       expect(data.shipEvent).toBe("D53a")
@@ -590,6 +595,7 @@ git commit --no-verify -m 'test(methodology): D53a 10 failing tests (RED, TDD st
 ## Task 4: Implement multi-round.ts (helper, make tests pass)
 
 **Files:**
+
 - Create: `butler-v5/tests/acceptance/multi-round.ts`
 
 - [ ] **Step 1: Write the helper module**
@@ -681,7 +687,9 @@ export async function runMultiRound(
       .filter((r) => !r.passed)
       .map((r) => r.error?.message ?? "unknown")
       .join("; ")
-    throw new Error(`runMultiRound (all): ${results.filter((r) => !r.passed).length}/${results.length} rounds failed: ${errors}`)
+    throw new Error(
+      `runMultiRound (all): ${results.filter((r) => !r.passed).length}/${results.length} rounds failed: ${errors}`,
+    )
   }
   return { passed, rounds: results, aggregation, roundsRequested: rounds }
 }
@@ -714,19 +722,43 @@ export function compareBaseline(
     const c = current[id]
     if (!c) continue
     if (b.status !== c.status) {
-      diffs.push({ scenarioId: id, field: "status", baseline: b.status, current: c.status, severity: "critical" })
+      diffs.push({
+        scenarioId: id,
+        field: "status",
+        baseline: b.status,
+        current: c.status,
+        severity: "critical",
+      })
     }
     if (b.replyLen > 0) {
       const drift = Math.abs(c.replyLen - b.replyLen) / b.replyLen
       if (drift >= 0.5) {
-        diffs.push({ scenarioId: id, field: "replyLen", baseline: b.replyLen, current: c.replyLen, severity: "info" })
+        diffs.push({
+          scenarioId: id,
+          field: "replyLen",
+          baseline: b.replyLen,
+          current: c.replyLen,
+          severity: "info",
+        })
       }
     }
     if (b.toolCalls !== c.toolCalls) {
-      diffs.push({ scenarioId: id, field: "toolCalls", baseline: b.toolCalls, current: c.toolCalls, severity: "info" })
+      diffs.push({
+        scenarioId: id,
+        field: "toolCalls",
+        baseline: b.toolCalls,
+        current: c.toolCalls,
+        severity: "info",
+      })
     }
     if (b.approvalCount !== c.approvalCount) {
-      diffs.push({ scenarioId: id, field: "approvalCount", baseline: b.approvalCount, current: c.approvalCount, severity: "info" })
+      diffs.push({
+        scenarioId: id,
+        field: "approvalCount",
+        baseline: b.approvalCount,
+        current: c.approvalCount,
+        severity: "info",
+      })
     }
   }
   return diffs
@@ -779,6 +811,7 @@ git commit --no-verify -m 'feat(methodology): D53a multi-round helper (runMultiR
 ## Task 5: Retrofit realistic.test.ts (1 demo scenario first)
 
 **Files:**
+
 - Modify: `butler-v5/tests/acceptance/scenarios/realistic.test.ts`
 
 - [ ] **Step 1: Add import for runMultiRound**
@@ -795,7 +828,7 @@ Just before the `for (const scenario of ALL_SCENARIOS)` loop (around line 62), a
 
 ```typescript
 async function runScenario(
-  scenario: typeof ALL_SCENARIOS[number],
+  scenario: (typeof ALL_SCENARIOS)[number],
   app: AcceptanceApp,
   convId: string,
   ctx: { workspaceRoot: string },
@@ -862,7 +895,7 @@ for (const scenario of ALL_SCENARIOS) {
         { rounds: 3, aggregation: "all" },
       )
     })
-    continue  // 跳过原 it() 逻辑 for this scenario
+    continue // 跳过原 it() 逻辑 for this scenario
   }
 
   it(`${scenario.id} ${scenario.title}`, async () => {
@@ -879,11 +912,13 @@ Expected: 1 test passes, with N=3 in output (vitest will show 1 passing test, bu
 - [ ] **Step 5: Verify N=3 vs N=1 cost (informational)**
 
 Run with N=1:
+
 ```bash
 cd butler-v5 && BUTLER_V5_MULTI_ROUND=0 pnpm vitest run tests/acceptance/scenarios/realistic.test.ts -t "D2-chain-approval" 2>&1 | tail -5
 ```
 
 Note duration. Then with N=3:
+
 ```bash
 cd butler-v5 && BUTLER_V5_MULTI_ROUND=3 pnpm vitest run tests/acceptance/scenarios/realistic.test.ts -t "D2-chain-approval" 2>&1 | tail -5
 ```
@@ -903,6 +938,7 @@ git commit --no-verify -m 'test(realistic): D53a wrap D2-chain-approval in runMu
 ## Task 6: Retrofit realistic.test.ts (all 41 scenarios)
 
 **Files:**
+
 - Modify: `butler-v5/tests/acceptance/scenarios/realistic.test.ts`
 
 - [ ] **Step 1: Wrap all scenarios in runMultiRound**
@@ -997,6 +1033,7 @@ Expected: 0 violations
 - [ ] **Step 7: Capture verification output for ship claim**
 
 Record:
+
 - methodology pass count
 - acceptance pass count (41/41)
 - full pass count (1862+20)
@@ -1010,6 +1047,7 @@ These go into Task 8 fix-memory and final ship claim.
 ## Task 8: Write fix-memory + update MEMORY index
 
 **Files:**
+
 - Create: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D53a-methodology-2026-09-10.md`
 - Modify: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`
 
@@ -1035,13 +1073,13 @@ metadata:
 
 **Solution (5 files, 1 ship, <SHIPSHA>):**
 
-| 文件 | 角色 |
-|---|---|
+| 文件                                                    | 角色                                                                                                                                                                   |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `docs/superpowers/notes/2026-09-10-d53a-methodology.md` | 8 段 protocol (§0 Scope / §1 multi-round / §2 prompt-freeze / §3 fresh verification / §4 baseline / §5 retrofit checklist / §6 anti-patterns / §7 D47/D50 post-mortem) |
-| `tests/acceptance/multi-round.ts` | runMultiRound + aggregateResults + compareBaseline + renderShipClaim + readMultiRoundEnv |
-| `tests/acceptance/methodology.test.ts` | 10 case 验协议本身可执行 |
-| `tests/acceptance/recordings/.baseline-2026-09-10.json` | D53a ship 时 41 scenarios 状态 snapshot |
-| `tests/acceptance/scenarios/realistic.test.ts` | 41 scenarios wrap 进 runMultiRound (N=3 default, all aggregation) |
+| `tests/acceptance/multi-round.ts`                       | runMultiRound + aggregateResults + compareBaseline + renderShipClaim + readMultiRoundEnv                                                                               |
+| `tests/acceptance/methodology.test.ts`                  | 10 case 验协议本身可执行                                                                                                                                               |
+| `tests/acceptance/recordings/.baseline-2026-09-10.json` | D53a ship 时 41 scenarios 状态 snapshot                                                                                                                                |
+| `tests/acceptance/scenarios/realistic.test.ts`          | 41 scenarios wrap 进 runMultiRound (N=3 default, all aggregation)                                                                                                      |
 
 ## 关键决策
 
@@ -1101,6 +1139,7 @@ git commit --no-verify -m 'docs(memory): D53a methodology protocol ship + MEMORY
 
 Run: `cd /home/ailearn/projects/WFXM && git log --oneline -8`
 Expected: 至少 6-7 commits:
+
 - D53a protocol doc
 - baseline JSON
 - methodology test (RED)
@@ -1121,7 +1160,7 @@ const claim = renderShipClaim({
   testResults: {
     methodology: "10/10",
     acceptance: "41/41",
-    full: "1882/1882",  // 1862 + 20
+    full: "1882/1882", // 1862 + 20
   },
 })
 console.log(claim)
@@ -1149,25 +1188,27 @@ Expected: D53a commits visible on origin/main
 
 **Spec coverage check** (against D53 spec §3.1):
 
-| Spec requirement | Task |
-|---|---|
-| §3.1.1 protocol doc (8 段) | Task 1 ✓ |
-| §3.1.2 baseline JSON | Task 2 ✓ |
-| §3.1.3 methodology.test.ts (verify 协议) | Task 3 ✓ |
-| §3.1.4 realistic.test.ts retrofit (41 → N=3) | Task 5 (demo) + Task 6 (all) ✓ |
-| §3.1.5 D53a ship gates (test:methodology, test:acceptance 41/41 N=3, test:full 1862+20 N=3, lint/typecheck/arch-guard 0) | Task 7 ✓ |
-| §3.1.5 fix-memory | Task 8 ✓ |
-| §3.1.5 push | Task 9 ✓ |
+| Spec requirement                                                                                                         | Task                           |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| §3.1.1 protocol doc (8 段)                                                                                               | Task 1 ✓                       |
+| §3.1.2 baseline JSON                                                                                                     | Task 2 ✓                       |
+| §3.1.3 methodology.test.ts (verify 协议)                                                                                 | Task 3 ✓                       |
+| §3.1.4 realistic.test.ts retrofit (41 → N=3)                                                                             | Task 5 (demo) + Task 6 (all) ✓ |
+| §3.1.5 D53a ship gates (test:methodology, test:acceptance 41/41 N=3, test:full 1862+20 N=3, lint/typecheck/arch-guard 0) | Task 7 ✓                       |
+| §3.1.5 fix-memory                                                                                                        | Task 8 ✓                       |
+| §3.1.5 push                                                                                                              | Task 9 ✓                       |
 
 **Placeholder scan:** No TBD / TODO / "implement later" / "fill in details" / "appropriate" / "edge cases" / "similar to" — confirmed.
 
 **Type consistency check:**
+
 - `runMultiRound` signature: `(fn: () => Promise<void>, opts?: MultiRoundOptions) => Promise<MultiRoundResult>` — used consistently in Tasks 3, 4, 5, 6
 - `aggregateResults` signature: `(rounds: ReadonlyArray<{passed: boolean}>, aggregation: Aggregation) => boolean` — used in Task 3 test + Task 4 impl
 - `compareBaseline` signature: `(baseline: BaselineSnapshot, current: BaselineSnapshot) => BaselineDiff[]` — used in Task 3 test + Task 4 impl
 - `BaselineEntry` interface fields (`status`, `replyLen`, `toolCalls`, `approvalCount`) — used consistently in baseline generator (Task 2) + compareBaseline (Task 4) + methodology test (Task 3)
 
 **Potential issues fixed inline:**
+
 - Task 6 notes: engineer 需决定 metrics.push 位置 (runScenario vs runMultiRound), 推荐前者 (runScenario 末尾) 因为 metrics 是 test-level 数据收
 - Task 8 step 1: `<SHIPSHA>` 和 `<REALISTIC_TIMING>` 是 placeholder, 工程师必须用 Task 7 实际数字替换
 - Task 5 step 2: `runScenario` 抽取的 scope 包括 `notes` 和 `turns` (outer scope 的 arrays), 通过参数传而不是重新初始化

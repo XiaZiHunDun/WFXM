@@ -60,7 +60,9 @@ export function assertMcpServerConsented(
 
 export function loadMcpManifestFromJson(
   raw: string,
-): { readonly ok: true; readonly manifest: McpManifest } | { readonly ok: false; readonly reason: string } {
+):
+  | { readonly ok: true; readonly manifest: McpManifest }
+  | { readonly ok: false; readonly reason: string } {
   let parsed: unknown
   try {
     parsed = JSON.parse(raw) as unknown

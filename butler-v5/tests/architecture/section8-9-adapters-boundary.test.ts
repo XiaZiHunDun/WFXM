@@ -86,10 +86,7 @@ const SCHEDULE = join(__dirname, "../../packages/domain/src/runtime/schedule.ts"
 const DELEGATE_RUNTIME = join(__dirname, "../../packages/runtime/src/delegate-runtime.ts")
 const SCHEDULE_RUN = join(__dirname, "../../apps/api/src/schedule-run.ts")
 const POLICY_GATE = join(__dirname, "../../packages/runtime/src/policy-gate.ts")
-const CAPABILITY_BOUNDARY = join(
-  __dirname,
-  "../../packages/runtime/src/capability-boundary.ts",
-)
+const CAPABILITY_BOUNDARY = join(__dirname, "../../packages/runtime/src/capability-boundary.ts")
 const APPS_SRC = join(__dirname, "../../apps/api/src")
 
 describe("arch: §8 Driving Adapters + §9 Driven Adapters boundary (D29)", () => {
@@ -97,15 +94,11 @@ describe("arch: §8 Driving Adapters + §9 Driven Adapters boundary (D29)", () =
 
   it("§8: TriggerSource union covers all 7 sources (channel/cli/api/webhook/schedule/parent_run/task)", () => {
     const src = readFileSync(TYPES, "utf-8")
-    const match = src.match(
-      /export type TriggerSource\s*=\s*([\s\S]*?)\n\nexport/,
-    )
+    const match = src.match(/export type TriggerSource\s*=\s*([\s\S]*?)\n\nexport/)
     expect(match, "TriggerSource type not found").not.toBeNull()
     const body = match?.[1] ?? ""
     for (const source of ["channel", "cli", "api", "webhook", "schedule", "parent_run", "task"]) {
-      expect(body, `TriggerSource missing: ${source}`).toMatch(
-        new RegExp(`["']${source}["']`),
-      )
+      expect(body, `TriggerSource missing: ${source}`).toMatch(new RegExp(`["']${source}["']`))
     }
   })
 
@@ -158,9 +151,7 @@ describe("arch: §8 Driving Adapters + §9 Driven Adapters boundary (D29)", () =
 
   it("§9: CapabilityDefinition declares 4 top-level fields (name/kind/risk/declared) + CapabilityProviderMetadata carries the 7 declared metadata (text-vs-impl drift acknowledged: riskClass→kind+risk, defaultSandboxProfile→sandboxProfile, timeout→timeoutMs, idempotency→idempotent)", () => {
     const src = readFileSync(POLICY_GATE, "utf-8")
-    const defMatch = src.match(
-      /export interface CapabilityDefinition\s*\{([\s\S]*?)\n\}/,
-    )
+    const defMatch = src.match(/export interface CapabilityDefinition\s*\{([\s\S]*?)\n\}/)
     expect(defMatch, "CapabilityDefinition interface not found").not.toBeNull()
     const defBody = defMatch?.[1] ?? ""
     for (const field of ["name", "kind", "risk", "declared"]) {
@@ -170,9 +161,7 @@ describe("arch: §8 Driving Adapters + §9 Driven Adapters boundary (D29)", () =
       ).toBe(true)
     }
     // CapabilityProviderMetadata carries the §9 text fields (renamed).
-    const metaMatch = src.match(
-      /export interface CapabilityProviderMetadata\s*\{([\s\S]*?)\n\}/,
-    )
+    const metaMatch = src.match(/export interface CapabilityProviderMetadata\s*\{([\s\S]*?)\n\}/)
     expect(metaMatch, "CapabilityProviderMetadata interface not found").not.toBeNull()
     const metaBody = metaMatch?.[1] ?? ""
     for (const field of [
@@ -249,11 +238,7 @@ function listProductionTs(root: string): string[] {
           continue
         }
         walk(p)
-      } else if (
-        entry.endsWith(".ts") &&
-        !entry.endsWith(".test.ts") &&
-        !entry.endsWith(".d.ts")
-      ) {
+      } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) {
         out.push(p)
       }
     }

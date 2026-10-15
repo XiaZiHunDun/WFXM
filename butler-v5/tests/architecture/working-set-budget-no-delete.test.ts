@@ -32,18 +32,9 @@ import { describe, expect, it } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const WORKING_SET = join(
-  __dirname,
-  "../../packages/runtime/src/working-set.ts",
-)
-const WORKING_SET_BUDGET = join(
-  __dirname,
-  "../../packages/runtime/src/working-set-budget.ts",
-)
-const RUN_ENGINE = join(
-  __dirname,
-  "../../packages/runtime/src/run-engine.ts",
-)
+const WORKING_SET = join(__dirname, "../../packages/runtime/src/working-set.ts")
+const WORKING_SET_BUDGET = join(__dirname, "../../packages/runtime/src/working-set-budget.ts")
+const RUN_ENGINE = join(__dirname, "../../packages/runtime/src/run-engine.ts")
 
 // Any identifier that would mean the working-set layer reaches into
 // persistence / DB / async effect runtime.
@@ -75,10 +66,9 @@ describe("arch: working-set budget never deletes history (§20 #14)", () => {
   it("working-set.ts does NOT call any store / DB mutation API", () => {
     const src = readFileSync(WORKING_SET, "utf-8")
     const hits = hasMutation(src)
-    expect(
-      hits,
-      `unexpected store-mutation calls in working-set.ts: ${hits.join(", ")}`,
-    ).toEqual([])
+    expect(hits, `unexpected store-mutation calls in working-set.ts: ${hits.join(", ")}`).toEqual(
+      [],
+    )
   })
 
   it("working-set-budget.ts does NOT call any store / DB mutation API", () => {

@@ -26,11 +26,9 @@ const LEGAL_TRANSITIONS: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
  * including themselves. Consumers must derive terminal-ness from these helpers
  * rather than re-hardcoding the status list.
  */
-export const TERMINAL_RUN_STATUSES = (
-  Object.entries(LEGAL_TRANSITIONS)
-    .filter(([, targets]) => targets.length === 0)
-    .map(([status]) => status as RunStatus)
-) satisfies readonly RunStatus[]
+export const TERMINAL_RUN_STATUSES = Object.entries(LEGAL_TRANSITIONS)
+  .filter(([, targets]) => targets.length === 0)
+  .map(([status]) => status as RunStatus) satisfies readonly RunStatus[]
 
 export function isTerminalRunStatus(status: RunStatus): boolean {
   return TERMINAL_RUN_STATUSES.includes(status)

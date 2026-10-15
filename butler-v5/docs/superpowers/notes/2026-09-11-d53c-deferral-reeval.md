@@ -62,6 +62,7 @@
 ### §1.3 arch guard 状态
 
 D53c 不删任何 arch guard:
+
 - D16 §18 test cases (4 cases): preserved
 - D22 §11 cases (7 cases): preserved
 - 合计 11 arch guards intact, 0 violation introduced by D39-D53b ships
@@ -69,6 +70,7 @@ D53c 不删任何 arch guard:
 ### §1.4 D49 ship claim vs impl drift (D52 observed)
 
 D49 spec 描述 vs 实际 impl:
+
 - 5 ChainEntry types spec → 2 actual (write_file + run_command, 不含 edit_file/apply_patch/delete_file)
 - 6 phrases spec → 5+ actual (撤销这一轮/撤销这轮/撤销本次/撤销这次/撤销刚那一轮 etc.)
 - "invertible flag" spec → 不存在 in impl
@@ -109,18 +111,21 @@ D53a §7 line 182-183 explicit 承认: "未解: D48 §3.2 LLM 质量量化 仍�
 ### §3.2 evidence 更新 (各 gap)
 
 #### 3.1 approval 羊群 (declined, D51)
+
 - 现有 evidence: D44 P0 `69dc924c` y/n + emoji 👌/✅/👍/❌/👎 inline-approval 真实 resume + `854c16ee` lock test — 修相邻, 不构 trust mode
 - D51 decline handoff `2026-09-09-d51-decline-gaps.md` §1 4 理由: fixture harness 样本盲点 / trust mode 工程假设无 owner 撞点 / 扩 fixture 成本高于价值 / D48 self-judged non-first-order
 - DESIGN §18 line 815 + D48 §3.1 line 83 + D48 §6 line 176 同步 decline
 - D53c re-eval (本批): 无新 evidence, 状态保持 declined
 
 #### 3.2 LLM 质量量化 (declined, D51)
+
 - 现有 evidence: v8 PRD candidate A/B/C 3/3 REVERT (temperature model 单 round 不可靠, D47 同源) + D47 fixture-recording + D53a methodology §7 line 182-183 explicit "协议不解决'什么算质量'"
 - D51 decline handoff §2 4 理由: temperature model 实证 / 4min×N 成本 / D47 fixture-recording 同源 / v8 3/3 REVERT
 - DESIGN §18 line 816 + §11.4 line 572 + D48 §3.2 line 92 + D48 §6 line 177 同步 decline
 - D53c re-eval: D53a 是 verification methodology 不量化质量, 状态保持 declined
 
 #### 3.3 multi-tool chain 撤销 (partial closure via D-series owner-撞点 protocol)
+
 - **D48 doc §3.3 line 100-101 text**: "**当前状态**：未识别为 gap" — **DRIFT, D51 table marks shipped, text lag**
 - **D51 line 19 table**: "§3.3 multi-tool chain 撤销 ✅ shipped (D49, 2026-09-09)"
 - D49 ship 9 commits (74da29c4..45bb28f7): UNDO_CHAIN data + write_file push / run_command push / partial-revert test / cross-conv guard / wechat chain intent + formatChainReply / wire chainId / Task 6 follow-up / D1 realistic scenario / D50 verification follow-up
@@ -175,6 +180,7 @@ D53a §7 line 182-183 explicit 承认: "未解: D48 §3.2 LLM 质量量化 仍�
 ### §4.4 D54 (drift 对账) entry
 
 D54 scope 已清晰 (本 reeval §4.4 + D54 entry doc Task 6):
+
 - D49 5-type 缺口 (impl 2 类, spec 5 类)
 - D49 6→5 phrases 缺口
 - memory "invertible flag" 不存在
@@ -191,6 +197,7 @@ D54 顺序: B (drift) 必在 D (methodology, D53a ship) 之后启, 当前 D53a s
 ## §5 Verification gate
 
 D53c ship gates (D53a protocol applied):
+
 - 2 docs committed (reeval + D54 entry)
 - 3 drift items closed (Task 7)
 - `pnpm test:methodology` ✓ 13/13
@@ -238,6 +245,7 @@ D53c ship gates (D53a protocol applied):
 ## §7 D54 handoff
 
 D54 spec 必须 cover:
+
 1. D49 5-type 缺口 (impl 2 类, spec 5 类) — close gap
 2. D49 6→5 phrases 缺口 — close gap
 3. memory "invertible flag" 不存在 — formalize 或 implement
@@ -246,6 +254,7 @@ D54 spec 必须 cover:
 6. 3 knip FPs (D53b) — knip ignoreExports 探索
 
 D53c 闭环 (D54 不再处理):
+
 - recordings/ 35 vs 41 → D53c T7 formalize (6 placeholder entries)
 - vitest coverage scope → D53c T7 扩 6 packages
 - realistic.test.ts file header → D53c T7 改 "35" → "41"

@@ -84,8 +84,10 @@ describe("runCandidateExpiresTick", () => {
   let infoCalls: string[]
   let errorCalls: string[]
   const logger: CandidateExpiresLogger = {
-    info: (msg, ...args) => infoCalls.push(args.length > 0 ? `${msg} ${args.map(String).join(" ")}` : msg),
-    error: (msg, ...args) => errorCalls.push(args.length > 0 ? `${msg} ${args.map(String).join(" ")}` : msg),
+    info: (msg, ...args) =>
+      infoCalls.push(args.length > 0 ? `${msg} ${args.map(String).join(" ")}` : msg),
+    error: (msg, ...args) =>
+      errorCalls.push(args.length > 0 ? `${msg} ${args.map(String).join(" ")}` : msg),
   }
 
   beforeEach(() => {

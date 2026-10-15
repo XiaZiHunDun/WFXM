@@ -142,66 +142,64 @@ export async function runInSlirpAllowlistSandbox(
   input: SlirpAllowlistRunInput,
 ): Promise<BubblewrapRunResult> {
   const run = async (): Promise<BubblewrapRunResult> => {
-  if (input.argv.length === 0) {
-    return { ok: false, reason: "argv must not be empty" }
-  }
+    if (input.argv.length === 0) {
+      return { ok: false, reason: "argv must not be empty" }
+    }
 
-  const bwrapPath = input.bwrapPath ?? "bwrap"
-  const bwrapArgs = input.bwrapArgs
-  const iptablesCommands = buildSlirpIptablesCommands({
-    allowHostGatewayPort: input.proxyPort,
-    ...(input.allowDestinations?.length
-      ? { allowDestinations: input.allowDestinations }
-      : {}),
-  })
-  const innerScript = buildSlirpInnerScript({
-    bwrapPath,
-    bwrapArgs,
-    iptablesCommands,
-    commandTimeoutSec: Math.max(5, Math.ceil(input.profile.timeoutMs / 1000)),
-  })
+    const bwrapPath = input.bwrapPath ?? "bwrap"
+    const bwrapArgs = input.bwrapArgs
+    const iptablesCommands = buildSlirpIptablesCommands({
+      allowHostGatewayPort: input.proxyPort,
+      ...(input.allowDestinations?.length ? { allowDestinations: input.allowDestinations } : {}),
+    })
+    const innerScript = buildSlirpInnerScript({
+      bwrapPath,
+      bwrapArgs,
+      iptablesCommands,
+      commandTimeoutSec: Math.max(5, Math.ceil(input.profile.timeoutMs / 1000)),
+    })
 
-  const tempDir = mkdtempSync(join(tmpdir(), "butler-slirp-"))
-  const scriptPath = join(tempDir, "run.sh")
-  const xtablesLock = join(tempDir, "xtables.lock")
-  writeFileSync(xtablesLock, "")
-  writeFileSync(scriptPath, innerScript, { mode: 0o755 })
+    const tempDir = mkdtempSync(join(tmpdir(), "butler-slirp-"))
+    const scriptPath = join(tempDir, "run.sh")
+    const xtablesLock = join(tempDir, "xtables.lock")
+    writeFileSync(xtablesLock, "")
+    writeFileSync(scriptPath, innerScript, { mode: 0o755 })
 
-  const spawnEnv: NodeJS.ProcessEnv = {
-    PATH: process.env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
-    XTABLES_LOCKFILE: xtablesLock,
-    ...(input.childEnv ?? {}),
-  }
+    const spawnEnv: NodeJS.ProcessEnv = {
+      PATH: process.env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+      XTABLES_LOCKFILE: xtablesLock,
+      ...(input.childEnv ?? {}),
+    }
 
-  try {
-    const result = await input.runner.spawn(
-      "unshare",
-      ["-U", "-r", "-n", "--", "bash", scriptPath],
-      {
-        cwd: input.profile.workspaceRoot,
-        timeoutMs: Math.max(input.profile.timeoutMs, 15_000),
-        maxOutputBytes: input.profile.maxOutputBytes,
-        env: spawnEnv,
-      },
-    )
-    if (result.code !== 0) {
-      const detail = [result.stderr, result.stdout].filter(Boolean).join("\n").trim()
+    try {
+      const result = await input.runner.spawn(
+        "unshare",
+        ["-U", "-r", "-n", "--", "bash", scriptPath],
+        {
+          cwd: input.profile.workspaceRoot,
+          timeoutMs: Math.max(input.profile.timeoutMs, 15_000),
+          maxOutputBytes: input.profile.maxOutputBytes,
+          env: spawnEnv,
+        },
+      )
+      if (result.code !== 0) {
+        const detail = [result.stderr, result.stdout].filter(Boolean).join("\n").trim()
+        return {
+          ok: false,
+          stderr: result.stderr,
+          reason: detail || `slirp sandbox exit ${result.code}`,
+        }
+      }
+      return { ok: true, stdout: result.stdout, stderr: result.stderr }
+    } catch (err) {
       return {
         ok: false,
-        stderr: result.stderr,
-        reason: detail || `slirp sandbox exit ${result.code}`,
+        reason: err instanceof Error ? err.message : String(err),
       }
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+      cleanupOrphanSlirp4netns()
     }
-    return { ok: true, stdout: result.stdout, stderr: result.stderr }
-  } catch (err) {
-    return {
-      ok: false,
-      reason: err instanceof Error ? err.message : String(err),
-    }
-  } finally {
-    rmSync(tempDir, { recursive: true, force: true })
-    cleanupOrphanSlirp4netns()
-  }
   }
 
   slirpRunChain = slirpRunChain.then(run, run)

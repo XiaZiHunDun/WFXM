@@ -195,12 +195,12 @@ Domain 不访问网络、文件、数据库、Channel，也不直接调用 LLM�
 >
 > **§5 范围路径 audit 状态**（D25）：
 >
-> | 范围 | 实际路径 | 状态 |
-> |---|---|---|
-> | 聚合类型与状态机 | `packages/domain/src/{knowledge,conversation,projects}/` | ✅ |
-> | 工作集预算与截断策略 | `packages/runtime/src/working-set.ts`（runtime 层调用，§5 业务规则归属 Domain） | ✅ |
-> | ActionRequest 构造与参数摘要（digest） | `packages/runtime/src/capability-boundary.ts`（digest 计算） | ✅ |
-> | 可重放的确定性决策（Policy 规则） | `packages/domain/src/{permissions,guards,memory,tools,projects}/pure.ts` | ✅ |
+> | 范围                                   | 实际路径                                                                        | 状态 |
+> | -------------------------------------- | ------------------------------------------------------------------------------- | ---- |
+> | 聚合类型与状态机                       | `packages/domain/src/{knowledge,conversation,projects}/`                        | ✅   |
+> | 工作集预算与截断策略                   | `packages/runtime/src/working-set.ts`（runtime 层调用，§5 业务规则归属 Domain） | ✅   |
+> | ActionRequest 构造与参数摘要（digest） | `packages/runtime/src/capability-boundary.ts`（digest 计算）                    | ✅   |
+> | 可重放的确定性决策（Policy 规则）      | `packages/domain/src/{permissions,guards,memory,tools,projects}/pure.ts`        | ✅   |
 >
 > 锁定方式：`tests/architecture/section5-domain-pure.test.ts`（D25，8 cases）+ `tests/architecture/domain-zero-io.test.ts`（D17 pre-existing）。
 
@@ -280,13 +280,13 @@ Provider 原生 tool call 和文本 JSON 只是 Decoder 输入格式，不构成
 
 Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composition Root 注入。只有真正可替换或不可信的边界才设立 Port：
 
-| Port | 职责示例 | 典型 adapter 实现 |
-| --- | --- | --- |
+| Port       | 职责示例                                                  | 典型 adapter 实现                                                                   |
+| ---------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Repository | Conversation / Run / Step / Grant / Audit / Outbox 的读写 | persistence runtime-store（postgres）+ in-memory runtime-store、event-store、outbox |
-| Model Port | 统一模型协议、fallback、记账 | model-router、各 LLM provider |
-| Capability | 副作用能力的注册与执行边界 | 工具 executor、MCP provider、沙箱 runner |
-| Channel | 出站回复与富媒体发送 | WeChat iLink、Slack、Telegram |
-| Clock | 时间与调度（可注入以便测确定性） | 系统时钟 / 测试假时钟 |
+| Model Port | 统一模型协议、fallback、记账                              | model-router、各 LLM provider                                                       |
+| Capability | 副作用能力的注册与执行边界                                | 工具 executor、MCP provider、沙箱 runner                                            |
+| Channel    | 出站回复与富媒体发送                                      | WeChat iLink、Slack、Telegram                                                       |
+| Clock      | 时间与调度（可注入以便测确定性）                          | 系统时钟 / 测试假时钟                                                               |
 
 规则：
 
@@ -306,19 +306,19 @@ Ports 是 Core 对外的**抽象依赖**，由 driven adapters 实现、Composit
 
 ### §7.1 已实施 Port 状态（2026-08-31 snapshot）
 
-| Port | 状态 | File | 实装 / 备注 |
-| --- | --- | --- | --- |
-| Clock | ✅ 已实施 | `packages/ports/src/core/clock.ts` | `systemClock`/`fixedClock`；注入 RunEngine（R10 P5） |
-| Credential Provider | ✅ 已实施 | `packages/ports/src/core/credential-provider.ts` | `createHostCredentialProvider`；fail-closed（R10 P2） |
-| Event Store | ✅ 已实施（窄接口） | `packages/ports/src/core/event-store.ts` | `packages/persistence/src/event-bridge.ts` 实装；旧 `EventStoreService`（R2 宽 Tag）已归档（commit `33af1722` 2026-08-28），prod runtime 不经 Tag 注入面 |
-| Outbox | ✅ 已实施（窄接口） | `packages/ports/src/core/outbox.ts` | prod runtime 直调 `@butler/persistence/outbox.js`；新 Port 为未来替换/隔离触发的接缝（与 `port-catalog.md` §1 同步） |
-| Snapshot | ✅ 已实施（窄接口） | `packages/ports/src/core/snapshot.ts` | prod runtime 直调 `@butler/persistence/snapshot.js`；新 Port 为未来替换/隔离触发的接缝 |
-| Projection | ✅ 已实施（窄接口） | `packages/ports/src/core/projection.ts` | prod runtime 直调 `@butler/persistence/projections.js`；新 Port 为未来替换/隔离触发的接缝 |
-| Channel | 🟡 接口已实装，adapter 待触发出线 | `packages/ports/src/core/channel.ts` 接口；`packages/adapters/src/wechat/channel-port.ts` iLink impl（线上）；Composition Root 注入 `wiring.channels` | WeChat 上线；Slack adapter skeleton 就位（`packages/adapters/src/slack/`，5 文件）等真接生产触发（DESIGN §18 条件准入）；Telegram 未触发 |
-| Capability 契约 | 🟡 实现即接口 | `packages/runtime/src/capability-boundary.ts` | 不另立接口（DESIGN §7 + AGENTS.md §0 三层事实） |
-| Repository | ✅ 已实施（D46 Repository Port） | `packages/ports/src/core/repository.ts`（`RepositoryPort = domain RuntimeStore`）；2 adapter：`packages/persistence/src/runtime-store.ts`（Drizzle/postgres）+ `packages/persistence/src/memory/runtime-store.ts`（in-memory） | 第二持久化实现触发物化；推翻 D26B §20 #6 "Repository 在 persistence 而非 ports" 原 lock（见下 `section7-1-repository.test.ts`） |
-| Model | ✅ 已实施（D44 P5 Model Port） | `packages/ports/src/core/model-port.ts` | `resolveModelForRole(env, role)` 返回中性 `{provider, model}` 单一真相源；adapters 构建 `LLMAdapter` + apps `llm-pricing` 记账统一消费（§6.2），2 consumers |
-| v5 Ports 总入口 (thin barrel + R2 shim) | ✅ thin barrel + fixture shim | `packages/ports/src/index.ts`（顶部 deprecation 注释 + thin barrel）；`packages/ports/src/r2-shim.ts`（fixture-only） | `/core/*` 9 个 v5 物化 Core Port + R2 shim（14 个 Tag 类，仅 `pnpm test:archived` 使用，prod v5 code 不得引；invariant 16 由 `package-membership.test.ts` 锁） |
+| Port                                    | 状态                              | File                                                                                                                                                                                                                           | 实装 / 备注                                                                                                                                                    |
+| --------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clock                                   | ✅ 已实施                         | `packages/ports/src/core/clock.ts`                                                                                                                                                                                             | `systemClock`/`fixedClock`；注入 RunEngine（R10 P5）                                                                                                           |
+| Credential Provider                     | ✅ 已实施                         | `packages/ports/src/core/credential-provider.ts`                                                                                                                                                                               | `createHostCredentialProvider`；fail-closed（R10 P2）                                                                                                          |
+| Event Store                             | ✅ 已实施（窄接口）               | `packages/ports/src/core/event-store.ts`                                                                                                                                                                                       | `packages/persistence/src/event-bridge.ts` 实装；旧 `EventStoreService`（R2 宽 Tag）已归档（commit `33af1722` 2026-08-28），prod runtime 不经 Tag 注入面       |
+| Outbox                                  | ✅ 已实施（窄接口）               | `packages/ports/src/core/outbox.ts`                                                                                                                                                                                            | prod runtime 直调 `@butler/persistence/outbox.js`；新 Port 为未来替换/隔离触发的接缝（与 `port-catalog.md` §1 同步）                                           |
+| Snapshot                                | ✅ 已实施（窄接口）               | `packages/ports/src/core/snapshot.ts`                                                                                                                                                                                          | prod runtime 直调 `@butler/persistence/snapshot.js`；新 Port 为未来替换/隔离触发的接缝                                                                         |
+| Projection                              | ✅ 已实施（窄接口）               | `packages/ports/src/core/projection.ts`                                                                                                                                                                                        | prod runtime 直调 `@butler/persistence/projections.js`；新 Port 为未来替换/隔离触发的接缝                                                                      |
+| Channel                                 | 🟡 接口已实装，adapter 待触发出线 | `packages/ports/src/core/channel.ts` 接口；`packages/adapters/src/wechat/channel-port.ts` iLink impl（线上）；Composition Root 注入 `wiring.channels`                                                                          | WeChat 上线；Slack adapter skeleton 就位（`packages/adapters/src/slack/`，5 文件）等真接生产触发（DESIGN §18 条件准入）；Telegram 未触发                       |
+| Capability 契约                         | 🟡 实现即接口                     | `packages/runtime/src/capability-boundary.ts`                                                                                                                                                                                  | 不另立接口（DESIGN §7 + AGENTS.md §0 三层事实）                                                                                                                |
+| Repository                              | ✅ 已实施（D46 Repository Port）  | `packages/ports/src/core/repository.ts`（`RepositoryPort = domain RuntimeStore`）；2 adapter：`packages/persistence/src/runtime-store.ts`（Drizzle/postgres）+ `packages/persistence/src/memory/runtime-store.ts`（in-memory） | 第二持久化实现触发物化；推翻 D26B §20 #6 "Repository 在 persistence 而非 ports" 原 lock（见下 `section7-1-repository.test.ts`）                                |
+| Model                                   | ✅ 已实施（D44 P5 Model Port）    | `packages/ports/src/core/model-port.ts`                                                                                                                                                                                        | `resolveModelForRole(env, role)` 返回中性 `{provider, model}` 单一真相源；adapters 构建 `LLMAdapter` + apps `llm-pricing` 记账统一消费（§6.2），2 consumers    |
+| v5 Ports 总入口 (thin barrel + R2 shim) | ✅ thin barrel + fixture shim     | `packages/ports/src/index.ts`（顶部 deprecation 注释 + thin barrel）；`packages/ports/src/r2-shim.ts`（fixture-only）                                                                                                          | `/core/*` 9 个 v5 物化 Core Port + R2 shim（14 个 Tag 类，仅 `pnpm test:archived` 使用，prod v5 code 不得引；invariant 16 由 `package-membership.test.ts` 锁） |
 
 > "ports-stable × real-need driven" 是 §7 实施准则：不预先为"架构完整"造休眠接口。新增 / 迁移 Port 时同步更新本表与 `port-catalog.md`。
 
@@ -358,7 +358,7 @@ Schedule 只负责按时产生 Trigger，不拥有另一套 Workflow、Policy �
 
 > **§8 实施 audit state**（D29, 2026-08-31）：`TriggerSource` union (`packages/domain/src/runtime/types.ts:8`) 覆盖 7 source — `channel` / `cli` / `api` / `webhook` / `schedule` / `parent_run` / `task`（§8 line 313 "至少包括 6 项" superset）。6 个 `build*RunTrigger` builders（wechat/channel/api/cli/task + schedule）按 §8 source literal 配对；`parent_run` 由 `delegate-runtime.ts` 直接 set `triggerSource: "parent_run"` on child Run record（§8 line 327 不反向调 Intake）。Schedule (`apps/api/src/schedule-run.ts`) 仅 build trigger + dispatch runButlerLoop，不另立 Workflow/Policy/engine（§8 line 325）。
 >
->  锁定方式：`tests/architecture/section8-9-adapters-boundary.test.ts`（D29 §8 段 3 cases）+ D26A §20 #4 RunTrigger 入口归一化 + D26A §20 #1 RunEngine 唯一。
+> 锁定方式：`tests/architecture/section8-9-adapters-boundary.test.ts`（D29 §8 段 3 cases）+ D26A §20 #4 RunTrigger 入口归一化 + D26A §20 #1 RunEngine 唯一。
 
 ---
 
@@ -390,9 +390,9 @@ Provider 类型包括：
 
 > **§9 实施 audit state**（D29, 2026-08-31）：`CapabilityDefinition` (`packages/runtime/src/policy-gate.ts:11`) 实际 4 顶层字段 — `name` / `kind` / `risk` / `declared?`；§9 text 8 字段重构为 `CapabilityProviderMetadata` (option 子接口) — 含 `inputSchema?` / `outputSchema?` / `sandboxProfile?` (was `defaultSandboxProfile`) / `timeoutMs?` (was `timeout`) / `idempotent?` (was `idempotency`) / `auditPolicy?` (full/summary/none)。**text-vs-impl drift 承认**：riskClass → kind+risk；defaultSandboxProfile → sandboxProfile；timeout → timeoutMs；idempotency → idempotent；8 字段语义保留但分层到顶层 4 + declared 6 optional。
 >
->  `CapabilityRegistry.register` (`policy-gate.ts:86`) 是 sync void 唯一 register site；`capabilityDefinitionFromTool` (`capability-boundary.ts:57`) 是 ToolDefinition → CapabilityDefinition canonical adapter。LLM + Channel Port 不进 `registry.register(...)`（§9 line 357 模型不在注册表；Channel Port 走 `wiring.channels` composition root，D2.4 step 1 锁）。
+> `CapabilityRegistry.register` (`policy-gate.ts:86`) 是 sync void 唯一 register site；`capabilityDefinitionFromTool` (`capability-boundary.ts:57`) 是 ToolDefinition → CapabilityDefinition canonical adapter。LLM + Channel Port 不进 `registry.register(...)`（§9 line 357 模型不在注册表；Channel Port 走 `wiring.channels` composition root，D2.4 step 1 锁）。
 >
->  锁定方式：`tests/architecture/section8-9-adapters-boundary.test.ts`（D29 §9 段 3 cases）+ D10 §20 #10 register sync + D26A §20 #1 CapabilityRegistry 唯一 + D2.4 §7.1 Channel Port + D23/D24 LLM 边界。
+> 锁定方式：`tests/architecture/section8-9-adapters-boundary.test.ts`（D29 §9 段 3 cases）+ D10 §20 #10 register sync + D26A §20 #1 CapabilityRegistry 唯一 + D2.4 §7.1 Channel Port + D23/D24 LLM 边界。
 
 ---
 
@@ -480,18 +480,18 @@ Sandbox Profile 默认属于副作用 Capability Provider 的执行配置：
 
 > **§10 实施审计状态**（D27, 2026-08-31）：
 >
-> | §10 字段（设计文字） | 实施字段（TypeScript ADT） | 状态 |
-> |---|---|---|
-> | ActionRequest `actor` | `subject` | 字段重命名（语义对齐 §10.3 ScopedGrant.subject） |
-> | ActionRequest `argumentsDigest` | `digest` | 字段重命名（短化） |
-> | ActionRequest `context` | `payload` | 字段重命名 |
-> | ActionRequest (无 kind/risk) | `kind` (`ActionKind`: read/write/command/delegate/outbound/model) + `risk` (`RiskLevel`: low/medium/high) | 实施扩面（D2.x 引入 kind/risk 用于 capability 路由 + risk-aware Policy） |
-> | ScopedGrant 9 字段（id/runId/createdAtMs 隐式） | ScopedGrantRecord 12 字段 = 9 显式 + 3 DB 必需 (`id` / `runId` / `createdAtMs`) | 实施扩面（D2.2 capability first-class column 独立于 scope.capabilities） |
-> | PolicyDecision `Allow` / `Deny(reason)` / `Ask(actionDigest, prompt)` | `Allow` / `Deny(reason)` / `Ask(question, expiresAtMs)` | `Ask` payload 字段调整：`question` + `expiresAtMs` 替代原 `actionDigest + prompt` |
-> | waiting_approval 是 Step status | `waiting_approval` 是 Step status + run.status（**不是**独立表） | 实施与设计一致 |
-> | ScopedGrant 字段集合 | 12 字段（含 D2.2 first-class `capability` column） | 实施与设计一致 |
-> | Sandbox 解析 | `sandboxProfileForApprovedCapability` (runtime/sandbox/profiles.ts) | 实施与设计一致 |
-> | 模型调用不走 §10 chain | LLMAdapter 不 import PolicyGate，不构造 ActionRequest | 实施与设计一致（§20 #3 配套 lock） |
+> | §10 字段（设计文字）                                                  | 实施字段（TypeScript ADT）                                                                                | 状态                                                                              |
+> | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+> | ActionRequest `actor`                                                 | `subject`                                                                                                 | 字段重命名（语义对齐 §10.3 ScopedGrant.subject）                                  |
+> | ActionRequest `argumentsDigest`                                       | `digest`                                                                                                  | 字段重命名（短化）                                                                |
+> | ActionRequest `context`                                               | `payload`                                                                                                 | 字段重命名                                                                        |
+> | ActionRequest (无 kind/risk)                                          | `kind` (`ActionKind`: read/write/command/delegate/outbound/model) + `risk` (`RiskLevel`: low/medium/high) | 实施扩面（D2.x 引入 kind/risk 用于 capability 路由 + risk-aware Policy）          |
+> | ScopedGrant 9 字段（id/runId/createdAtMs 隐式）                       | ScopedGrantRecord 12 字段 = 9 显式 + 3 DB 必需 (`id` / `runId` / `createdAtMs`)                           | 实施扩面（D2.2 capability first-class column 独立于 scope.capabilities）          |
+> | PolicyDecision `Allow` / `Deny(reason)` / `Ask(actionDigest, prompt)` | `Allow` / `Deny(reason)` / `Ask(question, expiresAtMs)`                                                   | `Ask` payload 字段调整：`question` + `expiresAtMs` 替代原 `actionDigest + prompt` |
+> | waiting_approval 是 Step status                                       | `waiting_approval` 是 Step status + run.status（**不是**独立表）                                          | 实施与设计一致                                                                    |
+> | ScopedGrant 字段集合                                                  | 12 字段（含 D2.2 first-class `capability` column）                                                        | 实施与设计一致                                                                    |
+> | Sandbox 解析                                                          | `sandboxProfileForApprovedCapability` (runtime/sandbox/profiles.ts)                                       | 实施与设计一致                                                                    |
+> | 模型调用不走 §10 chain                                                | LLMAdapter 不 import PolicyGate，不构造 ActionRequest                                                     | 实施与设计一致（§20 #3 配套 lock）                                                |
 >
 > 锁定方式：`tests/architecture/section10-governance-arch-guard.test.ts`（D27, 9 cases）+ §20 #1/#3/#7/#10 既有 lock。
 
@@ -572,6 +572,7 @@ Outbox 不作为通用领域事件总线。系统内部默认直接函数调用�
 - LLM 质量量化方法论基础设施 (declined, 2026-09-09 D51)：multi-round + prompt freeze baseline 工具链。**当前决定：decline** — 见 §18 对应 row；D47 fixture-recording 同源风险未解除前不启。
 
 **D53c re-eval (2026-09-11)**: 5 not-trigger 项 + 1 declined 项，0 状态变化，0 新 trigger evidence。证据：
+
 - 全量 Projection：owner 实测查询延迟未超预算（41/41 scenarios pass under D53a/D55 fresh verify N=3）；
 - Snapshot + DeltaChannel：D53a baseline snapshot 是 test artifact（41 scenarios N=3 wrap, `06855af6`）非 prod API，不构 trigger；
 - Command Bus / Query Bus：owner 实测同步耦合未严重；
@@ -703,9 +704,9 @@ Schedule 不是长期授权主体；它以 `system:scheduler` 创建 Run，能�
 >
 > **LLM pricing env vars**（D24，`apps/api/src/llm-pricing.ts` 解析）：
 >
-> | Env var | 含义 | 默认 |
-> |---|---|---|
-> | `BUTLER_V5_PRICING_<MODEL>_INPUT_PER_MTOK` | 模型输入价格 USD / 百万 token | 无即 costUsd=null |
+> | Env var                                     | 含义                          | 默认              |
+> | ------------------------------------------- | ----------------------------- | ----------------- |
+> | `BUTLER_V5_PRICING_<MODEL>_INPUT_PER_MTOK`  | 模型输入价格 USD / 百万 token | 无即 costUsd=null |
 > | `BUTLER_V5_PRICING_<MODEL>_OUTPUT_PER_MTOK` | 模型输出价格 USD / 百万 token | 无即 costUsd=null |
 >
 > `<MODEL>` = 模型标识大写 + `-` 替 `_`（e.g. `claude-sonnet-4-20250514` → `BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_INPUT_PER_MTOK`）。当前模型选择由 Model Port `packages/ports/src/core/model-port.ts:resolveModelForRole(env, "plan")` 统一解析（D44 P5 Model Port；Anthropic / DeepSeek / DashScope / MiniMax）；active model 由 `resolveCurrentLlmModel(env)` 解析。缺 env = 缺定价，trace costUsd = `null`（非 0 / 非 throw）。
@@ -766,13 +767,13 @@ Effect-TS 是可选实现工具，不是架构层级。
 
 采用 **pnpm workspace + turbo** 的 TS monorepo。包按"适配器 / 内核 / 端口"三条带聚类，依赖方向必须与运行时架构一致：
 
-| 包带 | 组成 | 依赖方向 |
-| --- | --- | --- |
-| **Driving 适配器（delivery）** | `apps/*`、`cli` | → Core.Ports → Core |
-| **Core 内核** | `runtime`（Application）、`domain`（Domain） | → ports 接口；不得 import persist/adapters 具体实现 |
-| **Ports** | 端口接口（如 `ports`） | 只依赖 domain 类型 |
-| **Driven 适配器** | `adapters`（模型/Channel/沙箱/MCP）、`persistence`（唯一 schema+repo）、`migration` | → ports + domain + 各自协议 SDK |
-| **配置/共享（可选瘦身）** | `config`、`shared` | 精简后的零依赖纯工具 |
+| 包带                           | 组成                                                                                | 依赖方向                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **Driving 适配器（delivery）** | `apps/*`、`cli`                                                                     | → Core.Ports → Core                                 |
+| **Core 内核**                  | `runtime`（Application）、`domain`（Domain）                                        | → ports 接口；不得 import persist/adapters 具体实现 |
+| **Ports**                      | 端口接口（如 `ports`）                                                              | 只依赖 domain 类型                                  |
+| **Driven 适配器**              | `adapters`（模型/Channel/沙箱/MCP）、`persistence`（唯一 schema+repo）、`migration` | → ports + domain + 各自协议 SDK                     |
+| **配置/共享（可选瘦身）**      | `config`、`shared`                                                                  | 精简后的零依赖纯工具                                |
 
 目标：**monorepo 里只保留生产调用链 + 明确的端口与驱动适配器**，未接线脚手架迁移/归档，降低认知负载。
 
@@ -796,7 +797,7 @@ Effect-TS 是可选实现工具，不是架构层级。
 > - **turbo.json**（D32 case #2 lock）：workspace root 存在；build/test pipeline orchestrator。
 > - **Core 不 import adapters**（D32 case #4 lock）：`runtime + domain` 0 import `@butler/adapters` / `packages/adapters`（§17.1 依赖方向 + §17.2 "Core 不被反向依赖" — 与 D26A §20 #2 互补）。
 > - **并行开发 3 条带**（§17.2）：driving (apps/api + cli) 只动 RunTrigger/Channel 端口（apps/api 6 entry points 都 import runButlerLoop，D26A #4 lock）；driven (adapters + persistence) 只动 Port 实现（D26A §20 #1 lock 三唯一 + D19 §17.3 lock workspace = 5 active）；Core (runtime + domain) 只动 RunEngine/策略/布会（D26A §20 #16 lock 单一 schema）。
-> - **§17.3 _archive 隔离**（D32 case #5 lock）：`vitest.config.ts`（prod test runner）显式 exclude `_archive/**`；archived tests 走 `vitest.archived.config.ts` 独立 runner（22 files / 101 tests，D19 baseline）。
+> - **§17.3 \_archive 隔离**（D32 case #5 lock）：`vitest.config.ts`（prod test runner）显式 exclude `_archive/**`；archived tests 走 `vitest.archived.config.ts` 独立 runner（22 files / 101 tests，D19 baseline）。
 >
 > 锁定方式：`tests/architecture/section17-1-2-monorepo-management.test.ts`（D32, 5 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18/D19）+ D26A §20 #2 + §20 #16 + D31 §7 5 cases 既有 lock。
 

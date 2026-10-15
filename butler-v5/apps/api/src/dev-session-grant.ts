@@ -37,10 +37,7 @@ export function isDevSessionPhrase(content: string): boolean {
   const t = content.trim().toLowerCase()
   if (t === "/开发模式" || t === "/dev" || t === "/dev mode") return true
   return (
-    t.includes("开发模式") ||
-    t.includes("进入开发") ||
-    t === "dev mode" ||
-    t.startsWith("开启开发")
+    t.includes("开发模式") || t.includes("进入开发") || t === "dev mode" || t.startsWith("开启开发")
   )
 }
 

@@ -83,41 +83,20 @@ import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 
 const SCHEMA = join(__dirname, "../../packages/persistence/src/schema.ts")
-const DURABLE_MEMORY = join(
-  __dirname,
-  "../../packages/domain/src/knowledge/durable-memory.ts",
-)
-const DEDUP = join(
-  __dirname,
-  "../../packages/domain/src/knowledge/dedup.ts",
-)
-const AUTO_PROMOTE = join(
-  __dirname,
-  "../../packages/domain/src/knowledge/auto-promote.ts",
-)
+const DURABLE_MEMORY = join(__dirname, "../../packages/domain/src/knowledge/durable-memory.ts")
+const DEDUP = join(__dirname, "../../packages/domain/src/knowledge/dedup.ts")
+const AUTO_PROMOTE = join(__dirname, "../../packages/domain/src/knowledge/auto-promote.ts")
 const PROJECT_KNOWLEDGE = join(
   __dirname,
   "../../packages/domain/src/knowledge/project-knowledge.ts",
 )
-const PK_STORE = join(
-  __dirname,
-  "../../packages/persistence/src/project-knowledge-store.ts",
-)
+const PK_STORE = join(__dirname, "../../packages/persistence/src/project-knowledge-store.ts")
 const API_TOOLS = join(__dirname, "../../apps/api/src/tools.ts")
-const MEMORY_TYPES = join(
-  __dirname,
-  "../../packages/domain/src/memory/types.ts",
-)
-const MEMORY_PURE = join(
-  __dirname,
-  "../../packages/domain/src/memory/pure.ts",
-)
+const MEMORY_TYPES = join(__dirname, "../../packages/domain/src/memory/types.ts")
+const MEMORY_PURE = join(__dirname, "../../packages/domain/src/memory/pure.ts")
 const RUNTIME_SRC = join(__dirname, "../../packages/runtime/src")
 const APPS_SRC = join(__dirname, "../../apps/api/src")
-const WECHAT_MEMORY_COMMANDS = join(
-  __dirname,
-  "../../apps/api/src/wechat-memory-commands.ts",
-)
+const WECHAT_MEMORY_COMMANDS = join(__dirname, "../../apps/api/src/wechat-memory-commands.ts")
 import { readOwnerRoutesSource } from "./owner-routes-source.js"
 
 function listProductionTs(root: string): string[] {
@@ -138,11 +117,7 @@ function listProductionTs(root: string): string[] {
           continue
         }
         walk(p)
-      } else if (
-        entry.endsWith(".ts") &&
-        !entry.endsWith(".test.ts") &&
-        !entry.endsWith(".d.ts")
-      ) {
+      } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) {
         out.push(p)
       }
     }
@@ -170,9 +145,7 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
       "messages pgTable (Transcript) must exist",
     ).toBe(true)
     expect(
-      /export\s+const\s+durableMemories\s*=\s*pgTable\s*\(\s*["']durable_memories["']/.test(
-        src,
-      ),
+      /export\s+const\s+durableMemories\s*=\s*pgTable\s*\(\s*["']durable_memories["']/.test(src),
       "durable_memories pgTable must exist (Durable Memory)",
     ).toBe(true)
     expect(
@@ -187,9 +160,7 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
 
   it("§12: DurableMemoryRecord carries the 4 §12 fields (sourceKind/confidence/expiresAt/status)", () => {
     const src = readFileSync(DURABLE_MEMORY, "utf-8")
-    const match = src.match(
-      /export interface DurableMemoryRecord\s*\{([\s\S]*?)\n\}/,
-    )
+    const match = src.match(/export interface DurableMemoryRecord\s*\{([\s\S]*?)\n\}/)
     expect(match, "DurableMemoryRecord interface not found").not.toBeNull()
     const body = match?.[1] ?? ""
     for (const field of ["sourceKind", "confidence", "expiresAt", "status"]) {
@@ -204,9 +175,7 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
 
   it("§12: DurableMemorySourceKind union covers the 3 source kinds (owner/message/document)", () => {
     const src = readFileSync(DURABLE_MEMORY, "utf-8")
-    const match = src.match(
-      /export type DurableMemorySourceKind\s*=\s*([\s\S]*?)\n\nexport/,
-    )
+    const match = src.match(/export type DurableMemorySourceKind\s*=\s*([\s\S]*?)\n\nexport/)
     expect(match, "DurableMemorySourceKind type not found").not.toBeNull()
     const body = match?.[1] ?? ""
     for (const kind of ["owner", "message", "document"]) {
@@ -225,11 +194,7 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
     )
     expect(match, "ProjectKnowledge type not found").not.toBeNull()
     const body = match?.[1] ?? ""
-    const FORBIDDEN = [
-      /\bsourceKind\b/,
-      /\bconfidence\b/,
-      /\bexpiresAt\b/,
-    ]
+    const FORBIDDEN = [/\bsourceKind\b/, /\bconfidence\b/, /\bexpiresAt\b/]
     const violations: string[] = []
     for (const re of FORBIDDEN) {
       if (re.test(body)) violations.push(`ProjectKnowledge: ${re}`)
@@ -249,10 +214,7 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
     const activeFiles = [...runtimeFiles, ...appsFiles]
     // Also exclude the type-only placeholder file (it's an intentional
     // dev-stage reservation; not an active invocation).
-    const FILES_EXCLUDED_FROM_INVOCATION_CHECK = new Set([
-      MEMORY_TYPES,
-      MEMORY_PURE,
-    ])
+    const FILES_EXCLUDED_FROM_INVOCATION_CHECK = new Set([MEMORY_TYPES, MEMORY_PURE])
     // Forbidden: actual call sites, not type references.
     const FORBIDDEN_PATTERNS: readonly (readonly [string, RegExp])[] = [
       ["DreamPhase call site", /(?<!\w)dream\s*\(\s*phase\s*:\s*DreamPhase/],
@@ -349,9 +311,7 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
 
   it("§12 G1: DurableMemoryStatus is a 4-member union including 'expired' (candidate expires cleanup, 2026-09-01)", () => {
     const src = readFileSync(DURABLE_MEMORY, "utf-8")
-    const match = src.match(
-      /export type DurableMemoryStatus\s*=\s*([\s\S]*?)\n\nexport/,
-    )
+    const match = src.match(/export type DurableMemoryStatus\s*=\s*([\s\S]*?)\n\nexport/)
     expect(match, "DurableMemoryStatus type not found").not.toBeNull()
     const body = match?.[1] ?? ""
     for (const status of ["candidate", "confirmed", "rejected", "expired"]) {
@@ -377,14 +337,12 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
 
   it("§12 G2: dedup module exists with trigramJaccard + findSimilarMemories exported (candidate dedup, 2026-09-01)", () => {
     const dedupSrc = readFileSync(DEDUP, "utf-8")
-    expect(
-      dedupSrc,
-      "dedup.ts must export trigramJaccard function (§12 G2)",
-    ).toMatch(/export function trigramJaccard/)
-    expect(
-      dedupSrc,
-      "dedup.ts must export findSimilarMemories function (§12 G2)",
-    ).toMatch(/export (async )?function findSimilarMemories/)
+    expect(dedupSrc, "dedup.ts must export trigramJaccard function (§12 G2)").toMatch(
+      /export function trigramJaccard/,
+    )
+    expect(dedupSrc, "dedup.ts must export findSimilarMemories function (§12 G2)").toMatch(
+      /export (async )?function findSimilarMemories/,
+    )
   })
 
   // ── 10. §12 G4 auto-promote 实证 (D42, 2026-09-01) ─────────────────
@@ -429,13 +387,11 @@ describe("arch: §12 知识层与记忆 (D30 — 3 tiers + Durable Memory trace 
       "tools.ts must not contain the old cross-project deny string (§12 G5)",
     ).not.toMatch(/cross-project project knowledge recall denied/)
     const pkSrc = readFileSync(PK_STORE, "utf-8")
-    expect(
-      pkSrc,
-      "project-knowledge-store.ts must expose listByProjects (§12 G5)",
-    ).toMatch(/listByProjects/)
-    expect(
-      pkSrc,
-      "project-knowledge-store.ts must expose listAllProjects (§12 G5)",
-    ).toMatch(/listAllProjects/)
+    expect(pkSrc, "project-knowledge-store.ts must expose listByProjects (§12 G5)").toMatch(
+      /listByProjects/,
+    )
+    expect(pkSrc, "project-knowledge-store.ts must expose listAllProjects (§12 G5)").toMatch(
+      /listAllProjects/,
+    )
   })
 })

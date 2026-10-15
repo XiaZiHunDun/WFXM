@@ -4,12 +4,7 @@ import { envTruthy } from "./env-util.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 
 export type WechatIntakeIntentKind =
-  | "chat"
-  | "dev_task"
-  | "dev_session"
-  | "switch_project"
-  | "continue_dev"
-  | "task_digest"
+  "chat" | "dev_task" | "dev_session" | "switch_project" | "continue_dev" | "task_digest"
 
 const EXEC_TOOL_NAMES = ["run_command", "write_file"] as const
 

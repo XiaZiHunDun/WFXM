@@ -78,7 +78,8 @@ function checkLayerImports(filePath, content) {
     findings.push({ severity: "BLOCK", message: "ports 层不能导入 application 层" })
   }
   if (
-    (rel.includes("packages/infrastructure/") || rel.includes("_archive/packages/infrastructure/")) &&
+    (rel.includes("packages/infrastructure/") ||
+      rel.includes("_archive/packages/infrastructure/")) &&
     content.includes("@butler/application")
   ) {
     findings.push({ severity: "BLOCK", message: "infrastructure 层不能导入 application 层" })

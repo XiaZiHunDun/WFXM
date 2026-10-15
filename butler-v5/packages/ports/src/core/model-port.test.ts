@@ -31,7 +31,11 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
 
     it("honors BUTLER_V5_MODEL_PLAN / DEEPSEEK_MODEL for DeepSeek model", () => {
       expect(
-        resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", BUTLER_V5_MODEL_PLAN: "deepseek-v4-x", ...empty }),
+        resolveModelForRole({
+          DEEPSEEK_API_KEY: "ds-1",
+          BUTLER_V5_MODEL_PLAN: "deepseek-v4-x",
+          ...empty,
+        }),
       ).toEqual({ provider: "deepseek", model: "deepseek-v4-x" })
     })
 
@@ -66,44 +70,60 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
 
   describe("exec", () => {
     it("prefers MiniMax when MINIMAX_API_KEY set", () => {
-      expect(
-        resolveModelForRole({ MINIMAX_API_KEY: "sk-mm", ...empty }, "exec"),
-      ).toEqual({ provider: "minimax", model: "MiniMax-M3" })
+      expect(resolveModelForRole({ MINIMAX_API_KEY: "sk-mm", ...empty }, "exec")).toEqual({
+        provider: "minimax",
+        model: "MiniMax-M3",
+      })
     })
 
     it("honors BUTLER_V5_MODEL_EXEC for MiniMax", () => {
       expect(
-        resolveModelForRole({ MINIMAX_API_KEY: "sk-mm", BUTLER_V5_MODEL_EXEC: "abab6.5", ...empty }, "exec"),
+        resolveModelForRole(
+          { MINIMAX_API_KEY: "sk-mm", BUTLER_V5_MODEL_EXEC: "abab6.5", ...empty },
+          "exec",
+        ),
       ).toEqual({ provider: "minimax", model: "abab6.5" })
     })
 
     it("routes deepseek-name + deepseek key to DeepSeek (fix 400)", () => {
       expect(
         resolveModelForRole(
-          { DEEPSEEK_API_KEY: "ds-1", MINIMAX_API_KEY: "sk-mm", BUTLER_V5_MODEL_EXEC: "deepseek-chat", ...empty },
+          {
+            DEEPSEEK_API_KEY: "ds-1",
+            MINIMAX_API_KEY: "sk-mm",
+            BUTLER_V5_MODEL_EXEC: "deepseek-chat",
+            ...empty,
+          },
           "exec",
         ),
       ).toEqual({ provider: "deepseek", model: "deepseek-chat" })
     })
 
     it("falls back to plan when no exec provider configured", () => {
-      expect(
-        resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", ...empty }, "exec"),
-      ).toEqual({ provider: "deepseek", model: "deepseek-chat" })
+      expect(resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", ...empty }, "exec")).toEqual({
+        provider: "deepseek",
+        model: "deepseek-chat",
+      })
     })
   })
 
   describe("intake", () => {
     it("prefers DeepSeek when DEEPSEEK_API_KEY set", () => {
-      expect(
-        resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", ...empty }, "intake"),
-      ).toEqual({ provider: "deepseek", model: "deepseek-chat" })
+      expect(resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", ...empty }, "intake")).toEqual({
+        provider: "deepseek",
+        model: "deepseek-chat",
+      })
     })
 
     it("honors BUTLER_V5_MODEL_INTAKE then BUTLER_V5_MODEL_PLAN", () => {
       expect(
         resolveModelForRole(
-          { DEEPSEEK_API_KEY: "ds-1", BUTLER_V5_MODEL_INTAKE: "intake-m", BUTLER_V5_MODEL_PLAN: "plan-m", ...empty },
+          {
+            DEEPSEEK_API_KEY: "ds-1",
+            BUTLER_V5_MODEL_INTAKE: "intake-m",
+            BUTLER_V5_MODEL_PLAN: "plan-m",
+            ...empty,
+          },
           "intake",
         ).model,
       ).toBe("intake-m")

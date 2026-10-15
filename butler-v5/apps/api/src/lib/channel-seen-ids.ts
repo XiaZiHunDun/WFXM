@@ -32,10 +32,7 @@ const seen: Map<string, SeenEntry> = new Map()
  * Records (channelId, messageId) as seen and returns true on first
  * sight, false on duplicate (within TTL window).
  */
-export function markChannelSeen(
-  channelId: string,
-  messageId: string,
-): boolean {
+export function markChannelSeen(channelId: string, messageId: string): boolean {
   const key = `${channelId}:${messageId}`
   const now = Date.now()
   const existing = seen.get(key)

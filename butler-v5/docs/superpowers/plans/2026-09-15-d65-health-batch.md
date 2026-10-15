@@ -14,22 +14,22 @@
 
 ## File Structure
 
-| Track | File | Change |
-|---|---|---|
-| T1 | `apps/api/src/lib/fatigue/execute-tool-with-fatigue.ts` | NEW (~60 lines, 3 exports) |
-| T1 | `apps/api/src/wechat-inbound-butler.ts` | MODIFY: extract fatigue decision block |
-| T1 | `apps/api/src/lib/fatigue/execute-tool-with-fatigue.test.ts` | NEW (3 unit tests) |
-| T2a | `apps/api/src/owner-routes/memories.ts` | MODIFY: extract largest handler |
-| T2a | `apps/api/src/owner-routes/memories-{handler}.ts` | NEW (extracted handler) |
-| T2b-d | similar for traces-procedures-tasks / documents / approvals-runs | pattern × 3 |
-| T3 | `apps/api/src/lib/fatigue/checklist.ts` | MODIFY: array-type (3 lines) |
-| T3 | `apps/api/src/lib/fatigue/signal.ts` | MODIFY: array-type (2 lines) |
-| T3 | `apps/api/src/lib/fatigue/signal.test.ts` | MODIFY: array-type (1 line) |
-| T3 | `apps/api/src/lib/fatigue/inline-approval-wiring.ts` | MODIFY: unused-vars (1 char) |
-| T4 | 5 of 6 wechat-*.ts files | MODIFY: reply-string owner-jargon revert |
-| T4 | 5 corresponding *.test.ts files | MODIFY: assertion update same batch |
-| T5 | (sweep pass) | minor cleanup if any |
-| post-fix | `.audit/D65/{summary.md, protocol-compliance.md}` | NEW |
+| Track    | File                                                             | Change                                   |
+| -------- | ---------------------------------------------------------------- | ---------------------------------------- |
+| T1       | `apps/api/src/lib/fatigue/execute-tool-with-fatigue.ts`          | NEW (~60 lines, 3 exports)               |
+| T1       | `apps/api/src/wechat-inbound-butler.ts`                          | MODIFY: extract fatigue decision block   |
+| T1       | `apps/api/src/lib/fatigue/execute-tool-with-fatigue.test.ts`     | NEW (3 unit tests)                       |
+| T2a      | `apps/api/src/owner-routes/memories.ts`                          | MODIFY: extract largest handler          |
+| T2a      | `apps/api/src/owner-routes/memories-{handler}.ts`                | NEW (extracted handler)                  |
+| T2b-d    | similar for traces-procedures-tasks / documents / approvals-runs | pattern × 3                              |
+| T3       | `apps/api/src/lib/fatigue/checklist.ts`                          | MODIFY: array-type (3 lines)             |
+| T3       | `apps/api/src/lib/fatigue/signal.ts`                             | MODIFY: array-type (2 lines)             |
+| T3       | `apps/api/src/lib/fatigue/signal.test.ts`                        | MODIFY: array-type (1 line)              |
+| T3       | `apps/api/src/lib/fatigue/inline-approval-wiring.ts`             | MODIFY: unused-vars (1 char)             |
+| T4       | 5 of 6 wechat-*.ts files                                         | MODIFY: reply-string owner-jargon revert |
+| T4       | 5 corresponding *.test.ts files                                  | MODIFY: assertion update same batch      |
+| T5       | (sweep pass)                                                     | minor cleanup if any                     |
+| post-fix | `.audit/D65/{summary.md, protocol-compliance.md}`                | NEW                                      |
 
 预估 net: -150 / +250 lines (split + extraction reduce nesting).
 
@@ -37,23 +37,24 @@
 
 ## Commit Plan
 
-| Task | Track | Commit |
-|---|---|---|
-| Task 1 | T1: runButlerLoopBody god-fn split | `refactor(fatigue): T1 extract execute-tool-with-fatigue` |
-| Task 2 | T2a: memories.ts partial split | `refactor(routes): T2a memories.ts handler extract` |
-| Task 3 | T2b: traces-procedures-tasks.ts split | `refactor(routes): T2b traces-procedures-tasks split` |
-| Task 4 | T2c: documents.ts split | `refactor(routes): T2c documents split` |
-| Task 5 | T2d: approvals-runs.ts split | `refactor(routes): T2d approvals-runs split` |
-| Task 6 | T3: ESLint cleanup | `style(fatigue): T3 ESLint array-type + unused-vars` |
-| Task 7 | T4: D63 T2 owner-jargon 5 sites | `refactor(jargon): T4 D63 T2 5 sites revert + tests` |
-| Task 8 | T5: knip + minor sweep | `chore: T5 knip clean + D62/D63 T5 minor` |
-| Task 9 | post-fix: drift + audit | `fix(drift): D65 close` + `docs(audit): D65 archive` |
+| Task   | Track                                 | Commit                                                    |
+| ------ | ------------------------------------- | --------------------------------------------------------- |
+| Task 1 | T1: runButlerLoopBody god-fn split    | `refactor(fatigue): T1 extract execute-tool-with-fatigue` |
+| Task 2 | T2a: memories.ts partial split        | `refactor(routes): T2a memories.ts handler extract`       |
+| Task 3 | T2b: traces-procedures-tasks.ts split | `refactor(routes): T2b traces-procedures-tasks split`     |
+| Task 4 | T2c: documents.ts split               | `refactor(routes): T2c documents split`                   |
+| Task 5 | T2d: approvals-runs.ts split          | `refactor(routes): T2d approvals-runs split`              |
+| Task 6 | T3: ESLint cleanup                    | `style(fatigue): T3 ESLint array-type + unused-vars`      |
+| Task 7 | T4: D63 T2 owner-jargon 5 sites       | `refactor(jargon): T4 D63 T2 5 sites revert + tests`      |
+| Task 8 | T5: knip + minor sweep                | `chore: T5 knip clean + D62/D63 T5 minor`                 |
+| Task 9 | post-fix: drift + audit               | `fix(drift): D65 close` + `docs(audit): D65 archive`      |
 
 ---
 
 ## Task 1: T1 runButlerLoopBody god-fn split
 
 **Files:**
+
 - Create: `apps/api/src/lib/fatigue/execute-tool-with-fatigue.ts`
 - Modify: `apps/api/src/wechat-inbound-butler.ts:580-625` (extract fatigue decision block)
 - Create: `apps/api/src/lib/fatigue/execute-tool-with-fatigue.test.ts`
@@ -93,7 +94,7 @@ function makeReader(count: number): AuditLogReader {
         actor: "owner",
         ts: Date.now() - i * 1000,
         decision: "allow",
-      }))
+      })),
     ),
   }
 }
@@ -182,12 +183,11 @@ Find the existing block that calls `evaluateChannelApproval` for fatigue mitigat
 import { executeToolWithFatigue } from "./lib/fatigue/execute-tool-with-fatigue"
 
 // In runButlerLoopBody (replacing the ~50-line fatigue decision block):
-const toolDecision = await executeToolWithFatigue(
-  toolName,
-  toolArgs,
-  auditLogReader,
-  { channel: "wechat", actor: ownerId, correlationId: runId },
-)
+const toolDecision = await executeToolWithFatigue(toolName, toolArgs, auditLogReader, {
+  channel: "wechat",
+  actor: ownerId,
+  correlationId: runId,
+})
 switch (toolDecision.kind) {
   case "allow":
     break // proceed to toolExecutor.execute below
@@ -229,6 +229,7 @@ Use `--no-verify` if pre-commit hook flakes (per memory `feedback-precommit-hook
 ## Task 2: T2a memories.ts partial god-fn split
 
 **Files:**
+
 - Modify: `apps/api/src/owner-routes/memories.ts` (extract largest handler)
 - Create: `apps/api/src/owner-routes/memories-{handler}.ts` (NEW extracted handler)
 
@@ -244,6 +245,7 @@ Expected: pass (baseline).
 ### Step 2: Identify largest handler function in memories.ts
 
 Read the file:
+
 ```bash
 cd /home/ailearn/projects/WFXM/butler-v5
 grep -n "^function\|^export function\|^app\." apps/api/src/owner-routes/memories.ts | head -20
@@ -258,6 +260,7 @@ Create `apps/api/src/owner-routes/memories-{handler}.ts` containing the extracte
 ### Step 4: Update memories.ts to re-export from new file
 
 In `apps/api/src/owner-routes/memories.ts`:
+
 - Remove the extracted function body
 - Add `export { handler } from "./memories-{handler}"` (or similar)
 
@@ -287,6 +290,7 @@ git push origin main
 Same pattern as Task 2, but for `apps/api/src/owner-routes/traces-procedures-tasks.ts` (255 lines).
 
 **Files:**
+
 - Modify: `apps/api/src/owner-routes/traces-procedures-tasks.ts`
 - Create: `apps/api/src/owner-routes/traces-procedures-tasks-{handler}.ts`
 
@@ -301,6 +305,7 @@ Commit message: `refactor(routes): T2b traces-procedures-tasks split`
 Same pattern as Task 2, but for `apps/api/src/owner-routes/documents.ts` (255 lines).
 
 **Files:**
+
 - Modify: `apps/api/src/owner-routes/documents.ts`
 - Create: `apps/api/src/owner-routes/documents-{handler}.ts`
 
@@ -313,6 +318,7 @@ Steps mirror Task 2. Commit message: `refactor(routes): T2c documents split`
 Same pattern as Task 2, but for `apps/api/src/owner-routes/approvals-runs.ts` (222 lines).
 
 **Files:**
+
 - Modify: `apps/api/src/owner-routes/approvals-runs.ts`
 - Create: `apps/api/src/owner-routes/approvals-runs-{handler}.ts`
 
@@ -323,6 +329,7 @@ Steps mirror Task 2. Commit message: `refactor(routes): T2d approvals-runs split
 ## Task 6: T3 ESLint cleanup 7 warnings
 
 **Files:**
+
 - Modify: `apps/api/src/lib/fatigue/checklist.ts` (3 array-type)
 - Modify: `apps/api/src/lib/fatigue/signal.ts` (2 array-type)
 - Modify: `apps/api/src/lib/fatigue/signal.test.ts` (1 array-type)
@@ -390,12 +397,14 @@ git push origin main
 ## Task 7: T4 D63 T2 owner-jargon 5 sites revert
 
 **Files:**
+
 - Modify: 5 of 6 wechat-*.ts files (or other files identified with internal jargon leakage)
 - Modify: 5 corresponding *.test.ts files (assertion update same batch per memory)
 
 ### Step 1: Identify 5 sites with internal jargon leakage
 
 Files identified with owner-jargon usage (from earlier grep):
+
 - `apps/api/src/wechat-task-commands.ts`
 - `apps/api/src/dev-quality-gate.ts`
 - `apps/api/src/wechat-task-digest-reply.ts`
@@ -418,6 +427,7 @@ Pick the 5 sites with the most owner-facing jargon leakage. Note the specific li
 ### Step 2: Revert jargon to owner-friendly language
 
 For each of the 5 identified sites:
+
 - Replace internal jargon in owner-facing strings with owner-friendly language
 - Use `apps/api/src/owner-jargon.ts` helper if applicable
 - Example: "approve" → owner-friendly alternative (e.g., "确认", "好了", "ok")
@@ -451,6 +461,7 @@ git push origin main
 ## Task 8: T5 knip clean + D62/D63 T5 minor sweep
 
 **Files:**
+
 - Various (sweep pass)
 
 ### Step 1: Run knip to check for new deadcode
@@ -498,6 +509,7 @@ If no changes, skip this step.
 ## Task 9: post-fix drift closure + raw findings archive
 
 **Files:**
+
 - Modify: `.audit/D65/{summary.md, protocol-compliance.md}` (NEW)
 - Modify: `MEMORY.md` (update Current State)
 - Any drift fixes (if found)
@@ -515,6 +527,7 @@ pnpm knip 2>&1 | tail -5
 ```
 
 Expected gates:
+
 - lint (fatigue/*.ts): 0 warnings (was 7)
 - typecheck: 0 errors
 - test:full: 1990+ pass, 6 unchanged pre-existing fail, 0 new fail
@@ -587,6 +600,7 @@ git push origin main
 ### Step 5: Update MEMORY.md
 
 Update MEMORY Current State section:
+
 - HEAD: `64e92d50` → new HEAD after T9 commit
 - State: PAUSED post-D65
 - Gates: N=3 fresh verify
@@ -597,14 +611,14 @@ Update MEMORY Current State section:
 
 ## Acceptance Gates (N=3 fresh verify)
 
-| Gate | Baseline | D65 expected |
-|---|---|---|
-| lint (fatigue/*.ts) | 7 warnings | 0 warnings |
-| typecheck | 0 errors | 0 new errors |
-| test:full | 1990 pass 6 pre-existing fail | 1990+ pass, 6 unchanged, 0 new fail |
-| acceptance | 44/44 | 44/44 unchanged |
-| methodology | 13/13 | 13/13 unchanged |
-| knip | 0 deadcode | 0 new deadcode |
+| Gate                | Baseline                      | D65 expected                        |
+| ------------------- | ----------------------------- | ----------------------------------- |
+| lint (fatigue/*.ts) | 7 warnings                    | 0 warnings                          |
+| typecheck           | 0 errors                      | 0 new errors                        |
+| test:full           | 1990 pass 6 pre-existing fail | 1990+ pass, 6 unchanged, 0 new fail |
+| acceptance          | 44/44                         | 44/44 unchanged                     |
+| methodology         | 13/13                         | 13/13 unchanged                     |
+| knip                | 0 deadcode                    | 0 new deadcode                      |
 
 ---
 

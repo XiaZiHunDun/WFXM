@@ -6,9 +6,9 @@ import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 
 describe("tool-boundary", () => {
   it("resolveOwnerSubject prefers BUTLER_OWNER_WECHAT_ID", () => {
-    expect(
-      resolveOwnerSubject({ BUTLER_OWNER_WECHAT_ID: "owner-a, owner-b" }, "fallback"),
-    ).toBe("owner-a")
+    expect(resolveOwnerSubject({ BUTLER_OWNER_WECHAT_ID: "owner-a, owner-b" }, "fallback")).toBe(
+      "owner-a",
+    )
     expect(resolveOwnerSubject({}, "fallback")).toBe("fallback")
   })
 
@@ -33,10 +33,10 @@ describe("tool-boundary", () => {
   })
 
   it("routes MCP tools through extra provider registration", async () => {
-    const mcpDef = makeMcpToolDefinition(
-      { name: "search", description: "search" },
-      async () => ({ ok: true, output: "mcp-hit" }),
-    )
+    const mcpDef = makeMcpToolDefinition({ name: "search", description: "search" }, async () => ({
+      ok: true,
+      output: "mcp-hit",
+    }))
     const executor = makeToolExecutor({
       tools: [mcpDef],
       ownerSubject: "owner-1",
@@ -64,10 +64,10 @@ describe("tool-boundary", () => {
   })
 
   it("P3-3: denies MCP to child (non-owner) subject", async () => {
-    const mcpDef = makeMcpToolDefinition(
-      { name: "search", description: "search" },
-      async () => ({ ok: true, output: "mcp-hit" }),
-    )
+    const mcpDef = makeMcpToolDefinition({ name: "search", description: "search" }, async () => ({
+      ok: true,
+      output: "mcp-hit",
+    }))
     const executor = makeToolExecutor({
       tools: [mcpDef],
       ownerSubject: "owner-1",

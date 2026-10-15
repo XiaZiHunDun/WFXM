@@ -6,11 +6,7 @@ import {
   DEFAULT_WECHAT_CDN_BASE_URL,
   type ILinkResult,
 } from "@butler/adapters"
-import {
-  envAllowsPrivateInboundHosts,
-  isBlockedInboundHost,
-} from "./mcp-config.js"
-
+import { envAllowsPrivateInboundHosts, isBlockedInboundHost } from "./mcp-config.js"
 
 export type DmPolicy = "open" | "allowlist" | "disabled"
 
@@ -98,14 +94,14 @@ export function parseIlinkPollerConfig(env: NodeJS.ProcessEnv): ILinkResult<Ilin
   ).trim()
   const workspaceRoot = (env["BUTLER_V5_WORKSPACE_ROOT"] ?? process.cwd()).trim()
   // D60 T4.3 (audit #1 F-16/F-28/F-29): clamp operator-supplied media-size
-// env var to the 100MB safety cap so a typo (e.g. =999999999999) can't
-// bypass the gate.
-const MAX_MEDIA_BYTES_CAP = 100 * 1024 * 1024
-const rawMaxBytes = Number(env["WECHAT_MEDIA_MAX_BYTES"] ?? 8 * 1024 * 1024)
-const mediaMaxBytes =
-  Number.isFinite(rawMaxBytes) && rawMaxBytes > 0
-    ? Math.min(rawMaxBytes, MAX_MEDIA_BYTES_CAP)
-    : 8 * 1024 * 1024
+  // env var to the 100MB safety cap so a typo (e.g. =999999999999) can't
+  // bypass the gate.
+  const MAX_MEDIA_BYTES_CAP = 100 * 1024 * 1024
+  const rawMaxBytes = Number(env["WECHAT_MEDIA_MAX_BYTES"] ?? 8 * 1024 * 1024)
+  const mediaMaxBytes =
+    Number.isFinite(rawMaxBytes) && rawMaxBytes > 0
+      ? Math.min(rawMaxBytes, MAX_MEDIA_BYTES_CAP)
+      : 8 * 1024 * 1024
   return {
     ok: true,
     value: {

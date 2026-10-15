@@ -68,13 +68,28 @@ describe("projectKnowledgeStore", () => {
       const noProjects = await store.listAllProjects()
       expect(noProjects).toEqual([])
 
-      const a = createProjectKnowledgeRecord({ projectId: "WFXM", title: "a", kind: "manual_note", body: "x" })
+      const a = createProjectKnowledgeRecord({
+        projectId: "WFXM",
+        title: "a",
+        kind: "manual_note",
+        body: "x",
+      })
       if (!a.ok) throw new Error(a.reason)
       await store.create(a.value)
-      const b = createProjectKnowledgeRecord({ projectId: "WFXM", title: "b", kind: "manual_note", body: "y" })
+      const b = createProjectKnowledgeRecord({
+        projectId: "WFXM",
+        title: "b",
+        kind: "manual_note",
+        body: "y",
+      })
       if (!b.ok) throw new Error(b.reason)
       await store.create(b.value)
-      const c = createProjectKnowledgeRecord({ projectId: "LingWen", title: "c", kind: "manual_note", body: "z" })
+      const c = createProjectKnowledgeRecord({
+        projectId: "LingWen",
+        title: "c",
+        kind: "manual_note",
+        body: "z",
+      })
       if (!c.ok) throw new Error(c.reason)
       await store.create(c.value)
 
@@ -90,13 +105,21 @@ describe("projectKnowledgeStore", () => {
     try {
       const store = createProjectKnowledgeStore(db.db)
       for (const p of ["WFXM", "WFXM", "LingWen"]) {
-        const r = createProjectKnowledgeRecord({ projectId: p, title: "t", kind: "manual_note", body: "body" })
+        const r = createProjectKnowledgeRecord({
+          projectId: p,
+          title: "t",
+          kind: "manual_note",
+          body: "body",
+        })
         if (!r.ok) throw new Error(r.reason)
         await store.create(r.value)
       }
       const all = await store.listByProjects({ projectIds: ["WFXM", "LingWen"] })
       expect(all.map((r) => r.projectId).sort()).toEqual(["LingWen", "WFXM", "WFXM"])
-      const limited = await store.listByProjects({ projectIds: ["WFXM", "LingWen"], perProjectLimit: 1 })
+      const limited = await store.listByProjects({
+        projectIds: ["WFXM", "LingWen"],
+        perProjectLimit: 1,
+      })
       expect(limited).toHaveLength(2)
     } finally {
       await db.close()

@@ -46,7 +46,11 @@ export function makeMcpStdioTransport(config: McpStdioTransportConfig): McpTrans
     child.onLine((line) => {
       const trimmed = line.trim()
       if (!trimmed) return
-      let parsed: { readonly id?: number; readonly error?: { readonly message?: string }; readonly result?: unknown }
+      let parsed: {
+        readonly id?: number
+        readonly error?: { readonly message?: string }
+        readonly result?: unknown
+      }
       try {
         parsed = JSON.parse(trimmed) as typeof parsed
       } catch {

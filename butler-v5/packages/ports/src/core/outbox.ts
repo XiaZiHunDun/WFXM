@@ -24,9 +24,7 @@ export interface OutboxMessage {
 
 export interface OutboxPort {
   /** 入队。事务提交后调用；返回新消息 id。 */
-  readonly enqueue: (
-    input: OutboxEnqueueInput,
-  ) => Promise<{ readonly messageId: string }>
+  readonly enqueue: (input: OutboxEnqueueInput) => Promise<{ readonly messageId: string }>
 
   /** 拉取一批可处理消息（默认上限 10 条）；仅返回未 complete/fail 的。 */
   readonly claim: () => Promise<readonly OutboxMessage[]>
@@ -38,9 +36,7 @@ export interface OutboxPort {
   readonly fail: (messageId: string, error: string) => Promise<void>
 
   /** 运行一轮 worker：循环 claim → handler → complete/fail，返回处理条数。 */
-  readonly runWorker: (
-    handler: (msg: OutboxMessage) => Promise<void>,
-  ) => Promise<number>
+  readonly runWorker: (handler: (msg: OutboxMessage) => Promise<void>) => Promise<number>
 }
 
 /** 内存 outbox：开发/测试用；不持久化、lease 不强制。 */

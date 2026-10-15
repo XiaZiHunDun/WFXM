@@ -7,7 +7,11 @@ import {
   resolveSandboxNetworkMode,
   validateNetworkAllowlist,
 } from "./network-allowlist.js"
-import { destinationKey, envAllowPrivateEgress, hostnamesFromNetworkAllowlist } from "./network-allowlist.js"
+import {
+  destinationKey,
+  envAllowPrivateEgress,
+  hostnamesFromNetworkAllowlist,
+} from "./network-allowlist.js"
 
 describe("network allowlist", () => {
   it("normalizes host:port and default port 443", () => {
@@ -43,10 +47,7 @@ describe("network allowlist", () => {
   it("deduplicates and caps entries", () => {
     const entries = Array.from({ length: 9 }, (_, i) => `host${i}.example.com`)
     expect(validateNetworkAllowlist(entries).ok).toBe(false)
-    const dup = validateNetworkAllowlist([
-      "registry.npmjs.org",
-      "registry.npmjs.org:443",
-    ])
+    const dup = validateNetworkAllowlist(["registry.npmjs.org", "registry.npmjs.org:443"])
     expect(dup.ok).toBe(true)
     if (dup.ok) expect(dup.normalized).toEqual(["registry.npmjs.org:443"])
   })
@@ -59,12 +60,12 @@ describe("network allowlist", () => {
   })
 
   it("matches destination host:port", () => {
-    expect(isDestinationAllowedInNetworkAllowlist("Registry.npmjs.org", 443, [
-      "registry.npmjs.org:443",
-    ])).toBe(true)
-    expect(isDestinationAllowedInNetworkAllowlist("evil.example", 443, ["registry.npmjs.org:443"])).toBe(
-      false,
-    )
+    expect(
+      isDestinationAllowedInNetworkAllowlist("Registry.npmjs.org", 443, ["registry.npmjs.org:443"]),
+    ).toBe(true)
+    expect(
+      isDestinationAllowedInNetworkAllowlist("evil.example", 443, ["registry.npmjs.org:443"]),
+    ).toBe(false)
   })
 
   it("resolveSandboxNetworkMode defaults to binary", () => {

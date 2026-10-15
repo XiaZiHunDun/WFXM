@@ -36,18 +36,18 @@ export type UndoFn = (
 ) => Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }>
 
 const SEQUENCE_GAP_MS = 10_000 // 10s gap = new sequence
-const IRREVERSIBLE_TOOLS = ['send_*', 'broadcast_*', 'external_write', 'run_command']
+const IRREVERSIBLE_TOOLS = ["send_*", "broadcast_*", "external_write", "run_command"]
 const REPLAY_WINDOW_HOURS = 24
 
 // Precompile irreversible patterns once (regex metachars + glob * → .*)
 // Matches checklist.ts:globToRegex so sibling files share one escape strategy.
-const IRREVERSIBLE_PATTERNS = IRREVERSIBLE_TOOLS.map(pattern => {
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
-  return new RegExp('^' + escaped + '$')
+const IRREVERSIBLE_PATTERNS = IRREVERSIBLE_TOOLS.map((pattern) => {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")
+  return new RegExp("^" + escaped + "$")
 })
 
 function isIrreversible(toolName: string): boolean {
-  return IRREVERSIBLE_PATTERNS.some(regex => regex.test(toolName))
+  return IRREVERSIBLE_PATTERNS.some((regex) => regex.test(toolName))
 }
 
 function groupIntoSequences(events: readonly AuditEventSummary[]): readonly FatigueSequence[] {
@@ -72,10 +72,7 @@ function groupIntoSequences(events: readonly AuditEventSummary[]): readonly Fati
   return sequences.sort((a, b) => b.start_ts - a.start_ts)
 }
 
-function pushIfSequence(
-  sequences: FatigueSequence[],
-  group: readonly AuditEventSummary[],
-): void {
+function pushIfSequence(sequences: FatigueSequence[], group: readonly AuditEventSummary[]): void {
   if (group.length < DEFAULT_COUNT_THRESHOLD) return
   const first = group[0] as AuditEventSummary
   const last = group[group.length - 1] as AuditEventSummary
@@ -83,7 +80,7 @@ function pushIfSequence(
     start_ts: first.ts,
     end_ts: last.ts,
     count: group.length,
-    event_ids: group.map(e => e.event_id),
+    event_ids: group.map((e) => e.event_id),
   })
 }
 
@@ -94,7 +91,7 @@ export async function listFatigueSequences(
 ): Promise<ListFatigueSequencesResult> {
   try {
     const events = await reader.readRecent(windowSeconds * 1000)
-    const ownerEvents = events.filter(e => e.actor === ownerActor)
+    const ownerEvents = events.filter((e) => e.actor === ownerActor)
     return { sequences: groupIntoSequences(ownerEvents) }
   } catch {
     return { sequences: [], degraded: true }
@@ -108,7 +105,7 @@ export async function replayFatigueSequence(
   undo: UndoFn,
 ): Promise<ReplayResult> {
   const events = await reader.readRecent(REPLAY_WINDOW_HOURS * 60 * 60 * 1000)
-  const byId = new Map(events.map(e => [e.event_id, e]))
+  const byId = new Map(events.map((e) => [e.event_id, e]))
   const replayed: string[] = []
   const irreversible: string[] = []
   const failed: { event_id: string; reason: string }[] = []
@@ -116,7 +113,7 @@ export async function replayFatigueSequence(
   for (const eventId of sequenceEventIds) {
     const event = byId.get(eventId)
     if (!event) {
-      failed.push({ event_id: eventId, reason: 'event not found in 24h window' })
+      failed.push({ event_id: eventId, reason: "event not found in 24h window" })
       continue
     }
     if (event.actor !== ownerActor) {

@@ -191,7 +191,9 @@ export function resolveMcpToolRisk(
 }
 
 /** Map a server + its tool names to concrete registered MCP capabilities. */
-export function mcpToolsFromServer(server: McpServerDescriptor): readonly McpServerToolRegistration[] {
+export function mcpToolsFromServer(
+  server: McpServerDescriptor,
+): readonly McpServerToolRegistration[] {
   const serverId = normalizeMcpServerId(server.id)
   if (!serverId) return []
   return server.tools
@@ -275,9 +277,6 @@ function isBlank(value: unknown): boolean {
  * child/no-MCP subject unless it runs as the owner. Grants must be delegable to
  * carry MCP into a child; default is fail-closed.
  */
-export function mcpAllowedForRunSubject(
-  subject: string,
-  ownerSubject: string,
-): boolean {
+export function mcpAllowedForRunSubject(subject: string, ownerSubject: string): boolean {
   return subject.trim() === ownerSubject.trim()
 }

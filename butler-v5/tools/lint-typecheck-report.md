@@ -42,10 +42,10 @@
 
 ## Comparison to D45 + D53a
 
-| Date | Commit | Lint | Typecheck | Arch-proxy |
-|---|---|---|---|---|
-| 2026-09-08 | D45 (818ec54d) | 0 | 0 | 0 |
-| 2026-09-10 | D53a (acc60f38) | 0 | 0 | 219/219 |
-| 2026-09-11 | D53b (this) | 0 | 0 | 219/219 |
+| Date       | Commit          | Lint | Typecheck | Arch-proxy |
+| ---------- | --------------- | ---- | --------- | ---------- |
+| 2026-09-08 | D45 (818ec54d)  | 0    | 0         | 0          |
+| 2026-09-10 | D53a (acc60f38) | 0    | 0         | 219/219    |
+| 2026-09-11 | D53b (this)     | 0    | 0         | 219/219    |
 
 D53b maintains the 0-drift state established by D45.

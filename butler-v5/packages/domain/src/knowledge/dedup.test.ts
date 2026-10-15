@@ -88,8 +88,7 @@ describe("findSimilarMemories", () => {
       status: "confirmed" as const,
     }))
     const store = {
-      findCandidatesForDedup: async (input: { limit: number }) =>
-        candidates.slice(0, input.limit),
+      findCandidatesForDedup: async (input: { limit: number }) => candidates.slice(0, input.limit),
     }
     const result = await findSimilarMemories({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub

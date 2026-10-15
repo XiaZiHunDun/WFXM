@@ -1,11 +1,7 @@
 // domain/projects/pure.ts
 // 项目域纯函数 — Spec 校验、委派任务输入验证
 
-import type {
-  Project,
-  Spec,
-  DelegateTaskInput,
-} from "./types.js"
+import type { Project, Spec, DelegateTaskInput } from "./types.js"
 
 // ─── 项目路径校验 ───────────────────────────────────────
 export function validateProjectPath(rootPath: string): { valid: boolean; reason?: string } {

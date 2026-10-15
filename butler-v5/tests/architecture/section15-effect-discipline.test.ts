@@ -87,11 +87,7 @@ function listProductionTsFiles(root: string): string[] {
           continue
         }
         walk(p)
-      } else if (
-        entry.endsWith(".ts") &&
-        !entry.endsWith(".test.ts") &&
-        !entry.endsWith(".d.ts")
-      ) {
+      } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) {
         out.push(p)
       }
     }
@@ -129,10 +125,9 @@ describe("arch: §15 Effect 纪律 (every LLM call is timeout-bounded)", () => {
         }
       }
     }
-    expect(
-      violations,
-      `direct LLM calls without Effect.timeout: ${violations.join(", ")}`,
-    ).toEqual([])
+    expect(violations, `direct LLM calls without Effect.timeout: ${violations.join(", ")}`).toEqual(
+      [],
+    )
   })
 
   it("production files routing through canonical loop are NOT required to add Effect.timeout (canonical loop owns the timeout)", () => {
@@ -159,10 +154,7 @@ describe("arch: §15 Effect 纪律 (every LLM call is timeout-bounded)", () => {
         violations.push(`${file}: adapter should not call Effect.timeout`)
       }
     }
-    expect(
-      violations,
-      `adapters calling Effect.timeout: ${violations.join(", ")}`,
-    ).toEqual([])
+    expect(violations, `adapters calling Effect.timeout: ${violations.join(", ")}`).toEqual([])
   })
 
   it("ports/src/r2-shim.ts is fixture-only (no production caller)", () => {
@@ -185,9 +177,6 @@ describe("arch: §15 Effect 纪律 (every LLM call is timeout-bounded)", () => {
         violations.push(file)
       }
     }
-    expect(
-      violations,
-      `production files importing r2-shim: ${violations.join(", ")}`,
-    ).toEqual([])
+    expect(violations, `production files importing r2-shim: ${violations.join(", ")}`).toEqual([])
   })
 })

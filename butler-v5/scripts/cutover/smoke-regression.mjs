@@ -54,7 +54,13 @@ async function l0() {
   console.log("\n=== regression [L0 verify] ===")
   const verify = spawnSync(
     "pnpm",
-    ["exec", "tsx", "cli/src/index.ts", "verify", ...(apiEq ? ["--api", apiEq.slice("--api=".length)] : [])],
+    [
+      "exec",
+      "tsx",
+      "cli/src/index.ts",
+      "verify",
+      ...(apiEq ? ["--api", apiEq.slice("--api=".length)] : []),
+    ],
     { cwd: repoRoot, stdio: "inherit", env: process.env },
   )
   if (verify.status !== 0) fail("L0/verify", `exit ${verify.status}`)

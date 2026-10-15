@@ -21,12 +21,9 @@ const base = api.replace(/\/$/, "")
 const fromUserId =
   (process.env.BUTLER_OWNER_WECHAT_ID ?? "").trim() || `product-contract-${Date.now()}`
 const conversationId = `c-wechat-product-contract-${Date.now()}`
-const mockOutbox =
-  process.env.BUTLER_V5_RUN_NOTIFY_MOCK_OUTBOX ??
-  "/tmp/butler-v5-ci-notify.jsonl"
+const mockOutbox = process.env.BUTLER_V5_RUN_NOTIFY_MOCK_OUTBOX ?? "/tmp/butler-v5-ci-notify.jsonl"
 const fixtureDir =
-  process.env.BUTLER_V5_LLM_FIXTURE_DIR ??
-  join(repoRoot, "config/llm-fixtures/wechat")
+  process.env.BUTLER_V5_LLM_FIXTURE_DIR ?? join(repoRoot, "config/llm-fixtures/wechat")
 // D81 (audit #27 fix): propagate BUTLER_V5_INBOUND_SHARED_SECRET as
 // x-inout-secret header for D63/D72 FAIL-CLOSED auth. Env unset = no
 // header (backward-compat with pre-D63 prod gateway).

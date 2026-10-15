@@ -77,10 +77,7 @@ export function registerWsSubscribeRoutes(app: Hono): void {
     // so the guard narrows back to the allowed union (TS sees includes
     // returning true iff caller is in the set).
     if (!(ALLOWED_CALLERS as readonly string[]).includes(caller)) {
-      return c.text(
-        `invalid caller: must be one of ${ALLOWED_CALLERS.join(", ")}`,
-        400,
-      )
+      return c.text(`invalid caller: must be one of ${ALLOWED_CALLERS.join(", ")}`, 400)
     }
     const issued = issueSubscribeToken(parsedId.value, { caller })
     if (!issued) {

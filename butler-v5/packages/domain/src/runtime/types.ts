@@ -6,13 +6,7 @@ export type StepId = string
 
 // ─── Trigger ─────────────────────────────────────────────
 export type TriggerSource =
-  | "channel"
-  | "cli"
-  | "api"
-  | "webhook"
-  | "schedule"
-  | "parent_run"
-  | "task"
+  "channel" | "cli" | "api" | "webhook" | "schedule" | "parent_run" | "task"
 export type TrustLevel = "untrusted" | "trusted" | "owner"
 
 export interface RunTrigger {

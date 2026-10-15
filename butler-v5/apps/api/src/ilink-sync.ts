@@ -16,9 +16,7 @@ export function loadSyncBuf(path: string): string {
     // for operators). Previously both returned "" and the poller treated
     // corruption the same as no state, silently resyncing from zero.
     const isMissing =
-      err instanceof Error &&
-      "code" in err &&
-      (err as NodeJS.ErrnoException).code === "ENOENT"
+      err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT"
     if (!isMissing) {
       // eslint-disable-next-line no-console -- operator log when no logger injected
       console.error("[ilink-sync] loadSyncBuf parse error (file may be corrupt):", err)

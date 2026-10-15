@@ -26,7 +26,11 @@ export type McpManifest = {
   readonly servers: readonly McpManifestServer[]
 }
 
-export function parseMcpManifest(raw: unknown): { readonly ok: true; readonly value: McpManifest } | { readonly ok: false; readonly reason: string } {
+export function parseMcpManifest(
+  raw: unknown,
+):
+  | { readonly ok: true; readonly value: McpManifest }
+  | { readonly ok: false; readonly reason: string } {
   if (!raw || typeof raw !== "object") {
     return { ok: false, reason: "manifest must be an object" }
   }
@@ -81,7 +85,10 @@ export function parseMcpManifest(raw: unknown): { readonly ok: true; readonly va
       ...(Array.isArray(s["tools"])
         ? {
             tools: s["tools"]
-              .filter((t) => t && typeof t === "object" && typeof (t as { name?: string }).name === "string")
+              .filter(
+                (t) =>
+                  t && typeof t === "object" && typeof (t as { name?: string }).name === "string",
+              )
               .map((t) => {
                 const tool = t as { name: string; description?: string; risk?: string }
                 return {
@@ -112,11 +119,18 @@ export function findMcpServer(
 }
 
 /** Names whose invocation would grant a stdin/ipc shell — refused for stdio MCP. */
-const SHELL_COMMANDS = new Set(["sh", "bash", "zsh", "fish", "/bin/sh", "/bin/bash", "/usr/bin/bash"])
+const SHELL_COMMANDS = new Set([
+  "sh",
+  "bash",
+  "zsh",
+  "fish",
+  "/bin/sh",
+  "/bin/bash",
+  "/usr/bin/bash",
+])
 
 export type McpPreScanResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: string }
+  { readonly ok: true } | { readonly ok: false; readonly reason: string }
 
 /** Shell-wrap to inspect a stdio command name without invoking it (no token/[]). */
 function commandName(server: { readonly command?: string }): string {
@@ -164,7 +178,12 @@ export function preScanMcpServer(server: McpManifestServer): McpPreScanResult {
       return { ok: false, reason: `server "${server.id}" url is not a valid URL` }
     }
     const host = parsed.hostname.toLowerCase()
-    if (parsed.protocol !== "https:" && host !== "localhost" && host !== "127.0.0.1" && host !== "::1") {
+    if (
+      parsed.protocol !== "https:" &&
+      host !== "localhost" &&
+      host !== "127.0.0.1" &&
+      host !== "::1"
+    ) {
       return {
         ok: false,
         reason: `remote server "${server.id}" must use https (got ${parsed.protocol}//${host})`,

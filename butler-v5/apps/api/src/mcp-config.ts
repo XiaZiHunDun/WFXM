@@ -4,7 +4,6 @@ import type { McpManifestServer } from "@butler/domain/mcp/manifest.js"
 import { resolveManifestStdioArgs } from "@butler/ports/mcp-manifest-path.js"
 import { isMcpEnabled, mcpStubToolNames } from "@butler/runtime/mcp-gate.js"
 
-
 export type McpTransportKind = "http" | "stdio" | "sse"
 
 type McpHttpConnection = {
@@ -55,7 +54,11 @@ function parseMcpStdioArgs(
   manifestServer?: McpManifestServer | null,
   serverId?: string,
 ): readonly string[] {
-  if (manifestServer?.args && manifestServer.args.length > 0 && preferManifestConnection(env, serverId)) {
+  if (
+    manifestServer?.args &&
+    manifestServer.args.length > 0 &&
+    preferManifestConnection(env, serverId)
+  ) {
     return manifestServer.args
   }
   const envArgs = parseMcpStdioArgsFromEnv(env)
@@ -267,14 +270,25 @@ export function isBlockedMcpHost(hostname: string): boolean {
   if (host === "172.16." || host.startsWith("172.16.")) return true
   if (host === "172.17." || host.startsWith("172.17.")) return true
   // 172.16.0.0 — 172.31.255.255 covered by 172.1x / 172.2x / 172.3x
-  if (host.startsWith("172.16.") || host.startsWith("172.17.") ||
-      host.startsWith("172.18.") || host.startsWith("172.19.") ||
-      host.startsWith("172.20.") || host.startsWith("172.21.") ||
-      host.startsWith("172.22.") || host.startsWith("172.23.") ||
-      host.startsWith("172.24.") || host.startsWith("172.25.") ||
-      host.startsWith("172.26.") || host.startsWith("172.27.") ||
-      host.startsWith("172.28.") || host.startsWith("172.29.") ||
-      host.startsWith("172.30.") || host.startsWith("172.31.")) return true
+  if (
+    host.startsWith("172.16.") ||
+    host.startsWith("172.17.") ||
+    host.startsWith("172.18.") ||
+    host.startsWith("172.19.") ||
+    host.startsWith("172.20.") ||
+    host.startsWith("172.21.") ||
+    host.startsWith("172.22.") ||
+    host.startsWith("172.23.") ||
+    host.startsWith("172.24.") ||
+    host.startsWith("172.25.") ||
+    host.startsWith("172.26.") ||
+    host.startsWith("172.27.") ||
+    host.startsWith("172.28.") ||
+    host.startsWith("172.29.") ||
+    host.startsWith("172.30.") ||
+    host.startsWith("172.31.")
+  )
+    return true
   // Link-local IPv4
   if (host.startsWith("169.254.")) return true
   // D73 SEC-003: IPv6 ULA fc00::/7 (covers fc00-fdff). Restrict to actual
@@ -315,14 +329,25 @@ export function isBlockedInboundHost(hostname: string): boolean {
   if (host.startsWith("10.")) return true
   if (host.startsWith("192.168.")) return true
   // 172.16.0.0 — 172.31.255.255 covered by 172.1x / 172.2x / 172.3x
-  if (host.startsWith("172.16.") || host.startsWith("172.17.") ||
-      host.startsWith("172.18.") || host.startsWith("172.19.") ||
-      host.startsWith("172.20.") || host.startsWith("172.21.") ||
-      host.startsWith("172.22.") || host.startsWith("172.23.") ||
-      host.startsWith("172.24.") || host.startsWith("172.25.") ||
-      host.startsWith("172.26.") || host.startsWith("172.27.") ||
-      host.startsWith("172.28.") || host.startsWith("172.29.") ||
-      host.startsWith("172.30.") || host.startsWith("172.31.")) return true
+  if (
+    host.startsWith("172.16.") ||
+    host.startsWith("172.17.") ||
+    host.startsWith("172.18.") ||
+    host.startsWith("172.19.") ||
+    host.startsWith("172.20.") ||
+    host.startsWith("172.21.") ||
+    host.startsWith("172.22.") ||
+    host.startsWith("172.23.") ||
+    host.startsWith("172.24.") ||
+    host.startsWith("172.25.") ||
+    host.startsWith("172.26.") ||
+    host.startsWith("172.27.") ||
+    host.startsWith("172.28.") ||
+    host.startsWith("172.29.") ||
+    host.startsWith("172.30.") ||
+    host.startsWith("172.31.")
+  )
+    return true
   // Link-local IPv4
   if (host.startsWith("169.254.")) return true
   // D73 SEC-003: IPv6 ULA fc00::/7. Mirror isBlockedMcpHost fix — restrict

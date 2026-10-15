@@ -47,7 +47,7 @@ export async function handleTaskRun(c: Context, wiring: Wiring): Promise<Respons
         correlationId: result.task?.conversationId ?? null,
         action: "task.advance",
         // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-        actor: 'owner-direct',
+        actor: "owner-direct",
         subject: result.task?.subject ?? "owner",
         detail: {
           taskId,

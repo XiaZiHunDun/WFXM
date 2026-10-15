@@ -32,7 +32,9 @@ function qualityGateConfigPath(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(process.cwd(), "config/quality-gate.json")
 }
 
-export function loadQualityGateConfig(env: NodeJS.ProcessEnv = process.env): QualityGateConfig | null {
+export function loadQualityGateConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): QualityGateConfig | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(qualityGateConfigPath(env), "utf8"))
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null
@@ -137,10 +139,9 @@ export async function tryWechatQualityGateCommand(args: {
   // and the success-path heading share the same owner-facing label.
   const ownerLabel = resolveWechatProjectLabel(active, env)
   if (!project || project.commands.length === 0) {
-    return done(
-      `项目「${ownerLabel}」未配置质量门禁。\n请联系管理员配置后重试。`,
-      ["quality-gate: missing config"],
-    )
+    return done(`项目「${ownerLabel}」未配置质量门禁。\n请联系管理员配置后重试。`, [
+      "quality-gate: missing config",
+    ])
   }
 
   const nameFilter =

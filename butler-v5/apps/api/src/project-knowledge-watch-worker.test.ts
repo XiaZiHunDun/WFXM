@@ -33,7 +33,11 @@ import {
 
 const mockedSync = vi.mocked(syncProjectKnowledgeFromManifest)
 
-function quietLogger(): ProjectKnowledgeWatchLogger & { infos: string[]; warns: string[]; errors: string[] } {
+function quietLogger(): ProjectKnowledgeWatchLogger & {
+  infos: string[]
+  warns: string[]
+  errors: string[]
+} {
   const infos: string[] = []
   const warns: string[] = []
   const errors: string[] = []

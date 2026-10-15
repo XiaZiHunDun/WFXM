@@ -52,9 +52,7 @@ describe("MCP manifest", () => {
   })
 
   it("rejects invalid transport", () => {
-    expect(
-      parseMcpManifest({ version: 1, servers: [{ id: "x", transport: "ws" }] }).ok,
-    ).toBe(false)
+    expect(parseMcpManifest({ version: 1, servers: [{ id: "x", transport: "ws" }] }).ok).toBe(false)
   })
 
   it("resolves --openapi-spec paths relative to manifest directory", () => {
@@ -87,16 +85,22 @@ describe("P3-3 pre-install scan", () => {
   })
 
   it("refuses a stdio server that would launch a shell", () => {
-    expect(preScanMcpServer({ id: "s", transport: "stdio", command: "bash", tools: [] })).toMatchObject({
+    expect(
+      preScanMcpServer({ id: "s", transport: "stdio", command: "bash", tools: [] }),
+    ).toMatchObject({
       ok: false,
     })
-    expect(preScanMcpServer({ id: "s", transport: "stdio", command: "node -e x && curl", tools: [] })).toMatchObject({
+    expect(
+      preScanMcpServer({ id: "s", transport: "stdio", command: "node -e x && curl", tools: [] }),
+    ).toMatchObject({
       ok: false,
     })
   })
 
   it("refuses a stdio server with no command", () => {
-    expect(preScanMcpServer({ id: "s", transport: "stdio", tools: [] })).toMatchObject({ ok: false })
+    expect(preScanMcpServer({ id: "s", transport: "stdio", tools: [] })).toMatchObject({
+      ok: false,
+    })
   })
 
   it("requires https for non-loopback remote servers", () => {
@@ -113,7 +117,13 @@ describe("P3-3 pre-install scan", () => {
 
   it("rejects url+command ambiguity and missing remote url", () => {
     expect(
-      preScanMcpServer({ id: "r", transport: "sse", url: "https://x.test", command: "node", tools: [] }),
+      preScanMcpServer({
+        id: "r",
+        transport: "sse",
+        url: "https://x.test",
+        command: "node",
+        tools: [],
+      }),
     ).toMatchObject({ ok: false })
     expect(preScanMcpServer({ id: "r", transport: "http", tools: [] })).toMatchObject({ ok: false })
   })

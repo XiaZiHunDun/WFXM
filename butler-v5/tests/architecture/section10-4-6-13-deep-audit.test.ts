@@ -84,15 +84,9 @@ const PERMISSION_TYPES = join(
   "../../packages/domain/src/governance/types.ts",
 )
 const POLICY_GATE = join(__dirname, "../../packages/runtime/src/policy-gate.ts")
-const CAPABILITY_BOUNDARY = join(
-  __dirname,
-  "../../packages/runtime/src/capability-boundary.ts",
-)
+const CAPABILITY_BOUNDARY = join(__dirname, "../../packages/runtime/src/capability-boundary.ts")
 const WORKING_SET = join(__dirname, "../../packages/runtime/src/working-set.ts")
-const GOVERNANCE_TYPES = join(
-  __dirname,
-  "../../packages/domain/src/governance/types.ts",
-)
+const GOVERNANCE_TYPES = join(__dirname, "../../packages/domain/src/governance/types.ts")
 const PACKAGES_ROOT = join(__dirname, "../../packages")
 
 function listPackageDirs(): string[] {
@@ -134,9 +128,7 @@ describe("arch: §10.4 Sandbox + §6 Application + §13 风险与自治 deep aud
 
   it("§10.4: ScopedGrantRecord carries sandboxProfile + delegable (短期、不可委派 Grant 提升 sandbox profile — text-vs-impl drift: sandboxProfile nullable + delegable no default false at interface level)", () => {
     const src = readFileSync(GOVERNANCE_TYPES, "utf-8")
-    const match = src.match(
-      /export interface ScopedGrantRecord\s*\{([\s\S]*?)\n\}/,
-    )
+    const match = src.match(/export interface ScopedGrantRecord\s*\{([\s\S]*?)\n\}/)
     expect(match, "ScopedGrantRecord interface not found").not.toBeNull()
     const body = match?.[1] ?? ""
     // sandboxProfile is `string | null` (impl accepts absence); text §10.3
@@ -154,9 +146,7 @@ describe("arch: §10.4 Sandbox + §6 Application + §13 风险与自治 deep aud
     // (not governance/types.ts — type was relocated when §9 wiring moved
     // to runtime).
     const src = readFileSync(POLICY_GATE, "utf-8")
-    const match = src.match(
-      /export interface CapabilityProviderMetadata\s*\{([\s\S]*?)\n\}/,
-    )
+    const match = src.match(/export interface CapabilityProviderMetadata\s*\{([\s\S]*?)\n\}/)
     expect(match, "CapabilityProviderMetadata interface not found in policy-gate.ts").not.toBeNull()
     const body = match?.[1] ?? ""
     expect(body).toMatch(/sandboxProfile\??:\s*string/)
@@ -167,9 +157,7 @@ describe("arch: §10.4 Sandbox + §6 Application + §13 风险与自治 deep aud
   it("§6: ModelDecision ADT carries the 5 §6.2 tags (Respond / CallCapability / StartChildRun / WaitForApproval / Finish)", () => {
     const src = readFileSync(DECISION, "utf-8")
     // The union must contain all 5 tag literals.
-    const match = src.match(
-      /export (?:type|const) ModelDecision[\s\S]*?(?=\nexport |\n\})/,
-    )
+    const match = src.match(/export (?:type|const) ModelDecision[\s\S]*?(?=\nexport |\n\})/)
     expect(match, "ModelDecision type/const not found").not.toBeNull()
     const body = match?.[0] ?? ""
     for (const tag of ["Respond", "CallCapability", "StartChildRun", "WaitForApproval", "Finish"]) {
@@ -203,10 +191,7 @@ describe("arch: §10.4 Sandbox + §6 Application + §13 风险与自治 deep aud
     // The canonical orchestrator is RunEngine (D18 already locks
     // this). D34 re-asserts under §6 framing by verifying the
     // canonical signature in run-engine.ts.
-    const src = readFileSync(
-      join(__dirname, "../../packages/runtime/src/run-engine.ts"),
-      "utf-8",
-    )
+    const src = readFileSync(join(__dirname, "../../packages/runtime/src/run-engine.ts"), "utf-8")
     expect(
       /export\s+class\s+RunEngine\b/.test(src),
       "RunEngine is the sole orchestrator (§6 + D18 §6 lock)",
@@ -217,9 +202,7 @@ describe("arch: §10.4 Sandbox + §6 Application + §13 风险与自治 deep aud
 
   it("§13: PermissionPolicy declares per-tool trigger lists (alwaysConfirm + denyByDefault — text-vs-impl drift: §13 line 602-606 '3-class trigger' is mapped to per-tool lists in governance/types.ts; live impl uses alwaysConfirm/denyByDefault instead of allowed/denied/requireApproval)", () => {
     const src = readFileSync(PERMISSION_TYPES, "utf-8")
-    const match = src.match(
-      /export interface PermissionPolicy\s*\{([\s\S]*?)\n\}/,
-    )
+    const match = src.match(/export interface PermissionPolicy\s*\{([\s\S]*?)\n\}/)
     expect(match, "PermissionPolicy interface not found").not.toBeNull()
     const body = match?.[1] ?? ""
     // D59 T4 (audit #2 F-03): the live PermissionPolicy lives in
@@ -251,9 +234,7 @@ describe("arch: §10.4 Sandbox + §6 Application + §13 风险与自治 deep aud
     const src = readFileSync(GOVERNANCE_TYPES, "utf-8")
     // ScopedGrantRecord.subject must be string (not union of fixed
     // literals).
-    const match = src.match(
-      /export interface ScopedGrantRecord\s*\{([\s\S]*?)\n\}/,
-    )
+    const match = src.match(/export interface ScopedGrantRecord\s*\{([\s\S]*?)\n\}/)
     expect(match, "ScopedGrantRecord not found").not.toBeNull()
     const body = match?.[1] ?? ""
     expect(body).toMatch(/readonly\s+subject:\s*string\b/)
@@ -274,12 +255,11 @@ describe("arch: §10.4 Sandbox + §6 Application + §13 风险与自治 deep aud
     ).toEqual([])
   })
 
-  it("§13: Schedule trigger uses `source: \"schedule\"` (system:scheduler semantics)", () => {
+  it('§13: Schedule trigger uses `source: "schedule"` (system:scheduler semantics)', () => {
     const src = readFileSync(SCHEDULE, "utf-8")
     // buildScheduleRunTrigger must declare source: "schedule".
-    expect(
-      src,
-      "buildScheduleRunTrigger must declare source: 'schedule'",
-    ).toMatch(/source:\s*["']schedule["']/)
+    expect(src, "buildScheduleRunTrigger must declare source: 'schedule'").toMatch(
+      /source:\s*["']schedule["']/,
+    )
   })
 })

@@ -4,7 +4,12 @@ import {
   parseProjectKnowledgeSourcesJson,
   resolveManifestSourceFiles,
 } from "./project-knowledge-sources.js"
-import { extensionOf, globPatternToRegExp, isMarkitdownExtension, isTextSnapshotExtension } from "./project-knowledge-sources.js"
+import {
+  extensionOf,
+  globPatternToRegExp,
+  isMarkitdownExtension,
+  isTextSnapshotExtension,
+} from "./project-knowledge-sources.js"
 
 describe("project-knowledge-sources", () => {
   it("parses a valid manifest", () => {

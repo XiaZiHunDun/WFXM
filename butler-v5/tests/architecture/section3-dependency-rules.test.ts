@@ -100,11 +100,7 @@ function listProductionTs(root: string): string[] {
           continue
         }
         walk(p)
-      } else if (
-        entry.endsWith(".ts") &&
-        !entry.endsWith(".test.ts") &&
-        !entry.endsWith(".d.ts")
-      ) {
+      } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) {
         out.push(p)
       }
     }
@@ -172,9 +168,7 @@ describe("arch: §3 依赖方向与端口 6 硬规则 (D33)", () => {
     const violations: string[] = []
     for (const file of files) {
       const src = readFileSync(file, "utf-8")
-      const stripped = src
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "")
+      const stripped = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
       for (const re of FORBIDDEN) {
         if (re.test(stripped)) violations.push(`${file}: ${re}`)
       }
@@ -218,9 +212,7 @@ describe("arch: §3 依赖方向与端口 6 硬规则 (D33)", () => {
     // wechat-inbound-butler.ts. Any apps/api file that calls
     // `registry.execute*` (or otherwise opens a Capability path)
     // outside that closure is a §3 #5 bypass.
-    const files = listProductionTs(APPS_SRC).filter(
-      (f) => f !== WECHAT_INBOUND_BUTLER,
-    )
+    const files = listProductionTs(APPS_SRC).filter((f) => f !== WECHAT_INBOUND_BUTLER)
     const FORBIDDEN = [
       /(?<!\w)registry\.execute\w*\s*\(/,
       /(?<!\w)registry\.register\s*\(/,

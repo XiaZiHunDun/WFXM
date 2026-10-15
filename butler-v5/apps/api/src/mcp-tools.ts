@@ -18,7 +18,9 @@ export interface McpDiscoveredTool {
 export type McpInvokeFn = (
   toolName: string,
   args: Readonly<Record<string, unknown>>,
-) => Promise<{ readonly ok: true; readonly output: unknown } | { readonly ok: false; readonly reason: string }>
+) => Promise<
+  { readonly ok: true; readonly output: unknown } | { readonly ok: false; readonly reason: string }
+>
 
 export interface McpToolsOptions {
   readonly discovered?: readonly McpDiscoveredTool[]
@@ -120,8 +122,10 @@ export function loadMcpLlmTools(
   const discovered =
     options.discovered ??
     mcpStubToolNames(env).map((name) => ({ name, description: `MCP stub: ${name}` }))
-  return discovered.map((tool) => mcpLlmToolDescriptor(tool, {
-    ...(options.serverId ? { serverId: options.serverId } : {}),
-    ...(options.namespaced ? { namespaced: options.namespaced } : {}),
-  }))
+  return discovered.map((tool) =>
+    mcpLlmToolDescriptor(tool, {
+      ...(options.serverId ? { serverId: options.serverId } : {}),
+      ...(options.namespaced ? { namespaced: options.namespaced } : {}),
+    }),
+  )
 }

@@ -23,11 +23,9 @@ function makeStore(): {
     detail: Readonly<Record<string, unknown>>
     createdAt: Date
   }[] = []
-  const appendAuditEvent = vi.fn(
-    async (input: (typeof events)[number]): Promise<void> => {
-      events.push(input)
-    },
-  )
+  const appendAuditEvent = vi.fn(async (input: (typeof events)[number]): Promise<void> => {
+    events.push(input)
+  })
   const store = { appendAuditEvent } as unknown as RuntimeStore
   return { store, events }
 }

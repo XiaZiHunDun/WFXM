@@ -76,8 +76,6 @@ describe("defaultWechatConversationId", () => {
 describe("defaultChannelConversationId", () => {
   it("is stable and sanitizes", () => {
     expect(defaultChannelConversationId("slack", "U1")).toBe("c-ch-slack-U1")
-    expect(parseClientConversationId(defaultChannelConversationId("a/b", "x y")).kind).toBe(
-      "valid",
-    )
+    expect(parseClientConversationId(defaultChannelConversationId("a/b", "x y")).kind).toBe("valid")
   })
 })

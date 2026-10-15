@@ -81,9 +81,7 @@ export function registerHealthRoutes(app: Hono, wiring: Wiring | null): void {
     return c.json(body, healthy ? 200 : 503)
   })
 
-  app.get("/health/live", (c) =>
-    c.json({ status: "ok", timestamp: new Date().toISOString() }),
-  )
+  app.get("/health/live", (c) => c.json({ status: "ok", timestamp: new Date().toISOString() }))
 }
 
 /**

@@ -11,10 +11,7 @@
  * field to `null` rather than blocking the snapshot write. Owner-facing
  * surface is the digest builder, which renders `?` for `null`.
  */
-import {
-  writeWechatSessionState,
-  type SessionRunStatus,
-} from "./wechat-session-state.js"
+import { writeWechatSessionState, type SessionRunStatus } from "./wechat-session-state.js"
 import type { Wiring } from "./wiring.js"
 
 /** Subset of ButlerLoopResult we actually inspect to derive run status. */

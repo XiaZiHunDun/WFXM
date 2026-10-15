@@ -3,7 +3,7 @@ import type { PolicyDecision } from "./policy"
 import type { AuditLogReader } from "./signal"
 
 export interface ChannelContext {
-  readonly channel: 'wechat' | 'telegram' | 'cli'
+  readonly channel: "wechat" | "telegram" | "cli"
   readonly actor: string
   readonly correlationId: string
 }
@@ -31,17 +31,19 @@ export async function evaluateChannelApproval(
 
   const renderPrompt = (): string => {
     switch (decision.action) {
-      case 'allow':
-        return ''
-      case 'cooldown':
+      case "allow":
+        return ""
+      case "cooldown":
         return `已批 ${decision.signal.count} 个，建议稍等 ${decision.duration_ms / 1000}s...`
-      case 'checklist':
+      case "checklist":
         return [
-          '此操作 [' + toolName + '] 不可撤销，请确认：',
+          "此操作 [" + toolName + "] 不可撤销，请确认：",
           ...decision.items.map((item, i) => `${i + 1}. ${item}`),
-        ].join('\n')
+        ].join("\n")
       default:
-        throw new Error(`unhandled PolicyDecision action: ${(decision as { action: string }).action}`)
+        throw new Error(
+          `unhandled PolicyDecision action: ${(decision as { action: string }).action}`,
+        )
     }
   }
 

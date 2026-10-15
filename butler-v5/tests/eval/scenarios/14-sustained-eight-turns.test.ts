@@ -13,11 +13,7 @@
  */
 import { describe, expect, it } from "vitest"
 import { runEvalScenario, makeEvalHarness, closeEvalHarness, formatMetricLine } from "../harness.js"
-import {
-  decisionResponse,
-  makeScriptedAdapter,
-  toolCallResponse,
-} from "../mock-llm-scripted.js"
+import { decisionResponse, makeScriptedAdapter, toolCallResponse } from "../mock-llm-scripted.js"
 
 describe("eval/14 sustained-eight-turns", () => {
   it("8 sequential runButlerLoop calls on same conversation", { timeout: 60_000 }, async () => {
@@ -26,7 +22,10 @@ describe("eval/14 sustained-eight-turns", () => {
     // (the migrate is ~700ms/turn). Reuse one harness across all turns so the
     // DB + wiring are built once; keeps suite contention well under budget.
     const harness = await makeEvalHarness()
-    const turns: readonly { readonly prompt: string; readonly setup: () => ReturnType<typeof makeScriptedAdapter> }[] = [
+    const turns: readonly {
+      readonly prompt: string
+      readonly setup: () => ReturnType<typeof makeScriptedAdapter>
+    }[] = [
       {
         prompt: "早上好",
         setup: () =>
@@ -142,10 +141,7 @@ describe("eval/14 sustained-eight-turns", () => {
     // Final turn uses WaitForApproval (JSON-decision).
     expect(results[results.length - 1]?.metrics.finalDecision).toBe("WaitForApproval")
     // Cross-turn capacity calls evenly distributed (no spike → no retry loop).
-    const totalCapCalls = results.reduce(
-      (sum, r) => sum + r.metrics.capabilityCalls.length,
-      0,
-    )
+    const totalCapCalls = results.reduce((sum, r) => sum + r.metrics.capabilityCalls.length, 0)
     expect(totalCapCalls).toBe(7) // 7 of 8 turns called a capability
     // No loop-exhausted across turns.
     const allIters = results.flatMap((r) => r.metrics.iterations)

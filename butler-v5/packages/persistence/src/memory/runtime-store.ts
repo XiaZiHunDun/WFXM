@@ -104,9 +104,7 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
     async createRun(input) {
       // S-A parity: production dedups on run idempotencyKey — re-delivery returns the
       // existing run (same id), not a duplicate.
-      const existing = [...runs.values()].find(
-        (r) => r.idempotencyKey === input.idempotencyKey,
-      )
+      const existing = [...runs.values()].find((r) => r.idempotencyKey === input.idempotencyKey)
       if (existing) return existing
       const run: StoredRun = {
         id: input.id,
@@ -266,9 +264,7 @@ export function createInMemoryRuntimeStore(): RuntimeStore {
           (g.remainingUses === null || g.remainingUses > 0) &&
           // S-F parity: a grant WITHOUT scope.digest accepts any digest (production
           // grantMatchesAction only gates when the grant itself pins a digest).
-          (digest === undefined ||
-            g.scope.digest === undefined ||
-            g.scope.digest === digest),
+          (digest === undefined || g.scope.digest === undefined || g.scope.digest === digest),
       )
       return matches[0] ?? null
     },

@@ -53,10 +53,8 @@ function readSessionStore(path: string): SessionStateStore {
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue
       const r = raw as Record<string, unknown>
       const lastReplyAt = typeof r["lastReplyAt"] === "number" ? r["lastReplyAt"] : 0
-      const openTaskCount =
-        typeof r["openTaskCount"] === "number" ? r["openTaskCount"] : null
-      const candidateCount =
-        typeof r["candidateCount"] === "number" ? r["candidateCount"] : null
+      const openTaskCount = typeof r["openTaskCount"] === "number" ? r["openTaskCount"] : null
+      const candidateCount = typeof r["candidateCount"] === "number" ? r["candidateCount"] : null
       const lastRunStatus: SessionRunStatus = isSessionRunStatus(r["lastRunStatus"])
         ? r["lastRunStatus"]
         : "none"

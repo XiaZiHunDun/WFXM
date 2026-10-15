@@ -35,7 +35,9 @@ function buildAdapter(r: ResolvedModel, env: NodeJS.ProcessEnv): LLMAdapter {
       return makeAnthropicAdapter({
         apiKey: envTrim(env, "ANTHROPIC_API_KEY"),
         model: r.model,
-        ...(envTrim(env, "ANTHROPIC_BASE_URL") ? { baseUrl: envTrim(env, "ANTHROPIC_BASE_URL") } : {}),
+        ...(envTrim(env, "ANTHROPIC_BASE_URL")
+          ? { baseUrl: envTrim(env, "ANTHROPIC_BASE_URL") }
+          : {}),
       })
     case "deepseek": {
       const requestExtras = buildDeepSeekRequestExtras(env, r.model)

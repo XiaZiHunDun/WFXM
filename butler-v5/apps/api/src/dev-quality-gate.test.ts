@@ -124,9 +124,7 @@ describe("dev-quality-gate", () => {
     }
     for (const falsy of ["0", "false", "off", "", undefined]) {
       expect(
-        isDevVerifyInlineEnabled(
-          falsy === undefined ? {} : { BUTLER_V5_DEV_VERIFY_INLINE: falsy },
-        ),
+        isDevVerifyInlineEnabled(falsy === undefined ? {} : { BUTLER_V5_DEV_VERIFY_INLINE: falsy }),
       ).toBe(false)
     }
   })

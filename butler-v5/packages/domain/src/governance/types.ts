@@ -169,17 +169,7 @@ export function isReadOnlyCommand(request: ActionRequest): boolean {
   if (!program) return false
 
   // Always read-only programs (no subcommand semantics)
-  const ALWAYS_READONLY = new Set([
-    "cat",
-    "head",
-    "wc",
-    "grep",
-    "rg",
-    "ls",
-    "pwd",
-    "date",
-    "echo",
-  ])
+  const ALWAYS_READONLY = new Set(["cat", "head", "wc", "grep", "rg", "ls", "pwd", "date", "echo"])
   if (ALWAYS_READONLY.has(program)) return true
 
   // git subcommand-level check (argv[1] is subcommand)
@@ -275,10 +265,7 @@ function outboundKindForCapability(capability: string): ActionKind {
   return "read"
 }
 
-export function grantAllowsNetworkHost(
-  grant: ScopedGrantRecord,
-  hostname: string,
-): boolean {
+export function grantAllowsNetworkHost(grant: ScopedGrantRecord, hostname: string): boolean {
   if (grant.scope.network !== "allow") return false
   const hosts = grant.scope.networkHosts
   if (!hosts || hosts.length === 0) return true

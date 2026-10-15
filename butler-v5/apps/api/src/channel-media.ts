@@ -1,13 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { envTruthy } from "./env-util.js"
 import { join } from "node:path"
-import type {
-  ChannelInboundMedia,
-  ChannelMediaContent,
-} from "@butler/adapters/slack/index.js"
+import type { ChannelInboundMedia, ChannelMediaContent } from "@butler/adapters/slack/index.js"
 
 export type { ChannelInboundMedia, ChannelMediaContent }
-
 
 function telegramMediaCacheEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_TELEGRAM_MEDIA_CACHE"])
@@ -126,7 +122,9 @@ export async function downloadTelegramFile(config: {
   readonly maxBytes: number
   readonly suggestedName: string
   readonly fetch?: typeof fetch
-}): Promise<{ readonly ok: true; readonly path: string } | { readonly ok: false; readonly reason: string }> {
+}): Promise<
+  { readonly ok: true; readonly path: string } | { readonly ok: false; readonly reason: string }
+> {
   const fetchFn = config.fetch ?? fetch
   const getFileUrl = `https://api.telegram.org/bot${config.token}/getFile?file_id=${encodeURIComponent(config.fileId)}`
   try {
@@ -158,7 +156,9 @@ export async function downloadTelegramFile(config: {
     // "../etc/passwd" would escape cacheDir because join() doesn't strip
     // parent-dir segments already present in the input.
     const safeName = config.suggestedName.replace(/[^\w.-]+/g, "_").slice(0, 120)
-    const safeFileId = String(config.fileId).replace(/[^\w.-]+/g, "_").slice(0, 64)
+    const safeFileId = String(config.fileId)
+      .replace(/[^\w.-]+/g, "_")
+      .slice(0, 64)
     const path = join(config.cacheDir, `${safeFileId}-${safeName}`)
     await writeFile(path, buf)
     return { ok: true, path }

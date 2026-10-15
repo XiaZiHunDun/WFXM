@@ -65,9 +65,7 @@ describe("task / procedure", () => {
   })
 
   it("validates task fields (goal/status/index)", () => {
-    expect(
-      createTaskRecord({ subject: "owner", title: "t", goal: " ", nowMs: 1 }).ok,
-    ).toBe(false)
+    expect(createTaskRecord({ subject: "owner", title: "t", goal: " ", nowMs: 1 }).ok).toBe(false)
     expect(
       createTaskRecord({
         subject: "owner",
@@ -127,9 +125,9 @@ describe("task / procedure", () => {
       ok: false,
     })
 
-    expect(
-      resolveTaskRunGoal({ ...task.value, procedureStepIndex: 5 }, proc.value),
-    ).toMatchObject({ ok: false })
+    expect(resolveTaskRunGoal({ ...task.value, procedureStepIndex: 5 }, proc.value)).toMatchObject({
+      ok: false,
+    })
   })
 
   it("advance marks task done when past last step", () => {

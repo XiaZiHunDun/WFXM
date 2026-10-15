@@ -25,8 +25,7 @@ const base = api.replace(/\/$/, "")
 
 const fromUserId = `notify-accept-${Date.now()}`
 const mockOutbox =
-  process.env["BUTLER_V5_RUN_NOTIFY_MOCK_OUTBOX"] ??
-  "/tmp/butler-v5-notify-acceptance.jsonl"
+  process.env["BUTLER_V5_RUN_NOTIFY_MOCK_OUTBOX"] ?? "/tmp/butler-v5-notify-acceptance.jsonl"
 const auditPath = join(homedir(), ".config", "butler-v5", "audit", "subagent.jsonl")
 
 const SUBAGENT_WAIT_MS = 120_000
@@ -107,7 +106,9 @@ async function waitForSubagentCompletion(taskHint) {
       (row) => row.kind === "completion" && String(row.task).includes(taskHint),
     )
     if (done) {
-      console.log(`acceptance ok [subagent audit completion]: ${String(done.replyExcerpt).slice(0, 60)}`)
+      console.log(
+        `acceptance ok [subagent audit completion]: ${String(done.replyExcerpt).slice(0, 60)}`,
+      )
       return done
     }
     await sleep(POLL_MS)

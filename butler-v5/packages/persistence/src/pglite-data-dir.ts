@@ -18,12 +18,11 @@ function expandHome(path: string): string {
  * - unset (non-test): `~/.butler/v5-data` so local dev survives restart without Docker Postgres
  */
 export function resolvePgliteDataDir(env: NodeJS.ProcessEnv): string | undefined {
-  const isTest =
-    (env["NODE_ENV"] ?? "").trim() === "test" || (env["VITEST"] ?? "").trim() !== ""
+  const isTest = (env["NODE_ENV"] ?? "").trim() === "test" || (env["VITEST"] ?? "").trim() !== ""
   if (isTest) return undefined
 
   const explicit = (env["BUTLER_V5_PGLITE_DATA_DIR"] ?? "").trim()
-  if (explicit === "" ) {
+  if (explicit === "") {
     return DEFAULT_PGLITE_DIR
   }
   const lower = explicit.toLowerCase()

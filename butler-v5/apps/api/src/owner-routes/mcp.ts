@@ -2,7 +2,10 @@ import type { Hono } from "hono"
 import { revokeScopedGrantsForMcpServer } from "@butler/runtime/mcp-grant-lifecycle.js"
 import { mcpServerIdFromEnv } from "@butler/runtime/mcp-consent.js"
 import { isMcpEnabled } from "@butler/runtime/mcp-gate.js"
-import { defaultMcpProviderMetadata, mcpProviderMetadataFromManifest } from "@butler/domain/governance/mcp-tool-capability.js"
+import {
+  defaultMcpProviderMetadata,
+  mcpProviderMetadataFromManifest,
+} from "@butler/domain/governance/mcp-tool-capability.js"
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { loadMcpManifestFromEnv, resolveMcpManifestServer } from "../mcp-manifest.js"
@@ -105,14 +108,12 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
       correlationId: null,
       action: "mcp.grants_revoked",
       // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-      actor: 'owner-direct',
+      actor: "owner-direct",
       // D74 T1 (audit #20 SO-007): subject allowlist — audit emit must
       // reject attacker-controllable subjects at the boundary. Defaults
       // to "owner" rather than echoing body.subject if disallowed.
       subject: body.subject && isAllowedSubject(body.subject) ? body.subject : "owner",
-      detail: failureReason
-        ? { serverId, revoked, failureReason }
-        : { serverId, revoked },
+      detail: failureReason ? { serverId, revoked, failureReason } : { serverId, revoked },
       createdAt: now,
     })
     if (failureReason) {
@@ -120,11 +121,10 @@ export function registerMcpRoutes(app: Hono, wiring: Wiring): void {
         {
           ok: false,
           serverId,
-          error: safeOwnerError(
-            new Error(failureReason),
-            "撤销授权失败，请稍后重试",
-            { operation: "mcp-revoke-grants", serverId },
-          ),
+          error: safeOwnerError(new Error(failureReason), "撤销授权失败，请稍后重试", {
+            operation: "mcp-revoke-grants",
+            serverId,
+          }),
         },
         500,
       )

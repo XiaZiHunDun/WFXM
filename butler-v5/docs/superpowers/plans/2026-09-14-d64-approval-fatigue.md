@@ -14,23 +14,23 @@
 
 ## File Structure
 
-| 类型 | 路径 | 职责 |
-|---|---|---|
-| 新 | `apps/api/src/lib/fatigue/signal.ts` | FatigueSignal 计算（纯函数） |
-| 新 | `apps/api/src/lib/fatigue/checklist.ts` | Sensitive tool pattern match + checklist items |
-| 新 | `apps/api/src/lib/fatigue/policy.ts` | evaluateInlineApproval 决策 |
-| 新 | `apps/api/src/lib/fatigue/inline-approval-wiring.ts` | 共享 helper: 各 channel 入口统一调用 |
-| 新 | `apps/api/src/lib/fatigue/replay.ts` | /v1/owner/audit/fatigue handler |
-| 改 | `apps/api/src/audit-event.ts` | +3 optional 字段 (fatigue_signal / cooldown_applied / checklist_required) |
-| 改 | `apps/api/src/wechat-inbound-butler.ts` | 入口调 evaluateInlineApproval |
-| 改 | `apps/api/src/channel-inbound.ts` | 同 |
-| 改 | `apps/api/src/cli-run.ts` | 同 |
-| 新 | `apps/api/src/lib/fatigue/signal.test.ts` | 5 unit (F1-F5) |
-| 新 | `apps/api/src/lib/fatigue/checklist.test.ts` | 4 unit (F11-F14) |
-| 新 | `apps/api/src/lib/fatigue/policy.test.ts` | 5 unit (F6-F10) |
-| 新 | `apps/api/src/lib/fatigue/cross-channel.test.ts` | 3 integration (X1-X3) |
-| 新 | `apps/api/src/lib/fatigue/replay-api.test.ts` | 4 API (R1-R4) |
-| 改 | `tests/acceptance/scenarios/_fixtures.ts` | +F1-fatigue +F2-sensitive +F3-replay |
+| 类型 | 路径                                                 | 职责                                                                      |
+| ---- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| 新   | `apps/api/src/lib/fatigue/signal.ts`                 | FatigueSignal 计算（纯函数）                                              |
+| 新   | `apps/api/src/lib/fatigue/checklist.ts`              | Sensitive tool pattern match + checklist items                            |
+| 新   | `apps/api/src/lib/fatigue/policy.ts`                 | evaluateInlineApproval 决策                                               |
+| 新   | `apps/api/src/lib/fatigue/inline-approval-wiring.ts` | 共享 helper: 各 channel 入口统一调用                                      |
+| 新   | `apps/api/src/lib/fatigue/replay.ts`                 | /v1/owner/audit/fatigue handler                                           |
+| 改   | `apps/api/src/audit-event.ts`                        | +3 optional 字段 (fatigue_signal / cooldown_applied / checklist_required) |
+| 改   | `apps/api/src/wechat-inbound-butler.ts`              | 入口调 evaluateInlineApproval                                             |
+| 改   | `apps/api/src/channel-inbound.ts`                    | 同                                                                        |
+| 改   | `apps/api/src/cli-run.ts`                            | 同                                                                        |
+| 新   | `apps/api/src/lib/fatigue/signal.test.ts`            | 5 unit (F1-F5)                                                            |
+| 新   | `apps/api/src/lib/fatigue/checklist.test.ts`         | 4 unit (F11-F14)                                                          |
+| 新   | `apps/api/src/lib/fatigue/policy.test.ts`            | 5 unit (F6-F10)                                                           |
+| 新   | `apps/api/src/lib/fatigue/cross-channel.test.ts`     | 3 integration (X1-X3)                                                     |
+| 新   | `apps/api/src/lib/fatigue/replay-api.test.ts`        | 4 API (R1-R4)                                                             |
+| 改   | `tests/acceptance/scenarios/_fixtures.ts`            | +F1-fatigue +F2-sensitive +F3-replay                                      |
 
 预估 +500/-30 行；6 commits 沿 D55-D63 ship cycle。
 
@@ -38,20 +38,21 @@
 
 ## Commit Plan
 
-| Commit | Tasks | Anchor |
-|---|---|---|
-| T1 | Task 1-3 | signal + checklist + policy + tests |
-| T2 | Task 4 | audit_event schema extension |
-| T3 | Task 5-6 | inline-approval-wiring helper + cross-channel integration |
-| T4 | Task 7 | /v1/owner/audit/fatigue replay API |
-| T5 | Task 8-10 | acceptance scenarios (F1-fatigue / F2-sensitive / F3-replay) |
-| post-fix | Task 11 | drift closure (D50 protocol — fresh N=3 verify) |
+| Commit   | Tasks     | Anchor                                                       |
+| -------- | --------- | ------------------------------------------------------------ |
+| T1       | Task 1-3  | signal + checklist + policy + tests                          |
+| T2       | Task 4    | audit_event schema extension                                 |
+| T3       | Task 5-6  | inline-approval-wiring helper + cross-channel integration    |
+| T4       | Task 7    | /v1/owner/audit/fatigue replay API                           |
+| T5       | Task 8-10 | acceptance scenarios (F1-fatigue / F2-sensitive / F3-replay) |
+| post-fix | Task 11   | drift closure (D50 protocol — fresh N=3 verify)              |
 
 ---
 
 ## Task 1: lib/fatigue/signal.ts + 5 unit tests (T1 partial)
 
 **Files:**
+
 - Create: `apps/api/src/lib/fatigue/signal.ts`
 - Test: `apps/api/src/lib/fatigue/signal.test.ts`
 
@@ -63,11 +64,13 @@ import { describe, test, expect, vi } from "vitest"
 import { computeFatigueSignal, DEFAULT_WINDOW_SECONDS, DEFAULT_COUNT_THRESHOLD } from "./signal"
 import type { AuditLogReader } from "./signal"
 
-function makeReader(events: Array<{ event_id: string; tool_name: string; ts: number; decision: 'allow' | 'deny' }>): AuditLogReader {
+function makeReader(
+  events: Array<{ event_id: string; tool_name: string; ts: number; decision: "allow" | "deny" }>,
+): AuditLogReader {
   return {
     readRecent: vi.fn(async (windowMs: number) => {
       const cutoff = Date.now() - windowMs
-      return events.filter(e => e.ts >= cutoff)
+      return events.filter((e) => e.ts >= cutoff)
     }),
   }
 }
@@ -107,7 +110,9 @@ describe("computeFatigueSignal", () => {
 
   test("F4: audit log failure returns degraded signal", async () => {
     const reader: AuditLogReader = {
-      readRecent: vi.fn(async () => { throw new Error("DB down") }),
+      readRecent: vi.fn(async () => {
+        throw new Error("DB down")
+      }),
     }
     const signal = await computeFatigueSignal(reader)
     expect(signal.degraded).toBe(true)
@@ -157,7 +162,7 @@ export interface AuditEventSummary {
   readonly tool_name: string
   readonly actor: string
   readonly ts: number
-  readonly decision: 'allow' | 'checklist' | 'cooldown'
+  readonly decision: "allow" | "checklist" | "cooldown"
 }
 
 export interface AuditLogReader {
@@ -211,6 +216,7 @@ Do NOT commit yet — T1 ships after Task 2 (checklist) + Task 3 (policy) all gr
 ## Task 2: lib/fatigue/checklist.ts + 4 unit tests (T1 partial)
 
 **Files:**
+
 - Create: `apps/api/src/lib/fatigue/checklist.ts`
 - Test: `apps/api/src/lib/fatigue/checklist.test.ts`
 
@@ -245,12 +251,7 @@ describe("matchSensitivity", () => {
 
 describe("HIGH_SENSITIVITY_TOOLS", () => {
   test("includes 4 patterns", () => {
-    expect(HIGH_SENSITIVITY_TOOLS).toEqual([
-      "send_*",
-      "delete_*",
-      "external_write",
-      "broadcast_*",
-    ])
+    expect(HIGH_SENSITIVITY_TOOLS).toEqual(["send_*", "delete_*", "external_write", "broadcast_*"])
   })
 })
 
@@ -317,6 +318,7 @@ Expected: 7 passed
 ## Task 3: lib/fatigue/policy.ts + 5 unit tests (T1 final — commit T1)
 
 **Files:**
+
 - Create: `apps/api/src/lib/fatigue/policy.ts`
 - Test: `apps/api/src/lib/fatigue/policy.test.ts`
 
@@ -424,9 +426,13 @@ import { matchSensitivity } from "./checklist"
 export const DEFAULT_COOLDOWN_MS = 3000
 
 export type PolicyDecision =
-  | { readonly action: 'allow' }
-  | { readonly action: 'cooldown'; readonly duration_ms: number; readonly signal: FatigueSignal }
-  | { readonly action: 'checklist'; readonly items: ReadonlyArray<string>; readonly signal: FatigueSignal }
+  | { readonly action: "allow" }
+  | { readonly action: "cooldown"; readonly duration_ms: number; readonly signal: FatigueSignal }
+  | {
+      readonly action: "checklist"
+      readonly items: ReadonlyArray<string>
+      readonly signal: FatigueSignal
+    }
 
 export interface ToolCall {
   readonly tool_name: string
@@ -439,22 +445,22 @@ export async function evaluateInlineApproval(
 ): Promise<PolicyDecision> {
   const signal = await computeFatigueSignal(reader, DEFAULT_WINDOW_SECONDS)
   if (signal.degraded) {
-    return { action: 'allow' }
+    return { action: "allow" }
   }
   const sensitivity = matchSensitivity(toolCall.tool_name)
   const isHighSignal = signal.count >= DEFAULT_COUNT_THRESHOLD
 
   if (sensitivity && isHighSignal) {
     // First round: cooldown; caller sleeps 3s then re-evaluates (which returns checklist)
-    return { action: 'cooldown', duration_ms: DEFAULT_COOLDOWN_MS, signal }
+    return { action: "cooldown", duration_ms: DEFAULT_COOLDOWN_MS, signal }
   }
   if (sensitivity) {
-    return { action: 'checklist', items: sensitivity.items, signal }
+    return { action: "checklist", items: sensitivity.items, signal }
   }
   if (isHighSignal) {
-    return { action: 'cooldown', duration_ms: DEFAULT_COOLDOWN_MS, signal }
+    return { action: "cooldown", duration_ms: DEFAULT_COOLDOWN_MS, signal }
   }
-  return { action: 'allow' }
+  return { action: "allow" }
 }
 ```
 
@@ -481,6 +487,7 @@ Expected: 20 tests passed (5+4+5+6), 0 typecheck errors, commit `T1` SHA.
 ## Task 4: audit-event.ts extension + schema test (T2)
 
 **Files:**
+
 - Modify: `apps/api/src/audit-event.ts:1-50` (add 3 optional fields to existing AuditEvent type)
 - New: `apps/api/src/audit-event.fatigue.test.ts` (schema acceptance test)
 
@@ -509,9 +516,7 @@ describe("AuditEvent fatigue fields (D64)", () => {
       fatigue_signal: {
         count: 3,
         window_seconds: 60,
-        last_n_actions: [
-          { event_id: "e0", tool_name: "read_file", ts: Date.now() - 1000 },
-        ],
+        last_n_actions: [{ event_id: "e0", tool_name: "read_file", ts: Date.now() - 1000 }],
       },
     }
     expect(event.fatigue_signal?.count).toBe(3)
@@ -605,6 +610,7 @@ Expected: 4 tests passed, 0 typecheck errors, commit `T2` SHA.
 ## Task 5: lib/fatigue/inline-approval-wiring.ts (T3 partial)
 
 **Files:**
+
 - Create: `apps/api/src/lib/fatigue/inline-approval-wiring.ts`
 - Test: (covered in Task 6)
 
@@ -617,7 +623,7 @@ import type { PolicyDecision } from "./policy"
 import type { AuditLogReader } from "./signal"
 
 export interface ChannelContext {
-  readonly channel: 'wechat' | 'telegram' | 'cli'
+  readonly channel: "wechat" | "telegram" | "cli"
   readonly actor: string
   readonly correlation_id: string
 }
@@ -645,15 +651,15 @@ export async function evaluateChannelApproval(
 
   const renderPrompt = (): string => {
     switch (decision.action) {
-      case 'allow':
-        return ''
-      case 'cooldown':
+      case "allow":
+        return ""
+      case "cooldown":
         return `已批 ${decision.signal.count} 个，建议稍等 ${decision.duration_ms / 1000}s...`
-      case 'checklist':
+      case "checklist":
         return [
-          '此操作 [' + toolName + '] 不可撤销，请确认：',
+          "此操作 [" + toolName + "] 不可撤销，请确认：",
           ...decision.items.map((item, i) => `${i + 1}. ${item}`),
-        ].join('\n')
+        ].join("\n")
     }
   }
 
@@ -679,6 +685,7 @@ Expected: 0 errors
 ## Task 6: cross-channel integration — wechat + telegram + CLI (T3 final — commit T3)
 
 **Files:**
+
 - Modify: `apps/api/src/wechat-inbound-butler.ts` (find inline-approval entry; add evaluateChannelApproval call)
 - Modify: `apps/api/src/channel-inbound.ts` (same)
 - Modify: `apps/api/src/cli-run.ts` (same)
@@ -700,45 +707,44 @@ import type { AuditLogReader, FatigueSignal } from "./signal"
 
 function makeReader(count: number): AuditLogReader {
   return {
-    readRecent: vi.fn(async () => Array.from({ length: count }, (_, i) => ({
-      event_id: `e${i}`,
-      tool_name: "read_file",
-      actor: "owner",
-      ts: Date.now() - i * 1000,
-      decision: "allow" as const,
-    }))),
+    readRecent: vi.fn(async () =>
+      Array.from({ length: count }, (_, i) => ({
+        event_id: `e${i}`,
+        tool_name: "read_file",
+        actor: "owner",
+        ts: Date.now() - i * 1000,
+        decision: "allow" as const,
+      })),
+    ),
   }
 }
 
 describe("cross-channel approval wiring", () => {
   test("X1: wechat high-signal send_email produces checklist", async () => {
-    const result = await evaluateChannelApproval(
-      "send_email",
-      { to: "x@y.com" },
-      makeReader(3),
-      { channel: "wechat", actor: "owner", correlation_id: "c1" },
-    )
+    const result = await evaluateChannelApproval("send_email", { to: "x@y.com" }, makeReader(3), {
+      channel: "wechat",
+      actor: "owner",
+      correlation_id: "c1",
+    })
     expect(result.decision.action).toBe("cooldown") // high-signal first round
     expect(result.renderPrompt()).toContain("建议稍等")
   })
 
   test("X2: telegram high-signal delete_file produces checklist", async () => {
-    const result = await evaluateChannelApproval(
-      "delete_file",
-      { path: "/tmp/x" },
-      makeReader(3),
-      { channel: "telegram", actor: "owner", correlation_id: "c2" },
-    )
+    const result = await evaluateChannelApproval("delete_file", { path: "/tmp/x" }, makeReader(3), {
+      channel: "telegram",
+      actor: "owner",
+      correlation_id: "c2",
+    })
     expect(result.decision.action).toBe("cooldown")
   })
 
   test("X3: CLI high-signal normal tool produces cooldown", async () => {
-    const result = await evaluateChannelApproval(
-      "read_file",
-      { path: "/tmp/x" },
-      makeReader(3),
-      { channel: "cli", actor: "owner", correlation_id: "c3" },
-    )
+    const result = await evaluateChannelApproval("read_file", { path: "/tmp/x" }, makeReader(3), {
+      channel: "cli",
+      actor: "owner",
+      correlation_id: "c3",
+    })
     expect(result.decision.action).toBe("cooldown")
     if (result.decision.action !== "cooldown") throw new Error("expected cooldown")
     expect(result.decision.duration_ms).toBe(3000)
@@ -764,18 +770,17 @@ For each channel file, find the inline-approval entry point and add:
 import { evaluateChannelApproval } from "../lib/fatigue/inline-approval-wiring"
 
 // In the approval handler (before tool execution):
-const wiring = await evaluateChannelApproval(
-  toolName,
-  toolArgs,
-  auditLogReader,
-  { channel: 'wechat' | 'telegram' | 'cli', actor: ownerId, correlation_id: runId },
-)
-if (wiring.decision.action === 'cooldown') {
+const wiring = await evaluateChannelApproval(toolName, toolArgs, auditLogReader, {
+  channel: "wechat" | "telegram" | "cli",
+  actor: ownerId,
+  correlation_id: runId,
+})
+if (wiring.decision.action === "cooldown") {
   // render wait prompt via channel-specific UI
   // sleep decision.duration_ms
   // (or /cancel during wait → audit_event.cooldown_applied.interrupted=true)
 }
-if (wiring.decision.action === 'checklist') {
+if (wiring.decision.action === "checklist") {
   // render checklist prompt
   // wait for owner to acknowledge all items
   // timeout 60s → default deny
@@ -802,6 +807,7 @@ Expected: 23 tests passed (20 T1 + 3 T3), 0 typecheck errors, commit `T3` SHA.
 ## Task 7: /v1/owner/audit/fatigue replay API (T4)
 
 **Files:**
+
 - Create: `apps/api/src/lib/fatigue/replay.ts`
 - Modify: `apps/api/src/owner-routes.ts` (mount the new route)
 - Create: `apps/api/src/lib/fatigue/replay-api.test.ts`
@@ -821,7 +827,15 @@ import { listFatigueSequences, replayFatigueSequence } from "./replay"
 import type { AuditLogReader } from "./signal"
 
 const now = Date.now()
-function makeReader(events: Array<{ event_id: string; tool_name: string; actor: string; ts: number; decision: 'allow' }>): AuditLogReader {
+function makeReader(
+  events: Array<{
+    event_id: string
+    tool_name: string
+    actor: string
+    ts: number
+    decision: "allow"
+  }>,
+): AuditLogReader {
   return {
     readRecent: vi.fn(async () => events),
   }
@@ -836,15 +850,63 @@ describe("listFatigueSequences", () => {
 
   test("R2: 2 separate sequences sorted DESC by start_ts", async () => {
     const reader = makeReader([
-      { event_id: "e1", tool_name: "read_file", actor: "owner", ts: now - 60_000, decision: "allow" },
-      { event_id: "e2", tool_name: "read_file", actor: "owner", ts: now - 50_000, decision: "allow" },
-      { event_id: "e3", tool_name: "read_file", actor: "owner", ts: now - 40_000, decision: "allow" },
+      {
+        event_id: "e1",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 60_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e2",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 50_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e3",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 40_000,
+        decision: "allow",
+      },
       // gap of 10s
-      { event_id: "e7", tool_name: "read_file", actor: "owner", ts: now - 20_000, decision: "allow" },
-      { event_id: "e8", tool_name: "read_file", actor: "owner", ts: now - 15_000, decision: "allow" },
-      { event_id: "e9", tool_name: "read_file", actor: "owner", ts: now - 10_000, decision: "allow" },
-      { event_id: "e10", tool_name: "read_file", actor: "owner", ts: now - 5_000, decision: "allow" },
-      { event_id: "e11", tool_name: "read_file", actor: "owner", ts: now - 1_000, decision: "allow" },
+      {
+        event_id: "e7",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 20_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e8",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 15_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e9",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 10_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e10",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 5_000,
+        decision: "allow",
+      },
+      {
+        event_id: "e11",
+        tool_name: "read_file",
+        actor: "owner",
+        ts: now - 1_000,
+        decision: "allow",
+      },
     ])
     const result = await listFatigueSequences(reader, "owner", 60)
     expect(result.sequences).toHaveLength(2)
@@ -864,9 +926,9 @@ describe("replayFatigueSequence", () => {
 
   test("R4: cross-actor event_ids rejected (security)", async () => {
     const reader = makeReader([])
-    await expect(
-      replayFatigueSequence(reader, ["e1"], "owner-A")
-    ).rejects.toThrow(/cross-actor|not owner/i)
+    await expect(replayFatigueSequence(reader, ["e1"], "owner-A")).rejects.toThrow(
+      /cross-actor|not owner/i,
+    )
   })
 })
 ```
@@ -902,16 +964,18 @@ export interface ReplayResult {
 }
 
 const SEQUENCE_GAP_MS = 10_000 // 10s gap = new sequence
-const IRREVERSIBLE_TOOLS = ['send_*', 'broadcast_*', 'external_write', 'run_command']
+const IRREVERSIBLE_TOOLS = ["send_*", "broadcast_*", "external_write", "run_command"]
 
 function isIrreversible(toolName: string): boolean {
-  return IRREVERSIBLE_TOOLS.some(pattern => {
+  return IRREVERSIBLE_TOOLS.some((pattern) => {
     const regex = new RegExp("^" + pattern.replace(/\*/g, ".*") + "$")
     return regex.test(toolName)
   })
 }
 
-function groupIntoSequences(events: ReadonlyArray<AuditEventSummary>): ReadonlyArray<FatigueSequence> {
+function groupIntoSequences(
+  events: ReadonlyArray<AuditEventSummary>,
+): ReadonlyArray<FatigueSequence> {
   if (events.length === 0) return []
   const sorted = [...events].sort((a, b) => a.ts - b.ts)
   const sequences: FatigueSequence[] = []
@@ -924,7 +988,7 @@ function groupIntoSequences(events: ReadonlyArray<AuditEventSummary>): ReadonlyA
           start_ts: currentGroup[0].ts,
           end_ts: currentGroup[currentGroup.length - 1].ts,
           count: currentGroup.length,
-          event_ids: currentGroup.map(e => e.event_id),
+          event_ids: currentGroup.map((e) => e.event_id),
         })
       }
       currentGroup = [sorted[i]]
@@ -938,7 +1002,7 @@ function groupIntoSequences(events: ReadonlyArray<AuditEventSummary>): ReadonlyA
       start_ts: currentGroup[0].ts,
       end_ts: currentGroup[currentGroup.length - 1].ts,
       count: currentGroup.length,
-      event_ids: currentGroup.map(e => e.event_id),
+      event_ids: currentGroup.map((e) => e.event_id),
     })
   }
   // sort DESC by start_ts
@@ -952,7 +1016,7 @@ export async function listFatigueSequences(
 ): Promise<ListFatigueSequencesResult> {
   try {
     const events = await reader.readRecent(windowSeconds * 1000)
-    const ownerEvents = events.filter(e => e.actor === ownerActor)
+    const ownerEvents = events.filter((e) => e.actor === ownerActor)
     return { sequences: groupIntoSequences(ownerEvents) }
   } catch {
     return { sequences: [], degraded: true }
@@ -965,7 +1029,7 @@ export async function replayFatigueSequence(
   ownerActor: string,
 ): Promise<ReplayResult> {
   const events = await reader.readRecent(24 * 60 * 60 * 1000) // 24h
-  const byId = new Map(events.map(e => [e.event_id, e]))
+  const byId = new Map(events.map((e) => [e.event_id, e]))
   const replayed: string[] = []
   const irreversible: string[] = []
   const failed: Array<{ event_id: string; reason: string }> = []
@@ -1014,7 +1078,7 @@ app.get("/v1/owner/audit/fatigue", async (c) => {
 })
 
 app.post("/v1/owner/audit/fatigue/replay", async (c) => {
-  const body = await c.req.json() as { sequence_event_ids: string[] }
+  const body = (await c.req.json()) as { sequence_event_ids: string[] }
   const reader = makeAuditLogReader()
   try {
     const result = await replayFatigueSequence(reader, body.sequence_event_ids, ownerId)
@@ -1048,15 +1112,16 @@ Expected: 27 tests passed (23 T1+T3 + 4 T4), 0 typecheck errors, commit `T4` SHA
 ## Task 8: Acceptance scenario F1-fatigue (T5 partial)
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/_fixtures.ts` (add F1 scenario definition)
 
-- [ ] **Step 1: Read _fixtures.ts to find D-number scenario registration**
+- [ ] **Step 1: Read \_fixtures.ts to find D-number scenario registration**
 
 Run: `cd butler-v5 && grep -n "scenario.*name\|D[0-9]" tests/acceptance/scenarios/_fixtures.ts | head -30`
 
 Find the pattern for scenario registration.
 
-- [ ] **Step 2: Write F1-fatigue scenario in _fixtures.ts**
+- [ ] **Step 2: Write F1-fatigue scenario in \_fixtures.ts**
 
 Add to `tests/acceptance/scenarios/_fixtures.ts`:
 
@@ -1089,6 +1154,7 @@ Expected: F1-fatigue passes; existing 41 scenarios no regression.
 ## Task 9: Acceptance scenario F2-sensitive (T5 partial)
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/_fixtures.ts` (add F2 scenario definition)
 
 - [ ] **Step 1: Write F2-sensitive scenario**
@@ -1120,6 +1186,7 @@ Expected: F1 + F2 both pass; 41 existing + 2 new = 43 scenarios.
 ## Task 10: Acceptance scenario F3-replay (T5 final — commit T5)
 
 **Files:**
+
 - Modify: `tests/acceptance/scenarios/_fixtures.ts` (add F3 scenario definition)
 
 - [ ] **Step 1: Write F3-replay scenario**
@@ -1170,6 +1237,7 @@ Expected: 1957+ tests + ~27 new = ~1984 tests passing, 0 typecheck errors, commi
 ## Task 11: post-fix drift closure (D50 protocol — N=3 fresh verify)
 
 **Files:**
+
 - Modify: any drift surfaced by fresh verify (TBD per result)
 
 - [ ] **Step 1: Run N=3 fresh verification suite**
@@ -1226,15 +1294,15 @@ git push origin main
 
 ## Acceptance Gates (N=3 fresh verify)
 
-| Gate | Expected |
-|---|---|
-| lint | 0 |
-| typecheck | 0 new errors |
-| test:full | ~1984 pass / 1 pre-existing skip / 0 fail |
-| acceptance | 44/44 (41 existing + 3 new) |
-| methodology | 13/13 |
+| Gate              | Expected                                          |
+| ----------------- | ------------------------------------------------- |
+| lint              | 0                                                 |
+| typecheck         | 0 new errors                                      |
+| test:full         | ~1984 pass / 1 pre-existing skip / 0 fail         |
+| acceptance        | 44/44 (41 existing + 3 new)                       |
+| methodology       | 13/13                                             |
 | audit_event shape | contains fatigue_signal field (D63 schema compat) |
-| cross-channel | wechat + telegram + CLI same audit_event shape |
+| cross-channel     | wechat + telegram + CLI same audit_event shape    |
 
 ---
 

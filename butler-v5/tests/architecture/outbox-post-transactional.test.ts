@@ -22,14 +22,8 @@ import { describe, expect, it } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const EVENT_BRIDGE = join(
-  __dirname,
-  "../../packages/persistence/src/event-bridge.ts",
-)
-const EVENT_STORE = join(
-  __dirname,
-  "../../packages/persistence/src/event-store.ts",
-)
+const EVENT_BRIDGE = join(__dirname, "../../packages/persistence/src/event-bridge.ts")
+const EVENT_STORE = join(__dirname, "../../packages/persistence/src/event-store.ts")
 const OUTBOX = join(__dirname, "../../packages/persistence/src/outbox.ts")
 
 describe("arch: outbox post-transactional (§20 #8)", () => {

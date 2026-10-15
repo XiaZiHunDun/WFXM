@@ -97,7 +97,11 @@ export async function tryWechatTaskCommand(args: {
 }): Promise<ButlerLoopResult | null> {
   const env = args.env ?? process.env
   const trimmed = args.content.trim()
-  if (!trimmed.startsWith("/待办") && !trimmed.startsWith("/运行") && !trimmed.startsWith("/完成")) {
+  if (
+    !trimmed.startsWith("/待办") &&
+    !trimmed.startsWith("/运行") &&
+    !trimmed.startsWith("/完成")
+  ) {
     return null
   }
 
@@ -140,30 +144,30 @@ export async function tryWechatTaskCommand(args: {
       // be >= 1" / "duplicate step key: X" — translate known set, fall
       // back to generic "请检查输入" for unknown reasons.
       const r = created.reason
-      const ownerReason = r === "name is required"
-        ? "请提供待办标题"
-        : r.startsWith("name exceeds")
-          ? "待办标题过长"
-          : r === "steps must be a non-empty array"
-            ? "待办步骤不能为空"
-            : r.startsWith("steps exceeds")
-              ? "待办步骤过多"
-              : r === "invalid step"
-                ? "步骤格式不正确"
-                : r === "each step needs key, title, and goal"
-                  ? "每个步骤都需要标题和目标"
-                  : r.startsWith("duplicate step key")
-                    ? "步骤编号重复"
-                    : r === "version must be >= 1"
-                      ? "版本号无效"
-                      : "请检查输入"
+      const ownerReason =
+        r === "name is required"
+          ? "请提供待办标题"
+          : r.startsWith("name exceeds")
+            ? "待办标题过长"
+            : r === "steps must be a non-empty array"
+              ? "待办步骤不能为空"
+              : r.startsWith("steps exceeds")
+                ? "待办步骤过多"
+                : r === "invalid step"
+                  ? "步骤格式不正确"
+                  : r === "each step needs key, title, and goal"
+                    ? "每个步骤都需要标题和目标"
+                    : r.startsWith("duplicate step key")
+                      ? "步骤编号重复"
+                      : r === "version must be >= 1"
+                        ? "版本号无效"
+                        : "请检查输入"
       return done(`无法创建待办：${ownerReason}`, ["wechat-task: create failed"])
     }
     const saved = await store.create(created.value)
-    return done(
-      `已添加待办 ${shortId(saved.id)}：${titleRaw}\n运行：/运行 ${shortId(saved.id)}`,
-      [`wechat-task: created ${saved.id}`],
-    )
+    return done(`已添加待办 ${shortId(saved.id)}：${titleRaw}\n运行：/运行 ${shortId(saved.id)}`, [
+      `wechat-task: created ${saved.id}`,
+    ])
   }
 
   if (trimmed.startsWith("/运行")) {

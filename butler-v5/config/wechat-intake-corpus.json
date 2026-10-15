@@ -25,12 +25,22 @@
     {
       "id": "dev-session",
       "utterance": "开发模式",
-      "expect": { "intent": "dev_session", "locked": true, "toolSurface": "plan", "execVia": "none" }
+      "expect": {
+        "intent": "dev_session",
+        "locked": true,
+        "toolSurface": "plan",
+        "execVia": "none"
+      }
     },
     {
       "id": "switch-nl",
       "utterance": "切到 WFXM",
-      "expect": { "intent": "switch_project", "locked": true, "toolSurface": "plan", "execVia": "none" }
+      "expect": {
+        "intent": "switch_project",
+        "locked": true,
+        "toolSurface": "plan",
+        "execVia": "none"
+      }
     },
     {
       "id": "dev-natural-write",

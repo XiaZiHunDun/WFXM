@@ -48,15 +48,11 @@ function resolvePlan(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefine
     // wechat butler loop no longer need to provision a second provider
     // key for plan.
     const model =
-      envTrim(env, "BUTLER_V5_MODEL_PLAN") ||
-      envTrim(env, "MINIMAX_MODEL") ||
-      "MiniMax-M3"
+      envTrim(env, "BUTLER_V5_MODEL_PLAN") || envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3"
     return { provider: "minimax", model }
   }
   const model =
-    envTrim(env, "BUTLER_V5_MODEL_PLAN") ||
-    envTrim(env, "DEEPSEEK_MODEL") ||
-    "deepseek-chat"
+    envTrim(env, "BUTLER_V5_MODEL_PLAN") || envTrim(env, "DEEPSEEK_MODEL") || "deepseek-chat"
   if (envTrim(env, "DEEPSEEK_API_KEY")) {
     return { provider: "deepseek", model }
   }

@@ -53,35 +53,35 @@ inbound wechat message
  */
 export type ChainEntry =
   | {
-      readonly kind: "write"          // D49 initial: write_file
-      readonly path: string           // absolute
+      readonly kind: "write" // D49 initial: write_file
+      readonly path: string // absolute
       readonly beforeContent: string | null // null = new file
       readonly tool: "write_file"
-      readonly pushedAt: number        // monotonic counter (= UNDO_TOUCH_COUNTER)
+      readonly pushedAt: number // monotonic counter (= UNDO_TOUCH_COUNTER)
     }
   | {
-      readonly kind: "edit"           // D54 T1: edit_file (added post-D49 ship)
+      readonly kind: "edit" // D54 T1: edit_file (added post-D49 ship)
       readonly path: string
       readonly beforeContent: string | null // null = file newly created by edit
       readonly tool: "edit_file"
       readonly pushedAt: number
     }
   | {
-      readonly kind: "patch"          // D54 T2: apply_patch (added post-D49 ship)
+      readonly kind: "patch" // D54 T2: apply_patch (added post-D49 ship)
       readonly path: string
       readonly beforeContent: string | null // null = no snapshot captured
       readonly tool: "apply_patch"
       readonly pushedAt: number
     }
   | {
-      readonly kind: "delete"         // D54 T3: delete_file (added post-D49 ship)
+      readonly kind: "delete" // D54 T3: delete_file (added post-D49 ship)
       readonly path: string
       readonly beforeContent: string | null // null = no snapshot captured
       readonly tool: "delete_file"
       readonly pushedAt: number
     }
   | {
-      readonly kind: "command"        // D49 initial: run_command (non-invertible; reported as side-effect)
+      readonly kind: "command" // D49 initial: run_command (non-invertible; reported as side-effect)
       readonly argv: readonly string[]
       readonly cwd: string
       readonly gitStatusBeforeHash: string | null // git rev-parse HEAD; null if not git / fails
@@ -112,7 +112,10 @@ UNDO_TOUCHED.set(resolved.path, UNDO_TOUCH_COUNTER)
 // NEW (D49):
 if (ctx.chainId) {
   let entries = UNDO_CHAIN.get(ctx.chainId)
-  if (!entries) { entries = []; UNDO_CHAIN.set(ctx.chainId, entries) }
+  if (!entries) {
+    entries = []
+    UNDO_CHAIN.set(ctx.chainId, entries)
+  }
   entries.push({
     kind: "write",
     path: resolved.path,
@@ -131,7 +134,10 @@ if (ctx.chainId) {
 // after existing executeArgvInSandbox or spawnCaptured
 if (ctx.chainId) {
   let entries = UNDO_CHAIN.get(ctx.chainId)
-  if (!entries) { entries = []; UNDO_CHAIN.set(ctx.chainId, entries) }
+  if (!entries) {
+    entries = []
+    UNDO_CHAIN.set(ctx.chainId, entries)
+  }
   entries.push({
     kind: "command",
     argv,
@@ -263,8 +269,7 @@ git起点: a1b2c3d（undo 前 HEAD）
 ### 3.4 Chain intent regex（最长匹配）
 
 ```typescript
-const CHAIN_INTENT_REGEX =
-  /^(撤销这一轮|撤销这轮|撤销本次|撤销这次|\/撤销这轮)\s*$/i
+const CHAIN_INTENT_REGEX = /^(撤销这一轮|撤销这轮|撤销本次|撤销这次|\/撤销这轮)\s*$/i
 
 // 在 tryWechatUndoCommand 中顺序：先试 CHAIN_INTENT_REGEX，再试 UNDO_INTENT_REGEX
 ```
@@ -312,12 +317,12 @@ undoChain(chainId):
 
 ### 4.2 Chain 找不到 / 已消费
 
-| 场景 | 回复 |
-|---|---|
-| UNDO_CHAIN 没有 chainId | "没有可撤销的轮次。" |
-| UNDO_CHAIN[chainId] 空数组 | "当前轮次没有可撤销的操作。" |
-| UNDO_CHAIN_CONV[chainId] ≠ 当前 conversation | "该轮次不属于当前对话。" |
-| `safeGitHead` 失败 | gitStatusBeforeHash = null，commandSideEffects note 不含 git ref（不阻塞） |
+| 场景                                         | 回复                                                                       |
+| -------------------------------------------- | -------------------------------------------------------------------------- |
+| UNDO_CHAIN 没有 chainId                      | "没有可撤销的轮次。"                                                       |
+| UNDO_CHAIN[chainId] 空数组                   | "当前轮次没有可撤销的操作。"                                               |
+| UNDO_CHAIN_CONV[chainId] ≠ 当前 conversation | "该轮次不属于当前对话。"                                                   |
+| `safeGitHead` 失败                           | gitStatusBeforeHash = null，commandSideEffects note 不含 git ref（不阻塞） |
 
 ### 4.3 Write Revert 失败处理
 
@@ -343,20 +348,22 @@ undoChain(chainId):
 
 D49 design 故意 **不引入 `invertible: true` boolean 字段** on `ChainEntry`。Revert 语义 dispatch on `entry.kind`，而非读 flag。Per-kind revert 矩阵：
 
-| `kind` | 源 tool | revert 机制 | 副作用保证 |
-|---|---|---|---|
-| `"write"` | `write_file` | `writeFileSync(path, beforeContent ?? "")`；null beforeContent（新文件）→ 写空串 | ✅ best-effort；失败记 `ok: false, reason` |
-| `"edit"` | `edit_file` | null beforeContent（新文件由 edit 创建）→ `unlinkSync` 删除；否则 `writeFileSync(path, beforeContent)` | ✅ best-effort；ENOENT 视为 ok |
-| `"patch"` | `apply_patch` | null beforeContent → 不可 revert（记 `reason: "no before state captured"`）；否则 `writeFileSync(path, beforeContent)`（不 apply `-R`，仅 snapshot 还原） | ⚠️ best-effort；非 -R 反向 patch |
-| `"delete"` | `delete_file` | null beforeContent → 不可 revert（记 `reason`）；否则 `writeFileSync(path, beforeContent)` 重建 | ✅ best-effort；失败记 `ok: false, reason` |
-| `"command"` | `run_command` | **不可自动 revert** → push `commandSideEffects` 列表，note: "无法自动 undo，需手工 reverse" | ❌ 非 invertible；owner 需手工 reverse |
+| `kind`      | 源 tool       | revert 机制                                                                                                                                               | 副作用保证                                 |
+| ----------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `"write"`   | `write_file`  | `writeFileSync(path, beforeContent ?? "")`；null beforeContent（新文件）→ 写空串                                                                          | ✅ best-effort；失败记 `ok: false, reason` |
+| `"edit"`    | `edit_file`   | null beforeContent（新文件由 edit 创建）→ `unlinkSync` 删除；否则 `writeFileSync(path, beforeContent)`                                                    | ✅ best-effort；ENOENT 视为 ok             |
+| `"patch"`   | `apply_patch` | null beforeContent → 不可 revert（记 `reason: "no before state captured"`）；否则 `writeFileSync(path, beforeContent)`（不 apply `-R`，仅 snapshot 还原） | ⚠️ best-effort；非 -R 反向 patch           |
+| `"delete"`  | `delete_file` | null beforeContent → 不可 revert（记 `reason`）；否则 `writeFileSync(path, beforeContent)` 重建                                                           | ✅ best-effort；失败记 `ok: false, reason` |
+| `"command"` | `run_command` | **不可自动 revert** → push `commandSideEffects` 列表，note: "无法自动 undo，需手工 reverse"                                                               | ❌ 非 invertible；owner 需手工 reverse     |
 
 **为什么没有 `invertible` flag**：
+
 1. **类型即文档**：`kind` literal union 已经是 exhaustive，dispatch 在 type system 层强制；额外 boolean 字段是冗余且易漂移
 2. **per-kind 行为差异**：5 种 kind 中 3 种 fully reversible（write/edit/delete，snapshot 完整），1 种 best-effort（patch，-R patch 不实现），1 种 non-invertible（command）—— boolean 字段会丢失这种细粒度语义
 3. **D54 audit 闭环**：drift audit (D54 entry line 15) 报告 "memory `invertible flag` 不存在" — 该 drift 在 D49 spec 中不存在，是 audit 误报；本节作为 SSOT lock per-kind 行为，防止后续 audit 重复出现
 
 **Owner 视角**：
+
 - write/edit/delete = "撤销这轮" 会自动还原文件内容
 - apply_patch = "撤销这轮" 会还原到 before snapshot（patch 文本不反演，仅内容还原）
 - run_command = "撤销这轮" **不会**自动 undo；reply 列表 command 副作用提示 "无法自动 undo，需手工 reverse"
@@ -369,23 +376,23 @@ D49 design 故意 **不引入 `invertible: true` boolean 字段** on `ChainEntry
 
 **File**: `apps/api/src/workspace-tools.chain-undo.test.ts` (new)
 
-| Case | 描述 | 断言 |
-|---|---|---|
-| **C1. write-only chain push** | chainId="run1", 2 次 write_file | UNDO_CHAIN["run1"].length === 2, both `kind: "write"`, paths 正确；UNDO_CHAIN_CONV["run1"] === conv |
-| **C2. mixed write + command push** | chainId="run1", write + run_command + write | UNDO_CHAIN["run1"].length === 3, second write 在最后；command entry 含 argv/cwd/gitStatusBeforeHash=null（test 目录非 git） |
+| Case                                 | 描述                                                                | 断言                                                                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C1. write-only chain push**        | chainId="run1", 2 次 write_file                                     | UNDO_CHAIN["run1"].length === 2, both `kind: "write"`, paths 正确；UNDO_CHAIN_CONV["run1"] === conv                                                                                      |
+| **C2. mixed write + command push**   | chainId="run1", write + run_command + write                         | UNDO_CHAIN["run1"].length === 3, second write 在最后；command entry 含 argv/cwd/gitStatusBeforeHash=null（test 目录非 git）                                                              |
 | **C3. undoChain 顺序 + best-effort** | chainId="run1" 3 write，其中第 2 个 revert 抛 ENOENT（file 手工删） | reverted 长度 === 3；reverted[0] ✅，reverted[1] ❌ reason 含 "ENOENT"，reverted[2] ✅；UNDO_CHAIN["run1"] 已 DELETE（一次性消费）；commandSideEffects 含 chain 中 command entry 的 argv |
-| **C4. resetUndoChain** | push 3 chain, resetUndoChain() | UNDO_CHAIN.size === 0；UNDO_CHAIN_CONV.size === 0 |
+| **C4. resetUndoChain**               | push 3 chain, resetUndoChain()                                      | UNDO_CHAIN.size === 0；UNDO_CHAIN_CONV.size === 0                                                                                                                                        |
 
 ### 5.2 Intent + Reply cases (4 unit)
 
 **File**: `apps/api/src/wechat-undo-command.chain.test.ts` (new)
 
-| Case | 描述 | 断言 |
-|---|---|---|
-| **C5. chain 短语正则匹配** | 5 个短语: `撤销这轮` `撤销本次` `撤销这次` `撤销这一轮` `/撤销这轮`（大小写、尾随空格变体） | 全部被 `tryWechatUndoCommand` 命中并走 chain 分支 |
-| **C6. chain undo 无 chain** | UNDO_CHAIN 空 | reply === "没有可撤销的轮次。" |
-| **C7. chain undo 成功表格式** | chainId="run1" 含 2 write + 1 command (pnpm install lodash)，conversation 匹配 | reply 含 ✅ 行 ×2、❌ 行 0、command 副作用 list 含 pnpm install argv；gitStatusBeforeHash=null 时不显示 "git起点" 行 |
-| **C8. 跨对话 chain 拒绝** | UNDO_CHAIN_CONV["run1"] = convA，当前 conv=B | reply === "该轮次不属于当前对话。" |
+| Case                          | 描述                                                                                        | 断言                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **C5. chain 短语正则匹配**    | 5 个短语: `撤销这轮` `撤销本次` `撤销这次` `撤销这一轮` `/撤销这轮`（大小写、尾随空格变体） | 全部被 `tryWechatUndoCommand` 命中并走 chain 分支                                                                    |
+| **C6. chain undo 无 chain**   | UNDO_CHAIN 空                                                                               | reply === "没有可撤销的轮次。"                                                                                       |
+| **C7. chain undo 成功表格式** | chainId="run1" 含 2 write + 1 command (pnpm install lodash)，conversation 匹配              | reply 含 ✅ 行 ×2、❌ 行 0、command 副作用 list 含 pnpm install argv；gitStatusBeforeHash=null 时不显示 "git起点" 行 |
+| **C8. 跨对话 chain 拒绝**     | UNDO_CHAIN_CONV["run1"] = convA，当前 conv=B                                                | reply === "该轮次不属于当前对话。"                                                                                   |
 
 ### 5.3 Realistic scenario (1 case extension)
 
@@ -394,6 +401,7 @@ D49 design 故意 **不引入 `invertible: true` boolean 字段** on `ChainEntry
 D1 原 scenario: "写 → 跑 test → 失败 → 修 → 再跑" 5 步。
 
 **D1-chain-extension**:
+
 1. setup: 在测试 fixture 中直接调 `UNDO_CHAIN.set("run-d1", [...])` 模拟 5 步真实链（绕开 write_file.run / run_command.run 调用，纯测 popChain + formatChainReply 集成）。这是 acceptance harness 的 mock 模式，与 D46 `resetUndoStack` 一致。
 2. owner: "撤销这轮"
 3. expect: reply 含 ✅ ×3（3 次 write_file revert），command 副作用 list 含 2 个 `pnpm test` argv；helper.ts 还原为 step 1 前内容；test.ts 还原为 step 2 前内容；第二个 helper.ts 还原为 step 4 前内容（中间 step 1 helper.ts 内容）
@@ -417,14 +425,14 @@ D1 原 scenario: "写 → 跑 test → 失败 → 修 → 再跑" 5 步。
 
 ## 6. Files Changed (预估)
 
-| 类型 | 路径 | 改动 |
-|---|---|---|
-| 改 | `apps/api/src/workspace-tools.ts` | + UNDO_CHAIN / UNDO_CHAIN_CONV / safeGitHead / undoChain / resetUndoChain; + WorkspaceToolContext.chainId+conversationId; write_file + run_command push |
-| 改 | `apps/api/src/wechat-undo-command.ts` | + CHAIN_INTENT_REGEX; chain 分支; formatChainReply |
-| 改 | `apps/api/src/wiring.ts` (or existing wire path) | 透传 chainId + conversationId 到 WorkspaceToolContext |
-| 新 | `apps/api/src/workspace-tools.chain-undo.test.ts` | 4 unit |
-| 新 | `apps/api/src/wechat-undo-command.chain.test.ts` | 4 unit |
-| 改 | `tests/acceptance/scenarios/_fixtures.ts` | + D1-chain-extension |
+| 类型 | 路径                                              | 改动                                                                                                                                                    |
+| ---- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 改   | `apps/api/src/workspace-tools.ts`                 | + UNDO_CHAIN / UNDO_CHAIN_CONV / safeGitHead / undoChain / resetUndoChain; + WorkspaceToolContext.chainId+conversationId; write_file + run_command push |
+| 改   | `apps/api/src/wechat-undo-command.ts`             | + CHAIN_INTENT_REGEX; chain 分支; formatChainReply                                                                                                      |
+| 改   | `apps/api/src/wiring.ts` (or existing wire path)  | 透传 chainId + conversationId 到 WorkspaceToolContext                                                                                                   |
+| 新   | `apps/api/src/workspace-tools.chain-undo.test.ts` | 4 unit                                                                                                                                                  |
+| 新   | `apps/api/src/wechat-undo-command.chain.test.ts`  | 4 unit                                                                                                                                                  |
+| 改   | `tests/acceptance/scenarios/_fixtures.ts`         | + D1-chain-extension                                                                                                                                    |
 
 预估 +200/-30 行（非最终）；0 业务逻辑改动到现有 UNDO_STACK 路径。
 

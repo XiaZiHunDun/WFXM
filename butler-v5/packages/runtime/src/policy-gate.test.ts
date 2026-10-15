@@ -107,7 +107,13 @@ describe("PolicyGate and CapabilityRegistry", () => {
     const definition: CapabilityDefinition = { name: "write_file", kind: "write", risk: "high" }
     const execute = vi.fn(async () => ({ ok: true, output: "wrote" }))
     registry.register(definition, { name: "write_file", execute })
-    const request = actionRequestFromTool("write_file", "owner-1", "a.txt", { path: "a.txt" }, definition)
+    const request = actionRequestFromTool(
+      "write_file",
+      "owner-1",
+      "a.txt",
+      { path: "a.txt" },
+      definition,
+    )
     const grant = {
       id: "g1",
       runId: "r1",

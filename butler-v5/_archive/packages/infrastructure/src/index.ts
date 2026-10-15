@@ -13,7 +13,10 @@ export {
 } from "../_archive/guards/index.js"
 export { events, outbox, intentReceipts, loadBearingMarks } from "../_archive/persistence/schema.js"
 export { Db, DbLive, makeTestDb } from "../_archive/persistence/db.js"
-export { DrizzleEventStoreLive, MockEventStoreLive } from "../_archive/persistence/eventstore-live.js"
+export {
+  DrizzleEventStoreLive,
+  MockEventStoreLive,
+} from "../_archive/persistence/eventstore-live.js"
 export { LLMServiceLive, MockLLMLive } from "../_archive/llm/index.js"
 export { WeChatGatewayLive, MockWeChatLive } from "../_archive/wechat/index.js"
 export { MCPDiscoveryLive, MockMCPDiscoveryLive } from "../_archive/mcp/index.js"

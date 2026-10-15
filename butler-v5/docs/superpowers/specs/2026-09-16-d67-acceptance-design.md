@@ -72,6 +72,7 @@ D67 — Path C 第 3 Batch
 **File:** `apps/api/src/wechat-inbound-butler.ts` (lines 622-637, checklist case)
 
 **Before:**
+
 ```typescript
 case "checklist": {
   const toolName = String(def.name)
@@ -92,6 +93,7 @@ case "checklist": {
 ```
 
 **After:**
+
 ```typescript
 case "checklist": {
   const toolName = String(def.name)
@@ -136,21 +138,21 @@ Harness scenarios inject audit events via `runtimeStore.appendAuditEvent` — th
 
 #### T2a-1: 4 new C category scenarios (C extension)
 
-| ID | Description |
-|---|---|
-| `C-F1-real-cooldown` | 4 consecutive approvals → 4th triggers REAL cooldown (high-signal data injected) |
-| `C-F2-checklist-proceed` | sensitive tool → checklist → owner "确认" → proceed (via createStep) |
-| `C-F3-replay-api` | GET /v1/owner/audit/fatigue + POST /replay real surface (no chat-side indirection) |
-| `C-additional-1` | Owner-direct API call w/o inbound run (correlation_id: null path) |
+| ID                       | Description                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| `C-F1-real-cooldown`     | 4 consecutive approvals → 4th triggers REAL cooldown (high-signal data injected)   |
+| `C-F2-checklist-proceed` | sensitive tool → checklist → owner "确认" → proceed (via createStep)               |
+| `C-F3-replay-api`        | GET /v1/owner/audit/fatigue + POST /replay real surface (no chat-side indirection) |
+| `C-additional-1`         | Owner-direct API call w/o inbound run (correlation_id: null path)                  |
 
 #### T2a-2: 4 new D category scenarios (D extension)
 
-| ID | Description |
-|---|---|
-| `D-cross-channel-consistency` | Same scenario via wechat + telegram + CLI — verify same audit trail |
-| `D-audit-correlation-continuity` | Verify correlation_id threaded across 5 consecutive emit sites |
-| `D-owner-direct-no-inbound` | Owner-direct API call → correlation_id null + audit emit |
-| `D-additional-2` | Failure recovery (audit_event emit failure → graceful continue) |
+| ID                               | Description                                                         |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `D-cross-channel-consistency`    | Same scenario via wechat + telegram + CLI — verify same audit trail |
+| `D-audit-correlation-continuity` | Verify correlation_id threaded across 5 consecutive emit sites      |
+| `D-owner-direct-no-inbound`      | Owner-direct API call → correlation_id null + audit emit            |
+| `D-additional-2`                 | Failure recovery (audit_event emit failure → graceful continue)     |
 
 ---
 
@@ -210,12 +212,12 @@ Expectations verified (minToolCalls / requireApproval / replyContains / etc.)
 
 ## 4. Error Handling
 
-| Failure | T1a behavior | T1b/T2a behavior |
-|---|---|---|
-| `createStep` throws | existing try/catch in chokepoint (mirror inline approval pattern) | N/A |
-| Audit emit failure | graceful continue (D58 T1 silent-failure sweep) | N/A |
-| Harness setup error | test failure (correct behavior) | N/A |
-| Existing scenarios break | regression caught at N=3 verify | N/A |
+| Failure                  | T1a behavior                                                      | T1b/T2a behavior |
+| ------------------------ | ----------------------------------------------------------------- | ---------------- |
+| `createStep` throws      | existing try/catch in chokepoint (mirror inline approval pattern) | N/A              |
+| Audit emit failure       | graceful continue (D58 T1 silent-failure sweep)                   | N/A              |
+| Harness setup error      | test failure (correct behavior)                                   | N/A              |
+| Existing scenarios break | regression caught at N=3 verify                                   | N/A              |
 
 ---
 
@@ -225,24 +227,24 @@ Expectations verified (minToolCalls / requireApproval / replyContains / etc.)
 
 **File:** `apps/api/src/wechat-inbound-butler.test.ts` (extend existing)
 
-| Case | Description | Assertion |
-|---|---|---|
-| U1 | fatigue checklist triggers createStep before RunPauseForApproval | runtimeStore.createStep called with correct args |
-| U2 | inline approval path unchanged (no createStep from fatigue) | existing tests pass |
-| U3 | createStep with kind="owner_approval" + status="pending" | verify fields |
+| Case | Description                                                      | Assertion                                        |
+| ---- | ---------------------------------------------------------------- | ------------------------------------------------ |
+| U1   | fatigue checklist triggers createStep before RunPauseForApproval | runtimeStore.createStep called with correct args |
+| U2   | inline approval path unchanged (no createStep from fatigue)      | existing tests pass                              |
+| U3   | createStep with kind="owner_approval" + status="pending"         | verify fields                                    |
 
 ### 5.2 Acceptance (T1b + T2a)
 
 **File:** `tests/acceptance/scenarios/realistic.test.ts` + `_fixtures.ts`
 
-| Case | Description | Assertion |
-|---|---|---|
-| F1 (rewritten) | 4 audit events → real cooldown | 4th tool execution has actual 3s sleep + reply shows "稍等 3s..." |
-| F2 (rewritten) | sensitive tool → checklist → owner "确认" → proceed | tool execution continues after ack |
-| F3 (rewritten) | harness exercises replay API end-to-end | non-empty sequences returned + reversible/irreversible split correct via runtimeStore (NOT via HTTP — see F3 HTTP row below) |
+| Case                            | Description                                                                | Assertion                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1 (rewritten)                  | 4 audit events → real cooldown                                             | 4th tool execution has actual 3s sleep + reply shows "稍等 3s..."                                                                                                                                                                                                                                                                                                   |
+| F2 (rewritten)                  | sensitive tool → checklist → owner "确认" → proceed                        | tool execution continues after ack                                                                                                                                                                                                                                                                                                                                  |
+| F3 (rewritten)                  | harness exercises replay API end-to-end                                    | non-empty sequences returned + reversible/irreversible split correct via runtimeStore (NOT via HTTP — see F3 HTTP row below)                                                                                                                                                                                                                                        |
 | F3 (HTTP, D70 T1 / D71 T5 spec) | `/v1/owner/audit/fatigue` + `/v1/owner/audit/fatigue/replay` HTTP boundary | 8 cases in `apps/api/src/owner-routes/audit-fatigue-http.test.ts`; verifies Hono route registration, owner auth short-circuit, request validation, JSON shape, CQ-010 honest failure routing (no silent no-op). F3 spec clarification: the harness scenario asserts replay data via runtimeStore directly; HTTP boundary coverage lives in the dedicated unit test. |
-| New C scenarios (4) | various fatigue/cooldown/replay paths | scenario-specific assertions |
-| New D scenarios (4) | cross-channel / correlation / failure recovery | scenario-specific assertions |
+| New C scenarios (4)             | various fatigue/cooldown/replay paths                                      | scenario-specific assertions                                                                                                                                                                                                                                                                                                                                        |
+| New D scenarios (4)             | cross-channel / correlation / failure recovery                             | scenario-specific assertions                                                                                                                                                                                                                                                                                                                                        |
 
 ### 5.3 Existing — no regression
 
@@ -252,15 +254,15 @@ All existing 44 scenarios must pass unchanged + new 8 = 52+ total.
 
 ## 6. Files Changed (预估)
 
-| Track | File | Change |
-|---|---|---|
-| T1a | `apps/api/src/wechat-inbound-butler.ts` | +~15 lines at checklist case |
-| T1a | `apps/api/src/wechat-inbound-butler.test.ts` | +3 unit tests |
-| T1b | `tests/acceptance/scenarios/_fixtures.ts` | +injectAuditEvent helper + F1/F2/F3 rewrite |
-| T2a-1 | `tests/acceptance/scenarios/_fixtures.ts` | +4 C scenarios |
-| T2a-2 | `tests/acceptance/scenarios/_fixtures.ts` | +4 D scenarios |
-| post-fix | `.audit/D67/{summary.md, protocol-compliance.md}` | NEW |
-| post-fix | `MEMORY.md` | Current State update |
+| Track    | File                                              | Change                                      |
+| -------- | ------------------------------------------------- | ------------------------------------------- |
+| T1a      | `apps/api/src/wechat-inbound-butler.ts`           | +~15 lines at checklist case                |
+| T1a      | `apps/api/src/wechat-inbound-butler.test.ts`      | +3 unit tests                               |
+| T1b      | `tests/acceptance/scenarios/_fixtures.ts`         | +injectAuditEvent helper + F1/F2/F3 rewrite |
+| T2a-1    | `tests/acceptance/scenarios/_fixtures.ts`         | +4 C scenarios                              |
+| T2a-2    | `tests/acceptance/scenarios/_fixtures.ts`         | +4 D scenarios                              |
+| post-fix | `.audit/D67/{summary.md, protocol-compliance.md}` | NEW                                         |
+| post-fix | `MEMORY.md`                                       | Current State update                        |
 
 预估 net: +400 lines (mostly new scenarios).
 
@@ -288,14 +290,14 @@ All existing 44 scenarios must pass unchanged + new 8 = 52+ total.
 
 ## 9. Acceptance Gates (N=3 fresh verify)
 
-| Gate | Baseline | D67 expected |
-|---|---|---|
-| lint | 0 fatigue warnings | 0 unchanged |
-| typecheck | 0 errors | 0 new |
-| test:full | 1994 pass / 5 pre-existing | 1994+ pass, 5 unchanged, 0 new fail |
-| acceptance | 44/44 | 52+/52+ (44 baseline + 8 new) |
-| methodology | 13/13 | 13/13 unchanged |
-| knip | 0 new deadcode | 0 new |
+| Gate        | Baseline                   | D67 expected                        |
+| ----------- | -------------------------- | ----------------------------------- |
+| lint        | 0 fatigue warnings         | 0 unchanged                         |
+| typecheck   | 0 errors                   | 0 new                               |
+| test:full   | 1994 pass / 5 pre-existing | 1994+ pass, 5 unchanged, 0 new fail |
+| acceptance  | 44/44                      | 52+/52+ (44 baseline + 8 new)       |
+| methodology | 13/13                      | 13/13 unchanged                     |
+| knip        | 0 new deadcode             | 0 new                               |
 
 ---
 

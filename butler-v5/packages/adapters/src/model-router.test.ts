@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest"
-import { pickExecLLM, pickLLMForRole, pickPlanLLM, execModelTrace, resolveLLMModel, pickIntakeLLM } from "./model-router.js"
+import {
+  pickExecLLM,
+  pickLLMForRole,
+  pickPlanLLM,
+  execModelTrace,
+  resolveLLMModel,
+  pickIntakeLLM,
+} from "./model-router.js"
 import type * as OpenAICompatible from "./llm/openai-compatible.js"
 
 vi.mock("./llm/openai-compatible.js", async (importOriginal) => {

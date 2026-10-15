@@ -554,9 +554,11 @@ describe("weibutler tools", () => {
       update: async (r) => r,
       delete: async () => false,
       listBySubject: async ({ status }) =>
-        [rec("c1", "confirmed", "时区 Asia/Shanghai"), rec("c2", "confirmed", "过期口令 secret", { expiresAt: now - 10 }), rec("can", "candidate", "时区候选项")].filter(
-          (r) => (status ? r.status === status : true),
-        ),
+        [
+          rec("c1", "confirmed", "时区 Asia/Shanghai"),
+          rec("c2", "confirmed", "过期口令 secret", { expiresAt: now - 10 }),
+          rec("can", "candidate", "时区候选项"),
+        ].filter((r) => (status ? r.status === status : true)),
       deleteBySourceMessageId: async () => 0,
       deleteBySourceDocumentId: async () => 0,
     }
@@ -576,7 +578,13 @@ describe("weibutler tools", () => {
 
   it("recall_project_knowledge recalls the current project by default", async () => {
     const pk = createProjectKnowledgeStore(db.db)
-    const a = createProjectKnowledgeRecord({ projectId: "WFXM", title: "MCP", kind: "manual_note", body: "alpha markers", nowMs: 1 })
+    const a = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "MCP",
+      kind: "manual_note",
+      body: "alpha markers",
+      nowMs: 1,
+    })
     if (!a.ok) throw new Error(a.reason)
     await pk.create(a.value)
     const tool = makeRecallProjectKnowledgeTool({
@@ -592,7 +600,13 @@ describe("weibutler tools", () => {
 
   it("recall_project_knowledge allows explicit cross-project recall", async () => {
     const pk = createProjectKnowledgeStore(db.db)
-    const a = createProjectKnowledgeRecord({ projectId: "LingWen", title: "Dual", kind: "manual_note", body: "dualmode alpha", nowMs: 1 })
+    const a = createProjectKnowledgeRecord({
+      projectId: "LingWen",
+      title: "Dual",
+      kind: "manual_note",
+      body: "dualmode alpha",
+      nowMs: 1,
+    })
     if (!a.ok) throw new Error(a.reason)
     await pk.create(a.value)
     const tool = makeRecallProjectKnowledgeTool({
@@ -601,15 +615,31 @@ describe("weibutler tools", () => {
       projectId: "WFXM",
       projectKnowledgeStore: pk,
     })
-    const result = await runTool(tool, { projectId: "LingWen", query: "dualmode" }, { timeoutMs: 1000 })
+    const result = await runTool(
+      tool,
+      { projectId: "LingWen", query: "dualmode" },
+      { timeoutMs: 1000 },
+    )
     expect(result.ok).toBe(true)
     if (result.ok) expect(String(result.output)).toContain("Dual")
   })
 
   it("recall_project_knowledge tags results across multiple projects", async () => {
     const pk = createProjectKnowledgeStore(db.db)
-    const a = createProjectKnowledgeRecord({ projectId: "WFXM", title: "A", kind: "manual_note", body: "shared topic", nowMs: 1 })
-    const b = createProjectKnowledgeRecord({ projectId: "LingWen", title: "B", kind: "manual_note", body: "shared topic", nowMs: 2 })
+    const a = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "A",
+      kind: "manual_note",
+      body: "shared topic",
+      nowMs: 1,
+    })
+    const b = createProjectKnowledgeRecord({
+      projectId: "LingWen",
+      title: "B",
+      kind: "manual_note",
+      body: "shared topic",
+      nowMs: 2,
+    })
     if (!a.ok || !b.ok) throw new Error("setup failed")
     await pk.create(a.value)
     await pk.create(b.value)
@@ -619,7 +649,11 @@ describe("weibutler tools", () => {
       projectId: "WFXM",
       projectKnowledgeStore: pk,
     })
-    const result = await runTool(tool, { projects: "WFXM,LingWen", query: "shared" }, { timeoutMs: 1000 })
+    const result = await runTool(
+      tool,
+      { projects: "WFXM,LingWen", query: "shared" },
+      { timeoutMs: 1000 },
+    )
     expect(result.ok).toBe(true)
     if (result.ok) {
       const out = String(result.output)
@@ -630,8 +664,20 @@ describe("weibutler tools", () => {
 
   it("recall_project_knowledge supports * for all projects", async () => {
     const pk = createProjectKnowledgeStore(db.db)
-    const a = createProjectKnowledgeRecord({ projectId: "WFXM", title: "A", kind: "manual_note", body: "alpha", nowMs: 1 })
-    const b = createProjectKnowledgeRecord({ projectId: "LingWen", title: "B", kind: "manual_note", body: "beta", nowMs: 2 })
+    const a = createProjectKnowledgeRecord({
+      projectId: "WFXM",
+      title: "A",
+      kind: "manual_note",
+      body: "alpha",
+      nowMs: 1,
+    })
+    const b = createProjectKnowledgeRecord({
+      projectId: "LingWen",
+      title: "B",
+      kind: "manual_note",
+      body: "beta",
+      nowMs: 2,
+    })
     if (!a.ok || !b.ok) throw new Error("setup failed")
     await pk.create(a.value)
     await pk.create(b.value)

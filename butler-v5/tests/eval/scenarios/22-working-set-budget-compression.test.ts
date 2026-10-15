@@ -41,9 +41,7 @@ describe("eval/22 working-set-budget-compression (§20 #14 D14 runtime check)", 
       let seededCount = 0
       const adapter = makeScriptedAdapter({
         responses: [
-          toolCallResponse([
-            { id: "tc-22-sum", name: "summarize_today", args: {} },
-          ]),
+          toolCallResponse([{ id: "tc-22-sum", name: "summarize_today", args: {} }]),
           decisionResponse({ _tag: "Respond", content: "已压缩总结" }),
         ],
       })
@@ -109,9 +107,7 @@ describe("eval/22 working-set-budget-compression (§20 #14 D14 runtime check)", 
       // The compression source must be 'extractive' — proves the
       // dropped messages were folded into a summary WorkingSetMessage,
       // not silently deleted.
-      const hasExtractive = historyTraces.some((t) =>
-        /source=relational:extractive\b/.test(t),
-      )
+      const hasExtractive = historyTraces.some((t) => /source=relational:extractive\b/.test(t))
       expect(
         hasExtractive,
         `expected relational:extractive source in history traces, got: ${historyTraces.join(" | ")}`,

@@ -14,8 +14,7 @@ export function isLoopbackAddress(address: string | undefined): boolean {
 function remoteAddressFromContext(c: Context): string | undefined {
   try {
     const bindings = (c.env as { server?: unknown }).server ?? c.env
-    const incoming = (bindings as { incoming?: { socket?: { remoteAddress?: string } } })
-      .incoming
+    const incoming = (bindings as { incoming?: { socket?: { remoteAddress?: string } } }).incoming
     return incoming?.socket?.remoteAddress
   } catch (err) {
     // D74 T5 (audit #19 CQ-021 partial): observability for the silent

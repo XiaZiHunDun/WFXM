@@ -11,10 +11,7 @@
  */
 import { describe, expect, it } from "vitest"
 import { runEvalScenario, formatMetricLine } from "../harness.js"
-import {
-  decisionResponse,
-  makeScriptedAdapter,
-} from "../mock-llm-scripted.js"
+import { decisionResponse, makeScriptedAdapter } from "../mock-llm-scripted.js"
 
 describe("eval/18 decoder-retry-success (B-08/10 fix verification)", () => {
   it("LLM emits bad JSON then valid JSON → retry succeeds with Respond", async () => {
@@ -56,7 +53,9 @@ describe("eval/18 decoder-retry-success (B-08/10 fix verification)", () => {
     // No loop-exhausted or stuck-loop — self-correction succeeded quickly.
     expect(
       result.painPoints.some(
-        (p) => p.severity === "warning" && (p.category === "loop-exhausted" || p.category === "tool-retry"),
+        (p) =>
+          p.severity === "warning" &&
+          (p.category === "loop-exhausted" || p.category === "tool-retry"),
       ),
     ).toBe(false)
   })

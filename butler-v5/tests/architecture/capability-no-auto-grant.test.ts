@@ -38,30 +38,12 @@ import { describe, expect, it } from "vitest"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 
-const POLICY_GATE = join(
-  __dirname,
-  "../../packages/runtime/src/policy-gate.ts",
-)
-const CAPABILITY_BOUNDARY = join(
-  __dirname,
-  "../../packages/runtime/src/capability-boundary.ts",
-)
-const SCOPED_GRANT_SERVICE = join(
-  __dirname,
-  "../../packages/runtime/src/scoped-grant-service.ts",
-)
-const APPROVAL_RUNTIME = join(
-  __dirname,
-  "../../packages/runtime/src/approval-runtime.ts",
-)
-const DEV_SESSION_GRANT = join(
-  __dirname,
-  "../../apps/api/src/dev-session-grant.ts",
-)
-const DELEGATION_GRANTS = join(
-  __dirname,
-  "../../apps/api/src/delegation-grants.ts",
-)
+const POLICY_GATE = join(__dirname, "../../packages/runtime/src/policy-gate.ts")
+const CAPABILITY_BOUNDARY = join(__dirname, "../../packages/runtime/src/capability-boundary.ts")
+const SCOPED_GRANT_SERVICE = join(__dirname, "../../packages/runtime/src/scoped-grant-service.ts")
+const APPROVAL_RUNTIME = join(__dirname, "../../packages/runtime/src/approval-runtime.ts")
+const DEV_SESSION_GRANT = join(__dirname, "../../apps/api/src/dev-session-grant.ts")
+const DELEGATION_GRANTS = join(__dirname, "../../apps/api/src/delegation-grants.ts")
 
 function extractMethodBody(src: string, signatureRegex: RegExp): string | null {
   const match = src.match(signatureRegex)

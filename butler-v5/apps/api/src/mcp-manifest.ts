@@ -2,10 +2,7 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { McpManifest, McpManifestServer } from "@butler/domain/mcp/manifest.js"
 import { findMcpServer } from "@butler/domain/mcp/manifest.js"
-import {
-  loadMcpManifestFromJson,
-  manifestAllowsServer,
-} from "@butler/runtime/mcp-consent.js"
+import { loadMcpManifestFromJson, manifestAllowsServer } from "@butler/runtime/mcp-consent.js"
 
 export type McpManifestLoadResult =
   | { readonly kind: "none" }
@@ -34,7 +31,9 @@ export function loadMcpManifestFromPath(path: string): McpManifestLoadResult {
   }
 }
 
-export function loadMcpManifestFromEnv(env: NodeJS.ProcessEnv = process.env): McpManifestLoadResult {
+export function loadMcpManifestFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): McpManifestLoadResult {
   const path = mcpManifestPathFromEnv(env)
   if (!path) return { kind: "none" }
   return loadMcpManifestFromPath(path)

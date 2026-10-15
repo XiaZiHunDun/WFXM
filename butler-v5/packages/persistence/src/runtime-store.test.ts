@@ -543,7 +543,9 @@ describe("RuntimeStore repository", () => {
       expect(recovered.conversationId).toBe(convC)
       const convCMessages = await store.listMessages(convC)
       expect(convCMessages).toHaveLength(1)
-      expect(((convCMessages[0]?.content as Readonly<Record<string, unknown>>)?.text) ?? "").toBe("after-recovery")
+      expect((convCMessages[0]?.content as Readonly<Record<string, unknown>>)?.text ?? "").toBe(
+        "after-recovery",
+      )
     } finally {
       await db.close()
     }

@@ -190,9 +190,7 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
             stopReason: "tool_use" as const,
           }),
         )
-        .mockImplementationOnce(() =>
-          Effect.succeed(textResponse("文件已写入")),
-        ),
+        .mockImplementationOnce(() => Effect.succeed(textResponse("文件已写入"))),
     } satisfies LLMAdapter
 
     const conversationId = "c-dev-delegate-full"
@@ -222,25 +220,23 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
     )
     expect(childCaps).toContain("write_file")
 
-    const workerHandle = runSubagentWorker(
-      bridge,
-      () => execAdapter,
-      env,
-      {
-        logger: silentLogger,
-        intervalMs: 10,
-        runtimeStore: wiring.runtimeStore,
-      },
-    )
+    const workerHandle = runSubagentWorker(bridge, () => execAdapter, env, {
+      logger: silentLogger,
+      intervalMs: 10,
+      runtimeStore: wiring.runtimeStore,
+    })
 
-    const workerDone = await waitForCondition(async () => {
-      const events = await bridge.loadStream(conversationId)
-      return events.some(
-        (e) =>
-          e.eventType === "AssistantMessageProduced" &&
-          String((e.payload as { content?: string }).content ?? "").includes("子代理 developer"),
-      )
-    }, { timeoutMs: 10_000 })
+    const workerDone = await waitForCondition(
+      async () => {
+        const events = await bridge.loadStream(conversationId)
+        return events.some(
+          (e) =>
+            e.eventType === "AssistantMessageProduced" &&
+            String((e.payload as { content?: string }).content ?? "").includes("子代理 developer"),
+        )
+      },
+      { timeoutMs: 10_000 },
+    )
     expect(workerDone).toBe(true)
     workerHandle.stop()
 
@@ -262,15 +258,18 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
     // D72 T5 (audit #18 CQ-004): pollMockOutboxForText removed (whole
     // wechat-async-harness.ts was a test fixture masquerading as production
     // module). Inline the file-polling check via waitForCondition.
-    const outboxIncludesVerify = await waitForCondition(async () => {
-      try {
-        const fs = await import("node:fs/promises")
-        const buf = await fs.readFile(mockOutbox, "utf8")
-        return buf.includes("【开发验收】")
-      } catch {
-        return false
-      }
-    }, { timeoutMs: 15_000 })
+    const outboxIncludesVerify = await waitForCondition(
+      async () => {
+        try {
+          const fs = await import("node:fs/promises")
+          const buf = await fs.readFile(mockOutbox, "utf8")
+          return buf.includes("【开发验收】")
+        } catch {
+          return false
+        }
+      },
+      { timeoutMs: 15_000 },
+    )
     expect(outboxIncludesVerify).toBe(true)
   }, 30_000)
 
@@ -296,7 +295,9 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
           ),
         )
         .mockImplementationOnce(() =>
-          Effect.succeed(textResponse(JSON.stringify({ _tag: "Respond", content: "已委派子代理执行命令" }))),
+          Effect.succeed(
+            textResponse(JSON.stringify({ _tag: "Respond", content: "已委派子代理执行命令" })),
+          ),
         ),
     } satisfies LLMAdapter
 
@@ -340,29 +341,27 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
     })
     expect(planResult.traces.some((t) => t.startsWith("delegate_to_subagent@"))).toBe(true)
 
-    const workerHandle = runSubagentWorker(
-      bridge,
-      () => execAdapter,
-      env,
-      {
-        logger: silentLogger,
-        intervalMs: 10,
-        runtimeStore: wiring.runtimeStore,
-      },
-    )
+    const workerHandle = runSubagentWorker(bridge, () => execAdapter, env, {
+      logger: silentLogger,
+      intervalMs: 10,
+      runtimeStore: wiring.runtimeStore,
+    })
 
     // The pending run_command approval step is persisted by the real subagent
     // path (subagent-worker → tool-boundary → capability-boundary.persistAskApproval).
     let stepId: string | null = null
-    const pendingPosted = await waitForCondition(async () => {
-      const steps = await wiring.runtimeStore.listWaitingApprovalSteps()
-      const hit = steps.find((s) => {
-        const p = parsePendingCapabilityInput(s.input)
-        return p?.capability === "run_command"
-      })
-      if (hit) stepId = hit.id
-      return hit !== undefined
-    }, { timeoutMs: 15_000, pollIntervalMs: 50 })
+    const pendingPosted = await waitForCondition(
+      async () => {
+        const steps = await wiring.runtimeStore.listWaitingApprovalSteps()
+        const hit = steps.find((s) => {
+          const p = parsePendingCapabilityInput(s.input)
+          return p?.capability === "run_command"
+        })
+        if (hit) stepId = hit.id
+        return hit !== undefined
+      },
+      { timeoutMs: 15_000, pollIntervalMs: 50 },
+    )
     expect(pendingPosted).toBe(true)
     expect(stepId).toBeTruthy()
     workerHandle.stop()

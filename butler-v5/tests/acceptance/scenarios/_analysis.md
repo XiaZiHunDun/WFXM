@@ -21,17 +21,18 @@
 
 ### 🔴 P0 — C1 / C3：**approval intent 覆盖不全**
 
-| 输入 | 实际 reply | 期望 |
-|---|---|---|
-| `y` | `[fixture exhausted: plan#0]`（被当普通问题，跑 LLM）| `当前对话没有待审批的操作。` |
-| `好的` | `当前对话没有待审批的操作。` ✓ | 同左 |
-| `👌` | `[fixture exhausted: plan#0]` | 同左 |
+| 输入   | 实际 reply                                            | 期望                         |
+| ------ | ----------------------------------------------------- | ---------------------------- |
+| `y`    | `[fixture exhausted: plan#0]`（被当普通问题，跑 LLM） | `当前对话没有待审批的操作。` |
+| `好的` | `当前对话没有待审批的操作。` ✓                        | 同左                         |
+| `👌`   | `[fixture exhausted: plan#0]`                         | 同左                         |
 
 **根因**：`parseInlineApprovalIntent` 只识别 `确认` / `拒绝` 文本，不识别 `y` / `n` / `👌` / `ok` / emoji / 中英混合。
 
 **owner 真撞场景**：bot 刚问"确认？"，owner 手快回个 `y` 或 👌（最自然的确认姿势），bot 反过来问"fixture exhausted"——**完全没听懂**。第一印象崩坏。
 
 **修**：`apps/api/src/wechat-inline-approval.ts` 的 `parseInlineApprovalIntent` 加 case：
+
 - `y` / `Y` / `yes` → approve
 - `n` / `N` / `no` → deny
 - 👌 / ✅ / 👍 → approve
@@ -46,6 +47,7 @@
 **owner 真撞场景**：owner 一天问 20 次"git log" / "跑 test" / "show diff"，每次都"确认" — 摩擦感极大。会养成"确认 = 无脑点"的肌肉记忆，**反而降低对真危险操作的警觉**（羊群效应）。
 
 **修选项**：
+
 - A: 扩 `ALLOWED_RUN_COMMANDS` 白名单 + 加 `readOnlyCommands` 集合（git log/diff/status/ls/cat/pnpm typecheck/pnpm test 走 read-only 路径，跳 policy）
 - B: 加 `policy-gate.ts` 分支，read-only command（无写入副作用）→ 直接执行
 - C: 设一个"低风险 trust 模式"（owner 显式 trust 后低风险免审批）
@@ -55,6 +57,7 @@ A 最简单；B 更通用；C 风险与便利平衡最好。
 ### 🟠 P1 — B8：**没有使用率埋点（自我承认）**
 
 B8 是诚实的：
+
 > "（诚实回答）我没有使用率埋点，所以无法直接告诉你哪些真没用。"
 
 但 owner 撞 1 次就知道 v5 是**自反能力差**。加埋点是 P1（owner 真撞前提前 1 步做掉）。

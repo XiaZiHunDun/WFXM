@@ -3,9 +3,7 @@ import { sendSlackOutboundMessage } from "./slack-outbound.js"
 
 describe("sendSlackOutboundMessage", () => {
   it("posts chat.postMessage on success", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({ ok: true, ts: "123.456" }),
-    )
+    const fetchMock = vi.fn(async () => Response.json({ ok: true, ts: "123.456" }))
     const result = await sendSlackOutboundMessage({
       token: "xoxb-test",
       channel: "C123",
@@ -141,9 +139,7 @@ describe("sendSlackOutboundMessage", () => {
   })
 
   it("returns error when API returns ok=false with error code", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({ ok: false, error: "channel_not_found" }),
-    )
+    const fetchMock = vi.fn(async () => Response.json({ ok: false, error: "channel_not_found" }))
     const result = await sendSlackOutboundMessage({
       token: "xoxb",
       channel: "C1",
@@ -154,8 +150,9 @@ describe("sendSlackOutboundMessage", () => {
   })
 
   it("returns error on HTTP 500", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ ok: false, error: "server_error" }), { status: 500 }),
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ok: false, error: "server_error" }), { status: 500 }),
     )
     const result = await sendSlackOutboundMessage({
       token: "xoxb",
@@ -169,9 +166,7 @@ describe("sendSlackOutboundMessage", () => {
   })
 
   it("returns HTTP status error when API returns non-200 with ok=true", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ ok: true }), { status: 503 }),
-    )
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 503 }))
     const result = await sendSlackOutboundMessage({
       token: "xoxb",
       channel: "C1",

@@ -61,8 +61,16 @@ describe("documentStore", () => {
         if (!made.ok) return null
         return made.value
       }
-      const a = mk("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "first", Date.parse("2026-08-21T00:00:00Z"))
-      const b = mk("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "later", Date.parse("2026-08-22T00:00:00Z"))
+      const a = mk(
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "first",
+        Date.parse("2026-08-21T00:00:00Z"),
+      )
+      const b = mk(
+        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "later",
+        Date.parse("2026-08-22T00:00:00Z"),
+      )
       expect(a && b).toBeTruthy()
       if (!a || !b) return
       await docs.create(a)

@@ -55,11 +55,7 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
       mcpBundle: wiring.mcp,
     })
     if (projectSwitch) {
-      const inboundProjectId = resolveWechatInboundProjectId(
-        body.fromUserId,
-        body.projectId,
-        env,
-      )
+      const inboundProjectId = resolveWechatInboundProjectId(body.fromUserId, body.projectId, env)
       const normalized = normalizeWechatInbound({
         fromUserId: body.fromUserId,
         content: body.content,
@@ -211,9 +207,7 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
     // channel-config.ts:24), but allowlist is operator config — adding
     // a shared-secret header gives an additional authentication factor.
     // FAIL-CLOSED when env secret is unset.
-    const expectedChannelSecret = (
-      process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"] ?? ""
-    ).trim()
+    const expectedChannelSecret = (process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"] ?? "").trim()
     if (!expectedChannelSecret) {
       return c.text("channel inbound secret not configured", 401)
     }

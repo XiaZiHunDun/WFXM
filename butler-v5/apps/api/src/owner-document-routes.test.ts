@@ -59,17 +59,14 @@ describe("owner document ingest routes", () => {
     expect(created.ok).toBe(true)
     expect(created.item.format).toBe("markdown")
 
-    const promoteRes = await app.request(
-      `/v1/owner/documents/${created.item.id}/promote-memory`,
-      {
-        method: "POST",
-        headers: {
-          authorization: "Bearer test-owner-token",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({}),
+    const promoteRes = await app.request(`/v1/owner/documents/${created.item.id}/promote-memory`, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-owner-token",
+        "content-type": "application/json",
       },
-    )
+      body: JSON.stringify({}),
+    })
     expect(promoteRes.status).toBe(200)
     const promoted = (await promoteRes.json()) as {
       ok: boolean

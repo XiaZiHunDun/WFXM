@@ -204,21 +204,12 @@ export interface RuntimeStore {
     remainingUses: number | null,
   ) => Promise<void>
   /** P3: expire MCP grants bound to a server (sets remainingUses=0). */
-  readonly revokeScopedGrantsForMcpServer: (
-    serverId: string,
-    now: Date,
-  ) => Promise<number>
+  readonly revokeScopedGrantsForMcpServer: (serverId: string, now: Date) => Promise<number>
   /** P3: count non-exhausted MCP grants for a server (for Owner status). */
-  readonly countActiveScopedGrantsForMcpServer: (
-    serverId: string,
-    now: Date,
-  ) => Promise<number>
+  readonly countActiveScopedGrantsForMcpServer: (serverId: string, now: Date) => Promise<number>
   /** P3-2: expire grants whose scope targets a capability (sets remainingUses=0)
    * when that capability provider is uninstalled. */
-  readonly revokeScopedGrantsForCapability: (
-    capability: string,
-    now: Date,
-  ) => Promise<number>
+  readonly revokeScopedGrantsForCapability: (capability: string, now: Date) => Promise<number>
   /** Active main/child Runs whose deadline is strictly before `now`. */
   readonly listRunsPastDeadline: (now: Date) => Promise<readonly StoredRun[]>
   /** D4-arch-align: child Runs of the given parent (parentRunId == runId).

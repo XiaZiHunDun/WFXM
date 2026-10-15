@@ -16,19 +16,20 @@
 
 本批仅改/新建文档类文件：
 
-| 类型 | 路径 | 责任 |
-|---|---|---|
-| 改 | `butler-v5/DESIGN.md` | 架构 SSOT 增 3 row |
-| 改 | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md` | 观察性笔记 status 反转 |
-| 新 | `butler-v5/docs/superpowers/notes/2026-09-09-d51-decline-gaps.md` | handoff 文档 |
-| 新 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D51-decline-gaps-2026-09-09.md` | memory entry |
-| 改 | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md` | 索引行 + 新小节 heading |
+| 类型 | 路径                                                                                               | 责任                    |
+| ---- | -------------------------------------------------------------------------------------------------- | ----------------------- |
+| 改   | `butler-v5/DESIGN.md`                                                                              | 架构 SSOT 增 3 row      |
+| 改   | `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md`                             | 观察性笔记 status 反转  |
+| 新   | `butler-v5/docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`                                  | handoff 文档            |
+| 新   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D51-decline-gaps-2026-09-09.md` | memory entry            |
+| 改   | `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`                                  | 索引行 + 新小节 heading |
 
 ---
 
 ## Task 1: DESIGN.md §18 加 2 row
 
 **Files:**
+
 - Modify: `butler-v5/DESIGN.md:813` (after last existing row)
 
 - [ ] **Step 1: 定位插入点**
@@ -38,11 +39,12 @@ sed -n '810,815p' butler-v5/DESIGN.md
 ```
 
 预期输出：
+
 ```
 810: - **第二 Channel**：微信被证明是场景瓶颈；
 811: - **外部 OTEL**：本地 trace 无法定位生产问题；
 812: - **独立 Worker/Broker**：单进程资源或故障隔离实测不足。
-813: 
+813:
 814: 没有触发证据时，不进入路线图。
 ```
 
@@ -52,13 +54,16 @@ sed -n '810,815p' butler-v5/DESIGN.md
 
 使用 Edit 工具：
 
-- old_string: 
+- old_string:
+
 ```
 - **独立 Worker/Broker**：单进程资源或故障隔离实测不足。
 
 没有触发证据时，不进入路线图。
 ```
+
 - new_string:
+
 ```
 - **独立 Worker/Broker**：单进程资源或故障隔离实测不足。
 - **信任模式 / Approval 羊群效应 (declined, 2026-09-09 D51)**：高频 Approval 触发会降低 owner 对真危险操作的警觉（肌肉记忆）。结构根因：policy-gate 无 trust 模式，仅 per-command 静态判定。触发条件：owner 撞 1 次"误点 delete"。**当前决定：decline** — fixture harness 样本盲点；35 场景剩 9 次非 read-only approval 已能表达摩擦；扩 fixture 成本高于潜在价值。详见 [`../docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`](../docs/superpowers/notes/2026-09-09-d51-decline-gaps.md)。
@@ -74,6 +79,7 @@ sed -n '810,820p' butler-v5/DESIGN.md
 ```
 
 预期输出包含：
+
 - "独立 Worker/Broker"
 - "信任模式 / Approval 羊群效应 (declined, 2026-09-09 D51)"
 - "LLM 输出质量量化 (declined, 2026-09-09 D51)"
@@ -92,6 +98,7 @@ awk '/^## 18\./,/^---/' butler-v5/DESIGN.md | grep -c "^- \*\*"
 ## Task 2: DESIGN.md §11.4 加 1 row
 
 **Files:**
+
 - Modify: `butler-v5/DESIGN.md:571` (after last existing row in §11.4)
 
 - [ ] **Step 1: 定位插入点**
@@ -101,15 +108,16 @@ sed -n '565,575p' butler-v5/DESIGN.md
 ```
 
 预期输出：
+
 ```
 565: ### 11.4 不默认建设
-566: 
+566:
 567: - 全量 Projection 与独立读库；
 568: - Snapshot 和 DeltaChannel；
 569: - Command Bus / Query Bus；
 570: - 通用 Event Bus；
 571: - Kafka、Redis Stream 或独立 Broker。
-572: 
+572:
 573: 只有出现实测性能、隔离或查询需求时，才为具体读模型增加局部 Projection。
 ```
 
@@ -120,12 +128,15 @@ sed -n '565,575p' butler-v5/DESIGN.md
 使用 Edit 工具：
 
 - old_string:
+
 ```
 - Kafka、Redis Stream 或独立 Broker。
 
 只有出现实测性能、隔离或查询需求时，才为具体读模型增加局部 Projection。
 ```
+
 - new_string:
+
 ```
 - Kafka、Redis Stream 或独立 Broker。
 - LLM 质量量化方法论基础设施 (declined, 2026-09-09 D51)：multi-round + prompt freeze baseline 工具链。**当前决定：decline** — 见 §18 对应 row；D47 fixture-recording 同源风险未解除前不启。
@@ -140,6 +151,7 @@ sed -n '567,574p' butler-v5/DESIGN.md
 ```
 
 预期输出包含：
+
 - "Kafka、Redis Stream 或独立 Broker。"
 - "LLM 质量量化方法论基础设施 (declined, 2026-09-09 D51)"
 - "只有出现实测性能、隔离或查询需求时"
@@ -149,6 +161,7 @@ sed -n '567,574p' butler-v5/DESIGN.md
 ## Task 3: D48 doc §3.1 status 反转
 
 **Files:**
+
 - Modify: `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md:83`
 
 - [ ] **Step 1: 定位待改行**
@@ -158,6 +171,7 @@ sed -n '83p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.m
 ```
 
 预期输出：
+
 ```
   - **当前状态**：未识别。修选项 §18 没列入。
 ```
@@ -167,10 +181,13 @@ sed -n '83p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.m
 使用 Edit 工具：
 
 - old_string:
+
 ```
   - **当前状态**：未识别。修选项 §18 没列入。
 ```
+
 - new_string:
+
 ```
   - **当前状态**：decline (2026-09-09 D51，详见 `docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`)。修选项 §18 没列入且不再评估。
 ```
@@ -188,6 +205,7 @@ sed -n '78,86p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspectiv
 ## Task 4: D48 doc §3.2 status 反转
 
 **Files:**
+
 - Modify: `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md:92`
 
 - [ ] **Step 1: 定位待改行**
@@ -197,6 +215,7 @@ sed -n '92p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.m
 ```
 
 预期输出：
+
 ```
   - **当前状态**：未识别为"方法论限制"，列为"v8 candidate 待做"。D47 延续同源风险。
 ```
@@ -206,10 +225,13 @@ sed -n '92p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.m
 使用 Edit 工具：
 
 - old_string:
+
 ```
   - **当前状态**：未识别为"方法论限制"，列为"v8 candidate 待做"。D47 延续同源风险。
 ```
+
 - new_string:
+
 ```
   - **当前状态**：decline (2026-09-09 D51，详见 handoff doc `docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`)。方法论限制确认 + v8 3/3 REVERT 同源风险未解除前不启。
 ```
@@ -227,6 +249,7 @@ sed -n '87,95p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspectiv
 ## Task 5: D48 doc §6 触发表 status 反转
 
 **Files:**
+
 - Modify: `butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspective.md:176-177`
 
 - [ ] **Step 1: 定位待改行**
@@ -236,6 +259,7 @@ sed -n '173,181p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspect
 ```
 
 预期输出包含：
+
 - line 176: `| approval 羊群效应 (3.1) | owner 撞 1 次"误点确认" | ⬜ 等触发 |`
 - line 177: `| 真实 LLM 质量量化 (3.2) | owner 撞 1 次"答错了" | ⬜ 等触发 |`
 
@@ -244,10 +268,13 @@ sed -n '173,181p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspect
 使用 Edit 工具：
 
 - old_string:
+
 ```
 | approval 羊群效应 (3.1) | owner 撞 1 次"误点确认" | ⬜ 等触发 |
 ```
+
 - new_string:
+
 ```
 | approval 羊群效应 (3.1) | owner 撞 1 次"误点确认" | × declined (D51) |
 ```
@@ -257,10 +284,13 @@ sed -n '173,181p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspect
 使用 Edit 工具：
 
 - old_string:
+
 ```
 | 真实 LLM 质量量化 (3.2) | owner 撞 1 次"答错了" | ⬜ 等触发 |
 ```
+
 - new_string:
+
 ```
 | 真实 LLM 质量量化 (3.2) | owner 撞 1 次"答错了" | × declined (D51) |
 ```
@@ -278,6 +308,7 @@ sed -n '173,181p' butler-v5/docs/superpowers/notes/2026-09-08-d48-owner-perspect
 ## Task 6: 新建 D51 handoff doc
 
 **Files:**
+
 - Create: `butler-v5/docs/superpowers/notes/2026-09-09-d51-decline-gaps.md`
 
 - [ ] **Step 1: 创建目录（如果还没有）**
@@ -307,11 +338,11 @@ ls butler-v5/docs/superpowers/notes/
 
 D48 §3 列出 3 项 owner 视角下结构性 gap：
 
-| 项 | 状态 |
-|---|---|
-| §3.1 approval 羊群效应 | ✅ declined (D51, 2026-09-09) |
-| §3.2 LLM 质量量化不可达 | ✅ declined (D51, 2026-09-09) |
-| §3.3 multi-tool chain 撤销 | ✅ shipped (D49, 2026-09-09) |
+| 项                         | 状态                          |
+| -------------------------- | ----------------------------- |
+| §3.1 approval 羊群效应     | ✅ declined (D51, 2026-09-09) |
+| §3.2 LLM 质量量化不可达    | ✅ declined (D51, 2026-09-09) |
+| §3.3 multi-tool chain 撤销 | ✅ shipped (D49, 2026-09-09)  |
 
 D51 = 把 §3.1/§3.2 从"未识别结构问题"显式转为"accepted gap"，按 D-series owner-撞点协议不再主动 hypothetical 推进。
 
@@ -330,17 +361,17 @@ D51 = 把 §3.1/§3.2 从"未识别结构问题"显式转为"accepted gap"，按
 
 1. **temperature model 实证**：v8 PRD candidate A/B/C 3/3 REVERT，原因 = temperature model 单 round 验证不可靠；D47 fixture-recording 同源风险未解除
 2. **multi-round + prompt freeze 成本**：4 min × N round（N ≥ 5 才稳定 baseline），单次 fixture 校准 ≈ 20-30 min；35 场景全跑 ≈ 12-17 h（不可持续）
-4. **方法论限制 ≠ 工程问题**：LLM 输出概率性是 fundamental；唯一可量化路径 = 多 round + 大样本统计，本质是 research 而非 product feature
-3. **D48 §3.2 自判**："**当前状态**：未识别为'方法论限制'，列为'v8 candidate 待做'。D47 延续同源风险" — 已承认方法论限制
+3. **方法论限制 ≠ 工程问题**：LLM 输出概率性是 fundamental；唯一可量化路径 = 多 round + 大样本统计，本质是 research 而非 product feature
+4. **D48 §3.2 自判**："**当前状态**：未识别为'方法论限制'，列为'v8 candidate 待做'。D47 延续同源风险" — 已承认方法论限制
 
 ---
 
 ## 3. DESIGN.md 集成位置
 
-| § | 行号 | 改动 |
-|---|---|---|
-| §18 | line 814-815 | +2 row (信任模式 + LLM 质量量化) |
-| §11.4 | line 572 | +1 row (LLM 质量量化方法论基础设施) |
+| §     | 行号         | 改动                                |
+| ----- | ------------ | ----------------------------------- |
+| §18   | line 814-815 | +2 row (信任模式 + LLM 质量量化)    |
+| §11.4 | line 572     | +1 row (LLM 质量量化方法论基础设施) |
 
 引用：[`../../DESIGN.md`](../../DESIGN.md)（spec doc 内相对路径以 spec doc 为基准，本 doc 实际相对路径 `../../DESIGN.md`）
 
@@ -348,12 +379,12 @@ D51 = 把 §3.1/§3.2 从"未识别结构问题"显式转为"accepted gap"，按
 
 ## 4. D48 doc status flip
 
-| § | 原状态 | D51 后状态 |
-|---|---|---|
-| §3.1 line 83 | 未识别 | decline (2026-09-09 D51, handoff doc) |
-| §3.2 line 92 | 未识别 / v8 candidate 待做 | decline (2026-09-09 D51, handoff doc) |
-| §6 触发表 line 176 | ⬜ 等触发 | × declined (D51) |
-| §6 触发表 line 177 | ⬜ 等触发 | × declined (D51) |
+| §                  | 原状态                     | D51 后状态                            |
+| ------------------ | -------------------------- | ------------------------------------- |
+| §3.1 line 83       | 未识别                     | decline (2026-09-09 D51, handoff doc) |
+| §3.2 line 92       | 未识别 / v8 candidate 待做 | decline (2026-09-09 D51, handoff doc) |
+| §6 触发表 line 176 | ⬜ 等触发                  | × declined (D51)                      |
+| §6 触发表 line 177 | ⬜ 等触发                  | × declined (D51)                      |
 
 引用：[`./2026-09-08-d48-owner-perspective.md`](./2026-09-08-d48-owner-perspective.md)
 
@@ -490,6 +521,7 @@ git log --oneline -3
 ## Task 9: 新建 memory entry + MEMORY.md 索引
 
 **Files:**
+
 - Create: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/project-fix-D51-decline-gaps-2026-09-09.md`
 - Modify: `~/.claude/projects/-home-ailearn-projects-WFXM/memory/MEMORY.md`
 
@@ -512,6 +544,7 @@ metadata:
 **Problem:** 用户希望主动关闭 §3.1/§3.2 而非等撞点。需确认"做"语义 — D48 自判 §3.1/§3.2 = fixture harness 样本盲点 + 方法论限制，扩 fixture 成本高于潜在价值。
 
 **Solution:** Decline + 文档关闭（用户选 Option A, Full DESIGN 集成）：
+
 - brainstorming skill 走 4 步（explore/clarify/design/spec review）→ spec `ed4ea90e`
 - writing-plans 写实施计划（5 file 改动 + 9 task）
 - DESIGN.md §18 + §11.4 加 3 row declined
@@ -520,6 +553,7 @@ metadata:
 - 1 doc commit + 1 memory commit
 
 **Lessons:**
+
 1. **fixture harness 样本盲点 ≠ 团队盲点**：D48 §3 三项暴露条件 = owner 真撞；不是 v5 wrap-around 盲点
 2. **文档化 decline = closure ≠ 延后**：显式 "decline" + handoff doc 引用 = 可审计 accepted gap
 3. **D-series owner-撞点协议容许 doc-only closure**：D44/D46/D49 code ship；D51 doc-only closure 闭环；二者协议统一
@@ -538,10 +572,13 @@ metadata:
 使用 Edit 工具，在 `## Post-D43 Sessions (2026-09-04)` 段前插入新 heading + D51 索引行：
 
 - old_string:
+
 ```
 ## Post-D43 Sessions (2026-09-04)
 ```
+
 - new_string:
+
 ```
 ## Recent Batches (D51, 2026-09-09)
 

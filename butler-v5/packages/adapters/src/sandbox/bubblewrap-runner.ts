@@ -1,4 +1,7 @@
-import { resolveSandboxNetworkMode, resolveSandboxEgressIsolation } from "@butler/domain/governance/network-allowlist.js"
+import {
+  resolveSandboxNetworkMode,
+  resolveSandboxEgressIsolation,
+} from "@butler/domain/governance/network-allowlist.js"
 import type { spawn as ChildProcessSpawn } from "node:child_process"
 import {
   buildSandboxProxyEnv,
@@ -135,9 +138,7 @@ export async function executeArgvInSandbox(input: {
   readonly readOnly?: boolean
   /** R16 sandbox 扩面：write_file → stdin 透传 tee-equivalent；触发时 dispatch 到 executeWriteInSandbox */
   readonly stdinContent?: string
-}): Promise<
-  BubblewrapRunResult | { readonly ok: true; readonly mode: "disabled" }
-> {
+}): Promise<BubblewrapRunResult | { readonly ok: true; readonly mode: "disabled" }> {
   const env = input.env ?? process.env
   const injectEnv = input.injectEnv ?? {}
   if ((env["BUTLER_V5_SANDBOX"] ?? "").trim() !== "bubblewrap") {
@@ -288,9 +289,7 @@ export async function executeArgvInSandbox(input: {
  * Verify `bwrap` is on PATH and responds before enabling
  * `BUTLER_V5_SANDBOX=bubblewrap` in production.
  */
-export async function preflightBubblewrap(
-  bwrapPath = "bwrap",
-): Promise<BubblewrapPreflightResult> {
+export async function preflightBubblewrap(bwrapPath = "bwrap"): Promise<BubblewrapPreflightResult> {
   const { execFile } = await import("node:child_process")
   const { promisify } = await import("node:util")
   const execFileAsync = promisify(execFile)
@@ -511,8 +510,7 @@ export async function executeWriteInSandbox(input: {
     PATH: env["PATH"] ?? "/usr/bin:/bin",
   }
 
-  const spawnImpl =
-    input.spawnFn ?? (await import("node:child_process")).spawn
+  const spawnImpl = input.spawnFn ?? (await import("node:child_process")).spawn
 
   return await new Promise((resolvePromise) => {
     let settled = false

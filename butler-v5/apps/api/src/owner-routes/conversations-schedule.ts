@@ -16,7 +16,10 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
     const projectId = (c.req.query("projectId") ?? "").trim()
     if (!projectId) return c.text("缺少 projectId 参数", 400)
     const limitRaw = Number((c.req.query("limit") ?? "50").trim())
-    const limit = Math.min(Math.max(Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : 50, 1), 200)
+    const limit = Math.min(
+      Math.max(Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : 50, 1),
+      200,
+    )
     const items = await wiring.runtimeStore.listConversationsByProject({ projectId, limit })
     return c.json({ items })
   })
@@ -85,7 +88,7 @@ export function registerConversationsScheduleRoutes(app: Hono, wiring: Wiring): 
           correlationId: null,
           action: "schedule.fired",
           // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-          actor: 'owner-direct',
+          actor: "owner-direct",
           subject: "schedule-worker",
           detail: {
             fired: stats.fired,

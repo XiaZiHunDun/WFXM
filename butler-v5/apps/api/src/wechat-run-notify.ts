@@ -1,8 +1,4 @@
-import {
-  DEFAULT_ILINK_BASE_URL,
-  ilinkSendMessage,
-  type ILinkClientConfig,
-} from "@butler/adapters"
+import { DEFAULT_ILINK_BASE_URL, ilinkSendMessage, type ILinkClientConfig } from "@butler/adapters"
 import { envTruthy } from "./env-util.js"
 import { appendFileSync } from "node:fs"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
@@ -14,7 +10,6 @@ import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 // formatSubagentRoleForOwner: maps subagent role enums (e.g. "developer" → "开发").
 import { formatDecision, formatSubagentRoleForOwner } from "./owner-jargon.js"
 import { safeOwnerError } from "./safe-owner-error.js"
-
 
 /** Proactive WeChat push when long runs / subagents finish (BUTLER_V5_RUN_NOTIFY_ENABLED). */
 export function isRunNotifyEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -123,9 +118,7 @@ export async function sendWechatProactiveNotify(args: {
       })
       if (!result.ok) {
         // eslint-disable-next-line no-console -- operator log when no logger injected
-        console.error(
-          `[wechat-run-notify] port-send-failed reason=${result.reason} to=${to}`,
-        )
+        console.error(`[wechat-run-notify] port-send-failed reason=${result.reason} to=${to}`)
         return { ok: false, reason: result.reason }
       }
       return { ok: true }
@@ -146,10 +139,7 @@ export async function sendWechatProactiveNotify(args: {
   const mockOutbox = (env["BUTLER_V5_RUN_NOTIFY_MOCK_OUTBOX"] ?? "").trim()
   if (mockOutbox) {
     try {
-      appendFileSync(
-        mockOutbox,
-        `${JSON.stringify({ to, text, ts: new Date().toISOString() })}\n`,
-      )
+      appendFileSync(mockOutbox, `${JSON.stringify({ to, text, ts: new Date().toISOString() })}\n`)
       return { ok: true }
     } catch (err) {
       const reason = safeOwnerError(err, "无法写入测试日志，请稍后重试", {

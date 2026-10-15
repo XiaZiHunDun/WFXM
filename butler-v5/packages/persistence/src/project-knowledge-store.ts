@@ -114,10 +114,14 @@ export function createProjectKnowledgeStore(db: ButlerDb): ProjectKnowledgeStore
     },
 
     async listByProjects(input) {
-      const ids = [...new Set(input.projectIds.map((id) => id.trim()).filter((id) => id.length > 0))]
+      const ids = [
+        ...new Set(input.projectIds.map((id) => id.trim()).filter((id) => id.length > 0)),
+      ]
       const results: ProjectKnowledgeRecord[] = []
       for (const projectId of ids) {
-        results.push(...(await this.listByProject({ projectId, limit: input.perProjectLimit ?? 50 })))
+        results.push(
+          ...(await this.listByProject({ projectId, limit: input.perProjectLimit ?? 50 })),
+        )
       }
       return results
     },

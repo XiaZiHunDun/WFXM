@@ -57,14 +57,11 @@ D68 — Correctness Fix + Tech Debt Cleanup
 **File:** `tests/acceptance/scenarios/realistic.test.ts:202-229`
 
 **Before:**
+
 ```typescript
 const itBody = async () => {
   // ... state init ...
-  await runMultiRound(
-    scenario,
-    ctx,
-    { iterations: 3, scenarioId: scenario.id }
-  )
+  await runMultiRound(scenario, ctx, { iterations: 3, scenarioId: scenario.id })
   // runMultiRound aggregation.all 已校验 3 round 全 pass → 走到这里说明全过
   metrics.push({
     scenarioId: scenario.id,
@@ -75,15 +72,12 @@ const itBody = async () => {
 ```
 
 **After:**
+
 ```typescript
 const itBody = async () => {
   // ... state init ...
-  const result = await runMultiRound(
-    scenario,
-    ctx,
-    { iterations: 3, scenarioId: scenario.id }
-  )
-  expect(result.passed).toBe(true)  // ← D68 T1 critical fix
+  const result = await runMultiRound(scenario, ctx, { iterations: 3, scenarioId: scenario.id })
+  expect(result.passed).toBe(true) // ← D68 T1 critical fix
   metrics.push({
     scenarioId: scenario.id,
     passed: result.passed,
@@ -99,12 +93,13 @@ const itBody = async () => {
 **File:** `apps/api/src/wechat-inbound-butler.ts:62-78`
 
 **Before:**
+
 ```typescript
 export function subagentAuditAsFatigueReader(env: NodeJS.ProcessEnv): AuditLogReader {
   return {
     readRecent: async (windowMs: number) => {
       const cutoff = Date.now() - windowMs
-      const entries = readRecentSubagentAudit(50, env)  // ← JSONL log source
+      const entries = readRecentSubagentAudit(50, env) // ← JSONL log source
       return entries.filter((e) => Date.parse(e.ts) >= cutoff)
     },
   }
@@ -112,21 +107,25 @@ export function subagentAuditAsFatigueReader(env: NodeJS.ProcessEnv): AuditLogRe
 ```
 
 **After:**
+
 ```typescript
-export function subagentAuditAsFatigueReader(env: NodeJS.ProcessEnv, runtimeStore: RuntimeStore): AuditLogReader {
+export function subagentAuditAsFatigueReader(
+  env: NodeJS.ProcessEnv,
+  runtimeStore: RuntimeStore,
+): AuditLogReader {
   return {
     readRecent: async (windowMs: number) => {
       const events = await runtimeStore.listRecentAuditEvents({
         windowMs,
-        limit: 100,  // D66 T1a default
+        limit: 100, // D66 T1a default
       })
       // Map AuditEventRecord → AuditEventSummary for policy layer compatibility
-      return events.map(e => ({
+      return events.map((e) => ({
         event_id: e.auditId,
         tool_name: e.subject,
-        actor: e.actor ?? 'owner',
+        actor: e.actor ?? "owner",
         ts: e.createdAt.getTime(),
-        decision: 'allow' as const,
+        decision: "allow" as const,
       }))
     },
   }
@@ -179,12 +178,12 @@ FatigueSignal.computeFatigueSignal(reader) returns count + last_n_actions
 
 ## 4. Error Handling
 
-| Failure | T1 behavior | T2a behavior | T2b behavior |
-|---|---|---|---|
-| scenario assertion fails | `expect(result.passed).toBe(true)` throws → test fails (correct!) | N/A | N/A |
-| `runtimeStore.listRecentAuditEvents` throws | N/A | propagate (existing pattern) | N/A |
-| `audit_events` table doesn't exist (test env) | N/A | graceful empty array | N/A |
-| Spec doc typo | N/A | N/A | trivial fix |
+| Failure                                       | T1 behavior                                                       | T2a behavior                 | T2b behavior |
+| --------------------------------------------- | ----------------------------------------------------------------- | ---------------------------- | ------------ |
+| scenario assertion fails                      | `expect(result.passed).toBe(true)` throws → test fails (correct!) | N/A                          | N/A          |
+| `runtimeStore.listRecentAuditEvents` throws   | N/A                                                               | propagate (existing pattern) | N/A          |
+| `audit_events` table doesn't exist (test env) | N/A                                                               | graceful empty array         | N/A          |
+| Spec doc typo                                 | N/A                                                               | N/A                          | trivial fix  |
 
 ---
 
@@ -194,21 +193,21 @@ FatigueSignal.computeFatigueSignal(reader) returns count + last_n_actions
 
 **File:** `tests/acceptance/scenarios/realistic.test.ts`
 
-| Case | Description | Assertion |
-|---|---|---|
-| U1 | All 52 acceptance scenarios pass with new assertion | 52/52 pass |
-| U2 | Failure scenario (intentionally fail) returns `result.passed === false` | assertion throws → test fails correctly |
-| U3 | Existing 52 scenarios unchanged | no regression in metrics |
+| Case | Description                                                             | Assertion                               |
+| ---- | ----------------------------------------------------------------------- | --------------------------------------- |
+| U1   | All 52 acceptance scenarios pass with new assertion                     | 52/52 pass                              |
+| U2   | Failure scenario (intentionally fail) returns `result.passed === false` | assertion throws → test fails correctly |
+| U3   | Existing 52 scenarios unchanged                                         | no regression in metrics                |
 
 ### 5.2 Unit (T2a)
 
 **File:** `apps/api/src/wechat-inbound-butler.test.ts`
 
-| Case | Description | Assertion |
-|---|---|---|
-| U4 | F1 acceptance scenario now triggers REAL cooldown via audit_events | cooldown durationMs=3000 verified |
-| U5 | F2 acceptance scenario now exercises REAL pending step | bridge reply "已升级" |
-| U6 | F3 acceptance scenario now reads REAL audit data | sequences non-empty |
+| Case | Description                                                        | Assertion                         |
+| ---- | ------------------------------------------------------------------ | --------------------------------- |
+| U4   | F1 acceptance scenario now triggers REAL cooldown via audit_events | cooldown durationMs=3000 verified |
+| U5   | F2 acceptance scenario now exercises REAL pending step             | bridge reply "已升级"             |
+| U6   | F3 acceptance scenario now reads REAL audit data                   | sequences non-empty               |
 
 ### 5.3 No regression
 
@@ -218,14 +217,14 @@ All existing tests must pass unchanged (baseline: 2015 pass / 5 pre-existing fai
 
 ## 6. Files Changed (预估)
 
-| Track | File | Change |
-|---|---|---|
-| T1 | `tests/acceptance/scenarios/realistic.test.ts` | +5 / -3 lines (capture + assert) |
-| T2a | `apps/api/src/wechat-inbound-butler.ts` | +15 / -10 lines (reader swap + call site) |
-| T2a | `apps/api/src/wechat-inbound-butler.test.ts` | 0 new (existing F1/F2/F3 tests now verify REAL cooldown) |
-| T2b | `docs/superpowers/specs/2026-09-16-d67-acceptance-design.md` | -10 lines (remove JSONL note) |
-| post-fix | `.audit/D68/{summary.md, protocol-compliance.md}` | NEW |
-| post-fix | `MEMORY.md` | Current State update |
+| Track    | File                                                         | Change                                                   |
+| -------- | ------------------------------------------------------------ | -------------------------------------------------------- |
+| T1       | `tests/acceptance/scenarios/realistic.test.ts`               | +5 / -3 lines (capture + assert)                         |
+| T2a      | `apps/api/src/wechat-inbound-butler.ts`                      | +15 / -10 lines (reader swap + call site)                |
+| T2a      | `apps/api/src/wechat-inbound-butler.test.ts`                 | 0 new (existing F1/F2/F3 tests now verify REAL cooldown) |
+| T2b      | `docs/superpowers/specs/2026-09-16-d67-acceptance-design.md` | -10 lines (remove JSONL note)                            |
+| post-fix | `.audit/D68/{summary.md, protocol-compliance.md}`            | NEW                                                      |
+| post-fix | `MEMORY.md`                                                  | Current State update                                     |
 
 预估 net: -50 / +30 lines (mostly net removal of workaround code + spec cleanup).
 
@@ -253,14 +252,14 @@ All existing tests must pass unchanged (baseline: 2015 pass / 5 pre-existing fai
 
 ## 9. Acceptance Gates (N=3 fresh verify)
 
-| Gate | Baseline | D68 expected |
-|---|---|---|
-| lint | 0 fatigue warnings | 0 unchanged |
-| typecheck | 0 errors (4 projects) | 0 new |
-| test:full | 2015 pass / 5 pre-existing | 2015+ pass, 5 unchanged, 0 new |
-| acceptance | 52/52 | 52/52 (now exercises REAL audit_events via T2a) |
-| methodology | 13/13 | 13/13 unchanged |
-| knip | 0 new deadcode | 0 new |
+| Gate        | Baseline                   | D68 expected                                    |
+| ----------- | -------------------------- | ----------------------------------------------- |
+| lint        | 0 fatigue warnings         | 0 unchanged                                     |
+| typecheck   | 0 errors (4 projects)      | 0 new                                           |
+| test:full   | 2015 pass / 5 pre-existing | 2015+ pass, 5 unchanged, 0 new                  |
+| acceptance  | 52/52                      | 52/52 (now exercises REAL audit_events via T2a) |
+| methodology | 13/13                      | 13/13 unchanged                                 |
+| knip        | 0 new deadcode             | 0 new                                           |
 
 ---
 

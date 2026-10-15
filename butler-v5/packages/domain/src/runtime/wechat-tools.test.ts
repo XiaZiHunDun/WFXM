@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { buildWechatAllowedToolNames, WECHAT_CORE_TOOL_NAMES, WECHAT_SUBAGENT_TOOL_NAME } from "./wechat-tools.js"
+import {
+  buildWechatAllowedToolNames,
+  WECHAT_CORE_TOOL_NAMES,
+  WECHAT_SUBAGENT_TOOL_NAME,
+} from "./wechat-tools.js"
 
 describe("wechat tool allowlist", () => {
   it("merges core tools with project mcpTools", () => {
@@ -11,15 +15,9 @@ describe("wechat tool allowlist", () => {
         },
       },
       projectId: "wechat",
-      availableMcpCapabilities: [
-        "mcp_firecrawl_firecrawl_scrape",
-        "mcp_todoist_lst-projects",
-      ],
+      availableMcpCapabilities: ["mcp_firecrawl_firecrawl_scrape", "mcp_todoist_lst-projects"],
     })
-    expect(allowed).toEqual([
-      ...WECHAT_CORE_TOOL_NAMES,
-      "mcp_firecrawl_firecrawl_scrape",
-    ])
+    expect(allowed).toEqual([...WECHAT_CORE_TOOL_NAMES, "mcp_firecrawl_firecrawl_scrape"])
   })
 
   it("supports mcpTools wildcard", () => {

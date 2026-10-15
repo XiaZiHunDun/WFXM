@@ -67,7 +67,8 @@ function isReplayBody(value: unknown): value is ReplayBody {
   if (!value || typeof value !== "object") return false
   const v = value as { sequence_event_ids?: unknown }
   if (!Array.isArray(v.sequence_event_ids)) return false
-  if (v.sequence_event_ids.length === 0 || v.sequence_event_ids.length > MAX_REPLAY_BATCH) return false
+  if (v.sequence_event_ids.length === 0 || v.sequence_event_ids.length > MAX_REPLAY_BATCH)
+    return false
   return v.sequence_event_ids.every((id) => typeof id === "string" && id.length > 0)
 }
 
@@ -93,7 +94,7 @@ async function ownerAuditUndo(
       windowMs: 24 * 60 * 60 * 1000,
       limit: 1000,
     })
-    const event = events.find(e => e.auditId === eventId)
+    const event = events.find((e) => e.auditId === eventId)
     detail = event?.detail ?? {}
   } catch {
     // fall through with empty detail
@@ -132,7 +133,12 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const raw: unknown = await c.req.json().catch(() => null)
     if (!isReplayBody(raw)) {
-      return c.json({ error: `请求体格式错误：需要 { sequence_event_ids: 字符串数组 }（1-${MAX_REPLAY_BATCH} 个）` }, 400)
+      return c.json(
+        {
+          error: `请求体格式错误：需要 { sequence_event_ids: 字符串数组 }（1-${MAX_REPLAY_BATCH} 个）`,
+        },
+        400,
+      )
     }
     // D70 T1: capture ownerActor once and pass it to replayFatigueSequence
     // alongside the undo dispatcher. The dispatcher closes the silent
@@ -154,7 +160,7 @@ export function registerAuditFatigueRoutes(app: Hono, wiring: Wiring): void {
         correlationId: null,
         action: "owner.replay",
         // D73 T4 (audit #19 SO-011): owner-direct actor sentinel — distinguishes from wechat-inbound 'fatigue-agent' in audit_events.
-        actor: 'owner-direct',
+        actor: "owner-direct",
         subject: ownerActor,
         detail: {
           sequence_event_ids: raw.sequence_event_ids.slice(0, 50),

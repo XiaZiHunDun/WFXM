@@ -3,9 +3,7 @@ import { sendSlackOutboundFile } from "./slack-outbound-media.js"
 
 describe("sendSlackOutboundFile", () => {
   it("uploads file via files.upload on success", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({ ok: true, file: { id: "F123" } }),
-    )
+    const fetchMock = vi.fn(async () => Response.json({ ok: true, file: { id: "F123" } }))
     const result = await sendSlackOutboundFile({
       token: "xoxb-test",
       channel: "C123",
@@ -115,9 +113,7 @@ describe("sendSlackOutboundFile", () => {
   })
 
   it("returns error when API returns ok=false with error code", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({ ok: false, error: "file_too_large" }),
-    )
+    const fetchMock = vi.fn(async () => Response.json({ ok: false, error: "file_too_large" }))
     const result = await sendSlackOutboundFile({
       token: "xoxb",
       channel: "C1",
@@ -130,8 +126,8 @@ describe("sendSlackOutboundFile", () => {
   })
 
   it("returns error on HTTP failure with no error field", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ ok: false }), { status: 503 }),
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ ok: false }), { status: 503 }),
     )
     const result = await sendSlackOutboundFile({
       token: "xoxb",

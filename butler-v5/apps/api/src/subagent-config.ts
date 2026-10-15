@@ -7,7 +7,6 @@ import { envTruthy } from "./env-util.js"
  *   → expose delegate_to_subagent tool to the butler loop
  */
 
-
 export function isSubagentEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return envTruthy(env["BUTLER_V5_SUBAGENT_ENABLED"])
 }

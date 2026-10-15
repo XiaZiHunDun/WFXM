@@ -34,10 +34,12 @@ export function createLocalTracer(
 ): LocalTracer {
   const config = parseTraceConfig(env)
   const buffer: TraceEvent[] = []
-  const writeStdout = opts?.writeStdout ?? ((line: string) => {
-    // eslint-disable-next-line no-console -- intentional opt-in exporter
-    console.error(line)
-  })
+  const writeStdout =
+    opts?.writeStdout ??
+    ((line: string) => {
+      // eslint-disable-next-line no-console -- intentional opt-in exporter
+      console.error(line)
+    })
 
   return {
     config,

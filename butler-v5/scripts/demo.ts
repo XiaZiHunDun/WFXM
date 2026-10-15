@@ -17,8 +17,8 @@
  *
  * Self-hosting / 真 LLM 启动见 → ../../docs/deployment/SELF-HOSTING.md（D79 T3）。
  */
-import { createInterface, type Interface as RLInterface } from 'node:readline'
-import { makeAcceptanceApp, type AcceptanceApp } from '../tests/acceptance/harness.js'
+import { createInterface, type Interface as RLInterface } from "node:readline"
+import { makeAcceptanceApp, type AcceptanceApp } from "../tests/acceptance/harness.js"
 
 // ---------------------------------------------------------------------------
 // Fixtures — 脚本化"好 bot"模式：循环响应 + 偶发写工具。
@@ -32,35 +32,35 @@ interface FixtureEntry {
     readonly name: string
     readonly args: Record<string, unknown>
   }[]
-  readonly stopReason: 'end_turn' | 'tool_use' | 'stop' | 'max_tokens'
+  readonly stopReason: "end_turn" | "tool_use" | "stop" | "max_tokens"
 }
 
 const text = (content: string): FixtureEntry => ({
   content,
   toolCalls: [],
-  stopReason: 'end_turn',
+  stopReason: "end_turn",
 })
 
-const toolCall = (name: string, args: Record<string, unknown>, id = 'tc-1'): FixtureEntry => ({
-  content: '',
+const toolCall = (name: string, args: Record<string, unknown>, id = "tc-1"): FixtureEntry => ({
+  content: "",
   toolCalls: [{ id, name, args }],
-  stopReason: 'tool_use',
+  stopReason: "tool_use",
 })
 
 const N = 12
 
 const DEMO_FIXTURES = {
   plan: [
-    text('已收到（demo plan #1）。这是脚本化 LLM 应答。'),
-    text('demo plan #2。已走通 plan → exec 链路。'),
-    toolCall('write_file', { path: '/tmp/demo-write.txt', content: 'demo write' }),
-    text('demo plan #4（写文件后会触发 approval）。'),
+    text("已收到（demo plan #1）。这是脚本化 LLM 应答。"),
+    text("demo plan #2。已走通 plan → exec 链路。"),
+    toolCall("write_file", { path: "/tmp/demo-write.txt", content: "demo write" }),
+    text("demo plan #4（写文件后会触发 approval）。"),
     ...Array.from({ length: N - 4 }, (_, i) => text(`demo plan 第 ${i + 5} 次循环。`)),
   ],
   exec: [
-    text('demo exec #1。'),
-    text('demo exec #2。'),
-    text('✅ demo: 已写入 /tmp/demo-write.txt。'),
+    text("demo exec #1。"),
+    text("demo exec #2。"),
+    text("✅ demo: 已写入 /tmp/demo-write.txt。"),
     ...Array.from({ length: N - 3 }, (_, i) => text(`demo exec 第 ${i + 4} 次循环。`)),
   ],
   intake: Array.from({ length: N }, (_, i) => text(`demo intake 第 ${i + 1} 次分类。`)),
@@ -109,31 +109,31 @@ async function main(): Promise<void> {
     await app.close()
     process.exit(0)
   }
-  process.on('SIGINT', () => {
+  process.on("SIGINT", () => {
     void shutdown()
   })
-  process.on('SIGTERM', () => {
+  process.on("SIGTERM", () => {
     void shutdown()
   })
 
   const processLine = async (raw: string): Promise<void> => {
     const input = raw.trim()
     if (!input) return
-    if (input === '/help') {
+    if (input === "/help") {
       console.log(HELP_TEXT)
       return
     }
-    if (input === '/quit' || input === '/exit') {
+    if (input === "/quit" || input === "/exit") {
       void shutdown()
       return
     }
-    if (input === '/reset') {
+    if (input === "/reset") {
       conversationId = undefined
       runCount = 0
-      console.log('--- conversation reset ---')
+      console.log("--- conversation reset ---")
       return
     }
-    if (input === '/audit') {
+    if (input === "/audit") {
       console.log(`--- runs in current session: ${runCount} ---`)
       return
     }
@@ -144,15 +144,15 @@ async function main(): Promise<void> {
       runCount += 1
       const tail =
         result.finalDecision !== undefined
-          ? `\n  [${result.finalDecision}${result.toolCalls !== undefined ? ` · ${result.toolCalls} tools` : ''}]`
-          : ''
+          ? `\n  [${result.finalDecision}${result.toolCalls !== undefined ? ` · ${result.toolCalls} tools` : ""}]`
+          : ""
       console.log(`< ${result.reply}${tail}`)
     } catch (err) {
       console.error(`! error: ${(err as Error).message}`)
     }
   }
 
-  rl.on('line', (raw: string) => {
+  rl.on("line", (raw: string) => {
     inflight.current = inflight.current
       .then(() => processLine(raw))
       .catch((err: unknown) => {
@@ -161,7 +161,7 @@ async function main(): Promise<void> {
   })
 
   // /quit handled last (sequential) to ensure no in-flight reply is lost.
-  rl.on('close', () => {
+  rl.on("close", () => {
     void shutdown()
   })
 }
@@ -178,20 +178,20 @@ async function sendTurn(
   input: string,
   conversationId: string | undefined,
 ): Promise<TurnResult> {
-  const res = await app.request('/v1/wechat/inbound', {
-    method: 'POST',
+  const res = await app.request("/v1/wechat/inbound", {
+    method: "POST",
     headers: {
-      'content-type': 'application/json',
+      "content-type": "application/json",
       // acceptance harness 设了 BUTLER_V5_INBOUND_SHARED_SECRET=test-inbound-secret-9c2f
-      'x-inbound-secret': 'test-inbound-secret-9c2f',
+      "x-inbound-secret": "test-inbound-secret-9c2f",
     },
     body: JSON.stringify({
-      apiVersion: 'v1',
-      fromUserId: 'u-owner',
+      apiVersion: "v1",
+      fromUserId: "u-owner",
       content: input,
       messageId: `m-demo-${Date.now()}`,
       ...(conversationId !== undefined ? { conversationId } : {}),
-      projectId: 'wechat',
+      projectId: "wechat",
     }),
   })
   const text = await res.text()
@@ -210,12 +210,14 @@ async function sendTurn(
   return {
     ...(parsed?.conversationId !== undefined ? { conversationId: parsed.conversationId } : {}),
     reply: parsed?.reply ?? text,
-    ...(parsed?.meta?.finalDecision !== undefined ? { finalDecision: parsed.meta.finalDecision } : {}),
+    ...(parsed?.meta?.finalDecision !== undefined
+      ? { finalDecision: parsed.meta.finalDecision }
+      : {}),
     ...(parsed?.meta?.toolCalls !== undefined ? { toolCalls: parsed.meta.toolCalls } : {}),
   }
 }
 
 main().catch((err: unknown) => {
-  console.error('demo failed:', err)
+  console.error("demo failed:", err)
   process.exit(1)
 })

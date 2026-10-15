@@ -99,9 +99,9 @@ describe("run-lifecycle", () => {
     // A second cancel on a now-cancelled run is rejected (terminal state),
     // not silently re-cancelled. This is the expected behavior since
     // canTransitionRun is the SSOT for legal transitions.
-    await expect(
-      cancelRun(store, run.id, { subject: "owner-1" }),
-    ).rejects.toThrow(/illegal Run transition/)
+    await expect(cancelRun(store, run.id, { subject: "owner-1" })).rejects.toThrow(
+      /illegal Run transition/,
+    )
   })
 
   it("cancelRunCascade cancels descendants recursively (D4-arch-align §20 #7)", async () => {
@@ -161,13 +161,9 @@ describe("run-lifecycle", () => {
       reason: "owner_cancel_cascade",
     })
     // Three runs cancelled: grand + parent + child.
-    expect(cancelled.map((r) => r.id).sort()).toEqual(
-      [grand.id, parent.id, child.id].sort(),
-    )
+    expect(cancelled.map((r) => r.id).sort()).toEqual([grand.id, parent.id, child.id].sort())
     // Each emitted a "run.cancelled" audit with cascade reason.
-    const cascadeAudits = (
-      await store.getRun(grand.id)
-    )?.conversationId // placeholder; gather via raw SQL instead
+    const cascadeAudits = (await store.getRun(grand.id))?.conversationId // placeholder; gather via raw SQL instead
     expect(cascadeAudits).toBeDefined()
     // Re-fetch root + child to confirm status.
     expect((await store.getRun(grand.id))?.status).toBe("cancelled")
