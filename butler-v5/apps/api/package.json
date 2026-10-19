@@ -24,7 +24,7 @@
     "@butler/persistence": "workspace:*",
     "@butler/ports": "workspace:*",
     "@butler/runtime": "workspace:*",
-    "effect": "^3.10.0",
+    "effect": "^4.0.5",
     "hono": "^4.0.0",
     "ws": "^8.18.0"
   },
