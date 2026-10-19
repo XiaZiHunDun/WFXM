@@ -63,18 +63,18 @@
     "@typescript-eslint/parser": "^7.0.0",
     "@vitest/coverage-v8": "^1.6.0",
     "eslint": "^8.57.0",
-    "firecrawl-mcp": "^3.24.0",
-    "knip": "^6.35.1",
-    "prettier": "^3.3.0",
+    "firecrawl-mcp": "^3.30.2",
+    "knip": "^6.41.0",
+    "prettier": "^3.9.10",
     "ts-prune": "^0.10.3",
-    "tsx": "^4.7.0",
-    "turbo": "^2.0.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.8",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@effect/schema": "^0.66.0",
-    "drizzle-orm": "^0.33.0",
+    "@effect/schema": "^0.75.5",
+    "drizzle-orm": "^0.45.4",
     "effect": "^3.4.0",
     "postgres": "^3.4.0"
   }
