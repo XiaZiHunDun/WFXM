@@ -56,25 +56,25 @@
     "postinstall": "bash ../scripts/ai_guard/install-pre-commit-hook.sh"
   },
   "devDependencies": {
-    "@ivotoby/openapi-mcp-server": "^1.16.1",
+    "@ivotoby/openapi-mcp-server": "^1.17.0",
     "@modelcontextprotocol/server-github": "^2025.4.8",
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "@vitest/coverage-v8": "^1.6.0",
     "eslint": "^8.57.0",
-    "firecrawl-mcp": "^3.24.0",
-    "knip": "^6.35.1",
-    "prettier": "^3.3.0",
+    "firecrawl-mcp": "^3.37.0",
+    "knip": "^6.44.1",
+    "prettier": "^3.9.10",
     "ts-prune": "^0.10.3",
-    "tsx": "^4.7.0",
-    "turbo": "^2.0.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.10",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@effect/schema": "^0.66.0",
-    "drizzle-orm": "^0.33.0",
+    "@effect/schema": "^0.75.5",
+    "drizzle-orm": "^0.45.4",
     "effect": "^3.4.0",
     "postgres": "^3.4.0"
   }
