@@ -569,6 +569,12 @@ async function runNativeConversationLoop(
         content: respondContent,
       }
       await safeApplyDecision(input.kernel, respondDecision, logger)
+      // This fallback is still a user-visible reply (the model ignored the
+      // decision contract and answered in prose). Persist it like any other
+      // Respond, otherwise history and redelivery replay cannot see it.
+      if (input.ports.persistAssistantReply) {
+        await input.ports.persistAssistantReply(respondContent)
+      }
       return {
         reply: respondContent,
         iterations: iteration + 1,
