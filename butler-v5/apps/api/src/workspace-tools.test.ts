@@ -163,6 +163,7 @@ describe("makeRunCommandTool", () => {
       "cat",
       "date",
       "echo",
+      "find",
       "git",
       "grep",
       "head",

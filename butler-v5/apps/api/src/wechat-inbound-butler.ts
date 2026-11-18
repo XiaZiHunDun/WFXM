@@ -278,6 +278,8 @@ async function runButlerLoopBody(args: {
   /** Override max-decode-retries (Phase D fix B-08/10). Default reads
    *  BUTLER_V5_MAX_DECODE_RETRIES from env (else 1). */
   readonly maxDecodeRetries?: number
+  /** Run budget（来自入口请求）。maxToolCalls 会注入对话循环。 */
+  readonly budget?: Readonly<Record<string, unknown>>
 }): Promise<ButlerLoopResult> {
   const env = args.env ?? process.env
   const logger = args.logger ?? defaultLogger
@@ -453,12 +455,21 @@ async function runButlerLoopBody(args: {
     }
   }
 
+  const maxToolCalls =
+    typeof args.budget?.["maxToolCalls"] === "number" && args.budget["maxToolCalls"] >= 0
+      ? args.budget["maxToolCalls"]
+      : undefined
+  if (maxToolCalls !== undefined) {
+    initialTraces.push(`tool-budget: max=${maxToolCalls}`)
+  }
+
   return runConversationLoop({
     kernel,
     messages,
     llmTools,
     maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
     initialTraces,
+    ...(maxToolCalls !== undefined ? { maxToolCalls } : {}),
     ...(args.llmTimeoutMs !== undefined ? { llmTimeoutMs: args.llmTimeoutMs } : {}),
     ...(args.stuckLoopThreshold !== undefined
       ? { stuckLoopThreshold: args.stuckLoopThreshold }
@@ -496,7 +507,15 @@ async function runButlerLoopBody(args: {
                   runId: args.runId,
                   subject: memorySubject,
                   durationMs: Date.now() - llmStartedAt,
-                  detail: { reason: err instanceof Error ? err.message : String(err) },
+                  detail: {
+                    reason: err instanceof Error ? err.message : String(err),
+                    model: currentModel,
+                    request: {
+                      messages: msgs.length,
+                      tools: toolsForLlm.length,
+                      promptChars: msgs.reduce((sum, m) => sum + m.content.length, 0),
+                    },
+                  },
                 })
                 return {
                   ok: false as const,
@@ -523,6 +542,18 @@ async function runButlerLoopBody(args: {
                   durationMs: Date.now() - llmStartedAt,
                   ...(resp.usage !== undefined ? { token: resp.usage } : {}),
                   costUsd,
+                  detail: {
+                    model: currentModel,
+                    request: {
+                      messages: msgs.length,
+                      tools: toolsForLlm.length,
+                      promptChars: msgs.reduce((sum, m) => sum + m.content.length, 0),
+                    },
+                    response: {
+                      contentChars: resp.content.length,
+                      toolCallCount: resp.toolCalls.length,
+                    },
+                  },
                 })
                 return {
                   ok: true as const,

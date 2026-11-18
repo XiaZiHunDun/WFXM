@@ -27,6 +27,7 @@ export const ALLOWED_RUN_COMMANDS = [
   "cat",
   "date",
   "echo",
+  "find",
   "git",
   "grep",
   "head",
@@ -310,6 +311,47 @@ export {
   type ChainRevertResult,
 } from "./workspace-tools-undo.js"
 
+export type RunCommandArgsResult =
+  | { readonly ok: true; readonly argv: readonly string[] }
+  | { readonly ok: false; readonly reason: string }
+
+/**
+ * run_command 的纯参数校验（不触碰沙箱）。
+ * 审批边界在批准前先用它做 preflight，避免空参数调用占用审批轮次（ISSUE-11）。
+ */
+export function validateRunCommandArgs(
+  args: Readonly<Record<string, unknown>>,
+): RunCommandArgsResult {
+  const argvRaw = args["argv"]
+  if (!Array.isArray(argvRaw) || argvRaw.length === 0) {
+    return { ok: false, reason: "argv is required (non-empty string array)" }
+  }
+  const argv: string[] = []
+  for (const a of argvRaw) {
+    if (typeof a !== "string" || a.length === 0) {
+      return { ok: false, reason: "argv entries must be non-empty strings" }
+    }
+    argv.push(a)
+  }
+  const program = argv[0] ?? ""
+  if (program.includes("/") || program.includes("\\")) {
+    return { ok: false, reason: "program must be a bare command name" }
+  }
+  const allowed = new Set<string>(ALLOWED_RUN_COMMANDS)
+  if (!allowed.has(program)) {
+    return {
+      ok: false,
+      reason: `command not allowed: ${program} (allowed: ${ALLOWED_RUN_COMMANDS.join(", ")})`,
+    }
+  }
+  for (const a of argv.slice(1)) {
+    if (a.includes("..") || a.startsWith("/")) {
+      return { ok: false, reason: `arg is outside the workspace: ${a}` }
+    }
+  }
+  return { ok: true, argv }
+}
+
 export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
   return {
     name: makeToolName("run_command"),
@@ -319,35 +361,11 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
       signal?: AbortSignal,
     ): Promise<
       | { readonly ok: true; readonly output: unknown }
-      | { readonly ok: false; readonly reason: string }
+      | { readonly ok: false; readonly reason: string; readonly exitCode?: number }
     > {
-      const argvRaw = args["argv"]
-      if (!Array.isArray(argvRaw) || argvRaw.length === 0) {
-        return { ok: false, reason: "argv is required (non-empty string array)" }
-      }
-      const argv: string[] = []
-      for (const a of argvRaw) {
-        if (typeof a !== "string" || a.length === 0) {
-          return { ok: false, reason: "argv entries must be non-empty strings" }
-        }
-        argv.push(a)
-      }
-      const program = argv[0] ?? ""
-      if (program.includes("/") || program.includes("\\")) {
-        return { ok: false, reason: "program must be a bare command name" }
-      }
-      const allowed = new Set<string>(ALLOWED_RUN_COMMANDS)
-      if (!allowed.has(program)) {
-        return {
-          ok: false,
-          reason: `command not allowed: ${program} (allowed: ${ALLOWED_RUN_COMMANDS.join(", ")})`,
-        }
-      }
-      for (const a of argv.slice(1)) {
-        if (a.includes("..") || a.startsWith("/")) {
-          return { ok: false, reason: `arg is outside the workspace: ${a}` }
-        }
-      }
+      const parsed = validateRunCommandArgs(args)
+      if (!parsed.ok) return { ok: false, reason: parsed.reason }
+      const argv: string[] = [...parsed.argv]
       if (signal?.aborted) {
         return { ok: false, reason: "aborted" }
       }
@@ -401,7 +419,11 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         // D49: chain push (best-effort; capture all run_command side-effects for owner visibility)
         await pushCommandToChain(ctx, argv, cwd, started, result.exitCode)
 
-        return result
+        return result.ok
+          ? { ok: true, output: result.output }
+          : result.exitCode === null
+            ? { ok: false, reason: result.reason }
+            : { ok: false, reason: result.reason, exitCode: result.exitCode }
       }
       await recordExecAudit(ctx.audit, {
         cmd: argv.join(" "),
@@ -419,12 +441,21 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
               "stdout" in sandboxed ? (sandboxed.stdout ?? "") : "sandboxed run returned no output",
             exitCode: null,
           }
-        : { ok: false, reason: sandboxed.reason ?? "sandbox failed", exitCode: null }
+        : {
+            ok: false,
+            reason: sandboxed.reason ?? "sandbox failed",
+            exitCode: sandboxed.exitCode ?? null,
+          }
 
       // D49: chain push
       await pushCommandToChain(ctx, argv, cwd, started, sandboxedResult.exitCode)
 
-      if (!sandboxedResult.ok) return { ok: false, reason: sandboxedResult.reason }
+      if (!sandboxedResult.ok) {
+        // 保留命令自己的退出码：审批恢复路径据此把“测试失败”当工具结果继续对话。
+        return sandboxedResult.exitCode === null
+          ? { ok: false, reason: sandboxedResult.reason }
+          : { ok: false, reason: sandboxedResult.reason, exitCode: sandboxedResult.exitCode }
+      }
       return { ok: true, output: sandboxedResult.output }
     },
   }

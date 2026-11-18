@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { makeMcpToolDefinition } from "./mcp-tools.js"
 import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
+import { validateRunCommandArgs } from "./workspace-tools.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 
 describe("tool-boundary", () => {
@@ -77,6 +78,45 @@ describe("tool-boundary", () => {
     })
     // Child/delegated runs get no MCP by default: the registry has no provider.
     expect(executor.registry.get("mcp_search")).toBeUndefined()
+  })
+
+  it("rejects empty run_command argv before requesting approval", async () => {
+    const def: ToolDefinition = {
+      name: "run_command" as ToolDefinition["name"],
+      risk: "high",
+      run: async () => ({ ok: true, output: "should-not-run" }),
+    }
+    const executor = makeToolExecutor({
+      tools: [def],
+      ownerSubject: "owner-1",
+      subject: "owner-1",
+      conversationId: "c-wechat-u-owner",
+      timeoutMsFor: () => 1000,
+    })
+    const result = await executor.execute(def, {})
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toContain("[参数错误]")
+      expect(result.reason).toContain("尚未发起审批")
+      expect(result.reason).not.toContain("[需要确认]")
+      expect(result.reason).not.toContain("c-wechat-u-owner")
+    }
+  })
+
+  it("validateRunCommandArgs rejects bad args but accepts workspace commands", () => {
+    expect(validateRunCommandArgs({})).toEqual({
+      ok: false,
+      reason: "argv is required (non-empty string array)",
+    })
+    expect(validateRunCommandArgs({ argv: ["cat", ""] })).toEqual({
+      ok: false,
+      reason: "argv entries must be non-empty strings",
+    })
+    expect(validateRunCommandArgs({ argv: ["node", "../secret"] })?.ok).toBe(false)
+    expect(validateRunCommandArgs({ argv: ["node", "--test", "test/a.test.mjs"] })).toEqual({
+      ok: true,
+      argv: ["node", "--test", "test/a.test.mjs"],
+    })
   })
 
   it("uses MCP timeout for mcp_* tools", () => {

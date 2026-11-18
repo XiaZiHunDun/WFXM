@@ -10,9 +10,20 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
   // ── parseLlmPricing ─────────────────────────────────────────
 
   describe("parseLlmPricing", () => {
-    it("returns empty map when no pricing env vars are set", () => {
+    it("includes built-in pricing for ids env vars cannot express", () => {
       const map = parseLlmPricing({})
-      expect(map.size).toBe(0)
+      expect(map.get("minimax-m3.1-flash")).toEqual({
+        inputPriceUsdPerMTok: 0.15,
+        outputPriceUsdPerMTok: 0.6,
+      })
+      expect(map.get("deepseek-flash")).toEqual({
+        inputPriceUsdPerMTok: 0.3,
+        outputPriceUsdPerMTok: 1.2,
+      })
+      expect(map.get("deepseek-v4-flash")).toEqual({
+        inputPriceUsdPerMTok: 0.3,
+        outputPriceUsdPerMTok: 1.2,
+      })
     })
 
     it("parses one model with both input + output env vars", () => {
@@ -20,11 +31,12 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
         BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_INPUT_PER_MTOK: "3",
         BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_OUTPUT_PER_MTOK: "15",
       })
-      expect(map.size).toBe(1)
       expect(map.get("claude-sonnet-4-20250514")).toEqual({
         inputPriceUsdPerMTok: 3,
         outputPriceUsdPerMTok: 15,
       })
+      // Built-in entries survive alongside env-defined models.
+      expect(map.has("minimax-m3.1-flash")).toBe(true)
     })
 
     it("parses multiple models independently", () => {
@@ -34,9 +46,19 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
         BUTLER_V5_PRICING_DEEPSEEK_CHAT_INPUT_PER_MTOK: "0.27",
         BUTLER_V5_PRICING_DEEPSEEK_CHAT_OUTPUT_PER_MTOK: "1.1",
       })
-      expect(map.size).toBe(2)
       expect(map.get("claude-sonnet-4-20250514")?.inputPriceUsdPerMTok).toBe(3)
       expect(map.get("deepseek-chat")?.outputPriceUsdPerMTok).toBe(1.1)
+    })
+
+    it("lets env override a built-in entry whose name is expressible", () => {
+      const map = parseLlmPricing({
+        BUTLER_V5_PRICING_DEEPSEEK_FLASH_INPUT_PER_MTOK: "9",
+        BUTLER_V5_PRICING_DEEPSEEK_FLASH_OUTPUT_PER_MTOK: "18",
+      })
+      expect(map.get("deepseek-flash")).toEqual({
+        inputPriceUsdPerMTok: 9,
+        outputPriceUsdPerMTok: 18,
+      })
     })
 
     it("skips models that are missing the output env var", () => {
@@ -44,7 +66,7 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
         BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_INPUT_PER_MTOK: "3",
         // no OUTPUT_PER_MTOK partner
       })
-      expect(map.size).toBe(0)
+      expect(map.has("claude-sonnet-4-20250514")).toBe(false)
     })
 
     it("skips models whose env values are not finite numbers", () => {
@@ -52,7 +74,7 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
         BUTLER_V5_PRICING_FOO_INPUT_PER_MTOK: "abc",
         BUTLER_V5_PRICING_FOO_OUTPUT_PER_MTOK: "15",
       })
-      expect(map.size).toBe(0)
+      expect(map.has("foo")).toBe(false)
     })
 
     it("ignores unrelated env vars", () => {
@@ -62,7 +84,6 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
         BUTLER_V5_PRICING_GPT_4O_INPUT_PER_MTOK: "2.5",
         BUTLER_V5_PRICING_GPT_4O_OUTPUT_PER_MTOK: "10",
       })
-      expect(map.size).toBe(1)
       expect(map.has("gpt-4o")).toBe(true)
     })
   })
@@ -101,6 +122,16 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
         pricing,
       )
       expect(cost).toBeNull()
+    })
+
+    it("matches built-in dotted model ids case-insensitively", () => {
+      // 1M input @ $0.15 + 1M output @ $0.60 = $0.75
+      const cost = computeCostUsd(
+        { inputTokens: 1_000_000, outputTokens: 1_000_000 },
+        "MiniMax-M3.1-Flash",
+        parseLlmPricing({}),
+      )
+      expect(cost).toBeCloseTo(0.75, 10)
     })
 
     it("returns 0 when both token counts are 0 and pricing is present", () => {

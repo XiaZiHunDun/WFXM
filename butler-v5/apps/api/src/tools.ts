@@ -4,6 +4,10 @@ import type { DurableMemoryStore, DocumentStore, ProjectKnowledgeStore } from "@
 import { resolveReadModelSource } from "@butler/domain/runtime.js"
 import type { LLMTool } from "@butler/adapters"
 import {
+  dashScopeEmbeddingFromEnv,
+  type EmbeddingProvider,
+} from "@butler/adapters/embeddings/dashscope.js"
+import {
   ALLOWED_CAPABILITIES,
   delegate,
   type Capability,
@@ -141,6 +145,19 @@ export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
       return {
         ok: true,
         output: lines.length > 0 ? lines.join("\n") : "(no prior events)",
+        meta: {
+          retrieval: {
+            scope: "history",
+            query: "",
+            limit,
+            hits: recent.map((m, i) => ({
+              docId: m.id,
+              rank: i + 1,
+              title: m.role,
+              chars: storedMessageText(m.content).length,
+            })),
+          },
+        },
       }
     }
     const recent = history.rows.slice(-limit)
@@ -159,6 +176,19 @@ export function makeRecallHistoryTool(ctx: ButlerToolContext): ToolDefinition {
     return {
       ok: true,
       output: lines.length > 0 ? lines.join("\n") : "(no prior events)",
+      meta: {
+        retrieval: {
+          scope: "history",
+          query: "",
+          limit,
+          hits: recent.map((e, i) => ({
+            docId: e.eventId,
+            rank: i + 1,
+            title: e.eventType,
+            chars: 0,
+          })),
+        },
+      },
     }
   })
 }
@@ -506,7 +536,7 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
   {
     name: "run_command",
     description:
-      'Run a short allowlisted command in the workspace (no shell). Pass `argv` as a string array, e.g. ["ls", "-la"], ["python3", "-c", "print(1)"], or ["rg", "TODO", "src"]. Allowed programs: cat, date, echo, git, grep, head, ls, node, pnpm, pwd, python3, rg, wc. Arguments cannot contain \'..\' or start with \'/\'. bash/rm/curl and similar are rejected.',
+      'Run a short allowlisted command in the workspace (no shell). Pass `argv` as a string array, e.g. ["ls", "-la"], ["python3", "-c", "print(1)"], or ["rg", "TODO", "src"]. Allowed programs: cat, date, echo, find, git, grep, head, ls, node, pnpm, pwd, python3, rg, wc. Arguments cannot contain \'..\' or start with \'/\'. bash/rm/curl and similar are rejected.',
     parameters: {
       type: "object",
       properties: {
@@ -588,20 +618,64 @@ export function makeRecallDurableMemoryTool(ctx: ButlerToolContext): ToolDefinit
       limit,
     })
     if (selected.length === 0) {
-      return { ok: true, output: "（无匹配的已确认 Durable Memory）" }
+      return {
+        ok: true,
+        output: "（无匹配的已确认 Durable Memory）",
+        meta: { retrieval: { scope: "durable_memory", query, limit, hits: [] } },
+      }
     }
     const lines = selected.map(
       (r, i) =>
         `${i + 1}. [${r.id.slice(0, 8)} conf=${Math.round(r.confidence * 100)}%] ${r.content}`,
     )
-    return { ok: true, output: lines.join("\n") }
+    return {
+      ok: true,
+      output: lines.join("\n"),
+      meta: {
+        retrieval: {
+          scope: "durable_memory",
+          query,
+          limit,
+          hits: selected.map((r, i) => ({
+            docId: r.id,
+            chunkId: r.id,
+            chunkIndex: 0,
+            rank: i + 1,
+            title: r.sourceKind,
+            score: r.confidence,
+            scoreKind: "confidence",
+            chars: r.content.length,
+            text: r.content.slice(0, 1200),
+            citation: `memo:${r.id.slice(0, 8)}#0`,
+          })),
+        },
+      },
+    }
   })
 }
 
 /**
- * `recall_document` — keyword recall over ingested documents (extracted text).
- * Not a vector index; does not invent documents.
+ * `recall_document` — hybrid recall over ingested documents.
+ * 有 DASHSCOPE_API_KEY 时对最近文档做词法 + embedding 重排；
+ * 无 key / 调用失败时完全回退到子串 + 词法覆盖率。
  */
+let embeddingProvider: EmbeddingProvider | null | undefined
+const chunkEmbeddingCache = new Map<string, readonly number[]>()
+const CHUNK_EMBEDDING_CACHE_LIMIT = 2000
+const EMBEDDING_DOC_LIMIT = 8
+
+function resolveEmbeddingProvider(): EmbeddingProvider | null {
+  if (embeddingProvider === undefined) {
+    embeddingProvider = dashScopeEmbeddingFromEnv()
+  }
+  return embeddingProvider
+}
+
+function cacheChunkEmbedding(key: string, vector: readonly number[]): void {
+  if (chunkEmbeddingCache.size >= CHUNK_EMBEDDING_CACHE_LIMIT) chunkEmbeddingCache.clear()
+  chunkEmbeddingCache.set(key, vector)
+}
+
 function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
   return makeTool("recall_document", "low", async (args) => {
     const store = ctx.documentStore
@@ -612,16 +686,92 @@ function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
     const query = typeof args["query"] === "string" ? args["query"] : ""
     const limitRaw = typeof args["limit"] === "number" ? args["limit"] : 3
     const limit = Math.min(10, Math.max(1, Math.floor(limitRaw)))
-    const { formatDocumentSnippet, selectDocumentsForRecall } =
+    const { chunkDocumentText, formatChunkSnippet, selectDocumentChunksForRecall } =
       await import("@butler/domain/knowledge/document-ingest.js")
     const records = await store.listBySubject({ subject, limit: 40 })
-    const selected = selectDocumentsForRecall({ records, query, limit })
-    if (selected.length === 0) {
-      return { ok: true, output: "（无匹配的已 ingest 文档）" }
+
+    const provider = resolveEmbeddingProvider()
+    let hits: ReturnType<typeof selectDocumentChunksForRecall> | null = null
+    if (provider && query.trim()) {
+      try {
+        const docs = records.slice(0, EMBEDDING_DOC_LIMIT)
+        const [queryVector] = await provider.embed([query])
+        const vectors = new Map<string, readonly number[]>()
+        const pending: { readonly key: string; readonly cacheKey: string; readonly text: string }[] =
+          []
+        for (const doc of docs) {
+          for (const chunk of chunkDocumentText(doc.extractedText)) {
+            const chunkKey = `${doc.id}#${chunk.index}`
+            const cacheKey = `${chunkKey}@${doc.updatedAt}`
+            const cached = chunkEmbeddingCache.get(cacheKey)
+            if (cached) {
+              vectors.set(chunkKey, cached)
+            } else {
+              pending.push({ key: chunkKey, cacheKey, text: `${doc.title}\n${chunk.text}` })
+            }
+          }
+        }
+        if (pending.length > 0) {
+          const embedded = await provider.embed(pending.map((item) => item.text))
+          pending.forEach((item, index) => {
+            const vector = embedded[index]
+            if (!vector) return
+            cacheChunkEmbedding(item.cacheKey, vector)
+            vectors.set(item.key, vector)
+          })
+        }
+        if (queryVector && queryVector.length > 0) {
+          hits = selectDocumentChunksForRecall({
+            records: docs,
+            query,
+            limit,
+            embedding: {
+              queryEmbedding: queryVector,
+              chunkEmbedding: (chunk) => vectors.get(chunk.chunkId),
+            },
+          })
+        }
+      } catch {
+        // embedding 是增强项：失败时静默回退，不影响工具可用性。
+        hits = null
+      }
+    }
+    if (hits === null) {
+      hits = selectDocumentChunksForRecall({ records, query, limit })
+    }
+    if (hits.length === 0) {
+      return {
+        ok: true,
+        output: "（无匹配的已 ingest 文档）",
+        meta: { retrieval: { scope: "document", query, limit, hits: [] } },
+      }
     }
     return {
       ok: true,
-      output: selected.map((r, i) => `${i + 1}. ${formatDocumentSnippet(r)}`).join("\n\n"),
+      output: hits.map((hit, i) => `${i + 1}. ${formatChunkSnippet(hit)}`).join("\n\n"),
+      meta: {
+        retrieval: {
+          scope: "document",
+          query,
+          limit,
+          hits: hits.map((hit, i) => ({
+            docId: hit.chunk.docId,
+            chunkId: hit.chunk.chunkId,
+            chunkIndex: hit.chunk.index,
+            rank: i + 1,
+            title: hit.title,
+            score: hit.score,
+            scoreKind: hit.scoreKind,
+            ...(hit.semanticScore === undefined ? {} : { semanticScore: hit.semanticScore }),
+            matchedTerms: hit.matchedTerms,
+            start: hit.chunk.start,
+            end: hit.chunk.end,
+            chars: hit.chunk.text.length,
+            text: hit.chunk.text.slice(0, 1200),
+            citation: `doc:${hit.chunk.docId.slice(0, 8)}#${hit.chunk.index}`,
+          })),
+        },
+      },
     }
   })
 }
@@ -643,6 +793,7 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
       formatCrossProjectRecall,
       formatProjectKnowledgeSnippet,
       resolveProjectKnowledgeInboundProjectId,
+      selectProjectKnowledgeForRecall,
     } = await import("@butler/domain/knowledge/project-knowledge.js")
     const env = ctx.env ?? process.env
     const contextProjectId = resolveProjectKnowledgeInboundProjectId(
@@ -688,10 +839,57 @@ export function makeRecallProjectKnowledgeTool(ctx: ButlerToolContext): ToolDefi
       byProject,
       formatSnippet: formatProjectKnowledgeSnippet,
     })
+    const { chunkDocumentText, scoreRecallText } =
+      await import("@butler/domain/knowledge/document-ingest.js")
+    const retrievalHits = byProject
+      .flatMap((group) =>
+        selectProjectKnowledgeForRecall({
+          records: group.records,
+          query,
+          limit,
+        }).flatMap((record) =>
+          chunkDocumentText(record.body, { maxChars: 500 })
+            .map((chunk) => {
+              const { score, matchedTerms } = scoreRecallText(
+                query,
+                `${record.title}\n${chunk.text}`,
+              )
+              return {
+                docId: record.id,
+                chunkId: `${record.id}#${chunk.index}`,
+                chunkIndex: chunk.index,
+                projectId: group.projectId,
+                title: record.title,
+                kind: record.kind,
+                score,
+                scoreKind: "lexical" as const,
+                matchedTerms,
+                chars: chunk.text.length,
+                text: chunk.text.slice(0, 1200),
+                citation: `doc:${record.id.slice(0, 8)}#${chunk.index}`,
+              }
+            })
+            .sort((a, b) => b.score - a.score || a.chunkIndex - b.chunkIndex)
+            .slice(0, 2),
+        ),
+      )
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((hit, i) => ({ ...hit, rank: i + 1 }))
     if (formatted === null) {
-      return { ok: true, output: "（无匹配的项目知识条目）" }
+      return {
+        ok: true,
+        output: "（无匹配的项目知识条目）",
+        meta: { retrieval: { scope: "project_knowledge", query, limit, hits: [] } },
+      }
     }
-    return { ok: true, output: formatted }
+    return {
+      ok: true,
+      output: formatted,
+      meta: {
+        retrieval: { scope: "project_knowledge", query, limit, hits: retrievalHits },
+      },
+    }
   })
 }
 

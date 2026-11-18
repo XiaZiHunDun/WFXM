@@ -202,6 +202,8 @@ export async function routeWechatIntake(args: {
   readonly projectId: string
   readonly idempotencyKey?: string
   readonly runTrigger?: RunTrigger
+  /** Run budget（来自入口请求）；maxToolCalls 会注入对话循环。 */
+  readonly budget?: Readonly<Record<string, unknown>>
   readonly env?: NodeJS.ProcessEnv
   readonly mcpBundle?: McpToolBundle
 }): Promise<ButlerLoopResult> {
@@ -312,6 +314,7 @@ export async function routeWechatIntake(args: {
       runTrigger: intakeRunTrigger,
       allowedToolNames: loopOpts.allowedToolNames,
       ...(loopOpts.goal ? { goal: loopOpts.goal } : {}),
+      ...(args.budget ? { budget: args.budget } : {}),
       env,
     }),
   )

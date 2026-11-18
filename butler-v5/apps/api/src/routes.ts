@@ -15,12 +15,15 @@
  *   - routes/ws-subscribe.ts     (WS subscribe token issuer)
  */
 import type { Hono } from "hono"
+import type { ButlerMemoryPort } from "@butler/ports/core/butler-memory.js"
+import type { TaskMemoryPort } from "@butler/ports/core/task-memory.js"
 import type { Wiring } from "./wiring.js"
 import { registerInboundRoutes } from "./routes/inbound.js"
 import { registerSlackEventsRoutes } from "./routes/slack-events.js"
 import { registerTelegramWebhookRoutes } from "./routes/telegram-webhook.js"
 import { registerWsSubscribeRoutes } from "./routes/ws-subscribe.js"
 import { registerHealthRoutes } from "./routes/health.js"
+import { registerButlerRoutes } from "./routes/butler.js"
 
 /**
  * D71 T3 (audit #12 SEC-004 / SEC-005): parse a comma-separated
@@ -39,7 +42,15 @@ function parseAllowlist(raw: string | undefined): ReadonlySet<string> | null {
   return new Set(parts)
 }
 
-export function createRoutes(app: Hono, wiring: Wiring) {
+export interface RoutesOptions {
+  /** agent-rag ports wired by the composition root; omitted = no memory. */
+  readonly memory?: {
+    readonly butler?: ButlerMemoryPort
+    readonly task?: TaskMemoryPort
+  }
+}
+
+export function createRoutes(app: Hono, wiring: Wiring, options: RoutesOptions = {}) {
   app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
   app.post("/v1/conversations", async (c) => {
     // D69 T4 (audit #10 SEC-2): require BUTLER_V5_INBOUND_SHARED_SECRET
@@ -76,6 +87,11 @@ export function createRoutes(app: Hono, wiring: Wiring) {
   })
 
   registerInboundRoutes(app, wiring)
+  // New Butler Runtime entry point; legacy /v1/wechat/inbound stays primary
+  // until butler-eval parity is reached.
+  registerButlerRoutes(app, wiring, {
+    ...(options.memory === undefined ? {} : { memory: options.memory }),
+  })
   registerSlackEventsRoutes(app, wiring, parseAllowlist)
   registerTelegramWebhookRoutes(app, wiring, parseAllowlist)
   registerWsSubscribeRoutes(app)

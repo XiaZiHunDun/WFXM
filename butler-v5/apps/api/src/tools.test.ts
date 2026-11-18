@@ -573,6 +573,11 @@ describe("weibutler tools", () => {
       expect(output).toContain("时区 Asia/Shanghai") // confirmed + active
       expect(output).not.toContain("候选项") // candidate excluded
       expect(output).not.toContain("过期口令") // expired excluded
+      const retrieval = result.meta?.["retrieval"] as
+        | { readonly scope?: string; readonly hits?: readonly { readonly docId: string }[] }
+        | undefined
+      expect(retrieval?.scope).toBe("durable_memory")
+      expect(retrieval?.hits?.[0]?.docId).toBe("c1")
     }
   })
 
@@ -595,7 +600,18 @@ describe("weibutler tools", () => {
     })
     const result = await runTool(tool, { query: "markers" }, { timeoutMs: 1000 })
     expect(result.ok).toBe(true)
-    if (result.ok) expect(String(result.output)).toContain("MCP")
+    if (result.ok) {
+      expect(String(result.output)).toContain("MCP")
+      const retrieval = result.meta?.["retrieval"] as
+        | {
+            readonly scope?: string
+            readonly hits?: readonly { readonly docId: string; readonly projectId: string }[]
+          }
+        | undefined
+      expect(retrieval?.scope).toBe("project_knowledge")
+      expect(retrieval?.hits?.[0]?.docId).toBe(a.value.id)
+      expect(retrieval?.hits?.[0]?.projectId).toBe("WFXM")
+    }
   })
 
   it("recall_project_knowledge allows explicit cross-project recall", async () => {

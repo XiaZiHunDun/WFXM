@@ -6,8 +6,27 @@ import { makeTestDb } from "@butler/persistence/testing.js"
 import { approveWaitingStep, createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import { resumeApprovedCapability } from "./approval-resume.js"
+import { resumeApprovedCapability, shouldFailRunAfterCapability, toRunResult } from "./approval-resume.js"
 import { makeWiring } from "./wiring.js"
+
+describe("approval resume result mapping", () => {
+  it("keeps a non-zero command exit as a tool result instead of failing the Run", () => {
+    const result = toRunResult({ ok: false, reason: "exit 1: boom", exitCode: 1 })
+    expect(result).toEqual({ ok: false, reason: "exit 1: boom", exitCode: 1 })
+    expect(shouldFailRunAfterCapability(result)).toBe(false)
+  })
+
+  it("fails the Run for execution errors without an exit code", () => {
+    const result = toRunResult({ ok: false, reason: "timeout after 1000ms" })
+    expect(result).toEqual({ ok: false, reason: "timeout after 1000ms" })
+    expect(shouldFailRunAfterCapability(result)).toBe(true)
+  })
+
+  it("treats a successful capability as success", () => {
+    const result = toRunResult({ ok: true, output: "ok" })
+    expect(shouldFailRunAfterCapability(result)).toBe(false)
+  })
+})
 
 describe("resumeApprovedCapability (A1 same-Run resume)", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>

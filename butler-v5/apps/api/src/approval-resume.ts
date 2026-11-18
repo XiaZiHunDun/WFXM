@@ -37,7 +37,18 @@ export function isPendingApprovalOutcome(
 
 export function toRunResult(outcome: ToolExecutionOutcome): RunResult {
   if (outcome.ok) return outcome
-  return { ok: false, reason: outcome.reason }
+  return "exitCode" in outcome && typeof outcome.exitCode === "number"
+    ? { ok: false, reason: outcome.reason, exitCode: outcome.exitCode }
+    : { ok: false, reason: outcome.reason }
+}
+
+/**
+ * 命令非零退出是工具结果，不是 Run 失败：调试时（跑测试看到失败）必须把
+ * 输出交回模型继续，而不是把整个 Run 标失败并只回“请稍后重试”。
+ * 只有缺少 exitCode 的真实执行错误才终结 Run。
+ */
+export function shouldFailRunAfterCapability(result: RunResult): boolean {
+  return !result.ok && result.exitCode === undefined
 }
 
 async function persistCapabilityStep(
@@ -129,11 +140,13 @@ async function continueLoopAfterCapability(args: {
   readonly subject: string
   readonly capability: string
   readonly toolOutput: string
+  /** 审批执行的 exec 以非零退出结束：必须继续对话，让模型解释/给下一步。 */
+  readonly execFailed?: boolean
   readonly env: NodeJS.ProcessEnv
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
 }): Promise<string> {
-  if (isExecCapability(args.capability) && !postApprovalLoopEnabled(args.env)) {
+  if (isExecCapability(args.capability) && !args.execFailed && !postApprovalLoopEnabled(args.env)) {
     const reply = formatPostExecReply(args.capability, args.toolOutput)
     const now = new Date()
     const stepId = crypto.randomUUID()
@@ -183,9 +196,11 @@ async function continueLoopAfterCapability(args: {
   // longer echoing the operator tool id to the owner via the LLM reply.
   // Approval trace (`approval-resume: approved ${stepId} cap=${args.capability}`)
   // preserves it for §14 observability.
-  const userContent =
-    `已批准并执行该步，结果：\n${args.toolOutput}\n` +
-    `请用中文继续完成用户目标；需要时可调用工具。`
+  const userContent = args.execFailed
+    ? `已批准并执行该步，但命令以非零状态结束，输出：\n${args.toolOutput}\n` +
+      `请用中文说明失败原因和下一步建议；本轮不要再请求 run_command / write_file。`
+    : `已批准并执行该步，结果：\n${args.toolOutput}\n` +
+      `请用中文继续完成用户目标；需要时可调用工具。`
   try {
     await kernel.openTurn({ userMessage: { role: "user", content: userContent } })
   } catch (err) {
@@ -283,7 +298,15 @@ async function continueLoopAfterCapability(args: {
                   runId: args.runId,
                   subject: args.subject,
                   durationMs: Date.now() - llmStartedAt,
-                  detail: { reason: err instanceof Error ? err.message : String(err) },
+                  detail: {
+                    reason: err instanceof Error ? err.message : String(err),
+                    model: currentModel,
+                    request: {
+                      messages: msgs.length,
+                      tools: toolsForLlm.length,
+                      promptChars: msgs.reduce((sum, m) => sum + m.content.length, 0),
+                    },
+                  },
                 })
                 return {
                   ok: false as const,
@@ -307,6 +330,18 @@ async function continueLoopAfterCapability(args: {
                   durationMs: Date.now() - llmStartedAt,
                   ...(resp.usage !== undefined ? { token: resp.usage } : {}),
                   costUsd,
+                  detail: {
+                    model: currentModel,
+                    request: {
+                      messages: msgs.length,
+                      tools: toolsForLlm.length,
+                      promptChars: msgs.reduce((sum, m) => sum + m.content.length, 0),
+                    },
+                    response: {
+                      contentChars: resp.content.length,
+                      toolCallCount: resp.toolCalls.length,
+                    },
+                  },
                 })
                 return {
                   ok: true as const,
@@ -478,17 +513,19 @@ export async function resumeApprovedCapability(
       // execution on owner-driven retry. Consuming up-front is safe because
       // persistCapabilityStep already recorded the attempt.
       await markGrantConsumed(wiring.runtimeStore, decision.grant)
-      if (!result.ok) {
+      if (!result.ok && shouldFailRunAfterCapability(result)) {
         return failRun(result.reason)
       }
 
+      // 非零退出（exitCode 存在）走这里：Run 继续，模型拿到命令输出。
       const reply = await continueLoopAfterCapability({
         wiring,
         runId: ctx.runId,
         conversationId: pending.conversationId,
         subject: pending.subject,
         capability: pending.capability,
-        toolOutput: String(result.output),
+        toolOutput: result.ok ? String(result.output) : result.reason,
+        execFailed: !result.ok,
         env,
         ...(pending.wechatUserId ? { wechatUserId: pending.wechatUserId } : {}),
         ...(pending.wechatContextToken ? { wechatContextToken: pending.wechatContextToken } : {}),

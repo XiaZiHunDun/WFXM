@@ -37,6 +37,8 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
       messageId?: string
       projectId?: string
       conversationId?: unknown
+      /** Optional Run budget (e.g. maxToolCalls); trusted Owner inbound only. */
+      budget?: unknown
     }
     if (
       !body ||
@@ -47,6 +49,10 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
       return c.text("invalid body", 400)
     }
     const env = process.env
+    const inboundBudget =
+      body.budget !== null && typeof body.budget === "object" && !Array.isArray(body.budget)
+        ? (body.budget as Readonly<Record<string, unknown>>)
+        : undefined
     const projectSwitch = await tryWechatInboundCommand({
       wiring,
       fromUserId: body.fromUserId,
@@ -137,6 +143,7 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
           projectId: value.projectId,
           idempotencyKey: value.idempotencyKey,
           runTrigger: value.runTrigger,
+          ...(inboundBudget ? { budget: inboundBudget } : {}),
           env,
           mcpBundle: wiring.mcp,
         })
@@ -148,6 +155,7 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
           projectId: value.projectId,
           idempotencyKey: value.idempotencyKey,
           runTrigger: value.runTrigger,
+          ...(inboundBudget ? { budget: inboundBudget } : {}),
         })
     // B 方向 推 2: prepend "since you were last here" digest when owner
     // returns after a long idle. Slash replies skip this — they are

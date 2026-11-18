@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { createRoutes } from "./routes.js"
 import { createOwnerRoutes } from "./owner-routes.js"
 import { createProductionWiring } from "./bootstrap-wiring.js"
+import { createButlerMemoryFromEnv } from "./butler-memory-bootstrap.js"
 import { pickLLMForRole } from "@butler/adapters"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer, type WsServerHandle } from "./ws-routes.js"
@@ -94,7 +95,20 @@ if (boot.value.mcp.mode !== "off") {
     `[butler-v5] MCP enabled mode=${boot.value.mcp.mode} tools=${boot.value.mcp.runtimeTools.length} servers=${boot.value.mcp.servers.length}`,
   )
 }
-createRoutes(app, wiring)
+const butlerMemory = await createButlerMemoryFromEnv(process.env)
+if (butlerMemory) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error(
+    `[butler-v5] agent-rag memory enabled owner=${butlerMemory.ownerId} path=${butlerMemory.path}`,
+  )
+}
+createRoutes(
+  app,
+  wiring,
+  butlerMemory === null
+    ? {}
+    : { memory: { butler: butlerMemory.ports.butler, task: butlerMemory.ports.task } },
+)
 createOwnerRoutes(app, wiring)
 
 const vitest = (process.env["VITEST"] ?? "").trim() !== ""

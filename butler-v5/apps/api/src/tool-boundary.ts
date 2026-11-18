@@ -24,6 +24,7 @@ import { isMcpReadonlyAutoAllowEnabled } from "./mcp-readonly-policy.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { devSessionRunId } from "./dev-session-grant.js"
 import { markGrantConsumed } from "./tool-boundary-helpers.js"
+import { validateRunCommandArgs } from "./workspace-tools.js"
 
 const DEFAULT_TOOL_TIMEOUT_MS = 5_000
 const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
@@ -93,6 +94,21 @@ export interface ToolExecutor {
   ) => Promise<ToolExecutionOutcome>
 }
 
+/**
+ * 审批前参数校验（ISSUE-11）：非法调用不应先占用一次审批轮次，
+ * 否则批准后才报错，既浪费轮次又会把会话 id 误显示成操作对象。
+ * 返回 null 表示参数可用。
+ */
+function preflightToolArgs(
+  toolName: string,
+  args: Readonly<Record<string, unknown>>,
+): string | null {
+  if (toolName !== "run_command") return null
+  const parsed = validateRunCommandArgs(args)
+  if (parsed.ok) return null
+  return `[参数错误] ${parsed.reason}；尚未发起审批，请补齐 argv 后重试`
+}
+
 export function makeToolExecutor(args: {
   readonly tools: readonly ToolDefinition[]
   readonly ownerSubject: string
@@ -140,6 +156,8 @@ export function makeToolExecutor(args: {
     registry,
     gate,
     execute: async (def, toolArgs) => {
+      const invalid = preflightToolArgs(def.name as string, toolArgs)
+      if (invalid !== null) return { ok: false, reason: invalid }
       const explicitGrant = args.grant ?? null
       const definition = capabilityDefinitionFromTool(def)
       const resource = resourceForTool(def.name as string, toolArgs, args.conversationId)

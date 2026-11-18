@@ -22,12 +22,37 @@
  * Missing pricing for a model = `null` (D24 decision: align with D23
  * costUsd null semantics; downstream distinguishes "unknown" from
  * "known free"). Not 0; not throw; trace emit must never break a run.
+ *
+ * ISSUE-02 (2026-11-12): env-var encoding cannot express model ids with
+ * dots (`MiniMax-M3.1-Flash` → `MINIMAX_M3.1_FLASH`, not a legal shell
+ * env name). A small built-in price table covers those ids; env vars
+ * still override any entry whose name IS expressible.
  */
 import { resolveModelForRole } from "@butler/ports/core/model-port.js"
 
 export interface ModelPricing {
   readonly inputPriceUsdPerMTok: number
   readonly outputPriceUsdPerMTok: number
+}
+
+/**
+ * Built-in prices (USD per 1M tokens) for model ids that env vars cannot
+ * express. Sources checked 2026-11-12:
+ * - `MiniMax-M3.1-Flash`: $0.15 input / $0.60 output (MiniMax pay-as-you-go
+ *   pricing; cache read $0.015 is not modeled — usage has no cache split).
+ * - DeepSeek Flash (legacy id `deepseek-v4-flash` is still accepted and
+ *   billed as `deepseek-flash`): peak $0.30 input / $1.20 output; off-peak
+ *   is half. Peak is used here so costs are not understated.
+ */
+const BUILTIN_PRICING: Readonly<Record<string, ModelPricing>> = {
+  "minimax-m3.1-flash": { inputPriceUsdPerMTok: 0.15, outputPriceUsdPerMTok: 0.6 },
+  "deepseek-flash": { inputPriceUsdPerMTok: 0.3, outputPriceUsdPerMTok: 1.2 },
+  "deepseek-v4-flash": { inputPriceUsdPerMTok: 0.3, outputPriceUsdPerMTok: 1.2 },
+}
+
+/** Case-insensitive pricing key; model ids come from provider routing. */
+function normalizeModelName(model: string): string {
+  return model.trim().toLowerCase()
 }
 
 /** Prefix every pricing env var shares. */
@@ -46,16 +71,18 @@ function envModelToLookupName(modelUpper: string): string {
 }
 
 /**
- * Parse `BUTLER_V5_PRICING_<MODEL>_INPUT_PER_MTOK` +
- * `BUTLER_V5_PRICING_<MODEL>_OUTPUT_PER_MTOK` env vars into a map of
- * model name → pricing. Models missing either env var are simply
- * absent from the map (no entry). Non-numeric values are silently
- * skipped — pricing is best-effort observability, never blocks a run.
+ * Resolve pricing for the current env: built-in table first, then
+ * `BUTLER_V5_PRICING_<MODEL>_INPUT/OUTPUT_PER_MTOK` env vars override.
+ *
+ * Models missing either env var keep their built-in entry (if any);
+ * env-only models missing a partner var stay absent. Non-numeric values
+ * are silently skipped — pricing is best-effort observability, never
+ * blocks a run.
  */
 export function parseLlmPricing(
   env: Readonly<NodeJS.ProcessEnv> = process.env,
 ): ReadonlyMap<string, ModelPricing> {
-  const out = new Map<string, ModelPricing>()
+  const out = new Map<string, ModelPricing>(Object.entries(BUILTIN_PRICING))
   for (const envKey of Object.keys(env)) {
     const modelUpper = modelKeyFromEnv(envKey)
     if (modelUpper === undefined) continue
@@ -88,7 +115,7 @@ export function computeCostUsd(
   model: string,
   pricing: ReadonlyMap<string, ModelPricing>,
 ): number | null {
-  const p = pricing.get(model)
+  const p = pricing.get(normalizeModelName(model))
   if (p === undefined) return null
   const cost =
     (usage.inputTokens / 1_000_000) * p.inputPriceUsdPerMTok +
