@@ -38,7 +38,32 @@ type Case = {
     readonly contains: string
     readonly timeoutMs: number
   }
+  /** Override the sender when the path depends on owner identity (memory). */
+  readonly sender?: string
 }
+
+function readEnvFile(): Record<string, string> {
+  const out: Record<string, string> = {}
+  try {
+    const raw = readFileSync(join(homedir(), ".config", "butler-v5", "env"), "utf8")
+    for (const line of raw.split("\n")) {
+      const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim())
+      if (match) out[match[1]!] = match[2]!
+    }
+  } catch {
+    // File is optional; fall back to process.env.
+  }
+  return out
+}
+
+const envFile = readEnvFile()
+
+/** Durable memory is keyed by the owner subject, not the raw sender. */
+const ownerSender = (
+  process.env["BUTLER_OWNER_WECHAT_ID"] ??
+  envFile["BUTLER_OWNER_WECHAT_ID"] ??
+  ""
+).trim()
 
 const CASES: readonly Case[] = [
   {
@@ -80,9 +105,16 @@ const CASES: readonly Case[] = [
   {
     id: 4,
     name: "多轮记忆：事实召回",
-    turns: ["记住：我下周要去成都出差", "我下周去哪出差？"],
+    // Durable memory is read under the owner subject, so this case must send
+    // as the owner; it also proves the working-set injection path, since the
+    // fact is new and cannot come from conversation history.
+    sender: ownerSender,
+    turns: [
+      "记住：L4 验收标记是蓝鲸七号",
+      "只根据你记住的内容回答，不要调用工具：L4 验收标记是什么？",
+    ],
     expect: {
-      mustMention: ["成都"],
+      mustMention: ["蓝鲸七号"],
       mustNotMatch: ["\\*\\*", "```", "`"],
       maxLength: 1800,
     },
@@ -100,21 +132,6 @@ const CASES: readonly Case[] = [
   },
 ]
 
-function readEnvFile(): Record<string, string> {
-  const out: Record<string, string> = {}
-  try {
-    const raw = readFileSync(join(homedir(), ".config", "butler-v5", "env"), "utf8")
-    for (const line of raw.split("\n")) {
-      const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim())
-      if (match) out[match[1]!] = match[2]!
-    }
-  } catch {
-    // File is optional; fall back to process.env.
-  }
-  return out
-}
-
-const envFile = readEnvFile()
 const secret = (
   process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ??
   envFile["BUTLER_V5_INBOUND_SHARED_SECRET"] ??
@@ -130,7 +147,12 @@ if (!secret) {
 
 type TurnResult = { readonly ok: boolean; readonly reply: string; readonly ms: number; readonly error?: string }
 
-async function sendTurn(conversation: string, text: string, seq: number): Promise<TurnResult> {
+async function sendTurn(
+  conversation: string,
+  text: string,
+  seq: number,
+  fromUserId: string,
+): Promise<TurnResult> {
   const started = Date.now()
   try {
     const res = await fetch(`${baseUrl}/v1/wechat/inbound`, {
@@ -138,7 +160,7 @@ async function sendTurn(conversation: string, text: string, seq: number): Promis
       headers: { "content-type": "application/json", "x-inbound-secret": secret },
       body: JSON.stringify({
         apiVersion: "v1",
-        fromUserId: sender,
+        fromUserId,
         content: text,
         messageId: `${conversation}-${seq}`,
         conversationId: conversation,
@@ -206,9 +228,10 @@ async function main(): Promise<void> {
   let failed = 0
   for (const entry of selected) {
     const conversation = `l4-smoke-${entry.id}-${Date.now()}`
+    const from = entry.sender ?? sender
     let last: TurnResult | undefined
     for (const [index, text] of entry.turns.entries()) {
-      last = await sendTurn(conversation, text, index + 1)
+      last = await sendTurn(conversation, text, index + 1, from)
       const preview = (last.reply || last.error || "").replace(/\s+/g, " ").slice(0, 120)
       console.log(`      turn ${index + 1} "${text.slice(0, 20)}" ${last.ms}ms > ${preview}`)
       if (!last.ok) break
