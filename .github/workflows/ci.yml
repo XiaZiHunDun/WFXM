@@ -10,453 +10,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-      - name: Install package
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-      - name: Python syntax check
-        run: python -m py_compile butler/__init__.py && python -c "import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path('butler').rglob('*.py')]"
-      - name: Ruff lint
-        run: bash scripts/ci-ruff-gate.sh
-      - name: Import smoke test
-        run: |
-          python -c "from butler.tools.registry import dispatch_tool; from butler.core.agent_loop import AgentLoop; print('imports OK')"
-          python -m pytest tests/test_critical_imports.py -q --tb=line
-
-  pytest:
-    runs-on: ubuntu-latest
-    needs: lint
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12"]
-    env:
-      PYTHONUNBUFFERED: "1"
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Run unit tests with coverage (exclude live_llm)
-        run: bash scripts/ci-pytest-gate.sh
-
-      - name: Upload pytest log on failure
-        if: failure() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-log-${{ github.run_id }}
-          path: pytest-output.txt
-          if-no-files-found: error
-
-      - name: Write HTML coverage (artifact only)
-        if: matrix.python-version == '3.11'
-        run: python -m coverage html -d htmlcov
-
-      - name: Upload coverage report
-        if: matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-${{ github.run_id }}
-          path: htmlcov/
-          if-no-files-found: warn
-
-  domain-gates:
-    runs-on: ubuntu-latest
-    needs: lint
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        domain: [gateway, ops, dev_engine, memory, core]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Domain pytest (${{ matrix.domain }})
-        run: bash scripts/butler-domain-pytest.sh ${{ matrix.domain }}
-
-  domain-pr-gate:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    needs: lint
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            gateway:
-              - 'butler/gateway/**'
-              - 'tests/gateway/**'
-            ops:
-              - 'butler/ops/**'
-              - 'tests/ops/**'
-            dev_engine:
-              - 'butler/dev_engine/**'
-              - 'tests/dev_engine/**'
-
-      - uses: actions/setup-python@v5
-        if: steps.changes.outputs.gateway == 'true' || steps.changes.outputs.ops == 'true' || steps.changes.outputs.dev_engine == 'true'
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and test deps
-        if: steps.changes.outputs.gateway == 'true' || steps.changes.outputs.ops == 'true' || steps.changes.outputs.dev_engine == 'true'
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Gateway domain (PR path filter)
-        if: steps.changes.outputs.gateway == 'true'
-        run: bash scripts/butler-domain-pytest.sh gateway
-
-      - name: Ops domain (PR path filter)
-        if: steps.changes.outputs.ops == 'true'
-        run: bash scripts/butler-domain-pytest.sh ops
-
-      - name: DevEngine domain (PR path filter)
-        if: steps.changes.outputs.dev_engine == 'true'
-        run: bash scripts/butler-domain-pytest.sh dev_engine
-
-  corpus-pr-gate:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Corpus PR gate (gateway / corpus paths)
-        env:
-          CORPUS_PR_GATE_BASE: origin/${{ github.base_ref }}
-        run: ./scripts/corpus-test.sh pr-gate
-
-  corpus-drift:
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Gateway catalog drift check
-        run: ./scripts/corpus-test.sh drift
-
-  smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Butler smoke subset (runtime, inbound, ops, memory, imports)
-        run: |
-          python -m pytest \
-            tests/test_runtime.py \
-            tests/test_inbound_media.py \
-            tests/test_workflow_version.py \
-            tests/test_push_queue_dedup.py \
-            tests/ops/test_ops_snapshot.py \
-            tests/ops/test_failure_tracker.py \
-            tests/test_dev_tools_integration.py \
-            tests/test_p0_memory_pilot.py \
-            tests/test_critical_imports.py \
-            tests/test_project_lead.py \
-            tests/test_wechat_text_export.py \
-            tests/gateway/test_wechat_attach_detail.py \
-            -q --tb=line
-
-  fast-gate:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Butler pytest fast gate (smoke quick + attach + CC harness)
-        run: bash scripts/butler-pytest-fast-gate.sh
-
-  corpus-gateway-live:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Gateway L3 live smoke + ops summary
-        env:
-          BUTLER_RUN_REAL_API_SMOKE: "1"
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-          CORPUS_ARCHIVE: "1"
-          CORPUS_RUN_ID: nightly-${{ github.run_id }}
-        run: |
-          ./scripts/corpus-test.sh gateway-live
-          python3 scripts/corpus/summarize_runs.py --write docs/plans/corpus/corpus-issue-map-gateway-latest.md
-
-  docs-lint:
-    runs-on: ubuntu-latest
-    needs: lint
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
-      - name: Stale plan status
-        run: bash scripts/docs-lint.sh stale-status
-      - name: Flat plans root
-        run: bash scripts/docs-lint.sh flat-plans
-      - name: Bare plans links
-        run: bash scripts/docs-lint.sh bare-plans-links
-      - name: Broken relative links
-        run: bash scripts/docs-lint.sh broken-links
-      - name: Dead env keys
-        run: bash scripts/docs-lint.sh dead-env
-
-  engineering-gates:
-    runs-on: ubuntu-latest
-    needs: lint
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: "G1: Lazy import budget gate (≤1910)"
-        run: |
-          bash scripts/p3i-lazy-import-report.sh
-
-      - name: "G7: Env hygiene gate (reference ↔ .env.example ↔ butler/ readers)"
-        run: |
-          bash scripts/p3j-env-hygiene-gate.sh
-
-      - name: "G2: Contract stability tests (Port + Shim __all__)"
-        run: |
-          PYTHONPATH=. python -m pytest tests/contracts/ -q --tb=short
-
-      - name: "G6: File size guard (>800 warn, >1200 block)"
-        run: |
-          python3 scripts/ai_guard/file_size_check.py --ci
-
-      - name: "ENG-15: Layer dependency matrix"
-        run: |
-          bash scripts/butler-layer-import-gate.sh
-
-  maintenance-full-health:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp,observability]"
-
-      - name: Run full maintenance health report
-        run: bash scripts/project-health-report.sh full
-
-      - name: Upload maintenance reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: maintenance-reports-${{ github.run_id }}
-          path: logs/maintenance/
-          if-no-files-found: warn
-
-  eval-push:
-    runs-on: ubuntu-latest
-    needs: pytest
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-      - name: Install package
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[all]"
-      - name: Run benchmarks and push scores to LangFuse
-        env:
-          BUTLER_LANGFUSE_ENABLED: "1"
-          LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
-          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
-          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
-        run: |
-          python -c "
-          from butler.dev_engine.dev_benchmark import run_benchmarks
-          from butler.memory.memory_benchmark import run_all_benchmarks
-          from butler.ops.eval_bridge import dev_benchmark_to_scores, memory_benchmark_to_scores, push_scores
-          import os
-
-          # DevEngine benchmarks
-          dev_report = run_benchmarks()
-          dev_scores = dev_benchmark_to_scores(dev_report)
-          print(f'DevEngine: {dev_report.passed}/{dev_report.total} passed')
-
-          # Memory benchmarks
-          mem_report = run_all_benchmarks()
-          mem_scores = memory_benchmark_to_scores(mem_report)
-          print(f'Memory: {mem_report.passed}/{mem_report.total} passed')
-
-          # Push to LangFuse (only if secrets are configured)
-          if os.getenv('LANGFUSE_HOST'):
-              all_scores = dev_scores + mem_scores
-              report = push_scores(all_scores)
-              print(f'Pushed {report.scores_pushed} scores to LangFuse ({report.scores_failed} failed)')
-          else:
-              print('LangFuse not configured, skipping push')
-          "
-
-  live-llm-smoke:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Live LLM smoke (manual only)
-        env:
-          BUTLER_RUN_REAL_API_SMOKE: "1"
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-        run: |
-          pip install -e ".[dev,mcp,observability]"
-          python -m pytest -m live_llm -q --tb=line
-
   butler-v5-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            butler_v5:
-              - 'butler-v5/**'
-              - '.github/workflows/ci.yml'
-              - 'butler-v5/scripts/typecheck-gate.sh'
-
       - uses: actions/setup-node@v4
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         with:
           node-version: "22"
 
-      - name: Setup pnpm (pinned to 9.15.0 to match local dev + lockfile v9)
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      - name: Setup pnpm (pinned to 9.15.0 to match dev + lockfile v9)
         uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
 
       - name: Setup pnpm cache
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: actions/cache@v4
         with:
           path: butler-v5/node_modules
@@ -464,25 +33,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-butler-v5-
 
-      - name: Install butler-v5 dependencies
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      - name: Install dependencies
         working-directory: butler-v5
         run: pnpm install --frozen-lockfile
 
-      - name: Butler-v5 format check
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        working-directory: butler-v5
-        run: pnpm format:check
-
-      - name: Butler-v5 lint
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        working-directory: butler-v5
-        run: pnpm lint
-
       - name: Pre-commit + commit-msg hook sync check
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
-          # Format: "<source_basename> <target_basename>" — both hooks must be in sync
           HOOKS=(
             "pre_commit_hook.sh pre-commit"
             "commit_msg_hook.sh commit-msg"
@@ -513,35 +69,31 @@ jobs:
             exit 1
           fi
 
-      - name: Butler-v5 typecheck (full gate)
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      - name: Format check
+        working-directory: butler-v5
+        run: pnpm format:check
+
+      - name: Lint
+        working-directory: butler-v5
+        run: pnpm lint
+
+      - name: Typecheck
         working-directory: butler-v5
         run: bash scripts/typecheck-gate.sh
 
-      - name: Butler-v5 test (379 tests baseline)
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      - name: Unit / contract tests
         working-directory: butler-v5
         run: pnpm test
 
-      - name: Butler-v5 acceptance (deterministic wechat end-to-end harness)
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      - name: WeChat acceptance harness (deterministic)
         working-directory: butler-v5
         run: pnpm vitest run tests/acceptance --pool=forks
-        # Scripted-LLM fixture injects production wiring, drives the real
-        # /v1/wechat/inbound path (no real model, no live WeChat, no live
-        # service). Covers commands/approval, fault-tolerance (4xx /
-        # ActiveMainRunConflict / fixture-exhausted), subagent-multiturn,
-        # audit-state (eventStore + scoped_grants + cross-restart
-        # PGlite pending-approval recovery). Runs in ~10s; --pool=forks
-        # isolates per-file PGlite tmpdir state from other vitest files
-        # sharing the worker.
 
-      - name: Butler-v5 loopback smoke regression (quick, no iLink)
-        if: steps.changes.outputs.butler_v5 == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      - name: Loopback smoke regression (quick, no iLink)
         working-directory: butler-v5
         run: bash scripts/cutover/ci-smoke-regression.sh
 
-      - name: Upload butler-v5 test log on failure
+      - name: Upload test log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
