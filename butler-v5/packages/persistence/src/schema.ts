@@ -311,3 +311,38 @@ export const tasks = pgTable(
     subjectStatusIdx: index("tasks_subject_status_idx").on(t.subject, t.status, t.updatedAt),
   }),
 )
+
+/**
+ * P4.2: butler-layer sessions. Owned by the butler runtime; agent-rag only
+ * stores projections derived from these transcripts.
+ */
+export const butlerSessions = pgTable("butler_sessions", {
+  conversationId: text("conversation_id").primaryKey().notNull(),
+  userId: text("user_id").notNull(),
+  projectId: text("project_id"),
+  messages: jsonb("messages").notNull(),
+  summary: text("summary"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+})
+
+/**
+ * P4.1: pi task-layer sessions. The task layer is stateless; this table is the
+ * butler-side durable snapshot store (messages + pending approval step).
+ */
+export const taskSessions = pgTable(
+  "task_sessions",
+  {
+    taskId: text("task_id").primaryKey().notNull(),
+    projectId: text("project_id").notNull(),
+    cwd: text("cwd").notNull(),
+    status: text("status").notNull(),
+    snapshot: jsonb("snapshot").notNull(),
+    pendingStep: jsonb("pending_step"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    statusUpdatedIdx: index("task_sessions_status_updated_idx").on(t.status, t.updatedAt),
+  }),
+)
