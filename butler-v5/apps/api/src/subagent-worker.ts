@@ -115,8 +115,15 @@ const POLL_INTERVAL_MS = 5_000
  * R8.x.10: bound child tool-call iterations so a chatty model cannot
  * stall the worker. On overrun we return whatever text we last saw
  * (or a short fallback).
+ *
+ * 2026-11-18 L4 smoke: 3 was too small for real file tasks — the model
+ * spent one iteration locating the workspace, one writing, and then the
+ * loop forced a tool-less final turn, so it reported "could not write"
+ * while the worker still delivered the run as a success. 8 leaves room
+ * for inspect → write → verify, and `capped` detection below keeps a run
+ * that still hits the limit from being reported as completed.
  */
-const MAX_CHILD_ITERATIONS = 3
+const MAX_CHILD_ITERATIONS = 8
 
 async function markChildRunRunning(store: RuntimeStore, childRunId: string): Promise<void> {
   const run = await store.getRun(childRunId)
@@ -207,7 +214,7 @@ async function runChildLlm(
   env: NodeJS.ProcessEnv,
   runtimeStore?: RuntimeStore,
   childRunId?: string | null,
-): Promise<{ readonly content: string; readonly waitingApproval?: boolean }> {
+): Promise<{ readonly content: string; readonly waitingApproval?: boolean; readonly capped?: boolean }> {
   const ownerSubject = resolveOwnerSubject(env, parentConversationId)
   if (runtimeStore && childRunId) {
     try {
@@ -418,7 +425,14 @@ async function runChildLlm(
       maxIterations: MAX_CHILD_ITERATIONS,
       llmTimeoutMs: LLM_TIMEOUT_MS,
     })
-    return { content: loopResult.reply }
+    // `iterations === cap` means the loop ran out of turns instead of the
+    // model deciding it was done; the reply is then a progress/hand-off
+    // text, not a completion. Surface that so the caller can stop telling
+    // the owner the work succeeded.
+    return {
+      content: loopResult.reply,
+      capped: loopResult.iterations >= MAX_CHILD_ITERATIONS,
+    }
   } catch (err) {
     if (err instanceof RunPauseForApproval) {
       const payload =
@@ -522,7 +536,11 @@ async function handleOutboxMessage(
     })
     return
   }
-  let result: { readonly content: string; readonly waitingApproval?: boolean }
+  let result: {
+    readonly content: string
+    readonly waitingApproval?: boolean
+    readonly capped?: boolean
+  }
   let llmOk = true
   try {
     logger.warn(`[subagent-worker] invoking LLM for role=${role} task=${task.slice(0, 60)}`)
@@ -552,6 +570,16 @@ async function handleOutboxMessage(
         childConversationId,
         role,
       }),
+    }
+  }
+  // A run that stopped at the iteration cap did not finish the task. Do not
+  // let the parent stream / run status claim success: mark it failed and make
+  // the first line of the reply say so, so the owner never reads a hand-off
+  // message as "done".
+  if (result.capped === true && llmOk) {
+    llmOk = false
+    result = {
+      content: `执行未完成（达到步数上限，已停止）：${result.content}`,
     }
   }
   const notifyUser =
