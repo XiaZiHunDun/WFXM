@@ -48,7 +48,7 @@ export function taskStatusLabel(status: string): string {
  * written in English for the model, and it echoes them). Map to the words an
  * owner actually uses; keep the patterns narrow so identifiers are untouched.
  */
-const TERM_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
+const TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
   [/[ \t]*\bexec\s*子代理/g, "执行代理"],
   [/[ \t]*执行子代理/g, "执行代理"],
   [/[ \t]*开发子代理/g, "开发代理"],
