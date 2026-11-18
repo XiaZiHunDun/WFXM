@@ -34,6 +34,7 @@ def create_llm_client(orch: ButlerOrchestrator, role: str = "butler") -> LLMClie
         model=mc.get("model") or "",
         api_key=mc.get("api_key") or None,
         base_url=mc.get("base_url") or None,
+        temperature=mc.get("temperature"),
         max_tokens=mc.get("max_tokens"),
     )
 
@@ -46,6 +47,7 @@ def get_agent_kwargs(orch: ButlerOrchestrator) -> dict[str, Any]:
         "provider": mc.get("provider"),
         "base_url": mc.get("base_url") or "",
         "api_key": mc.get("api_key") or "",
+        "temperature": mc.get("temperature"),
         "max_tokens": mc.get("max_tokens"),
         "user_id": orch.user_id,
         "platform": orch.channel,

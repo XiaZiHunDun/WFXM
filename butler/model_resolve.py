@@ -306,6 +306,8 @@ def model_config_to_credentials(
         "api_key": api_key,
         "base_url": base_url,
     }
+    if mc.temperature is not None:
+        out["temperature"] = mc.temperature
     if mc.max_tokens is not None:
         out["max_tokens"] = mc.max_tokens
     if mc.context_length is not None:

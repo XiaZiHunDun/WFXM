@@ -12,10 +12,27 @@ from butler.core.llm_retry_safe import safe_call
 from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.core.retry_policy import retry_delay_for_config
 from butler.core.schema_recovery import recover_schema_after_error
-from butler.transport.error_classifier import ClassifiedError
+from butler.transport.error_classifier import ClassifiedError, FailoverReason
 from butler.transport.interruptible_client import StaleApiCallError
 
 RetryAction = Literal["continue", "break", "sleep_continue"]
+
+# 429/529 等过载错误需要更长的退避窗口；普通错误仍走原配置。
+_TRANSIENT_OVERLOAD_REASONS = frozenset(
+    {
+        FailoverReason.overloaded,
+        FailoverReason.rate_limit,
+        FailoverReason.upstream_rate_limit,
+    }
+)
+_OVERLOAD_MAX_RETRIES = 5
+_OVERLOAD_BASE_DELAY = 5.0
+_OVERLOAD_MAX_DELAY = 60.0
+
+
+def overload_delay(attempt: int) -> float:
+    """Exponential backoff for 429/529: 5s, 10s, 20s, 40s (capped)."""
+    return min(_OVERLOAD_MAX_DELAY, _OVERLOAD_BASE_DELAY * (2**attempt))
 
 
 @dataclass
@@ -95,6 +112,12 @@ def handle_classified_llm_error(
         return LlmRetryStep("continue"), compress_attempted, schema_recovery_attempted
 
     if not classified.retryable:
+        return LlmRetryStep("break"), compress_attempted, schema_recovery_attempted
+
+    if classified.reason in _TRANSIENT_OVERLOAD_REASONS:
+        if attempt < _OVERLOAD_MAX_RETRIES - 1:
+            time.sleep(overload_delay(attempt))
+            return LlmRetryStep("sleep_continue"), compress_attempted, schema_recovery_attempted
         return LlmRetryStep("break"), compress_attempted, schema_recovery_attempted
 
     if attempt < config.max_retries - 1:

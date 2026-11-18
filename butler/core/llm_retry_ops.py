@@ -109,7 +109,8 @@ def run_llm_with_retry_loop(
     compress_attempted = False
     schema_recovery_attempted = False
     interrupted = False
-    effective_retries = min(config.max_retries, 20)
+    # 过载重试需要比普通错误更多的尝试次数；普通错误仍按 config.max_retries 提前 break。
+    effective_retries = min(max(config.max_retries, 5), 20)
 
     for attempt in range(effective_retries):
         if interrupt_check():

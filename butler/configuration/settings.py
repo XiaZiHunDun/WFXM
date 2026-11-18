@@ -39,6 +39,17 @@ _DEFAULT_BUTLER_RUNTIME_DIRS: Final[tuple[str, ...]] = (
 BUTLER_RUNTIME_DIRS: Final[tuple[str, ...]] = _DEFAULT_BUTLER_RUNTIME_DIRS
 
 
+def _env_temperature() -> float | None:
+    """Optional global sampling temperature override (used by eval for reproducibility)."""
+    raw = os.getenv("BUTLER_MODEL_TEMPERATURE", "").strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
 def _ensure_butler_home_structure(home: Path) -> None:
     """Create Butler runtime directories expected by doctor and gateway/runtime flows."""
     home.mkdir(parents=True, exist_ok=True)
@@ -252,13 +263,21 @@ class ButlerSettings:
         if not self.models.butler.is_empty():
             return
         if self.default_provider and (pc := self.providers.get(self.default_provider)):
-            self.models.butler = ModelConfig(provider=self.default_provider, model=pc.model)
+            self.models.butler = ModelConfig(
+                provider=self.default_provider,
+                model=pc.model,
+                temperature=_env_temperature(),
+            )
 
     def _system_default_for_role(self, role: str) -> ModelConfig:
         """Layer 1: implicit defaults from ``default_provider`` + provider env."""
         del role  # same system default for each role unless YAML specializes
         if self.default_provider and (pc := self.providers.get(self.default_provider)):
-            return ModelConfig(provider=self.default_provider, model=pc.model)
+            return ModelConfig(
+                provider=self.default_provider,
+                model=pc.model,
+                temperature=_env_temperature(),
+            )
         return ModelConfig()
 
     def _yaml_merged_for_role(self, role: str) -> ModelConfig:
