@@ -9,6 +9,7 @@ import { runTool } from "@butler/runtime/tool-runtime.js"
 import type { CredentialProvider } from "@butler/ports/core/credential-provider.js"
 import {
   ALLOWED_RUN_COMMANDS,
+  makeListDirTool,
   makeReadFileTool,
   makeRunCommandTool,
   makeWriteFileTool,
@@ -52,6 +53,39 @@ describe("resolveUnderWorkspace", () => {
     root = mkdtempSync(join(tmpdir(), "ws-tools-"))
     const r = resolveUnderWorkspace(root, "/etc/passwd")
     expect(r.ok).toBe(false)
+  })
+})
+
+describe("makeListDirTool", () => {
+  let root: string
+
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true })
+  })
+
+  it("lists directories before files and hides node_modules", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-list-"))
+    mkdirSync(join(root, "packages"))
+    mkdirSync(join(root, "node_modules"))
+    writeFileSync(join(root, "a.txt"), "x")
+    const result = await runTool(makeListDirTool({ workspaceRoot: root }), {}, { timeoutMs: 1000 })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const output = String(result.output)
+    expect(output).toContain("[目录] packages")
+    expect(output).toContain("a.txt")
+    expect(output).not.toContain("node_modules")
+    expect(output.indexOf("packages")).toBeLessThan(output.indexOf("a.txt"))
+  })
+
+  it("rejects a path outside the workspace", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-list-"))
+    const result = await runTool(makeListDirTool({ workspaceRoot: root }), { path: "../" }, {
+      timeoutMs: 1000,
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toContain("outside the workspace")
   })
 })
 

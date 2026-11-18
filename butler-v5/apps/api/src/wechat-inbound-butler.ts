@@ -349,8 +349,18 @@ async function runButlerLoopBody(args: {
     // (dev-session-grant.ts), not via the LLM tool set.
     parentAllowedToolNames: undefined,
   }).filter((t) => (allow ? allow.has(t.name as string) : true))
+  // Local-path questions ("butler-v5/packages 下有哪些包") should be answered
+  // from the workspace. Keeping web/GitHub/firecrawl tools visible made the
+  // model reach for mcp_firecrawl_firecrawl_map or a GitHub file read instead
+  // (L4-2/L4-5), which either wastes a round trip or blocks on approval.
+  const localPathIntent =
+    /(?:^|[\s（(“"'`])(?:butler-v5|apps|packages|docs|scripts|src|config)\/|(?:^|[\s（(])\.{1,2}\//.test(
+      args.content,
+    )
+  const visible = (name: string): boolean =>
+    (allow ? allow.has(name) : true) && !(localPathIntent && name.startsWith("mcp_"))
   const llmTools = llmToolsForButler({ env, mcpBundle: args.wiring.mcp }).filter((t) =>
-    allow ? allow.has(t.name) : true,
+    visible(t.name),
   )
 
   const toolExecutor = makeToolExecutor({

@@ -32,13 +32,14 @@ describe("weibutler tools", () => {
     await db.close()
   })
 
-  it("WEIBUTLER_LLM_TOOLS exposes 12 provider-agnostic tool descriptors", () => {
-    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(12)
+  it("WEIBUTLER_LLM_TOOLS exposes 13 provider-agnostic tool descriptors", () => {
+    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(13)
     const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
       "delegate_to_subagent",
       "get_current_time",
       "greet_with_time",
+      "list_dir",
       "read_file",
       "recall_document",
       "recall_durable_memory",
@@ -55,7 +56,7 @@ describe("weibutler tools", () => {
     }
   })
 
-  it("makeWeibutlerTools returns 11 runtime ToolDefinitions by default (no subagent, no MCP)", () => {
+  it("makeWeibutlerTools returns 12 runtime ToolDefinitions by default (no subagent, no MCP)", () => {
     const tools = makeWeibutlerTools({
       bridge,
       conversationId,
@@ -65,10 +66,11 @@ describe("weibutler tools", () => {
         BUTLER_V5_SUBAGENT_ENABLED: "0",
       },
     })
-    expect(tools).toHaveLength(11)
+    expect(tools).toHaveLength(12)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
       "get_current_time",
       "greet_with_time",
+      "list_dir",
       "read_file",
       "recall_document",
       "recall_durable_memory",
@@ -90,7 +92,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
     })
-    expect(tools).toHaveLength(12)
+    expect(tools).toHaveLength(13)
     const delegate = tools.find((t) => (t.name as string) === "delegate_to_subagent")
     expect(delegate?.risk).toBe("medium")
   })
@@ -101,7 +103,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_MCP_ENABLED: "1", BUTLER_V5_MCP_TOOL_NAMES: "search" },
     })
-    expect(tools).toHaveLength(12)
+    expect(tools).toHaveLength(13)
     expect(tools.some((t) => (t.name as string) === "mcp_search")).toBe(true)
   })
 

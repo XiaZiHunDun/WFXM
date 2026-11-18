@@ -20,6 +20,7 @@ import { safeOwnerErrorString } from "./owner-jargon.js"
 import { makeSendWechatFileTool } from "./send-wechat-file.js"
 import {
   makeReadFileTool,
+  makeListDirTool,
   makeRunCommandTool,
   makeWriteFileTool,
   type WorkspaceToolContext,
@@ -521,6 +522,20 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
     },
   },
   {
+    name: "list_dir",
+    description:
+      "List entries of a directory inside the butler workspace (read-only). Pass `path` relative to the workspace root; defaults to the workspace root. Returns directories first, hides dotfiles and node_modules/dist, max 200 entries. Use this instead of delegating when the owner asks what files or packages exist.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Directory path relative to the workspace root. Defaults to the root.",
+        },
+      },
+    },
+  },
+  {
     name: "write_file",
     description:
       "Write UTF-8 text to a file inside the butler workspace. Pass `path` relative to the workspace root and full `content`. Creates parent directories when needed. Max 64KiB. Requires owner confirmation before executing.",
@@ -940,6 +955,7 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     makeGreetWithTimeTool(),
     makeSummarizeTodayTool(ctx),
     makeReadFileTool(workspaceToolCtx(ctx)),
+    makeListDirTool(workspaceToolCtx(ctx)),
     makeWriteFileTool(workspaceToolCtx(ctx)),
     makeRunCommandTool(workspaceToolCtx(ctx)),
     makeSendWechatFileTool(ctx),

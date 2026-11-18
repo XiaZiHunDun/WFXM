@@ -56,6 +56,7 @@ export function buildWechatInboundMessages(
     "- greet_with_time(): a Chinese greeting based on the current time of day",
     "- summarize_today(): 24-hour activity summary for this conversation, broken down by event type",
     "- read_file(path): read a UTF-8 text file inside the workspace (max 64KiB; path cannot escape the root)",
+    "- list_dir(path?): list a workspace directory (read-only; dirs first, hides dotfiles/node_modules/dist). Use this for 列目录/看有哪些包 questions instead of delegating.",
     ...(includeExecTools
       ? [
           "- write_file(path, content): write UTF-8 text to a workspace file (max 64KiB; requires owner confirmation)",
@@ -96,6 +97,7 @@ export function buildWechatInboundMessages(
     "Sensitive data: 不输出、不复述密钥、token、密码、`.env` 原文；说明不能提供，必要时给出脱敏替代方案（如变量名或取值位置）。",
     "Missing target: 文件或路径不存在、工具报错时，如实说明并给出可行替代；不要用同类调用反复重试，也不要把报错当成功。",
     "Tool selection: prefer read_file (direct workspace path access) over run_command with shell find/ls/cat for file discovery. Use run_command only when read_file cannot address the task (e.g., package scripts, system introspection, git history).",
+    "Local paths: 用户提到本地路径（如 butler-v5/packages、docs/xxx）时，用 list_dir / read_file 直接查本地工作区，不要调用 GitHub 或其他 MCP 工具，也不要委派。",
     "Convergence: after at most 1-2 file-discovery calls (read_file or bounded find), commit to a concrete plan or ask 1 clarifying question — do not iterate further on inspection alone. The owner wants forward motion.",
     "Delegation scope: 简单只读查询（列目录、看一个文件、统计行数、汇总几个包的说明）直接用 read_file / run_command 回答，不要委派给后台代理；只有需要多步改动、跑测试或长时间执行时才 delegate。",
   ]

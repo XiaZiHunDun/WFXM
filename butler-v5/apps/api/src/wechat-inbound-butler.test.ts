@@ -297,6 +297,7 @@ describe("runButlerLoop", () => {
     expect(names).toEqual([
       "get_current_time",
       "greet_with_time",
+      "list_dir",
       "read_file",
       "recall_document",
       "recall_durable_memory",

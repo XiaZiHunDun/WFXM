@@ -9,7 +9,7 @@
  * Failures return `{ ok: false, reason }` — no throw.
  */
 import { spawn } from "node:child_process"
-import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
+import { mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import { isAbsolute, relative, resolve } from "node:path"
 import { makeToolName, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
@@ -120,6 +120,53 @@ export function resolveUnderWorkspace(root: string, requested: string): ResolveP
 function escapesRoot(rootReal: string, candidate: string): boolean {
   const rel = relative(rootReal, candidate)
   return rel.startsWith("..") || isAbsolute(rel)
+}
+
+/**
+ * Read-only directory listing for plan mode. Plan mode strips run_command /
+ * write_file, which left `ls`-style questions with no tool and pushed the
+ * model into delegating a one-second lookup (L4-2). This is listing only:
+ * no shell, no writes, same workspace-escape guard as read_file.
+ */
+export function makeListDirTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
+  return {
+    name: makeToolName("list_dir"),
+    risk: "low",
+    async run(
+      args: Record<string, unknown>,
+    ): Promise<
+      | { readonly ok: true; readonly output: unknown }
+      | { readonly ok: false; readonly reason: string }
+    > {
+      const raw = args["path"]
+      const requested = typeof raw === "string" && raw.trim() ? raw.trim() : "."
+      const resolved = resolveUnderWorkspace(workspaceRootFrom(ctx), requested)
+      if (!resolved.ok) return resolved
+      try {
+        const entries = readdirSync(resolved.path, { withFileTypes: true })
+          .filter((entry) => !entry.name.startsWith("."))
+          .filter((entry) => entry.name !== "node_modules" && entry.name !== "dist")
+          .sort(
+            (a, b) =>
+              Number(b.isDirectory()) - Number(a.isDirectory()) ||
+              a.name.localeCompare(b.name),
+          )
+        if (entries.length === 0) return { ok: true, output: "(empty)" }
+        const shown = entries.slice(0, 200).map((entry) => {
+          const kind = entry.isDirectory() ? "[目录] " : ""
+          return `${kind}${entry.name}`
+        })
+        const suffix =
+          entries.length > shown.length ? `\n…共 ${entries.length} 项，已省略后面部分` : ""
+        return { ok: true, output: `${shown.join("\n")}${suffix}` }
+      } catch (err) {
+        return {
+          ok: false,
+          reason: `目录不可读：${err instanceof Error ? err.message : String(err)}`,
+        }
+      }
+    },
+  }
 }
 
 export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
