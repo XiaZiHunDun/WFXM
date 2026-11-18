@@ -81,7 +81,7 @@ jobs:
         id: digest
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: butler-v5
           platforms: ${{ matrix.platform }}
           push: ${{ !inputs.dry_run }}
           tags: ${{ steps.meta.outputs.tags }}

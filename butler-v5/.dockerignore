@@ -11,10 +11,7 @@
 .trae
 .wfxm_data
 backup
-data
 logs
-memory_profile_report.json
-migration_plan.md
 node_modules
 coverage
 dist

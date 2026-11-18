@@ -171,15 +171,15 @@ describe("D53a methodology", () => {
     const repoRoot = "/home/ailearn/projects/WFXM"
 
     const requiredFiles = [
-      "Dockerfile",
-      ".dockerignore",
+      "butler-v5/Dockerfile",
+      "butler-v5/.dockerignore",
       ".github/workflows/release.yml",
       ".github/dependabot.yml",
       "butler-v5/docker-compose.yml",
       "butler-v5/apps/api/src/routes/health.ts",
       "docs/deployment/production-hardening.md",
       "docs/deployment/README.md",
-      "tests/acceptance/scenarios_docker_deploy.md",
+      "butler-v5/tests/acceptance/scenarios_docker_deploy.md",
     ]
 
     it("all 9 docker deploy artifacts present", () => {

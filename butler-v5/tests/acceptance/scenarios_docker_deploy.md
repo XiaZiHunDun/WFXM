@@ -12,20 +12,24 @@
 **目的**：验证 Dockerfile 在 multi-arch (amd64 + arm64) 下 build 成功
 
 **前置条件：**
+
 - Docker + buildx installed
 - Docker daemon running
 - 用户有 ghcr.io/xiazihundun 写权限 (CI 自动；本地 dry-run 不需要)
 
 **步骤：**
+
 1. `docker buildx create --use` (确保 buildx 可用)
 2. `docker buildx build --platform linux/amd64,linux/arm64 --progress=plain .` (dry-run；不 --push)
 
 **验收：**
+
 - 2 个平台 build 均 exit 0
 - 最终镜像 `<none>`（dry-run 无 push）+ 中间 stage 缓存成功
 - 镜像体积 ~250-300 MB（vs 未优化 ~900MB）
 
 **自动化（pseudo）：**
+
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 --progress=plain . 2>&1 | tail -30
 # Expected: 2 platforms built, both exit 0
@@ -36,10 +40,12 @@ docker buildx build --platform linux/amd64,linux/arm64 --progress=plain . 2>&1 |
 **目的**：验证 docker-compose.yml 配置合法 + 服务能启起来
 
 **前置条件：**
+
 - Docker compose v2 installed
 - ghcr.io/xiazihundun/wfxm:latest 已 publish（release workflow dry-run 也行）
 
 **步骤：**
+
 1. `docker compose -f butler-v5/docker-compose.yml config` (syntax check)
 2. 设置 fake env vars (POSTGRES_PASSWORD=test, ANTHROPIC_API_KEY=fake)
 3. `TAG=latest docker compose up -d postgres butler` (skip wechat-mock, dev profile)
@@ -48,11 +54,13 @@ docker buildx build --platform linux/amd64,linux/arm64 --progress=plain . 2>&1 |
 6. `docker compose down -v`
 
 **验收：**
+
 - `docker compose ps` 显示 postgres + butler `healthy`
 - `/health` 返回 200 + `{status: "ok", checks: {db: {status: "up", latency_ms: <number>}}`
 - postgres 端口仅监听 127.0.0.1:5432 (`ss -tnlp | grep 5432`)
 
 **自动化（pseudo）：**
+
 ```bash
 export POSTGRES_PASSWORD=test
 export ANTHROPIC_API_KEY=fake
@@ -68,12 +76,15 @@ docker compose -f butler-v5/docker-compose.yml down -v
 **目的**：验证 T5 /health endpoint 实现正确
 
 **步骤：**
+
 1. `cd butler-v5 && pnpm test apps/api/src/routes/health.test.ts`
 
 **验收：**
+
 - 3 tests pass (combined /health + /health/live + db-down)
 
 **自动化（pseudo）：**
+
 ```bash
 cd butler-v5 && pnpm test apps/api/src/routes/health.test.ts 2>&1 | tail -10
 # Expected: 3/3 passed
@@ -84,22 +95,26 @@ cd butler-v5 && pnpm test apps/api/src/routes/health.test.ts 2>&1 | tail -10
 **目的**：验证 release.yml workflow 配置合法（不实际 push 到 ghcr.io）
 
 **前置条件：**
+
 - GitHub repo 启用 Actions
 - 用户有 Actions: workflow_dispatch 权限
 
 **步骤：**
+
 1. GitHub UI → Actions tab → Release workflow → Run workflow
 2. 输入 tag=v5.0.0-dryrun + dry_run=true
 3. 等 ~10min
 4. 检查 build job 成功
 
 **验收：**
+
 - validate job: 成功（semver check pass）
 - build job (matrix amd64 + arm64): 2/2 成功
 - 无 push 到 ghcr.io（通过 dry_run=true 拦截）
 - 无创建 GH release
 
 **自动化（pseudo）：**
+
 ```bash
 gh workflow run release.yml \
   --field tag=v5.0.0-dryrun \
@@ -134,6 +149,7 @@ gh run watch <run-id> --exit-status
 5. **compose YAML 合法 + butler service 存在 + 全部 port 127.0.0.1**
 
 **自动化（pseudo）：**
+
 ```bash
 cd /home/ailearn/projects/WFXM
 
