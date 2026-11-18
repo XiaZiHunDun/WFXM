@@ -379,15 +379,54 @@ export async function bootstrapMcpTools(
 
   const serverIds = resolveServersToBootstrap(env, manifestLoaded)
   const namespaced = serverIds.length > 1
+  // A single wedged server used to hold the whole gateway for its full
+  // request timeout (120s → two minutes of downtime after every restart).
+  // Cap startup per server; a slow one is skipped loudly instead of
+  // blocking the channel. Tool calls keep the longer request timeout.
+  const bootstrapTimeoutMs = (() => {
+    const raw = Number(env["BUTLER_V5_MCP_BOOTSTRAP_TIMEOUT_MS"] ?? 20_000)
+    return Number.isFinite(raw) && raw >= 1_000 ? raw : 20_000
+  })()
   const partials = (
     await Promise.all(
-      serverIds.map(async (serverId) =>
-        bootstrapSingleMcpServer(serverId, env, {
-          ...options,
-          manifestLoaded,
-          namespaced,
-        }),
-      ),
+      serverIds.map(async (serverId) => {
+        // Cold start used to take ~120s with no indication which server was
+        // responsible. One line per server makes the offender obvious.
+        const startedAt = Date.now()
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try {
+          const part = await Promise.race([
+            bootstrapSingleMcpServer(serverId, env, {
+              ...options,
+              manifestLoaded,
+              namespaced,
+            }),
+            new Promise<null>((resolve) => {
+              timer = setTimeout(() => resolve(null), bootstrapTimeoutMs)
+            }),
+          ])
+          if (part === null) {
+            // eslint-disable-next-line no-console -- operator startup log
+            console.error(
+              `[mcp] bootstrap server=${serverId} timed out after ${bootstrapTimeoutMs}ms; skipped`,
+            )
+            return EMPTY_BUNDLE
+          }
+          // eslint-disable-next-line no-console -- operator startup log
+          console.error(
+            `[mcp] bootstrap server=${serverId} mode=${part.mode} tools=${part.runtimeTools.length} in ${Date.now() - startedAt}ms`,
+          )
+          return part
+        } catch (err) {
+          // eslint-disable-next-line no-console -- operator startup log
+          console.error(
+            `[mcp] bootstrap server=${serverId} failed in ${Date.now() - startedAt}ms: ${err instanceof Error ? err.message : String(err)}`,
+          )
+          throw err
+        } finally {
+          if (timer !== undefined) clearTimeout(timer)
+        }
+      }),
     )
   ).filter((part) => part.runtimeTools.length > 0 || part.mode === "stub")
 

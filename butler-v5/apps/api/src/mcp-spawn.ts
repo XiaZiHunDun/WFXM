@@ -1,8 +1,13 @@
 import { spawn } from "node:child_process"
+import { existsSync } from "node:fs"
+import { homedir } from "node:os"
+import { dirname, join } from "node:path"
 import type { StdioSpawnFn } from "@butler/adapters/mcp/stdio-transport.js"
 import { isSandboxEnabled, currentSandboxProfileName } from "@butler/runtime/sandbox/index.js"
 import {
+  SANDBOX_HOME_DIR,
   buildBubblewrapArgs,
+  resolveSandboxExtraBinPaths,
   resolveSandboxProfile,
 } from "@butler/adapters/sandbox/bubblewrap-runner.js"
 import { recordExecAudit, type ExecAuditContext } from "./exec-audit.js"
@@ -33,10 +38,34 @@ export const nodeStdioSpawn: StdioSpawnFn = (command, args, options) => {
       workspaceRoot: ws,
       profileName: currentSandboxProfileName() ?? "workspace-write-network-deny",
     })
-    const bwrapArgs = buildBubblewrapArgs(profile, [command, ...args], { readOnly: false })
+    // The sandbox only mounts the workspace + a few system paths. A stdio
+    // server installed under ~/.local (uv/pipx shims, e.g. markitdown-mcp)
+    // needs its install tree and a writable HOME, otherwise the handshake
+    // never completes and startup waits for the full timeout.
+    const extraBinds = [...resolveSandboxExtraBinPaths()]
+    for (const candidate of [dirname(command), join(homedir(), ".local", "share")]) {
+      if (existsSync(candidate) && !extraBinds.includes(candidate)) extraBinds.push(candidate)
+    }
+    const bwrapArgs = buildBubblewrapArgs(profile, [command, ...args], {
+      readOnly: false,
+      extraBinPaths: extraBinds,
+    })
+    // markitdown-mcp (Python/uv) never finishes the MCP handshake without
+    // HOME: it exits the import path silently and the client waits for the
+    // full timeout (observed as a 120s cold start). Pass the handful of
+    // variables a stdio server actually needs, not the whole host env.
+    const passthrough: Record<string, string> = {}
+    for (const key of ["PATH", "TMPDIR", "TMP", "LANG", "LC_ALL", "XDG_CACHE_HOME"]) {
+      const value = hostEnv[key]
+      if (value !== undefined) passthrough[key] = value
+    }
+    // HOME must be the writable tmpfs the sandbox actually created; pointing
+    // it at the host home makes Python/uv writes fail inside the namespace.
+    passthrough["HOME"] = SANDBOX_HOME_DIR
+    passthrough["TMPDIR"] = "/tmp"
     child = spawn("bwrap", bwrapArgs, {
       stdio: ["pipe", "pipe", "pipe"],
-      env: { PATH: hostEnv["PATH"] ?? "/usr/bin:/bin" },
+      env: passthrough,
     })
   } else {
     child = spawn(command, [...args], {
