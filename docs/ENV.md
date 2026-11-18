@@ -204,6 +204,7 @@
 | `BUTLER_V5_SCHEDULE_JOBS` | csv | — | 静态 schedule jobs（逗号分隔） | `schedule-config.ts` | 🟡 |
 | `BUTLER_V5_SCHEDULE_JOBS_PATH` | path | — | schedule jobs 文件路径（YAML） | `schedule-config.ts` | 🟡 |
 | `BUTLER_V5_MAX_DECODE_RETRIES` | int | `1` | decoder 失败最大重试 | [`packages/runtime/src/conversation-loop.ts`](../butler-v5/packages/runtime/src/conversation-loop.ts), DESIGN §6.2 line 269 | 🟡 |
+| `BUTLER_V5_MAX_EMPTY_CONTENT_RETRIES` | int | `1` | LLM 返回空 content 且无 tool call 时的重试次数 | [`packages/runtime/src/conversation-loop.ts`](../butler-v5/packages/runtime/src/conversation-loop.ts) | 🟡 |
 | `BUTLER_V5_KILL_SWITCH` | bool | `0` | `1` 启用全局 kill switch（拒绝新 Run） | [`apps/api/src/kill-switch.ts`](../butler-v5/apps/api/src/kill-switch.ts) | 🟡 |
 | `BUTLER_V5_STUCK_LOOP_THRESHOLD` | int | — | Run stuck 检测阈值 | [`packages/runtime/src/run-engine.ts`](../butler-v5/packages/runtime/src/run-engine.ts) | 🟡 |
 | `BUTLER_V5_POST_APPROVAL_LOOP` | bool | `0` | `1` 审批后 Run 自动继续 | `run-engine.ts` | 🟡 |

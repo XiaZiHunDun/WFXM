@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import yaml
 
-from butler.configuration.settings import ModelConfig, LayeredModelConfig, reload_butler_settings
+from butler.configuration.settings import ModelConfig, reload_butler_settings
 from butler.model_resolve import (
     format_model_diagnostic_lines,
     handle_model_command,
+    model_config_to_credentials,
     normalize_role,
     parse_model_spec,
     resolve_effective_model,
@@ -64,6 +63,17 @@ class TestResolveEffectiveModel:
         assert em.config.provider == "qwen"
         assert em.config.model == "qwen-max"
         assert "project:p1" in em.sources
+
+    def test_env_temperature_flows_to_credentials(self, tmp_path, monkeypatch, tmp_butler_home):
+        monkeypatch.setenv("MINIMAX_API_KEY", "k")
+        monkeypatch.setenv("BUTLER_MODEL_TEMPERATURE", "0")
+        _reset()
+        settings = reload_butler_settings()
+
+        em = resolve_effective_model("butler", settings=settings)
+        assert em.config.temperature == 0
+        creds = model_config_to_credentials(em.config, settings=settings)
+        assert creds["temperature"] == 0
 
     def test_runtime_wins_over_project(self, tmp_path, monkeypatch, tmp_butler_home):
         projects_dir = tmp_path / "projects"

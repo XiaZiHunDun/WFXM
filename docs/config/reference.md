@@ -162,11 +162,12 @@
 
 | 字段 | 配置来源（优先级高→低） | 传到 API |
 |------|----------------------|----------|
-| `temperature` | `project.yaml` `models.*` → `~/.butler/config.yaml` `models.*` → Provider 默认 | `LLMClient` → chat/anthropic 请求体 |
+| `temperature` | `project.yaml` `models.*` → `~/.butler/config.yaml` `models.*` → env `BUTLER_MODEL_TEMPERATURE` → Provider 默认 | `LLMClient` → chat/anthropic 请求体 |
 | `max_tokens` | 同上 | 单次 completion 上限 |
 | `context_length` | 同上 | Loop 压缩阈值计算（`infer_context_length`） |
 
 **温度含义**：低（0–0.3）更确定，适合 dev/审核；高（0.8+）更随机，适合创意写作。不改工具权限或记忆逻辑。
+评测驱动会把 `BUTLER_MODEL_TEMPERATURE` 固定为 `0`，用于降低跨次方差；生产不设置时仍走 Provider 默认。
 
 ### llm_fallback（可用性降级）
 

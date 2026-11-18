@@ -42,7 +42,8 @@ butler eval sync --suite tcr --warn-only
 
 理论/ADR：[`v4.5-modular-eval-context-theory.md`](../architecture/v4.5-modular-eval-context-theory.md) · [`eval-integration-manager-adr-2026-07.md`](../plans/decisions/eval-integration-manager-adr-2026-07.md)
 
-可选 OSS suite（`pip install butler-system[eval-deepeval]` / `[eval-ragas]`）：`deepeval_agent` · `ragas_memory`（确定性 fixture / 启发式 faithfulness；优先读 transcript `knowledge_inject` 审计样本；`BUTLER_EVAL_*_LLM=1` 可开 LLM pilot）
+可选 OSS suite（`pip install butler-system[eval-deepeval]` / `[eval-ragas]`）：`deepeval_agent` · `ragas_memory` · `bfcl_tool`（BFCL v4 simple 外部锚点，默认 50 条，`BUTLER_EVAL_BFCL_LIMIT` 可调，需 `MINIMAX_*`）
+`ragas_memory`：Ragas 0.4.3 真实指标；优先读 transcript `knowledge_inject` 审计样本或 agent-eval trace，无凭证才回退启发式。15 条内部文档用例；judge `deepseek-chat` + embedding `text-embedding-v3`，`ResponseRelevancy(strictness=1)` 适配 DeepSeek 的 `n=1` 限制
 
 已注册 suite：`tcr` · `agent_weekly` · `capability` · `regression` · `wechat_corpus` · `memory_mb` · `b9_oracle` · …
 
