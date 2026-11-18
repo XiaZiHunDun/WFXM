@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest"
 import {
+  chunkDocumentText,
+  cosineSimilarity,
+  formatChunkSnippet,
   formatDocumentSnippet,
   ingestDocumentRecord,
   parseDocumentFormat,
+  scoreRecallText,
+  selectDocumentChunksForRecall,
   selectDocumentsForRecall,
+  tokenizeRecallQuery,
 } from "./document-ingest.js"
 import { defaultMimeForFormat, matchDocumentQuery } from "./document-ingest.js"
 
@@ -148,5 +154,92 @@ describe("document ingest pure helpers", () => {
     expect(matchDocumentQuery(d, "guide")).toBe(true)
     expect(matchDocumentQuery(d, "missing")).toBe(false)
     expect(matchDocumentQuery(d, "")).toBe(true)
+  })
+})
+
+describe("chunk-level recall", () => {
+  function ingested(text: string, title = "架构手册") {
+    const created = ingestDocumentRecord({
+      id: "doc-1",
+      subject: "owner",
+      title,
+      format: "markdown",
+      text,
+      nowMs: 1,
+    })
+    if (!created.ok) throw new Error(created.reason)
+    return created.value
+  }
+
+  it("chunks long text with stable citation ids", () => {
+    const record = ingested(
+      Array.from({ length: 20 }, (_, i) => `第 ${i} 段：内容 ${i}`).join("\n"),
+    )
+    const chunks = chunkDocumentText(record.extractedText, { maxChars: 120, overlap: 20 })
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks[0]?.index).toBe(0)
+    expect(chunks[1]?.index).toBe(1)
+    expect(chunks[0]?.start).toBe(0)
+    expect(chunks[1]?.start ?? 0).toBeGreaterThan(0)
+  })
+
+  it("scores lexical overlap and tokenizes CJK bigrams", () => {
+    expect(tokenizeRecallQuery("部署 流程")).toContain("部署")
+    expect(tokenizeRecallQuery("部署流程")).toContain("部署")
+    const hit = scoreRecallText("部署流程", "本文说明部署流程与回滚")
+    expect(hit.score).toBe(1)
+    expect(scoreRecallText("missing", "本文说明部署流程").score).toBe(0)
+  })
+
+  it("selects top chunks with citation and scoreKind", () => {
+    const record = ingested(
+      ["安装步骤：pnpm install", "部署流程：先灰度再全量", "回滚方案：保留上一版本"].join("\n"),
+    )
+    const hits = selectDocumentChunksForRecall({
+      records: [record],
+      query: "部署流程",
+      limit: 3,
+      chunkChars: 40,
+    })
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits[0]?.score).toBeGreaterThan(0)
+    expect(hits[0]?.chunk.docId).toBe("doc-1")
+    expect(hits[0]?.chunk.chunkId.startsWith("doc-1#")).toBe(true)
+    expect(hits[0]?.scoreKind).toBe("lexical")
+    const first = hits[0]
+    expect(first).toBeTruthy()
+    const snippet = first ? formatChunkSnippet(first) : ""
+    expect(snippet).toContain("doc:doc-1#")
+    expect(snippet).toContain("score=")
+  })
+
+  it("hybrid recall matches paraphrases that lexical filtering drops", () => {
+    const record = ingested("费用审批与发票提交步骤：先由直属主管审批，再提交发票。", "报销说明")
+    const paraphrased = "怎么报销差旅费？"
+
+    // 旧路径会先按子串过滤文档，改写提问直接 0 命中。
+    expect(selectDocumentChunksForRecall({ records: [record], query: paraphrased, limit: 3 })).toHaveLength(0)
+
+    const hybrid = selectDocumentChunksForRecall({
+      records: [record],
+      query: paraphrased,
+      limit: 3,
+      embedding: {
+        queryEmbedding: [1, 0],
+        chunkEmbedding: () => [0.98, 0.02],
+      },
+    })
+    expect(hybrid.length).toBeGreaterThan(0)
+    expect(hybrid[0]?.scoreKind).toBe("hybrid")
+    expect(hybrid[0]?.semanticScore).toBeGreaterThan(0.9)
+    expect(hybrid[0]?.score).toBeGreaterThan(0.4)
+  })
+
+  it("cosineSimilarity handles zero and mismatched vectors", () => {
+    expect(cosineSimilarity([1, 0], [1, 0])).toBe(1)
+    expect(cosineSimilarity([1, 0], [0, 1])).toBe(0)
+    expect(cosineSimilarity([], [])).toBe(0)
+    expect(cosineSimilarity([1], [1, 0])).toBe(0)
+    expect(cosineSimilarity([0, 0], [1, 0])).toBe(0)
   })
 })

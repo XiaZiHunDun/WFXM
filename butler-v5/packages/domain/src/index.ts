@@ -79,6 +79,15 @@ export {
   matchDocumentQuery,
   selectDocumentsForRecall,
   formatDocumentSnippet,
+  type DocumentChunk,
+  type ScoredDocumentChunk,
+  type ChunkEmbeddingLookup,
+  cosineSimilarity,
+  chunkDocumentText,
+  tokenizeRecallQuery,
+  scoreRecallText,
+  selectDocumentChunksForRecall,
+  formatChunkSnippet,
 } from "./knowledge/document-ingest.js"
 export {
   type ProjectKnowledgeId,

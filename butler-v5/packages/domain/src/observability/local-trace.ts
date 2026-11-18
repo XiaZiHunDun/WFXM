@@ -108,8 +108,13 @@ export function redactTraceText(text: string): string {
   return out
 }
 
+/**
+ * 深度上限 8：RAG 证据是 detail.meta.retrieval.hits[].{text,title,...}
+ * 五层嵌套，旧的 4 层上限会把每个 hit 的字段值都替换成 "[truncated]"，
+ * 导致 audit / trace 里没有可用的检索上下文。仍保留上限防止无限递归。
+ */
 export function redactTraceValue(value: unknown, depth = 0): unknown {
-  if (depth > 4) return "[truncated]"
+  if (depth > 8) return "[truncated]"
   if (typeof value === "string") return redactTraceText(value)
   if (Array.isArray(value)) return value.slice(0, 20).map((v) => redactTraceValue(v, depth + 1))
   if (value && typeof value === "object") {

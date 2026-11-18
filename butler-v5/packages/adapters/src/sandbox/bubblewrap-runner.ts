@@ -3,6 +3,8 @@ import {
   resolveSandboxEgressIsolation,
 } from "@butler/domain/governance/network-allowlist.js"
 import type { spawn as ChildProcessSpawn } from "node:child_process"
+import { existsSync } from "node:fs"
+import { dirname, join } from "node:path"
 import {
   buildSandboxProxyEnv,
   startEgressAllowlistProxy,
@@ -42,6 +44,102 @@ export function wrapWithFileSizeLimit(
     return ["prlimit", `--fsize=${bytes}:${bytes}`, "--", ...argv]
   }
   return argv
+}
+
+/**
+ * bwrap 只挂载固定的系统路径（/usr、/bin、/lib…），但 node / pnpm 常由 nvm、
+ * volta、corepack 或 ~/.local/bin 提供，落在这些路径之外。此时子进程里的
+ * `execvp node` 会直接报 `No such file or directory`——即使 run_command 已
+ * 放行该程序。
+ *
+ * 这里补两类只读挂载：
+ *   1. 当前 node 的安装前缀（`process.execPath` 的上两级），覆盖 nvm 布局下的
+ *      bin/ + lib/node_modules/（pnpm 等 shim 依赖它）；
+ *   2. PATH 中确实提供 node 或 pnpm 的目录（兼容 volta / corepack / 手工安装）。
+ *
+ * 另外支持 `BUTLER_V5_SANDBOX_EXTRA_RO_BINDS`（冒号分隔）显式追加。所有路径
+ * 都会先做存在性校验——bwrap 遇到不存在的 bind 源会直接失败。
+ */
+export function resolveSandboxExtraBinPaths(
+  input: {
+    readonly env?: Readonly<Record<string, string | undefined>>
+    readonly execPath?: string
+    readonly pathExists?: (path: string) => boolean
+  } = {},
+): readonly string[] {
+  const env = input.env ?? process.env
+  const execPath = input.execPath ?? process.execPath
+  const exists = input.pathExists ?? existsSync
+  const found = new Set<string>()
+
+  for (const raw of (env["BUTLER_V5_SANDBOX_EXTRA_RO_BINDS"] ?? "").split(":")) {
+    const path = raw.trim()
+    if (path !== "") found.add(path)
+  }
+
+  // `/usr/bin/node` 的上一级是 /usr，已被系统路径覆盖，无需重复绑定。
+  if (execPath.includes("/")) {
+    const prefix = dirname(dirname(execPath))
+    if (prefix !== "" && prefix !== "/") found.add(prefix)
+  }
+
+  for (const dir of (env["PATH"] ?? "").split(":")) {
+    const path = dir.trim()
+    if (path === "" || path === "/") continue
+    if (exists(join(path, "node")) || exists(join(path, "pnpm"))) found.add(path)
+  }
+
+  return [...found].filter((path) => exists(path))
+}
+
+/** True when `path` is already covered by a read-only bind (prefix match on dir boundary). */
+function isCoveredByReadOnlyBind(path: string, roots: readonly string[]): boolean {
+  return roots.some((root) => path === root || path.startsWith(`${root}/`))
+}
+
+/**
+ * 沙箱内的 HOME。挂在 bwrap 的 tmpfs 上：可写、进程退出即销毁，不落到宿主，
+ * 也不会把宿主的 `~/.gitconfig` / 缓存暴露给沙箱。
+ */
+export const SANDBOX_HOME_DIR = "/tmp/butler-home"
+
+/** 沙箱内的 corepack 缓存目录：宿主缓存以只读方式挂载到这里。 */
+export const SANDBOX_COREPACK_HOME = `${SANDBOX_HOME_DIR}/.cache/node/corepack`
+
+/**
+ * 宿主上已缓存的 corepack 目录（含 `lastKnownGood.json` 与 `v1/<pm>/<version>`），
+ * 整目录只读挂进沙箱。沙箱默认 deny 网络，没有这份缓存时 corepack 会去请求
+ * registry 而失败；命中缓存即可离线运行 `pnpm`。用
+ * `BUTLER_V5_SANDBOX_COREPACK_CACHE` 可显式指定目录。
+ */
+export function resolveSandboxCorepackSeedDir(
+  input: {
+    readonly env?: Readonly<Record<string, string | undefined>>
+    readonly pathExists?: (path: string) => boolean
+  } = {},
+): string | undefined {
+  const env = input.env ?? process.env
+  const exists = input.pathExists ?? existsSync
+  const explicit = (env["BUTLER_V5_SANDBOX_COREPACK_CACHE"] ?? "").trim()
+  if (explicit !== "") return exists(explicit) ? explicit : undefined
+  const home = (env["HOME"] ?? "").trim()
+  if (home === "") return undefined
+  const cached = join(home, ".cache/node/corepack")
+  return exists(cached) ? cached : undefined
+}
+
+/**
+ * 沙箱进程的 HOME 与包管理器缓存环境。corepack / node 依赖 HOME 解析
+ * `os.homedir()`，缺失时会直接抛 `uv_os_homedir ENOENT`。
+ */
+export function resolveSandboxHomeEnv(): NodeJS.ProcessEnv {
+  return {
+    HOME: SANDBOX_HOME_DIR,
+    XDG_CACHE_HOME: `${SANDBOX_HOME_DIR}/.cache`,
+    XDG_DATA_HOME: `${SANDBOX_HOME_DIR}/.local/share`,
+    COREPACK_HOME: SANDBOX_COREPACK_HOME,
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: "0",
+  }
 }
 
 export interface SandboxProfile {
@@ -90,6 +188,8 @@ export interface BubblewrapRunResult {
   readonly stdout?: string
   readonly stderr?: string
   readonly reason?: string
+  /** 子进程退出码（非零时保留，供调用方区分“命令失败”与“沙箱故障”）。 */
+  readonly exitCode?: number
 }
 
 export type BubblewrapPreflightResult =
@@ -202,6 +302,7 @@ export async function executeArgvInSandbox(input: {
         const proxyPort = parseProxyPort(proxyHandle.proxyUrl)
         childEnv = {
           PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+          ...resolveSandboxHomeEnv(),
           ...buildSandboxProxyEnv(`http://${SLIRP_HOST_GATEWAY}:${proxyPort}`),
           ...injectEnv,
         }
@@ -209,6 +310,7 @@ export async function executeArgvInSandbox(input: {
         proxyHandle = await startEgressAllowlistProxy(input.networkAllowlist, { env })
         childEnv = {
           PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+          ...resolveSandboxHomeEnv(),
           ...buildSandboxProxyEnv(proxyHandle.proxyUrl),
           ...injectEnv,
         }
@@ -256,6 +358,7 @@ export async function executeArgvInSandbox(input: {
       }
       const proxyOnlyEnv: NodeJS.ProcessEnv = {
         PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+        ...resolveSandboxHomeEnv(),
         ...buildSandboxProxyEnv(proxyHandle.proxyUrl),
         ...injectEnv,
       }
@@ -312,18 +415,42 @@ export async function preflightBubblewrap(bwrapPath = "bwrap"): Promise<Bubblewr
 export function buildBubblewrapArgs(
   profile: SandboxProfile,
   argv: readonly string[],
-  options: { readonly shareNet?: boolean; readonly readOnly?: boolean } = {},
+  options: {
+    readonly shareNet?: boolean
+    readonly readOnly?: boolean
+    /** 覆盖自动探测的额外只读路径（测试注入用）。 */
+    readonly extraBinPaths?: readonly string[]
+    /** 覆盖自动探测的 corepack pnpm 缓存种子；传 null 表示不挂载（测试注入用）。 */
+    readonly corepackSeedDir?: string | null
+  } = {},
 ): string[] {
   const args = ["--die-with-parent"]
+  // 最小 /dev（含 /dev/null）：git 等命令会打开 /dev/null，缺了会直接报
+  // "could not open '/dev/null'"，把 run_command 变成不可用。
+  args.push("--dev", "/dev")
   if (options.shareNet) {
     args.push("--share-net")
   } else if (profile.network === "deny") {
     args.push("--unshare-net")
   }
   args.push("--tmpfs", "/tmp")
+  // 可写 HOME：corepack / node 调用 os.homedir() 时不再 ENOENT；tmpfs 随进程销毁。
+  args.push("--dir", SANDBOX_HOME_DIR)
+  const corepackSeed =
+    options.corepackSeedDir !== undefined
+      ? options.corepackSeedDir
+      : (resolveSandboxCorepackSeedDir() ?? null)
+  if (corepackSeed !== null && corepackSeed !== "") {
+    args.push("--ro-bind", corepackSeed, SANDBOX_COREPACK_HOME)
+  }
   // R16 sandbox 扩面：read_file 用 --ro-bind（readOnly=true）防意外写；write_file 维持 --bind
   args.push(options.readOnly ? "--ro-bind" : "--bind", profile.workspaceRoot, profile.workspaceRoot)
-  for (const path of profile.readOnlySystemPaths) {
+  const binds = [...profile.readOnlySystemPaths]
+  const extraBinPaths = options.extraBinPaths ?? resolveSandboxExtraBinPaths()
+  for (const path of extraBinPaths) {
+    if (!isCoveredByReadOnlyBind(path, binds)) binds.push(path)
+  }
+  for (const path of binds) {
     args.push("--ro-bind", path, path)
   }
   args.push("--chdir", profile.workspaceRoot, "--")
@@ -440,6 +567,7 @@ export async function runInBubblewrap(input: BubblewrapRunInput): Promise<Bubble
 
   const spawnEnv: NodeJS.ProcessEnv = {
     PATH: process.env["PATH"] ?? "/usr/bin:/bin",
+    ...resolveSandboxHomeEnv(),
     ...(input.childEnv ?? {}),
   }
 
@@ -451,7 +579,12 @@ export async function runInBubblewrap(input: BubblewrapRunInput): Promise<Bubble
       env: spawnEnv,
     })
     if (result.code !== 0) {
-      return { ok: false, stderr: result.stderr, reason: result.stderr || `exit ${result.code}` }
+      return {
+        ok: false,
+        stderr: result.stderr,
+        reason: result.stderr || `exit ${result.code}`,
+        exitCode: result.code,
+      }
     }
     return { ok: true, stdout: result.stdout, stderr: result.stderr }
   } catch (err) {
@@ -508,6 +641,7 @@ export async function executeWriteInSandbox(input: {
 
   const spawnEnv: NodeJS.ProcessEnv = {
     PATH: env["PATH"] ?? "/usr/bin:/bin",
+    ...resolveSandboxHomeEnv(),
   }
 
   const spawnImpl = input.spawnFn ?? (await import("node:child_process")).spawn

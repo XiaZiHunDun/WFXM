@@ -378,6 +378,33 @@ describe("isReadOnlyCommand + read-only run_command bypass (P1 fix 2026-09-04)",
     expect(isReadOnlyCommand(roRequest(["pnpm", "test"]))).toBe(true)
   })
 
+  it("recognizes find with glob args", () => {
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-name", "*slug*"]))).toBe(true)
+    expect(isReadOnlyCommand(roRequest(["find", "src", "-type", "f"]))).toBe(true)
+    expect(
+      isReadOnlyCommand(
+        roRequest(["find", ".", "-name", "*unique*", "-not", "-path", "*/node_modules/*"]),
+      ),
+    ).toBe(true)
+  })
+
+  it("rejects find write/exec predicates", () => {
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-delete"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-exec", "rm", "{}"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-execdir", "rm", "{}"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-ok", "rm", "{}"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-fprint", "out.txt"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-fprintf", "out.txt", "x"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-fls", "out.txt"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-fprint0", "out.txt"]))).toBe(false)
+  })
+
+  it("rejects find with shell metachars", () => {
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-name", "x;rm"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-name", "$(whoami)"]))).toBe(false)
+    expect(isReadOnlyCommand(roRequest(["find", ".", "-name", "a|b"]))).toBe(false)
+  })
+
   it("rejects git mutating subcommands", () => {
     expect(isReadOnlyCommand(roRequest(["git", "push"]))).toBe(false)
     expect(isReadOnlyCommand(roRequest(["git", "commit", "-m", "x"]))).toBe(false)

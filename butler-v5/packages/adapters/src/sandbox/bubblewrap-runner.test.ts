@@ -7,6 +7,11 @@ import {
   executeWriteInSandbox,
   preflightBubblewrap,
   resolveSandboxFileQuotaBytes,
+  resolveSandboxExtraBinPaths,
+  resolveSandboxHomeEnv,
+  resolveSandboxCorepackSeedDir,
+  SANDBOX_COREPACK_HOME,
+  SANDBOX_HOME_DIR,
   resolveSandboxProfile,
   runInBubblewrap,
   wrapWithFileSizeLimit,
@@ -24,6 +29,11 @@ describe("bubblewrap runner", () => {
     expect(args.at(-1)).toBe("hi")
   })
 
+  it("mounts a minimal /dev so commands that open /dev/null still work", () => {
+    const args = buildBubblewrapArgs(DEFAULT_SANDBOX_PROFILE, ["git", "status"])
+    expect(args[args.indexOf("--dev") + 1]).toBe("/dev")
+  })
+
   it("omits --unshare-net for network-allow profile", () => {
     const profile = resolveSandboxProfile({
       workspaceRoot: "/tmp/ws",
@@ -32,6 +42,81 @@ describe("bubblewrap runner", () => {
     const args = buildBubblewrapArgs(profile, ["echo", "hi"])
     expect(args).not.toContain("--unshare-net")
     expect(profile.network).toBe("allow")
+  })
+
+  it("binds the node install prefix so `execvp node` resolves in nvm layouts", () => {
+    const extra = resolveSandboxExtraBinPaths({
+      env: { PATH: "/usr/bin:/home/u/.nvm/versions/node/v22.13.0/bin" },
+      execPath: "/home/u/.nvm/versions/node/v22.13.0/bin/node",
+      pathExists: () => true,
+    })
+    expect(extra).toContain("/home/u/.nvm/versions/node/v22.13.0")
+    expect(extra).toContain("/home/u/.nvm/versions/node/v22.13.0/bin")
+  })
+
+  it("honours BUTLER_V5_SANDBOX_EXTRA_RO_BINDS and drops missing paths", () => {
+    const extra = resolveSandboxExtraBinPaths({
+      env: { PATH: "", BUTLER_V5_SANDBOX_EXTRA_RO_BINDS: "/opt/tools:/nope" },
+      execPath: "/usr/bin/node",
+      pathExists: (p) => p === "/opt/tools",
+    })
+    expect(extra).toEqual(["/opt/tools"])
+  })
+
+  it("adds extra --ro-bind entries and skips already-covered roots", () => {
+    const args = buildBubblewrapArgs(DEFAULT_SANDBOX_PROFILE, ["node", "-v"], {
+      extraBinPaths: ["/home/u/.nvm/versions/node/v22.13.0", "/usr/local"],
+    })
+    const binds = args.filter((a, i) => args[i - 1] === "--ro-bind")
+    expect(binds).toContain("/home/u/.nvm/versions/node/v22.13.0")
+    expect(binds).not.toContain("/usr/local")
+  })
+
+  it("creates a writable sandbox HOME and mounts the corepack cache read-only", () => {
+    const args = buildBubblewrapArgs(DEFAULT_SANDBOX_PROFILE, ["pnpm", "--version"], {
+      corepackSeedDir: "/home/u/.cache/node/corepack",
+    })
+    expect(args).toContain("--dir")
+    expect(args[args.indexOf("--dir") + 1]).toBe(SANDBOX_HOME_DIR)
+    const seedIdx = args.indexOf(SANDBOX_COREPACK_HOME)
+    expect(seedIdx).toBeGreaterThan(-1)
+    expect(args[seedIdx - 2]).toBe("--ro-bind")
+    expect(args[seedIdx - 1]).toBe("/home/u/.cache/node/corepack")
+  })
+
+  it("skips the corepack mount when no cache seed is configured", () => {
+    const args = buildBubblewrapArgs(DEFAULT_SANDBOX_PROFILE, ["ls"], { corepackSeedDir: null })
+    expect(args).not.toContain(SANDBOX_COREPACK_HOME)
+    expect(args).toContain(SANDBOX_HOME_DIR)
+  })
+
+  it("resolves the corepack seed dir from env with existence checks", () => {
+    expect(
+      resolveSandboxCorepackSeedDir({
+        env: { BUTLER_V5_SANDBOX_COREPACK_CACHE: "/opt/cp" },
+        pathExists: (p) => p === "/opt/cp",
+      }),
+    ).toBe("/opt/cp")
+    expect(
+      resolveSandboxCorepackSeedDir({
+        env: { BUTLER_V5_SANDBOX_COREPACK_CACHE: "/opt/missing" },
+        pathExists: () => false,
+      }),
+    ).toBeUndefined()
+    expect(
+      resolveSandboxCorepackSeedDir({
+        env: { HOME: "/home/u" },
+        pathExists: (p) => p === "/home/u/.cache/node/corepack",
+      }),
+    ).toBe("/home/u/.cache/node/corepack")
+    expect(resolveSandboxCorepackSeedDir({ env: {}, pathExists: () => true })).toBeUndefined()
+  })
+
+  it("exposes HOME/XDG dirs under the sandbox tmpfs home", () => {
+    const env = resolveSandboxHomeEnv()
+    expect(env["HOME"]).toBe(SANDBOX_HOME_DIR)
+    expect(env["XDG_CACHE_HOME"]).toBe(`${SANDBOX_HOME_DIR}/.cache`)
+    expect(env["COREPACK_HOME"]).toBe(SANDBOX_COREPACK_HOME)
   })
 
   it("executeArgvInSandbox returns disabled when env unset", async () => {
@@ -257,6 +342,8 @@ describe("bubblewrap runner", () => {
   it("buildBubblewrapArgs readOnly=true uses --ro-bind for workspace (R16)", () => {
     const args = buildBubblewrapArgs(DEFAULT_SANDBOX_PROFILE, ["cat", "--", "x.txt"], {
       readOnly: true,
+      extraBinPaths: [],
+      corepackSeedDir: null,
     })
     // workspaceRoot 后面两个连续出现 --ro-bind 后跟 ws
     const roIdx = args.indexOf("--ro-bind")

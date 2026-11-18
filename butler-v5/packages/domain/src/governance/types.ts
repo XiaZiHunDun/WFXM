@@ -152,13 +152,39 @@ export function decidePolicy(
  * safe argv combinations; default to false (i.e. still requires approval)
  * on any uncertainty. Conservative whitelist:
  *
- *  - Always read-only programs: cat, head, wc, grep, rg, ls, pwd, date, echo
+ *  - Always read-only programs: cat, head, wc, grep, rg, ls, pwd, date, echo, find
  *  - git subcommand: log / diff / status / show (no flag / path mutation)
  *  - pnpm subcommand: typecheck / test (no source modification)
  *
  * This list is intentionally tight; new entries require explicit review
  * (test file: types.test.ts `isReadOnlyCommand`).
  */
+
+/**
+ * `find` 的 glob（`*` / `?`）是最常见写法（`-name "*slug*"`），不能按 shell
+ * 元字符一刀切；但它同时带 `-delete` / `-exec` / `-fprint` 这类会写盘或执行
+ * 外部程序的谓词，因此单独校验参数，命中即回退到「需要审批」。
+ */
+const FIND_UNSAFE_FLAGS = new Set([
+  "-exec",
+  "-execdir",
+  "-ok",
+  "-okdir",
+  "-delete",
+  "-fprint",
+  "-fprint0",
+  "-fprintf",
+  "-fls",
+])
+const FIND_SHELL_METACHAR_RE = /[;&|`$<>(){}\\\n\r]/
+
+function isReadOnlyFindArgv(argv: readonly string[]): boolean {
+  for (const arg of argv.slice(1)) {
+    if (FIND_SHELL_METACHAR_RE.test(arg)) return false
+    if (FIND_UNSAFE_FLAGS.has(arg)) return false
+  }
+  return true
+}
 export function isReadOnlyCommand(request: ActionRequest): boolean {
   if (request.capability !== "run_command") return false
   const argvRaw = request.payload["argv"]
@@ -168,8 +194,8 @@ export function isReadOnlyCommand(request: ActionRequest): boolean {
   const program = argv[0]
   if (!program) return false
 
-  // Always read-only programs (no subcommand semantics)
   const ALWAYS_READONLY = new Set(["cat", "head", "wc", "grep", "rg", "ls", "pwd", "date", "echo"])
+  if (program === "find") return isReadOnlyFindArgv(argv)
   if (ALWAYS_READONLY.has(program)) return true
 
   // git subcommand-level check (argv[1] is subcommand)

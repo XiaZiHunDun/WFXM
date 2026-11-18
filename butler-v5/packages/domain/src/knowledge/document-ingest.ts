@@ -161,3 +161,187 @@ export function formatDocumentSnippet(record: DocumentRecord, maxChars = 800): s
       : `${record.extractedText.slice(0, maxChars - 3)}...`
   return `[doc:${record.id.slice(0, 8)} ${record.format}] ${record.title}\n${body}`
 }
+
+// ── Chunk-level retrieval (Ragas context precision / citation) ──
+
+export interface DocumentChunk {
+  readonly docId: DocumentId
+  /** Stable citation id: `<docId>#<index>`. */
+  readonly chunkId: string
+  readonly index: number
+  readonly start: number
+  readonly end: number
+  readonly text: string
+}
+
+export interface ScoredDocumentChunk {
+  readonly chunk: DocumentChunk
+  readonly title: string
+  readonly format: DocumentFormat
+  /** 0..1：纯词法覆盖率，或 hybrid 加权分。 */
+  readonly score: number
+  readonly scoreKind: "lexical" | "hybrid"
+  /** 0..1 cosine；无 embedding 时缺省。 */
+  readonly semanticScore?: number
+  readonly matchedTerms: readonly string[]
+}
+
+/** hybrid 检索所需的向量；纯函数，不在 domain 内发网络请求。 */
+export interface ChunkEmbeddingLookup {
+  readonly queryEmbedding: readonly number[]
+  readonly chunkEmbedding: (chunk: DocumentChunk) => readonly number[] | undefined
+  /** 词法权重，默认 0.5。 */
+  readonly lexicalWeight?: number
+  /** hybrid 模式最低分，默认 0.05。 */
+  readonly minScore?: number
+}
+
+export function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
+  if (a.length === 0 || a.length !== b.length) return 0
+  let dot = 0
+  let normA = 0
+  let normB = 0
+  for (let i = 0; i < a.length; i += 1) {
+    const x = a[i] ?? 0
+    const y = b[i] ?? 0
+    dot += x * y
+    normA += x * x
+    normB += y * y
+  }
+  if (normA === 0 || normB === 0) return 0
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB))
+}
+
+/**
+ * 按字符窗口切块；优先在段落边界断开，避免把句子切碎。
+ * 这是轻量 chunker，不调用 embedding，也不改变原文。
+ */
+export function chunkDocumentText(
+  text: string,
+  options: { readonly maxChars?: number; readonly overlap?: number } = {},
+): readonly DocumentChunk[] {
+  const maxChars = Math.max(120, options.maxChars ?? 800)
+  const overlap = Math.max(0, Math.min(options.overlap ?? 80, Math.floor(maxChars / 2)))
+  if (!text) return []
+  const chunks: DocumentChunk[] = []
+  let start = 0
+  while (start < text.length) {
+    let end = Math.min(start + maxChars, text.length)
+    if (end < text.length) {
+      const breakAt = text.lastIndexOf("\n", end)
+      if (breakAt > start + Math.floor(maxChars / 2)) end = breakAt + 1
+    }
+    const body = text.slice(start, end).trim()
+    if (body) {
+      chunks.push({ docId: "", chunkId: "", index: chunks.length, start, end, text: body })
+    }
+    if (end >= text.length) break
+    start = Math.max(end - overlap, start + 1)
+  }
+  return chunks
+}
+
+/** 把查询拆成词项；中文额外生成 bigram，避免整句匹配不到。 */
+export function tokenizeRecallQuery(query: string): readonly string[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const parts = q.split(/[\s,，。.!！?？;；:：、/\\|()（）[\]{}"'“”‘’_-]+/).filter(Boolean)
+  const terms = new Set<string>(parts)
+  for (const part of parts) {
+    if (part.length >= 2 && /[\u4e00-\u9fff]/.test(part)) {
+      for (let i = 0; i < part.length - 1; i += 1) terms.add(part.slice(i, i + 2))
+    }
+  }
+  return [...terms]
+}
+
+/** 词项覆盖率；返回 0..1 与命中词，便于评估解释。 */
+export function scoreRecallText(
+  query: string,
+  text: string,
+): { readonly score: number; readonly matchedTerms: readonly string[] } {
+  const terms = tokenizeRecallQuery(query)
+  if (terms.length === 0) return { score: 0, matchedTerms: [] }
+  const haystack = text.toLowerCase()
+  const matched = terms.filter((term) => haystack.includes(term))
+  return { score: matched.length / terms.length, matchedTerms: matched }
+}
+
+/**
+ * 文档级 → 块级召回：先按文档过滤，再在文档内切块打分。
+ * 无 query 时保留时间排序，score 为 0。
+ *
+ * 提供 embedding 时进入 hybrid 模式：不做子串预过滤（否则改写提问会被
+ * 直接过滤掉），而是对所有 ready 文档的块做词法 + cosine 加权。
+ */
+export function selectDocumentChunksForRecall(input: {
+  readonly records: readonly DocumentRecord[]
+  readonly query?: string
+  readonly limit?: number
+  readonly chunkLimitPerDoc?: number
+  readonly chunkChars?: number
+  readonly embedding?: ChunkEmbeddingLookup
+}): readonly ScoredDocumentChunk[] {
+  const limit = Math.max(0, input.limit ?? 5)
+  const perDoc = Math.max(1, input.chunkLimitPerDoc ?? 3)
+  const query = input.query ?? ""
+  const embedding = input.embedding
+  const semantic = embedding !== undefined && query.trim().length > 0
+  const docs = selectDocumentsForRecall({
+    records: input.records,
+    query: semantic ? "" : query,
+    limit: input.records.length,
+  })
+  const hits: ScoredDocumentChunk[] = []
+  for (const record of docs) {
+    const chunks = chunkDocumentText(record.extractedText, { maxChars: input.chunkChars })
+    const scored = chunks
+      .map((chunk) => {
+        const withIds: DocumentChunk = {
+          ...chunk,
+          docId: record.id,
+          chunkId: `${record.id}#${chunk.index}`,
+        }
+        const lexical = scoreRecallText(query, `${record.title}\n${chunk.text}`)
+        let score = lexical.score
+        let semanticScore: number | undefined
+        if (semantic) {
+          const vector = embedding.chunkEmbedding(withIds)
+          if (vector && vector.length === embedding.queryEmbedding.length) {
+            const cosine = cosineSimilarity(embedding.queryEmbedding, vector)
+            semanticScore = Math.max(0, cosine)
+            const weight = embedding.lexicalWeight ?? 0.5
+            score = weight * lexical.score + (1 - weight) * semanticScore
+          }
+        }
+        return {
+          chunk: withIds,
+          title: record.title,
+          format: record.format,
+          score,
+          scoreKind: semanticScore === undefined ? ("lexical" as const) : ("hybrid" as const),
+          ...(semanticScore === undefined ? {} : { semanticScore }),
+          matchedTerms: lexical.matchedTerms,
+        }
+      })
+      .filter((hit) => {
+        if (!semantic) return true
+        const minScore = embedding?.minScore ?? 0.05
+        return hit.score >= minScore || hit.matchedTerms.length > 0
+      })
+      .sort((a, b) => b.score - a.score || a.chunk.index - b.chunk.index)
+      .slice(0, perDoc)
+    hits.push(...scored)
+  }
+  if (query.trim()) hits.sort((a, b) => b.score - a.score)
+  return hits.slice(0, limit)
+}
+
+/** 带 citation 的块片段；引用 id 可直接用于 Ragas / 人工核对。 */
+export function formatChunkSnippet(hit: ScoredDocumentChunk, maxChars = 800): string {
+  const body =
+    hit.chunk.text.length <= maxChars
+      ? hit.chunk.text
+      : `${hit.chunk.text.slice(0, maxChars - 3)}...`
+  return `[doc:${hit.chunk.docId.slice(0, 8)}#${hit.chunk.index} ${hit.format} score=${hit.score.toFixed(2)}] ${hit.title}\n${body}`
+}
