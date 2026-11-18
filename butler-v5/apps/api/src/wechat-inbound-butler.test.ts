@@ -149,6 +149,37 @@ describe("runButlerLoop", () => {
     expect(messages.filter((m) => m.role === "user")).toHaveLength(2)
   })
 
+  it("replays the stored reply for a redelivered messageId without calling the model twice", async () => {
+    const conversationId = "c-dup-inbound"
+    const adapter = makeMockAdapter([
+      textResponse(JSON.stringify({ _tag: "Respond", content: "第一次回复" })),
+    ])
+    const send = () =>
+      runButlerLoop({
+        wiring,
+        conversationId,
+        content: "帮助",
+        fromUserId: "u-dup",
+        projectId: "p-dup",
+        idempotencyKey: "dup-msg-1",
+        env: {},
+        logger: silentLogger,
+        adapter,
+      })
+
+    const first = await send()
+    const replay = await send()
+
+    expect(first.reply).toBe("第一次回复")
+    expect(replay.reply).toBe("第一次回复")
+    expect(replay.traces).toContain("duplicate-inbound: replayed stored reply")
+    expect(adapter.complete).toHaveBeenCalledTimes(1)
+    const users = (await wiring.runtimeStore.listMessages(conversationId)).filter(
+      (m) => m.role === "user",
+    )
+    expect(users).toHaveLength(1)
+  })
+
   it("returns Respond content when the model emits a Respond decision (JSON-decision fallback)", async () => {
     const adapter = makeMockAdapter([
       textResponse(JSON.stringify({ _tag: "Respond", content: "hi back" })),

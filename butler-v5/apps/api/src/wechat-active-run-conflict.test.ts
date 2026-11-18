@@ -7,20 +7,22 @@ import { activeRunConflictReply } from "./wechat-inbound-butler.js"
 // surface them as friendly Chinese instead.
 describe("activeRunConflictReply (D58 T5 owner-facing label)", () => {
   it("maps waiting_approval to '审批' wording, no literal token", () => {
-    const reply = activeRunConflictReply("waiting_approval", "run-123")
+    const reply = activeRunConflictReply("waiting_approval")
     expect(reply).not.toContain("waiting_approval")
     expect(reply).toContain("审批")
   })
 
   it("maps waiting_external to '外部' wording, no literal token", () => {
-    const reply = activeRunConflictReply("waiting_external", "run-456")
+    const reply = activeRunConflictReply("waiting_external")
     expect(reply).not.toContain("waiting_external")
     expect(reply).toContain("外部")
   })
 
-  it("falls back to run-id reference for unknown statuses", () => {
-    const reply = activeRunConflictReply("running", "run-789")
-    expect(reply).toContain("run-789")
-    expect(reply).not.toContain("waiting_")
+  it("keeps running/queued free of Run ids and internal tokens", () => {
+    for (const status of ["running", "queued", "unknown-status"]) {
+      const reply = activeRunConflictReply(status)
+      expect(reply).not.toMatch(/run-[0-9a-f]|\bRun\b|waiting_/)
+      expect(reply).toContain("未完成")
+    }
   })
 })

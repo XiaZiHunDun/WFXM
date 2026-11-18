@@ -3,7 +3,7 @@
  * (status: "running") on a conversation via `beforeLoop`, then call
  * runButlerLoop. The RunEngine detects the active main run and returns
  * ActiveMainRunConflict → wechat-inbound-butler translates to a friendly
- * stub reply that names the active run id.
+ * stub reply (no internal Run id / status token).
  *
  * This is deterministic (no real concurrency required). It exercises the
  * "single active main per conversation" invariant from prod-arch §3.1.

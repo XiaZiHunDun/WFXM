@@ -82,15 +82,49 @@ export type ButlerLoopResult = ConversationLoopResult
  * owner-facing Chinese wording. The owner never sees internal state
  * names like "waiting_approval" — only human-readable phrasing.
  */
-export function activeRunConflictReply(status: string, runId: string): string {
+export function activeRunConflictReply(status: string): string {
   switch (status) {
     case "waiting_approval":
       return "当前对话仍有未完成的审批步骤。请回复「确认」或「拒绝」继续，或等待你之前的请求结束。"
     case "waiting_external":
-      return "当前对话正在等待外部步骤完成（例如网络命令或审批回执）。稍后再试即可。"
+      return "当前对话还有未完成的请求（正在等待外部回执），稍后再试即可。"
     default:
-      return `当前对话已有进行中的 Run（${runId}），请稍后再试。`
+      // running / queued: a concurrent message is still in flight. Never
+      // surface the internal Run id — it means nothing to the owner.
+      return "当前对话还有未完成的请求，请稍后再发。"
   }
+}
+
+/**
+ * Redelivery guard. iLink can resend the same message after a reconnect or a
+ * slow reply; the inbound `idempotencyKey` is the channel message id, so a
+ * second delivery must replay the stored reply instead of running tools again.
+ * Returns null when this key has never been seen in the conversation.
+ */
+async function replayDuplicateInbound(
+  wiring: Wiring,
+  conversationId: string,
+  idempotencyKey: string | undefined,
+): Promise<string | null> {
+  if (!idempotencyKey) return null
+  let messages: Awaited<ReturnType<typeof wiring.runtimeStore.listMessages>>
+  try {
+    messages = await wiring.runtimeStore.listMessages(conversationId)
+  } catch {
+    return null
+  }
+  const seenAt = messages.findIndex(
+    (message) => message.role === "user" && message.idempotencyKey === idempotencyKey,
+  )
+  if (seenAt < 0) return null
+  for (const message of messages.slice(seenAt + 1)) {
+    if (message.role !== "assistant") continue
+    const text = message.content["text"]
+    if (typeof text === "string" && text.trim() !== "") return text
+  }
+  // The first delivery was accepted but produced no stored reply (crash or
+  // degraded path). Acknowledge without re-running whatever it did.
+  return "这条消息已经处理过了，无需重复发送。"
 }
 
 /**
@@ -126,6 +160,21 @@ export async function runButlerLoop(args: {
     env,
   })
   if (inline) return inline
+
+  const duplicateReply = await replayDuplicateInbound(
+    args.wiring,
+    args.conversationId,
+    args.idempotencyKey,
+  )
+  if (duplicateReply !== null) {
+    return {
+      reply: duplicateReply,
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Finish",
+      traces: ["duplicate-inbound: replayed stored reply"],
+    }
+  }
 
   // P2 fix 2026-09-04: spam guard before LLM call. Catches:
   //   - very long messages (> MAX_SPAM_CHARS)
@@ -203,20 +252,10 @@ export async function runButlerLoop(args: {
     )
   } catch (err) {
     if (err instanceof ActiveMainRunConflict) {
-      // D59 T3 (audit #3 F-01): the helper activeRunConflictReply already
-      // returns an owner-facing message per status; previously the
-      // computed value was discarded and the catch always replied with a
-      // hardcoded message that leaked internal status tokens
-      // (waiting_approval / waiting_external). Use the helper's reply
-      // verbatim — falls back to the generic waiting run message when
-      // status is unknown.
-      const waitingStatus = activeRunConflictReply(err.activeRun.status, err.activeRun.id)
-      const knownStatuses = new Set(["waiting_approval", "waiting_external"])
-      const reply = knownStatuses.has(err.activeRun.status)
-        ? waitingStatus
-        : `当前对话已有进行中的 Run（${err.activeRun.id}），请稍后再试。`
+      // D58 T5 (audit #3 F-18) + reliability: never leak internal state names
+      // or Run ids into owner-facing text.
       return {
-        reply,
+        reply: activeRunConflictReply(err.activeRun.status),
         iterations: 0,
         toolCalls: 0,
         finalDecision: "Finish",
