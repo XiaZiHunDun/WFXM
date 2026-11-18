@@ -2016,9 +2016,12 @@
             <code>ilink-poller.test.ts</code> 单测覆盖。未覆盖：乱序到达、审批超时过期。
           </div>
           <div class="gap">
-            <b>⚠ 失败可见性只做了一半</b>
-            子代理跑满轮次已改为“执行未完成”并置失败，但“用户是否真的收到失败推送”
-            尚未在真机路径验证。
+            <b>✅ 失败推送已真机验证</b>
+            2026-11-18 走生产通知路径（<code>sendWechatProactiveNotify</code> → iLink
+            <code>sendmessage</code>）向 Owner 微信发送失败推送，iLink 返回 <code>ok: true</code>，Owner
+            确认收到「【执行代理失败】… 执行未完成（达到步数上限，已停止）」。同时修掉标题里冗余的角色词
+            （<code>【执行代理失败】代理</code> → <code>【执行代理失败】</code>）。仍未自然复现：模型未跑满 12
+            轮就自行收尾，capped 判定本身仍只有单测覆盖。
           </div>
         </div>
         <h2 style="font-size: 16px; margin: 32px 0 6px">
