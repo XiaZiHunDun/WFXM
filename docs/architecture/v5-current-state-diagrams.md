@@ -2,7 +2,7 @@
 
 > **生成日期**: 2026-09-21 | **cycle**: D78 T2 | **关系**:
 > - 文字版 → [`v5-production-architecture-2026-08.md`](v5-production-architecture-2026-08.md)（权威源）
-> - 目标架构 → [`../../butler-v5/DESIGN.md`](../../butler-v5/DESIGN.md)
+> - 目标架构 → [`../../DESIGN.md`](../../DESIGN.md)
 > - D-series 路线 → [`../ROADMAP.md`](../ROADMAP.md)
 
 本文件仅补**视觉化**层（3 张 Mermaid 图），不复制文字内容。
@@ -156,8 +156,8 @@ graph LR
 | 主题 | 读这里 |
 |------|--------|
 | 文字生产架构 | [`v5-production-architecture-2026-08.md`](v5-production-architecture-2026-08.md) |
-| 目标架构 §1-§20 | [`../../butler-v5/DESIGN.md`](../../butler-v5/DESIGN.md) |
-| §20 KNOWN_ENTRY_POINTS | [`../../butler-v5/DESIGN.md` §20](../../butler-v5/DESIGN.md) |
+| 目标架构 §1-§20 | [`../../DESIGN.md`](../../DESIGN.md) |
+| §20 KNOWN_ENTRY_POINTS | [`../../DESIGN.md` §20](../../DESIGN.md) |
 | D-series 累计 | [`../ROADMAP.md`](../ROADMAP.md) |
 | Owner FAQ | [`../FAQ.md`](../FAQ.md) |
 

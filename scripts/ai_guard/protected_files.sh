@@ -7,7 +7,7 @@
 # Why some files are protected:
 # - .claude/settings.json, scripts/ai_guard/{pre,post}_tool_use_hook.py:
 #   AI guard infrastructure itself.
-# - butler-v5/{apps/api,packages/{persistence,runtime}}/src/...:
+# - {apps/api,packages/{persistence,runtime}}/src/...:
 #   Production load-bearing files.
 #
 # Override: Add [MANUAL-OVERRIDE] tag to commit message (enforced by commit-msg hook).
@@ -17,13 +17,13 @@ PROTECTED_FILES=(
     ".claude/settings.json"
     "scripts/ai_guard/pre_tool_use_hook.py"
     "scripts/ai_guard/post_tool_use_hook.py"
-    "butler-v5/packages/persistence/src/migrations/0001_initial.sql"
-    "butler-v5/apps/api/src/wechat-inbound-butler.ts"
-    "butler-v5/packages/runtime/src/agent-kernel.ts"
-    "butler-v5/packages/runtime/src/run-engine.ts"
-    "butler-v5/packages/persistence/src/event-bridge.ts"
-    "butler-v5/packages/runtime/src/capability-boundary.ts"
-    "butler-v5/apps/api/src/tool-boundary.ts"
-    "butler-v5/apps/api/src/capability-guard.ts"
-    "butler-v5/apps/api/src/workspace-tools.ts"
+    "packages/persistence/src/migrations/0001_initial.sql"
+    "apps/api/src/wechat-inbound-butler.ts"
+    "packages/runtime/src/agent-kernel.ts"
+    "packages/runtime/src/run-engine.ts"
+    "packages/persistence/src/event-bridge.ts"
+    "packages/runtime/src/capability-boundary.ts"
+    "apps/api/src/tool-boundary.ts"
+    "apps/api/src/capability-guard.ts"
+    "apps/api/src/workspace-tools.ts"
 )

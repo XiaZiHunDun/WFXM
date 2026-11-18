@@ -38,7 +38,7 @@ Grant networkAllowlist
 ## 3. 启用（生产 opt-in）
 
 ```bash
-# ~/.config/butler-v5/env
+# ~/.config/env
 BUTLER_V5_SANDBOX=bubblewrap
 BUTLER_V5_SANDBOX_NETWORK_MODE=allowlist
 BUTLER_V5_SANDBOX_EGRESS_ISOLATION=slirp
@@ -67,7 +67,7 @@ pnpm smoke:allowlist-production --slirp
 
 - [x] slirp 模式代码 + 单测
 - [x] raw socket 探测（`sandbox-probe-allowlist-slirp`）
-- [x] 生产 env 启用 slirp（Owner opt-in，`~/.config/butler-v5/env`）
+- [x] 生产 env 启用 slirp（Owner opt-in，`~/.config/env`）
 - [x] live registry + allowlist PASS（`pnpm smoke:allowlist-pnpm`；HTTPS via python3 + `/etc/ssl` bind）
 
 ---

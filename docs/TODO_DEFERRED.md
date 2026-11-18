@@ -3,9 +3,9 @@
 > **生成日期**: 2026-09-22 | **状态**: post-D79 (127 ship 累計) | **读者**: Owner / Contributor / D-series 启动者
 > **关系**:
 > - 功能清单（含 §8 deferral 状态）→ [`FEATURES.md`](FEATURES.md) §8
-> - 目标架构（§18 延后项 anchor）→ [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) §18
+> - 目标架构（§18 延后项 anchor）→ [`../DESIGN.md`](../DESIGN.md) §18
 > - 测试覆盖（PRE-EXISTING）→ [`TESTS.md`](TESTS.md) §9
-> - D53b TODO 实证 → [`../butler-v5/tools/todo-inventory.md`](../butler-v5/tools/todo-inventory.md)（2026-09-11）
+> - D53b TODO 实证 → [`../tools/todo-inventory.md`](../tools/todo-inventory.md)（2026-09-11）
 > - D51 decline gaps → DESIGN §18 line 825-826 + D51 cycle memos
 
 > **范围**: 本表覆盖**全部 deferral 维度**（in-code TODO / DESIGN §18 / D51 declined / V8 PRD / cycle carry）；**不**只看在-code TODO 标记（D53b 已实证 0 active TODO）。
@@ -115,8 +115,8 @@
 | API endpoint | [`API_ENDPOINTS.md`](API_ENDPOINTS.md) |
 | env vars | [`ENV.md`](ENV.md) |
 | 测试覆盖（含 PRE-EXISTING） | [`TESTS.md`](TESTS.md) §9 |
-| DESIGN §18 延后项 anchor | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) §18 |
-| D53b TODO 实证 | [`../butler-v5/tools/todo-inventory.md`](../butler-v5/tools/todo-inventory.md) |
+| DESIGN §18 延后项 anchor | [`../DESIGN.md`](../DESIGN.md) §18 |
+| D53b TODO 实证 | [`../tools/todo-inventory.md`](../tools/todo-inventory.md) |
 | V8 PRD | [`plans/active/v5-real-llm-v8-iteration-2026-09.md`](plans/active/v5-real-llm-v8-iteration-2026-09.md) |
 | D-series 累计 + 维度候选 | [`ROADMAP.md`](ROADMAP.md) |
 

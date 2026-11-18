@@ -3,11 +3,11 @@
 > **生成日期**: 2026-09-22 | **更新**: 2026-11-18（v4 退役后收敛） | **状态**: post-D79（127 ship 累计；D80 梳理 +22 ship = 149） | **读者**: Contributor / next-cycle 启动者 / 异构 agent（Cursor / Claude Code / Codex）
 > **关系**:
 > - 功能 / API / env / tests / deferral / audit findings / feedback → [综合梳理 docs](FEATURES.md) 等 7 件套
-> - 目标架构（§1–§20 invariants）→ [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md)
+> - 目标架构（§1–§20 invariants）→ [`../DESIGN.md`](../DESIGN.md)
 > - Agent 入口 → [`../AGENTS.md`](../AGENTS.md)
 > - 文档分层手册 → [`DOCUMENTATION.md`](DOCUMENTATION.md)
 > - Cursor / Trae 行为规则 → [`../.cursorrules`](../.cursorrules)
-> - v5 TypeScript + Effect-TS 约束 → [`../butler-v5/AGENTS.md`](../butler-v5/AGENTS.md)
+> - v5 TypeScript + Effect-TS 约束 → [`../AGENTS.md`](../AGENTS.md)
 > - 状态快照 → [`plans/decisions/v5-engineering-handoff-2026-08.md`](plans/decisions/v5-engineering-handoff-2026-08.md)
 > - owner FAQ（D-series / audit-driven / 节奏判据）→ [`FAQ.md`](FAQ.md)
 
@@ -23,36 +23,36 @@
 | v5 事实规则 | `AGENTS.md` §2 | 6 条硬约束 |
 | 撞点流程 | `AGENTS.md` §3 | 5 步 |
 | 工程守卫 | `AGENTS.md` §4 | 受保护文件 + `[MANUAL-OVERRIDE]` |
-| 受保护 / 危险 | `AGENTS.md` §5 | `.cursorrules` + `butler-v5/AGENTS.md` §2–§4 |
+| 受保护 / 危险 | `AGENTS.md` §5 | `.cursorrules` + `AGENTS.md` §2–§4 |
 | Cursor 行为规则 | `.cursorrules` | v5 主线 + 行为规则 |
-| v5 TS 约束 | `butler-v5/AGENTS.md` §2–§4 | 七级决策阶梯 + 工程约束 |
+| v5 TS 约束 | `AGENTS.md` §2–§4 | 七级决策阶梯 + 工程约束 |
 | 文档分层 (L0–L4) | `DOCUMENTATION.md` §1 | L0=入口 / L1=架构 / L2=实现 / L3=决策 / L4=运维 |
 | 4 gate | `AGENTS.md` §2 + `.cursorrules` | typecheck + lint + test + build |
-| Methodology 19·19 | `butler-v5/tests/acceptance/methodology.test.ts` | D53a N=3 prompt-freeze |
+| Methodology 19·19 | `tests/acceptance/methodology.test.ts` | D53a N=3 prompt-freeze |
 
 ## §1 入口 + 必读（每 session 第 1 步）
 
 > AGENTS.md §1 必读表（9 条）— 顺序：
 
-1. [`butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) — 改目标架构、概念、数据、安全、扩展边界
+1. [`DESIGN.md`](../DESIGN.md) — 改目标架构、概念、数据、安全、扩展边界
 2. [`docs/architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) — 查当前生产 Loop / Gateway / 工具 / 数据 / 调用链
 3. [`docs/architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) — 当前实现全景、分层测试 L1–L4 与第一阶段验收
 4. [`docs/architecture/v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) — 视觉架构图（Mermaid 4 张）
 5. [`docs/plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) — 提需求 / 否决 / 条件准入 / 立项
 6. [`docs/ROADMAP.md`](ROADMAP.md) — D-series 累计（127 ship）+ 后续候选
 7. [`docs/FAQ.md`](FAQ.md) — owner 视角 FAQ（D-series / audit-driven / 节奏判据）
-8. [`butler-v5/AGENTS.md`](../butler-v5/AGENTS.md) — v5 代码约束 + 包边界 + 测试
+8. [`AGENTS.md`](../AGENTS.md) — v5 代码约束 + 包边界 + 测试
 9. [`docs/DOCUMENTATION.md`](DOCUMENTATION.md) — 文档分层与维护规则
 
 **新会话开篇前 30 秒**：读 [`plans/decisions/v5-engineering-handoff-2026-08.md`](plans/decisions/v5-engineering-handoff-2026-08.md) → 本文件 → 撞点按 §3 流程。
 
 ## §2 v5 事实规则（6 条硬约束）
 
-> AGENTS.md §2 — 改 butler-v5/ 前必读：
+> AGENTS.md §2 — 改  前必读：
 
-1. **生产路径**: `butler-v5/cli + apps/api → packages/runtime → adapters/persistence`
-2. **目标 vs 实现**: `butler-v5/DESIGN.md`（目标架构）/ `v5-production-architecture`（当前事实）必须分开描述
-3. **生产 DB schema**: 只认 [`packages/persistence/src/migrations/0001_initial.sql`](../butler-v5/packages/persistence/src/migrations/0001_initial.sql)
+1. **生产路径**: `cli + apps/api → packages/runtime → adapters/persistence`
+2. **目标 vs 实现**: `DESIGN.md`（目标架构）/ `v5-production-architecture`（当前事实）必须分开描述
+3. **生产 DB schema**: 只认 [`packages/persistence/src/migrations/0001_initial.sql`](../packages/persistence/src/migrations/0001_initial.sql)
 4. **新入口归一化**: Run Trigger →（Policy Ask 时 `waiting_approval`）→（需要时 ScopedGrant）→ Provider Boundary → Audit；模型调用不走副作用咽喉
 5. **§20 KNOWN_ENTRY_POINTS**（D77 T5 强化）: 分 LLM + Non-LLM 2-tier；`/health` 等 non-LLM entry 不走模型路径
 6. **MCP / 浏览器 / UI / 多 Channel / 调度 = 条件准入**（per DESIGN §7.1），非默认能力，非整类否决
@@ -71,12 +71,12 @@
 
 **重要**（per `feedback-handoff-discipline`）：owner 撞点 ≠ 默认 user-action；接活前穷尽 3 路径检查（CLI / MCP / env var）。
 
-## §4 4 gate + L4 验收（改 butler-v5/ 后必跑）
+## §4 4 gate + L4 验收（改  后必跑）
 
 > **4 gate**（`.cursorrules`）：typecheck + lint + test + build
 
 ```bash
-cd butler-v5
+
 pnpm typecheck   # 7 包类型检查
 pnpm lint        # 代码规范检查
 pnpm test        # 单元 / 契约 / 架构测试
@@ -93,7 +93,7 @@ npx tsx scripts/l4-smoke.ts --suite reliability
 
 **Methodology 19·19**（D53a N=3 prompt-freeze）：
 
-- `butler-v5/tests/acceptance/methodology.test.ts` — 19 cases ENGINEERING + 19 cases PRODUCT
+- `tests/acceptance/methodology.test.ts` — 19 cases ENGINEERING + 19 cases PRODUCT
 - M15（D77 T7）— docker deploy artifacts 齐 + cross-link 一致
 - 改 `AGENTS.md` 前必 grep methodology test cross-link assertion（per D78 T5.1 lesson）
 
@@ -105,15 +105,15 @@ npx tsx scripts/l4-smoke.ts --suite reliability
 
 | 文件 | 风险 |
 |------|------|
-| `butler-v5/apps/api/src/wechat-inbound-butler.ts` | 微信入站 Loop |
-| `butler-v5/apps/api/src/workspace-tools.ts` | 工作区工具 |
-| `butler-v5/apps/api/src/tool-boundary.ts` | 工具边界 |
-| `butler-v5/apps/api/src/capability-guard.ts` | 能力守卫 |
-| `butler-v5/packages/runtime/src/agent-kernel.ts` | Agent 内核 |
-| `butler-v5/packages/runtime/src/run-engine.ts` | Run 引擎 |
-| `butler-v5/packages/persistence/src/event-bridge.ts` | 桥接层（driven adapter） |
-| `butler-v5/packages/runtime/src/capability-boundary.ts` | 能力边界 |
-| `butler-v5/packages/persistence/src/migrations/0001_initial.sql` | 生产 schema |
+| `apps/api/src/wechat-inbound-butler.ts` | 微信入站 Loop |
+| `apps/api/src/workspace-tools.ts` | 工作区工具 |
+| `apps/api/src/tool-boundary.ts` | 工具边界 |
+| `apps/api/src/capability-guard.ts` | 能力守卫 |
+| `packages/runtime/src/agent-kernel.ts` | Agent 内核 |
+| `packages/runtime/src/run-engine.ts` | Run 引擎 |
+| `packages/persistence/src/event-bridge.ts` | 桥接层（driven adapter） |
+| `packages/runtime/src/capability-boundary.ts` | 能力边界 |
+| `packages/persistence/src/migrations/0001_initial.sql` | 生产 schema |
 
 ### §5.2 仓库级
 
@@ -126,7 +126,7 @@ npx tsx scripts/l4-smoke.ts --suite reliability
 **修改前必跑**：
 
 ```bash
-cd butler-v5 && pnpm test && pnpm typecheck && pnpm lint
+pnpm test && pnpm typecheck && pnpm lint
 ```
 
 受保护文件被暂存时，commit message 必须含 `[MANUAL-OVERRIDE]`（由 `scripts/ai_guard/commit_msg_hook.sh` 强制）。
@@ -137,7 +137,7 @@ cd butler-v5 && pnpm test && pnpm typecheck && pnpm lint
 - `scripts/ai_guard/commit_msg_hook.sh` + `.git/hooks/commit-msg` — `[MANUAL-OVERRIDE]` 强制
 - `scripts/ai_guard/install-pre-commit-hook.sh` — 由 `butler-v5` 的 postinstall 调用，幂等同步 hooks
 - `scripts/ai_guard/file_size_check.py` — `.py` 行数守卫（>800 警告 / >1200 阻止），随 pre-commit 调用
-- architecture tests（`butler-v5/tests/architecture/`）：`dependency-direction.test.ts` / `package-membership.test.ts` / `mcp-contract.test.ts` / `side-effect-throat.test.ts` / `apps-layer-boundaries.test.ts` / `domain-zero-io.test.ts` 等 47 个
+- architecture tests（`tests/architecture/`）：`dependency-direction.test.ts` / `package-membership.test.ts` / `mcp-contract.test.ts` / `side-effect-throat.test.ts` / `apps-layer-boundaries.test.ts` / `domain-zero-io.test.ts` 等 47 个
 
 ## §6 文档分层（L0–L4）
 
@@ -145,7 +145,7 @@ cd butler-v5 && pnpm test && pnpm typecheck && pnpm lint
 
 ```text
 L0  Agent 入口          AGENTS.md、.cursor/rules/
-L1  目标架构            butler-v5/DESIGN.md
+L1  目标架构            DESIGN.md
 L2  当前实现事实        wfxm-agent-runtime.html、v5-production-architecture、代码与 env example
 L3  产品决策与路线      v5-product-boundaries、ADR、ROADMAP、FAQ
 L4  运维与配置          deployment/、ENV.md
@@ -189,7 +189,7 @@ git commit -m 'docs(维度) Dxx Tn: <findings-id> <files>'
 - 默认 `git push origin main`（D-series + post-D43）
 - 只有用户显式说 "feature branch" / "PR" 才改路径
 
-## §8 工程约束（`butler-v5/AGENTS.md` §5）
+## §8 工程约束（`AGENTS.md` §5）
 
 | 约束 | 阈值 | 行为 |
 |------|------|------|
@@ -214,7 +214,7 @@ git commit -m 'docs(维度) Dxx Tn: <findings-id> <files>'
 - `git commit -m "..."` 含反引号（per `feedback-bash-backtick-in-commit-message`）— bash 当 $() 替换；用 single quote
 - 不带 raw findings JSON 就 ship audit-driven batch（per `feedback-audit-raw-findings-must-archive`）— D57 lesson #1
 
-## §10 七级决策阶梯（`butler-v5/AGENTS.md` §2）
+## §10 七级决策阶梯（`AGENTS.md` §2）
 
 > 生成代码前依次检查，在第一个满足的阶梯停下：
 
@@ -241,15 +241,15 @@ git commit -m 'docs(维度) Dxx Tn: <findings-id> <files>'
 | 需求 | 读这里 |
 |------|--------|
 | 功能 / API / env / tests / deferral / audit / feedback | [综合梳理 docs](FEATURES.md) 等 7 件套 |
-| 目标架构（§1–§20 invariants） | [`butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) |
+| 目标架构（§1–§20 invariants） | [`DESIGN.md`](../DESIGN.md) |
 | Agent 入口（必读表） | [`AGENTS.md`](../AGENTS.md) |
-| v5 TS 约束 + 包边界 | [`butler-v5/AGENTS.md`](../butler-v5/AGENTS.md) |
+| v5 TS 约束 + 包边界 | [`AGENTS.md`](../AGENTS.md) |
 | Cursor 行为规则 | [`.cursorrules`](../.cursorrules) |
 | 文档分层手册 | [`DOCUMENTATION.md`](DOCUMENTATION.md) |
 | D-series 累计 | [`ROADMAP.md`](ROADMAP.md) |
 | Owner FAQ | [`FAQ.md`](FAQ.md) |
-| Methodology test | [`butler-v5/tests/acceptance/methodology.test.ts`](../butler-v5/tests/acceptance/methodology.test.ts) |
+| Methodology test | [`tests/acceptance/methodology.test.ts`](../tests/acceptance/methodology.test.ts) |
 
 ---
 
-**End of GOVERNANCE.md** | D80 cycle + 2026-11-18 v4 退役收敛 | **8 件套（入口 + 撞点 + 4 gate + 受保护 + 文档分层 + commit + 约束 + 不要做）** | 改 butler-v5/ 之前必读
+**End of GOVERNANCE.md** | D80 cycle + 2026-11-18 v4 退役收敛 | **8 件套（入口 + 撞点 + 4 gate + 受保护 + 文档分层 + commit + 约束 + 不要做）** | 改  之前必读

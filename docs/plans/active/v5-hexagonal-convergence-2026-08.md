@@ -1,7 +1,7 @@
 # Butler v5 布局收敛计划（六边形落地）
 
 > **状态**：✅ 主体完成。S1.4 收敛评估、S2 端口承载位次均已于 2026-08-26 收口。
-> **目标架构**：[`../../../butler-v5/DESIGN.md`](../../../butler-v5/DESIGN.md) §1–§20
+> **目标架构**：[`../../../DESIGN.md`](../../../DESIGN.md) §1–§20
 > **架构事实**：[`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md)
 > **产品边界**：[`v5-product-boundaries-2026-08.md`](../decisions/v5-product-boundaries-2026-08.md)
 > **日期**：2026-08-26

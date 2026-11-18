@@ -22,11 +22,11 @@
 - 删除前 smoke：healthz OK；`smoke-project-knowledge.mjs` PASS
 - 分块删 v4 子树 → `rm -rf ~/.butler`（目录已不存在）
 - 删除后 smoke：gateway restart；healthz OK；`smoke-project-knowledge.mjs` PASS
-- v5 audit 路径：`~/.config/butler-v5/audit/subagent.jsonl` 未受影响
+- v5 audit 路径：`~/.config/audit/subagent.jsonl` 未受影响
 
 ---
 
 ## 约束（历史）
 
 - ~~窗口内任何 Agent **不得**删除或搬空 `~/.butler/`~~ — 已于 2026-08-25 执行完毕。
-- v5 凭证在 `~/.config/butler-v5/env`；不要把 v4 目录当生产配置源（目录已删）。
+- v5 凭证在 `~/.config/env`；不要把 v4 目录当生产配置源（目录已删）。

@@ -5,7 +5,7 @@
 > - 功能清单 → [`FEATURES.md`](FEATURES.md)
 > - 测试覆盖（含 PRE-EXISTING）→ [`TESTS.md`](TESTS.md)
 > - TODO / deferral 视图 → [`TODO_DEFERRED.md`](TODO_DEFERRED.md)
-> - 目标架构（§3-§20 不变量锚定）→ [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md)
+> - 目标架构（§3-§20 不变量锚定）→ [`../DESIGN.md`](../DESIGN.md)
 > - D-series 累計 → [`ROADMAP.md`](ROADMAP.md)
 > - 原始 `.audit/Dxx/...` — **gitignored**；on disk 可读（per D45 engineering-hygiene）；本表是聚合视图
 > - 反馈 lessons → `.claude/projects/-home-ailearn-projects-WFXM/memory/`

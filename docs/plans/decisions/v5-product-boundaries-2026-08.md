@@ -4,7 +4,7 @@
 > **产品终局**：单用户、单信任域、自托管的可扩展个人 AI 管家  
 > **默认风险姿态**：低风险自动执行；高风险即时审批；受控能力可签发可撤销的 ScopedGrant
 > **取代**：v4 `roadmap-backlog-and-boundaries-2026-05`（已随 v4 退役删除），由本文作为需求、否决与立项的唯一入口  
-> **目标架构**：以 [`../../../butler-v5/DESIGN.md`](../../../butler-v5/DESIGN.md) 为准
+> **目标架构**：以 [`../../../DESIGN.md`](../../../DESIGN.md) 为准
 > **架构现实**：以 [`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md) 为准
 
 ---

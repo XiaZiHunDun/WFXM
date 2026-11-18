@@ -13,7 +13,7 @@
 1. 读 `.blackboard/state.md`
 2. 读本文 §2–§5（已完成 / 生产 / 验收 / 不要做）
 3. 若要做**新能力**：先读 [`v5-product-boundaries-2026-08.md`](../decisions/v5-product-boundaries-2026-08.md)，**单独立项**，勿从 PK 会话顺手扩面
-4. 改 `butler-v5/` 后：`cd butler-v5 && pnpm test`
+4. 改 `` 后：`pnpm test`
 
 ---
 
@@ -21,12 +21,12 @@
 
 | 阶段 | 交付 | 验收 |
 | --- | --- | --- |
-| **K1 MVP** | migration `0010`、`project_knowledge_items`、Owner API/CLI、`recall_project_knowledge`、Document promote 级联 | `pnpm test`；[`owner-project-knowledge-routes.test.ts`](../../../butler-v5/apps/api/src/owner-project-knowledge-routes.test.ts) |
-| **K1.1** | `config/project-knowledge-sources.json`、sync 引擎、watch worker（5min）、markitdown chain | [`project-knowledge-sync.test.ts`](../../../butler-v5/apps/api/src/project-knowledge-sync.test.ts) |
+| **K1 MVP** | migration `0010`、`project_knowledge_items`、Owner API/CLI、`recall_project_knowledge`、Document promote 级联 | `pnpm test`；[`owner-project-knowledge-routes.test.ts`](../../../apps/api/src/owner-project-knowledge-routes.test.ts) |
+| **K1.1** | `config/project-knowledge-sources.json`、sync 引擎、watch worker（5min）、markitdown chain | [`project-knowledge-sync.test.ts`](../../../apps/api/src/project-knowledge-sync.test.ts) |
 | **生产 cutover** | inject fallback（query 无命中 → 最近 ingest）、`enable-project-knowledge-prod.sh` | env 三件套已开（见 §3） |
 | **PDF markitdownGlobs** | scoped glob 修复；`tests/fixtures/ext5/*.pdf` → `ingested_document` | gateway 重启后 watch：`scanned=8, created=1` |
-| **Sources 扩展** | + `butler-v5/AGENTS.md`、`v5-engineering-handoff` | sync：`scanned=10, created=2` |
-| **微信验收** | inject（0 toolCalls → Accepted）+ `recall_project_knowledge` 工具链 | [`smoke-project-knowledge.mjs`](../../../butler-v5/scripts/cutover/smoke-project-knowledge.mjs) PASS |
+| **Sources 扩展** | + `AGENTS.md`、`v5-engineering-handoff` | sync：`scanned=10, created=2` |
+| **微信验收** | inject（0 toolCalls → Accepted）+ `recall_project_knowledge` 工具链 | [`smoke-project-knowledge.mjs`](../../../scripts/cutover/smoke-project-knowledge.mjs) PASS |
 
 **相关 commit（`main`）**：
 
@@ -47,28 +47,28 @@ a90b175f  feat(v5): Project Knowledge K1 MVP
 
 ### 3.1 Gateway
 
-- 服务：`systemctl --user status butler-v5-gateway.service`（模板见 `butler-v5/scripts/cutover/butler-v5-gateway.service`）
+- 服务：`systemctl --user status butler-v5-gateway.service`（模板见 `scripts/cutover/butler-v5-gateway.service`）
 - API：`http://127.0.0.1:3000`
-- v5 CLI：`cd butler-v5 && npx tsx cli/src/index.ts …`（**不要**用 miniconda 的 v4 `butler`）
+- v5 CLI：`npx tsx cli/src/index.ts …`（**不要**用 miniconda 的 v4 `butler`）
 
-### 3.2 环境变量（`~/.config/butler-v5/env`）
+### 3.2 环境变量（`~/.config/env`）
 
 | 变量 | 生产值 | 含义 |
 | --- | --- | --- |
 | `BUTLER_V5_PROJECT_KNOWLEDGE` | `1` | 工作集 prefix 注入 |
 | `BUTLER_V5_PROJECT_KNOWLEDGE_WATCH` | `1` | sources manifest 周期 sync |
-| `BUTLER_V5_PROJECT_KNOWLEDGE_SOURCES_PATH` | `config/project-knowledge-sources.json` | 相对 `butler-v5/` |
+| `BUTLER_V5_PROJECT_KNOWLEDGE_SOURCES_PATH` | `config/project-knowledge-sources.json` | 相对 `` |
 | `BUTLER_V5_WORKSPACE_ROOT` | `/home/ailearn/projects/WFXM` | workspace 根 |
 
 改 env 后：`systemctl --user restart butler-v5-gateway.service`
 
-启用脚本（幂等）：`butler-v5/scripts/cutover/enable-project-knowledge-prod.sh`
+启用脚本（幂等）：`scripts/cutover/enable-project-knowledge-prod.sh`
 
 ### 3.3 数据面
 
 - 表：`project_knowledge_items`（migration `0010_project_knowledge.sql`）
 - 项目：**WFXM**；约 **14 条**（7 file_snapshot + 1 PDF ingested + 若干 manual/promote）
-- sources 清单：[`butler-v5/config/project-knowledge-sources.json`](../../../butler-v5/config/project-knowledge-sources.json)
+- sources 清单：[`config/project-knowledge-sources.json`](../../../config/project-knowledge-sources.json)
   - WFXM **24 globs** + 2 markitdownGlobs；LingWen **22 globs**（含 atlas 06–09）
   - 生产约 **29 WFXM / 22 LingWen** 条（2026-08-25 sync：`scanned=47, created=12`）
 
@@ -123,17 +123,17 @@ pnpm exec vitest run \
 
 | 路径 | 作用 |
 | --- | --- |
-| `butler-v5/config/project-knowledge-sources.json` | ingest 白名单 globs |
-| `butler-v5/apps/api/src/project-knowledge-sync.ts` | sync 引擎 |
-| `butler-v5/apps/api/src/project-knowledge-glob.ts` | glob 展开（scoped 目录） |
-| `butler-v5/apps/api/src/project-knowledge-inject.ts` | 工作集 prefix 注入 |
-| `butler-v5/apps/api/src/project-knowledge-watch-worker.ts` | 5min watch |
-| `butler-v5/apps/api/src/wechat-inbound-butler.ts` | inject 接线 + traces |
-| `butler-v5/apps/api/src/tools.ts` | `recall_project_knowledge` |
-| `butler-v5/packages/domain/src/knowledge/project-knowledge.ts` | 领域类型 + working-set 选择 |
-| `butler-v5/packages/persistence/src/project-knowledge-store.ts` | 持久化 |
-| `butler-v5/scripts/cutover/smoke-project-knowledge.mjs` | 生产 smoke |
-| `butler-v5/scripts/cutover/enable-project-knowledge-prod.sh` | 生产 env 启用 |
+| `config/project-knowledge-sources.json` | ingest 白名单 globs |
+| `apps/api/src/project-knowledge-sync.ts` | sync 引擎 |
+| `apps/api/src/project-knowledge-glob.ts` | glob 展开（scoped 目录） |
+| `apps/api/src/project-knowledge-inject.ts` | 工作集 prefix 注入 |
+| `apps/api/src/project-knowledge-watch-worker.ts` | 5min watch |
+| `apps/api/src/wechat-inbound-butler.ts` | inject 接线 + traces |
+| `apps/api/src/tools.ts` | `recall_project_knowledge` |
+| `packages/domain/src/knowledge/project-knowledge.ts` | 领域类型 + working-set 选择 |
+| `packages/persistence/src/project-knowledge-store.ts` | 持久化 |
+| `scripts/cutover/smoke-project-knowledge.mjs` | 生产 smoke |
+| `scripts/cutover/enable-project-knowledge-prod.sh` | 生产 env 启用 |
 
 ---
 

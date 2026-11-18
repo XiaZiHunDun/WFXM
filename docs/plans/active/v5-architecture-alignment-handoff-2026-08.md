@@ -1,7 +1,7 @@
 # Butler v5 架构对齐交接（2026-08-21）
 
 > **状态**：Active — 供新会话接续「实现 vs DESIGN 对齐」  
-> **目标架构 SSOT**：[`butler-v5/DESIGN.md`](../../../butler-v5/DESIGN.md)  
+> **目标架构 SSOT**：[`DESIGN.md`](../../../DESIGN.md)  
 > **生产事实 SSOT**：[`docs/architecture/v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md)  
 > **路线图**：[`v5-post-boundary-roadmap-2026-08.md`](v5-post-boundary-roadmap-2026-08.md)  
 > **产品边界**：[`v5-product-boundaries-2026-08.md`](../decisions/v5-product-boundaries-2026-08.md)  
@@ -14,7 +14,7 @@
 上一会话已完成：
 
 1. **P3 接缝交付**（已 push `main`）：RunTrigger 四入口、MCP manifest/连接/extraProviders、生产 Capability Registry。
-2. **AI 守卫 v5 迁移**（commit `3b8fc61d`）：PostToolUse vitest、PreToolUse v5 受保护文件、`.cursorrules` banner、`butler-v5/AGENTS.md` §0、分步脚本 `scripts/v5_ai_guard/`。
+2. **AI 守卫 v5 迁移**（commit `3b8fc61d`）：PostToolUse vitest、PreToolUse v5 受保护文件、`.cursorrules` banner、`AGENTS.md` §0、分步脚本 `scripts/v5_ai_guard/`。
 3. **架构差距盘点**：对照 DESIGN vs 生产实现，形成下文 §4–§6。
 4. **A1 Run 恢复语义**：`RunEngine.resumeRun`；审批同 Run + capability Step；`executeInbound` 拒抢 active main。
 5. **A2 读模型默认**：`BUTLER_V5_READ_MODEL` 默认 `relational`（D2.1 production flip，2026-08-28 已覆盖早期 hybrid 默认）；`recall_history` / `summarize_today` 读 0002。
@@ -38,9 +38,9 @@
 
 1. 读 [`plans/README.md`](../README.md)
 2. 读本文 §4（差距）+ §6（建议顺序）
-3. 改代码前读 [`butler-v5/AGENTS.md`](../../../butler-v5/AGENTS.md) §0（生产 vs 脚手架）
-4. 查 env：`docs/ENV.md` 或 `butler-v5/.env.example`
-5. 改 `butler-v5/` 后：`cd butler-v5 && pnpm test`
+3. 改代码前读 [`AGENTS.md`](../../../AGENTS.md) §0（生产 vs 脚手架）
+4. 查 env：`docs/ENV.md` 或 `.env.example`
+5. 改 `` 后：`pnpm test`
 
 ---
 
@@ -199,18 +199,18 @@ CLI / iLink / HTTP / WebSocket / Channel webhooks
 
 | 用途 | 路径 |
 | --- | --- |
-| 微信 Loop | `butler-v5/apps/api/src/wechat-inbound-butler.ts` |
-| Run 引擎 | `butler-v5/packages/runtime/src/run-engine.ts` |
-| 审批 | `butler-v5/packages/runtime/src/approval-runtime.ts` |
-| 工具边界 | `butler-v5/apps/api/src/tool-boundary.ts` |
-| Policy | `butler-v5/packages/runtime/src/policy-gate.ts` |
-| 子代理 | `butler-v5/apps/api/src/subagent-worker.ts` |
-| Intake | `butler-v5/packages/runtime/src/intake/` |
-| Conversation Loop | `butler-v5/packages/runtime/src/execution/conversation-loop.ts` |
-| Schema | `butler-v5/packages/persistence/src/migrations/0001_initial.sql`, `0002_target_runtime.sql` |
-| RunTrigger | `butler-v5/packages/domain/src/runtime/run-trigger.ts` |
-| 状态转移纯函数 | `butler-v5/packages/domain/src/runtime/transitions.ts` |
-| Architecture tests | `butler-v5/tests/architecture/` |
+| 微信 Loop | `apps/api/src/wechat-inbound-butler.ts` |
+| Run 引擎 | `packages/runtime/src/run-engine.ts` |
+| 审批 | `packages/runtime/src/approval-runtime.ts` |
+| 工具边界 | `apps/api/src/tool-boundary.ts` |
+| Policy | `packages/runtime/src/policy-gate.ts` |
+| 子代理 | `apps/api/src/subagent-worker.ts` |
+| Intake | `packages/runtime/src/intake/` |
+| Conversation Loop | `packages/runtime/src/execution/conversation-loop.ts` |
+| Schema | `packages/persistence/src/migrations/0001_initial.sql`, `0002_target_runtime.sql` |
+| RunTrigger | `packages/domain/src/runtime/run-trigger.ts` |
+| 状态转移纯函数 | `packages/domain/src/runtime/transitions.ts` |
+| Architecture tests | `tests/architecture/` |
 
 ---
 
@@ -218,26 +218,26 @@ CLI / iLink / HTTP / WebSocket / Channel webhooks
 
 ```bash
 # 全量（必跑）
-cd butler-v5 && pnpm test
+pnpm test
 
 # 架构/边界子集
-cd butler-v5 && pnpm exec vitest run tests/architecture/ --reporter=dot
+pnpm exec vitest run tests/architecture/ --reporter=dot
 
 # 治理/审批
-cd butler-v5 && pnpm exec vitest run packages/runtime/src/approval-runtime.test.ts apps/api/src/wechat-inline-approval.test.ts -q
+pnpm exec vitest run packages/runtime/src/approval-runtime.test.ts apps/api/src/wechat-inline-approval.test.ts -q
 
 # Run 引擎
-cd butler-v5 && pnpm exec vitest run packages/runtime/src/run-engine.test.ts packages/runtime/src/run-coordinator.test.ts -q
+pnpm exec vitest run packages/runtime/src/run-engine.test.ts packages/runtime/src/run-coordinator.test.ts -q
 
 # 读模型 backfill
-cd butler-v5 && pnpm exec vitest run packages/persistence/src/runtime-backfill.test.ts -q
+pnpm exec vitest run packages/persistence/src/runtime-backfill.test.ts -q
 ```
 
 PostToolUse 快速冒烟（不跑 vitest）：
 
 ```bash
 python3 scripts/ai_guard/post_tool_use_hook.py --match-only \
-  butler-v5/apps/api/src/wechat-inbound-butler.ts
+  apps/api/src/wechat-inbound-butler.ts
 ```
 
 ---

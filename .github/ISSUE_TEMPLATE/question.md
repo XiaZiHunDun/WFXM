@@ -1,8 +1,8 @@
 ---
 name: ❓ 问题 / 文档
 about: 询问用法、寻求文档澄清
-title: '[Question] '
-labels: ['question']
+title: "[Question] "
+labels: ["question"]
 assignees: []
 ---
 
@@ -13,7 +13,7 @@ assignees: []
 ## 已查资料
 
 - [ ] [README.md](https://github.com/XiaZiHunDun/WFXM/blob/main/README.md)
-- [ ] [butler-v5/README.md](https://github.com/XiaZiHunDun/WFXM/tree/main/butler-v5/README.md)
+- [ ] [README.md](https://github.com/XiaZiHunDun/WFXM/tree/main)
 - [ ] [AGENTS.md](https://github.com/XiaZiHunDun/WFXM/blob/main/AGENTS.md)
 - [ ] [docs/architecture/](https://github.com/XiaZiHunDun/WFXM/tree/main/docs/architecture)
 - [ ] [已有 issues](https://github.com/XiaZiHunDun/WFXM/issues?q=is%3Aissue+question)

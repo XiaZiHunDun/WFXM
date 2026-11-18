@@ -48,5 +48,3 @@
 <!-- UI / owner-jargon 文案 / 错误处理可视化等 -->
 
 ## 上游同步检查
-
-- [ ] 如触及 [butler-v5/](https://github.com/XiaZiHunDun/WFXM/tree/main/butler-v5) 子项目，确认 root 与 subproject 同步

@@ -1,5 +1,5 @@
 # GitHub Issue 选择器配置
-blank_issues_enabled: false  # 强制走模板
+blank_issues_enabled: false # 强制走模板
 
 contact_links:
   - name: 🔒 安全漏洞披露

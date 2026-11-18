@@ -25,24 +25,24 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `butler-v5/tests/acceptance/harness.ts` | 共享 harness：`makeAcceptanceApp`（装配生产 wiring + Hono 路由）、`sendWechatMessage`（POST /v1/wechat/inbound + 解析响应）、`toolCallEntry`/`decisionEntry`/`textEntry` 辅助 |
-| `butler-v5/apps/api/src/acceptance-app.ts` | `buildHonoApp(wiring)`：从 Wiring 挂载生产入站路由。放 apps/api 是因 `hono`/`createRoutes` 只在 apps/api 内解析（root 不可见），tests/ 直接 import hono 会失败。仅薄封装，不绕行生产逻辑 |
+| `tests/acceptance/harness.ts` | 共享 harness：`makeAcceptanceApp`（装配生产 wiring + Hono 路由）、`sendWechatMessage`（POST /v1/wechat/inbound + 解析响应）、`toolCallEntry`/`decisionEntry`/`textEntry` 辅助 |
+| `apps/api/src/acceptance-app.ts` | `buildHonoApp(wiring)`：从 Wiring 挂载生产入站路由。放 apps/api 是因 `hono`/`createRoutes` 只在 apps/api 内解析（root 不可见），tests/ 直接 import hono 会失败。仅薄封装，不绕行生产逻辑 |
 
 ### 2.2 acceptance 用例文件（5 文件 / 14 用例 — 已交付、实跑通过）
 
 | 文件 | 用例数 | 覆盖场景 |
 | --- | --- | --- |
-| `butler-v5/tests/acceptance/commands-approval.test.ts` | 3 | 核心命令 + 审批流：① `/记住` 命令捷径 LLM-free 返回「已记住」② 脚本化 LLM 以文本 Respond 返回普通答复 ③ write_file 触发审批（policy Ask → waiting_approval）→ 微信「确认」恢复执行 → run 达终态 succeeded |
-| `butler-v5/tests/acceptance/fault-tolerance.test.ts` | 3 | 容错 / 降级路径：① 入站校验失败（缺 apiVersion）返回 400 + `invalid body`（非 500 / 不丢消息）② 同 conversationId 在 waiting_approval 上再次入站降级为「未完成审批」回复（`ActiveMainRunConflict` 兜底）③ fixture 耗尽时 LLM 返回降级文本（`[fixture exhausted: plan#N]`，非 500 / 非 HTML 错误页） |
-| `butler-v5/tests/acceptance/subagent-multiturn.test.ts` | 2 | 多轮对话 + 跨 turn 工具调用：① 同 conversationId 第二轮沿用第一轮 history（同一 convId 产生 ≥ 2 条 run）② 跨 turn 工具调用：turn1 `write_file` paused → turn2 「确认」恢复 → run 终态 succeeded |
-| `butler-v5/tests/acceptance/audit-state.test.ts` | 3 | 审计 + 跨重启状态：① 入站 → `eventStore` 写入 `ConversationStarted` 行（事件流 schema 不变量 correlationId / actorKind / actorId 验证）② write_file 审批通过后 `scoped_grants` 表写入 grant 行（capability 审计可追溯）③ 跨「重启」：close harness → 同 PGlite data dir 重开 → pending approval 仍可恢复 |
-| `butler-v5/tests/acceptance/product-regressions.test.ts` | 3 | 产品层回归锁（owner 真撞问题触发后 ship，对应 §18 trigger 设计）：① `/undo`：真实审批恢复后 `undoLastWrite` 还原文件内容（工作区预先 `before` → fixture 写 `after` → 审批 → `/undo` 还原为 `before`，reply 含「已还原」）② 垃圾消息护栏：`"请".repeat(80)` 单字符重复 80 次触发 `detectSpam` 短路 LLM，reply 命中 `消息过长\|重复\|具体需求` 且 toolCalls=0（不消耗 fixture）③ LLM 遥测：普通对话产生 `step/llm_call` 事件且 status=ok |
+| `tests/acceptance/commands-approval.test.ts` | 3 | 核心命令 + 审批流：① `/记住` 命令捷径 LLM-free 返回「已记住」② 脚本化 LLM 以文本 Respond 返回普通答复 ③ write_file 触发审批（policy Ask → waiting_approval）→ 微信「确认」恢复执行 → run 达终态 succeeded |
+| `tests/acceptance/fault-tolerance.test.ts` | 3 | 容错 / 降级路径：① 入站校验失败（缺 apiVersion）返回 400 + `invalid body`（非 500 / 不丢消息）② 同 conversationId 在 waiting_approval 上再次入站降级为「未完成审批」回复（`ActiveMainRunConflict` 兜底）③ fixture 耗尽时 LLM 返回降级文本（`[fixture exhausted: plan#N]`，非 500 / 非 HTML 错误页） |
+| `tests/acceptance/subagent-multiturn.test.ts` | 2 | 多轮对话 + 跨 turn 工具调用：① 同 conversationId 第二轮沿用第一轮 history（同一 convId 产生 ≥ 2 条 run）② 跨 turn 工具调用：turn1 `write_file` paused → turn2 「确认」恢复 → run 终态 succeeded |
+| `tests/acceptance/audit-state.test.ts` | 3 | 审计 + 跨重启状态：① 入站 → `eventStore` 写入 `ConversationStarted` 行（事件流 schema 不变量 correlationId / actorKind / actorId 验证）② write_file 审批通过后 `scoped_grants` 表写入 grant 行（capability 审计可追溯）③ 跨「重启」：close harness → 同 PGlite data dir 重开 → pending approval 仍可恢复 |
+| `tests/acceptance/product-regressions.test.ts` | 3 | 产品层回归锁（owner 真撞问题触发后 ship，对应 §18 trigger 设计）：① `/undo`：真实审批恢复后 `undoLastWrite` 还原文件内容（工作区预先 `before` → fixture 写 `after` → 审批 → `/undo` 还原为 `before`，reply 含「已还原」）② 垃圾消息护栏：`"请".repeat(80)` 单字符重复 80 次触发 `detectSpam` 短路 LLM，reply 命中 `消息过长\|重复\|具体需求` 且 toolCalls=0（不消耗 fixture）③ LLM 遥测：普通对话产生 `step/llm_call` 事件且 status=ok |
 
 ### 2.3 realistic 场景文件（35 场景 — 已交付、实跑通过）
 
 | 文件 | 场景数 | 覆盖 |
 | --- | --- | --- |
-| `butler-v5/tests/acceptance/scenarios/realistic.test.ts` | 35 | 产品层行为分析（脚本化"好 bot" fixture，非真 LLM）：A1-A10 真实开发（读 README / 改路由 / 跑测试 / 改 timeout / 删 dead import / git log / PR 描述 / typecheck / 加 unit test 等）；B1-B10 开放性（v5 问题 / 下一步 / 接手导览 / 最近 3 天 / 架构 risk / 撞坑 / 设计哲学 / 未用功能 / owner 应关心什么 / 1 周 focus）；C1-C10 边界（`y` / `好的` / `👌` 当确认 / 长消息 spam / 模糊 优化 / 跨天 上次聊到哪 / 两个 task 一起 / 重复确认 / 撤销刚才 / 多语言混合）；D1-D5 组合（写 + 跑 test + 失败 + 修 + 再跑 / 看看 后续追问 / 先 read 现在改 / 被打断 resume / 写完 问安全吗）。验收期产物：`_analyze.md`（gitignored 录制品类，每轮覆盖）。 |
+| `tests/acceptance/scenarios/realistic.test.ts` | 35 | 产品层行为分析（脚本化"好 bot" fixture，非真 LLM）：A1-A10 真实开发（读 README / 改路由 / 跑测试 / 改 timeout / 删 dead import / git log / PR 描述 / typecheck / 加 unit test 等）；B1-B10 开放性（v5 问题 / 下一步 / 接手导览 / 最近 3 天 / 架构 risk / 撞坑 / 设计哲学 / 未用功能 / owner 应关心什么 / 1 周 focus）；C1-C10 边界（`y` / `好的` / `👌` 当确认 / 长消息 spam / 模糊 优化 / 跨天 上次聊到哪 / 两个 task 一起 / 重复确认 / 撤销刚才 / 多语言混合）；D1-D5 组合（写 + 跑 test + 失败 + 修 + 再跑 / 看看 后续追问 / 先 read 现在改 / 被打断 resume / 写完 问安全吗）。验收期产物：`_analyze.md`（gitignored 录制品类，每轮覆盖）。 |
 
 ## 3. 已验证的关键假设（依赖签名核对 — 全数匹配）
 
@@ -92,7 +92,7 @@ Baseline Regression lock 三件套（`/undo` + `spam-guard` + `llm_call`）已�
 ## 6. Claude Code 接手步骤
 
 ```bash
-cd butler-v5
+
 # 1) 实跑当前已交付 acceptance 用例
 pnpm vitest run tests/acceptance --pool=forks
 # 2) 实跑 realistic 35 场景

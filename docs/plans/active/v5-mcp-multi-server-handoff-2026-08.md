@@ -13,7 +13,7 @@
 
 1. 读 [`plans/README.md`](../README.md)  
 2. 读**本文**（MCP 多 server 现状与后续选项）  
-3. 改 MCP / Grant / bootstrap 时读 `butler-v5/apps/api/src/mcp-bootstrap.ts` + `config/mcp-manifest.json`  
+3. 改 MCP / Grant / bootstrap 时读 `apps/api/src/mcp-bootstrap.ts` + `config/mcp-manifest.json`  
 4. 不要从 v4 `~/.butler/mcp.yaml` 推断 v5 实现  
 
 ---
@@ -42,7 +42,7 @@ activeGrants: 0（常态；MCP 调用走 Ask → Owner approve → 单次 Grant�
 验收命令：
 
 ```bash
-cd butler-v5
+
 pnpm exec tsx cli/src/index.ts mcp status --api http://127.0.0.1:3000
 pnpm exec tsx cli/src/index.ts verify --api http://127.0.0.1:3000
 ```
@@ -53,22 +53,22 @@ pnpm exec tsx cli/src/index.ts verify --api http://127.0.0.1:3000
 
 | 用途 | 路径 |
 | --- | --- |
-| Multi bootstrap | `butler-v5/apps/api/src/mcp-bootstrap.ts` |
-| Manifest 加载 | `butler-v5/apps/api/src/mcp-manifest.ts` |
-| 连接解析（manifest 优先） | `butler-v5/apps/api/src/mcp-config.ts` |
-| Capability 命名 / 解析 | `butler-v5/packages/domain/src/governance/mcp-tool-capability.ts` |
-| Consent + serverId 解析 | `butler-v5/packages/runtime/src/mcp-consent.ts` |
-| Owner status（多 server） | `butler-v5/apps/api/src/owner-routes.ts` → `GET /v1/owner/mcp/status` |
-| **生产 manifest** | `butler-v5/config/mcp-manifest.json` |
-| **微信 MCP 白名单** | `butler-v5/config/wechat-tool-allowlist.json` |
-| **启用脚本** | `butler-v5/scripts/cutover/enable-mcp-prod.sh` |
-| **Smoke** | `butler-v5/scripts/cutover/smoke-mcp-hardened.mjs` |
-| MCP npm 包（workspace） | `butler-v5/package.json` devDeps：`firecrawl-mcp`, `@modelcontextprotocol/server-github`, `@ivotoby/openapi-mcp-server` |
+| Multi bootstrap | `apps/api/src/mcp-bootstrap.ts` |
+| Manifest 加载 | `apps/api/src/mcp-manifest.ts` |
+| 连接解析（manifest 优先） | `apps/api/src/mcp-config.ts` |
+| Capability 命名 / 解析 | `packages/domain/src/governance/mcp-tool-capability.ts` |
+| Consent + serverId 解析 | `packages/runtime/src/mcp-consent.ts` |
+| Owner status（多 server） | `apps/api/src/owner-routes.ts` → `GET /v1/owner/mcp/status` |
+| **生产 manifest** | `config/mcp-manifest.json` |
+| **微信 MCP 白名单** | `config/wechat-tool-allowlist.json` |
+| **启用脚本** | `scripts/cutover/enable-mcp-prod.sh` |
+| **Smoke** | `scripts/cutover/smoke-mcp-hardened.mjs` |
+| MCP npm 包（workspace） | `package.json` devDeps：`firecrawl-mcp`, `@modelcontextprotocol/server-github`, `@ivotoby/openapi-mcp-server` |
 | 黑板快照 | `.blackboard/state.md` |
 
 ---
 
-## 4. 生产 env（`~/.config/butler-v5/env`，不在 git）
+## 4. 生产 env（`~/.config/env`，不在 git）
 
 ```bash
 BUTLER_V5_MCP_ENABLED=1
@@ -98,8 +98,8 @@ systemctl --user restart butler-v5-gateway.service
 | id | command | 工具过滤 |
 | --- | --- | --- |
 | markitdown | `/home/ailearn/.local/bin/markitdown-mcp` | `convert_to_markdown` |
-| firecrawl | `butler-v5/node_modules/.bin/firecrawl-mcp` | scrape/crawl/map only |
-| github | `butler-v5/node_modules/.bin/mcp-server-github` | manifest `tools` 只读 14 项（search/get/list） |
+| firecrawl | `node_modules/.bin/firecrawl-mcp` | scrape/crawl/map only |
+| github | `node_modules/.bin/mcp-server-github` | manifest `tools` 只读 14 项（search/get/list） |
 | todoist | `node_modules/.bin/openapi-mcp-server` + openapi spec | lst/get 只读 4 工具 |
 
 markitdown 用 `uv tool install markitdown-mcp` 预装；其余三者在 workspace `pnpm add -wD`。**勿用 npx 冷启动**（bootstrap 超时/并行失败）。
@@ -111,7 +111,7 @@ markitdown 用 `uv tool install markitdown-mcp` 预装；其余三者在 workspa
 ### A. 日常回归（必做）
 
 ```bash
-cd butler-v5 && pnpm test
+pnpm test
 pnpm smoke:mcp                    # config + grant path（外部 API 502 时 grant 仍绿）
 pnpm smoke:mcp -- --skip-grant    # 仅 manifest/allowlist/status
 pnpm exec tsx cli/src/index.ts mcp status --api http://127.0.0.1:3000
@@ -123,7 +123,7 @@ pnpm exec tsx cli/src/index.ts mcp status --api http://127.0.0.1:3000
 
 1. 微信触发 Todoist / Firecrawl 等 MCP 任务  
 2. 回复「确认」或 Owner API approve → 查 `grant.scope.mcp`  
-3. Todoist 502 时查 `~/.config/butler-v5/env` 中 `TODOIST_API_TOKEN` / `API_HEADERS`  
+3. Todoist 502 时查 `~/.config/env` 中 `TODOIST_API_TOKEN` / `API_HEADERS`  
 4. `butler traces` 或 Owner traces API  
 
 ### C. 可选产品向
@@ -156,7 +156,7 @@ pnpm exec tsx cli/src/index.ts mcp status --api http://127.0.0.1:3000
 ## 8. 日常回归命令
 
 ```bash
-cd butler-v5 && pnpm test:p4-acceptance && pnpm test
+pnpm test:p4-acceptance && pnpm test
 pnpm smoke:allowlist-production
 pnpm smoke:allowlist-slirp
 pnpm smoke:allowlist-pnpm

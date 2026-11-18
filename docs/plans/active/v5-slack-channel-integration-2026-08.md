@@ -9,7 +9,7 @@
 
 ## 1. 背景
 
-WeChat iLink（long-poll + `ilink/bot/getupdates`）目前唯一在生产 channel；`butler-v5/packages/adapters/src/{slack,telegram}/` 目录之前不存在。Owner 在 dialog 2026-08-28 自报 Slack 接生产，本轮目标 = 把 Slack 协议级代码**对齐**到 target architecture 位（DESIGN §7.1 + §18），与 WeChat `packages/adapters/src/wechat/` 形态一致；本轮**不**实际启用 Slack 接生产。Slack 协议走 **Events API + signing secret**（HTTP webhook）—— 与 WeChat long-poll 模式不同，但 Channel Port 维持隐性承载。
+WeChat iLink（long-poll + `ilink/bot/getupdates`）目前唯一在生产 channel；`packages/adapters/src/{slack,telegram}/` 目录之前不存在。Owner 在 dialog 2026-08-28 自报 Slack 接生产，本轮目标 = 把 Slack 协议级代码**对齐**到 target architecture 位（DESIGN §7.1 + §18），与 WeChat `packages/adapters/src/wechat/` 形态一致；本轮**不**实际启用 Slack 接生产。Slack 协议走 **Events API + signing secret**（HTTP webhook）—— 与 WeChat long-poll 模式不同，但 Channel Port 维持隐性承载。
 
 前置事实（调研 R14.3）：Slack 协议级代码已大半实装于 `apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts`，HTTP route 在 `routes.ts` `POST /v1/channel/slack/events`。本 PRD 不重做这些代码，而是按 ADR §4.1 / PRD §2.1 把协议级部分**搬到** `packages/adapters/src/slack/`，并补齐 adapter 层单测（PRD §3 缺项：附件 / 重复 / protocol error / token 失效 / timeout）+ HTTP route guard 集成测试。
 
@@ -21,7 +21,7 @@ WeChat iLink（long-poll + `ilink/bot/getupdates`）目前唯一在生产 channe
 
 | # | 工作 | 备注 |
 | --- | --- | --- |
-| 1 | 建 `butler-v5/packages/adapters/src/slack/` 目录；协议级 Slack 代码（`verifySlackSignature` / `parseSlackEventPayload` / `SlackWebhookParseResult` / `sendSlackOutboundMessage` / `SlackOutboundConfig` / `describeSlackFiles` / `sendSlackOutboundFile` + 3 共享类型 `ChannelMediaKind` / `ChannelInboundMedia` / `ChannelMediaContent`）从 `apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts` 搬入 | mirror WeChat `packages/adapters/src/wechat/ilink-*` 形态 |
+| 1 | 建 `packages/adapters/src/slack/` 目录；协议级 Slack 代码（`verifySlackSignature` / `parseSlackEventPayload` / `SlackWebhookParseResult` / `sendSlackOutboundMessage` / `SlackOutboundConfig` / `describeSlackFiles` / `sendSlackOutboundFile` + 3 共享类型 `ChannelMediaKind` / `ChannelInboundMedia` / `ChannelMediaContent`）从 `apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts` 搬入 | mirror WeChat `packages/adapters/src/wechat/ilink-*` 形态 |
 | 2 | `packages/adapters/src/index.ts` 加 `export * from "./slack/index.js"`；`packages/adapters/package.json` 加 `"./slack/index.js"` export 映射 | |
 | 3 | apps/api 编排层 `channel-{inbound,outbound,outbound-media,media}.ts` 移除已搬走的 Slack 函数，改 `import` 自 `@butler/adapters/slack/index.js`；保留 `deliverSlackChannelReply` / `slackBotToken` / `slackOutboundEnabled` 等编排代码在 apps/api | 编排 ≠ 协议；`deliverSlackChannelReply` 调 `sendSlackOutboundMessage` + `sendSlackOutboundFile`，留在编排层 |
 | 4 | `routes.ts` / `channel-{inbound,outbound,media}.test.ts` 更新 import 路径 | 5 gate 必须不抛（function 逻辑不变） |

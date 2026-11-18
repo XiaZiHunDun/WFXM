@@ -3,7 +3,7 @@
 > **状态**：Accepted（2026-08-26）  
 > **决策者**：Owner  
 > **范围**：Butler v5 微信入站 · dev_task / dev_session / continue_dev 的执行路径  
-> **关联**：[`butler-v5/DESIGN.md`](../../../butler-v5/DESIGN.md) §6 · [`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md) · [`v5-wechat-product-test-harness-2026-08.md`](v5-wechat-product-test-harness-2026-08.md)
+> **关联**：[`DESIGN.md`](../../../DESIGN.md) §6 · [`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md) · [`v5-wechat-product-test-harness-2026-08.md`](v5-wechat-product-test-harness-2026-08.md)
 
 ---
 
@@ -60,7 +60,7 @@
 - Exec 工具**仅**在 Child Run 内、经 Grant + Policy 执行；
 - MiniMax 缺 key 时 exec **fallback 到 plan**（降级行为，须在 trace 标注 `exec-fallback:plan`）。
 
-**DeepSeek V4 Flash**：API model id 以 `butler-v5/.env.example` + 本 ADR 附录为准；不得硬编码别名 `deepseek-chat` 为「正式版 Flash」而不文档化。
+**DeepSeek V4 Flash**：API model id 以 `.env.example` + 本 ADR 附录为准；不得硬编码别名 `deepseek-chat` 为「正式版 Flash」而不文档化。
 
 ---
 

@@ -2,7 +2,7 @@
 
 > **状态**：Current  
 > **用途**：描述正在接收真实流量的实现，不描述未接线的目标架构  
-> **目标架构**：[`../../butler-v5/DESIGN.md`](../../butler-v5/DESIGN.md)
+> **目标架构**：[`../../DESIGN.md`](../../DESIGN.md)
 > **产品边界**：[`v5-product-boundaries-2026-08.md`](../plans/decisions/v5-product-boundaries-2026-08.md)  
 > **部署与历史交接**：[`v5-r10-handoff.md`](v5-r10-handoff.md)
 
@@ -45,7 +45,7 @@ P0–P2 迁移已落地；P1.0–P1.4 治理链路已接入生产：`RunEngine` 
 
 ## 2. 进程与入口
 
-`butler-v5/cli/src/index.ts` 的 `butler start`：
+`cli/src/index.ts` 的 `butler start`：
 
 1. 动态加载 `@butler/api`；
 2. 启动 Hono HTTP；
@@ -58,8 +58,8 @@ P0–P2 迁移已落地；P1.0–P1.4 治理链路已接入生产：`RunEngine` 
 - HTTP：`PORT=3000`；
 - WebSocket：**opt-in**（`BUTLER_V5_SUBAGENT_ENABLED=1`）；由 `WS_PORT` 配置，默认 3001，绑定 loopback；
 - PostgreSQL 与 wechat mock：Docker Compose；
-- 凭证：`~/.config/butler-v5/env`；
-- 工作目录：`butler-v5/`。
+- 凭证：`~/.config/env`；
+- 工作目录：``。
 
 ## 3. 微信主路径
 
@@ -316,21 +316,21 @@ Harness：`apps/api/src/p4-acceptance.harness.test.ts`（不启 iLink / Web UI�
 
 `butler-v5-gateway.service` 中已注释 `ExecStartPre=…sandbox-preflight.sh`；启用 bubblewrap 沙箱时取消注释，避免 gateway 在无 `bwrap` 时启动后静默拒绝命令。
 
-环境变量 SSOT：`butler-v5/.env.example`（`BUTLER_V5_SANDBOX`、`BUTLER_V5_WORKSPACE_ROOT`）。
+环境变量 SSOT：`.env.example`（`BUTLER_V5_SANDBOX`、`BUTLER_V5_WORKSPACE_ROOT`）。
 
 运维 preflight（生产建议在 systemd 启用）：
 
 ```bash
 # CLI
-cd butler-v5 && pnpm exec tsx cli/src/index.ts sandbox-preflight
+pnpm exec tsx cli/src/index.ts sandbox-preflight
 
 # 或 cutover 脚本（供 ExecStartPre）
-butler-v5/scripts/cutover/butler-v5-sandbox-preflight.sh
+scripts/cutover/butler-v5-sandbox-preflight.sh
 ```
 
 `butler-v5-gateway.service` 中已注释 `ExecStartPre=…sandbox-preflight.sh`；启用 bubblewrap 沙箱时取消注释，避免 gateway 在无 `bwrap` 时启动后静默拒绝命令。
 
-环境变量 SSOT：`butler-v5/.env.example`（`BUTLER_V5_SANDBOX`、`BUTLER_V5_WORKSPACE_ROOT`）。
+环境变量 SSOT：`.env.example`（`BUTLER_V5_SANDBOX`、`BUTLER_V5_WORKSPACE_ROOT`）。
 
 ---
 

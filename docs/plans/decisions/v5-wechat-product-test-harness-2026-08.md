@@ -63,7 +63,7 @@ T5  Channel        smoke:ilink + 真机 1 条 ping
 
 ## 5. T1 — Golden 语料
 
-**文件 SSOT**：[`butler-v5/config/wechat-intake-corpus.json`](../../../butler-v5/config/wechat-intake-corpus.json)
+**文件 SSOT**：[`config/wechat-intake-corpus.json`](../../../config/wechat-intake-corpus.json)
 
 **条目 schema**：
 

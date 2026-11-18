@@ -3,15 +3,15 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g., v5.0.1)'
+        description: "Tag to release (e.g., v5.0.1)"
         required: true
         type: string
       dry_run:
-        description: 'Dry run (no push)'
+        description: "Dry run (no push)"
         type: boolean
         default: false
 
@@ -81,7 +81,7 @@ jobs:
         id: digest
         uses: docker/build-push-action@v6
         with:
-          context: butler-v5
+          context: .
           platforms: ${{ matrix.platform }}
           push: ${{ !inputs.dry_run }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -107,7 +107,7 @@ jobs:
       - name: Cosign keyless sign
         if: ${{ !inputs.dry_run }}
         env:
-          COSIGN_EXPERIMENTAL: '1'
+          COSIGN_EXPERIMENTAL: "1"
         run: |
           IMAGE="ghcr.io/xiazihundun/wfxm@${{ steps.digest.outputs.digest }}"
           echo "Signing $IMAGE"

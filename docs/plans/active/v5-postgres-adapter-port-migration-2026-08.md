@@ -66,13 +66,13 @@ R11.2 grep 实证零生产引用：
 - `ProjectService` / `MemoryService`（含 `dream` —— DESIGN §12 明文"当前不建设"）
 - `WorkflowService`（DESIGN §2 "不为未来规模预建通用 Workflow DAG"）
 
-归档前再跑一次 `grep -RIn '@butler/ports' butler-v5/{packages,apps,cli}` 确认零命中再删。
+归档前再跑一次 `grep -RIn '@butler/ports' {packages,apps,cli}` 确认零命中再删。
 
 ## 4. 实施阶段
 
 ### Phase 1 — Inventory（**本班已完成**）
 
-`grep -RInE 'LLMService|ToolExecutor|EventStoreService|OutboxService|SnapshotService|ProjectionService|Config'` 在 `butler-v5/{packages,apps,cli}` 拿到 5 处命中（§3.1）。
+`grep -RInE 'LLMService|ToolExecutor|EventStoreService|OutboxService|SnapshotService|ProjectionService|Config'` 在 `{packages,apps,cli}` 拿到 5 处命中（§3.1）。
 
 ### Phase 2 — 新增 Core Ports（TDD）
 
@@ -108,7 +108,7 @@ R11.2 grep 实证零生产引用：
 ### Phase 5 — 验证
 
 ```bash
-cd butler-v5
+
 CI= pnpm typecheck
 CI= pnpm lint
 CI= pnpm test            # 期望 ≥1004 pass / 1 skip / 0 fail（基线 +9 新测试）
@@ -118,7 +118,7 @@ CI= pnpm test:archived   # 19 文件 83 测试不回归
 ### Phase 6 — 文档同步
 
 - `packages/ports/port-catalog.md`：§2 删除整个 R2 迁移看板；§1 加 outbox/snapshot/projection 物化条目
-- `butler-v5/DESIGN.md` §7.1 状态表新增 3 行（outbox ✅ / snapshot ✅ / projection ✅），R2 总线行改"已归档 2026-08-XX"
+- `DESIGN.md` §7.1 状态表新增 3 行（outbox ✅ / snapshot ✅ / projection ✅），R2 总线行改"已归档 2026-08-XX"
 - `tests/architecture/package-membership.test.ts` 第 (4) 测试改写：移走期望变为"不存在 → 0 match"，但**保留测试作 reminder** 待真正删 Tag 时再删测试
 - `.blackboard/state.md` 顶部段 + "## 上一班" 增加 R12 班段
 
@@ -126,7 +126,7 @@ CI= pnpm test:archived   # 19 文件 83 测试不回归
 
 operator 在非 AI 沙箱的 terminal 跑：
 ```bash
-cd butler-v5 && CI= pnpm test
+CI= pnpm test
 pnpm smoke:allowlist-owner         # 真实 postgres 调一遍 owner 路径
 ```
 

@@ -27,7 +27,7 @@
 
 ## §2 已闭环 D-series 架构锁定
 
-来源：[`butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) §3/§5/§6/§7/§10/§11/§12/§13/§17/§18/§20；D22-D38 全部 ✅，§14 13/14 first-class。
+来源：[`DESIGN.md`](../DESIGN.md) §3/§5/§6/§7/§10/§11/§12/§13/§17/§18/§20；D22-D38 全部 ✅，§14 13/14 first-class。
 
 | § | 内容 | 状态 |
 |---|------|------|
@@ -107,7 +107,7 @@
 | D-series 历史 raw findings | `.audit/Dxx/raw-findings.json` |
 | D-series 累计 ship 详情 | `MEMORY.md` "Recent Sessions" 段 |
 | v5 产品路线（P0-P4） | [`v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) |
-| v5 目标架构 | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) |
+| v5 目标架构 | [`../DESIGN.md`](../DESIGN.md) |
 | v5 生产事实 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) |
 | owner FAQ | [`FAQ.md`](FAQ.md) |
 | 视觉架构图 | [`architecture/v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) |

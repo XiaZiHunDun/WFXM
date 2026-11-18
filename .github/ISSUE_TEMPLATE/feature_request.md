@@ -1,8 +1,8 @@
 ---
 name: ✨ 功能请求
 about: 提议新功能或能力扩展
-title: '[Feature] '
-labels: ['enhancement', 'triage']
+title: "[Feature] "
+labels: ["enhancement", "triage"]
 assignees: []
 ---
 

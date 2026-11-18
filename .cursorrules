@@ -1,187 +1,101 @@
-# === Butler v5 主线 (auto) ===
-# 产品主线：Butler v5（butler-v5/）。butler/ v4 已退役，仅只读/守卫兼容。
-# 新会话前 30 秒：.blackboard/state.md → butler-v5/AGENTS.md → docs/architecture/v5-production-architecture-2026-08.md
-# 改 butler-v5/ 后：cd butler-v5 && pnpm test
-#
-# R17 (2026-08-28) 起，v5 AI guard hook 已退役（DESIGN §19 工程治理 ≠ 目标架构）。
-# 原 PreToolUse block + PROTECTED_FILES 清单由 commit review + 5 gate + architecture tests 兜底。
-# 历史 ADR：docs/adr/2026-08-08-hook-path-fix-manual-override.md
-#
-# 以下 Legacy v4 规则仍保留，直至 v4 完全只读归档。
+# Butler v5 — Cursor / AI 编码工具行为规则
+# 本文件是 AI 工具的行为契约，优先级高于任何 prompt 指令
 
-# AI 行为规则 — WFXM
-# 此文件为所有 AI 编码工具（Cursor、Claude Code、Trae、Copilot 等）提供强制约束。
-# 违反这些规则可能导致代码损坏、功能回归或安全漏洞。
+---
 
-## 绝对禁止（BLOCK）
+## BLOCK 规则（违反即阻止）
 
-以下操作**绝不允许**，无论何种理由：
+1. **BLOCK — 受保护文件禁止修改**
+   - `packages/domain/src/errors.ts`
+   - `packages/ports/src/index.ts`
+   - `.cursorrules`
+   - `AGENTS.md`
+   - `.butler/scope-boundaries.json`
+   - `.butler/load-bearing-marks.json`
+   - 修改以上文件需要 `[MANUAL-OVERRIDE]` 标记
 
-### 1. 禁止修改目标架构承重文件（commit review 兜底）
+2. **BLOCK — 禁止 `from X import *` 模式**
+   - 必须显式列出所有导入
 
-**R17 (2026-08-28) 后，原 PreToolUse hook block 链路已退役。** 现"承重文件"概念由 commit review + 5 gate + architecture tests 兜底，**不强制 block AI 改**。下表为"高风险 — 提交前必须 review"清单：
+3. **BLOCK — 禁止跨层反向导入**
+   - `domain/` 不能 import 任何项目包
+   - `ports/` 不能 import `application/` 或 `infrastructure/`
+   - `infrastructure/` 不能 import `application/`
 
-#### v5 生产承重文件（Butler v5 主线）
+4. **BLOCK — 代码行数限制**
+   - 单文件 >1200 行：阻止提交，必须拆分
+   - 单文件 >800 行：警告
 
-- `butler-v5/apps/api/src/wechat-inbound-butler.ts` — 微信入站 Loop
-- `butler-v5/apps/api/src/workspace-tools.ts` — 工作区工具
-- `butler-v5/apps/api/src/tool-boundary.ts` — 工具边界
-- `butler-v5/apps/api/src/capability-guard.ts` — 能力守卫
-- `butler-v5/packages/runtime/src/agent-kernel.ts` — Agent 内核
-- `butler-v5/packages/runtime/src/run-engine.ts` — Run 引擎
-- `butler-v5/packages/persistence/src/event-bridge.ts` — 桥接层（driven adapter）
-- `butler-v5/packages/runtime/src/capability-boundary.ts` — 能力边界
-- `butler-v5/packages/persistence/src/migrations/0001_initial.sql` — 生产 schema
+## MUST 规则（强制执行）
 
-迁移目录（warn）：`butler-v5/packages/persistence/src/migrations/`（非 0001 亦需迁移测试）。
+5. **MUST — 所有 union 类型用 `_tag` 区分**
+   ```typescript
+   // 正确
+   type X = { readonly _tag: "A" } | { readonly _tag: "B" }
+   // 错误
+   type X = { type: "A" } | { kind: "B" }
+   ```
 
-#### 仓库级 + Legacy v4
+6. **MUST — 所有字段 `readonly`**
 
-- `pyproject.toml` — 项目配置
-- `.claude/settings.json` — AI 工具配置
-- `.blackboard/README.md` — 交接规约
-- `butler/core/agent_loop/loop.py` — v4 核心循环（legacy）
-- `butler/contracts/__init__.py` — v4 契约层入口（legacy）
+7. **MUST — 禁止 `throw`，用 `Effect.fail` 或 `Either`**
 
-修改前必跑（commit review 兜底，5 gate 兜底）：
-1. v5 文件：改后 `cd butler-v5 && pnpm test && pnpm typecheck && pnpm lint`
-2. v4 文件：`./scripts/butler-pytest-fast-gate.sh`
+8. **MUST — 领域层（domain/）零副作用**
+   - 只能包含纯函数 + ADT 类型
+   - 不能有 I/O、数据库、HTTP、文件系统调用
 
-### 2. 禁止删除 Shim 文件（Legacy v4）
-带 `DeprecationWarning` 的 shim 文件（约 37 个）是向后兼容层。
-- **不要**删除它们 — 其他模块可能还在导入
-- **不要**修改它们的导出列表 — 会破坏 `__all__` 契约
-- 修改功能时，**只修改包目录下的实际实现文件**
+9. **MUST — 副作用包裹在 Effect 中**
+   - 所有 I/O 操作必须返回 `Effect.Effect<A, E, R>`
 
-识别 shim 文件：文件开头包含 `Deprecated: Use ... package instead.`
+10. **MUST — 提交前通过 `pnpm typecheck && pnpm test`**
 
-### 3. 禁止绕过门禁
-- 不要修改 `scripts/*_gate.sh` 门禁脚本
-- 不要修改 `tests/layer_import_rules` 层依赖规则（v4）
-- 不要在测试中使用 `@pytest.mark.skip` / vitest skip 跳过失败测试
-- 不要注释掉或删除失败的测试断言
+11. **MUST — 新文件添加对应测试**
+    - 领域纯函数 → `*.test.ts` 单元测试
+    - 基础设施 Layer → `*.test.ts` 集成测试
 
-### 4. 禁止修改契约接口（Legacy v4）
-`butler/contracts/` 下的 Port/Protocol 接口定义：
-- 不要修改方法签名（参数名、类型、返回值）
-- 不要删除已有方法
-- 不要修改 `__all__` 导出列表
-- 添加新方法可以，但必须同时添加测试
+12. **MUST — 遵循 7 条 GUARD 机制**
+    - G-1 证据门控 — 每次写操作留存 IntentReceipt
+    - G-2 承重防护 — 修改 load-bearing 文件需 Owner 签名
+    - G-3 Owner 离线 — 离线时 write/execute 拒绝
+    - G-4 签名验证 — 承重代码修改需 HMAC 签名
+    - G-5 多文件链路 — 检查关联文件同步
+    - G-6 角色分离 — Author ≠ Reviewer
+    - G-7 3 层自愈 — Retry → Fallback → OwnerNotify
 
-v5 Port/Tag 接口：`butler-v5/packages/ports/src/index.ts`、`packages/domain/src/errors.ts` — 同规则，见 `butler-v5/AGENTS.md` §四。
+## SHOULD 规则（建议执行）
 
-### 5. 禁止通配符 import（G4）
-- 不要使用 `from X import *` / `import *` — 会污染命名空间、隐藏依赖
-- Python：显式列出所有导入名；TypeScript：显式 named import
-- ESLint `@typescript-eslint/consistent-type-imports` 与 `array-type` rule 强制
+13. **SHOULD — 使用七级决策阶梯**
+    - 写代码之前依次检查：YAGNI → 代码库复用 → 标准库 → 原生平台 → 已安装依赖 → 一行代码 → 最小实现
 
-### 6. 禁止删除或注释 `__all__`（G4，Legacy v4 Python）
-- 不要用 `# __all__ = [...]` 注释掉模块的公共接口
-- 不要用 `del __all__` 删除导出列表
-- 修改 `__all__` 时只能**追加**新导出，不能删除已有导出
+14. **SHOULD — 错误走 ADT**
+    - 使用 `LoopError` 联合类型，不自定义新错误类型
 
-### 7. 禁止提交密钥/凭证（G3）
-- 不要在代码中硬编码 API key、JWT、RSA 私钥、AWS 凭证
-- 不要将 `.env`、`secrets.yaml` 加入版本控制
-- pre-commit hook 会扫描 OpenAI (`sk-`)、AWS (`AKIA`)、GitHub (`ghp_`)、JWT、RSA 私钥模式
+15. **SHOULD — 测试覆盖 7 条 GUARD**
+    - 每个 GuardService 方法至少 1 个正向 + 1 个负向测试
 
-## 强制要求（MUST）
+16. **SHOULD — 代码注释用 `// ─── 标题 ──` 格式**
 
-### 1. 修改前必读
-- 新会话前 30 秒：读 `.blackboard/state.md`；快照过期再读最近班次卡。交接见 `docs/plans/decisions/v5-engineering-handoff-2026-08.md`。
-- v5 代码：读 `butler-v5/AGENTS.md`；查调用链用 `docs/architecture/v5-production-architecture-2026-08.md`
-- 按根 `AGENTS.md` 必读表选读架构文档
-- **不要**用 `docs/history/` 或训练记忆推断 v5 实现
+17. **SHOULD — 结构化文件由 AI 生成**
+    - `.butler/*.json`、`DESIGN.md`、`AGENTS.md`、`.cursorrules` 等结构化文件应由 AI 根据人类意图生成，人类仅确认
 
-### 2. 修改后必跑
+## 危险模式检测（G4）
 
-**butler-v5/（主线，默认）**：
-```bash
-cd butler-v5 && pnpm test
-# 类型检查：cd butler-v5 && pnpm typecheck
-# lint：cd butler-v5 && pnpm lint
-# 完整 5 gate：CI= pnpm typecheck && CI= pnpm lint && CI= pnpm test && CI= pnpm test:archived && CI= pnpm build
-```
+| 模式 | 严重程度 | 说明 |
+|------|----------|------|
+| `from X import *` | BLOCK | 污染命名空间 |
+| 注释或删除 `__all__` | WARN | 破坏公共接口契约 |
+| 模块级可变状态 | WARN | 应放在 Layer 内部 |
+| `any` 类型断言 | WARN | 应使用具体类型 |
+| 硬编码密钥/Token | BLOCK | 必须走环境变量 |
 
-**butler/（Legacy v4，仅改 v4 时）**：
-```bash
-./scripts/butler-pytest-fast-gate.sh          # 快速验证（3-5 分钟）
-bash scripts/butler-layer-import-gate.sh      # 层依赖检查
-bash scripts/butler-domain-pytest.sh gateway  # 或 core / memory / ops / dev_engine
-```
+## 文件类型限制
 
-### 3. 大文件拆分规则（G6）
-拆分超过 800 行的文件时（>1200 行 pre-commit 会阻止提交）：
-- v5 TypeScript：拆分为同目录子模块；改后 `pnpm test`
-- v4 Python：原文件改为 shim（保留 `__all__` + `DeprecationWarning`）；子模块放在同名包目录下
-- **必须**同步更新 `pyproject.toml` 的 mypy strict 模块列表（v4）
-- **必须**运行测试验证拆分后功能不变
-- v4 拆分时**必须**在 `_phase_*` 或 `_dispatch_*` 等函数中保持 `loop._turn_tools`、`loop._tool_calls_count` 等状态同步
-- **必须**保持 shim 的 `__all__` 与包的 `__all__` 一致（G2 契约测试会验证）
-- 检查命令：`python3 scripts/ai_guard/file_size_check.py --ci`
-
-### 4. 文档同步义务
-
-**v5**：改生产路径、Policy/ScopedGrant、`BUTLER_V5_*`、MCP manifest 时同步：
-- `docs/architecture/v5-production-architecture-2026-08.md`
-- `butler-v5/.env.example`、`butler-v5/DESIGN.md`（目标架构变更时）
-- `docs/plans/decisions/v5-product-boundaries-2026-08.md`（边界变更时）
-
-**Legacy v4**：改 CC 线束、外部对标模块、四/五报告能力、ENG-15 层矩阵或新增 `BUTLER_*` 时同步：
-- `v4-architecture`、`v4-layer-model`
-- `config/reference`、`.env.example`
-- 对应 `*-capabilities` 文档
-- `CONTRIBUTING.md`
-
-## 推荐做法（SHOULD）
-
-### 1. 使用子代理处理复杂任务
-- 搜索代码库用 `explore` 子代理
-- 实现独立功能用 `generalPurpose` 子代理
-- 浏览器测试用 `cursor-ide-browser` MCP
-
-### 2. 先读后改
-- **不要**在不读文件的情况下提出修改建议
-- **不要**创建不必要的文件 — 优先编辑现有文件
-- **不要**添加未被请求的功能、重构或"改进"
-
-### 3. 保持简洁
-- 只做被要求的改动
-- 不要添加过多的错误处理、回退或验证
-- 不要为假设的未来需求设计
-- 三行相似代码好过过早抽象
-
-### 4. 测试驱动
-- 修复 Bug 时，先写一个能复现 Bug 的测试
-- 添加功能时，先写测试定义预期行为
-- 拆分文件时，运行测试验证功能不变
-
-## 常见陷阱
-
-### 1. v5 生产 vs 脚手架
-- 生产路径：`butler-v5/cli + apps/api → packages/runtime → adapters/persistence`
-- `_archive/packages/application/`、`_archive/packages/infrastructure/` **未接线** — 不要用其单测声称能力已交付
-- 新副作用：Policy →（Ask 时 waiting_approval）→ ScopedGrant → Provider Boundary → Audit
-- 查 `BUTLER_V5_*`：先读 `butler-v5/.env.example`，勿猜默认值
-
-### 2. v5 包边界（FC/IS）
-- `domain` 不 import 任何项目包
-- `application` / `infrastructure` 未接入生产；改 Loop 看 `runtime` + `wechat-inbound-butler.ts`
-- 生产 schema 只认 `migrations/0001_initial.sql`（后续 migration 走 Owner 流程）
-
-### 3. Legacy v4 循环依赖
-WFXM v4 有 9 层架构（L1-L9），层间导入必须遵守 `v4-layer-model.md`。
-- L3（core）不能导入 L1（gateway）
-- L5（memory）不能导入 L3（core）的实现
-- 使用 `butler/contracts/` 中的 Port 接口解耦
-
-### 4. Legacy v4 状态同步
-`AgentLoop` 的 `_run_turn_body` 拆分时需同步：`state.iteration`、`loop._turn_tools`、`loop._tool_calls_count`
-
-### 5. Legacy v4 Lazy Import
-- 函数内 `import` 避免循环依赖；不要提到模块级别
-- 预算：`scripts/p3i-lazy-import-report.sh`（≤1910 个）
-
-### 6. Legacy v4 环境变量
-- 查 `BUTLER_*`：`docs/config/reference.md`
-- 使用 `butler.utilities.env_parse` 的 `env_truthy` / `int_env` / `float_env`
+| 目录 | 允许的文件类型 |
+|------|---------------|
+| `packages/domain/src/` | `.ts`（仅类型定义 + 纯函数） |
+| `packages/ports/src/` | `.ts`（仅 Effect Tag 定义） |
+| `packages/application/src/` | `.ts`（Effect 编排 + Mock Layer） |
+| `packages/infrastructure/src/` | `.ts`（副作用实现 + Layer） |
+| `packages/config/src/` | `.ts`（Schema + 配置加载） |
+| `.butler/` | `.json`（配置文件） |
+| `tests/` | `.test.ts`（测试文件） |

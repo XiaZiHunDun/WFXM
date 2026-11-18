@@ -17,8 +17,8 @@ v5 生产曾 **硬依赖** `~/.butler/` 中 2 项；**2026-08-24 已迁移入仓
 
 | 依赖 | 原路径 | 现状 |
 | --- | --- | --- |
-| Todoist MCP OpenAPI spec | `~/.butler/openapi/todoist-v1-readonly.yml` | ✅ `butler-v5/config/openapi/` + manifest 相对路径 |
-| Subagent 审计 JSONL | `~/.butler/audit/subagent-r8x9.jsonl` | ✅ 默认 `~/.config/butler-v5/audit/subagent.jsonl` |
+| Todoist MCP OpenAPI spec | `~/.butler/openapi/todoist-v1-readonly.yml` | ✅ `config/openapi/` + manifest 相对路径 |
+| Subagent 审计 JSONL | `~/.butler/audit/subagent-r8x9.jsonl` | ✅ 默认 `~/.config/audit/subagent.jsonl` |
 
 D1 可行路径：**备份 → 删 v4 遗留子树**；§3 两项完成后不再阻断整目录删除（仍建议分块删 + smoke）。
 
@@ -40,7 +40,7 @@ D1 可行路径：**备份 → 删 v4 遗留子树**；§3 两项完成后不再
 | `gateway_outbox/` | 1.3 MB | v4 出站队列 |
 | `openapi/` | 72 KB | **v5 MCP 依赖**（todoist/github spec） |
 | `butler.db` | 52 KB | v4 SQLite 残留 |
-| `secrets.yaml` | 172 B | v4 凭证；**v5 凭证已在** `~/.config/butler-v5/env` |
+| `secrets.yaml` | 172 B | v4 凭证；**v5 凭证已在** `~/.config/env` |
 
 **不在 D1 范围**（勿与 `~/.butler` 混淆）：
 
@@ -48,8 +48,8 @@ D1 可行路径：**备份 → 删 v4 遗留子树**；§3 两项完成后不再
 | --- | ---: | --- |
 | `WFXM/.butler/` | 388 KB | 仓库内示例/报告；ilink-media 缓存应在 `WFXM/.butler/ilink-media`（workspace 相对） |
 | `projects/LingWen1/.butler/` | — | 项目级 runtime（skills/ingest 等） |
-| `butler-v5/.butler/` | — | v5 开发守卫（scope-boundaries 等） |
-| `~/.config/butler-v5/` | — | **v5 生产配置 SSOT**（env、ilink-sync.json） |
+| `.butler/` | — | v5 开发守卫（scope-boundaries 等） |
+| `~/.config/` | — | **v5 生产配置 SSOT**（env、ilink-sync.json） |
 
 **未使用**：`~/.butler/v5-data/` 不存在（生产 Postgres，非 PGlite 默认目录）。
 
@@ -60,9 +60,9 @@ D1 可行路径：**备份 → 删 v4 遗留子树**；§3 两项完成后不再
 ### 3.1 Todoist MCP OpenAPI（P0 阻断） — **Done 2026-08-24**
 
 ```text
-butler-v5/config/mcp-manifest.json
+config/mcp-manifest.json
   → --openapi-spec openapi/todoist-v1-readonly.yml (relative to manifest dir)
-  → butler-v5/config/openapi/todoist-v1-readonly.yml
+  → config/openapi/todoist-v1-readonly.yml
 ```
 
 - Spec 已入仓；`resolveManifestStdioArgs` 在 bootstrap 时解析相对路径。
@@ -72,7 +72,7 @@ butler-v5/config/mcp-manifest.json
 
 ```text
 apps/api/src/audit-service.ts → audit-log.ts
-  → ~/.config/butler-v5/audit/subagent.jsonl
+  → ~/.config/audit/subagent.jsonl
   → override: BUTLER_V5_SUBAGENT_AUDIT_PATH
 ```
 
@@ -84,10 +84,10 @@ apps/api/src/audit-service.ts → audit-log.ts
 | 能力 | 实际路径 |
 | --- | --- |
 | 主数据库 | Docker Postgres `butler_v5` |
-| iLink sync_buf | `~/.config/butler-v5/ilink-sync.json` |
+| iLink sync_buf | `~/.config/ilink-sync.json` |
 | 微信媒体缓存 | `{BUTLER_V5_WORKSPACE_ROOT}/.butler/ilink-media` |
-| MCP 凭证 | `~/.config/butler-v5/env`（非 secrets.yaml） |
-| Project Knowledge | Postgres + `butler-v5/config/` |
+| MCP 凭证 | `~/.config/env`（非 secrets.yaml） |
+| Project Knowledge | Postgres + `config/` |
 
 ---
 
@@ -135,7 +135,7 @@ v4 相关 `scripts/butler-*-preflight.sh` 仍默认读 `~/.butler/mcp.yaml` / `s
 
 ## 6. `migration/v4-to-v5` 包
 
-- 位置：`butler-v5/packages/infrastructure/src/migration/v4-to-v5.ts`
+- 位置：`packages/infrastructure/src/migration/v4-to-v5.ts`
 - 现状：**stub**（返回空数组），无实际从 `~/.butler` 抽数逻辑。
 - D1 含义：删除 `~/.butler` **不丢 v5 已迁移数据**（已在 Postgres）；仅丢 v4 历史会话/记忆文件副本。
 - 若 Owner 要保留 v4 memory 文本：D1 前从 `tenants/default/memory/` 导出归档，**非**跑 stub migration。
@@ -179,7 +179,7 @@ T+1（同日完成）
 | # | 任务 | 估时 | 阻断删除 | 状态 |
 | --- | --- | --- | --- | --- |
 | 1 | Todoist OpenAPI spec 入仓 + manifest 改路径 | 30 min | **是** | ✅ 2026-08-24 |
-| 2 | audit JSONL 路径迁 `~/.config/butler-v5/` 或停写 | 1 h | **是** | ✅ 2026-08-24 |
+| 2 | audit JSONL 路径迁 `~/.config/` 或停写 | 1 h | **是** | ✅ 2026-08-24 |
 | 3 | disable v4 systemd（morning-brief / b9 / push-drain） | 15 min | 否 | ✅ 2026-08-25 |
 | 4 | 备份 tar + 记录 checksum | 15 min | 否 | ✅ 2026-08-25 |
 | 5 | （可选）导出 `tenants/default/memory/` 只读归档 | 30 min | 否 | ✅ 2026-08-25 |

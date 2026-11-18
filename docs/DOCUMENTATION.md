@@ -1,7 +1,7 @@
 # Butler 文档体系与维护说明
 
 > **更新**：2026-11-18 | **读者**：Owner、Cursor / Claude Code / Codex 等异构 Agent、贡献者
-> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) → 本文（按需）
+> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../DESIGN.md`](../DESIGN.md) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) → 本文（按需）
 > **工程交接**：规约 [`plans/decisions/v5-engineering-handoff-2026-08.md`](plans/decisions/v5-engineering-handoff-2026-08.md)
 >
 > **与 [`README.md`](README.md) 的关系**：本文是**手册**（分层 / 维护规则 / 索引结构 / 变更记录）；[`README.md`](README.md) 是**卡片**（「我要…」问答快速链接表）。
@@ -12,10 +12,10 @@
 
 ```text
 L0  Agent 入口          AGENTS.md、.cursor/rules/
-L1  目标架构            butler-v5/DESIGN.md
+L1  目标架构            DESIGN.md
 L2  当前实现事实        docs/architecture/wfxm-agent-runtime.html、
                         docs/architecture/v5-production-architecture-2026-08.md、
-                        butler-v5/.env.example
+                        .env.example
 L3  决策与路线          docs/plans/、docs/ROADMAP.md、docs/FAQ.md
 L4  运维与配置          docs/deployment/、docs/ENV.md
 ```
@@ -23,10 +23,10 @@ L4  运维与配置          docs/deployment/、docs/ENV.md
 | 层级 | 典型路径 | 用途 |
 | --- | --- | --- |
 | **L0 入口** | `AGENTS.md` | 新会话必读索引、v5 事实规则、撞点流程 |
-| **L1 目标架构** | `butler-v5/DESIGN.md` | 务实模块化单体：Intake / Run Engine / Governance、混合数据、ScopedGrant、两条扩展接缝 |
+| **L1 目标架构** | `DESIGN.md` | 务实模块化单体：Intake / Run Engine / Governance、混合数据、ScopedGrant、两条扩展接缝 |
 | **L2 当前实现** | `docs/architecture/wfxm-agent-runtime.html` | 当前实现全景、分层测试 L1–L4 与第一阶段验收结论 |
 | **L2 当前架构** | `docs/architecture/v5-production-architecture-2026-08.md` | 当前生产调用链、包与数据边界 |
-| **L2 配置** | `butler-v5/.env.example` | v5 环境变量示例 |
+| **L2 配置** | `.env.example` | v5 环境变量示例 |
 | **L3 决策** | `docs/plans/decisions/v5-product-boundaries-2026-08.md` | 硬边界、条件准入、按需立项 |
 | **L3 路线** | `docs/plans/active/v5-post-boundary-roadmap-2026-08.md` · `docs/ROADMAP.md` | P0–P4 顺序与 D-series 累计 |
 | **L3 FAQ** | `docs/FAQ.md` | owner 视角的节奏、审计与取舍 |
@@ -43,7 +43,7 @@ L4  运维与配置          docs/deployment/、docs/ENV.md
 
 | 文档 | 状态 |
 | --- | --- |
-| [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) | **v5 目标架构 SSOT（必读）** |
+| [`../DESIGN.md`](../DESIGN.md) | **v5 目标架构 SSOT（必读）** |
 | [`v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产架构（必读）** |
 | [`wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) | **当前实现全景与第一阶段验收（必读）** |
 | [`v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) | 视觉架构图（Mermaid） |
@@ -70,16 +70,16 @@ L4  运维与配置          docs/deployment/、docs/ENV.md
 
 ### 2.5 根层配置与梳理文档
 
-- [`ENV.md`](ENV.md)：v5 `BUTLER_V5_*` 环境变量总表；示例见 [`../butler-v5/.env.example`](../butler-v5/.env.example)
+- [`ENV.md`](ENV.md)：v5 `BUTLER_V5_*` 环境变量总表；示例见 [`../.env.example`](../.env.example)
 
 ---
 
 ## 3. 维护规则（改代码 / 改文档时）
 
-### 3.1 改 `butler-v5/` 代码
+### 3.1 改 `` 代码
 
-1. 架构或调用链变化 → 更新 [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)；目标架构变化才改 [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md)
-2. 新增环境变量 → [`../butler-v5/.env.example`](../butler-v5/.env.example) + [`ENV.md`](ENV.md)
+1. 架构或调用链变化 → 更新 [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)；目标架构变化才改 [`../DESIGN.md`](../DESIGN.md)
+2. 新增环境变量 → [`../.env.example`](../.env.example) + [`ENV.md`](ENV.md)
 3. 测试增减 → [`TESTS.md`](TESTS.md)
 4. 新能力 / 新接入 → 先过 [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md)
 5. 工程约束 / 受保护文件 → [`GOVERNANCE.md`](GOVERNANCE.md)

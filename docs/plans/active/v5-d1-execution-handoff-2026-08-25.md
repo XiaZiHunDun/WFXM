@@ -11,8 +11,8 @@
 
 | # | 任务 | 完成日 | 证据 |
 | --- | --- | --- | --- |
-| 1 | Todoist OpenAPI spec 入仓 + manifest 相对路径 | 2026-08-24 | `butler-v5/config/openapi/todoist-v1-readonly.yml`；commit `94c8f06b` |
-| 2 | Subagent audit 迁 `~/.config/butler-v5/audit/subagent.jsonl` | 2026-08-24 | `BUTLER_V5_SUBAGENT_AUDIT_PATH`；`audit-log.ts` |
+| 1 | Todoist OpenAPI spec 入仓 + manifest 相对路径 | 2026-08-24 | `config/openapi/todoist-v1-readonly.yml`；commit `94c8f06b` |
+| 2 | Subagent audit 迁 `~/.config/audit/subagent.jsonl` | 2026-08-24 | `BUTLER_V5_SUBAGENT_AUDIT_PATH`；`audit-log.ts` |
 | 3 | v4 systemd stop/disable（morning-brief / push-drain / b9） | 2026-08-25 | 三单元已 inactive；v5 gateway 仍 active |
 | 4 | 全量 tar 备份 `~/.butler` | 2026-08-25 | `~/backup-butler-home-20260825.tgz`（12 MB） |
 | 5 | v4 memory 只读归档 | 2026-08-25 | `~/backup-butler-v4-memory-20260825.tgz`（694 KB） |
@@ -67,12 +67,12 @@ sha256sum -c ~/backup-butler-v4-memory-20260825.tgz.sha256
 
 | 路径 | 原因 |
 | --- | --- |
-| `~/.config/butler-v5/` | v5 生产 env、ilink-sync、**新** audit JSONL |
+| `~/.config/` | v5 生产 env、ilink-sync、**新** audit JSONL |
 | `~/backup-butler-home-20260825.tgz` | 全量回滚 |
 | `~/backup-butler-v4-memory-20260825.tgz` | memory 只读归档 |
 | `{WFXM}/.butler/ilink-media/` | 微信媒体缓存（workspace 相对） |
 | `{WFXM}/.butler/` 其他 | 仓库内示例/报告（非 home） |
-| `{WFXM}/butler-v5/.butler/` | v5 开发守卫 |
+| `{WFXM}/.butler/` | v5 开发守卫 |
 | `projects/LingWen1/.butler/` | 项目级 runtime |
 | Postgres `butler_v5` | v5 主库 |
 
@@ -80,8 +80,8 @@ sha256sum -c ~/backup-butler-v4-memory-20260825.tgz.sha256
 
 | 曾依赖 | 现状 |
 | --- | --- |
-| Todoist MCP openapi | ✅ 仓库 `butler-v5/config/openapi/` |
-| Subagent audit JSONL | ✅ `~/.config/butler-v5/audit/subagent.jsonl` |
+| Todoist MCP openapi | ✅ 仓库 `config/openapi/` |
+| Subagent audit JSONL | ✅ `~/.config/audit/subagent.jsonl` |
 | PGlite 默认目录 | 生产用 Postgres；`~/.butler/v5-data` 本机不存在 |
 | iLink media | `{WORKSPACE}/.butler/ilink-media` |
 
@@ -98,7 +98,7 @@ curl -s http://127.0.0.1:3000/healthz
 systemctl --user is-active butler-v5-gateway.service
 
 cd /home/ailearn/projects/WFXM/butler-v5 && pnpm test   # 可选但推荐
-node /home/ailearn/projects/WFXM/butler-v5/scripts/cutover/smoke-project-knowledge.mjs
+node /home/ailearn/projects/WFXM/scripts/cutover/smoke-project-knowledge.mjs
 
 # 备份再验一遍
 sha256sum -c ~/backup-butler-home-20260825.tgz.sha256
@@ -148,13 +148,13 @@ systemctl --user restart butler-v5-gateway.service
 sleep 5
 curl -s http://127.0.0.1:3000/healthz
 
-node /home/ailearn/projects/WFXM/butler-v5/scripts/cutover/smoke-project-knowledge.mjs
+node /home/ailearn/projects/WFXM/scripts/cutover/smoke-project-knowledge.mjs
 ```
 
 检查新 audit 路径（subagent 若启用时会写；未启用则目录可能尚未创建）：
 
 ```bash
-ls -la ~/.config/butler-v5/audit/ 2>/dev/null || echo "audit dir not yet created (OK if subagent off)"
+ls -la ~/.config/audit/ 2>/dev/null || echo "audit dir not yet created (OK if subagent off)"
 ```
 
 微信再测一句；MCP Todoist 再点验（若启用）。
@@ -210,4 +210,4 @@ Owner 已授权今天执行 D1：按交接 §4 删除 ~/.butler/，删除前后�
 - 审计报告：[`v5-d1-butler-home-audit-2026-08-24.md`](v5-d1-butler-home-audit-2026-08-24.md)
 - v5 生产架构：[`docs/architecture/v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md)
 - 备份脚本（legacy v4）：[`scripts/backup-butler-data.sh`](../../../scripts/backup-butler-data.sh)
-- Gateway unit：`butler-v5/scripts/cutover/butler-v5-gateway.service`
+- Gateway unit：`scripts/cutover/butler-v5-gateway.service`

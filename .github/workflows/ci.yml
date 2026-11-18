@@ -28,13 +28,13 @@ jobs:
       - name: Setup pnpm cache
         uses: actions/cache@v4
         with:
-          path: butler-v5/node_modules
-          key: ${{ runner.os }}-pnpm-butler-v5-${{ hashFiles('butler-v5/pnpm-lock.yaml') }}
+          path: node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-butler-v5-
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        working-directory: butler-v5
+        working-directory: .
         run: pnpm install --frozen-lockfile
 
       - name: Pre-commit + commit-msg hook sync check
@@ -70,27 +70,27 @@ jobs:
           fi
 
       - name: Format check
-        working-directory: butler-v5
+        working-directory: .
         run: pnpm format:check
 
       - name: Lint
-        working-directory: butler-v5
+        working-directory: .
         run: pnpm lint
 
       - name: Typecheck
-        working-directory: butler-v5
+        working-directory: .
         run: bash scripts/typecheck-gate.sh
 
       - name: Unit / contract tests
-        working-directory: butler-v5
+        working-directory: .
         run: pnpm test
 
       - name: WeChat acceptance harness (deterministic)
-        working-directory: butler-v5
+        working-directory: .
         run: pnpm vitest run tests/acceptance --pool=forks
 
       - name: Loopback smoke regression (quick, no iLink)
-        working-directory: butler-v5
+        working-directory: .
         run: bash scripts/cutover/ci-smoke-regression.sh
 
       - name: Upload test log on failure
@@ -98,5 +98,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: butler-v5-test-log-${{ github.run_id }}
-          path: butler-v5/test-output.txt
+          path: test-output.txt
           if-no-files-found: warn

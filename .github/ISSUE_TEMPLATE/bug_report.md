@@ -1,8 +1,8 @@
 ---
 name: 🐛 Bug 报告
 about: 报告一个具体 bug 或异常行为
-title: '[Bug] '
-labels: ['bug', 'triage']
+title: "[Bug] "
+labels: ["bug", "triage"]
 assignees: []
 ---
 
@@ -46,6 +46,6 @@ assignees: []
 ## 自检
 
 - [ ] 已搜索 [已有 issues](https://github.com/XiaZiHunDun/WFXM/issues?q=is%3Aissue+bug) 无重复
-- [ ] 已查阅 [docs/](https://github.com/XiaZiHunDun/WFXM/tree/main/docs) 和 [butler-v5/README.md](https://github.com/XiaZiHunDun/WFXM/tree/main/butler-v5)
+- [ ] 已查阅 [docs/](https://github.com/XiaZiHunDun/WFXM/tree/main/docs) 和 [README.md](https://github.com/XiaZiHunDun/WFXM/tree/main)
 - [ ] 已查阅 [CHANGELOG.md](https://github.com/XiaZiHunDun/WFXM/blob/main/CHANGELOG.md) 确认非已知回归
 - [ ] ⚠️ **安全问题**：漏洞请走 [SECURITY.md](https://github.com/XiaZiHunDun/WFXM/blob/main/SECURITY.md)，**不要**在此公开

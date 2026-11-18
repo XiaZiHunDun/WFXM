@@ -1,7 +1,7 @@
 # Butler 文档索引
 
 > 更新：**2026-11-18** | 主线：**Butler v5**（单 Owner、自托管、可扩展个人管家）
-> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) → [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
+> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../DESIGN.md`](../DESIGN.md) → [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 >
 > **与 [`DOCUMENTATION.md`](DOCUMENTATION.md) 的关系**：本文是**卡片**（「我要…」问答快速链接表）；DOCUMENTATION 是**手册**（分层 + 维护规则 + 索引结构 + 变更记录）。
@@ -11,7 +11,7 @@
 | 文档 | 说明 |
 |------|------|
 | [`../AGENTS.md`](../AGENTS.md) | Agent 必读索引 + v5 事实规则 + 撞点流程 |
-| [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) | **v5 目标架构 SSOT**：三模块、五实体、混合数据、ScopedGrant |
+| [`../DESIGN.md`](../DESIGN.md) | **v5 目标架构 SSOT**：三模块、五实体、混合数据、ScopedGrant |
 | [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) | **当前实现全景与第一阶段验收**：三层架构、分层测试 L1–L4 |
 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产事实**：调用链、包和数据现状 |
 
@@ -25,11 +25,11 @@
 
 | 我要… | 读这里 |
 |-------|--------|
-| 改 v5 目标架构 | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) |
-| 改 v5 代码 / 查模块 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) + [`../butler-v5/AGENTS.md`](../butler-v5/AGENTS.md) |
-| 查 v5 环境变量 | [`ENV.md`](ENV.md) · [`../butler-v5/.env.example`](../butler-v5/.env.example) |
+| 改 v5 目标架构 | [`../DESIGN.md`](../DESIGN.md) |
+| 改 v5 代码 / 查模块 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) + [`../AGENTS.md`](../AGENTS.md) |
+| 查 v5 环境变量 | [`ENV.md`](ENV.md) · [`../.env.example`](../.env.example) |
 | 配置放哪（env/yaml/secrets） | [`ENV.md`](ENV.md) · [`templates/permissions.yaml.example`](templates/permissions.yaml.example) |
-| 权限门控 / 扩展接缝 | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) §10 / §7.1 |
+| 权限门控 / 扩展接缝 | [`../DESIGN.md`](../DESIGN.md) §10 / §7.1 |
 | **v5 功能清单 / 已 ship** | [`FEATURES.md`](FEATURES.md) |
 | **v5 API endpoint** | [`API_ENDPOINTS.md`](API_ENDPOINTS.md) |
 | **v5 测试覆盖** | [`TESTS.md`](TESTS.md) |
@@ -49,7 +49,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) | v5 目标架构 SSOT |
+| [`../DESIGN.md`](../DESIGN.md) | v5 目标架构 SSOT |
 | [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) | 当前实现全景、L1–L4 分层测试与达标判定 |
 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | 当前生产调用链与包边界 |
 | [`architecture/v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) | 视觉架构图（Mermaid 4 张） |
@@ -104,7 +104,7 @@
 ## 验证命令
 
 ```bash
-cd butler-v5
+
 pnpm typecheck
 pnpm lint
 pnpm test
@@ -115,4 +115,4 @@ npx tsx scripts/l4-smoke.ts
 npx tsx scripts/l4-smoke.ts --suite reliability
 ```
 
-L4 需要网关已启动，并从 `~/.config/butler-v5/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。
+L4 需要网关已启动，并从 `~/.config/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。

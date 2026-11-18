@@ -110,14 +110,14 @@ hand-trial 真问题触发。
 
 ```bash
 # 1. Snapshot current (已在 recordings-archive/v7-current)
-cp -r butler-v5/tests/acceptance/scenarios/recordings-archive/v7-current \
-      butler-v5/tests/acceptance/scenarios/recordings-archive/v8-pre-{candidate-name}-fix
+cp -r tests/acceptance/scenarios/recordings-archive/v7-current \
+      tests/acceptance/scenarios/recordings-archive/v8-pre-{candidate-name}-fix
 
 # 2. Apply candidate + re-record (35 scenarios, ~4 min)
-cd butler-v5
+
 pnpm exec tsx --env-file=.env.local scripts/acceptance/record-real-llm.ts
 cp -r tests/acceptance/scenarios/recordings \
-      butler-v5/tests/acceptance/scenarios/recordings-archive/v8-current
+      tests/acceptance/scenarios/recordings-archive/v8-current
 
 # 3. Diff vs v7 baseline
 pnpm exec tsx /tmp/diff-real-llm.ts

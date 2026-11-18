@@ -102,8 +102,8 @@ docs/history/
 # Reference code (large, keep separate — 主公维护，整理方案不修改)
 reference/
 
-# Local vendor copies (not part of product; use reference/ for Hermes diff)
-vendor/
+# vendored 依赖（vendor/pi-agent）属于构建输入，需入库；仅忽略其 node_modules
+vendor/*/node_modules/
 
 # Cursor（本地状态忽略；团队共享规则纳入版本库）
 .cursor/*
@@ -126,22 +126,22 @@ projects/LingWen1/docs/interview-明天演示.md
 # runtime data
 .wfxm_data/
 # per-project spec/framework directory (memory: ".butler/ 整目录 gitignore")
-butler-v5/.butler/
+.butler/
 
 # local superpowers planning notes (not product docs)
 docs/superpowers/plans/
-butler-v5/tests/acceptance/scenarios/recordings/
+tests/acceptance/scenarios/recordings/
 # Per-version baseline snapshots: ignore *.json inside each version subdir
 # (real LLM output + apiKeyMask). Each subdir's README.md is tracked so
 # the index survives across sandboxes. See
-# butler-v5/tests/acceptance/scenarios/recordings-archive/README.md
-butler-v5/tests/acceptance/scenarios/recordings-archive/*
-!butler-v5/tests/acceptance/scenarios/recordings-archive/README.md
-!butler-v5/tests/acceptance/scenarios/recordings-archive/*/
+# tests/acceptance/scenarios/recordings-archive/README.md
+tests/acceptance/scenarios/recordings-archive/*
+!tests/acceptance/scenarios/recordings-archive/README.md
+!tests/acceptance/scenarios/recordings-archive/*/
 # re-ignore subdir contents: `!*/` above un-ignores the dirs themselves, which
 # would otherwise leave each subdir's *.json untracked-but-not-ignored.
-butler-v5/tests/acceptance/scenarios/recordings-archive/*/*
-!butler-v5/tests/acceptance/scenarios/recordings-archive/*/README.md
+tests/acceptance/scenarios/recordings-archive/*/*
+!tests/acceptance/scenarios/recordings-archive/*/README.md
 
 # Local diagnostics / one-off artifacts
 .audit/
@@ -150,3 +150,14 @@ tmp-qr-*.png
 butler_deps.dot
 butler_deps_report.txt
 memory_profile_report.json
+
+# Butler v5 (was .gitignore)
+*.tsbuildinfo
+.env.local
+.eslintcache
+.scratch/
+.turbo/
+coverage/
+node_modules/
+pgdata/
+tmp-*.txt

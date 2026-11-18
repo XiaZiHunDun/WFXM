@@ -1,7 +1,7 @@
 # Butler v5 自托管指南
 
 > **D79 T3 · 2026-09-22** | 适用范围：个人 / 小团队 self-host Butler v5
-> **关联**：[`production-hardening.md`](production-hardening.md)（生产加固细节） · [`README.md`](../../README.md)（项目根） · [`../../butler-v5/README.md`](../../butler-v5/README.md)（开发指南）
+> **关联**：[`production-hardening.md`](production-hardening.md)（生产加固细节） · [`README.md`](../../README.md)（项目根） · [`../../README.md`](../../README.md)（开发指南）
 
 本指南覆盖从 0 到 production-ready 的完整 self-host 路径。先看 §0 一键启动，30 秒跑起来；再按需深入 §1-§10。
 
@@ -12,7 +12,7 @@
 零真实 LLM 试玩（无需 API key / Docker / Postgres）：
 
 ```bash
-cd butler-v5
+
 pnpm install
 pnpm demo    # 脚本化 fixture LLM + 内存 PGlite CLI REPL
 ```
@@ -391,10 +391,10 @@ A: 回滚 `git checkout <old-sha>` + `TAG=<old-tag> docker compose up -d`（migr
 | 公网部署 + TLS | → §4.2 |
 | 加固细节 | → [`production-hardening.md`](production-hardening.md) |
 | 监控 / 备份 / 升级 / 报错 | → §5 / §6 / §7 / §8 |
-| 容器架构 / Dockerfile | → [`../../butler-v5/docker-compose.yml`](../../butler-v5/docker-compose.yml) / [`../../butler-v5/Dockerfile`](../../butler-v5/Dockerfile) |
+| 容器架构 / Dockerfile | → [`../../docker-compose.yml`](../../docker-compose.yml) / [`../../Dockerfile`](../../Dockerfile) |
 | v5 架构 + 调用链 | → [`../../docs/architecture/v5-production-architecture-2026-08.md`](../../docs/architecture/v5-production-architecture-2026-08.md) |
 | D-series 累计 + 维度 | → [`../ROADMAP.md`](../ROADMAP.md) §3 |
-| demo / 本地无 LLM 试玩 | → [`../../butler-v5/README.md`](../../butler-v5/README.md) `pnpm demo` |
+| demo / 本地无 LLM 试玩 | → [`../../README.md`](../../README.md) `pnpm demo` |
 
 ---
 

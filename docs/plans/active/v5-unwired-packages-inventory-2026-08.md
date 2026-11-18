@@ -9,7 +9,7 @@
 ## 生产路径（已接线）
 
 ```text
-butler-v5/cli + apps/api
+cli + apps/api
   → packages/runtime（RunEngine / PolicyGate / approval-runtime）
   → packages/adapters（LLM / WeChat / sandbox / MCP client 适配器）
   → packages/persistence（唯一 schema + RuntimeStore）

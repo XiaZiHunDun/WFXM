@@ -1,0 +1,56 @@
+# Butler v5 Port Catalog
+
+DESIGN §7 端口契约的当前**实际**消费/实现映射。
+本文件与 `packages/ports/src/index.ts`（thin barrel）顶部注释保持同步。
+
+最近更新：2026-09-03 —— 端口消费路径文档对齐（D-series 收尾）：Repository 行明确"未直接 import、由 domain `RuntimeStore` 合同承载消费"；Channel 行补充 wechat 已接入消费、slack 经 channel-outbound/routes 直连绕过 Port 的事实。2026-09-02 D46——Repository Port 物化（§1 Repository 行 + §3 待物化移除；第二持久化实现 `createInMemoryRuntimeStore` 触发；推翻 D26B §20 #6）。2026-09-02 D44——P5 Model Port 物化（§1 Model 行 + §3 升 ✅；DESIGN §7.1 ✅）。2026-08-31 D37/D38 收尾——§7.1 状态表与 §3 待物化段同步（Channel Port 行与 §7.1 🟡 一致）；7 v5 物化 Core Port 实证（C12 + D44 Model）；r2-shim isolation（C11）。R2 Effect Tag 体系（14 个 Effect Tag）已于 2026-08-28 R12 收尾归档（commit `33af1722`，详见 §2 历史段）。
+
+---
+
+## 1. 物化 Core 端口（DESIGN §7 实施）
+
+| Port                    | File                                             | Consumer(s)                                                                                                                                                                                                                         | Producer(s)                                                                                                                                              | Inject 位置                                                                                             |
+| ----------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Clock**               | `packages/ports/src/core/clock.ts`               | `packages/runtime/src/run-engine.ts` (`systemClock`, `ClockPort`)                                                                                                                                                                   | `apps/api/src/bootstrap-wiring.ts` (`systemClock`); tests (`fixedClock`)                                                                                 | RunEngine 构造注入                                                                                      |
+| **Model**               | `packages/ports/src/core/model-port.ts` (D44 P5) | `packages/adapters/src/model-router.ts` (`resolveModelForRole` → `buildAdapter`); `apps/api/src/llm-pricing.ts` (`resolveCurrentLlmModel`)                                                                                          | —（纯函数 `resolveModelForRole`，"实现即接口"，无 Composition Root 注入）                                                                                | 直接调用 env-driven 选择                                                                                |
+| **Repository**          | `packages/ports/src/core/repository.ts` (D46)    | **未直接 import**——`RepositoryPort = domain `RuntimeStore`（单一真相源）`；实际消费侧（`packages/runtime/*`、`apps/api/*`）全部经 `@butler/domain/runtime.js` 的 `RuntimeStore` 类型注入同一合同（wiring.ts / bootstrap-wiring.ts） | `packages/persistence/src/runtime-store.ts`（Drizzle/postgres，生产）；`packages/persistence/src/memory/runtime-store.ts`（in-memory，第二实现触发物化） | Composition Root（`apps/api/src/wiring.ts` 等）注入 `createRuntimeStore` / `createInMemoryRuntimeStore` |
+| **Credential Provider** | `packages/ports/src/core/credential-provider.ts` | `apps/api/src/workspace-tools.ts`, `packages/adapters/src/credentials/host-credentials.ts`                                                                                                                                          | `packages/adapters/src/credentials/host-credentials.ts` (`createHostCredentialProvider`, `injectRunCommandCredentials`)                                  | wiring + run_command 执行前                                                                             |
+| **Event Store**         | `packages/ports/src/core/event-store.ts`         | `packages/runtime/src/agent-kernel.ts`, `packages/runtime/src/delegate-runtime.ts`, `packages/persistence/src/event-bridge.ts`                                                                                                      | `packages/persistence/src/event-bridge.ts`                                                                                                               | wiring                                                                                                  |
+| **Outbox**              | `packages/ports/src/core/outbox.ts`              | R12 production runtime 直调 `@butler/persistence/outbox.js`；新 Port 为未来替换/隔离触发的接缝                                                                                                                                      | `memoryOutbox()` (本文件提供)；prod 实现待 R5.x 触发                                                                                                     | wiring                                                                                                  |
+| **Snapshot**            | `packages/ports/src/core/snapshot.ts`            | R12 production runtime 直调 `@butler/persistence/snapshot.js`；同上                                                                                                                                                                 | `memorySnapshot()` (本文件)；prod 实现待触发                                                                                                             | wiring                                                                                                  |
+| **Projection**          | `packages/ports/src/core/projection.ts`          | R12 production runtime 直调 `@butler/persistence/projections.js`；同上                                                                                                                                                              | `memoryProjection()` (本文件)；prod 实现待触发                                                                                                           | wiring                                                                                                  |
+
+---
+
+## 2. R2 Effect Tag 体系（**已归档 2026-08-28**）
+
+R2 时代的 14 个 Effect Tag 接口（`LLMService` / `ToolExecutor` / `EventStoreService` / `OutboxService` / `SnapshotService` / `ProjectionService` / `LoopInterrupt` / `GuardService` / `WeChatGateway` / `MCPDiscovery` / `ProjectService` / `MemoryService` / `WorkflowService` / `Config`）已随 commit `33af1722` 整体归档：
+
+- `packages/ports/src/index.ts` 改写为 thin barrel（`export * from "./core/*"`），全部 Tag 类移除
+- 生产 runtime 不经这些 Tag 注入面（async/await + 直调 `@butler/persistence`）
+- postgres 适配器 4 文件为 R2 adapter skeleton（实测零 caller），`git rm` 一并清理
+- `Config` Tag 被 `loadConfig()` 纯函数取代（`packages/config/src/index.ts`）
+
+完整 14 Tag 原文保留在 git history（commit `33af1722^`）。需参考可用：
+`git show 33af1722^:packages/ports/src/index.ts`。
+
+DESIGN 不变量 [G-4]：原 `GuardService` 10 项（含 `[G-9]` `[G-10]`）属开发仓库守卫，**不应进入生产 runtime**——归档历史已合于此原则（agentry §0 / butler-v5 §0 同分）。
+
+---
+
+## 3. 待物化（按真实需求触发，DESIGN §7 + P5）
+
+- **Repository Port** — ✅ 已物化（D46，见 §1 表 Repository 行）。触发 = 第二持久化实现 `createInMemoryRuntimeStore`（`packages/persistence/src/memory/runtime-store.ts`）；推翻 D26B §20 #6 原 lock。
+- **Model Port** — ✅ 已物化（D44 P5，见 §1 表 Model 行）。
+- **Channel Port** — 🟡 接口已在 `packages/ports/src/core/channel.ts` 实装（DESIGN §7.1）；**wechat 已接入且被消费**：`apps/api/src/wechat-run-notify.ts` 优先走 `wiring.channels.get("wechat")`（iLink impl `createWechatChannelPort`，`apps/api/src/bootstrap-wiring.ts` 在 `BUTLER_V5_ILINK_ENABLED=1` && token 时注入），缺失时回退直连 ilink（渐进接入，DESIGN §18 条件准入）；**slack 经 `apps/api/src/channel-outbound.ts` / `routes.ts`（`/v1/channel/slack/events`）直连 `@butler/adapters/slack`，绕过 ChannelPort 接口**（`packages/adapters/src/slack/` 5 文件实现 outbound/protocol/media，未实现 `ChannelPort` 接口）；telegram 未触发（无 adapter 目录）。Channel Port 作为统一出站接缝待真接生产触发后评估升 ✅。
+- **Capability 契约** — 已在 `capability-boundary.ts` 承载，"实现即接口"原则不重复建设。
+- **MemoryService** — MVP 直调 `@butler/persistence/{durable-memory,document,project-knowledge}-store`，未物化 Core Port；与 Channel Port 类比，待 §7 audit 触发物化。Owner 路径走 `apps/api/src/{durable-memory-inject,project-knowledge-inject,wechat-memory-commands}.ts` + `owner-routes.ts`；Runtime 工具面 `recall_*` 直调 `@butler/persistence`。DESIGN §12 line 605 + §18 row 3（2026-09-01 D39 G3）实证。
+
+---
+
+## 4. 维护规则
+
+- 新增/迁移 Port：同步本表 + DESIGN §7.1 + `.blackboard/state.md` 顶部 `_last_synced`。
+- 移除端口：先标 `@deprecated` 一 release，再删 + 移归档。
+- 严禁为"架构完整"造休眠接口（DESIGN §7）。
+- 任何对 `index.ts` 的破坏性变更须先 `grep -RIn '@butler/ports' {packages,apps,cli}` 拿到 0 命中，方可执行。

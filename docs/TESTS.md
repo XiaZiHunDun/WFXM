@@ -5,7 +5,7 @@
 > - 功能视角 → [`FEATURES.md`](FEATURES.md)
 > - HTTP/WS API → [`API_ENDPOINTS.md`](API_ENDPOINTS.md)
 > - env vars → [`ENV.md`](ENV.md)
-> - 目标架构（§3–§20 invariants 锁源）→ [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md)
+> - 目标架构（§3–§20 invariants 锁源）→ [`../DESIGN.md`](../DESIGN.md)
 > - 当前实现与第一阶段验收 → [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html)
 > - 自托管指南（冒烟验收）→ [`deployment/SELF-HOSTING.md`](deployment/SELF-HOSTING.md)
 > - Agent 入口 → [`../AGENTS.md`](../AGENTS.md)
@@ -22,13 +22,13 @@
 
 | 类别 | 目录 | test 文件数 | 状态 |
 |------|------|------------|------|
-| Architecture（§3–§20 invariants） | `butler-v5/tests/architecture/` | **46** | ✅ |
-| Acceptance（harness + realistic + regression + subagent + audit-state + fault-tolerance + commands-approval + methodology） | `butler-v5/tests/acceptance/` | **7** | ✅ |
-| E2E（r7-wiring + r8-real-persistence） | `butler-v5/tests/e2e/` | **2** | ✅ |
-| Contracts（port stability） | `butler-v5/tests/contracts/` | **1** | ✅ |
-| Eval（harness + scenarios + mock-llm） | `butler-v5/tests/eval/` | **22** | ✅ |
-| Guard（no-layer-violation） | `butler-v5/tests/guard/` | **1** | ✅ |
-| _meta（typed-rules + unique-list） | `butler-v5/tests/_meta/` | **2** | ✅ |
+| Architecture（§3–§20 invariants） | `tests/architecture/` | **46** | ✅ |
+| Acceptance（harness + realistic + regression + subagent + audit-state + fault-tolerance + commands-approval + methodology） | `tests/acceptance/` | **7** | ✅ |
+| E2E（r7-wiring + r8-real-persistence） | `tests/e2e/` | **2** | ✅ |
+| Contracts（port stability） | `tests/contracts/` | **1** | ✅ |
+| Eval（harness + scenarios + mock-llm） | `tests/eval/` | **22** | ✅ |
+| Guard（no-layer-violation） | `tests/guard/` | **1** | ✅ |
+| _meta（typed-rules + unique-list） | `tests/_meta/` | **2** | ✅ |
 | Inline unit（apps/api/src + packages/*/src + cli/src） | 与源码同目录 | **233** | ✅ |
 | **Total test files** | — | **314** | 见 §1–§5 |
 
@@ -44,7 +44,7 @@
 | L4 | 渠道前验收窗口（真实路由 + 真实 runtime） | `npx tsx scripts/l4-smoke.ts` |
 | L4 可靠性 | 重投 / 并发 / 连续投递 / 无待审批 | `npx tsx scripts/l4-smoke.ts --suite reliability` |
 
-L4 脚本要求网关已启动，并从 `~/.config/butler-v5/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。
+L4 脚本要求网关已启动，并从 `~/.config/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。
 
 ## §2 Architecture Tests（46 files / §3–§20 invariants）
 
@@ -237,7 +237,7 @@ pnpm vitest run tests/_meta
 | 功能清单 | [`FEATURES.md`](FEATURES.md) |
 | API endpoint | [`API_ENDPOINTS.md`](API_ENDPOINTS.md) |
 | env vars | [`ENV.md`](ENV.md) |
-| 目标架构（§20 invariants 锚定源） | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) |
+| 目标架构（§20 invariants 锚定源） | [`../DESIGN.md`](../DESIGN.md) |
 | 当前实现与 L4 验收 | [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) |
 | 工程治理 / gate | [`GOVERNANCE.md`](GOVERNANCE.md) |
 | Agent 入口（含跑测约定） | [`../AGENTS.md`](../AGENTS.md) |

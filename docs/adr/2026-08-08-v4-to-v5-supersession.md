@@ -55,7 +55,7 @@ WFXM 当前同时承载 Butler v4 Python 产品主线和 Butler v5 TypeScript �
 
 - v4 的 `butler/` 已达到 **1,490 个 Python 文件、196,873 行**，具备微信、CLI、Agent Loop、委派、记忆、权限、运维与评估等完整产品能力；
 - Effects、Event、Tool Registry、Skill、Budget、Guard 等多个架构深化方向仍处于未集成或未形成可发布边界的 WIP，当前工作区同时存在大量 v4 modified 文件和未跟踪实验资产；
-- `butler-v5/` 已用 TypeScript + Effect-TS 验证 Functional Core / Imperative Shell、CQRS、Event Sourcing 与 Guard 等方向，但整目录仍是独立原型，尚未纳入 v4 主树运行时引用，也不是已发布主线；
+- `` 已用 TypeScript + Effect-TS 验证 Functional Core / Imperative Shell、CQRS、Event Sourcing 与 Guard 等方向，但整目录仍是独立原型，尚未纳入 v4 主树运行时引用，也不是已发布主线；
 - v4 的继续深化与 v5 原型并行，导致设计、测试、发布、数据和运维责任重复，双轨管理开销持续放大；当前工作区不是可以直接发布的单一产品状态。
 
 已批准的 [`docs/superpowers/specs/2026-08-08-wfxm-rearchitecture-design.md`](../superpowers/specs/2026-08-08-wfxm-rearchitecture-design.md) 已确认终局为 Butler v5 全面替代 v4；v4 仅作为迁移期 legacy runtime，切换后只读归档；允许命令、配置和 API 的破坏性升级；部署目标为单机自托管的 Docker Compose；核心范式为 Functional Core / Imperative Shell、ADT、Effect、CQRS 与 Event Sourcing；主存储采用 PostgreSQL Event Store、Projection、Outbox 与 pgvector；迁移采用 Strangler + Shadow + Cutover，而不是大爆炸重写。

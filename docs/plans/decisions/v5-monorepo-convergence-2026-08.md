@@ -2,11 +2,11 @@
 status: done
 date: 2026-08-27
 stakeholders: owner + butler-v5 engineering
-scope: butler-v5/packages
+scope: packages
 related_design:
-  - butler-v5/DESIGN.md#17 仓库管理与工程形态（monorepo）
-  - butler-v5/DESIGN.md#7 Ports（端口，依赖方向向内的接口）
-  - butler-v5/DESIGN.md#20 架构不变量（UI-16 monorepo 收敛）
+  - DESIGN.md#17 仓库管理与工程形态（monorepo）
+  - DESIGN.md#7 Ports（端口，依赖方向向内的接口）
+  - DESIGN.md#20 架构不变量（UI-16 monorepo 收敛）
 ---
 
 # v5 monorepo 收敛整改计划（2026-08）
@@ -57,11 +57,11 @@ monorepo 工程收敛**：三个「未接线脚手架」包仍在并继续被编
 
 | 文件 | 改动 |
 | --- | --- |
-| `butler-v5/vitest.config.ts` | coverage.include 移除 `packages/application/src`、`packages/infrastructure/src`；增加 `exclude: "**/_archive/**"`（防根级扫描）；如保证不扫 `_archive`，`packages/contracts` 的 exclude 可保留 |
-| `butler-v5/package.json` | `test:archived` 指向根 `_archive/packages/*` 与对应测试；`test`（coverage）不再含三包 |
-| `butler-v5/tsconfig.json` / 各 `packages/*/tsconfig.json` | 根级 `_archive/**` 从 include/exclude 剔除 |
-| `butler-v5/turbo.json` | 若用 package 过滤，从 pipeline 去掉三包 |
-| `butler-v5/.eslintrc.json` | 已有 `packages/**/_archive/**` ignore，追加根 `_archive/**` |
+| `vitest.config.ts` | coverage.include 移除 `packages/application/src`、`packages/infrastructure/src`；增加 `exclude: "**/_archive/**"`（防根级扫描）；如保证不扫 `_archive`，`packages/contracts` 的 exclude 可保留 |
+| `package.json` | `test:archived` 指向根 `_archive/packages/*` 与对应测试；`test`（coverage）不再含三包 |
+| `tsconfig.json` / 各 `packages/*/tsconfig.json` | 根级 `_archive/**` 从 include/exclude 剔除 |
+| `turbo.json` | 若用 package 过滤，从 pipeline 去掉三包 |
+| `.eslintrc.json` | 已有 `packages/**/_archive/**` ignore，追加根 `_archive/**` |
 | `scripts/run-test-layer.sh` | 移除 `application/src`、`infrastructure/src` 的测试分支 |
 | `tests/architecture/*` | 校准：`apps-layer-boundaries` 的 `infrastructure/_archive/persistence/schema` 特殊豁免、`dependency-direction` 的 `application/src` 扫描、`no-layer-violation` 的 infrastructure 分支，改为指向根 `_archive` 或删除 |
 | `pytest`（butler-v5 为 TS，但若引用 contracts 的 python 事件，见 §3.3 注） | 保持现状，`_archive` exclude |
@@ -111,7 +111,7 @@ monorepo 工程收敛**：三个「未接线脚手架」包仍在并继续被编
 
 ## 7. 验收口径（Definition of Done）
 
-- `butler-v5/` 下不存在 `application`/`infrastructure`/`contracts` 三个包；
+- `` 下不存在 `application`/`infrastructure`/`contracts` 三个包；
 - 三个包的产物进入根 `_archive/` 且不参与 compile/test/coverage；
 - `pnpm test`（coverage）、`pnpm gate`、`typecheck-gate` 全部绿灯；
 - `test:archived` 能命中原 `_archive` 资产测试；

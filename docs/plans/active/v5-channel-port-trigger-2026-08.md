@@ -9,7 +9,7 @@
 
 DESIGN §7.1 把 Channel 标为唯一"conditions-admit"状态的 Port（6 个已物化 Port 之外的唯一隐性 Port）。当前事实：
 
-- `butler-v5/packages/adapters/src/wechat/` 是**唯一**实装的出站 channel adapter
+- `packages/adapters/src/wechat/` 是**唯一**实装的出站 channel adapter
 - `packages/adapters/src/{slack,telegram}/` 目录**不存在** —— §7.1 那条"`{wechat,slack,telegram}`"注释只是规划性预期
 - 6 个已物化 Core Port（Clock / Credential Provider / Event Store / Outbox / Snapshot / Projection）均不在 §18 延后项中；Channel 是唯一一条带"等真实需求"前置的 Port
 
@@ -69,7 +69,7 @@ v5 目前**没有**"channel 选型 / channel portfolio 扩展 / channel 加挂"�
 ## 4. Production-ready bar（最小完成四门槛，per-channel）
 
 1. **Adapter 实现**
-   - 在 `butler-v5/packages/adapters/src/{slack,telegram}/` 建目录
+   - 在 `packages/adapters/src/{slack,telegram}/` 建目录
    - 实现入站 Trigger adapter + 出站 Outbox adapter
    - 协议级认证 + 消息解析 + 回复地址构造（与 WeChat adapter 同形，不抽公共抽象）
 2. **单测覆盖**

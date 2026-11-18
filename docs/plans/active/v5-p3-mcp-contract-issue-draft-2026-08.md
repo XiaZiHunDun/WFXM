@@ -27,7 +27,7 @@ P3 MCP 首个适配 **部分交付**：manifest gate、consent、transport、ext
 
 | 区域 | 路径 |
 | --- | --- |
-| MCP bootstrap | `butler-v5/apps/api/src/mcp-bootstrap.ts` |
+| MCP bootstrap | `apps/api/src/mcp-bootstrap.ts` |
 | Manifest / consent | `mcp-manifest.ts`, `packages/runtime/src/mcp-consent.ts` |
 | Grant 签发 | `packages/runtime/src/approval-runtime.ts` |
 | Policy / boundary | `packages/runtime/src/policy-gate.ts`, `capability-boundary.ts` |

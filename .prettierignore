@@ -1,0 +1,16 @@
+node_modules/
+vendor/
+dist/
+coverage/
+.turbo/
+pnpm-lock.yaml
+*.tsbuildinfo
+pgdata/
+
+# 测试运行时生成的报告，格式由 renderAnalyze 决定，不参与 prettier 校验
+tests/acceptance/scenarios/_analyze.md
+# 文档与报告不参与代码格式门禁
+docs/
+projects/
+tools/
+logs/

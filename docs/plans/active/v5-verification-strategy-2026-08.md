@@ -1,7 +1,7 @@
 # Butler v5 验收策略 — 少真机、多自动化（2026-08-25）
 
 > **原则**：真机微信只做**连通性**与**不可替代**的点验；功能回归走 loopback + 单测 + 聚合 smoke。  
-> **SSOT 命令**：`butler-v5/package.json` · `scripts/cutover/smoke-*.mjs`
+> **SSOT 命令**：`package.json` · `scripts/cutover/smoke-*.mjs`
 
 ---
 
@@ -43,7 +43,7 @@ Loopback 与真机差异（已知、可接受）：
 ## 3. 推荐命令
 
 ```bash
-cd butler-v5
+
 
 # 日常（改代码后）
 pnpm test
@@ -98,7 +98,7 @@ pnpm smoke:ilink -- --send-ping
 | 工作流 | 步骤 |
 | --- | --- |
 | [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) `butler-v5-gate` | `bash scripts/cutover/ci-smoke-regression.sh` |
-| [`butler-v5/.github/workflows/ci.yml`](../../../butler-v5/.github/workflows/ci.yml) | job `smoke-regression` |
+| [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) | job `smoke-regression` |
 
 `ci-smoke-regression.sh`：pglite gateway + `smoke:regression --quick --skip=notify`（无 iLink token、无 LLM notify）。
 

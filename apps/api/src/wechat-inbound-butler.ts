@@ -1,0 +1,768 @@
+import { Effect } from "effect"
+import type { EventBridge } from "@butler/persistence/event-bridge.js"
+import type { WorkingSetResult } from "@butler/runtime/working-set.js"
+import { AgentKernel } from "@butler/runtime/agent-kernel.js"
+import type { ModelDecision } from "@butler/runtime/decision.js"
+import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
+import { computeCostUsd, parseLlmPricing, resolveCurrentLlmModel } from "./llm-pricing.js"
+import {
+  DEFAULT_MAX_LOOP_ITERATIONS,
+  runConversationLoop,
+  type ConversationLoopMessage,
+  type ConversationLoopResult,
+} from "@butler/runtime/execution/index.js"
+import { type ToolDefinition } from "@butler/runtime/tool-runtime.js"
+import { resolveReadModelSource } from "@butler/domain"
+import {
+  buildWechatRunTrigger,
+  validateRunTrigger,
+  type RunTrigger,
+} from "@butler/domain/runtime.js"
+import type { Wiring } from "./wiring.js"
+import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
+import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
+import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
+import { isPendingApprovalOutcome, toRunResult } from "./approval-resume.js"
+import { ActiveMainRunConflict, RunPauseForApproval } from "@butler/runtime/run-engine.js"
+import { pickLLMForRole, type LLMAdapter, type LLMMessage } from "@butler/adapters"
+import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
+import { isExecCapability } from "./wechat-tool-profile.js"
+import {
+  compactConversationHistoryWithLlm,
+  eventsToHistoryMessages,
+} from "./conversation-memory.js"
+import { tryWechatInlineApproval } from "./wechat-inline-approval.js"
+import { loadDurableMemorySystemPrefix } from "./durable-memory-inject.js"
+import { loadProjectKnowledgeSystemPrefix } from "./project-knowledge-inject.js"
+import { resolveWechatAllowedToolNames } from "./wechat-tool-allowlist.js"
+import { executeToolWithFatigue } from "./lib/fatigue/execute-tool-with-fatigue.js"
+import { auditFatigueReader } from "./lib/fatigue/audit-reader.js"
+import type { AuditFatigueDetail } from "./lib/fatigue/audit-event.js"
+
+// D69 T1 — D64 reader swap is now shared with owner-routes/audit-fatigue.ts
+// via lib/fatigue/audit-reader.ts (consolidated per SO-002 / D68 pre-scoped #2).
+
+/** D64 T3: channel context derived from projectId at the runButlerLoop
+ *  chokepoint. projectId="cli" → cli; "channel:telegram*" (set by
+ *  normalize-inbound.ts:130 in the runtime) → telegram; everything
+ *  else is wechat. Exported for testability. */
+export function projectIdToChannel(projectId: string): "wechat" | "telegram" | "cli" {
+  if (projectId === "cli") return "cli"
+  if (projectId.startsWith("channel:telegram")) return "telegram"
+  return "wechat"
+}
+
+/**
+ * Logger surface for the butler loop. Mirrors the LLMReplyLogger
+ * shape from R8.x.2 so the same operator-debug story applies.
+ */
+export interface ButlerLoopLogger {
+  warn: (message: string, extra?: unknown) => void
+  error: (message: string, error: unknown) => void
+}
+
+const defaultLogger: ButlerLoopLogger = {
+  warn: (message, extra) => {
+    // eslint-disable-next-line no-console -- intentional stderr log for operator debugging
+    console.warn(message, extra ?? "")
+  },
+  error: (message, error) => {
+    // eslint-disable-next-line no-console -- intentional stderr log for operator debugging
+    console.error(message, error)
+  },
+}
+
+/**
+ * Result of a single butler loop run. Alias of Execution ConversationLoopResult.
+ */
+export type ButlerLoopResult = ConversationLoopResult
+
+/**
+ * D58 T5 (audit #3 F-18): map an ActiveMainRunConflict status token to
+ * owner-facing Chinese wording. The owner never sees internal state
+ * names like "waiting_approval" — only human-readable phrasing.
+ */
+export function activeRunConflictReply(status: string): string {
+  switch (status) {
+    case "waiting_approval":
+      return "当前对话仍有未完成的审批步骤。请回复「确认」或「拒绝」继续，或等待你之前的请求结束。"
+    case "waiting_external":
+      return "当前对话还有未完成的请求（正在等待外部回执），稍后再试即可。"
+    default:
+      // running / queued: a concurrent message is still in flight. Never
+      // surface the internal Run id — it means nothing to the owner.
+      return "当前对话还有未完成的请求，请稍后再发。"
+  }
+}
+
+/**
+ * Redelivery guard. iLink can resend the same message after a reconnect or a
+ * slow reply; the inbound `idempotencyKey` is the channel message id, so a
+ * second delivery must replay the stored reply instead of running tools again.
+ * Returns null when this key has never been seen in the conversation.
+ */
+async function replayDuplicateInbound(
+  wiring: Wiring,
+  conversationId: string,
+  idempotencyKey: string | undefined,
+): Promise<string | null> {
+  if (!idempotencyKey) return null
+  let messages: Awaited<ReturnType<typeof wiring.runtimeStore.listMessages>>
+  try {
+    messages = await wiring.runtimeStore.listMessages(conversationId)
+  } catch {
+    return null
+  }
+  const seenAt = messages.findIndex(
+    (message) => message.role === "user" && message.idempotencyKey === idempotencyKey,
+  )
+  if (seenAt < 0) return null
+  for (const message of messages.slice(seenAt + 1)) {
+    if (message.role !== "assistant") continue
+    const text = message.content["text"]
+    if (typeof text === "string" && text.trim() !== "") return text
+  }
+  // The first delivery was accepted but produced no stored reply (crash or
+  // degraded path). Acknowledge without re-running whatever it did.
+  return "这条消息已经处理过了，无需重复发送。"
+}
+
+/**
+ * Delivery-shell entry: Intake already normalized; this wires WeChat-specific
+ * tools/LLM/history then runs Execution `runConversationLoop` under RunEngine.
+ */
+export async function runButlerLoop(args: {
+  readonly wiring: Wiring
+  readonly conversationId: string
+  readonly content: string
+  readonly fromUserId: string
+  readonly projectId: string
+  readonly idempotencyKey?: string
+  readonly runTrigger?: RunTrigger
+  readonly budget?: Readonly<Record<string, unknown>>
+  readonly deadline?: Date | null
+  readonly goal?: string
+  /** When set, only these tool names are exposed to the model. */
+  readonly allowedToolNames?: readonly string[]
+  readonly env?: NodeJS.ProcessEnv
+  readonly logger?: ButlerLoopLogger
+  readonly adapter?: LLMAdapter
+  /** Override per-LLM-call timeout (ms). Default reads BUTLER_V5_LLM_TIMEOUT_MS
+   *  from env. Used by eval scenario 16 to test the timeout path. */
+  readonly llmTimeoutMs?: number
+}): Promise<ButlerLoopResult> {
+  const env = args.env ?? process.env
+  const inline = await tryWechatInlineApproval({
+    wiring: args.wiring,
+    conversationId: args.conversationId,
+    content: args.content,
+    fromUserId: args.fromUserId,
+    env,
+  })
+  if (inline) return inline
+
+  const duplicateReply = await replayDuplicateInbound(
+    args.wiring,
+    args.conversationId,
+    args.idempotencyKey,
+  )
+  if (duplicateReply !== null) {
+    return {
+      reply: duplicateReply,
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Finish",
+      traces: ["duplicate-inbound: replayed stored reply"],
+    }
+  }
+
+  // P2 fix 2026-09-04: spam guard before LLM call. Catches:
+  //   - very long messages (> MAX_SPAM_CHARS)
+  //   - heavily repeated tokens (> REPEAT_TOKEN_THRESHOLD occurrences of one token)
+  //   - high emoji ratio (> EMOJI_RATIO_MAX of chars are emoji)
+  // Returns a short stub reply with no LLM call. Owner can reply with a
+  // concrete request to retry.
+  const spam = detectSpam(args.content)
+  if (spam) {
+    return {
+      reply: spam,
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Respond",
+      traces: ["spam-guard: short-circuited LLM call"],
+    }
+  }
+
+  const readModel = resolveReadModelSource(env)
+  if (readModel !== "event_store") {
+    const existing = await args.wiring.runtimeStore.listMessages(args.conversationId)
+    if (existing.length === 0) {
+      await args.wiring.backfillConversation(args.conversationId)
+    }
+  }
+  const idempotencyKey =
+    args.idempotencyKey ?? `wechat-${args.conversationId}-${args.content.length}-${Date.now()}`
+  const trigger =
+    args.runTrigger ??
+    buildWechatRunTrigger({
+      userId: args.fromUserId,
+      conversationId: args.conversationId,
+      content: args.content,
+      messageId: idempotencyKey,
+    })
+  const validated = validateRunTrigger(trigger)
+  if (!validated.ok) {
+    throw new Error(`invalid RunTrigger: ${validated.reason}`)
+  }
+  const allowedToolNames =
+    args.allowedToolNames ??
+    resolveWechatAllowedToolNames({
+      projectId: args.projectId,
+      env,
+      mcpBundle: args.wiring.mcp,
+    })
+  try {
+    return await args.wiring.runEngine.executeInbound(
+      {
+        conversationId: args.conversationId,
+        messageId: crypto.randomUUID(),
+        subject: trigger.subject,
+        content: args.content,
+        idempotencyKey,
+        trigger,
+        projectId: args.projectId,
+        ...(args.goal ? { goal: args.goal } : {}),
+        ...(args.budget ? { budget: args.budget } : {}),
+        ...(args.deadline !== undefined ? { deadline: args.deadline } : {}),
+      },
+      async (ctx) =>
+        runButlerLoopBody({
+          ...args,
+          allowedToolNames,
+          runId: ctx.runId,
+          workingSet: ctx.workingSet,
+          // D58 T5 (audit #1 F-01): EVAL_DEBUG path used to substitute the
+          // string "(undefined)" into a number field when llmTimeoutMs was
+          // unset, silently corrupting the timeout value. Only forward
+          // the field when EVAL_DEBUG is set AND a real number is available.
+          ...(process.env["EVAL_DEBUG"] && args.llmTimeoutMs !== undefined
+            ? { llmTimeoutMs: args.llmTimeoutMs }
+            : {}),
+        }),
+    )
+  } catch (err) {
+    if (err instanceof ActiveMainRunConflict) {
+      // D58 T5 (audit #3 F-18) + reliability: never leak internal state names
+      // or Run ids into owner-facing text.
+      return {
+        reply: activeRunConflictReply(err.activeRun.status),
+        iterations: 0,
+        toolCalls: 0,
+        finalDecision: "Finish",
+        traces: [`active-main-run-conflict: ${err.activeRun.id} ${err.activeRun.status}`],
+      }
+    }
+    const msg = err instanceof Error ? err.message : String(err)
+    const logger = args.logger ?? defaultLogger
+    logger.error("butler-loop failed; responding with degraded reply", err)
+    return {
+      reply: `这次没处理成功，请稍后再发一次。若反复如此，请联系管理员处理。`,
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Finish",
+      traces: [`loop-error: ${msg}`],
+    }
+  }
+}
+
+async function persistAssistantReply(args: {
+  readonly wiring: Wiring
+  readonly conversationId: string
+  readonly content: string
+  readonly idempotencyKey: string
+}): Promise<void> {
+  try {
+    await args.wiring.runtimeStore.appendMessage({
+      messageId: crypto.randomUUID(),
+      conversationId: args.conversationId,
+      role: "assistant",
+      content: { text: args.content },
+      triggerSource: "channel",
+      idempotencyKey: args.idempotencyKey,
+      createdAt: new Date(),
+    })
+  } catch {
+    // compat path must not break the wechat reply contract
+  }
+}
+
+async function runButlerLoopBody(args: {
+  readonly wiring: Wiring
+  readonly conversationId: string
+  readonly content: string
+  readonly fromUserId: string
+  readonly projectId: string
+  readonly runId: string
+  readonly workingSet: WorkingSetResult
+  readonly allowedToolNames?: readonly string[]
+  readonly env?: NodeJS.ProcessEnv
+  readonly logger?: ButlerLoopLogger
+  readonly adapter?: LLMAdapter
+  /** Override per-LLM-call timeout (ms). Default reads BUTLER_V5_LLM_TIMEOUT_MS
+   *  from env (else 30_000). Used by eval scenario 16 to test timeout path. */
+  readonly llmTimeoutMs?: number
+  /** Override stuck-loop threshold (Phase D fix B-06). Default reads
+   *  BUTLER_V5_STUCK_LOOP_THRESHOLD from env (else 3). */
+  readonly stuckLoopThreshold?: number
+  /** Override max-decode-retries (Phase D fix B-08/10). Default reads
+   *  BUTLER_V5_MAX_DECODE_RETRIES from env (else 1). */
+  readonly maxDecodeRetries?: number
+  /** Run budget（来自入口请求）。maxToolCalls 会注入对话循环。 */
+  readonly budget?: Readonly<Record<string, unknown>>
+}): Promise<ButlerLoopResult> {
+  const env = args.env ?? process.env
+  const logger = args.logger ?? defaultLogger
+  const bridge: EventBridge = args.wiring.eventBridge
+
+  const kernel = new AgentKernel({
+    bridge,
+    conversationId: args.conversationId,
+    projectId: args.projectId,
+    actor: { kind: "agent", id: "wechat-butler-v5" },
+  })
+
+  const userMessage = { role: "user" as const, content: args.content }
+  try {
+    await kernel.openTurn({ userMessage })
+  } catch (err) {
+    logger.error("[v5-butler-loop] openTurn failed:", err)
+    return {
+      reply: stubReply(args.content, args.fromUserId, args.projectId),
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Finish",
+      traces: ["openTurn failed; returned stub"],
+    }
+  }
+
+  const allow = args.allowedToolNames ? new Set(args.allowedToolNames) : null
+  const includeExecTools = allow !== null && [...allow].some((name) => isExecCapability(name))
+
+  const base = buildWechatInboundMessages(args.content, env, {
+    includeExecTools,
+    fromUserId: args.fromUserId,
+  })
+  const systemMsg = base[0]
+  const userMsg = base[1]
+  let historyTurns: LLMMessage[] = []
+  try {
+    const events = await bridge.loadStream(args.conversationId)
+    historyTurns = [...eventsToHistoryMessages(events, { currentUserContent: args.content })]
+  } catch (err) {
+    logger.warn(
+      "[v5-butler-loop] loadStream for history failed; continuing without memory:",
+      err instanceof Error ? err.message : String(err),
+    )
+  }
+
+  const memorySubject = resolveOwnerSubject(env, args.fromUserId)
+  const tools: readonly ToolDefinition[] = makeWeibutlerTools({
+    bridge,
+    conversationId: args.conversationId,
+    actor: { kind: "agent", id: "wechat-butler-v5" },
+    wechatUserId: args.fromUserId,
+    runtimeStore: args.wiring.runtimeStore,
+    runId: args.runId,
+    env,
+    mcpBundle: args.wiring.mcp,
+    durableMemoryStore: args.wiring.durableMemoryStore,
+    documentStore: args.wiring.documentStore,
+    projectKnowledgeStore: args.wiring.projectKnowledgeStore,
+    memorySubject,
+    projectId: args.projectId,
+    // D5-arch-align §20 #5 (opt-in): ButlerToolContext exposes
+    // `parentAllowedToolNames` so a future commit can derive parent's
+    // capability grant chain and pass it as `parentAllowlist`. We do NOT
+    // auto-pass it from the LLM tool allowlist here: plan-mode parents
+    // delegate to dev-mode children via a separate grant chain
+    // (dev-session-grant.ts), not via the LLM tool set.
+    parentAllowedToolNames: undefined,
+  }).filter((t) => (allow ? allow.has(t.name as string) : true))
+  // Local-path questions ("packages 下有哪些包") should be answered
+  // from the workspace. Keeping web/GitHub/firecrawl tools visible made the
+  // model reach for mcp_firecrawl_firecrawl_map or a GitHub file read instead
+  // (L4-2/L4-5), which either wastes a round trip or blocks on approval.
+  const localPathIntent =
+    /(?:^|[\s（(“"'`])(?:butler-v5|apps|packages|docs|scripts|src|config)\/|(?:^|[\s（(])\.{1,2}\//.test(
+      args.content,
+    )
+  const visible = (name: string): boolean =>
+    (allow ? allow.has(name) : true) && !(localPathIntent && name.startsWith("mcp_"))
+  const llmTools = llmToolsForButler({ env, mcpBundle: args.wiring.mcp }).filter((t) =>
+    visible(t.name),
+  )
+
+  const toolExecutor = makeToolExecutor({
+    tools,
+    store: args.wiring.runtimeStore,
+    runId: args.runId,
+    ownerSubject: resolveOwnerSubject(env, args.fromUserId),
+    subject: args.fromUserId,
+    conversationId: args.conversationId,
+    timeoutMsFor: toolTimeoutMs,
+    wechatUserId: args.fromUserId,
+    mcpServerIdByCapability: args.wiring.mcp.serverIdByCapability,
+  })
+
+  const adapter = args.adapter ?? pickLLMForRole(env, "plan")
+  if (!adapter) {
+    try {
+      await kernel.applyDecision({ _tag: "Finish", reason: "no LLM configured" })
+    } catch (err) {
+      // D62 T1 (audit #1 F-06): keep the no-LLM fallback behavior (return
+      // stubReply so owner still gets a reply), but log the kernel
+      // applyDecision failure. Same shape as D61 T4 F-07 fix at
+      // approval-resume.ts:178 — missed sibling sweep.
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[wechat-inbound-butler] kernel.applyDecision failed:", err)
+    }
+    return {
+      reply: stubReply(args.content, args.fromUserId, args.projectId),
+      iterations: 0,
+      toolCalls: 0,
+      finalDecision: "Finish",
+      traces: ["no LLM configured; returned stub"],
+    }
+  }
+
+  const relationalHistory = args.workingSet.messages.filter(
+    (m) => m.role === "user" || m.role === "assistant" || m.role === "system",
+  )
+  const useRelationalHistory =
+    relationalHistory.length > 1 ||
+    (relationalHistory.length === 1 && relationalHistory[0]?.role !== "user")
+
+  let historyMessages: LLMMessage[]
+  let eventStoreCompactSource: "none" | "extractive" | "llm" = "none"
+  if (useRelationalHistory) {
+    historyMessages = relationalHistory.filter(
+      (m) => !(m.role === "user" && m.content === args.content.trim()),
+    )
+  } else {
+    const compact = await compactConversationHistoryWithLlm(historyTurns, { adapter })
+    historyMessages = [...compact.messages]
+    eventStoreCompactSource = compact.source
+  }
+
+  const messages: ConversationLoopMessage[] = []
+  if (systemMsg) messages.push({ role: systemMsg.role, content: systemMsg.content })
+  const memoryPrefix = await loadDurableMemorySystemPrefix({
+    store: args.wiring.durableMemoryStore,
+    subject: memorySubject,
+    query: args.content,
+    env,
+  })
+  if (memoryPrefix) {
+    messages.push({ role: "system", content: memoryPrefix })
+  }
+  const projectKnowledgePrefix = await loadProjectKnowledgeSystemPrefix({
+    store: args.wiring.projectKnowledgeStore,
+    projectId: args.projectId,
+    query: args.content,
+    env,
+  })
+  if (projectKnowledgePrefix) {
+    messages.push({ role: "system", content: projectKnowledgePrefix })
+  }
+  for (const m of historyMessages) {
+    messages.push({
+      role: m.role,
+      content: m.content,
+      ...(m.toolCalls ? { toolCalls: m.toolCalls } : {}),
+      ...(m.toolCallId ? { toolCallId: m.toolCallId } : {}),
+      ...(m.toolName ? { toolName: m.toolName } : {}),
+    })
+  }
+  if (userMsg) messages.push({ role: userMsg.role, content: userMsg.content })
+
+  const initialTraces: string[] = []
+  if (memoryPrefix) {
+    initialTraces.push("durable-memory: injected confirmed prefix")
+  }
+  if (projectKnowledgePrefix) {
+    initialTraces.push("project-knowledge: injected working-set prefix")
+  }
+  if (historyMessages.length > 0) {
+    if (useRelationalHistory) {
+      initialTraces.push(
+        `history: ${historyMessages.length} msgs source=relational:${args.workingSet.source}`,
+      )
+    } else {
+      initialTraces.push(
+        `history: ${historyMessages.length} msgs source=event_store compacted=${eventStoreCompactSource}`,
+      )
+    }
+  }
+
+  const maxToolCalls =
+    typeof args.budget?.["maxToolCalls"] === "number" && args.budget["maxToolCalls"] >= 0
+      ? args.budget["maxToolCalls"]
+      : undefined
+  if (maxToolCalls !== undefined) {
+    initialTraces.push(`tool-budget: max=${maxToolCalls}`)
+  }
+
+  return runConversationLoop({
+    kernel,
+    messages,
+    llmTools,
+    maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
+    initialTraces,
+    ...(maxToolCalls !== undefined ? { maxToolCalls } : {}),
+    ...(args.llmTimeoutMs !== undefined ? { llmTimeoutMs: args.llmTimeoutMs } : {}),
+    ...(args.stuckLoopThreshold !== undefined
+      ? { stuckLoopThreshold: args.stuckLoopThreshold }
+      : {}),
+    ...(args.maxDecodeRetries !== undefined ? { maxDecodeRetries: args.maxDecodeRetries } : {}),
+    ports: {
+      logger,
+      stubReply: () => stubReply(args.content, args.fromUserId, args.projectId),
+      findTool: (name) => findTool(tools, name),
+      persistAssistantReply: async (content) => {
+        await persistAssistantReply({
+          wiring: args.wiring,
+          conversationId: args.conversationId,
+          content,
+          idempotencyKey: `assistant:${args.conversationId}:${Date.now()}`,
+        })
+      },
+      complete: async (msgs, toolsForLlm) => {
+        const llmStartedAt = Date.now()
+        // D24: pricing lookup is best-effort; missing pricing leaves
+        // costUsd as null (aligned with the field's "unknown" semantics).
+        const pricing = parseLlmPricing(env)
+        const currentModel = resolveCurrentLlmModel(env)
+        return Effect.runPromise(
+          adapter.complete(msgs, { tools: toolsForLlm }).pipe(
+            Effect.match({
+              onFailure: (err) => {
+                // D23: error trace (no usage when the call never reached the model).
+                const tracer = getSharedLocalTracer()
+                tracer.record({
+                  kind: "step",
+                  name: "llm_call",
+                  status: "error",
+                  conversationId: args.conversationId,
+                  runId: args.runId,
+                  subject: memorySubject,
+                  durationMs: Date.now() - llmStartedAt,
+                  detail: {
+                    reason: err instanceof Error ? err.message : String(err),
+                    model: currentModel,
+                    request: {
+                      messages: msgs.length,
+                      tools: toolsForLlm.length,
+                      promptChars: msgs.reduce((sum, m) => sum + m.content.length, 0),
+                    },
+                  },
+                })
+                return {
+                  ok: false as const,
+                  reason: err instanceof Error ? err.message : String(err),
+                }
+              },
+              onSuccess: (resp) => {
+                // D23: success trace carries first-class `token` so §14
+                // observability captures input / output / total tokens per
+                // LLM call. D24: fills `costUsd` when env-driven pricing
+                // for the current model is available; otherwise null.
+                const tracer = getSharedLocalTracer()
+                const costUsd =
+                  resp.usage !== undefined && currentModel !== null
+                    ? computeCostUsd(resp.usage, currentModel, pricing)
+                    : null
+                tracer.record({
+                  kind: "step",
+                  name: "llm_call",
+                  status: "ok",
+                  conversationId: args.conversationId,
+                  runId: args.runId,
+                  subject: memorySubject,
+                  durationMs: Date.now() - llmStartedAt,
+                  ...(resp.usage !== undefined ? { token: resp.usage } : {}),
+                  costUsd,
+                  detail: {
+                    model: currentModel,
+                    request: {
+                      messages: msgs.length,
+                      tools: toolsForLlm.length,
+                      promptChars: msgs.reduce((sum, m) => sum + m.content.length, 0),
+                    },
+                    response: {
+                      contentChars: resp.content.length,
+                      toolCallCount: resp.toolCalls.length,
+                    },
+                  },
+                })
+                return {
+                  ok: true as const,
+                  response: {
+                    content: resp.content,
+                    toolCalls: resp.toolCalls,
+                    ...(resp.usage !== undefined ? { usage: resp.usage } : {}),
+                  },
+                }
+              },
+            }),
+          ),
+        )
+      },
+      executeTool: async (def, toolArgs) => {
+        // D64 T3 (audit #9 F-04 cross-channel wiring): invoke approval
+        // fatigue mitigation BEFORE tool execution. Single chokepoint
+        // serves all 3 channels (wechat direct + telegram via
+        // channel-inbound.ts + cli via cli-run.ts) since they all flow
+        // through runButlerLoop. Decision is dispatched by `def.name` and
+        // `toolArgs`, which are only known at tool-execution time —
+        // channel intake has no tool selection yet.
+        //
+        // Cooldown: sleep inline (no channel-specific reply path here;
+        // chokepoint is shared). Checklist: surface to owner via
+        // RunPauseForApproval so the existing approval-resume flow
+        // carries the prompt back to whichever channel owns the
+        // conversation. Allow: proceed as before.
+        // D65 T1: extracted to executeToolWithFatigue (3-kind decision).
+        // D44 y/👌 lock preserved — fatigue runs BEFORE tool execution.
+        const toolDecision = await executeToolWithFatigue(
+          String(def.name),
+          toolArgs as Readonly<Record<string, unknown>>,
+          auditFatigueReader(args.wiring.runtimeStore, { columnActor: true }),
+        )
+        // D66 T1c — thread AuditFatigueDetail at chokepoint (mirrors §2.4
+        // spec). Every fatigue decision (allow / cooldown / checklist) is
+        // recorded into the existing audit pipeline so owner replay queries
+        // can see fatigue interventions. Allow case spreads an empty detail
+        // (no fatigue fields — no intervention occurred).
+        // D74 T3 (audit #20 CQ-001): populate fatigue_signal so audit_events
+        // preserves the upstream count + window + last_n_actions payload.
+        // Previously this was dropped (signal payload never reached the
+        // emit site after D64 T1 reduced ToolExecutionDecision shape).
+        const fatigueDetail: AuditFatigueDetail =
+          toolDecision.kind === "cooldown"
+            ? {
+                cooldown_applied: { duration_ms: toolDecision.durationMs },
+                fatigue_signal: toolDecision.signal,
+              }
+            : toolDecision.kind === "checklist"
+              ? { checklist_required: true, fatigue_signal: toolDecision.signal }
+              : toolDecision.kind === "allow" && toolDecision.signal
+                ? { fatigue_signal: toolDecision.signal }
+                : {}
+        await args.wiring.runtimeStore.appendAuditEvent({
+          auditId: crypto.randomUUID(),
+          runId: args.runId ?? null,
+          conversationId: args.conversationId ?? null,
+          action: "fatigue.decision",
+          // D73 T4 (audit #19 SO-010): explicit actor sentinel so audit_events
+          // distinguishes wechat-inbound fatigue decisions from owner-direct
+          // actions. Schema default 'owner' would collapse the two and make
+          // the cross-actor replay check (replay.ts:122) functionally inert.
+          actor: "fatigue-agent",
+          subject: String(def.name),
+          detail: { ...fatigueDetail },
+          createdAt: new Date(),
+          correlationId: args.runId ?? null,
+        })
+        switch (toolDecision.kind) {
+          case "allow":
+            break // proceed to toolExecutor.execute below
+          case "cooldown":
+            await new Promise<void>((resolve) => setTimeout(resolve, toolDecision.durationMs))
+            break
+          case "checklist": {
+            const toolName = String(def.name)
+            const renderedPrompt = [
+              `此操作 [${toolName}] 不可撤销，请确认：`,
+              ...toolDecision.items.map((item, i) => `${i + 1}. ${item}`),
+            ].join("\n")
+            // D67 T1a — persist a pending approval step so the owner-side
+            // "确认" handler (approval-resume) can resume the run instead of
+            // firing RunPauseForApproval into the void. Mirrors the
+            // `kind="approval" status="waiting"` shape used by
+            // approval-runtime.requestApproval.
+            await args.wiring.runtimeStore.createStep({
+              id: crypto.randomUUID(),
+              runId: args.runId,
+              kind: "approval",
+              status: "waiting",
+              input: {
+                reason: "fatigue_checklist",
+                toolName,
+                items: toolDecision.items,
+              },
+              createdAt: new Date(),
+            })
+            throw new RunPauseForApproval({
+              reply: renderedPrompt,
+              iterations: 0,
+              toolCalls: 0,
+              finalDecision: "WaitForApproval" as ModelDecision["_tag"],
+              traces: [`fatigue checklist ${toolName} items=${toolDecision.items.length}`],
+            } satisfies ButlerLoopResult)
+          }
+        }
+        const outcome = await toolExecutor.execute(def, toolArgs)
+        if (isPendingApprovalOutcome(outcome)) {
+          throw new RunPauseForApproval({
+            // D59 T3 (audit #3 F-08): drop the stepId UUID from the
+            // owner-facing reply (same fix as approval-resume.ts F-06).
+            // stepId stays in the trace below for §14 observability.
+            reply: `${outcome.reason}\n回复「确认」批准，或「拒绝」取消。`,
+            iterations: 0,
+            toolCalls: 0,
+            finalDecision: "WaitForApproval" as ModelDecision["_tag"],
+            traces: [`waiting approval ${outcome.pendingApproval.stepId} for ${String(def.name)}`],
+          } satisfies ButlerLoopResult)
+        }
+        return toRunResult(outcome)
+      },
+    },
+  })
+}
+
+// ============================================================================
+// Spam guard (P2 fix 2026-09-04, refactored D74 T3 / audit #20 CQ-009)
+// ============================================================================
+
+import {
+  hasAbnormalStructure,
+  hasExcessiveEmojiRatio,
+  hasExcessiveLength,
+  hasRepeatedCharacter,
+  hasRepeatedLines,
+  hasRepeatedTokens,
+} from "./spam-detectors.js"
+
+/**
+ * Cheap heuristic spam detection before invoking the LLM. Returns a short
+ * user-facing reply when the input is suspicious, or null when it looks
+ * normal. False positives are acceptable: the owner can re-send a concrete
+ * request. False negatives are acceptable too: LLM still has the existing
+ * fixture-exhausted / decode-fail safety nets downstream.
+ *
+ * D74 T3: thin orchestrator over the 6 per-signal detectors in
+ * spam-detectors.ts. Adding a new heuristic means adding a new
+ * hasXxx() helper, not editing this function.
+ */
+function detectSpam(content: string): string | null {
+  if (content.length === 0) return null
+  return (
+    hasExcessiveLength(content) ??
+    hasRepeatedCharacter(content) ??
+    hasExcessiveEmojiRatio(content) ??
+    hasRepeatedLines(content) ??
+    hasRepeatedTokens(content) ??
+    hasAbnormalStructure(content) ??
+    null
+  )
+}

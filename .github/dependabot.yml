@@ -3,9 +3,9 @@ version: 2
 # Avoid release day (typically Friday/Saturday in WFXM pattern)
 # Weekly Monday 09:00 UTC — gives rest of week for review
 updates:
-  # --- npm: butler-v5 packages ---
+  # --- npm: workspace packages ---
   - package-ecosystem: "npm"
-    directory: "/butler-v5"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -16,13 +16,13 @@ updates:
       - "dependencies"
       - "butler-v5"
     groups:
-      butler-v5-minor:
+      deps-minor:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
-      butler-v5-major:
+      deps-major:
         patterns:
           - "*"
         update-types:

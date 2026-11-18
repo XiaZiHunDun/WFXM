@@ -25,7 +25,7 @@ Butler v5 当前提供：
 - PostgreSQL Event Store 生产持久化，PGlite 测试隔离；
 - 多 Provider LLM 与失败降级。
 
-目标设计见 [Butler v5 DESIGN](butler-v5/DESIGN.md)；生产调用链、已实现能力和已知缺口见 [v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md)。
+目标设计见 [Butler v5 DESIGN](DESIGN.md)；生产调用链、已实现能力和已知缺口见 [v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md)。
 
 ---
 
@@ -69,7 +69,7 @@ Owner ──→ 微信 iLink / CLI / HTTP / WebSocket
                                 PostgreSQL Event Store
 ```
 
-目标架构：[Butler v5 DESIGN](butler-v5/DESIGN.md) · 当前实现：[v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md) · 历史迁移：[ADR-0001](docs/adr/2026-08-08-v4-to-v5-supersession.md)
+目标架构：[Butler v5 DESIGN](DESIGN.md) · 当前实现：[v5 production architecture](docs/architecture/v5-production-architecture-2026-08.md) · 历史迁移：[ADR-0001](docs/adr/2026-08-08-v4-to-v5-supersession.md)
 
 ---
 
@@ -80,7 +80,6 @@ Owner ──→ 微信 iLink / CLI / HTTP / WebSocket
 ```bash
 git clone https://github.com/XiaZiHunDun/WFXM.git
 cd WFXM
-cd butler-v5
 pnpm install
 ```
 
@@ -92,7 +91,7 @@ cp .env.example .env
 # 原生微信另需 BUTLER_V5_ILINK_ENABLED=1 与 WECHAT_TOKEN。
 ```
 
-示例：[butler-v5/.env.example](butler-v5/.env.example)
+示例：[.env.example](.env.example)
 
 ### 3. 运行
 
@@ -132,7 +131,7 @@ bash scripts/typecheck-gate.sh
 ## 仓库结构
 
 ```
-butler-v5/
+
 ├── apps/api/              HTTP、WS、iLink poller、Loop、工具与 worker
 ├── cli/                   start、wechat-login
 ├── packages/runtime/      AgentKernel、EventBridge、Decision、Delegate
@@ -151,15 +150,15 @@ projects/                  试点项目工作区
 
 ## 文档导航
 
-| 读者              | 从这里开始                                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **新用户 / 运维** | [v5 handoff](docs/architecture/v5-r10-handoff.md)                                                                              |
-| **开发者**        | [AGENTS.md](AGENTS.md) → [目标架构](butler-v5/DESIGN.md) → [当前实现](docs/architecture/v5-production-architecture-2026-08.md) |
-| **提需求 / 边界** | [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md)                                                 |
-| **后续路线**      | [post-boundary roadmap](docs/plans/active/v5-post-boundary-roadmap-2026-08.md)                                                 |
-| **文档体系**      | [DOCUMENTATION.md](docs/DOCUMENTATION.md)                                                                                      |
-| **自托管**        | [docs/deployment/SELF-HOSTING.md](docs/deployment/SELF-HOSTING.md)                                                            |
-| **本地 zero-LLM 试玩** | `cd butler-v5 && pnpm demo`                                                                                              |
+| 读者                   | 从这里开始                                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **新用户 / 运维**      | [v5 handoff](docs/architecture/v5-r10-handoff.md)                                                                    |
+| **开发者**             | [AGENTS.md](AGENTS.md) → [目标架构](DESIGN.md) → [当前实现](docs/architecture/v5-production-architecture-2026-08.md) |
+| **提需求 / 边界**      | [v5 product boundaries](docs/plans/decisions/v5-product-boundaries-2026-08.md)                                       |
+| **后续路线**           | [post-boundary roadmap](docs/plans/active/v5-post-boundary-roadmap-2026-08.md)                                       |
+| **文档体系**           | [DOCUMENTATION.md](docs/DOCUMENTATION.md)                                                                            |
+| **自托管**             | [docs/deployment/SELF-HOSTING.md](docs/deployment/SELF-HOSTING.md)                                                   |
+| **本地 zero-LLM 试玩** | `pnpm demo`                                                                                                          |
 
 ---
 

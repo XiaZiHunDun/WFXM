@@ -44,7 +44,7 @@ Single-user, locally-deployed **personal AI butler** at `/home/ailearn/projects/
 /home/ailearn/projects/WFXM/
 ├── .blackboard/                      # shift cards + audit log
 ├── butler/                            # v4 source (Python, decommissioned, preserved)
-├── butler-v5/                         # v5 source (TypeScript, ACTIVE)
+├──                          # v5 source (TypeScript, ACTIVE)
 │   ├── apps/
 │   │   ├── api/                       # Hono HTTP + WS server (port 3000 + 3002)
 │   │   └── wechat-gateway/            # leftover stub; real iLink is apps/api ilink-poller
@@ -57,8 +57,8 @@ Single-user, locally-deployed **personal AI butler** at `/home/ailearn/projects/
 │   └── architecture/v4-* + v5-r10-handoff.md (this file)
 ├── reference/                         # gitignored external refs
 ├── scripts/                            # v4 + AI guard scripts
-├── butler-v5/scripts/cutover/butler-v5-gateway.service  # systemd unit (port 3000+3002)
-├── butler-v5/scripts/cutover/openclaw-mock.mjs          # R8.x test mock (port 3001)
+├── scripts/cutover/butler-v5-gateway.service  # systemd unit (port 3000+3002)
+├── scripts/cutover/openclaw-mock.mjs          # R8.x test mock (port 3001)
 └── .claude/settings.json               # PostToolUse + Stop hooks
 ```
 
@@ -180,24 +180,24 @@ node scripts/cutover/ws-routes-e2e.mjs
 
 | Concern                                           | File                                                                                              |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Hono routes                                       | `butler-v5/apps/api/src/routes.ts`                                                                |
-| Production butler loop                            | `butler-v5/apps/api/src/wechat-inbound-butler.ts`                                                 |
-| Native iLink poller                               | `butler-v5/apps/api/src/ilink-poller.ts`                                                          |
-| AgentKernel state machine                         | `butler-v5/packages/runtime/src/agent-kernel.ts`                                                  |
-| Decision dispatch (Respond/CallTool/Delegate/...) | `butler-v5/packages/runtime/src/decision.ts`                                                      |
-| Delegate runtime + outbox enqueue                 | `butler-v5/packages/runtime/src/delegate-runtime.ts`                                              |
-| LLM adapter (Anthropic + OpenAI-compatible)       | `butler-v5/packages/adapters/src/llm-provider.ts` + `anthropic.ts` + `openai-compatible.ts`       |
-| EventBridge (append conversation events)          | `butler-v5/packages/runtime/src/bridge.ts`                                                        |
-| Tool execution + runTool                          | `butler-v5/packages/runtime/src/tool-runtime.ts`                                                  |
-| Tool registry (current 8 tools)                   | `butler-v5/apps/api/src/tools.ts`                                                                 |
-| Subagent worker (polls outbox → LLM → reply)      | `butler-v5/apps/api/src/subagent-worker.ts`                                                       |
-| WebSocket server + pushEventToSubscribers         | `butler-v5/apps/api/src/ws-routes.ts`                                                             |
-| Audit log (R8.x.9 capability + delegation)        | `butler-v5/apps/api/src/audit-log.ts`                                                             |
-| Capability allowlist                              | `butler-v5/packages/runtime/src/delegate-runtime.ts` (`ALLOWED_CAPABILITIES`)                     |
-| Subagent push e2e test                            | `butler-v5/scripts/cutover/ws-subagent-push-e2e.mjs`                                              |
-| WS handshake test                                 | `butler-v5/scripts/cutover/ws-routes-e2e.mjs`                                                     |
-| wechat-mock (test fixture for R8.x dev)           | `butler-v5/scripts/cutover/openclaw-mock.mjs` (port 3001)                                         |
-| Dockerfile / postgres schema                      | `butler-v5/docker-compose.yml` + `butler-v5/packages/persistence/src/migrations/0001_initial.sql` |
+| Hono routes                                       | `apps/api/src/routes.ts`                                                                |
+| Production butler loop                            | `apps/api/src/wechat-inbound-butler.ts`                                                 |
+| Native iLink poller                               | `apps/api/src/ilink-poller.ts`                                                          |
+| AgentKernel state machine                         | `packages/runtime/src/agent-kernel.ts`                                                  |
+| Decision dispatch (Respond/CallTool/Delegate/...) | `packages/runtime/src/decision.ts`                                                      |
+| Delegate runtime + outbox enqueue                 | `packages/runtime/src/delegate-runtime.ts`                                              |
+| LLM adapter (Anthropic + OpenAI-compatible)       | `packages/adapters/src/llm-provider.ts` + `anthropic.ts` + `openai-compatible.ts`       |
+| EventBridge (append conversation events)          | `packages/runtime/src/bridge.ts`                                                        |
+| Tool execution + runTool                          | `packages/runtime/src/tool-runtime.ts`                                                  |
+| Tool registry (current 8 tools)                   | `apps/api/src/tools.ts`                                                                 |
+| Subagent worker (polls outbox → LLM → reply)      | `apps/api/src/subagent-worker.ts`                                                       |
+| WebSocket server + pushEventToSubscribers         | `apps/api/src/ws-routes.ts`                                                             |
+| Audit log (R8.x.9 capability + delegation)        | `apps/api/src/audit-log.ts`                                                             |
+| Capability allowlist                              | `packages/runtime/src/delegate-runtime.ts` (`ALLOWED_CAPABILITIES`)                     |
+| Subagent push e2e test                            | `scripts/cutover/ws-subagent-push-e2e.mjs`                                              |
+| WS handshake test                                 | `scripts/cutover/ws-routes-e2e.mjs`                                                     |
+| wechat-mock (test fixture for R8.x dev)           | `scripts/cutover/openclaw-mock.mjs` (port 3001)                                         |
+| Dockerfile / postgres schema                      | `docker-compose.yml` + `packages/persistence/src/migrations/0001_initial.sql` |
 | ADR-0001 v4→v5 supersession + R10.x status        | `docs/adr/2026-08-08-v4-to-v5-supersession.md`                                                    |
 
 The `_archive/packages/application` and parts of `_archive/packages/infrastructure` are not imported by this production path. They were archived to the root `_archive/` as migration scaffolding, not delivered runtime capability. See the production architecture SSOT for their disposition.
@@ -288,14 +288,14 @@ Do not re-open closed R-stages as “optional debt”. New work follows the post
    pnpm exec tsx cli/src/index.ts sandbox-preflight
    ```
 
-3. In `~/.config/butler-v5/env`, set `BUTLER_V5_SANDBOX=bubblewrap`.
-4. Uncomment `ExecStartPre=…/butler-v5-sandbox-preflight.sh` in `butler-v5/scripts/cutover/butler-v5-gateway.service`, then `systemctl daemon-reload && systemctl restart butler-v5-gateway`.
+3. In `~/.config/env`, set `BUTLER_V5_SANDBOX=bubblewrap`.
+4. Uncomment `ExecStartPre=…/butler-v5-sandbox-preflight.sh` in `scripts/cutover/butler-v5-gateway.service`, then `systemctl daemon-reload && systemctl restart butler-v5-gateway`.
 
 Without preflight, gateway starts but `run_command` fail-closes when `bwrap` is missing.
 
 ### 8.3 v4 source migration (long-term)
 
-- v4 butler-gateway code in `butler/` (Python) — preserved as git history; v5 in `butler-v5/` (TypeScript) is sole production
+- v4 butler-gateway code in `butler/` (Python) — preserved as git history; v5 in `` (TypeScript) is sole production
 - v4 runtime state in `~/.butler/` — **D1 EXECUTED 2026-08-25** (deleted; backup at `~/backup-butler-home-20260825.tgz`; see §8.1)
 
 ### 8.4 Remaining development plan
@@ -319,7 +319,7 @@ See [`v5-post-boundary-roadmap-2026-08.md`](../plans/active/v5-post-boundary-roa
 - Tool definition → extend `WEIBUTLER_LLM_TOOLS` in `apps/api/src/tools.ts`; side effects also require Policy/ScopedGrant design
 - Capability gating → current `ALLOWED_CAPABILITIES` is tool-name-only and must converge to the P1 lease model before broad expansion
 - Event persistence → `bridge.appendConversationEvent(...)` from `packages/runtime/src/bridge.ts`
-- Test infra → `apps/api/src/<file>.test.ts` pattern + `butler-v5/scripts/cutover/<file>.mjs` for live e2e
+- Test infra → `apps/api/src/<file>.test.ts` pattern + `scripts/cutover/<file>.mjs` for live e2e
 
 ### 9.2 Conventions
 
@@ -351,10 +351,10 @@ If starting fresh with this document:
 1. **Read shift cards** (sequential narrative of work done):
    - `ls -la /home/ailearn/projects/WFXM/.blackboard/shifts/ | sort` → reads `.md` files in order
 2. **Read source code** starting from:
-   - `butler-v5/apps/api/src/routes.ts` — HTTP routes + butler loop entry
-   - `butler-v5/apps/api/src/wechat-inbound-butler.ts` — production Loop
-   - `butler-v5/packages/runtime/src/agent-kernel.ts` — state machine
-   - `butler-v5/apps/api/src/tools.ts` — tool registry (extend here for new tools)
+   - `apps/api/src/routes.ts` — HTTP routes + butler loop entry
+   - `apps/api/src/wechat-inbound-butler.ts` — production Loop
+   - `packages/runtime/src/agent-kernel.ts` — state machine
+   - `apps/api/src/tools.ts` — tool registry (extend here for new tools)
 3. **Run 5-gate** to confirm baseline:
    ```bash
    cd /home/ailearn/projects/WFXM/butler-v5

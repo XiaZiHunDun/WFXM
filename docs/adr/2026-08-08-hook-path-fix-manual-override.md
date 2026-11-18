@@ -83,6 +83,6 @@ python3 $CLAUDE_PROJECT_DIR/scripts/ai_guard/pre_tool_use_hook.py --help
 ## 注意事项
 
 - 本文档不执行任何 git 操作；
-- 不修改 `.claude/settings.json`、`.cursorrules`、`AGENTS.md`、`butler-v5/` 任何其它文件；
+- 不修改 `.claude/settings.json`、`.cursorrules`、`AGENTS.md`、`` 任何其它文件；
 - 不 stage 或 commit 任何既有 M/D/?? 文件；
 - 修改完成后由 Owner 自行决定是否纳入后续 R0/R1 commit。

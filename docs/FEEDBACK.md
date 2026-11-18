@@ -152,7 +152,7 @@ git commit -m "fix: foo (commit abc1234)"   # 不带 backtick，直接括号
 - Define minimal local interface in domain capturing only methods the pure fn uses (TypeScript structural typing)
 - Verification before typing import:
   ```bash
-  ls butler-v5/packages/<own-package>/node_modules/@butler/ 2>/dev/null
+  ls packages/<own-package>/node_modules/@butler/ 2>/dev/null
   # If empty → no cross-package imports allowed
   ```
 - 与 `RuntimeStore` 同 pattern（defined in domain/runtime/store-contract.ts）
@@ -193,7 +193,7 @@ git commit -m "fix: foo (commit abc1234)"   # 不带 backtick，直接括号
 **Rule**:
 - **不要**提议"修 hook"或"暂时去掉 protected"（hook 已退役）
 - **不要**写"hook 永久存在"作为不可变约束
-- R-* plan 阶段**第一 SOP 步骤**仍是 `grep -nE "PROTECTED_FILES|AI 守卫" CONTRIBUTING.md .cursorrules butler-v5/AGENTS.md 2>/dev/null`（验证"承重"标记仍准确）
+- R-* plan 阶段**第一 SOP 步骤**仍是 `grep -nE "PROTECTED_FILES|AI 守卫" CONTRIBUTING.md .cursorrules AGENTS.md 2>/dev/null`（验证"承重"标记仍准确）
 - 涉及"承重"文件改动时，主动跑 5 gate + 详细 review
 
 **保留**（非 hook，是 CI/git 机制）：

@@ -1,15 +1,1 @@
-{
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "BLACKBOARD_AGENT=claude-code BLACKBOARD_ROOT=/home/ailearn/projects/WFXM/.blackboard python3 /home/ailearn/projects/WFXM/scripts/claude_session_end_v5.py"
-          }
-        ]
-      }
-    ]
-  }
-}
+{}

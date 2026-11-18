@@ -49,7 +49,7 @@ docker compose up -d postgres butler
 
 ### 1.3 运行时处理（Secret<T> 包装）
 
-应用层使用 `Secret<T>` 包装层（参考 [secret.ts](../../butler-v5/packages/adapters/src/wechat/secret.ts)）：
+应用层使用 `Secret<T>` 包装层（参考 [secret.ts](../../packages/adapters/src/wechat/secret.ts)）：
 
 ```typescript
 // ❌ 错误：直接读 env（可能在 log 泄露）

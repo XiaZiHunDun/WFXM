@@ -16,7 +16,7 @@
 ### 交付
 
 - 新版产品边界成为需求/否决唯一 SSOT；
-- `butler-v5/DESIGN.md` 成为务实模块化单体的目标架构 SSOT；
+- `DESIGN.md` 成为务实模块化单体的目标架构 SSOT；
 - Conversation / Message / Run / Step / ScopedGrant 是默认内核；Child Run 是普通 Run；Task / Procedure 延后；
 - Conversation 无界、Run 有界、同对话主 Run 串行、模型工作集有预算；
 - 数据目标改为当前状态 + append-only audit + transactional outbox；

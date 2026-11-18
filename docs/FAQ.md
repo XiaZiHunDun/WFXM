@@ -147,7 +147,7 @@
 4. ship 模板：1 file 1 commit（per D77 7-ship 模式）
 5. pause 模板：MEMORY.md 更新 + project-pause-state memo
 
-**AI 工具协作约束**：见 [`../AGENTS.md`](../AGENTS.md) §3（撞点流程）+ `butler-v5/AGENTS.md`（v5 代码约束）。
+**AI 工具协作约束**：见 [`../AGENTS.md`](../AGENTS.md) §3（撞点流程）+ `AGENTS.md`（v5 代码约束）。
 
 ---
 

@@ -88,7 +88,7 @@ fi
 echo "✅ Secret 扫描通过"
 
 # 3. Butler v5 迁移 schema 警告
-if git diff --cached --name-only | grep -qE "^butler-v5/packages/persistence/src/migrations/"; then
+if git diff --cached --name-only | grep -qE "^packages/persistence/src/migrations/"; then
     echo "⚠️  WARNING: v5 persistence migration 被修改"
     echo "   请运行: cd butler-v5 && pnpm exec vitest run packages/persistence/src/runtime-schema.test.ts"
 fi

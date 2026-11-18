@@ -2,7 +2,7 @@
 
 > **状态**：**Accepted**（2026-08-24 Owner 决策）  
 > **前置**：P3 MCP 四 server + Grant 验收已闭环（[`v5-mcp-multi-server-handoff-2026-08.md`](v5-mcp-multi-server-handoff-2026-08.md)）  
-> **目标架构 SSOT**：[`butler-v5/DESIGN.md`](../../../butler-v5/DESIGN.md) §9  
+> **目标架构 SSOT**：[`DESIGN.md`](../../../DESIGN.md) §9  
 > **生产事实**：[`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md) §6.0b–c  
 > **产品边界**：[`v5-product-boundaries-2026-08.md`](../decisions/v5-product-boundaries-2026-08.md)
 

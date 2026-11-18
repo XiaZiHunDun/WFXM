@@ -30,12 +30,12 @@
 | --- | --- |
 | 验收金字塔 L0–L4 文档 | [`v5-verification-strategy-2026-08.md`](v5-verification-strategy-2026-08.md) |
 | 聚合回归 | `pnpm smoke:regression` · `pnpm smoke:regression:quick` |
-| CI 回归 | `pnpm smoke:ci-regression` · root + `butler-v5/.github/workflows/ci.yml` |
+| CI 回归 | `pnpm smoke:ci-regression` · root + `.github/workflows/ci.yml` |
 | iLink 探活脚本 | `pnpm smoke:ilink` · 可选 `--send-ping` |
 | iLink sendmessage 格式修复 | `scripts/cutover/smoke-ilink-connectivity.mjs`（`msg.to_user_id` + `item_list`） |
 | Ping 配置脚本 | `scripts/cutover/configure-ilink-ping.sh` |
 
-### 2.2 生产配置（`~/.config/butler-v5/env`）
+### 2.2 生产配置（`~/.config/env`）
 
 | 变量 | 状态 |
 | --- | --- |
@@ -71,10 +71,10 @@ curl -sf http://127.0.0.1:3000/healthz                 # {"status":"ok","wiring"
 
 | 组件 | 事实 |
 | --- | --- |
-| Gateway | `butler-v5-gateway.service`（user systemd），`EnvironmentFile=~/.config/butler-v5/env` |
+| Gateway | `butler-v5-gateway.service`（user systemd），`EnvironmentFile=~/.config/env` |
 | DB | `BUTLER_V5_DB=postgres`，Docker compose |
 | iLink poller | 启动日志：`[ilink-poller] started … dmPolicy=open` |
-| 数据目录 | `~/.config/butler-v5/`（含 `env`、`ilink-sync.json`、`audit/subagent.jsonl`） |
+| 数据目录 | `~/.config/`（含 `env`、`ilink-sync.json`、`audit/subagent.jsonl`） |
 | v4 备份 | `~/backup-butler-home-20260825.tgz` — **勿删** |
 
 ---
@@ -85,12 +85,12 @@ curl -sf http://127.0.0.1:3000/healthz                 # {"status":"ok","wiring"
 | --- | --- |
 | 黑板快照 | `.blackboard/state.md` |
 | 验收策略 | `docs/plans/active/v5-verification-strategy-2026-08.md` |
-| CI smoke | `butler-v5/scripts/cutover/ci-smoke-regression.sh` |
-| iLink ping 配置 | `butler-v5/scripts/cutover/configure-ilink-ping.sh` |
-| iLink 探活 | `butler-v5/scripts/cutover/smoke-ilink-connectivity.mjs` |
-| 生产 Loop | `butler-v5/apps/api/src/wechat-inbound-butler.ts` |
-| iLink 协议 | `butler-v5/packages/adapters/src/wechat/ilink-protocol.ts` |
-| 出站推送 | `butler-v5/apps/api/src/wechat-run-notify.ts` |
+| CI smoke | `scripts/cutover/ci-smoke-regression.sh` |
+| iLink ping 配置 | `scripts/cutover/configure-ilink-ping.sh` |
+| iLink 探活 | `scripts/cutover/smoke-ilink-connectivity.mjs` |
+| 生产 Loop | `apps/api/src/wechat-inbound-butler.ts` |
+| iLink 协议 | `packages/adapters/src/wechat/ilink-protocol.ts` |
+| 出站推送 | `apps/api/src/wechat-run-notify.ts` |
 | PK 交接 | `docs/plans/active/v5-project-knowledge-handoff-2026-08.md` |
 | MCP 交接 | `docs/plans/active/v5-mcp-multi-server-handoff-2026-08.md` |
 
@@ -99,7 +99,7 @@ curl -sf http://127.0.0.1:3000/healthz                 # {"status":"ok","wiring"
 ## 5. 推荐命令
 
 ```bash
-cd butler-v5
+
 
 # 改代码后
 pnpm test
@@ -151,9 +151,9 @@ systemctl --user restart butler-v5-gateway.service
 - 真机全命令矩阵点验（L1/L2 已覆盖）  
 - PK K2 / embedding / RAG Studio  
 - Web UI / Playwright 浏览器（Owner 已不立项）  
-- 删 `~/backup-butler-home-20260825.tgz` 或 `~/.config/butler-v5/`  
+- 删 `~/backup-butler-home-20260825.tgz` 或 `~/.config/`  
 - 用 v4 文档推断 v5 实现  
-- 擅自改受保护文件（见根 `.cursorrules` / `butler-v5/AGENTS.md`）
+- 擅自改受保护文件（见根 `.cursorrules` / `AGENTS.md`）
 
 ---
 
@@ -162,7 +162,7 @@ systemctl --user restart butler-v5-gateway.service
 1. **conversation `subject` ≠ iLink `to_user_id`**：loopback smoke 用 `mcp-smoke-*` 等；真机推送用 `@im.wechat` 格式 id。  
 2. **`sim-wx-realdevice-*`** 是 loopback 测试 id，不是真机 userId。  
 3. **discover userId**：查 `GET /v1/owner/conversations?projectId=wechat` 中带 `@im.wechat` 的 `subject`；或 `configure-ilink-ping.sh` + 真机发消息后从 getupdates 解析 `from_user_id`。  
-4. **改 `~/.config/butler-v5/env` 后**必须 `systemctl --user restart butler-v5-gateway.service`。
+4. **改 `~/.config/env` 后**必须 `systemctl --user restart butler-v5-gateway.service`。
 
 ---
 

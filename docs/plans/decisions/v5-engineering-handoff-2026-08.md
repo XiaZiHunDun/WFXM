@@ -3,7 +3,7 @@
 > **状态**：Accepted  
 > **范围**：仓库内异构 Agent 的跨会话交接，不是产品运行时  
 > **取代**：v4 期黑板交接设计（已随 v4 退役删除）作为交接规约  
-> **目标架构**：[`../../../butler-v5/DESIGN.md`](../../../butler-v5/DESIGN.md) §16  
+> **目标架构**：[`../../../DESIGN.md`](../../../DESIGN.md) §16  
 > **受保护面**：`.blackboard/README.md` 与 `.claude/settings.json` 仍须人工改到本口径；在改完之前，以本文和 `AGENTS.md` 为准
 
 ---

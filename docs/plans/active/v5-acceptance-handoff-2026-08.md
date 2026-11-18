@@ -15,8 +15,8 @@
 
 成功标准：
 
-1. `cd butler-v5 && pnpm test:p4-acceptance` 绿  
-2. （可选）`cd butler-v5 && pnpm test` 全绿  
+1. `pnpm test:p4-acceptance` 绿  
+2. （可选）`pnpm test` 全绿  
 3. （可选）真库 / 真进程：`butler verify [--api …]` + 手工 Owner/微信路径对照下文清单打勾  
 
 若验收发现缺陷：优先**修已交付面的 bug**；不要顺手开 Project Knowledge / UI / 浏览器。
@@ -53,7 +53,7 @@
 ### A. 自动化（必做）
 
 ```bash
-cd butler-v5
+
 pnpm test:p4-acceptance
 # 覆盖：模拟微信 inbound → Schedule fire → Task/Procedure 推进 → Owner traces
 # 另含：迁移清单 0004–0006、trace 脱敏单测
@@ -65,7 +65,7 @@ butler verify
 可选全量：
 
 ```bash
-cd butler-v5 && pnpm test
+pnpm test
 ```
 
 上一开发班次末次全量：**150 files / 762 tests** 通过（以你跑的结果为准）。
@@ -98,15 +98,15 @@ Harness 已覆盖「模拟微信 HTTP」；真微信是环境验收，不是功�
 
 | 用途 | 路径 |
 | --- | --- |
-| 验收 harness | `butler-v5/apps/api/src/p4-acceptance.harness.test.ts` |
-| 冒烟脚本 | `butler-v5/scripts/p4-acceptance.sh` → `pnpm test:p4-acceptance` |
-| Task 执行 | `butler-v5/apps/api/src/task-run.ts` |
-| Schedule 执行 | `butler-v5/apps/api/src/schedule-run.ts` |
-| 微信入站 HTTP | `butler-v5/apps/api/src/routes.ts` → `runButlerLoop` |
-| 迁移清单 | `butler-v5/packages/persistence/src/migrations/run-migrations.ts` |
-| Trace 脱敏 | `butler-v5/packages/domain/src/observability/local-trace.ts` |
-| Owner 路由 | `butler-v5/apps/api/src/owner-routes.ts` |
-| CLI | `butler-v5/cli/src/index.ts`（`task` / `traces` / `verify` / `document` / `memory`） |
+| 验收 harness | `apps/api/src/p4-acceptance.harness.test.ts` |
+| 冒烟脚本 | `scripts/p4-acceptance.sh` → `pnpm test:p4-acceptance` |
+| Task 执行 | `apps/api/src/task-run.ts` |
+| Schedule 执行 | `apps/api/src/schedule-run.ts` |
+| 微信入站 HTTP | `apps/api/src/routes.ts` → `runButlerLoop` |
+| 迁移清单 | `packages/persistence/src/migrations/run-migrations.ts` |
+| Trace 脱敏 | `packages/domain/src/observability/local-trace.ts` |
+| Owner 路由 | `apps/api/src/owner-routes.ts` |
+| CLI | `cli/src/index.ts`（`task` / `traces` / `verify` / `document` / `memory`） |
 
 ---
 
