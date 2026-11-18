@@ -4,7 +4,7 @@
 > **关系**:
 > - 功能清单 → [`FEATURES.md`](FEATURES.md)
 > - API / env / tests / audit findings / 工程治理 → [`API_ENDPOINTS.md`](API_ENDPOINTS.md), [`ENV.md`](ENV.md), [`TESTS.md`](TESTS.md), [`AUDIT_FINDINGS.md`](AUDIT_FINDINGS.md)
-> - 工程治理梳理 → [`../AGENTS.md`](../AGENTS.md) + `.cursorrules` + `.blackboard/state.md`
+> - 工程治理梳理 → [`../AGENTS.md`](../AGENTS.md) + `.cursorrules`
 > - 完整 lessons → `.claude/projects/.../memory/feedback-*.md` + `project-*.md`（user home / project-local；gitignored）
 > - D-series 累計 → [`ROADMAP.md`](ROADMAP.md)
 
@@ -298,7 +298,7 @@ git commit -m "fix: foo (commit abc1234)"   # 不带 backtick，直接括号
 | 测试覆盖 | [`TESTS.md`](TESTS.md) |
 | TODO / deferral | [`TODO_DEFERRED.md`](TODO_DEFERRED.md) |
 | Audit findings | [`AUDIT_FINDINGS.md`](AUDIT_FINDINGS.md) |
-| 工程治理入口 | [`../AGENTS.md`](../AGENTS.md) + `.cursorrules` + `.blackboard/state.md` |
+| 工程治理入口 | [`../AGENTS.md`](../AGENTS.md) + `.cursorrules` |
 | 完整 lessons（gitignored） | `.claude/projects/.../memory/feedback-*.md` + `project-*.md` |
 | D-series 累計 | [`ROADMAP.md`](ROADMAP.md) |
 | Owner FAQ（D-series / audit-driven / 节奏判据） | [`FAQ.md`](FAQ.md) |

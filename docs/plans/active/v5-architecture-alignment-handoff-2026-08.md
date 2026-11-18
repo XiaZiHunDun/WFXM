@@ -36,10 +36,10 @@
 
 ## 2. 新会话开篇（30 秒）
 
-1. 读 [`.blackboard/state.md`](../../../.blackboard/state.md)
+1. 读 [`plans/README.md`](../README.md)
 2. 读本文 §4（差距）+ §6（建议顺序）
 3. 改代码前读 [`butler-v5/AGENTS.md`](../../../butler-v5/AGENTS.md) §0（生产 vs 脚手架）
-4. 查 env：`docs/config/reference.md` 或 `butler-v5/.env.example`
+4. 查 env：`docs/ENV.md` 或 `butler-v5/.env.example`
 5. 改 `butler-v5/` 后：`cd butler-v5 && pnpm test`
 
 ---
@@ -249,7 +249,7 @@ python3 scripts/ai_guard/post_tool_use_hook.py --match-only \
 - 不要恢复 v4 `butler/` 为产品主线。
 - 不要立项浏览器、RAG Studio、全量 MCP Marketplace。
 - 修改 `scripts/ai_guard/*.py`、`.cursorrules`、`.claude/settings.json` 需 `[MANUAL-OVERRIDE]`；可用 `scripts/v5_ai_guard/` 分步脚本。
-- 不要用 `docs/history/` 或 v4 文档推断 v5 实现。
+- 不要用 v4 文档推断 v5 实现。
 
 ---
 

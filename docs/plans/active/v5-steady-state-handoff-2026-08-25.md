@@ -152,7 +152,7 @@ systemctl --user restart butler-v5-gateway.service
 - PK K2 / embedding / RAG Studio  
 - Web UI / Playwright 浏览器（Owner 已不立项）  
 - 删 `~/backup-butler-home-20260825.tgz` 或 `~/.config/butler-v5/`  
-- 用 `docs/history/` 或 v4 文档推断 v5 实现  
+- 用 v4 文档推断 v5 实现  
 - 擅自改受保护文件（见根 `.cursorrules` / `butler-v5/AGENTS.md`）
 
 ---
@@ -168,7 +168,7 @@ systemctl --user restart butler-v5-gateway.service
 
 ## 9. 新会话 30 秒
 
-1. [`.blackboard/state.md`](../../../.blackboard/state.md)  
+1. [`plans/README.md`](../README.md)  
 2. **本文**  
 3. 做验收/运维 → [`v5-verification-strategy-2026-08.md`](v5-verification-strategy-2026-08.md)  
 4. 做 PK → [`v5-project-knowledge-handoff-2026-08.md`](v5-project-knowledge-handoff-2026-08.md)  

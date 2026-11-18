@@ -39,21 +39,21 @@ butler-v5/
 
 ## 分层验证
 
-| 层 | 范围 | 命令 |
-| --- | --- | --- |
-| L1 | 单元 / 契约 | `pnpm test` |
-| L2 | 消息出口规范化 | `vitest run packages/runtime/src/butler/presentation.test.ts` |
-| L3 | 评估场景（gate） | `vitest run tests/eval` |
-| L4 | 渠道前验收窗口（真实路由 + 真实 runtime） | `npx tsx scripts/l4-smoke.ts` |
-| L4 可靠性 | 重投 / 并发 / 连续投递 / 无待审批 | `npx tsx scripts/l4-smoke.ts --suite reliability` |
+| 层        | 范围                                      | 命令                                                          |
+| --------- | ----------------------------------------- | ------------------------------------------------------------- |
+| L1        | 单元 / 契约                               | `pnpm test`                                                   |
+| L2        | 消息出口规范化                            | `vitest run packages/runtime/src/butler/presentation.test.ts` |
+| L3        | 评估场景（gate）                          | `vitest run tests/eval`                                       |
+| L4        | 渠道前验收窗口（真实路由 + 真实 runtime） | `npx tsx scripts/l4-smoke.ts`                                 |
+| L4 可靠性 | 重投 / 并发 / 连续投递 / 无待审批         | `npx tsx scripts/l4-smoke.ts --suite reliability`             |
 
 L4 脚本要求网关已启动，并从 `~/.config/butler-v5/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。
 
 ## 配置与运维
 
-- 环境变量总表：[`../docs/ENV.md`](../docs/ENV.md)；配置面：[`../docs/config/config-surfaces.md`](../docs/config/config-surfaces.md)
+- 环境变量总表：[`../docs/ENV.md`](../docs/ENV.md)；可复制模板：[`.env.example`](.env.example)
 - 生产加固：[`../docs/deployment/production-hardening.md`](../docs/deployment/production-hardening.md)
-- 诊断入口：[`../docs/ops/diagnostic-entrypoints.md`](../docs/ops/diagnostic-entrypoints.md)
+- 部署与运维：[`../docs/deployment/SELF-HOSTING.md`](../docs/deployment/SELF-HOSTING.md)
 
 ## 技术栈
 

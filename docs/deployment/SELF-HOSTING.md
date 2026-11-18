@@ -391,7 +391,7 @@ A: 回滚 `git checkout <old-sha>` + `TAG=<old-tag> docker compose up -d`（migr
 | 公网部署 + TLS | → §4.2 |
 | 加固细节 | → [`production-hardening.md`](production-hardening.md) |
 | 监控 / 备份 / 升级 / 报错 | → §5 / §6 / §7 / §8 |
-| 容器架构 / Dockerfile | → [`../../docker-compose.yml`](../../docker-compose.yml) / [`../../Dockerfile`](../../Dockerfile) |
+| 容器架构 / Dockerfile | → [`../../butler-v5/docker-compose.yml`](../../butler-v5/docker-compose.yml) / [`../../butler-v5/Dockerfile`](../../butler-v5/Dockerfile) |
 | v5 架构 + 调用链 | → [`../../docs/architecture/v5-production-architecture-2026-08.md`](../../docs/architecture/v5-production-architecture-2026-08.md) |
 | D-series 累计 + 维度 | → [`../ROADMAP.md`](../ROADMAP.md) §3 |
 | demo / 本地无 LLM 试玩 | → [`../../butler-v5/README.md`](../../butler-v5/README.md) `pnpm demo` |

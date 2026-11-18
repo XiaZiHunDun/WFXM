@@ -16,4 +16,4 @@ butler project preflight --path projects/<目录名>
 butler memory-reindex --project "<name>"
 ```
 
-接入清单见 [`docs/guides/project-onboarding.md`](../../guides/project-onboarding.md)。
+接入与命令说明见 [`STRUCTURE.md`](../../../STRUCTURE.md)。

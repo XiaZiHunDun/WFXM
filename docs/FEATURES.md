@@ -119,7 +119,7 @@
 | **G-6 2 级验证选择** | low/medium (Grant) + always-confirm (per-action) | policy-gate | DESIGN §13 | ✅ |
 | **G-7 角色分离** | author / reviewer 分离；M9 owner-jargon / inline-approval 改 reply 字符串必须同 batch 改测试 | handoff | AGENTS.md + D63 T2 lesson | ✅ |
 | **G-8 3 层自愈** | 重试 → 回滚 → escalate | run-engine | runtime | ✅ |
-| **G-9 反模式归档** | `docs/history` 不作实现依据 | docs | [`docs/history/`](../docs/history/), AGENTS.md §3 | ✅ |
+| **G-9 反模式归档** | 历史文档不作实现依据 | docs | [`../AGENTS.md`](../AGENTS.md) §3 | ✅ |
 | **G-10 混沌演练** | `GUARDS_CHAOS_ENABLED` 开关 | guards | env config | ✅ |
 
 ## §6 审计与可观测（Audit / Observability）
@@ -140,7 +140,7 @@
 | **Outbox (事务后异步)** | 出站 Channel + Child Run 派发 + 事务后通知 | outbox | [`packages/persistence/src/outbox.ts`](../butler-v5/packages/persistence/src/outbox.ts), DESIGN §11.3 | ✅ |
 | **runtime-store (postgres)** | Drizzle/postgres 生产 store | persistence | [`packages/persistence/src/runtime-store.ts`](../butler-v5/packages/persistence/src/runtime-store.ts) | ✅ |
 | **memory runtime-store (in-memory)** | 第二持久化实现（demo / 测试） | persistence | [`packages/persistence/src/memory/runtime-store.ts`](../butler-v5/packages/persistence/src/memory/runtime-store.ts) | ✅ (D46 触发) |
-| **`/诊断` 入口** | owner 视角健康快照 + 阈值 | diagnostic-thresholds | [`docs/ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md) | ✅ |
+| **`/诊断` 入口** | owner 视角健康快照 + 阈值 | diagnostic-thresholds | [`apps/api/src/owner-routes/`](../butler-v5/apps/api/src/owner-routes/) | ✅ |
 | **`/health` (liveness + readiness)** | K8s/Docker 健康探针；§20 KNOWN_ENTRY_POINTS non-LLM 2-tier | health route | [`apps/api/src/routes/health.ts`](../butler-v5/apps/api/src/routes/health.ts) | ✅ (D77 T5 `4d423c11`) |
 
 ## §7 运维与部署（Operations / Deployment）
@@ -149,8 +149,8 @@
 
 | 功能名 | Owner 能干什么 | 依赖 | Source 指针 | 状态 |
 |--------|--------------|------|------------|------|
-| **Dockerfile (multi-stage + multi-arch)** | 镜像构建（production deps） | docker | [`../Dockerfile`](../Dockerfile), `.dockerignore` | ✅ (D77 T1 `aa392db3`) |
-| **docker-compose.yml** | 本地 postgres + butler 启动（healthcheck + read_only + resource limits） | compose | [`../docker-compose.yml`](../docker-compose.yml) | ✅ (D77 T4 `29c99d67`) |
+| **Dockerfile (multi-stage + multi-arch)** | 镜像构建（production deps） | docker | [`../butler-v5/Dockerfile`](../butler-v5/Dockerfile), [`../butler-v5/.dockerignore`](../butler-v5/.dockerignore) | ✅ (D77 T1 `aa392db3`) |
+| **docker-compose.yml** | 本地 postgres + butler 启动（healthcheck + read_only + resource limits） | compose | [`../butler-v5/docker-compose.yml`](../butler-v5/docker-compose.yml) | ✅ (D77 T4 `29c99d67`) |
 | **release.yml (multi-arch CI/CD)** | tag push → ghcr.io + cosign sign + SBOM | github actions | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | ✅ (D77 T2 `c4a729f8`) |
 | **dependabot (npm/github-actions/docker)** | 周依赖更新 | dependabot | [`.github/dependabot.yml`](../.github/dependabot.yml) | ✅ (D77 T3 `4b085b82`) |
 | **production-hardening.md** | 7 节 + 13 ❌ anti-patterns（secrets + 容器 + 网络） | — | [`deployment/production-hardening.md`](deployment/production-hardening.md) | ✅ (D77 T6 `cea04051`) |

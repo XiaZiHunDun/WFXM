@@ -10,7 +10,7 @@
 
 - [SECURITY.md](../../SECURITY.md) — 漏洞披露
 - [AGENTS.md](../../AGENTS.md) — 项目约定（含 OSS 手册区）
-- [Dockerfile](../../Dockerfile) — 镜像构建
+- [Dockerfile](../../butler-v5/Dockerfile) — 镜像构建
 - [.github/workflows/release.yml](../../.github/workflows/release.yml) — 发布流程
 - [.github/dependabot.yml](../../.github/dependabot.yml) — 依赖更新
 - [butler-v5/docker-compose.yml](../../butler-v5/docker-compose.yml) — 编排

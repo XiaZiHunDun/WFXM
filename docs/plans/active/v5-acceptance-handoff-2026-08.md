@@ -25,10 +25,10 @@
 
 ## 2. 开篇 30 秒
 
-1. 读 [`.blackboard/state.md`](../../../.blackboard/state.md)  
+1. 读 [`plans/README.md`](../README.md)  
 2. 读**本文**（验收范围与清单）  
 3. 需要路径细节时再读 production architecture §6.0–§6.0f  
-4. 不要从 `docs/history/` 或 v4 推断 v5  
+4. 不要从 v4 文档推断 v5  
 
 ---
 

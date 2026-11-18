@@ -133,7 +133,7 @@
 | `AGENTS.md` (项目根) | Butler v5 项目 | AI 工具启动 | Owner + Agent 协作 |
 | `MEMORY.md` (`~/.claude/projects/.../memory/`) | 本项目 session 记忆 | 撞点 / 交接 | Auto-memory |
 
-**新会话 30 秒**：读 `.blackboard/state.md` → `MEMORY.md` "Current State" → `AGENTS.md` 必读表 → 撞点决定读哪。
+**新会话 30 秒**：读 `AGENTS.md` 必读表 → 撞点决定读哪。
 
 ---
 

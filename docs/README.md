@@ -1,179 +1,118 @@
 # Butler 文档索引
 
-> 更新：**2026-08-20** | 主线：**Butler v5**（单 Owner、自托管、可扩展个人管家）
-> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
+> 更新：**2026-11-18** | 主线：**Butler v5**（单 Owner、自托管、可扩展个人管家）
+> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) → [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 >
-> **与 [`DOCUMENTATION.md`](DOCUMENTATION.md) 的关系**：本文是**卡片**（「我要…」问答快速链接表），适合「我想找具体某篇文档」；[`DOCUMENTATION.md`](DOCUMENTATION.md) 是**手册**（分层 + 维护规则 + 索引结构 + 变更记录），适合「我在维护文档 / 改代码时想知道动哪」。
+> **与 [`DOCUMENTATION.md`](DOCUMENTATION.md) 的关系**：本文是**卡片**（「我要…」问答快速链接表）；DOCUMENTATION 是**手册**（分层 + 维护规则 + 索引结构 + 变更记录）。
 
-## 协调与黑板
+## 新会话入口
 
 | 文档 | 说明 |
 |------|------|
-| [`.blackboard/state.md`](../.blackboard/state.md) | **活动交接**：短快照（主线 / 下一步 / 不要做 / 上一班） |
+| [`../AGENTS.md`](../AGENTS.md) | Agent 必读索引 + v5 事实规则 + 撞点流程 |
+| [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) | **v5 目标架构 SSOT**：三模块、五实体、混合数据、ScopedGrant |
+| [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) | **当前实现全景与第一阶段验收**：三层架构、分层测试 L1–L4 |
+| [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产事实**：调用链、包和数据现状 |
+
+## 协调与交接
+
+| 文档 | 说明 |
+|------|------|
 | [`plans/decisions/v5-engineering-handoff-2026-08.md`](plans/decisions/v5-engineering-handoff-2026-08.md) | **交接规约 SSOT**（工程治理，非产品运行时） |
-| [`superpowers/specs/2026-07-13-wfxm-blackboard-design.md`](superpowers/specs/2026-07-13-wfxm-blackboard-design.md) | SUPERSEDED：旧五件套班次设计 |
 
 ## 快速入口
 
-| 我要…                                   | 读这里                                                                                                                                                                                              |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 改 v5 目标架构                          | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md)                                                                                                                                                  |
-| 改 v5 代码 / 查模块                     | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) + [`../butler-v5/AGENTS.md`](../butler-v5/AGENTS.md)                                     |
-| 查 v5 环境变量                          | [`../butler-v5/.env.example`](../butler-v5/.env.example)                                                                                                                                            |
-| 配置放哪（env/yaml/secrets）            | [`config/config-surfaces.md`](config/config-surfaces.md)                                                                                                                                            |
-| `/诊断` vs `butler doctor` vs `/doctor` | [`ops/diagnostic-entrypoints.md`](ops/diagnostic-entrypoints.md)                                                                                                                                    |
-| 切换项目后影响什么                      | [`architecture/project-activation.md`](architecture/project-activation.md)                                                                                                                          |
-| Hook/MCP/Skill 放哪                     | [`architecture/extension-registry-paths.md`](architecture/extension-registry-paths.md)                                                                                                              |
-| 权限门控改哪                            | [`architecture/permission-gate-stack.md`](architecture/permission-gate-stack.md)                                                                                                                    |
-| **维护者 / 面试一页纸**                 | [`guides/maintainer-cheat-sheet-2026-07.md`](guides/maintainer-cheat-sheet-2026-07.md)                                                                                                              |
-| **v5 功能清单 / 已 ship / deferral**    | [`FEATURES.md`](FEATURES.md)                                                                                                                                                                        |
-| **v5 API endpoint / HTTP+WS surface**   | [`API_ENDPOINTS.md`](API_ENDPOINTS.md)                                                                                                                                                              |
-| **v5 env vars / BUTLER_V5_***           | [`ENV.md`](ENV.md)                                                                                                                                                                                |
-| **v5 测试覆盖 / arch + acceptance + unit** | [`TESTS.md`](TESTS.md)                                                                                                                                                                          |
-| **v5 TODO / deferral 视图**            | [`TODO_DEFERRED.md`](TODO_DEFERRED.md)                                                                                                                                                            |
-| **D-series audit findings 索引 (D69-D74)** | [`AUDIT_FINDINGS.md`](AUDIT_FINDINGS.md)                                                                                                                                                      |
-| **Feedback lessons 索引（19 条 / 6 类）** | [`FEEDBACK.md`](FEEDBACK.md)                                                                                                                                                                  |
-| **工程治理一页纸（改东西前必读）** | [`GOVERNANCE.md`](GOVERNANCE.md)                                                                                                                                                          |
-| **看项目现状 / 已实现 / 未实现 / 依赖** | [`guides/capabilities-index-2026-05.md`](guides/capabilities-index-2026-05.md)                                                                                                                      |
-| **发版一条链**                          | [`guides/release-runbook-2026-05.md`](guides/release-runbook-2026-05.md)                                                                                                                            |
-| 微信发版 / 运维                         | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) → [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md)                                                 |
-| 看 CC 能力是否已有                      | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md)                                                                                                         |
-| 看规划与命名                            | [`plans/README.md`](plans/README.md)                                                                                                                                                                |
-| **v5 产品边界 / 条件准入**              | [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md)                                                                                              |
-| **v5 后续路线**                         | [`plans/active/v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md)                                                                                              |
-| **理论—实现差距（G1–G4）**              | [`plans/decisions/theory-implementation-gap-register-2026-06.md`](plans/decisions/theory-implementation-gap-register-2026-06.md)                                                                    |
-| **Phase 4/9 运营与收口**                | [`guides/phase4-ops-runbook.md`](guides/phase4-ops-runbook.md) · [`plans/active/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md) §9                      |
-| 四报告已落地 / 18 项不做                | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) · [`plans/four-reports-out-of-scope-2026-05.md`](plans/decisions/four-reports-out-of-scope-2026-05.md) |
-| 五报告已落地 / S1–S11                   | [`guides/five-reports-capabilities-2026-05.md`](guides/five-reports-capabilities-2026-05.md) · [`plans/five-reports-not-done-2026-05.md`](plans/decisions/five-reports-not-done-2026-05.md)         |
-| 外部 Agent 路线图（PR-X 已落地）        | [`plans/external-agent-reports-improvement-roadmap-2026-05.md`](plans/roadmaps/external-agent-reports-improvement-roadmap-2026-05.md)                                                               |
-| Codex 对标 Sprint C0–C2                 | [`guides/sprint-codex-c0-2026-05.md`](guides/sprint-codex-c0-2026-05.md) · [C1](guides/sprint-codex-c1-2026-05.md) · [C2](guides/sprint-codex-c2-2026-05.md)                                        |
-| 目录与命令                              | [`../STRUCTURE.md`](../STRUCTURE.md)                                                                                                                                                                |
-| 脚本索引                                | [`../scripts/README.md`](../scripts/README.md)                                                                                                                                                      |
+| 我要… | 读这里 |
+|-------|--------|
+| 改 v5 目标架构 | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) |
+| 改 v5 代码 / 查模块 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) + [`../butler-v5/AGENTS.md`](../butler-v5/AGENTS.md) |
+| 查 v5 环境变量 | [`ENV.md`](ENV.md) · [`../butler-v5/.env.example`](../butler-v5/.env.example) |
+| 配置放哪（env/yaml/secrets） | [`ENV.md`](ENV.md) · [`templates/permissions.yaml.example`](templates/permissions.yaml.example) |
+| 权限门控 / 扩展接缝 | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) §10 / §7.1 |
+| **v5 功能清单 / 已 ship** | [`FEATURES.md`](FEATURES.md) |
+| **v5 API endpoint** | [`API_ENDPOINTS.md`](API_ENDPOINTS.md) |
+| **v5 测试覆盖** | [`TESTS.md`](TESTS.md) |
+| **v5 TODO / deferral** | [`TODO_DEFERRED.md`](TODO_DEFERRED.md) |
+| **D-series audit findings** | [`AUDIT_FINDINGS.md`](AUDIT_FINDINGS.md) |
+| **Feedback lessons** | [`FEEDBACK.md`](FEEDBACK.md) |
+| **工程治理一页纸** | [`GOVERNANCE.md`](GOVERNANCE.md) |
+| **发版 / 生产加固** | [`deployment/production-hardening.md`](deployment/production-hardening.md) |
+| 看规划与命名 | [`plans/README.md`](plans/README.md) |
+| **v5 产品边界 / 条件准入** | [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) |
+| **v5 后续路线** | [`plans/active/v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) · [`ROADMAP.md`](ROADMAP.md) |
+| **v5 剩余开发** | [`plans/active/v5-remaining-work-2026-08-20.md`](plans/active/v5-remaining-work-2026-08-20.md) |
+| **v5 owner FAQ** | [`FAQ.md`](FAQ.md) |
+| 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
 
 ## 架构与设计
 
-| 文档                                                                                                       | 说明                                                                      |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md)                                                         | **v5 目标架构 SSOT**：三模块、五实体、混合数据、ScopedGrant、两条扩展接缝 |
-| [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产事实**：调用链、包和数据现状                                    |
-| [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html)                           | **当前实现全景与第一阶段验收**：三层架构、分层测试 L1–L4、达标判定（2026-11-18） |
-| [`architecture/v4-architecture.md`](architecture/v4-architecture.md)                                       | v4 历史架构，不作 v5 依据                                                 |
-| [`design/design.md`](design/design.md)                                                                     | 产品设计摘要；§9 对照表（附录可能滞后，勿作实现 SSOT）                    |
-| [`architecture/project-lead-decision.md`](architecture/project-lead-decision.md)                           | 莎丽门户 + 厂长主控                                                       |
-| [`architecture/project-runtime-automation.md`](architecture/project-runtime-automation.md)                 | Runtime 定时任务                                                          |
-| [`architecture/wechat-inbound-media.md`](architecture/wechat-inbound-media.md)                             | 入站图片 VLM + 语音转写                                                   |
-| [`architecture/layered-model-config.md`](architecture/layered-model-config.md)                             | 分层模型配置                                                              |
-| [`architecture/hermes-decoupling.md`](architecture/hermes-decoupling.md)                                   | Hermes 解耦（已完成）                                                     |
-| [`architecture/hermes-extraction-map.md`](architecture/hermes-extraction-map.md)                           | Hermes → Butler 提炼对照                                                  |
+| 文档 | 说明 |
+|------|------|
+| [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) | v5 目标架构 SSOT |
+| [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) | 当前实现全景、L1–L4 分层测试与达标判定 |
+| [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | 当前生产调用链与包边界 |
+| [`architecture/v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) | 视觉架构图（Mermaid 4 张） |
+| [`architecture/v5-r10-handoff.md`](architecture/v5-r10-handoff.md) | v5 迁移交接与保护层 |
+| [`architecture/v5-r12-verification-2026-08.md`](architecture/v5-r12-verification-2026-08.md) | v5 R12 验证记录 |
+| [`adr/2026-08-08-v4-to-v5-supersession.md`](adr/2026-08-08-v4-to-v5-supersession.md) | v4 → v5 取代决策 |
+| [`adr/effects-integration.md`](adr/effects-integration.md) | Effect-TS 集成决策 |
 
-## 运维与测试
+## 运维与部署
 
-| 文档                                                                                   | 说明                                             |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| [`guides/README.md`](guides/README.md)                                                 | **指南总索引**（冒烟、Runtime、接入）            |
-| [`guides/capabilities-index-2026-05.md`](guides/capabilities-index-2026-05.md)         | 项目状态总览（已实现 / 未实现 / 依赖）           |
-| [`guides/dependency-policy-2026-05.md`](guides/dependency-policy-2026-05.md)           | 依赖分层与引入策略（core / extras / 明确不引入） |
-| [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md)                         | systemd 安装、发版、日志                         |
-| [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md)     | 发版真机 H1–H10                                  |
-| [`guides/wechat-core-scenario.md`](guides/wechat-core-scenario.md)                     | 微信八步剧本                                     |
-| [`guides/manual-testing-guide.md`](guides/manual-testing-guide.md)                     | CLI + 微信人工测试                               |
-| [`guides/runtime-ops.md`](guides/runtime-ops.md)                                       | Runtime timer                                    |
-| [`guides/phase4-ops-runbook.md`](guides/phase4-ops-runbook.md)                         | Phase 4 运营巩固 + 灵文样板                      |
-| [`guides/memory-ops.md`](guides/memory-ops.md)                                         | 记忆运维（含 SSOT ↔ SQLite 索引关系）            |
-| [`guides/maintainer-cheat-sheet-2026-07.md`](guides/maintainer-cheat-sheet-2026-07.md) | 维护者速查与面试手册                             |
-| [`guides/project-onboarding.md`](guides/project-onboarding.md)                         | 项目接入 preflight                               |
-| [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md)                         | `/诊断` 运行指标阈值说明                         |
-| [`../tests/README.md`](../tests/README.md)                                             | pytest 分层与守门                                |
-| [`../CONTRIBUTING.md`](../CONTRIBUTING.md)                                             | 贡献、Hooks、出站、语料                          |
+| 文档 | 说明 |
+|------|------|
+| [`deployment/README.md`](deployment/README.md) | 部署文档索引 |
+| [`deployment/SELF-HOSTING.md`](deployment/SELF-HOSTING.md) | 自托管完整指南（§0–§10） |
+| [`deployment/production-hardening.md`](deployment/production-hardening.md) | 生产加固清单 |
+| [`ENV.md`](ENV.md) | v5 `BUTLER_V5_*` 环境变量总表 |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | 安装、测试分层、AI Guard、提交规范 |
 
 ## 规划与评估
 
-| 文档                                                                                                                                                       | 说明                                                            |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [`DOCUMENTATION.md`](DOCUMENTATION.md)                                                                                                                     | **文档体系**（L0–L5 分层、维护规则、语料专项）                  |
-| [`plans/README.md`](plans/README.md)                                                                                                                       | **规划索引**（CC / 整理 / 外部对标 命名对照）                   |
-| [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md)                                                     | **v5 需求 / 边界决策入口**                                      |
-| [`plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)                                   | **SUPERSEDED**：v4 历史边界                                     |
-| [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md)                                                                | Claude Code ↔ Butler（**主对照**）                              |
-| [`plans/reference-learning-plan-2026-05.md`](plans/archive/reference-learning-plan-2026-05.md)                                                             | 外部对标（Prometheus/OpenClaw/Dify）— **已收口**                |
-| [`plans/four-reports-improvement-roadmap-2026-05.md`](plans/roadmaps/four-reports-improvement-roadmap-2026-05.md)                                          | 四份报告合并路线图（**已收口** §9）                             |
-| [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md)                                                               | 四报告能力速查（env / CLI / 测试）                              |
-| [`plans/openclaw-learning-plan-2026-05.md`](plans/comparisons/openclaw-learning-plan-2026-05.md)                                                           | OpenClaw 对标 OC-P0–P2（前置压缩、Gateway、doctor）— **已落地** |
-| [`plans/comparisons/hermes-agent-dependency-and-extraction-report-2026-05.md`](plans/comparisons/hermes-agent-dependency-and-extraction-report-2026-05.md) | Hermes 依赖/边界对照报告（**非待办**）                          |
-| [`plans/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md)                                                        | 运营与多项目后续                                                |
-| [`plans/consolidation-2026-05.md`](plans/archive/consolidation-2026-05.md)                                                                                 | 仓库整理（已完成）                                              |
-| [`reviews/project-deep-audit-2026-06.md`](reviews/project-deep-audit-2026-06.md)                                                                           | 成熟度评估                                                      |
-
-## 语料与微信测试（专项）
-
-与 Loop 对标正交；改 `tests/corpus/` 或网关路由时读 [`DOCUMENTATION.md`](DOCUMENTATION.md) §5。
-
-| 文档                                                                                                    | 说明                  |
-| ------------------------------------------------------------------------------------------------------- | --------------------- |
-| [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus/corpus-testing-module-design-2026-05.md) | 语料模块设计          |
-| [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/corpus/wechat-real-coverage-matrix-2026-05.md)   | 真机覆盖矩阵          |
-| [`guides/project-intro-for-utterance-corpus.md`](guides/project-intro-for-utterance-corpus.md)          | 语料项目介绍          |
-| [`../CONTRIBUTING.md`](../CONTRIBUTING.md)                                                              | `corpus-test.sh` 门禁 |
+| 文档 | 说明 |
+|------|------|
+| [`DOCUMENTATION.md`](DOCUMENTATION.md) | 文档分层 L0–L4 与维护规则 |
+| [`plans/README.md`](plans/README.md) | 规划索引 |
+| [`ROADMAP.md`](ROADMAP.md) | D-series 累计与后续候选 |
+| [`FAQ.md`](FAQ.md) | owner 视角 FAQ |
+| [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) | v5 需求 / 边界决策入口 |
+| [`plans/active/v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) | v5 P0–P4 后续路线 |
+| [`plans/active/v5-remaining-work-2026-08-20.md`](plans/active/v5-remaining-work-2026-08-20.md) | v5 剩余开发 |
+| [`plans/decisions/v5-engineering-handoff-2026-08.md`](plans/decisions/v5-engineering-handoff-2026-08.md) | 工程交接规约 |
 
 ## 配置模板
 
-| 文档                                                                       | 说明                                                        |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| [`config/reference.md`](config/reference.md)                               | `BUTLER_*` 速查                                             |
-| [`templates/permissions.yaml.example`](templates/permissions.yaml.example) | 项目 `.butler/permissions.yaml` 模板（含 `workflow_steps`） |
+| 文档 | 说明 |
+|------|------|
+| [`ENV.md`](ENV.md) | `BUTLER_V5_*` 速查 |
+| [`templates/README.md`](templates/README.md) | 模板集合索引 |
+| [`templates/permissions.yaml.example`](templates/permissions.yaml.example) | 项目 `.butler` 配置目录下的 `permissions.yaml` 模板 |
 
-## 历史与外部对照
+## 子目录速查
 
-| 路径                                     | 说明                                     |
-| ---------------------------------------- | ---------------------------------------- |
-| [`history/README.md`](history/README.md) | v0.5–v3 文档（勿作实现依据）             |
-| [`../archive/`](../archive/)             | v1 归档标签 `archive/butler-v1-20260522` |
-| [`../reference/`](../reference/)         | 外部标本（**gitignore**，主公维护）      |
+> 导航中心（仅索引，不重复内容）。详细分层与维护规则 → [`DOCUMENTATION.md`](DOCUMENTATION.md)
+
+| 子目录 | 权威指南 | 何时来这 |
+|--------|----------|----------|
+| `architecture/` | [`v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | 查生产调用链 / 视觉架构图 / 实现全景 |
+| `adr/` | [`2026-08-08-v4-to-v5-supersession.md`](adr/2026-08-08-v4-to-v5-supersession.md) | 查架构决策记录 |
+| `deployment/` | [`SELF-HOSTING.md`](deployment/SELF-HOSTING.md) · [`production-hardening.md`](deployment/production-hardening.md) | 自托管与生产加固 |
+| `plans/` | [`v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) | 决策 / 路线 |
+| `templates/` | [`README.md`](templates/README.md) | 模板集合 |
 
 ## 验证命令
 
 ```bash
-cd /path/to/WFXM
-PYTHONPATH=. pytest -q    # 默认 1200+ passed（排除 live_llm；corpus 按需）
+cd butler-v5
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm test:acceptance
+npx tsx scripts/l4-smoke.ts
 
-# 守门子集
-PYTHONPATH=. pytest tests/ops/test_runtime_metrics.py tests/gateway/test_message_queue.py \
-  tests/test_p2_workflow_permissions.py tests/test_cc_p3_p4_features.py -q
-
-# 微信网关 live（发版前可选）
-BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/gateway/test_wechat_gateway_live_smoke.py -v
+# L4 可靠性
+npx tsx scripts/l4-smoke.ts --suite reliability
 ```
 
-```bash
-bash scripts/butler-gateway-ops.sh status
-bash scripts/butler-pre-release-smoke.sh
-```
-
-## 子目录速查（D78 新增）
-
-> 导航中心（仅索引，不重复内容）。详细分层与维护规则 → [`DOCUMENTATION.md`](DOCUMENTATION.md)
-
-| 子目录 | 权威指南 | 典型文件（D78 新增标 ⭐） | 何时来这 |
-|--------|----------|----------------------------|----------|
-| `architecture/` | [`v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | ⭐ [`v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) | 查生产调用链 / 视觉架构图 |
-| `plans/active/` | [`v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) | ⭐ [`../ROADMAP.md`](ROADMAP.md) | 看 D-series 累计 / 未来候选 |
-| `plans/decisions/` | — | [`v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) | 查 ADR / 产品边界决策 |
-| `guides/` | [`project-onboarding.md`](guides/project-onboarding.md) | [`maintainer-cheat-sheet-2026-07.md`](guides/maintainer-cheat-sheet-2026-07.md) | 维护者一页纸 / 操作 runbook |
-| `deployment/` | ⭐ [`production-hardening.md`](deployment/production-hardening.md) · ⭐ [`SELF-HOSTING.md`](deployment/SELF-HOSTING.md) | — | 部署 + 加固（D77 T6）/ 自托管完整指南（D79 T3） |
-| `config/` | [`config-surfaces.md`](config/config-surfaces.md) | — | env / yaml / secrets 配置面 |
-| `ops/` | [`diagnostic-entrypoints.md`](ops/diagnostic-entrypoints.md) | — | 诊断入口 / 阈值 |
-| `adr/` | — | [`2026-08-08-v4-to-v5-supersession.md`](adr/2026-08-08-v4-to-v5-supersession.md) | 架构决策记录 |
-| `reviews/` | — | [`project-deep-audit-2026-06.md`](reviews/project-deep-audit-2026-06.md) | 深度审计报告 |
-| `superpowers/` | [`README.md`](superpowers/README.md) | — | 旧五件套班次设计（superseded） |
-| `templates/` | [`README.md`](templates/README.md) | — | 模板集合 |
-| `history/` | [`README.md`](history/README.md) | — | v0.5–v3 历史（**勿作实现依据**） |
-| (root) | [`DOCUMENTATION.md`](DOCUMENTATION.md) | ⭐ [`ROADMAP.md`](ROADMAP.md) · ⭐ [`FAQ.md`](FAQ.md) | D-series 路线 / owner FAQ |
-
-**D78 cycle 24 新增 5 件套速查**：
-
-1. ⭐ [`ROADMAP.md`](ROADMAP.md) — D22→D78 累计（117 ship → 122 ship）+ 维度 2/3/4 候选
-2. ⭐ [`architecture/v5-current-state-diagrams.md`](architecture/v5-current-state-diagrams.md) — 4 张 Mermaid 视觉架构图
-3. ⭐ [`FAQ.md`](FAQ.md) — 10 段 owner 视角 FAQ
-4. ⭐ 本 §子目录速查 — 导航中心
-5. ⭐ [`../AGENTS.md`](../AGENTS.md) 整文件重写为索引 — 16K → < 200 行（D78 T5）
+L4 需要网关已启动，并从 `~/.config/butler-v5/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。

@@ -11,10 +11,10 @@
 
 ## 1. 下一会话开篇 30 秒
 
-1. 读 [`.blackboard/state.md`](../../../.blackboard/state.md)  
+1. 读 [`plans/README.md`](../README.md)  
 2. 读**本文**（MCP 多 server 现状与后续选项）  
 3. 改 MCP / Grant / bootstrap 时读 `butler-v5/apps/api/src/mcp-bootstrap.ts` + `config/mcp-manifest.json`  
-4. 不要从 v4 `~/.butler/mcp.yaml` 或 `docs/history/` 推断 v5 实现  
+4. 不要从 v4 `~/.butler/mcp.yaml` 推断 v5 实现  
 
 ---
 

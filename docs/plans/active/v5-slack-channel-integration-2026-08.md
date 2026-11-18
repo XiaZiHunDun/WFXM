@@ -80,11 +80,10 @@ PRD 写就（scope closed）+ ADR §7 `<slack>` 行 status `in-progress` 触发�
 - **触发 ADR**：`docs/plans/active/v5-channel-port-trigger-2026-08.md`（§3 trigger 机制 + §7 完成记录段；本 PRD `<slack>` 行 status `in-progress` + 备注 structural alignment done）
 - **DESIGN**：§7.1（Channel 隐性承载 `⚪`）+ §18（第二 Channel 延后项）
 - **复用 Outbox**：R12（commit `33af1722` + `278a0cc7`）—— structural-only scope 不实际派发 outbox 项
-- **本模板**：`docs/plans/templates/channel-integration-prd.md`
 - **搬迁源（apps/api 原位，已 empty）**：`apps/api/src/{channel-inbound,channel-outbound,channel-media,channel-outbound-media}.ts`（protocol 部分 已已搬走，剩余编排）+ `apps/api/src/routes.ts`（route 表）
 - **R14 trigger 卡**：`.blackboard/shifts/2026-08-28-r14-slack-channel-trigger.md`
 - **R14 handoff 卡**：`.blackboard/shifts/2026-08-28-r14-slack-channel-handoff.md`
 
 ---
 
-> 模板：cloned from `docs/plans/templates/channel-integration-prd.md` by 触发 ADR §3（Owner dialog 2026-08-28）；Channel Port 维持隐性承载不升 first-class；协议级 Slack 代码从 apps/api/src/channel-* 搬到 packages/adapters/src/slack/ 对齐 ADR §4.1。Scope 决议（2026-08-28 dialog 补充）：structural alignment only，real integration deferred indefinitely。
+> 模板：channel-integration PRD 模板（已随 v4 退役删除），由触发 ADR §3（Owner dialog 2026-08-28）实例化；Channel Port 维持隐性承载不升 first-class；协议级 Slack 代码从 apps/api/src/channel-* 搬到 packages/adapters/src/slack/ 对齐 ADR §4.1。Scope 决议（2026-08-28 dialog 补充）：structural alignment only，real integration deferred indefinitely。

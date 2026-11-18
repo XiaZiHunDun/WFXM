@@ -8,9 +8,8 @@
 > - 自托管完整路径（env 填写 + docker + demo）→ [`deployment/SELF-HOSTING.md`](deployment/SELF-HOSTING.md)
 > - 生产加固（secrets + 容器 + 网络）→ [`deployment/production-hardening.md`](deployment/production-hardening.md)
 > - v5 env example → [`../butler-v5/.env.example`](../butler-v5/.env.example)
-> - 历史 v4 reference → [`config/reference.md`](config/reference.md)（**v4**；本表只覆盖 v5 `BUTLER_V5_*`）
 
-> **范围**: 本表仅覆盖 **`BUTLER_V5_*` 前缀**（butler-v5 实际读取）。v4 的 `BUTLER_*` 由 [`config/reference.md`](config/reference.md) 覆盖（v4 已退役）。
+> **范围**: 本表仅覆盖 **`BUTLER_V5_*` 前缀**（butler-v5 实际读取）。v4 的 `BUTLER_*` 已随 v4 退役删除，不再维护。
 
 ---
 
@@ -292,8 +291,7 @@
 | 生产加固（secrets + 容器 + 网络） | [`deployment/production-hardening.md`](deployment/production-hardening.md) |
 | 目标架构 §16 部署 | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) |
 | v5 env example 模板 | [`../butler-v5/.env.example`](../butler-v5/.env.example) |
-| v4 reference（legacy） | [`config/reference.md`](config/reference.md) |
 
 ---
 
-**End of ENV.md** | D80 cycle 26 inventory batch | **131 env vars / 1 prefix (`BUTLER_V5_*`)** | 仅覆盖 v5 实读；v4 `BUTLER_*` 见 `config/reference.md`
+**End of ENV.md** | D80 cycle 26 inventory batch | **131 env vars / 1 prefix (`BUTLER_V5_*`)** | 仅覆盖 v5 实读

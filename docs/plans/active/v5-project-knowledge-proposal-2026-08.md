@@ -194,9 +194,7 @@ Project Knowledge 立项：
 
 ## 11. 相关链接
 
-- 黑板：`.blackboard/state.md`（P3 MCP 已闭环，下一项 Project Knowledge）
 - 路线图：[`v5-post-boundary-roadmap-2026-08.md`](v5-post-boundary-roadmap-2026-08.md) §P4 Durable Memory（Project Knowledge 未含）
-- v4 知识图谱（历史参考）：[`project-knowledge-graph-2026-06.md`](../../guides/project-knowledge-graph-2026-06.md)
 
 ---
 

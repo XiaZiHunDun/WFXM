@@ -1,4 +1,4 @@
-> 当前状态：Butler v5 是唯一活动产品主线；Butler v4 已退役并只读归档（ADR-0001）。
+> 当前状态：Butler v5 是唯一活动产品主线（ADR-0001）。
 
 [![CI](https://github.com/XiaZiHunDun/WFXM/actions/workflows/ci.yml/badge.svg)](https://github.com/XiaZiHunDun/WFXM/actions/workflows/ci.yml)
 
@@ -139,10 +139,12 @@ butler-v5/
 ├── packages/adapters/     LLM、WeChat 与外部协议
 ├── packages/persistence/  Event Store、Outbox、Snapshot、Projection
 ├── packages/domain/       纯类型与策略（按生产需求接入）
-└── scripts/cutover/       systemd、mock 与 E2E
-
-butler/                    已退役 v4，只读历史参考
-docs/                      架构、决策与路线图
+├── packages/ports/        Port 接口定义
+├── vendor/pi-agent/       vendored agent core
+├── tests/                 架构、契约、验收、E2E 与评估测试
+└── scripts/               分层测试、L4 冒烟、cutover 与 systemd
+docs/                      架构、决策、运维与路线图
+projects/                  试点项目工作区
 ```
 
 ---

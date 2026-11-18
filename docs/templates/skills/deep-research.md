@@ -28,7 +28,7 @@ network_search_policy:
    - `search_project_knowledge` / `butler_recall` 查项目已有材料；
    - `read_file` 读关键本地文档；
    - 对外 URL：先用 `web_search`（`BUTLER_ENABLE_WEB_SEARCH=1` 且项目 tools 含 `web_search`）找链接；
-   - 再用 `web_fetch`（`BUTLER_ENABLE_WEB_FETCH=1`）；若失败或需 JS/crawl 且 MCP 已开，用 `mcp_firecrawl_scrape` 读已选 URL（见 [`ext-1-web-scrape-mcp`](../../plans/active/extension-candidates/ext-1-web-scrape-mcp-2026-06.md)）；勿臆造链接内容。
+   - 再用 `web_fetch`（`BUTLER_ENABLE_WEB_FETCH=1`）；若失败或需 JS/crawl 且 MCP 已开，用 `mcp_firecrawl_scrape` 读已选 URL；勿臆造链接内容。
    - **禁止**一轮内连续 10+ 次 `mcp_firecrawl_*_search`；`web_search` 可用时必须先用它找链接，Firecrawl search 每轮 ≤3 次且优先 scrape 已有 URL。
    - `web_search` 单次总预算默认 60s（`BUTLER_WEB_SEARCH_BUDGET`）；超时或零结果后立即改用 Firecrawl，勿重复空搜。本机有 HTTP 代理时默认只走代理（`BUTLER_WEB_SEARCH_TRY_DIRECT=1` 才试直连）。
    - **禁止** `mcp_firecrawl_*_agent`、`*_feedback` 等 mutating/高成本 MCP（检索场景默认上限均为 0）。

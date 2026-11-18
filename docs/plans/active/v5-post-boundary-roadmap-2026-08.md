@@ -26,7 +26,7 @@
 - 生产调用链与未接线包清单；
 - `packages/persistence` 成为唯一 schema；
 - 未接线 `packages/application` / `packages/infrastructure` 形成迁移、归档或删除清单；
-- v5 保护规则按 [`v5-ai-guard-migration-checklist-2026-08.md`](../archive/v5-ai-guard-migration-checklist-2026-08.md) 由人工迁移，再调整 `.cursorrules`。
+- v5 保护规则由人工迁移，再调整 `.cursorrules`。
 
 ### 验收
 
@@ -245,7 +245,7 @@ P3 只建立安全扩展面，不默认安装具体能力。
 ## P5 — 端口化完整性（架构演进候选）
 
 > **Owner 2026-08-27：列为下一批架构演进候选，非承诺实施。**
-> **ClockPort 已实施 ✅ 2026-08-27**（见 [`.blackboard/state.md`](../../../.blackboard/state.md)）：`ClockPort`（`systemClock`/`fixedClock`）+ RunEngine 构造注入 + 组合根装配 + 确定性测试。`agent-kernel`/`delegate-runtime` 的 `Date.now()` 属 eventId **ID 生成**不接入；`scoped-grant-service`/`run-lifecycle`/`mcp-grant-lifecycle`/`normalize-inbound` 已用参数注入，不重写。
+> **ClockPort 已实施 ✅ 2026-08-27**：`ClockPort`（`systemClock`/`fixedClock`）+ RunEngine 构造注入 + 组合根装配 + 确定性测试。`agent-kernel`/`delegate-runtime` 的 `Date.now()` 属 eventId **ID 生成**不接入；`scoped-grant-service`/`run-lifecycle`/`mcp-grant-lifecycle`/`normalize-inbound` 已用参数注入，不重写。
 > 来源：目标架构对齐评估——生产已达成骨架对齐（单 Run Engine / 单 Policy / 单 schema / 两接缝 / 依赖方向 / monorepo 收敛），但 **ports 包仅物化 2 个真 Port**（`packages/ports/src/core/credential-provider.ts`、`event-store.ts`）+ 本轮新增 `clock.ts`；DESIGN §7 定义的 Repository / Model / Channel 仍以 delivery shell async/await + 闭包注入承载。
 
 **目标（收窄）**：仅在出现**替换或隔离真实需求**时，才把真正可替换/不可信边界物化为 Port 接口。不预先为"架构完整"造休眠接口（DESIGN §7）：

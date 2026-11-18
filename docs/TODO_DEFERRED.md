@@ -6,7 +6,6 @@
 > - 目标架构（§18 延后项 anchor）→ [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) §18
 > - 测试覆盖（PRE-EXISTING）→ [`TESTS.md`](TESTS.md) §9
 > - D53b TODO 实证 → [`../butler-v5/tools/todo-inventory.md`](../butler-v5/tools/todo-inventory.md)（2026-09-11）
-> - D53c deferral reeval → [`../docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md`](../docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md)（如存在）
 > - D51 decline gaps → DESIGN §18 line 825-826 + D51 cycle memos
 
 > **范围**: 本表覆盖**全部 deferral 维度**（in-code TODO / DESIGN §18 / D51 declined / V8 PRD / cycle carry）；**不**只看在-code TODO 标记（D53b 已实证 0 active TODO）。
@@ -40,8 +39,6 @@
 |------|--------|-------|------|
 | _(none — production code clean)_ | — | — | ✅ 健康状态 |
 | `apps/api/src/tools.ts:498` | `TODO` (in string literal) | false positive | keep（example usage `"rg", "TODO", "src"`） |
-| `docs/superpowers/specs/*.md` | `TODO` (in 3 files) | infrastructure | keep（design spec 引用） |
-| `docs/superpowers/plans/*.md` | `TODO` (in 2 files) | infrastructure | keep（plan 引用） |
 | `scripts/cutover/*` | `TODOIST_API_TOKEN` (env var name) | false positive | keep（env var literal） |
 | `tests/.../recordings-archive/*.json` | `TODO` (in 2 files) | archived body text | gitignored（D45 engineering-hygiene） |
 
@@ -120,7 +117,6 @@
 | 测试覆盖（含 PRE-EXISTING） | [`TESTS.md`](TESTS.md) §9 |
 | DESIGN §18 延后项 anchor | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md) §18 |
 | D53b TODO 实证 | [`../butler-v5/tools/todo-inventory.md`](../butler-v5/tools/todo-inventory.md) |
-| D53c deferral reeval | `docs/superpowers/notes/2026-09-11-d53c-deferral-reeval.md`（如存在） |
 | V8 PRD | [`plans/active/v5-real-llm-v8-iteration-2026-09.md`](plans/active/v5-real-llm-v8-iteration-2026-09.md) |
 | D-series 累计 + 维度候选 | [`ROADMAP.md`](ROADMAP.md) |
 

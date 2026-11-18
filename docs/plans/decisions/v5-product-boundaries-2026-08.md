@@ -3,7 +3,7 @@
 > **状态**：Accepted  
 > **产品终局**：单用户、单信任域、自托管的可扩展个人 AI 管家  
 > **默认风险姿态**：低风险自动执行；高风险即时审批；受控能力可签发可撤销的 ScopedGrant
-> **取代**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md) 作为需求、否决与立项的唯一入口  
+> **取代**：v4 `roadmap-backlog-and-boundaries-2026-05`（已随 v4 退役删除），由本文作为需求、否决与立项的唯一入口  
 > **目标架构**：以 [`../../../butler-v5/DESIGN.md`](../../../butler-v5/DESIGN.md) 为准
 > **架构现实**：以 [`v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md) 为准
 
@@ -191,7 +191,7 @@
 | 文档 ingest（具名格式） | **已立项（MVP）** | Owner 2026-08-21：`plaintext`/`markdown`/`pdf`（pdf 需预提取文本）；表 `documents`；Owner API+CLI；`recall_document`；可 promote 为 Durable Memory candidate；不做 RAG Studio / OCR / 全盘索引。 |
 | 本地 tracing / 可选 OTEL | **已立项（MVP）** | Owner 2026-08-21：默认本地环形缓冲（run/policy/capability/approval）；脱敏默认开；`BUTLER_V5_OTEL_EXPORTER=stdout` 可选；无 OTEL SDK / 外部 APM 依赖；`butler traces`。 |
 | Task / Procedure 基线 | **已立项（MVP）** | Owner 2026-08-21：跨对话待办 + 不可变线性模板；`source=task` Trigger；无 DAG/并行合并；表 `tasks`/`procedures`；Owner API+CLI。 |
-| v5 AI 守卫迁移 | **人工排期** | 见 [`v5-ai-guard-migration-checklist-2026-08.md`](../archive/v5-ai-guard-migration-checklist-2026-08.md)；不阻塞功能交付。 |
+| v5 AI 守卫迁移 | **人工排期** | 见 `.cursorrules` 与 `scripts/ai_guard/protected_files.sh`；不阻塞功能交付。 |
 
 ---
 

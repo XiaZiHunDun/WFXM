@@ -2,7 +2,7 @@
 
 > **状态**：Accepted（2026-08-26）  
 > **范围**：开放式短句、dev 委派、异步验收 — **不依赖人工真机**  
-> **关联**：[`v5-verification-strategy-2026-08.md`](../active/v5-verification-strategy-2026-08.md) · [`v5-wechat-dev-exec-child-run-2026-08.md`](v5-wechat-dev-exec-child-run-2026-08.md) · v4 [`agent-testing-strategy-2026-06.md`](agent-testing-strategy-2026-06.md)
+> **关联**：[`v5-verification-strategy-2026-08.md`](../active/v5-verification-strategy-2026-08.md) · [`v5-wechat-dev-exec-child-run-2026-08.md`](v5-wechat-dev-exec-child-run-2026-08.md)
 
 ---
 

@@ -167,7 +167,7 @@
 | 原始 audit findings (gitignored) | `.audit/D69/`, `.audit/D70/`, ..., `.audit/D74/` |
 | Per-cycle summary | `.audit/D{69,70,71,72,73,74}/summary.md` |
 | Per-track findings | `.audit/D{69,70,71,72,73,74}/{code-quality,security,spec-owner-ux}.json` |
-| methodology N=3 baseline | `.audit/D53a/` + `.blackboard/state.md` |
+| methodology N=3 baseline | `.audit/D53a/` |
 | D-series lessons | `MEMORY.md` "Recent Batches" 段 |
 
 ---
