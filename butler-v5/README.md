@@ -1,120 +1,60 @@
-# Butler v5 — 函数式架构微信编码管家
+# Butler v5 — 微信接入的编码管家
 
-> TypeScript + Effect-TS + CQRS + Event Sourcing  
-> 架构设计：[`DESIGN.md`](DESIGN.md) | 行为契约：[`AGENTS.md`](AGENTS.md) | 贡献指南：[`CONTRIBUTING.md`](CONTRIBUTING.md)
+> TypeScript pnpm monorepo。目标架构：[`DESIGN.md`](DESIGN.md) · 行为契约：[`AGENTS.md`](AGENTS.md) · 当前实现与第一阶段验收：[`../docs/architecture/wfxm-agent-runtime.html`](../docs/architecture/wfxm-agent-runtime.html)
+
+## 当前状态
+
+第一阶段（主要流程打通）已达标：微信入站 → 管家层 → 任务层主链路可用，无 5xx、无明显消息丢失；
+L4 主流程 5/5、可靠性用例 5/5、评估场景 22/22 通过。第二阶段待办见架构文档「第一阶段达标判定」。
 
 ## 快速开始
 
 ```bash
 pnpm install
-pnpm test          # 运行全部测试（3062+ tests）
-pnpm typecheck     # 8 包类型检查
-pnpm lint          # 代码规范检查
-pnpm demo          # zero-LLM CLI REPL（无需 API key / Docker）
+pnpm test          # 全部单测 / 契约测试
+pnpm typecheck     # 各包 tsc --noEmit
+pnpm lint          # eslint（--max-warnings 0）
+pnpm demo          # zero-LLM CLI REPL（脚本化 fixture LLM + 内存 PGlite）
 ```
 
-`pnpm demo` 走 acceptance harness（脚本化 fixture LLM + 内存 PGlite），试玩 butler-v5 的核心交互流。
-真实 LLM 启动：`docker compose up -d postgres butler`（参见 [`../docs/deployment/SELF-HOSTING.md`](../docs/deployment/SELF-HOSTING.md)）。
+真实模型启动与自托管：见 [`../docs/deployment/SELF-HOSTING.md`](../docs/deployment/SELF-HOSTING.md)；
+本机生产部署为 systemd user 服务 `butler-v5-gateway.service`。
 
-## 项目结构
+## 目录
 
 ```
 butler-v5/
-├── apps/
-│   ├── api/                  # HTTP API 服务（管理端点 + Webhook）
-│   └── wechat-gateway/       # 微信入站/出站网关
+├── apps/api/            # HTTP 网关：入站路由、iLink 轮询、MCP、子代理 worker
+├── cli/                 # 运维 CLI（sandbox 预检、诊断等）
 ├── packages/
-│   ├── domain/               # 领域层：6 域 ADT + 纯函数
-│   ├── ports/                # 端口层：Effect Tags（服务契约）
-│   ├── application/          # 应用层：用例编排
-│   ├── infrastructure/       # 基础设施层：实现 + 适配器
-│   ├── config/               # 配置层：Schema + 环境变量
-│   └── shared/               # 共享工具
-├── docker-compose.yml        # 本地开发 PostgreSQL
-├── vitest.config.ts          # 测试配置
-└── turbo.json                # Turborepo 构建编排
+│   ├── domain/          # 纯领域：治理决策、运行时契约、网络白名单
+│   ├── ports/           # 端口（接口）定义
+│   ├── adapters/        # 外部适配：沙箱(bubblewrap)、微信、LLM、存储实现
+│   ├── runtime/         # 管家循环、任务执行、消息出口规范化
+│   └── persistence/     # 运行时存储、事件桥、迁移
+├── vendor/pi-agent/     # vendored pi agent core（agent loop / 状态 / 工具钩子）
+├── scripts/             # 验收与冒烟脚本（含 scripts/l4-smoke.ts）
+└── tests/               # 评估场景（tests/eval）与架构约束测试
 ```
 
-## 架构概览
+## 分层验证
 
-```
-┌─────────────────────────────────────────────────┐
-│  Apps（wechat-gateway / api）                    │
-├─────────────────────────────────────────────────┤
-│  Application（用例：runLoop / delegateTask /    │
-│               runWorkflow / dream）              │
-├───────────────┬─────────────────────────────────┤
-│  Domain（纯函数）│  Ports（Effect Tags）           │
-│  6 域 ADT     │  LLM / Guard / EventStore ...   │
-├───────────────┴─────────────────────────────────┤
-│  Infrastructure（Drizzle / LLM / WeChat / MCP） │
-└─────────────────────────────────────────────────┘
-```
+| 层 | 范围 | 命令 |
+| --- | --- | --- |
+| L1 | 单元 / 契约 | `pnpm test` |
+| L2 | 消息出口规范化 | `vitest run packages/runtime/src/butler/presentation.test.ts` |
+| L3 | 评估场景（gate） | `vitest run tests/eval` |
+| L4 | 渠道前验收窗口（真实路由 + 真实 runtime） | `npx tsx scripts/l4-smoke.ts` |
+| L4 可靠性 | 重投 / 并发 / 连续投递 / 无待审批 | `npx tsx scripts/l4-smoke.ts --suite reliability` |
 
-## 领域层（6 域）
+L4 脚本要求网关已启动，并从 `~/.config/butler-v5/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。
 
-| 域           | 文件                       | 说明                    |
-| ------------ | -------------------------- | ----------------------- |
-| conversation | `domain/src/conversation/` | 对话状态机 + 上下文管线 |
-| tools        | `domain/src/tools/`        | 工具定义 + 调用/结果    |
-| memory       | `domain/src/memory/`       | 记忆记录 + Dream 两阶段 |
-| workflows    | `domain/src/workflows/`    | Channel 多分支 + 状态机 |
-| projects     | `domain/src/projects/`     | 项目 + Spec 管理        |
-| permissions  | `domain/src/permissions/`  | 权限决策 + 承重代码     |
-| guards       | `domain/src/guards/`       | 10 条 GUARD 防错        |
-| errors       | `domain/src/errors.ts`     | 全局错误 ADT            |
+## 配置与运维
 
-## 10 条 GUARD 机制
-
-| 编号 | 机制                   | 状态 |
-| ---- | ---------------------- | ---- |
-| G-1  | IntentReceipt 证据门控 | ✅   |
-| G-2  | 承重代码保护           | ✅   |
-| G-3  | Owner 离线策略         | ✅   |
-| G-4  | HUMAN 签名验证         | ✅   |
-| G-5  | 多文件链路校验         | ✅   |
-| G-6  | 2 级验证选择           | ✅   |
-| G-7  | 角色分离               | ✅   |
-| G-8  | 3 层自愈               | ✅   |
-| G-9  | 反模式归档             | ✅   |
-| G-10 | 混沌演练               | ✅   |
-
-## 测试
-
-```bash
-pnpm test              # 全部测试
-pnpm test:watch        # 监听模式
-pnpm test:coverage     # 覆盖率报告
-pnpm typecheck         # 8 包类型检查
-pnpm lint              # 代码规范检查
-
-# 按层级运行
-bash scripts/run-test-layer.sh domain    # 领域层
-bash scripts/run-test-layer.sh app       # 应用层
-bash scripts/run-test-layer.sh infra     # 基础设施层
-bash scripts/run-test-layer.sh guard     # 守卫测试
-bash scripts/run-test-layer.sh all       # 全部
-```
-
-## 环境变量
-
-| 变量                                | 默认值                                                | 说明                                                         |
-| ----------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
-| `LOOP_MAX_ITERATIONS`               | 50                                                    | 单次循环最大迭代                                             |
-| `LOOP_TIMEOUT_MS`                   | 600000                                                | 循环超时（ms）                                               |
-| `GUARDS_OWNER_OFFLINE_THRESHOLD_MS` | 300000                                                | Owner 离线阈值                                               |
-| `GUARDS_CHAOS_ENABLED`              | false                                                 | 混沌演练开关                                                 |
-| `LLM_PRIMARY`                       | anthropic                                             | 主 LLM provider                                              |
-| `LLM_FALLBACK`                      | openai                                                | 备选 LLM provider                                            |
-| `DATABASE_URL`                      | postgres://butler:butler_dev@localhost:5432/butler_v5 | 数据库连接                                                   |
-| `BUTLER_V5_DB`                      | (auto)                                                | `pglite` / `postgres`；生产有 `DATABASE_URL` 时默认 postgres |
-| `WECHAT_TOKEN`                      | butler-dev-token                                      | 微信签名验证 token                                           |
+- 环境变量总表：[`../docs/ENV.md`](../docs/ENV.md)；配置面：[`../docs/config/config-surfaces.md`](../docs/config/config-surfaces.md)
+- 生产加固：[`../docs/deployment/production-hardening.md`](../docs/deployment/production-hardening.md)
+- 诊断入口：[`../docs/ops/diagnostic-entrypoints.md`](../docs/ops/diagnostic-entrypoints.md)
 
 ## 技术栈
 
-- **TypeScript 5.4+** strict mode
-- **Effect-TS 3.4+** 函数式效果系统
-- **Drizzle ORM** 数据库访问
-- **PostgreSQL 16** 持久化
-- **Vitest** 测试框架
-- **pnpm + Turborepo** monorepo 管理
+TypeScript（strict）· Hono · Drizzle ORM + PostgreSQL（测试用 PGlite）· Vitest · pnpm · bubblewrap 沙箱

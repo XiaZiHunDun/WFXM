@@ -1,4 +1,4 @@
-# Butler v5 — Agent 工作说明（TypeScript + Effect-TS）
+# Butler v5 — Agent 工作说明（TypeScript + pnpm monorepo）
 
 > 本文档是 AI 编码工具（Cursor / Claude Code / Trae / Copilot 等）在 Butler v5 项目中的**行为契约**。
 > 所有 Agent 必须在每次会话开始时加载本文档，并严格遵守所有规则。

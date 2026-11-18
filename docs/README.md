@@ -57,7 +57,7 @@
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | [`../butler-v5/DESIGN.md`](../butler-v5/DESIGN.md)                                                         | **v5 目标架构 SSOT**：三模块、五实体、混合数据、ScopedGrant、两条扩展接缝 |
 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产事实**：调用链、包和数据现状                                    |
-| [`analysis/butler-v5-complete-design-2026-07-30.md`](analysis/butler-v5-complete-design-2026-07-30.md)     | **SUPERSEDED**：旧完整 Effect 六层设计                                    |
+| [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html)                           | **当前实现全景与第一阶段验收**：三层架构、分层测试 L1–L4、达标判定（2026-11-18） |
 | [`architecture/v4-architecture.md`](architecture/v4-architecture.md)                                       | v4 历史架构，不作 v5 依据                                                 |
 | [`design/design.md`](design/design.md)                                                                     | 产品设计摘要；§9 对照表（附录可能滞后，勿作实现 SSOT）                    |
 | [`architecture/project-lead-decision.md`](architecture/project-lead-decision.md)                           | 莎丽门户 + 厂长主控                                                       |

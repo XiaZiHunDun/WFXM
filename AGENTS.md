@@ -3,18 +3,19 @@
 > **Butler v5 是唯一活动产品主线；`butler/` v4 已退役。** 新会话不要用 v4 文档、`docs/history/` 或训练记忆推断 v5 实现。
 > **新会话开篇前 30 秒**：读 [`.blackboard/state.md`](.blackboard/state.md) → 本文件 → 撞点按 §3 流程。
 
-## §1 必读表（7 条）
+## §1 必读表（9 条）
 
 | # | 文档 | 何时读 |
 |---|------|--------|
 | 1 | [`butler-v5/DESIGN.md`](butler-v5/DESIGN.md) | 改目标架构、概念、数据、安全或扩展边界 |
 | 2 | [`docs/architecture/v5-production-architecture-2026-08.md`](docs/architecture/v5-production-architecture-2026-08.md) | 查当前生产 Loop / Gateway / 工具 / 数据 / 调用链 |
-| 3 | [`docs/architecture/v5-current-state-diagrams.md`](docs/architecture/v5-current-state-diagrams.md) | 视觉架构图（Mermaid 4 张） |
-| 4 | [`docs/plans/decisions/v5-product-boundaries-2026-08.md`](docs/plans/decisions/v5-product-boundaries-2026-08.md) | 提需求 / 否决 / 条件准入 / 立项 |
-| 5 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | D-series 累计（117 ship）+ 维度 2/3/4 候选 |
-| 6 | [`docs/FAQ.md`](docs/FAQ.md) | owner 视角 FAQ（D-series / audit-driven / 节奏判据） |
-| 7 | [`butler-v5/AGENTS.md`](butler-v5/AGENTS.md) | v5 代码约束 + 包边界 + 测试 |
-| 8 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层与维护规则 |
+| 3 | [`docs/architecture/wfxm-agent-runtime.html`](docs/architecture/wfxm-agent-runtime.html) | 查当前实现全景、分层测试 L1–L4 与第一阶段验收结论 |
+| 4 | [`docs/architecture/v5-current-state-diagrams.md`](docs/architecture/v5-current-state-diagrams.md) | 视觉架构图（Mermaid 4 张） |
+| 5 | [`docs/plans/decisions/v5-product-boundaries-2026-08.md`](docs/plans/decisions/v5-product-boundaries-2026-08.md) | 提需求 / 否决 / 条件准入 / 立项 |
+| 6 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | D-series 累计（117 ship）+ 维度 2/3/4 候选 |
+| 7 | [`docs/FAQ.md`](docs/FAQ.md) | owner 视角 FAQ（D-series / audit-driven / 节奏判据） |
+| 8 | [`butler-v5/AGENTS.md`](butler-v5/AGENTS.md) | v5 代码约束 + 包边界 + 测试 |
+| 9 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层与维护规则 |
 
 ## §2 v5 事实规则（5 条硬约束）
 
