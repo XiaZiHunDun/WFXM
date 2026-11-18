@@ -142,6 +142,37 @@ export function resolveSandboxHomeEnv(): NodeJS.ProcessEnv {
   }
 }
 
+/**
+ * PATH entries the sandbox can actually execute. The host PATH usually starts
+ * with conda / IDE / nvm directories that are not mounted inside the
+ * namespace: keeping them makes `python3` resolve to an interpreter whose
+ * prefix is absent ("Failed to import encodings module", observed as a
+ * failing sandbox test). Only entries inside a bind we actually create stay.
+ */
+export function resolveSandboxVisiblePath(
+  profile: SandboxProfile,
+  env: Readonly<Record<string, string | undefined>>,
+): string {
+  const raw = (env["PATH"] ?? "").trim()
+  const fallback = "/usr/local/bin:/usr/bin:/bin"
+  if (raw === "") return fallback
+  const roots = [
+    ...profile.readOnlySystemPaths,
+    profile.workspaceRoot,
+    ...resolveSandboxExtraBinPaths({ env }),
+  ]
+  const kept = raw
+    .split(":")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.startsWith("/"))
+    .filter((entry) => roots.some((root) => entry === root || entry.startsWith(`${root}/`)))
+  // System dirs go first: a conda/nvm dir that merely contains `node` may be
+  // bound read-only at its bin/ level only, so its `python3` starts but cannot
+  // find its stdlib. Preferring /usr/bin keeps interpreters self-consistent.
+  const ordered = [...new Set(["/usr/local/bin", "/usr/bin", "/bin", ...kept])]
+  return ordered.join(":")
+}
+
 export interface SandboxProfile {
   readonly name: string
   readonly workspaceRoot: string
@@ -279,6 +310,11 @@ export async function executeArgvInSandbox(input: {
   let childEnv: NodeJS.ProcessEnv | undefined
   const egressIsolation = resolveSandboxEgressIsolation(env)
   const useSlirpIsolation = isAllowlistProfile && egressIsolation === "slirp"
+  // Resolved once: the allowlist branches below need the sandbox-visible PATH.
+  const profile = resolveSandboxProfile({
+    workspaceRoot: input.workspaceRoot,
+    ...(input.profileName !== undefined ? { profileName: input.profileName } : {}),
+  })
 
   function slirpFallbackEnabled(): boolean {
     const raw = (env["BUTLER_V5_SANDBOX_SLIRP_FALLBACK"] ?? "1").trim().toLowerCase()
@@ -301,7 +337,7 @@ export async function executeArgvInSandbox(input: {
         })
         const proxyPort = parseProxyPort(proxyHandle.proxyUrl)
         childEnv = {
-          PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+          PATH: resolveSandboxVisiblePath(profile, env),
           ...resolveSandboxHomeEnv(),
           ...buildSandboxProxyEnv(`http://${SLIRP_HOST_GATEWAY}:${proxyPort}`),
           ...injectEnv,
@@ -309,7 +345,7 @@ export async function executeArgvInSandbox(input: {
       } else {
         proxyHandle = await startEgressAllowlistProxy(input.networkAllowlist, { env })
         childEnv = {
-          PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+          PATH: resolveSandboxVisiblePath(profile, env),
           ...resolveSandboxHomeEnv(),
           ...buildSandboxProxyEnv(proxyHandle.proxyUrl),
           ...injectEnv,
@@ -317,10 +353,6 @@ export async function executeArgvInSandbox(input: {
       }
     }
 
-    const profile = resolveSandboxProfile({
-      workspaceRoot: input.workspaceRoot,
-      ...(input.profileName !== undefined ? { profileName: input.profileName } : {}),
-    })
     const profileWithTimeout =
       useSlirpIsolation && profile.network === "allowlist"
         ? {
@@ -357,7 +389,7 @@ export async function executeArgvInSandbox(input: {
         return slirpResult
       }
       const proxyOnlyEnv: NodeJS.ProcessEnv = {
-        PATH: env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+        PATH: resolveSandboxVisiblePath(profile, env),
         ...resolveSandboxHomeEnv(),
         ...buildSandboxProxyEnv(proxyHandle.proxyUrl),
         ...injectEnv,
@@ -566,7 +598,7 @@ export async function runInBubblewrap(input: BubblewrapRunInput): Promise<Bubble
   const execProgramArgs = execArgv.slice(1)
 
   const spawnEnv: NodeJS.ProcessEnv = {
-    PATH: process.env["PATH"] ?? "/usr/bin:/bin",
+    PATH: resolveSandboxVisiblePath(input.profile, process.env),
     ...resolveSandboxHomeEnv(),
     ...(input.childEnv ?? {}),
   }
