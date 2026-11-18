@@ -17,6 +17,17 @@ describe("wechat-run-notify", () => {
     expect(text).toContain("summarize README")
   })
 
+  it("does not append a redundant role label for the default exec role", () => {
+    const text = formatSubagentCompletionNotify({
+      role: "exec",
+      task: "list directories",
+      reply: "执行未完成（达到步数上限，已停止）：已执行 12 步。",
+      ok: false,
+    })
+    expect(text.split("\n")[0]).toBe("【子代理失败】")
+    expect(text).toContain("执行未完成")
+  })
+
   it("isRunNotifyEnabled respects env", () => {
     expect(isRunNotifyEnabled({})).toBe(false)
     expect(isRunNotifyEnabled({ BUTLER_V5_RUN_NOTIFY_ENABLED: "1" })).toBe(true)

@@ -44,8 +44,12 @@ export function formatSubagentCompletionNotify(input: {
 }): string {
   const status = input.ok ? "完成" : "失败"
   const excerpt = input.reply.trim().slice(0, 400)
+  // `exec` is the default delegation role and its only label is "代理";
+  // appending it would read "【执行代理失败】代理". The header already names
+  // the agent, so keep the role suffix for the specific job roles only.
+  const roleLabel = input.role === "exec" ? "" : formatSubagentRoleForOwner(input.role)
   return [
-    `【子代理${status}】${formatSubagentRoleForOwner(input.role)}`,
+    roleLabel ? `【子代理${status}】${roleLabel}` : `【子代理${status}】`,
     `任务：${input.task.slice(0, 120)}`,
     excerpt ? `回复：${excerpt}` : "",
   ]
