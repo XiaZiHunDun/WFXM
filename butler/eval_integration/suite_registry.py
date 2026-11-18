@@ -8,6 +8,7 @@ from butler.contracts.eval_ports import EvalSuitePort
 
 from butler.eval_integration.suites.agent_weekly_suite import AgentWeeklySuite
 from butler.eval_integration.suites.b9_oracle_suite import B9OracleSuite
+from butler.eval_integration.suites.bfcl_suite import BfclToolSuite
 from butler.eval_integration.suites.capability_suite import CapabilitySuite
 from butler.eval_integration.suites.deepeval_suite import DeepEvalAgentSuite
 from butler.eval_integration.suites.hermes_gate_suite import HermesGateSuite
@@ -15,6 +16,7 @@ from butler.eval_integration.suites.memory_mb_suite import MemoryMbSuite
 from butler.eval_integration.suites.ragas_suite import RagasMemorySuite
 from butler.eval_integration.suites.regression_suite import RegressionSuite
 from butler.eval_integration.suites.tcr_suite import TcrSuite
+from butler.eval_integration.suites.terminal_bench_suite import TerminalBenchSuite
 from butler.eval_integration.suites.wechat_corpus_suite import WechatCorpusSuite
 
 _SUITE_FACTORIES: dict[str, Callable[[], EvalSuitePort]] = {}
@@ -47,6 +49,8 @@ def _register_builtins() -> None:
     register_suite_factory("b9_oracle", B9OracleSuite)
     register_suite_factory("deepeval_agent", DeepEvalAgentSuite)
     register_suite_factory("ragas_memory", RagasMemorySuite)
+    register_suite_factory("bfcl_tool", BfclToolSuite)
+    register_suite_factory("terminal_bench", TerminalBenchSuite)
 
 
 _register_builtins()
