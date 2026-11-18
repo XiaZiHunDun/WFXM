@@ -37,6 +37,11 @@ export interface ProviderExecutionResult {
   readonly ok: boolean
   readonly output?: unknown
   readonly reason?: string
+  /**
+   * Optional structured evidence (e.g. RAG retrieval hits) forwarded into
+   * the `capability.executed` audit detail for eval / observability.
+   */
+  readonly meta?: Readonly<Record<string, unknown>>
 }
 
 export interface CapabilityProvider {
@@ -149,6 +154,7 @@ const READ_ONLY_RUN_COMMANDS = new Set([
   "cat",
   "date",
   "echo",
+  "find",
   "grep",
   "head",
   "ls",
@@ -161,6 +167,33 @@ const READ_ONLY_RUN_COMMANDS = new Set([
 const SHELL_METACHAR_RE = /[;&|`$<>(){}\\*?\\\n\r]/
 
 /**
+ * `find` 的 glob（`*` / `?`）是它最常用的写法（`-name "*slug*"`），不能按
+ * 通用 shell 元字符规则拦截，否则每次查找都要 owner 审批。这里换成只拦截
+ * 真正能拼接/重定向的字符，并额外拒绝会写盘或执行外部程序的谓词。
+ */
+const FIND_METACHAR_RE = /[;&|`$<>(){}\\\n\r]/
+const FIND_UNSAFE_FLAGS = new Set([
+  "-exec",
+  "-execdir",
+  "-ok",
+  "-okdir",
+  "-delete",
+  "-fprint",
+  "-fprint0",
+  "-fprintf",
+  "-fls",
+])
+
+function classifyFindRisk(argv: readonly unknown[]): "low" | "high" {
+  for (const arg of argv.slice(1)) {
+    if (typeof arg !== "string") return "high"
+    if (FIND_METACHAR_RE.test(arg)) return "high"
+    if (FIND_UNSAFE_FLAGS.has(arg)) return "high"
+  }
+  return "low"
+}
+
+/**
  * Classify a `run_command` argv payload's risk. Read-only programs with no
  * shell-metachars → "low" (no approval). Anything else → "high" (approval).
  * Default high: fail-closed when shape is unexpected.
@@ -170,6 +203,7 @@ export function classifyRunCommandArgvRisk(argv: unknown): "low" | "high" {
   const program = argv[0]
   if (typeof program !== "string") return "high"
   if (!READ_ONLY_RUN_COMMANDS.has(program)) return "high"
+  if (program === "find") return classifyFindRisk(argv)
   for (const a of argv.slice(1)) {
     if (typeof a !== "string") return "high"
     if (SHELL_METACHAR_RE.test(a)) return "high"
@@ -190,6 +224,24 @@ export function productionPermissionPolicy(
   }
 }
 
+/**
+ * 稳定序列化：递归按键名排序，用于 action digest。
+ *
+ * 审批步骤会把 args 存进 JSONB，读回时键序由存储层决定（Postgres jsonb 按
+ * 键长度/字典序重排，不保留插入序）。若 digest 直接对原始 args 做
+ * JSON.stringify，同一个调用的 digest 在「发起审批」与「审批后恢复」两处
+ * 就可能不同，导致 grant 匹配失败、恢复时再次弹出审批。
+ */
+function canonicalJson(value: unknown): string {
+  if (value === undefined) return "null"
+  if (value === null || typeof value !== "object") return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`
+}
+
 export function actionRequestFromTool(
   toolName: string,
   subject: string,
@@ -206,7 +258,7 @@ export function actionRequestFromTool(
     subject,
     resource,
     risk,
-    digest: `${toolName}:${resource}:${JSON.stringify(args)}`,
+    digest: `${toolName}:${resource}:${canonicalJson(args)}`,
     payload: args,
   }
 }

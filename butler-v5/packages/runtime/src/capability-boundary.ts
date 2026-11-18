@@ -24,6 +24,19 @@ export type ToolExecutionOutcome =
       readonly pendingApproval: { readonly stepId: string; readonly question: string }
     }
 
+/** 审计参数上限：超过后截断超长字符串，避免整文件内容进入 audit_events。 */
+const MAX_AUDIT_ARG_CHARS = 8 * 1024
+
+function auditArgs(args: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+  const json = JSON.stringify(args)
+  if (json.length <= MAX_AUDIT_ARG_CHARS) return args
+  const compact: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(args)) {
+    compact[key] = typeof value === "string" ? `${value.slice(0, 512)}…[truncated]` : value
+  }
+  return { ...compact, _truncated: true, _originalChars: json.length }
+}
+
 export interface ApprovalExecutionContext {
   readonly store: RuntimeStore
   readonly runId: string
@@ -348,6 +361,7 @@ export async function executeToolThroughBoundary(
             ok: false,
             durationMs: Date.now() - started,
             reason: result.reason ?? "failed",
+            args: auditArgs(args),
           },
           createdAt: new Date(),
           // D66 T1b: thread approval.runId as request-scoped correlation.
@@ -362,7 +376,11 @@ export async function executeToolThroughBoundary(
           console.error("[capability-boundary] capability.executed audit failed:", err)
         })
     }
-    return { ok: false, reason: result.reason ?? "capability failed" }
+    // 保留 exitCode：run_command 的非零退出是工具结果（审批恢复需据此继续），
+    // 不能在这里降级成普通失败。null 表示沙箱故障，仍按失败处理。
+    return "exitCode" in result && typeof result.exitCode === "number"
+      ? { ok: false, reason: result.reason ?? "capability failed", exitCode: result.exitCode }
+      : { ok: false, reason: result.reason ?? "capability failed" }
   }
   if (approval) {
     await approval.store
@@ -376,6 +394,8 @@ export async function executeToolThroughBoundary(
           capability: definition.name,
           ok: true,
           durationMs: Date.now() - started,
+          args: auditArgs(args),
+          ...(result.meta ? { meta: result.meta } : {}),
         },
         createdAt: new Date(),
         // D66 T1b: thread approval.runId as request-scoped correlation.
@@ -389,7 +409,11 @@ export async function executeToolThroughBoundary(
         console.error("[capability-boundary] capability.executed audit failed:", err)
       })
   }
-  return { ok: true, output: result.output }
+  return {
+    ok: true,
+    output: result.output,
+    ...(result.meta ? { meta: result.meta } : {}),
+  }
 }
 
 async function persistAskApproval(

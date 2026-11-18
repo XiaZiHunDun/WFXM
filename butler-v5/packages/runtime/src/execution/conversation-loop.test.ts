@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
 import { AgentKernel } from "../agent-kernel.js"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
-import { runConversationLoop } from "./conversation-loop.js"
+import {
+  resolveLoopIterations,
+  runConversationLoop,
+  selectLoopEngine,
+} from "./conversation-loop.js"
 import type { ToolDefinition } from "../tool-runtime.js"
 
 function makeKernel(): AgentKernel {
@@ -16,7 +20,58 @@ function makeKernel(): AgentKernel {
   })
 }
 
+describe("resolveLoopIterations", () => {
+  it("keeps the explicit minimum and raises the cap to honour the tool budget", () => {
+    expect(resolveLoopIterations(undefined, undefined)).toBe(5)
+    expect(resolveLoopIterations(5, 8)).toBe(9)
+    expect(resolveLoopIterations(10, 3)).toBe(10)
+    expect(resolveLoopIterations(undefined, 2)).toBe(5)
+    expect(resolveLoopIterations(5, 0)).toBe(5)
+  })
+})
+
 describe("runConversationLoop", () => {
+  it("allows the full tool budget even when maxIterations is smaller", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    const tool: ToolDefinition = {
+      name: "tick" as ToolDefinition["name"],
+      risk: "low",
+      run: async () => ({ ok: true, output: "tick" }),
+    }
+    let toolCallsSeen = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [{ name: "tick" }],
+      maxIterations: 5,
+      maxToolCalls: 6,
+      ports: {
+        complete: async () => {
+          toolCallsSeen += 1
+          return toolCallsSeen <= 6
+            ? {
+                ok: true,
+                response: {
+                  content: "",
+                  toolCalls: [
+                    { id: `tc${toolCallsSeen}`, name: "tick", args: { n: toolCallsSeen } },
+                  ],
+                },
+              }
+            : { ok: true, response: { content: "完成", toolCalls: [] } }
+        },
+        findTool: (name) => (name === "tick" ? tool : undefined),
+        executeTool: async (def, args) => def.run({ ...args }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.reply).toBe("完成")
+    expect(result.toolCalls).toBe(6)
+  })
+
   it("returns Respond from plain-text LLM output", async () => {
     const kernel = makeKernel()
     await kernel.openTurn({ userMessage: { role: "user", content: "hi" } })
@@ -41,6 +96,55 @@ describe("runConversationLoop", () => {
     expect(result.finalDecision).toBe("Respond")
     expect(result.reply).toBe("你好")
     expect(result.iterations).toBe(1)
+  })
+
+  it("retries once when the LLM returns empty content and no tool calls", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "hi" } })
+    const seen: string[] = []
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "hi" }],
+      llmTools: [],
+      ports: {
+        complete: async (messages) => {
+          seen.push(messages.map((m) => m.content).join("\n"))
+          return seen.length === 1
+            ? { ok: true, response: { content: "", toolCalls: [] } }
+            : { ok: true, response: { content: "补偿回复", toolCalls: [] } }
+        },
+        findTool: () => undefined,
+        executeTool: async () => ({ ok: false, reason: "unused" }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(seen).toHaveLength(2)
+    expect(seen[1]).toContain("empty-response")
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.reply).toBe("补偿回复")
+    expect(result.traces).toContain("empty content retry 1/1")
+  })
+
+  it("falls back to stub after the empty-content retry is exhausted", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "hi" } })
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "hi" }],
+      llmTools: [],
+      maxEmptyContentRetries: 1,
+      ports: {
+        complete: async () => ({ ok: true, response: { content: "", toolCalls: [] } }),
+        findTool: () => undefined,
+        executeTool: async () => ({ ok: false, reason: "unused" }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.reply).toBe("stub")
+    expect(result.traces).toContain("empty content retry 1/1")
   })
 
   it("runs a native tool_call then Responds", async () => {
@@ -345,8 +449,140 @@ describe("runConversationLoop", () => {
     expect(result.reply).not.toBe("stub")
     expect(result.reply).toMatch(/需要澄清|loop exhausted|未在.*轮内收敛/)
     expect(result.iterations).toBe(1)
-    expect(result.finalDecision).toBe("Finish")
+    // 兜底话术是给用户看的答复，语义上是 Respond（不是「无需回复」的 Finish）。
+    expect(result.finalDecision).toBe("Respond")
     expect(result.traces.some((t) => t.includes("loop exhausted"))).toBe(true)
+  })
+
+  it("forces a tool-free final iteration so the user still gets an answer", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "loop" } })
+    const seen: { tools: number; nudged: boolean }[] = []
+    const tool: ToolDefinition = {
+      name: "tick" as ToolDefinition["name"],
+      risk: "low",
+      run: async () => ({ ok: true, output: "tick" }),
+    }
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "loop" }],
+      llmTools: [{ name: "tick" }],
+      maxIterations: 2,
+      ports: {
+        complete: async (messages, llmTools) => {
+          seen.push({
+            tools: llmTools.length,
+            nudged: messages.some(
+              (message) => message.role === "system" && message.content.includes("这是最后一轮"),
+            ),
+          })
+          return seen.length === 1
+            ? {
+                ok: true,
+                response: { content: "", toolCalls: [{ id: "tc1", name: "tick", args: {} }] },
+              }
+            : { ok: true, response: { content: "答复", toolCalls: [] } }
+        },
+        findTool: (name) => (name === "tick" ? tool : undefined),
+        executeTool: async (def, args) => def.run({ ...args }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(seen).toEqual([
+      { tools: 1, nudged: false },
+      { tools: 0, nudged: true },
+    ])
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.reply).toBe("答复")
+  })
+
+  it("injects the remaining tool budget into every iteration", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    const seen: string[] = []
+    const tool: ToolDefinition = {
+      name: "tick" as ToolDefinition["name"],
+      risk: "low",
+      run: async () => ({ ok: true, output: "tick" }),
+    }
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [{ name: "tick" }],
+      maxIterations: 2,
+      maxToolCalls: 2,
+      ports: {
+        complete: async (messages) => {
+          seen.push(
+            messages
+              .filter((m) => m.role === "system" && m.content.includes("工具预算"))
+              .map((m) => m.content)
+              .join("\n"),
+          )
+          return seen.length === 1
+            ? {
+                ok: true,
+                response: { content: "", toolCalls: [{ id: "tc1", name: "tick", args: {} }] },
+              }
+            : { ok: true, response: { content: "完成", toolCalls: [] } }
+        },
+        findTool: (name) => (name === "tick" ? tool : undefined),
+        executeTool: async (def, args) => def.run({ ...args }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(seen[0]).toContain("剩余 2 次")
+    expect(seen[1]).toContain("剩余 1 次")
+    // 额度低时明确要求执行目标动作，而不是只给建议。
+    expect(seen[1]).toContain("直接执行用户要求的关键动作")
+    expect(seen[1]).toContain("不要只给建议")
+    // 只保留一条预算提示，不随轮次累积。
+    expect(seen[1]?.match(/工具预算/g)).toHaveLength(1)
+    expect(result.finalDecision).toBe("Respond")
+  })
+
+  it("stops executing tools once the tool budget is spent", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    const seenTools: number[] = []
+    const tool: ToolDefinition = {
+      name: "tick" as ToolDefinition["name"],
+      risk: "low",
+      run: async () => ({ ok: true, output: "tick" }),
+    }
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [{ name: "tick" }],
+      maxIterations: 3,
+      maxToolCalls: 1,
+      ports: {
+        complete: async (_messages, llmTools) => {
+          seenTools.push(llmTools.length)
+          turn += 1
+          if (turn <= 2) {
+            return {
+              ok: true,
+              response: {
+                content: "",
+                toolCalls: [{ id: `tc${turn}`, name: "tick", args: {} }],
+              },
+            }
+          }
+          return { ok: true, response: { content: "答复", toolCalls: [] } }
+        },
+        findTool: (name) => (name === "tick" ? tool : undefined),
+        executeTool: async (def, args) => def.run({ ...args }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(seenTools).toEqual([1, 0, 0])
+    expect(result.toolCalls).toBe(1)
+    expect(result.finalDecision).toBe("Respond")
   })
 
   it("retries a structured decode failure then Responds", async () => {
@@ -444,7 +680,7 @@ describe("runConversationLoop", () => {
         logger: { warn: () => undefined, error: () => undefined },
       },
     })
-    expect(result.finalDecision).toBe("Finish")
+    expect(result.finalDecision).toBe("Respond")
     expect(result.reply).not.toBe("stub-fallback")
     expect(result.reply).toMatch(/需要澄清|loop exhausted|未在.*轮内收敛|补充信息/i)
     expect(result.traces.some((t) => t.startsWith("loop exhausted"))).toBe(true)
@@ -457,6 +693,44 @@ describe("runConversationLoop", () => {
 // are intentionally duplicated because @butler/runtime does not depend
 // on @butler/adapters (would create dep cycle via ports/domain).
 import { DEFAULT_LLM_TIMEOUT_MS as ADAPTERS_DEFAULT } from "@butler/adapters"
+
+describe("loop engine selector", () => {
+  it("defaults to native and opts into pi only via env", () => {
+    expect(selectLoopEngine({})).toBe("native")
+    expect(selectLoopEngine({ BUTLER_V5_LOOP_ENGINE: " PI " })).toBe("pi")
+    expect(selectLoopEngine({ BUTLER_V5_LOOP_ENGINE: "native" })).toBe("native")
+  })
+
+  it("routes runConversationLoop through the pi engine when selected", async () => {
+    vi.stubEnv("BUTLER_V5_LOOP_ENGINE", "pi")
+    try {
+      const kernel = makeKernel()
+      await kernel.openTurn({ userMessage: { role: "user", content: "hi" } })
+      const result = await runConversationLoop({
+        kernel,
+        messages: [{ role: "user", content: "hi" }],
+        llmTools: [],
+        ports: {
+          complete: async () => ({
+            ok: true,
+            response: {
+              content: JSON.stringify({ _tag: "Respond", content: "来自 pi" }),
+              toolCalls: [],
+            },
+          }),
+          findTool: () => undefined,
+          executeTool: async () => ({ ok: false, reason: "unused" }),
+          stubReply: () => "stub",
+          logger: { warn: () => undefined, error: () => undefined },
+        },
+      })
+      expect(result.reply).toBe("来自 pi")
+      expect(result.finalDecision).toBe("Respond")
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+})
 
 describe("DEFAULT_LLM_TIMEOUT_MS drift detector", () => {
   it("runtime's local constant matches @butler/adapters default", async () => {

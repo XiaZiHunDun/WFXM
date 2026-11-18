@@ -14,6 +14,41 @@ describe("classifyRunCommandArgvRisk", () => {
     expect(classifyRunCommandArgvRisk(["wc", "-l", "file"])).toBe("low")
   })
 
+  it("find with glob args → low (glob is the normal usage)", () => {
+    expect(classifyRunCommandArgvRisk(["find", ".", "-name", "*slug*"])).toBe("low")
+    expect(
+      classifyRunCommandArgvRisk([
+        "find",
+        ".",
+        "-name",
+        "*slug*",
+        "-not",
+        "-path",
+        "*/node_modules/*",
+      ]),
+    ).toBe("low")
+    expect(classifyRunCommandArgvRisk(["find", "src", "-type", "f"])).toBe("low")
+  })
+
+  it("find with write/exec predicates → high", () => {
+    expect(classifyRunCommandArgvRisk(["find", ".", "-delete"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-name", "*.log", "-delete"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-exec", "rm", "{}"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-execdir", "rm", "{}"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-ok", "rm", "{}"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-fprint", "out.txt"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-fprintf", "out.txt", "x"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-fls", "out.txt"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-fprint0", "out.txt"])).toBe("high")
+  })
+
+  it("find with shell metachars → high", () => {
+    expect(classifyRunCommandArgvRisk(["find", ".", "-name", "x;rm"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-name", "$(whoami)"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-name", "a|b"])).toBe("high")
+    expect(classifyRunCommandArgvRisk(["find", ".", "-name", "a`b`"])).toBe("high")
+  })
+
   it("write-capable programs → high", () => {
     expect(classifyRunCommandArgvRisk(["git", "status"])).toBe("high")
     expect(classifyRunCommandArgvRisk(["git", "commit", "-m", "x"])).toBe("high")

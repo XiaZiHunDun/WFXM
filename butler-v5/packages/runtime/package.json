@@ -31,6 +31,19 @@
     "./execution.js": "./src/execution/index.ts",
     "./execution/index.js": "./src/execution/index.ts",
     "./execution/conversation-loop.js": "./src/execution/conversation-loop.ts",
+    "./execution/pi-engine.js": "./src/execution/pi-engine.ts",
+    "./execution/pi-model.js": "./src/execution/pi-model.ts",
+    "./execution/pi-native-tools.js": "./src/execution/pi-native-tools.ts",
+    "./execution/pi-task-runner.js": "./src/execution/pi-task-runner.ts",
+    "./execution/pi-tool-name-map.js": "./src/execution/pi-tool-name-map.ts",
+    "./butler.js": "./src/butler/index.ts",
+    "./butler/index.js": "./src/butler/index.ts",
+    "./butler/butler-runtime.js": "./src/butler/butler-runtime.ts",
+    "./butler/rule-router.js": "./src/butler/rule-router.ts",
+    "./butler/pi-task-adapter.js": "./src/butler/pi-task-adapter.ts",
+    "./butler/approval-notice.js": "./src/butler/approval-notice.ts",
+    "./butler/presentation.js": "./src/butler/presentation.ts",
+    "./butler/model-port.js": "./src/butler/model-port.ts",
     "./sandbox.js": "./src/sandbox/index.ts",
     "./sandbox/index.js": "./src/sandbox/index.ts",
     "./observability/local-tracer.js": "./src/observability/local-tracer.ts",
@@ -44,7 +57,9 @@
   },
   "dependencies": {
     "@butler/domain": "workspace:*",
-    "@butler/ports": "workspace:*"
+    "@butler/pi-agent": "workspace:*",
+    "@butler/ports": "workspace:*",
+    "@earendil-works/pi-ai": "1.5.2"
   },
   "devDependencies": {
     "@butler/persistence": "workspace:*"

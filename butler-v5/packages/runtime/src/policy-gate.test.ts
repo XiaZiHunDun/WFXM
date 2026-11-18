@@ -207,3 +207,44 @@ describe("BUTLER_V5_KILL_SWITCH", () => {
     expect(SIDE_EFFECT_KINDS).toEqual(["write", "command", "outbound", "delegate"])
   })
 })
+
+describe("actionRequestFromTool digest", () => {
+  const definition = { name: "write_file", kind: "write", risk: "high" } as const
+
+  it("ignores args key order so approval survives a JSONB round-trip", () => {
+    const before = actionRequestFromTool(
+      "write_file",
+      "owner-1",
+      "src/slugify.mjs",
+      { path: "src/slugify.mjs", content: "x" },
+      definition,
+    )
+    // Postgres jsonb 读回时键序可能变成 content,path
+    const after = actionRequestFromTool(
+      "write_file",
+      "owner-1",
+      "src/slugify.mjs",
+      { content: "x", path: "src/slugify.mjs" },
+      definition,
+    )
+    expect(after.digest).toBe(before.digest)
+  })
+
+  it("still distinguishes different args", () => {
+    const a = actionRequestFromTool(
+      "write_file",
+      "owner-1",
+      "src/slugify.mjs",
+      { path: "src/slugify.mjs", content: "a" },
+      definition,
+    )
+    const b = actionRequestFromTool(
+      "write_file",
+      "owner-1",
+      "src/slugify.mjs",
+      { path: "src/slugify.mjs", content: "b" },
+      definition,
+    )
+    expect(b.digest).not.toBe(a.digest)
+  })
+})

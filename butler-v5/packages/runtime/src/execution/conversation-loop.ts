@@ -20,6 +20,43 @@ function formatToolOutput(output: unknown): string {
 export const DEFAULT_MAX_LOOP_ITERATIONS = 5
 
 /**
+ * 工具预算要兑现，轮次必须够：每轮至少能执行一次工具调用，还要留 1 轮
+ * 给最终答复。调用方显式给的 maxIterations 作为下限保留，只在预算更大时
+ * 抬升轮次上限；否则 `maxToolCalls=8` 会被 5 轮迭代卡死。
+ */
+export function resolveLoopIterations(
+  requested: number | undefined,
+  maxToolCalls: number | undefined,
+): number {
+  const base = requested ?? DEFAULT_MAX_LOOP_ITERATIONS
+  if (typeof maxToolCalls !== "number") return base
+  return Math.max(base, maxToolCalls + 1)
+}
+
+/**
+ * 最后一轮必须收敛为答复：不再暴露工具，并显式要求 Respond。
+ * 否则模型会把所有轮次花在工具调用上，用户最终只收到兜底话术。
+ */
+const FINAL_ITERATION_NUDGE =
+  "这是最后一轮：不要调用任何工具。请直接给用户一个有用答复（Respond）；信息不足时用 Respond 提 1 个具体澄清问题，不要 Finish。"
+
+/**
+ * 工具预算提示：模型看不到 Run 的 budget，容易用 pwd/ls/find 反复探索把额度耗尽。
+ * 每轮把剩余额度放在消息末尾，接近上限时明确要求收敛。
+ */
+function toolBudgetNote(maxToolCalls: number, used: number): string {
+  const remaining = Math.max(0, maxToolCalls - used)
+  const head = `工具预算：本 Run 最多 ${maxToolCalls} 次工具调用，已用 ${used} 次，剩余 ${remaining} 次。`
+  if (remaining === 0) {
+    return `${head}额度已用完：不要再调用工具，请直接基于已有信息给出答复或向用户澄清。`
+  }
+  if (remaining <= 2) {
+    return `${head}剩余额度足以完成目标动作：不要再做探索性调用（pwd/ls/find/grep），请直接执行用户要求的关键动作（write_file / 删除 / 运行测试等），完成后再给出结论，不要只给建议。`
+  }
+  return `${head}避免重复或探索性调用，直接完成用户要求的目标动作（必要时调用工具），再给出结论。`
+}
+
+/**
  * Phase D eval fix B-06: stuck-loop detection. If the LLM invokes the
  * same capability with the same args `>= STUCK_LOOP_THRESHOLD` times within
  * one loop run, short-circuit with a Finish + descriptive trace instead
@@ -56,6 +93,23 @@ function resolveMaxDecodeRetries(env: NodeJS.ProcessEnv = process.env): number {
   if (!raw) return DEFAULT_MAX_DECODE_RETRIES
   const parsed = Number(raw)
   return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : DEFAULT_MAX_DECODE_RETRIES
+}
+
+/**
+ * 空内容重试：provider 偶发返回空 content 且没有 tool call（推理 token
+ * 耗尽、上游截断等），若直接 decode 只会落到 stub 回复（"已收到，正在
+ * 处理中。"）。这里给模型一次明确的"必须输出决策"提示后重试。
+ * Tunable via BUTLER_V5_MAX_EMPTY_CONTENT_RETRIES env. Default 1.
+ */
+export const DEFAULT_MAX_EMPTY_CONTENT_RETRIES = 1
+
+function resolveMaxEmptyContentRetries(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env["BUTLER_V5_MAX_EMPTY_CONTENT_RETRIES"] ?? "").trim()
+  if (!raw) return DEFAULT_MAX_EMPTY_CONTENT_RETRIES
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed >= 0
+    ? Math.floor(parsed)
+    : DEFAULT_MAX_EMPTY_CONTENT_RETRIES
 }
 
 /**
@@ -266,11 +320,7 @@ async function executeToolInLoop(args: {
   }
 }
 
-/**
- * Run the multi-turn conversation loop after the turn is opened and
- * initial messages are prepared by the delivery shell.
- */
-export async function runConversationLoop(input: {
+export interface ConversationLoopInput {
   readonly kernel: AgentKernel
   readonly messages: ConversationLoopMessage[]
   readonly llmTools: readonly ConversationLoopLlmTool[]
@@ -285,23 +335,83 @@ export async function runConversationLoop(input: {
   /** Max decoder-failure retries before fallback (Phase D fix B-08/10).
    *  Default reads BUTLER_V5_MAX_DECODE_RETRIES from env (else 1). */
   readonly maxDecodeRetries?: number
-}): Promise<ConversationLoopResult> {
+  /** Empty-content retries before the stub fallback. Default reads
+   *  BUTLER_V5_MAX_EMPTY_CONTENT_RETRIES from env (else 1). */
+  readonly maxEmptyContentRetries?: number
+  /** Tool-call budget for this run; also raises the iteration cap. */
+  readonly maxToolCalls?: number
+}
+
+/**
+ * Loop engine selector. `pi` routes the same input through the vendored pi
+ * agent loop; anything else keeps the native loop. The default stays native
+ * until the capability suite confirms parity.
+ */
+export function selectLoopEngine(env: NodeJS.ProcessEnv = process.env): "native" | "pi" {
+  return (env["BUTLER_V5_LOOP_ENGINE"] ?? "").trim().toLowerCase() === "pi" ? "pi" : "native"
+}
+
+/**
+ * Run the multi-turn conversation loop after the turn is opened and
+ * initial messages are prepared by the delivery shell.
+ */
+export async function runConversationLoop(
+  input: ConversationLoopInput,
+): Promise<ConversationLoopResult> {
+  if (selectLoopEngine() === "pi") {
+    // Lazy import keeps the vendored pi source out of the native hot path.
+    const { runPiConversationLoop } = await import("./pi-engine.js")
+    return runPiConversationLoop(input)
+  }
+  return runNativeConversationLoop(input)
+}
+
+async function runNativeConversationLoop(
+  input: ConversationLoopInput,
+): Promise<ConversationLoopResult> {
   const logger = input.ports.logger ?? defaultLogger
-  const maxIterations = input.maxIterations ?? DEFAULT_MAX_LOOP_ITERATIONS
+  const maxIterations = resolveLoopIterations(input.maxIterations, input.maxToolCalls)
   const llmTimeoutMs = input.llmTimeoutMs ?? resolveLLMTimeoutMs()
   const stuckLoopThreshold = input.stuckLoopThreshold ?? resolveStuckLoopThreshold()
   const maxDecodeRetries = input.maxDecodeRetries ?? resolveMaxDecodeRetries()
+  const maxEmptyContentRetries = input.maxEmptyContentRetries ?? resolveMaxEmptyContentRetries()
   const messages = [...input.messages]
   const traces: string[] = [...(input.initialTraces ?? [])]
   let toolCalls = 0
   const callSignatures = new Map<string, number>()
   let decodeFailuresThisLoop = 0
+  let emptyContentRetries = 0
   let firstDecodeFailureReason = ""
   let lastNonEmptyRaw = ""
+  let budgetNoteIndex = -1
+  let budgetExhaustedNotified = false
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
+    const isFinalIteration = iteration === maxIterations - 1
+    const toolsExhausted = typeof input.maxToolCalls === "number" && toolCalls >= input.maxToolCalls
+    if (typeof input.maxToolCalls === "number" && input.maxToolCalls >= 0) {
+      // 保持预算提示在消息末尾（最新），避免被后续工具结果淹没。
+      if (budgetNoteIndex >= 0) messages.splice(budgetNoteIndex, 1)
+      messages.push({
+        role: "system",
+        content: toolBudgetNote(input.maxToolCalls, toolCalls),
+      })
+      budgetNoteIndex = messages.length - 1
+    }
+    // 硬约束：额度用尽后不再暴露工具，只允许给出答复/澄清。
+    if (toolsExhausted && !budgetExhaustedNotified) {
+      budgetExhaustedNotified = true
+      messages.push({
+        role: "system",
+        content: `工具调用额度已用尽（上限 ${input.maxToolCalls} 次）：不要再调用任何工具，请直接基于已有信息给出答复或向用户澄清。`,
+      })
+    }
+    if (isFinalIteration && input.llmTools.length > 0) {
+      messages.push({ role: "system", content: FINAL_ITERATION_NUDGE })
+    }
     const outcome = await completeWithTimeout(
-      () => input.ports.complete(messages, input.llmTools),
+      () =>
+        input.ports.complete(messages, isFinalIteration || toolsExhausted ? [] : input.llmTools),
       llmTimeoutMs,
     )
 
@@ -331,6 +441,16 @@ export async function runConversationLoop(input: {
 
       const toolResultMessages: ConversationLoopMessage[] = []
       for (const tc of response.toolCalls) {
+        if (typeof input.maxToolCalls === "number" && toolCalls >= input.maxToolCalls) {
+          traces.push(`tool-budget: skipped ${tc.name}`)
+          toolResultMessages.push({
+            role: "tool",
+            content: `[错误] 工具调用额度已用尽（上限 ${input.maxToolCalls} 次），未执行 ${tc.name}。`,
+            toolCallId: tc.id,
+            toolName: tc.name,
+          })
+          continue
+        }
         const def = input.ports.findTool(tc.name)
         if (!def) {
           logger.warn(
@@ -401,6 +521,19 @@ export async function runConversationLoop(input: {
 
     const raw = response.content.trim()
     if (raw) lastNonEmptyRaw = raw
+    // 空内容重试：没有文本也没有 tool call 时，decode 只会返回 invalid JSON
+    // 并最终落到 stub。最后一轮不再重试，保持既有收敛语义。
+    if (!raw && !isFinalIteration && emptyContentRetries < maxEmptyContentRetries) {
+      emptyContentRetries += 1
+      messages.push({
+        role: "user",
+        content:
+          "[system] empty-response: 上一次返回既没有文本也没有工具调用。请重新输出一个决策 JSON" +
+          "（Respond / CallCapability / WaitForApproval / Finish 之一），不要返回空内容。",
+      })
+      traces.push(`empty content retry ${emptyContentRetries}/${maxEmptyContentRetries}`)
+      continue
+    }
     const decoded = decodeDecision(raw)
     if (!decoded.ok) {
       const preview = raw.length > 120 ? `${raw.slice(0, 120)}…` : raw
@@ -488,6 +621,14 @@ export async function runConversationLoop(input: {
       }
       case "StartChildRun": {
         await safeApplyDecision(input.kernel, decision, logger)
+        if (typeof input.maxToolCalls === "number" && toolCalls >= input.maxToolCalls) {
+          traces.push("tool-budget: skipped delegate_to_subagent")
+          messages.push({
+            role: "user",
+            content: `[system] 工具调用额度已用尽（上限 ${input.maxToolCalls} 次），未启动子 Run。请直接给出答复或澄清。`,
+          })
+          continue
+        }
         const def = input.ports.findTool("delegate_to_subagent")
         if (!def) {
           logger.warn(
@@ -548,6 +689,14 @@ export async function runConversationLoop(input: {
       }
       case "CallCapability": {
         await safeApplyDecision(input.kernel, decision, logger)
+        if (typeof input.maxToolCalls === "number" && toolCalls >= input.maxToolCalls) {
+          traces.push(`tool-budget: skipped ${decision.name}`)
+          messages.push({
+            role: "user",
+            content: `[system] 工具调用额度已用尽（上限 ${input.maxToolCalls} 次），未执行 ${decision.name}。请直接给出答复或澄清。`,
+          })
+          continue
+        }
         const def = input.ports.findTool(decision.name)
         if (!def) {
           logger.warn(
@@ -617,12 +766,14 @@ export async function runConversationLoop(input: {
   logger.warn(
     `[conversation-loop] Loop exhausted after ${maxIterations} iterations; falling back to clarification`,
   )
-  await safeApplyDecision(input.kernel, { _tag: "Finish", reason: "loop exhausted" }, logger)
+  const exhaustedReply = `[需要澄清] 模型未在 ${maxIterations} 轮内收敛，请补充信息或缩小范围。`
+  // 用户确实收到了一条答复，所以语义上是 Respond，不是「无需回复」的 Finish。
+  await safeApplyDecision(input.kernel, { _tag: "Respond", content: exhaustedReply }, logger)
   return {
-    reply: `[需要澄清] 模型未在 ${maxIterations} 轮内收敛，请补充信息或缩小范围。`,
+    reply: exhaustedReply,
     iterations: maxIterations,
     toolCalls,
-    finalDecision: "Finish",
+    finalDecision: "Respond",
     traces: [...traces, `loop exhausted (max=${maxIterations})`],
   }
 }

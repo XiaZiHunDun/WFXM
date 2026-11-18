@@ -22,7 +22,25 @@ export function makeToolName(toolName: string): ToolDefinition["name"] {
 }
 
 export type RunResult =
-  { readonly ok: true; readonly output: unknown } | { readonly ok: false; readonly reason: string }
+  | {
+      readonly ok: true
+      readonly output: unknown
+      /**
+       * Optional structured evidence for observability (eval / RAG trace).
+       * Never surfaced to the model; capability-boundary copies it into the
+       * `capability.executed` audit detail so the eval adapter can export it.
+       */
+      readonly meta?: Readonly<Record<string, unknown>>
+    }
+  | {
+      readonly ok: false
+      readonly reason: string
+      /**
+       * run_command 的非零退出码。命令执行成功但返回非零，是工具结果而非
+       * 执行失败：审批恢复路径据此继续对话，而不是把整个 Run 标失败。
+       */
+      readonly exitCode?: number
+    }
 
 export interface RunOptions {
   readonly timeoutMs: number
