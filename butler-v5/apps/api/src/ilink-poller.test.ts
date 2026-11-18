@@ -314,4 +314,67 @@ describe("runIlinkPollCycle", () => {
     expect(stats.processed).toBe(1)
     expect(inboundCalls[0]).toContain("/tmp/ilink-media/x.jpg")
   })
+
+  it("persists the new cursor so a reconnect resumes instead of replaying (断线重连)", async () => {
+    const persisted: string[] = []
+    const state: IlinkPollState = { syncBuf: "cursor-old", seenIds: new Set() }
+    const stats = await runIlinkPollCycle(
+      {
+        getUpdates: async (syncBuf) => {
+          // The cycle must poll from the cursor it was given.
+          expect(syncBuf).toBe("cursor-old")
+          return { ok: true, value: { ret: 0, get_updates_buf: "cursor-new", msgs: [] } }
+        },
+        postInbound: async () => ({ ok: true, value: "x" }),
+        sendMessage: async () => ({ ok: true, value: {} }),
+        accountId: "bot-self",
+        emptyPollDelayMs: 0,
+        sessionExpiredSleepMs: 0,
+        sleep: async () => undefined,
+        persistSyncBuf: (buf) => persisted.push(buf),
+      },
+      state,
+    )
+    expect(stats.empty).toBe(true)
+    expect(state.syncBuf).toBe("cursor-new")
+    expect(persisted).toEqual(["cursor-new"])
+  })
+
+  it("drops a redelivered message id without posting it twice (重投)", async () => {
+    const posted: string[] = []
+    const state: IlinkPollState = { syncBuf: "b1", seenIds: new Set() }
+    const deps = {
+      getUpdates: async () => ({
+        ok: true,
+        value: {
+          ret: 0,
+          get_updates_buf: "b2",
+          msgs: [
+            { msg_id: "m-dup", from_user_id: "u-wx", item_list: [{ type: "text", text_item: { content: "同一条" } }] },
+            { msg_id: "m-dup", from_user_id: "u-wx", item_list: [{ type: "text", text_item: { content: "同一条" } }] },
+          ],
+        },
+      }),
+      postInbound: async (input: { messageId: string }) => {
+        posted.push(input.messageId)
+        return { ok: true as const, value: "好" }
+      },
+      sendMessage: async () => ({ ok: true as const, value: {} }),
+      accountId: "bot-self",
+      emptyPollDelayMs: 0,
+      sessionExpiredSleepMs: 0,
+      sleep: async () => undefined,
+    }
+    const first = await runIlinkPollCycle(deps, state)
+    expect(first.processed).toBe(1)
+    expect(first.skipped).toBe(1)
+    expect(posted).toEqual(["m-dup"])
+
+    // Next cycle redelivers the same id: still dropped, cursor still advances.
+    const second = await runIlinkPollCycle(deps, state)
+    expect(second.processed).toBe(0)
+    expect(second.skipped).toBe(2)
+    expect(posted).toEqual(["m-dup"])
+    expect(state.syncBuf).toBe("b2")
+  })
 })
