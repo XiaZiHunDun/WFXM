@@ -147,3 +147,6 @@ butler-v5/tests/acceptance/scenarios/recordings-archive/*/*
 .audit/
 .trae-html-share-packages/
 tmp-qr-*.png
+butler_deps.dot
+butler_deps_report.txt
+memory_profile_report.json
