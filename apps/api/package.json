@@ -29,7 +29,7 @@
     "@butler/ports": "workspace:*",
     "@butler/runtime": "workspace:*",
     "@earendil-works/pi-ai": "1.5.2",
-    "effect": "^3.10.0",
+    "effect": "^4.1.4",
     "hono": "^4.0.0",
     "ws": "^8.18.0"
   },
