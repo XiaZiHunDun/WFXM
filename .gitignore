@@ -142,3 +142,8 @@ butler-v5/tests/acceptance/scenarios/recordings-archive/*
 # would otherwise leave each subdir's *.json untracked-but-not-ignored.
 butler-v5/tests/acceptance/scenarios/recordings-archive/*/*
 !butler-v5/tests/acceptance/scenarios/recordings-archive/*/README.md
+
+# Local diagnostics / one-off artifacts
+.audit/
+.trae-html-share-packages/
+tmp-qr-*.png
