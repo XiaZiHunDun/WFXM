@@ -113,12 +113,17 @@ function doneResult(
   }
 }
 
-const DELEGATE_ASYNC_NOTICE = "（子代理已在后台执行，完成后将微信推送含【开发验收】的结果）"
+/**
+ * Appended to a reply whose turn delegated work asynchronously. Owner-facing:
+ * no "子代理" / "开发验收" jargon — dev verification is an internal gate and
+ * the user only needs to know the work continues and will report back here.
+ */
+const DELEGATE_ASYNC_NOTICE = "（已转到后台继续处理，完成后我会在这里回复你）"
 
 function enrichDelegateAsyncNotice(loop: ButlerLoopResult): ButlerLoopResult {
   const delegated = loop.traces.some((t) => t.startsWith("delegate_to_subagent@"))
   if (!delegated) return loop
-  if (loop.reply.includes("【开发验收】") || loop.reply.includes("子代理已在后台")) {
+  if (loop.reply.includes("【开发验收】") || loop.reply.includes("转到后台")) {
     return loop
   }
   const body = loop.reply.trim()

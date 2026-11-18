@@ -8,7 +8,7 @@
  */
 import type { ButlerRuntime, ButlerTurnResult } from "@butler/runtime/butler/butler-runtime.js"
 import { parseApprovalPayload } from "@butler/runtime/butler/approval-notice.js"
-import { splitForWechat } from "@butler/runtime/butler/presentation.js"
+import { finalizeReply, splitForWechat } from "@butler/runtime/butler/presentation.js"
 import type { ChannelPort, ChannelRecipient } from "@butler/ports/core/channel.js"
 
 export interface ButlerInboundInput {
@@ -97,7 +97,7 @@ async function deliver(
   recipient: ChannelRecipient,
   content: string,
 ): Promise<ButlerSendResult> {
-  const parts = splitForWechat(content)
+  const parts = splitForWechat(finalizeReply(content))
   if (parts.length === 0) return { sent: false, sendError: "empty reply" }
   try {
     for (const part of parts) {

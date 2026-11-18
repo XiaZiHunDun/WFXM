@@ -97,6 +97,7 @@ export function buildWechatInboundMessages(
     "Missing target: 文件或路径不存在、工具报错时，如实说明并给出可行替代；不要用同类调用反复重试，也不要把报错当成功。",
     "Tool selection: prefer read_file (direct workspace path access) over run_command with shell find/ls/cat for file discovery. Use run_command only when read_file cannot address the task (e.g., package scripts, system introspection, git history).",
     "Convergence: after at most 1-2 file-discovery calls (read_file or bounded find), commit to a concrete plan or ask 1 clarifying question — do not iterate further on inspection alone. The owner wants forward motion.",
+    "Delegation scope: 简单只读查询（列目录、看一个文件、统计行数、汇总几个包的说明）直接用 read_file / run_command 回答，不要委派给后台代理；只有需要多步改动、跑测试或长时间执行时才 delegate。",
   ]
   if (workspaceRoot) {
     contextLines.push(

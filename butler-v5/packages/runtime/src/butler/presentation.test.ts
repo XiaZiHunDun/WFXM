@@ -56,6 +56,17 @@ describe("sanitizeForWechat", () => {
   it("collapses runs of blank lines", () => {
     expect(sanitizeForWechat("一\n\n\n\n二")).toBe("一\n\n二")
   })
+
+  it("drops horizontal rules that WeChat would render literally", () => {
+    expect(sanitizeForWechat("结果如下\n\n---\n\n已经完成")).toBe("结果如下\n\n已经完成")
+  })
+
+  it("maps internal vocabulary to owner language", () => {
+    expect(sanitizeForWechat("已派给 exec 子代理处理")).toBe("已派给执行代理处理")
+    expect(sanitizeForWechat("已派给执行子代理处理")).toBe("已派给执行代理处理")
+    expect(sanitizeForWechat("已写入 Durable Memory")).toBe("已写入长期记忆")
+    expect(sanitizeForWechat("更新了 Project Knowledge")).toBe("更新了项目知识")
+  })
 })
 
 describe("finalizeReply", () => {

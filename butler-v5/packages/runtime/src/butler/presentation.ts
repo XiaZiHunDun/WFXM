@@ -44,17 +44,36 @@ export function taskStatusLabel(status: string): string {
 }
 
 /**
+ * Internal vocabulary that leaks into model-written prose (tool outputs are
+ * written in English for the model, and it echoes them). Map to the words an
+ * owner actually uses; keep the patterns narrow so identifiers are untouched.
+ */
+const TERM_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/[ \t]*\bexec\s*子代理/g, "执行代理"],
+  [/[ \t]*执行子代理/g, "执行代理"],
+  [/[ \t]*开发子代理/g, "开发代理"],
+  // Any remaining "子代理" is still internal vocabulary to the owner.
+  [/[ \t]*子代理/g, "执行代理"],
+  [/[ \t]*\bDurable Memory\b/g, "长期记忆"],
+  [/[ \t]*\bProject Knowledge\b/g, "项目知识"],
+]
+
+/**
  * Removes markdown that WeChat would show literally. Code content is kept;
  * only the markers go away. Conservative on purpose: `__name__`-style Python
  * identifiers survive because only complete `__x__` pairs are unwrapped.
  */
 export function sanitizeForWechat(text: string): string {
   let value = text.replace(/\r\n/g, "\n")
+  for (const [pattern, replacement] of TERM_REPLACEMENTS) {
+    value = value.replace(pattern, replacement)
+  }
   value = value.replace(/```[^\n]*\n([\s\S]*?)```/g, "$1")
   value = value.replace(/```/g, "")
   value = value.replace(/`([^`\n]+)`/g, "$1")
   value = value.replace(/\*\*([^*\n]+)\*\*/g, "$1")
   value = value.replace(/^#{1,6}\s+/gm, "")
+  value = value.replace(/^\s*-{3,}\s*$/gm, "")
   value = value.replace(/\n{3,}/g, "\n\n")
   return value.trim()
 }

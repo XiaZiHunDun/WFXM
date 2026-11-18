@@ -9,6 +9,7 @@ import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 // formatDecision: maps run-decision enums to Chinese (e.g. "Respond" → "已回复").
 // formatSubagentRoleForOwner: maps subagent role enums (e.g. "developer" → "开发").
 import { formatDecision, formatSubagentRoleForOwner } from "./owner-jargon.js"
+import { finalizeReply } from "@butler/runtime/butler/presentation.js"
 import { safeOwnerError } from "./safe-owner-error.js"
 
 /** Proactive WeChat push when long runs / subagents finish (BUTLER_V5_RUN_NOTIFY_ENABLED). */
@@ -98,14 +99,18 @@ export async function sendWechatProactiveNotify(args: {
     return { ok: false, reason: "run notify disabled" }
   }
   const to = args.to.trim()
-  const text = args.text.trim()
-  if (!to || !text) {
+  const rawText = args.text.trim()
+  if (!to || !rawText) {
     // eslint-disable-next-line no-console -- operator log when no logger injected
     console.error(
       `[wechat-run-notify] skipped reason=empty_recipient_or_message toLen=${args.to.length} textLen=${args.text.length}`,
     )
     return { ok: false, reason: "empty recipient or message" }
   }
+  // Every outbox push (task completion, subagent completion, sweepers) leaves
+  // here, so this is the one place that guarantees the owner never sees
+  // markdown, raw tool names or internal vocabulary in a push.
+  const text = finalizeReply(rawText)
   // D2.4 step 1: when Composition Root registers a WeChat ChannelPort, prefer the
   // port path; fall back to direct ilinkSendMessage when not present so tests /
   // existing call sites continue to work without DI changes.

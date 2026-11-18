@@ -19,6 +19,7 @@ import { tryWechatInboundCommand } from "../wechat-inbound-commands.js"
 import { captureWechatSessionSnapshot } from "../wechat-session-snapshot.js"
 import { maybePrependSessionDigest } from "../wechat-session-digest.js"
 import { requireInboundSharedSecret } from "../env-util.js"
+import { finalizeReply } from "@butler/runtime/butler/presentation.js"
 
 export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
   app.post("/v1/wechat/inbound", async (c) => {
@@ -94,7 +95,7 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
         {
           conversationId: normalized.value.conversationId,
           turnId: normalized.value.turnId,
-          reply: projectSwitch.reply,
+          reply: finalizeReply(projectSwitch.reply),
           meta: {
             iterations: projectSwitch.iterations,
             toolCalls: projectSwitch.toolCalls,
@@ -191,7 +192,7 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
       {
         conversationId: value.conversationId,
         turnId: value.turnId,
-        reply,
+        reply: finalizeReply(reply),
         meta: {
           iterations: loopResult.iterations,
           toolCalls: loopResult.toolCalls,
