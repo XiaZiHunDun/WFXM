@@ -137,6 +137,42 @@ export function matchDurableMemoryQuery(record: DurableMemoryRecord, query: stri
   return hay.includes(q)
 }
 
+/**
+ * Tokenises a natural-language question for recall: latin words plus CJK
+ * bigrams. Whole-message substring matching only worked when the owner
+ * repeated a memory verbatim ("L4-4: 记住 X" then "X 是什么" returned nothing),
+ * so recall now tolerates paraphrase.
+ */
+function recallTokens(query: string): readonly string[] {
+  const lower = query.toLowerCase()
+  const latin = lower.match(/[a-z0-9_]+/g) ?? []
+  const cjkRuns = lower.match(/[\u4e00-\u9fff]+/g) ?? []
+  const cjk: string[] = []
+  for (const run of cjkRuns) {
+    if (run.length === 1) {
+      cjk.push(run)
+      continue
+    }
+    for (let i = 0; i + 1 < run.length; i += 1) cjk.push(run.slice(i, i + 2))
+  }
+  return [...new Set([...latin, ...cjk])]
+}
+
+function memoryHaystack(record: DurableMemoryRecord): string {
+  return `${record.content}\n${record.provenance.note ?? ""}`.toLowerCase()
+}
+
+export function scoreDurableMemory(record: DurableMemoryRecord, query: string): number {
+  const tokens = recallTokens(query)
+  if (tokens.length === 0) return 0
+  const hay = memoryHaystack(record)
+  let hits = 0
+  for (const token of tokens) {
+    if (hay.includes(token)) hits += 1
+  }
+  return hits
+}
+
 export function selectDurableMemoriesForWorkingSet(input: {
   readonly records: readonly DurableMemoryRecord[]
   readonly nowMs: number
@@ -144,11 +180,30 @@ export function selectDurableMemoriesForWorkingSet(input: {
   readonly limit?: number
 }): readonly DurableMemoryRecord[] {
   const limit = input.limit ?? 8
-  const matched = input.records
-    .filter((r) => isDurableMemoryActive(r, input.nowMs))
-    .filter((r) => matchDurableMemoryQuery(r, input.query ?? ""))
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-  return matched.slice(0, Math.max(0, limit))
+  const active = input.records.filter((r) => isDurableMemoryActive(r, input.nowMs))
+  const query = input.query?.trim() ?? ""
+  if (!query) {
+    return [...active].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, Math.max(0, limit))
+  }
+  const scored = active.map((record) => ({
+    record,
+    exact: matchDurableMemoryQuery(record, query),
+    score: scoreDurableMemory(record, query),
+  }))
+  // Recall is a working set, not a search result page: keep token-level
+  // matches, and fall back to the most recent memories when a paraphrase
+  // shares no tokens (asking a question should never blank out memory).
+  const relevant = scored.filter((entry) => entry.exact || entry.score > 0)
+  const pool = relevant.length > 0 ? relevant : scored
+  return pool
+    .sort(
+      (a, b) =>
+        Number(b.exact) - Number(a.exact) ||
+        b.score - a.score ||
+        b.record.updatedAt - a.record.updatedAt,
+    )
+    .slice(0, Math.max(0, limit))
+    .map((entry) => entry.record)
 }
 
 /** Format selected memories as a system prefix block (not Transcript). */

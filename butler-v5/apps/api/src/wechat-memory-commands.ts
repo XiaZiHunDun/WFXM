@@ -155,11 +155,19 @@ export async function tryWechatMemoryCommand(args: {
   const active = getWechatActiveProjectId(subject, env)
   const store = args.wiring.durableMemoryStore
 
-  if (trimmed.startsWith("/记住")) {
+  // Owners write "记住：…" in plain language far more often than "/记住".
+  // Both must land in durable memory: otherwise the model answers with an
+  // optimistic "已记住" while nothing is persisted (L4-4), and later turns
+  // contradict it. Only an explicit remember marker + separator qualifies,
+  // so "你还记得吗" / "记住我刚才说的" stay on the conversational path.
+  const naturalRemember = /^(?:请?帮我记住|记住|记一下)\s*[:：,，]\s*([\s\S]+)$/.exec(trimmed)
+  if (trimmed.startsWith("/记住") || naturalRemember) {
     if (!store) {
       return done("记忆存储不可用。", ["wechat-memory: no store"])
     }
-    const text = trimmed.slice("/记住".length).trim()
+    const text = trimmed.startsWith("/记住")
+      ? trimmed.slice("/记住".length).trim()
+      : (naturalRemember?.[1] ?? "").trim()
     if (!text) {
       return done("用法：/记住 <要记住的内容>", ["wechat-memory: remember usage"])
     }

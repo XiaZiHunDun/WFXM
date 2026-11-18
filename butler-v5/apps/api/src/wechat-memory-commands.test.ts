@@ -54,6 +54,35 @@ describe("tryWechatMemoryCommand /记住", () => {
     if (storeDir) rmSync(storeDir, { recursive: true, force: true })
   })
 
+  it("persists natural-language 记住：… instead of leaving it to the model (L4-4)", async () => {
+    // L4 smoke caught the model answering "已记住" while nothing was stored,
+    // then contradicting itself one turn later. Plain-language remember
+    // markers now take the same deterministic path as /记住.
+    const result = await tryWechatMemoryCommand({
+      wiring,
+      fromUserId: "u-mem-natural",
+      content: "记住：我下周要去成都出差",
+      env: testEnv,
+    })
+    expect(result?.reply).toContain("已记住")
+    const saved = await wiring.durableMemoryStore?.listBySubject({
+      subject: "u-mem-natural",
+      status: "confirmed",
+      limit: 10,
+    })
+    expect(saved?.some((item) => item.content.includes("成都"))).toBe(true)
+  })
+
+  it("does not hijack questions like 你还记得吗", async () => {
+    const result = await tryWechatMemoryCommand({
+      wiring,
+      fromUserId: "u-mem-natural",
+      content: "你还记得吗",
+      env: testEnv,
+    })
+    expect(result).toBeNull()
+  })
+
   it("surfaces dedup DB error to owner instead of silent fail-open (D55 SF-02)", async () => {
     // Audit finding (D55 SF-02): dedup check failure was stderr-only, owner
     // never knew dedup wasn't running. §20 #11 requires fail-open (write

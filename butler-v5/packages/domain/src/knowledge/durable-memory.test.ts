@@ -154,4 +154,22 @@ describe("durable memory", () => {
     expect(selected.map((r) => r.id)).toEqual(["g", "f"])
     expect(selected).toHaveLength(2)
   })
+
+  it("recalls a memory when the owner paraphrases the stored fact (L4-4)", () => {
+    const made = createDurableMemoryRecord({
+      subject: "owner",
+      content: "L4 验收标记是蓝鲸七号",
+      sourceKind: "owner",
+      nowMs: 10,
+    })
+    expect(made.ok).toBe(true)
+    if (!made.ok) return
+    const selected = selectDurableMemoriesForWorkingSet({
+      records: [made.value],
+      nowMs: 20,
+      query: "只根据你记住的内容回答，不要调用工具：L4 验收标记是什么？",
+      limit: 8,
+    })
+    expect(selected.map((r) => r.content)).toContain("L4 验收标记是蓝鲸七号")
+  })
 })
