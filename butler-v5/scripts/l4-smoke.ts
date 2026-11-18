@@ -17,7 +17,7 @@
  * BUTLER_V5_INBOUND_SHARED_SECRET must be readable from the env or from
  * ~/.config/butler-v5/env.
  */
-import { readFileSync } from "node:fs"
+import { readFileSync, unlinkSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
@@ -66,6 +66,9 @@ const ownerSender = (
   ""
 ).trim()
 
+/** Fresh per run: a stale marker from a previous run must not satisfy the case. */
+const memoryMarker = `蓝鲸七号-${String(Date.now()).slice(-5)}`
+
 const CASES: readonly Case[] = [
   {
     id: 1,
@@ -100,7 +103,9 @@ const CASES: readonly Case[] = [
     expectFile: {
       path: ".butler/l4-smoke.txt",
       contains: "l4 ok",
-      timeoutMs: 90_000,
+      // Delegated runs take ~60s on the exec model and the worker polls every
+      // 5s; 90s left the last write racing the assertion.
+      timeoutMs: 180_000,
     },
   },
   {
@@ -111,11 +116,11 @@ const CASES: readonly Case[] = [
     // fact is new and cannot come from conversation history.
     sender: ownerSender,
     turns: [
-      "记住：L4 验收标记是蓝鲸七号",
+      `记住：L4 验收标记是${memoryMarker}`,
       "只根据你记住的内容回答，不要调用工具：L4 验收标记是什么？",
     ],
     expect: {
-      mustMention: ["蓝鲸七号"],
+      mustMention: [memoryMarker],
       mustNotMatch: ["\\*\\*", "```", "`"],
       maxLength: 1800,
     },
@@ -384,6 +389,14 @@ async function main(): Promise<void> {
     // which attempt passed so flakiness stays visible.
     while (attempts < 2 && !passed) {
       attempts += 1
+      // A leftover file from an earlier run would make the assertion vacuous.
+      if (entry.expectFile) {
+        try {
+          unlinkSync(entry.expectFile.path)
+        } catch {
+          // Nothing to remove.
+        }
+      }
       const conversation = `l4-smoke-${entry.id}-${Date.now()}`
       const from = entry.sender ?? sender
       let last: TurnResult | undefined
