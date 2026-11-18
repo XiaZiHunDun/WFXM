@@ -30,11 +30,11 @@
     "@butler/runtime": "workspace:*",
     "@earendil-works/pi-ai": "1.5.2",
     "effect": "^3.10.0",
-    "hono": "^4.0.0",
-    "ws": "^8.18.0"
+    "hono": "^4.13.18",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@butler/pi-agent": "workspace:*",
-    "@types/ws": "^8.5.10"
+    "@types/ws": "^8.18.2"
   }
 }
