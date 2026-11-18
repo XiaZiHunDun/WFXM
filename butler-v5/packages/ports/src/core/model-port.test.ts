@@ -63,6 +63,39 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
       ).toEqual({ provider: "minimax", model: "abab6.5" })
     })
 
+    it("routes deepseek-name plan model to DeepSeek when both keys exist", () => {
+      expect(
+        resolveModelForRole({
+          DEEPSEEK_API_KEY: "ds-1",
+          MINIMAX_API_KEY: "sk-mm",
+          BUTLER_V5_MODEL_PLAN: "deepseek-v4-flash",
+          ...empty,
+        }),
+      ).toEqual({ provider: "deepseek", model: "deepseek-v4-flash" })
+    })
+
+    it("routes minimax-name plan model to MiniMax when both keys exist", () => {
+      expect(
+        resolveModelForRole({
+          DEEPSEEK_API_KEY: "ds-1",
+          MINIMAX_API_KEY: "sk-mm",
+          BUTLER_V5_MODEL_PLAN: "MiniMax-M3",
+          ...empty,
+        }),
+      ).toEqual({ provider: "minimax", model: "MiniMax-M3" })
+    })
+
+    it("keeps MiniMax for unknown plan model names (legacy key-priority)", () => {
+      expect(
+        resolveModelForRole({
+          DEEPSEEK_API_KEY: "ds-1",
+          MINIMAX_API_KEY: "sk-mm",
+          BUTLER_V5_MODEL_PLAN: "custom-alias",
+          ...empty,
+        }),
+      ).toEqual({ provider: "minimax", model: "custom-alias" })
+    })
+
     it("returns undefined when no provider configured", () => {
       expect(resolveModelForRole(empty)).toBeUndefined()
     })
@@ -133,6 +166,34 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
           "intake",
         ).model,
       ).toBe("plan-m")
+    })
+
+    it("routes minimax-name intake model to MiniMax when both keys exist", () => {
+      expect(
+        resolveModelForRole(
+          {
+            DEEPSEEK_API_KEY: "ds-1",
+            MINIMAX_API_KEY: "sk-mm",
+            BUTLER_V5_MODEL_PLAN: "MiniMax-M3",
+            ...empty,
+          },
+          "intake",
+        ),
+      ).toEqual({ provider: "minimax", model: "MiniMax-M3" })
+    })
+
+    it("routes deepseek-name intake model to DeepSeek when both keys exist", () => {
+      expect(
+        resolveModelForRole(
+          {
+            DEEPSEEK_API_KEY: "ds-1",
+            MINIMAX_API_KEY: "sk-mm",
+            BUTLER_V5_MODEL_INTAKE: "deepseek-v4-flash",
+            ...empty,
+          },
+          "intake",
+        ),
+      ).toEqual({ provider: "deepseek", model: "deepseek-v4-flash" })
     })
 
     it("falls back to plan when no deepseek key", () => {

@@ -34,6 +34,27 @@ export function isDeepSeekModelName(model: string): boolean {
   return model.trim().toLowerCase().startsWith("deepseek")
 }
 
+/**
+ * 按模型名判定归属 provider。用于避免把某家的模型名发给另一家（如
+ * `BUTLER_V5_MODEL_PLAN=deepseek-v4-flash` 却因为存在 MINIMAX key 而走
+ * MiniMax 通道 → 400 unknown model）。未知名称返回 undefined，交回原有
+ * 的「key 优先级」逻辑。
+ */
+function providerForModelName(model: string): LlmProviderId | undefined {
+  const normalized = model.trim().toLowerCase()
+  if (normalized.startsWith("deepseek")) return "deepseek"
+  if (normalized.startsWith("minimax") || normalized.startsWith("abab")) return "minimax"
+  return undefined
+}
+
+function hasDeepSeekKey(env: Readonly<NodeJS.ProcessEnv>): boolean {
+  return envTrim(env, "DEEPSEEK_API_KEY") !== ""
+}
+
+function hasMiniMaxKey(env: Readonly<NodeJS.ProcessEnv>): boolean {
+  return envTrim(env, "MINIMAX_API_KEY") !== "" || envTrim(env, "MINIMAX_CN_API_KEY") !== ""
+}
+
 function resolvePlan(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefined {
   if (envTrim(env, "ANTHROPIC_API_KEY")) {
     return {
@@ -41,18 +62,26 @@ function resolvePlan(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefine
       model: envTrim(env, "ANTHROPIC_MODEL") || "claude-sonnet-4-20250514",
     }
   }
-  if (envTrim(env, "MINIMAX_API_KEY") || envTrim(env, "MINIMAX_CN_API_KEY")) {
+  // 模型名归属优先于 key 存在性：多 provider key 共存时，显式指定的模型名
+  // 决定通道，避免跨家发送模型名。
+  const planModel = envTrim(env, "BUTLER_V5_MODEL_PLAN")
+  const planModelProvider = planModel ? providerForModelName(planModel) : undefined
+  if (planModelProvider === "deepseek" && hasDeepSeekKey(env)) {
+    return { provider: "deepseek", model: planModel }
+  }
+  if (planModelProvider === "minimax" && hasMiniMaxKey(env)) {
+    return { provider: "minimax", model: planModel }
+  }
+  if (hasMiniMaxKey(env)) {
     // P2 fix 2026-09-04: plan role now accepts minimax (previously only
     // exec/intake did). Default model "MiniMax-M3" matches exec default
     // so a single key covers both roles. Owners using minimax for the
     // wechat butler loop no longer need to provision a second provider
     // key for plan.
-    const model =
-      envTrim(env, "BUTLER_V5_MODEL_PLAN") || envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3"
+    const model = planModel || envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3"
     return { provider: "minimax", model }
   }
-  const model =
-    envTrim(env, "BUTLER_V5_MODEL_PLAN") || envTrim(env, "DEEPSEEK_MODEL") || "deepseek-chat"
+  const model = planModel || envTrim(env, "DEEPSEEK_MODEL") || "deepseek-chat"
   if (envTrim(env, "DEEPSEEK_API_KEY")) {
     return { provider: "deepseek", model }
   }
@@ -88,7 +117,15 @@ function resolveIntake(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefi
     envTrim(env, "BUTLER_V5_MODEL_PLAN") ||
     envTrim(env, "DEEPSEEK_MODEL") ||
     "deepseek-chat"
-  if (envTrim(env, "DEEPSEEK_API_KEY")) {
+  // 同 resolvePlan：模型名归属优先，避免 MiniMax 模型名被发到 DeepSeek 通道。
+  const modelProvider = providerForModelName(model)
+  if (modelProvider === "deepseek" && hasDeepSeekKey(env)) {
+    return { provider: "deepseek", model }
+  }
+  if (modelProvider === "minimax" && hasMiniMaxKey(env)) {
+    return { provider: "minimax", model }
+  }
+  if (hasDeepSeekKey(env)) {
     return { provider: "deepseek", model }
   }
   return resolvePlan(env)
@@ -97,9 +134,12 @@ function resolveIntake(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefi
 /**
  * 按角色解析当前 provider + model（env 驱动；纯函数无副作用）。
  *
- * - plan：Anthropic → (BUTLER_V5_MODEL_PLAN·DEEPSEEK_API_KEY→DeepSeek) → DashScope。
+ * 模型名前缀（deepseek-* / minimax-* / abab*）优先决定 provider，其次才按
+ * key 存在性回退，避免多 key 共存时把某家的模型名发给另一家（400）。
+ *
+ * - plan：Anthropic → 模型名归属（deepseek / minimax）→ MiniMax key → DeepSeek → DashScope。
  * - exec：deepseek-name + DEEPSEEK key→DeepSeek else MiniMax else 回退 plan。
- * - intake：DeepSeek else 回退 plan。
+ * - intake：模型名归属 → DeepSeek → 回退 plan。
  *
  * 返回 `undefined` 表示无任何 provider 配置（调用方回退 stub/fixture）。
  */
