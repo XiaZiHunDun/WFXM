@@ -64,6 +64,26 @@ describe("decidePolicy", () => {
     expect(decision._tag).toBe("Ask")
   })
 
+  it("names the MCP provider once in the approval question (L4-5)", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "outbound",
+        capability: "mcp_todoist_lst-tasks",
+        resource: "mcp_todoist_lst-tasks",
+        risk: "high",
+      },
+      policy,
+      1000,
+      null,
+    )
+    expect(decision._tag).toBe("Ask")
+    if (decision._tag !== "Ask") return
+    expect(decision.question).toContain("Todoist")
+    expect(decision.question).not.toContain("mcp_todoist")
+    expect(decision.question).not.toContain("操作")
+  })
+
   it("allows always-confirm capabilities when a matching grant is active", () => {
     const decision = decidePolicy(
       {

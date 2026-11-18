@@ -79,6 +79,30 @@ export interface PermissionPolicy {
   readonly mcpReadonlyAutoAllow?: boolean
 }
 
+/** Owner-facing names for MCP providers; unknown ids fall back to the raw id. */
+const MCP_PROVIDER_LABELS: Readonly<Record<string, string>> = {
+  github: "GitHub",
+  todoist: "Todoist",
+  firecrawl: "Firecrawl",
+  markitdown: "MarkItDown",
+  git: "Git",
+}
+
+/**
+ * MCP approval wording. Capability and resource are the same tool id, and the
+ * id is an internal snake_case token — neither belongs in a WeChat prompt.
+ * Name the external service once; keep the legacy template for non-MCP asks
+ * (their capability/resource pair carries real operator meaning).
+ */
+function mcpApprovalQuestion(capability: string, resource: string): string {
+  if (!capability.startsWith("mcp_")) {
+    return `需要 ${capability} 操作 ${resource}，请确认`
+  }
+  const provider = capability.slice("mcp_".length).split("_")[0] ?? ""
+  const label = MCP_PROVIDER_LABELS[provider] ?? provider
+  return `需要调用 ${label} 的外部工具，请确认`
+}
+
 export function decidePolicy(
   request: ActionRequest,
   policy: PermissionPolicy,
@@ -123,7 +147,11 @@ export function decidePolicy(
       // Owner-facing path keeps the Chinese template; the capability name
       // is left as-is (operator terminology owner sees in /批准 /拒绝 and
       // task progress UI — a known operator token, not full jargon).
-      question: `需要 ${request.capability} 操作 ${request.resource}，请确认`,
+      //
+      // MCP capabilities carry the same string as resource, which produced
+      // "[待审批] 需要 mcp_todoist_lst-tasks 操作 mcp_todoist_lst-tasks，请确认"
+      // (L4-5). Name the external service once instead of echoing the id twice.
+      question: mcpApprovalQuestion(request.capability, request.resource),
       expiresAtMs: nowMs + 15 * 60_000,
     }
   }
