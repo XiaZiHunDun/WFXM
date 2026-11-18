@@ -64,6 +64,8 @@ export type IlinkCycleDeps = {
   readonly dropGroups?: boolean
   readonly persistSyncBuf?: (syncBuf: string) => void
   readonly enrichInbound?: (msg: unknown, content: string) => Promise<string>
+  /** Operator-visible diagnostic line for inbound receipt / drop / send failure. */
+  readonly log?: (msg: string) => void
 }
 
 export type IlinkCycleStats = {
@@ -119,6 +121,7 @@ export async function runIlinkPollCycle(
     await deps.sleep(deps.emptyPollDelayMs)
     return { processed: 0, sent: 0, skipped: 0, expired: false, empty: true }
   }
+  deps.log?.(`[ilink-poller] recv ${msgs.length} message(s)`)
 
   const dmPolicy = deps.dmPolicy ?? "open"
   const allowedUserIds = deps.allowedUserIds ?? []
@@ -134,6 +137,7 @@ export async function runIlinkPollCycle(
     }
     const inbound = inboundFromIlinkMsg(msg)
     if (!inbound) {
+      deps.log?.("[ilink-poller] skip: message has no text/media content")
       skipped += 1
       continue
     }
@@ -142,6 +146,7 @@ export async function runIlinkPollCycle(
       continue
     }
     if (!isDmAllowed(inbound.fromUserId, dmPolicy, allowedUserIds)) {
+      deps.log?.(`[ilink-poller] skip: sender not allowed (policy=${dmPolicy})`)
       skipped += 1
       continue
     }
@@ -167,6 +172,7 @@ export async function runIlinkPollCycle(
       messageId: inbound.messageId,
     })
     if (!reply.ok) {
+      deps.log?.(`[ilink-poller] inbound failed: ${reply.reason}`)
       continue
     }
     const sentResult = await deps.sendMessage({
@@ -176,6 +182,8 @@ export async function runIlinkPollCycle(
     })
     if (sentResult.ok) {
       sent += 1
+    } else {
+      deps.log?.(`[ilink-poller] send failed: ${sentResult.reason}`)
     }
   }
   return { processed, sent, skipped, expired: false, empty: false }
@@ -189,10 +197,17 @@ async function postInboundHttp(
 ): Promise<ILinkResult<string>> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  // /v1/wechat/inbound is fail-closed on BUTLER_V5_INBOUND_SHARED_SECRET
+  // (same-process caller, but the route still authenticates). Without this
+  // header every inbound message dies with 401 before reaching the butler.
+  const sharedSecret = (process.env["BUTLER_V5_INBOUND_SHARED_SECRET"] ?? "").trim()
   try {
     const res = await fetchImpl(inboundUrl, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(sharedSecret ? { "x-inbound-secret": sharedSecret } : {}),
+      },
       body: JSON.stringify({
         apiVersion: "v1",
         fromUserId: input.fromUserId,
@@ -282,6 +297,7 @@ function startIlinkPoller(
           allowedUserIds: config.allowedUserIds,
           dropGroups: config.dropGroups,
           persistSyncBuf: (syncBuf) => saveSyncBuf(config.syncBufPath, syncBuf),
+          log: (msg) => logger.warn(msg),
           enrichInbound: (msg, content) => {
             const rec =
               msg !== null && typeof msg === "object" && !Array.isArray(msg)
