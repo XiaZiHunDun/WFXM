@@ -8,6 +8,7 @@
 import {
   enrichIlinkInboundContent,
   ilinkGetUpdates,
+  ilinkNotify,
   ilinkSendMessage,
   inboundFromIlinkMsg,
   isIlinkGroupMessage,
@@ -309,10 +310,16 @@ function startIlinkPoller(
   logger.warn(
     `[ilink-poller] started baseUrl=${config.baseUrl} inbound=${config.inboundUrl} dmPolicy=${config.dmPolicy}`,
   )
+  void ilinkNotify(client, "start").then((res) => {
+    if (!res.ok || !isIlinkOk(res.value)) {
+      logger.warn("[ilink-poller] notifyStart failed", res.ok ? res.value : res.reason)
+    }
+  })
   void tick()
   return {
     stop: () => {
       stopped = true
+      void ilinkNotify(client, "stop")
     },
   }
 }

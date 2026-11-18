@@ -47,6 +47,7 @@ program
     const result = await runWechatLogin({
       envPath,
       ...(process.env["WECHAT_BASE_URL"] ? { baseUrl: process.env["WECHAT_BASE_URL"] } : {}),
+      ...(process.env["WECHAT_TOKEN"] ? { localTokens: [process.env["WECHAT_TOKEN"]] } : {}),
     })
     if (!result.ok) {
       console.error(result.reason)

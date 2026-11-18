@@ -11,6 +11,8 @@ import {
 export type WechatLoginOpts = {
   readonly baseUrl?: string
   readonly envPath: string
+  /** Recently used bot tokens; the backend rebinds an existing bot instead of creating one. */
+  readonly localTokens?: readonly string[]
   readonly timeoutMs?: number
   readonly pollMs?: number
   readonly fetch?: typeof fetch
@@ -60,21 +62,26 @@ export async function runWechatLogin(
   const now = opts.now ?? Date.now
   const baseUrl = (opts.baseUrl ?? DEFAULT_ILINK_BASE_URL).replace(/\/+$/, "")
   const client = { baseUrl, ...(opts.fetch ? { fetch: opts.fetch } : {}) }
-  const qr = await ilinkGetBotQr(client)
-  if (!qr.ok) {
-    return { ok: false, reason: qr.reason }
+  const fetchQr = async (): Promise<
+    { readonly ok: true; readonly qrcode: string; readonly qrUrl: string } | { readonly ok: false; readonly reason: string }
+  > => {
+    const res = await ilinkGetBotQr(client, "3", opts.localTokens ?? [])
+    if (!res.ok) return { ok: false, reason: res.reason }
+    const value = String(res.value["qrcode"] ?? "")
+    if (!value) return { ok: false, reason: "QR response missing qrcode" }
+    return { ok: true, qrcode: value, qrUrl: String(res.value["qrcode_img_content"] ?? value) }
   }
-  const qrcode = String(qr.value["qrcode"] ?? "")
-  const qrUrl = String(qr.value["qrcode_img_content"] ?? qrcode)
-  if (!qrcode) {
-    return { ok: false, reason: "QR response missing qrcode" }
-  }
+
+  const first = await fetchQr()
+  if (!first.ok) return first
+  let qrcode = first.qrcode
   log("请使用微信扫描以下二维码：")
-  log(qrUrl)
+  log(first.qrUrl)
 
   const deadline = now() + (opts.timeoutMs ?? 480_000)
   const pollMs = opts.pollMs ?? 1_000
   let currentBase = baseUrl
+  let refreshes = 0
   while (now() < deadline) {
     const status = await ilinkGetQrStatus({ ...client, baseUrl: currentBase }, qrcode)
     if (!status.ok) {
@@ -87,7 +94,18 @@ export async function runWechatLogin(
       continue
     }
     if (action.kind === "expired") {
-      return { ok: false, reason: "QR expired" }
+      // Official client refreshes the QR up to three times instead of giving up.
+      refreshes += 1
+      if (refreshes > 3) {
+        return { ok: false, reason: "QR expired" }
+      }
+      const next = await fetchQr()
+      if (!next.ok) return next
+      qrcode = next.qrcode
+      currentBase = baseUrl
+      log("二维码已过期，已自动刷新，请扫描新的二维码：")
+      log(next.qrUrl)
+      continue
     }
     if (action.kind === "confirmed") {
       if (!action.accountId || !action.token) {

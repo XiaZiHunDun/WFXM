@@ -7,14 +7,17 @@
 
 export const DEFAULT_ILINK_BASE_URL = "https://ilinkai.weixin.qq.com"
 export const ILINK_APP_ID = "bot"
-export const CHANNEL_VERSION = "2.2.0"
-export const ILINK_APP_CLIENT_VERSION = (2 << 16) | (2 << 8) | 0
+/** Server recognises the bot by base_info.channel_version; < 3.x is treated as unsupported. */
+export const CHANNEL_VERSION = "3.0.1"
+export const ILINK_APP_CLIENT_VERSION = (3 << 16) | (0 << 8) | 1
 
 export const EP_GET_UPDATES = "ilink/bot/getupdates"
 export const EP_SEND_MESSAGE = "ilink/bot/sendmessage"
 export const EP_GET_UPLOAD_URL = "ilink/bot/getuploadurl"
 export const EP_GET_BOT_QR = "ilink/bot/get_bot_qrcode"
 export const EP_GET_QR_STATUS = "ilink/bot/get_qrcode_status"
+export const EP_NOTIFY_START = "ilink/bot/msg/notifystart"
+export const EP_NOTIFY_STOP = "ilink/bot/msg/notifystop"
 
 /** getuploadurl `media_type` (not the same as item_list type). */
 export const MEDIA_TYPE_IMAGE = 1
@@ -163,7 +166,7 @@ export function buildIlinkHeaders(token: string): Record<string, string> {
     AuthorizationType: "ilink_bot_token",
     "iLink-App-Id": ILINK_APP_ID,
     "iLink-App-ClientVersion": String(ILINK_APP_CLIENT_VERSION),
-    "X-WECHAT-UIN": String(Math.floor(Math.random() * 1_000_000_000)),
+    "X-WECHAT-UIN": buildWechatUin(),
   }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`
@@ -171,10 +174,25 @@ export function buildIlinkHeaders(token: string): Record<string, string> {
   return headers
 }
 
+/** Official clients send base64(random uint32 as decimal string), not the raw number. */
+function buildWechatUin(): string {
+  return Buffer.from(String(Math.floor(Math.random() * 0x1_0000_0000)), "utf8").toString(
+    "base64",
+  )
+}
+
+export function buildQrRequestBody(localTokens: readonly string[] = []): string {
+  return JSON.stringify({ local_token_list: localTokens.slice(-10) })
+}
+
+export function buildNotifyBody(): string {
+  return JSON.stringify({ base_info: { channel_version: CHANNEL_VERSION } })
+}
+
 export function buildGetUpdatesBody(syncBuf: string): string {
   return JSON.stringify({
     get_updates_buf: syncBuf,
-    base_info: { channel_version: CHANNEL_VERSION },
+    base_info: { channel_version: CHANNEL_VERSION, bot_agent: "OpenClaw" },
   })
 }
 
@@ -197,7 +215,7 @@ export function buildSendMessageBody(input: {
   }
   return JSON.stringify({
     msg: message,
-    base_info: { channel_version: CHANNEL_VERSION },
+    base_info: { channel_version: CHANNEL_VERSION, bot_agent: "OpenClaw" },
   })
 }
 
@@ -235,7 +253,7 @@ export function buildGetUploadUrlBody(input: {
     filesize: input.filesize,
     no_need_thumb: true,
     aeskey: input.aeskeyHex,
-    base_info: { channel_version: CHANNEL_VERSION },
+    base_info: { channel_version: CHANNEL_VERSION, bot_agent: "OpenClaw" },
   })
 }
 
@@ -258,6 +276,6 @@ export function buildSendMediaMessageBody(input: {
   }
   return JSON.stringify({
     msg: message,
-    base_info: { channel_version: CHANNEL_VERSION },
+    base_info: { channel_version: CHANNEL_VERSION, bot_agent: "OpenClaw" },
   })
 }

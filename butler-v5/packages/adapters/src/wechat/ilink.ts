@@ -1,10 +1,14 @@
 import {
   buildGetUpdatesBody,
   buildIlinkHeaders,
+  buildNotifyBody,
+  buildQrRequestBody,
   buildSendMessageBody,
   EP_GET_BOT_QR,
   EP_GET_QR_STATUS,
   EP_GET_UPDATES,
+  EP_NOTIFY_START,
+  EP_NOTIFY_STOP,
   EP_SEND_MESSAGE,
   ILINK_APP_CLIENT_VERSION,
   ILINK_APP_ID,
@@ -16,6 +20,8 @@ export {
   buildGetUpdatesBody,
   buildGetUploadUrlBody,
   buildIlinkHeaders,
+  buildNotifyBody,
+  buildQrRequestBody,
   buildSendMediaMessageBody,
   buildSendMessageBody,
   cdnUploadUrl,
@@ -26,6 +32,8 @@ export {
   EP_GET_QR_STATUS,
   EP_GET_UPDATES,
   EP_GET_UPLOAD_URL,
+  EP_NOTIFY_START,
+  EP_NOTIFY_STOP,
   EP_SEND_MESSAGE,
   extractIlinkContent,
   extractIlinkMediaPlaceholder,
@@ -184,8 +192,29 @@ export async function ilinkGet(
 export async function ilinkGetBotQr(
   config: Pick<ILinkClientConfig, "baseUrl" | "fetch">,
   botType = "3",
+  localTokens: readonly string[] = [],
 ): Promise<ILinkResult<Record<string, unknown>>> {
-  return ilinkGet(config, `${EP_GET_BOT_QR}?bot_type=${encodeURIComponent(botType)}`, 35_000)
+  // Official clients POST here and send recently used tokens so the existing
+  // bot is rebound instead of a new bot being created.
+  return ilinkPost(
+    { baseUrl: config.baseUrl, token: "", ...(config.fetch ? { fetch: config.fetch } : {}) },
+    `${EP_GET_BOT_QR}?bot_type=${encodeURIComponent(botType)}`,
+    buildQrRequestBody(localTokens),
+    35_000,
+  )
+}
+
+/** Tells the backend this bot session is online/offline. */
+export async function ilinkNotify(
+  config: ILinkClientConfig,
+  kind: "start" | "stop",
+): Promise<ILinkResult<Record<string, unknown>>> {
+  return ilinkPost(
+    config,
+    kind === "start" ? EP_NOTIFY_START : EP_NOTIFY_STOP,
+    buildNotifyBody(),
+    10_000,
+  )
 }
 
 export async function ilinkGetQrStatus(
