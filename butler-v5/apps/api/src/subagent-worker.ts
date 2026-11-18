@@ -122,8 +122,12 @@ const POLL_INTERVAL_MS = 5_000
  * while the worker still delivered the run as a success. 8 leaves room
  * for inspect → write → verify, and `capped` detection below keeps a run
  * that still hits the limit from being reported as completed.
+ *
+ * 2026-11-18 later run: a write task burned 7 iterations on discovery and
+ * hit the cap again, so 12 gives one more discovery round before the
+ * forced tool-less final turn.
  */
-const MAX_CHILD_ITERATIONS = 8
+const MAX_CHILD_ITERATIONS = 12
 
 async function markChildRunRunning(store: RuntimeStore, childRunId: string): Promise<void> {
   const run = await store.getRun(childRunId)

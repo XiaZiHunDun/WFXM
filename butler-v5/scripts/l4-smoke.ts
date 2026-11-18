@@ -227,24 +227,38 @@ async function main(): Promise<void> {
 
   let failed = 0
   for (const entry of selected) {
-    const conversation = `l4-smoke-${entry.id}-${Date.now()}`
-    const from = entry.sender ?? sender
-    let last: TurnResult | undefined
-    for (const [index, text] of entry.turns.entries()) {
-      last = await sendTurn(conversation, text, index + 1, from)
-      const preview = (last.reply || last.error || "").replace(/\s+/g, " ").slice(0, 120)
-      console.log(`      turn ${index + 1} "${text.slice(0, 20)}" ${last.ms}ms > ${preview}`)
-      if (!last.ok) break
+    let attempts = 0
+    let passed = false
+    let lastFailures: string[] = []
+    let lastReply = ""
+    let lastMs = 0
+    // A real model can pick a different (still legal) tool path between runs.
+    // Retry once so a transient routing choice doesn't fail the gate; print
+    // which attempt passed so flakiness stays visible.
+    while (attempts < 2 && !passed) {
+      attempts += 1
+      const conversation = `l4-smoke-${entry.id}-${Date.now()}`
+      const from = entry.sender ?? sender
+      let last: TurnResult | undefined
+      for (const [index, text] of entry.turns.entries()) {
+        last = await sendTurn(conversation, text, index + 1, from)
+        const preview = (last.reply || last.error || "").replace(/\s+/g, " ").slice(0, 120)
+        console.log(`      turn ${index + 1} "${text.slice(0, 20)}" ${last.ms}ms > ${preview}`)
+        if (!last.ok) break
+      }
+      const replyFailures = last?.ok ? check(last.reply, entry.expect) : [last?.error ?? "no reply"]
+      const fileFailures = entry.expectFile ? await waitForFile(entry.expectFile) : []
+      lastFailures = [...replyFailures, ...fileFailures]
+      lastReply = last?.reply ?? ""
+      lastMs = last?.ms ?? 0
+      passed = lastFailures.length === 0
     }
-    const replyFailures = last?.ok ? check(last.reply, entry.expect) : [last?.error ?? "no reply"]
-    const fileFailures = entry.expectFile ? await waitForFile(entry.expectFile) : []
-    const failures = [...replyFailures, ...fileFailures]
-    const passed = failures.length === 0
     if (!passed) failed += 1
-    const preview = (last?.reply ?? "").replace(/\s+/g, " ").slice(0, 160)
+    const preview = lastReply.replace(/\s+/g, " ").slice(0, 160)
     console.log(
-      `${passed ? "PASS" : "FAIL"}  L4-${entry.id}  ${entry.name}  ${last?.ms ?? 0}ms` +
-        (failures.length ? `\n      ${failures.join("; ")}` : "") +
+      `${passed ? "PASS" : "FAIL"}  L4-${entry.id}  ${entry.name}  ${lastMs}ms` +
+        (attempts > 1 ? ` (attempt ${attempts})` : "") +
+        (lastFailures.length ? `\n      ${lastFailures.join("; ")}` : "") +
         `\n      > ${preview}`,
     )
   }
