@@ -20,10 +20,11 @@
  *
  * Audit findings (D32, 2026-08-31):
  *
- *   - pnpm-workspace.yaml covers exactly 3 globs: `packages/*`,
- *     `apps/*`, `cli` (the canonical driving surface). 5 active
- *     packages under `packages/*` (adapters / domain / persistence
- *     / ports / runtime) match §20 #16 invariant.
+ *   - pnpm-workspace.yaml covers exactly 4 globs: `packages/*`,
+ *     `apps/*`, `vendor/*` (vendored upstream runtimes, e.g. pi),
+ *     `cli` (the canonical driving surface). 5 active packages under
+ *     `packages/*` (adapters / domain / persistence / ports / runtime)
+ *     match §20 #16 invariant.
  *   - turbo.json is present (build / test pipeline orchestrator).
  *   - Core packages (runtime + domain) do NOT import adapters /
  *     persistence implementations (D26A §20 #2 — same invariant
@@ -39,7 +40,7 @@
  *
  * Static checks (no runtime):
  *   - `pnpm-workspace.yaml` lists exactly `packages/*`, `apps/*`,
- *     `cli`.
+ *     `vendor/*`, `cli`.
  *   - `turbo.json` is present at workspace root.
  *   - 5 active packages under `packages/` (adapters / domain /
  *     persistence / ports / runtime) match §17.1.
@@ -98,14 +99,16 @@ function listDirs(root: string): string[] {
 describe("arch: §17.1 包归属与依赖方向 + §17.2 并行开发边界 (D32)", () => {
   // ── §17.1 1. pnpm-workspace.yaml 3 glob ────────────────────────
 
-  it("§17.1: pnpm-workspace.yaml lists exactly 3 globs (packages/* + apps/* + cli)", () => {
+  it("§17.1: pnpm-workspace.yaml lists exactly 4 globs (packages/* + apps/* + vendor/* + cli)", () => {
     const src = readFileSync(WORKSPACE_YAML, "utf-8")
     expect(src).toMatch(/^\s*-\s*["']packages\/\*["']/m)
     expect(src).toMatch(/^\s*-\s*["']apps\/\*["']/m)
+    // vendor/* hosts upstream runtimes copied verbatim (pi agent core, MIT).
+    expect(src).toMatch(/^\s*-\s*["']vendor\/\*["']/m)
     expect(src).toMatch(/^\s*-\s*["']cli["']/m)
     // No additional globs silently added.
     const globCount = (src.match(/^\s*-\s*["'][^"']+["']/gm) ?? []).length
-    expect(globCount, `pnpm-workspace.yaml globs = ${globCount}; want exactly 3`).toBe(3)
+    expect(globCount, `pnpm-workspace.yaml globs = ${globCount}; want exactly 4`).toBe(4)
   })
 
   // ── §17.1 2. turbo.json present ────────────────────────────────

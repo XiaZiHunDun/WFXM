@@ -87,7 +87,7 @@ describe("arch: §14 costUsd pricing batch (D24 — D23 reserved field activated
     // costUsd is computed from usage + model + pricing, then passed
     // into the step/llm_call tracer.record input.
     expect(src).toMatch(/computeCostUsd\(resp\.usage,\s*currentModel,\s*pricing\)/)
-    expect(src).toMatch(/costUsd,?\s*\n\s*\}\)/)
+    expect(src).toMatch(/costUsd,?\s*\n\s*detail:\s*\{/)
   })
 
   it("subagent-worker imports all 3 pricing helpers and passes costUsd into step/llm_call trace", () => {
@@ -122,7 +122,7 @@ describe("arch: §14 costUsd pricing batch (D24 — D23 reserved field activated
     expect(src).toMatch(/parseLlmPricing\(args\.env\)/)
     expect(src).toMatch(/resolveCurrentLlmModel\(args\.env\)/)
     expect(src).toMatch(/computeCostUsd\(resp\.usage,\s*currentModel,\s*pricing\)/)
-    expect(src).toMatch(/costUsd,?\s*\n\s*\}\)/)
+    expect(src).toMatch(/costUsd,?\s*\n\s*detail:\s*\{/)
   })
 
   // ── 3. TraceEvent.costUsd first-class invariant ──────────────

@@ -43,6 +43,7 @@
   "ignorePatterns": [
     "dist/",
     "node_modules/",
+    "vendor/",
     "coverage/",
     "*.tsbuildinfo",
     "hooks/",

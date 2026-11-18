@@ -218,6 +218,10 @@ Application 是唯一执行协调器（Run Engine），承担：
 6. 持久化 Step、状态和必要审计；
 7. 在预算、截止时间、取消或完成条件触发时结束。
 
+工具预算（`budget.maxToolCalls`）在对话循环内是**硬约束**：每轮把“上限 / 已用 / 剩余”
+注入模型；额度用尽后不再向模型暴露工具，并拒绝执行任何后续工具调用，只允许答复或澄清。
+入口（inbound `budget` 字段）把它透传到 Run，多轮任务按“总预算 − 已用”逐轮递减。
+
 它不再拆成并列的 AgentKernel、Orchestrator、SessionSupervisor 和 WorkflowRunner。
 
 Context 压缩、Decision Decoder、Model Router 是 Application 内部策略或纯函数，只有在存在独立替换需求时才形成组件。
@@ -265,6 +269,11 @@ Finish(reason)
 - 把外部内容声明为可信指令。
 
 Provider 原生 tool call 和文本 JSON 只是 Decoder 输入格式，不构成两套运行模型。
+
+**最后一轮强制收敛**：conversation-loop 的最大迭代默认 5 次。最后一轮不再暴露工具，并注入
+`这是最后一轮：不要调用任何工具…` 的 system 提示，确保模型必须产出 `Respond`；此前模型会把
+所有轮次花在工具调用上，用户只能收到兜底话术。若仍耗尽轮次，兜底 `[需要澄清]` 以 `Respond`
+返回（用户确实收到答复，语义上不是 `Finish`）。
 
 **Decoder 失败的处理（Phase D B-08/10 扩面）**：decoder 仍然 fail-quiet（不抛 throw；契约不变），但当 Decision 解析失败时，conversation-loop 在 message 队列注入一条 `[system] decision-decode-fail: <reason>` user-message 并继续下一轮 LLM 调用，让模型有机会 self-correct。最大重试次数 `BUTLER_V5_MAX_DECODE_RETRIES`（默认 1）；超过上限落到 owner-可见的 `Respond`，内容要么是模型最后一轮的原文，要么是合成说明（包含具体 parse error 与原始 raw 前 200 字符）。这一扩展保留了"decoders 不抛错"的 §6.2 主线，只在 conversation-loop 增加 retry + 反馈窗口。
 
@@ -438,7 +447,12 @@ Approval 是 Run 中的等待 Step，不是独立执行引擎，也没有独立�
 - `waiting_approval` Step 持久化待确认动作摘要、原始 Run/Step、过期时间和允许的响应主体；
 - 待审批列表是对该类 Step 的查询；
 - 后续可信入站消息恢复原 Run；
+- 审批请求发起前先做参数 preflight（如 `run_command` 的 `argv`），
+  参数非法直接回 `[参数错误]` 让模型重试，不占用审批轮次，也不会把会话 id 显示成操作对象；
 - 批准后按风险类生成 ScopedGrant，拒绝或过期则结束该 Step；
+- 审批执行的 `run_command` 以非零退出结束时，退出码是**工具结果**而非 Run 失败：
+  Run 继续，把命令输出交给模型解释/给出下一步，不能直接 `failRun`（否则“跑测试看失败”
+  这类调试流程会被误判成执行故障）；沙箱故障（无可信退出码）仍按失败处理；
 - 重启后可以恢复，但不能重新解释已批准参数；
 - 凭证、完整敏感参数和原始 secret 不进入审批记录。
 
@@ -698,7 +712,7 @@ Schedule 不是长期授权主体；它以 `system:scheduler` 创建 Run，能�
 
 > **字段捕获状态**（D21/D23/D24 audit, 2026-08-30 + 2026-08-31）：
 >
-> - **first-class 顶层捕获**（13/14）：`conversationId` / `runId` / `stepId` / `parentRunId` / `subject` / `triggerSource` / `capability` / `policyDecision` / `grantId` / `waitingStepId` / `durationMs`（=latency）/ `token`（D23，adapter 暴露 `usage` 后透传）/ `costUsd`（D24，env-driven pricing 实时填写；缺 pricing = `null`，与 `token` 字段"未知"语义对齐）。
+> - **first-class 顶层捕获**（13/14）：`conversationId` / `runId` / `stepId` / `parentRunId` / `subject` / `triggerSource` / `capability` / `policyDecision` / `grantId` / `waitingStepId` / `durationMs`（=latency）/ `token`（D23，adapter 暴露 `usage` 后透传）/ `costUsd`（D24，内置价格表 + env 覆盖实时填写；缺 pricing = `null`，与 `token` 字段"未知"语义对齐）。
 > - **detail Record workaround**（3/14）：`modelProvider` / `retry` / `终止原因`（仅缺 §14 字段在结构上不便单独建模的部分；走 `TraceEvent.detail`）。
 > - **未捕获**（0/14）：D21 标记的 `token` / `cost` 缺口已被 D23（token 路径）+ D24（cost 路径）双双闭环。
 >
@@ -709,9 +723,11 @@ Schedule 不是长期授权主体；它以 `system:scheduler` 创建 Run，能�
 > | `BUTLER_V5_PRICING_<MODEL>_INPUT_PER_MTOK`  | 模型输入价格 USD / 百万 token | 无即 costUsd=null |
 > | `BUTLER_V5_PRICING_<MODEL>_OUTPUT_PER_MTOK` | 模型输出价格 USD / 百万 token | 无即 costUsd=null |
 >
-> `<MODEL>` = 模型标识大写 + `-` 替 `_`（e.g. `claude-sonnet-4-20250514` → `BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_INPUT_PER_MTOK`）。当前模型选择由 Model Port `packages/ports/src/core/model-port.ts:resolveModelForRole(env, "plan")` 统一解析（D44 P5 Model Port；Anthropic / DeepSeek / DashScope / MiniMax）；active model 由 `resolveCurrentLlmModel(env)` 解析。缺 env = 缺定价，trace costUsd = `null`（非 0 / 非 throw）。
+> `<MODEL>` = 模型标识大写 + `-` 替 `_`（e.g. `claude-sonnet-4-20250514` → `BUTLER_V5_PRICING_CLAUDE_SONNET_4_20250514_INPUT_PER_MTOK`）。当前模型选择由 Model Port `packages/ports/src/core/model-port.ts:resolveModelForRole(env, "plan")` 统一解析（D44 P5 Model Port；Anthropic / DeepSeek / DashScope / MiniMax）；active model 由 `resolveCurrentLlmModel(env)` 解析。查找按小写模型名精确匹配；env 与内置表都缺失 = 缺定价，trace costUsd = `null`（非 0 / 非 throw）。
 >
-> 锁定方式：`tests/architecture/section14-observability-fields.test.ts`（D21 + D23 更新）+ `tests/architecture/section14-token-cost.test.ts`（D23，9 cases）+ `tests/architecture/section14-costusd.test.ts`（D24，7 cases）+ `apps/api/src/llm-pricing.test.ts`（D24，15 单元）。
+> **内置价格表**（ISSUE-02，2026-11-12）：env 变量名无法表达含 `.` 的模型 id，故 `llm-pricing.ts` 内置 `MiniMax-M3.1-Flash`（$0.15 输入 / $0.60 输出）与 DeepSeek Flash（`deepseek-flash` / 旧 id `deepseek-v4-flash`，峰值 $0.30 / $1.20；非峰值减半，取峰值避免低估）。未建模 cache-hit 折扣，costUsd 用于回归对比，不作账单依据；价格变动时可继续用 env 覆盖名称可表达的模型。
+>
+> 锁定方式：`tests/architecture/section14-observability-fields.test.ts`（D21 + D23 更新）+ `tests/architecture/section14-token-cost.test.ts`（D23，9 cases）+ `tests/architecture/section14-costusd.test.ts`（D24，7 cases）+ `apps/api/src/llm-pricing.test.ts`（D24，19 单元）。
 
 默认使用结构化日志和本地诊断。OpenTelemetry exporter 是可选适配器，不是运行依赖。
 

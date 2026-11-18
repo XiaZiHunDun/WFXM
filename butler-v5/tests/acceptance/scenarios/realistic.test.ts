@@ -11,7 +11,7 @@
  * （工具链 / approval / multi-turn / error）是否承载真实场景。
  */
 import { describe, expect, it, afterAll, beforeAll } from "vitest"
-import { writeFileSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_SCENARIOS, type ScenarioSetupCtx } from "./_fixtures.js"
 import { resetUndoStack } from "@butler/api/workspace-tools.js"
@@ -48,8 +48,23 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
   })
   afterAll(async () => {
     await app.close()
-    // 写 _analyze.md
-    writeFileSync(join(import.meta.dirname ?? ".", "_analyze.md"), renderAnalyze(metrics), "utf8")
+    // 只有全量运行才写 _analyze.md。用 `vitest -t <id>` 筛选场景时 metrics 只包含
+    // 被选中的少量场景，据此重写会生成一份残缺报告并把工作区弄脏。
+    if (metrics.length !== ALL_SCENARIOS.length) return
+    // 写 _analyze.md：仅在内容实质变化时落盘。
+    // 生成物此前每次跑测试都会改日期 + 反格式化表格，导致 format:check 失败、
+    // 工作区常驻脏文件。比较时忽略日期行与空白差异，无实质变化则不写。
+    const target = join(import.meta.dirname ?? ".", "_analyze.md")
+    const next = renderAnalyze(metrics)
+    let previous = ""
+    try {
+      previous = readFileSync(target, "utf8")
+    } catch {
+      previous = ""
+    }
+    if (fingerprintAnalyze(previous) !== fingerprintAnalyze(next)) {
+      writeFileSync(target, next, "utf8")
+    }
   })
 
   // D53a: 把原 it() 主体（除 state init + metrics.push）抽出，给 runMultiRound N=3 wrap 用。
@@ -248,6 +263,16 @@ describe("acceptance/realistic (41 真实场景产品层行为)", () => {
 // ============================================================================
 // _analyze.md 渲染
 // ============================================================================
+
+function fingerprintAnalyze(md: string): string {
+  // 忽略「生成时间」行、表格分隔行（对齐宽度由 prettier 决定）、随机 tmp 路径与空白，
+  // 只比较实质内容——否则每次跑测试都会因临时目录名不同而重写文件。
+  return md
+    .replace(/^生成时间：.*$/m, "")
+    .replace(/^\|[\s:|-]+\|$/gm, "")
+    .replace(/\/tmp\/[A-Za-z0-9._-]+/g, "<tmp>")
+    .replace(/\s+/g, "")
+}
 
 function renderAnalyze(metrics: readonly ScenarioMetric[]): string {
   const lines: string[] = []

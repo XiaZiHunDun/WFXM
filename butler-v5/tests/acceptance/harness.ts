@@ -121,6 +121,16 @@ export async function makeAcceptanceApp(opts?: {
     delete process.env["BUTLER_V5_LLM_FIXTURE_DIR"]
   }
   process.env["BUTLER_V5_WORKSPACE_ROOT"] = workspaceRoot
+  // run_command 的 cwd 优先读 BUTLER_V5_SANDBOX_WORKSPACE_ROOT（workspace-tools.ts:83）。
+  // 生产 env 往往已设置该变量，若不覆盖，验收/评估里的命令会跑在真实工作区而
+  // 不是本 app 的临时工作区。这里与 BUTLER_V5_WORKSPACE_ROOT 一起钉住并在 close 复原。
+  const prevSandboxWsEnv = process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"]
+  process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"] = workspaceRoot
+  // 审批策略以 ownerSubject 判定读命令免审批（decidePolicy）。生产 env 常把
+  // BUTLER_OWNER_WECHAT_ID 指向真实 owner，而验收里的 fromUserId 固定为
+  // "u-owner"；不钉住会让测试用户被当成非 owner，连 `rg` 都触发审批。
+  const prevOwnerEnv = process.env["BUTLER_OWNER_WECHAT_ID"]
+  process.env["BUTLER_OWNER_WECHAT_ID"] = "u-owner"
   // 路由以 process.env 判 isWechatIntakeEnabled（默认 1 → routeWechatIntake）。
   // 统一关掉，走 runButlerLoop 真实回退路径（含完整微信工具集 + 审批链路）。
   process.env["BUTLER_V5_INTAKE_ENABLED"] = "0"
@@ -208,6 +218,16 @@ export async function makeAcceptanceApp(opts?: {
     await opened.value.close()
     delete process.env["BUTLER_V5_LLM_FIXTURE_DIR"]
     delete process.env["BUTLER_V5_WORKSPACE_ROOT"]
+    if (prevSandboxWsEnv === undefined) {
+      delete process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"]
+    } else {
+      process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"] = prevSandboxWsEnv
+    }
+    if (prevOwnerEnv === undefined) {
+      delete process.env["BUTLER_OWNER_WECHAT_ID"]
+    } else {
+      process.env["BUTLER_OWNER_WECHAT_ID"] = prevOwnerEnv
+    }
     if (fixtureDir) rmSync(fixtureDir, { recursive: true, force: true })
     rmSync(workspaceRoot, { recursive: true, force: true })
     // 还原 caller 可能预设的 BUTLER_V5_WECHAT_SESSION_STATE；本 app 的 tmpdir
@@ -232,7 +252,12 @@ let msgSeq = 0
 /** POST /v1/wechat/inbound，返回状态 + 解析后的字段（含非 2xx 原文）。 */
 export async function sendWechatMessage(
   app: AcceptanceApp,
-  msg: { readonly content: string; readonly conversationId?: string },
+  msg: {
+    readonly content: string
+    readonly conversationId?: string
+    /** Optional Run budget forwarded to the inbound route. */
+    readonly budget?: Readonly<Record<string, unknown>>
+  },
 ): Promise<InboundResult> {
   msgSeq += 1
   const res = await app.request("/v1/wechat/inbound", {
@@ -251,6 +276,7 @@ export async function sendWechatMessage(
       content: msg.content,
       messageId: `m-${Date.now()}-${msgSeq}`,
       ...(msg.conversationId ? { conversationId: msg.conversationId } : {}),
+      ...(msg.budget ? { budget: msg.budget } : {}),
       projectId: "wechat",
     }),
   })
