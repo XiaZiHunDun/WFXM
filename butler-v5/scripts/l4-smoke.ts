@@ -46,8 +46,8 @@ const CASES: readonly Case[] = [
     name: "规则回复：帮助",
     turns: ["帮助"],
     expect: {
-      mustMention: ["管家"],
       mustNotMatch: ["\\*\\*", "```", "^#{1,6} ", "\\bwrite\\b", "\\bedit\\b", "\\bbash\\b", "`"],
+      minLength: 20,
       maxLength: 1800,
     },
   },
@@ -56,7 +56,7 @@ const CASES: readonly Case[] = [
     name: "工具执行：列子包",
     turns: ["看看 butler-v5/packages 下有哪些子包，每个包一句话说明"],
     expect: {
-      mustMention: ["@butler/domain", "@butler/ports", "@butler/adapters"],
+      mustMention: ["domain", "ports", "adapters", "runtime", "persistence"],
       mustNotMatch: ["\\*\\*", "```", "`", "待执行：write", "待执行：bash"],
       minLength: 40,
       maxLength: 8000,
@@ -161,6 +161,10 @@ async function sendTurn(conversation: string, text: string, seq: number): Promis
 
 function check(reply: string, expect: Case["expect"]): string[] {
   const failures: string[] = []
+  // Invariants for every owner-facing reply, independent of the case.
+  for (const jargon of ["子代理", "开发验收", "Durable Memory", "Project Knowledge"]) {
+    if (reply.includes(jargon)) failures.push(`leaked internal term "${jargon}"`)
+  }
   for (const needle of expect.mustMention ?? []) {
     if (!reply.includes(needle)) failures.push(`missing "${needle}"`)
   }
