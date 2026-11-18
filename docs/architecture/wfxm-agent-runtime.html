@@ -1582,7 +1582,8 @@
         <p class="lead" style="margin-bottom: 0">
           2026-11-11 实跑 <code>agent-eval</code>。baseline 由 fixture LLM 驱动（验证运行时接线）；
           repo 与 capability 套件走真实模型：plan / exec = <code>MiniMax-M3.1-Flash</code>，intake =
-          <code>deepseek-v4-flash</code>。
+          <code>deepseek-v4-flash</code>。2026-11-18 起 plan 角色改为 <code>deepseek-v4-flash</code>
+          （单次往返 8–9s → 2–3s），exec 仍为 MiniMax。
         </p>
         <div class="metrics">
           <div class="metric">
@@ -1932,6 +1933,94 @@
         <p class="lead">
           现状是“治理强、执行弱、度量缺失”。这决定了重写顺序：先度量，再换内核。
         </p>
+        <div class="note warn">
+          <span>◆</span>
+          <div>
+            <b>2026-11-18 本轮闭环（渠道 → 消息出口 → 记忆 → 工具面 → 性能）</b>
+            <ul style="margin: 8px 0 0 18px; line-height: 1.8">
+              <li>
+                <b>iLink 入站静默丢弃</b>：poller 调用 <code>/v1/wechat/inbound</code> 时未带
+                <code>x-inbound-secret</code>，路由 fail-closed 返回 401，消息被丢弃且无日志。
+                已补鉴权头 + 收包/跳过/失败日志。这是“微信侧一切正常、托管层却永远收不到”的根因。
+              </li>
+              <li>
+                <b>用户可见文本三处旁路</b>：入站响应、子代理/任务推送、委派受理都没走
+                <code>finalizeReply</code>，导致反引号、<code>**加粗**</code>、
+                <code>exec 子代理</code>、<code>Durable Memory</code> 原样进微信。三个出口已统一清洗，
+                并补术语表（子代理→执行代理、Durable Memory→长期记忆）与 <code>---</code> 分隔线清理。
+              </li>
+              <li>
+                <b>“记住”不落库</b>：自然语言“记住：…”只走模型，模型回“已记住”而实际未写；
+                召回又用整句子串匹配，换个问法就查不到。现在自然语言记住标记走与
+                <code>/记住</code> 相同的确定性写入，召回改为“拉丁词 + 中文 bigram”打分。
+              </li>
+              <li>
+                <b>plan 模式只读工具面缺失</b>：plan 模式剔除 <code>run_command</code>/<code>write_file</code>
+                后没有列目录能力，“看看 packages 下有哪些子包”被迫委派或误用 MCP 网络工具。
+                新增只读 <code>list_dir</code>，并对本地路径意图隐藏 <code>mcp_*</code> 工具。
+              </li>
+              <li>
+                <b>MCP 审批文案</b>：能力名与资源名是同一个工具 id，提示里重复打印
+                <code>mcp_todoist_lst-tasks</code>。改为按服务名出文案（“需要调用 Todoist 的外部工具”）。
+              </li>
+              <li>
+                <b>只读任务 40–60s</b>：瓶颈是 plan 角色单次往返 8–9s，而非工具本身。plan 模型切到
+                <code>deepseek-v4-flash</code> 后，L4 五条用例合计 157s → 69s（列子包 60s→24s，
+                长回复 64s→28s）。
+              </li>
+              <li>
+                <b>冷启动 123s → 4s</b>：<code>markitdown</code> 在 bwrap 内拿不到可写 HOME
+                （宿主 home 不在命名空间），其 venv python 又软链到未挂载的 miniconda3，
+                握手永不完成并等满 120s 请求超时。修法：沙箱 HOME 指向 <code>/tmp/butler-home</code>、
+                只读挂载 server 安装树、单 server 引导超时
+                <code>BUTLER_V5_MCP_BOOTSTRAP_TIMEOUT_MS</code>（默认 20s），并逐 server 打印耗时。
+                顺带恢复 markitdown（tools 21 → 22），PDF 导入链路重新可用。
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <h2 style="font-size: 16px; margin: 32px 0 6px">第一阶段（主流程打通）达标判定 · 2026-11-18</h2>
+        <p class="lead" style="margin-bottom: 8px">
+          目标：主要流程通、基础功能正常、不报错、无明显的消息丢失。以下按这四条逐项对照。
+        </p>
+        <div class="gaps">
+          <div class="gap">
+            <b>✅ 主要流程已通</b>
+            微信入站 → 管家层（规则/LLM）→ 任务层 → 回复推送，真实 iLink 端到端可收发；
+            L4 验收 5/5（规则回复、列子包、写文件+审批、跨轮记忆、长回复分片）。
+          </div>
+          <div class="gap">
+            <b>✅ 明显的消息丢失已消除</b>
+            401 丢弃已修；poller 增加收包与失败日志，发送失败会回传错误而不是静默；
+            长回复按 1800 字分片并保留顺序。
+          </div>
+          <div class="gap">
+            <b>⚠ 测试基线仍有 2 条红灯</b>
+            <code>workspace-tools.bubblewrap.test.ts</code>：沙箱内 <code>python3</code> 用例与
+            allowlist 回环 HTTP 用例返回 <code>ok=false</code>，原因未定位（手工 bwrap 复现 python3 可通过）。
+            “不报错”这条按严格口径尚未达标。
+          </div>
+          <div class="gap">
+            <b>✅ 回归 gate 已复跑</b>
+            2026-11-18 本轮变更后执行 <code>npm run eval:gate</code>：baseline 34/34、
+            butler 11/11（期望 ≥90%），结论 <code>GATE PASS</code>，产物
+            <code>.eval-runs/gate-2026-11-18T08-04-22-165Z/gate.json</code>。
+          </div>
+          <div class="gap">
+            <b>⚠ 可靠性只覆盖单条串行消息</b>
+            尚无并发同会话、重复投递、乱序、断线重连、审批超时过期的真机验证；
+            分片与审批仅单测覆盖。属“无明显丢失”之外未证实的部分。
+          </div>
+          <div class="gap">
+            <b>⚠ 失败可见性只做了一半</b>
+            子代理跑满轮次已改为“执行未完成”并置失败，但“用户是否真的收到失败推送”
+            尚未在真机路径验证。
+          </div>
+        </div>
+        <h2 style="font-size: 16px; margin: 32px 0 6px">
+          历史缺口（2026-11-11 记录，部分已闭环）
+        </h2>
         <div class="gaps">
           <div class="gap">
             <b>管家层没有独立运行时与规则分流</b>
