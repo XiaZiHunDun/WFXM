@@ -9,8 +9,9 @@
  *
  * Usage:
  *   cd butler-v5
- *   npx tsx scripts/l4-smoke.ts            # all cases
- *   npx tsx scripts/l4-smoke.ts --only 3   # one case
+ *   npx tsx scripts/l4-smoke.ts                     # happy-path cases
+ *   npx tsx scripts/l4-smoke.ts --only 3            # one case
+ *   npx tsx scripts/l4-smoke.ts --suite reliability # redelivery/concurrency
  *
  * The service must be running (systemctl --user status butler-v5-gateway) and
  * BUTLER_V5_INBOUND_SHARED_SECRET must be readable from the env or from
@@ -152,6 +153,7 @@ async function sendTurn(
   text: string,
   seq: number,
   fromUserId: string,
+  messageId = `${conversation}-${seq}`,
 ): Promise<TurnResult> {
   const started = Date.now()
   try {
@@ -162,7 +164,7 @@ async function sendTurn(
         apiVersion: "v1",
         fromUserId,
         content: text,
-        messageId: `${conversation}-${seq}`,
+        messageId,
         conversationId: conversation,
       }),
     })
@@ -216,7 +218,134 @@ async function waitForFile(spec: NonNullable<Case["expectFile"]>): Promise<strin
   return [`file not created within ${spec.timeoutMs}ms: ${spec.path}`]
 }
 
+/**
+ * Reliability suite: what happens when the channel misbehaves — redelivery,
+ * concurrent messages, an approval reply with nothing pending. These are the
+ * paths that used to lose or duplicate work silently.
+ */
+type ReliabilityCase = {
+  readonly id: string
+  readonly name: string
+  readonly run: (from: string) => Promise<string[]>
+}
+
+function inboundFailures(result: TurnResult, label: string): string[] {
+  if (!result.ok) return [`${label}: ${result.error ?? "request failed"}`]
+  if (!result.reply.trim()) return [`${label}: empty reply`]
+  if (result.reply.includes("没处理成功")) return [`${label}: degraded error reply`]
+  return []
+}
+
+/** The "since you were last here" preamble is only attached once per session. */
+function stripSessionDigest(reply: string): string {
+  return reply.replace(/^【上次您离开时】[^\n]*\n\n/, "")
+}
+
+const RELIABILITY: readonly ReliabilityCase[] = [
+  {
+    id: "R-1",
+    name: "重复投递：同一 messageId 只执行一次并回放原回复",
+    run: async (from) => {
+      const conversation = `l4-rel-dup-${Date.now()}`
+      const first = await sendTurn(conversation, "帮助", 1, from)
+      const replay = await sendTurn(conversation, "帮助", 1, from)
+      const failures = [...inboundFailures(first, "first"), ...inboundFailures(replay, "replay")]
+      if (
+        failures.length === 0 &&
+        stripSessionDigest(replay.reply).trim() !== stripSessionDigest(first.reply).trim()
+      ) {
+        failures.push("duplicate ran again instead of replaying the stored reply")
+      }
+      console.log(`      first  ${first.ms}ms > ${first.reply.slice(0, 80)}`)
+      console.log(`      replay ${replay.ms}ms > ${replay.reply.slice(0, 80)}`)
+      return failures
+    },
+  },
+  {
+    id: "R-2",
+    name: "同会话并发：两条都得到回复，不丢不报错",
+    run: async (from) => {
+      const conversation = `l4-rel-same-${Date.now()}`
+      const [a, b] = await Promise.all([
+        sendTurn(conversation, "帮助", 1, from),
+        sendTurn(conversation, "帮助", 2, from),
+      ])
+      console.log(`      a ${a.ms}ms > ${a.reply.slice(0, 60)}`)
+      console.log(`      b ${b.ms}ms > ${b.reply.slice(0, 60)}`)
+      return [...inboundFailures(a, "message A"), ...inboundFailures(b, "message B")]
+    },
+  },
+  {
+    id: "R-3",
+    name: "跨会话并发：互不阻塞",
+    run: async (from) => {
+      const stamp = Date.now()
+      const [a, b] = await Promise.all([
+        sendTurn(`l4-rel-cross-a-${stamp}`, "帮助", 1, from),
+        sendTurn(`l4-rel-cross-b-${stamp}`, "帮助", 1, from),
+      ])
+      console.log(`      a ${a.ms}ms > ${a.reply.slice(0, 60)}`)
+      console.log(`      b ${b.ms}ms > ${b.reply.slice(0, 60)}`)
+      return [...inboundFailures(a, "conversation A"), ...inboundFailures(b, "conversation B")]
+    },
+  },
+  {
+    id: "R-4",
+    name: "无待审批时回复「确认」：明确提示，不误触",
+    run: async (from) => {
+      const conversation = `l4-rel-approval-${Date.now()}`
+      const first = await sendTurn(conversation, "确认", 1, from)
+      const second = await sendTurn(conversation, "确认", 2, from)
+      const failures = [...inboundFailures(first, "confirm #1"), ...inboundFailures(second, "confirm #2")]
+      for (const [label, result] of [
+        ["confirm #1", first],
+        ["confirm #2", second],
+      ] as const) {
+        if (result.ok && !result.reply.includes("没有待审批")) {
+          failures.push(`${label}: missing "没有待审批" hint > ${result.reply.slice(0, 80)}`)
+        }
+      }
+      return failures
+    },
+  },
+  {
+    id: "R-5",
+    name: "连续投递：三条快速消息零丢失",
+    run: async (from) => {
+      const conversation = `l4-rel-burst-${Date.now()}`
+      const failures: string[] = []
+      for (const seq of [1, 2, 3]) {
+        const result = await sendTurn(conversation, "帮助", seq, from)
+        failures.push(...inboundFailures(result, `message ${seq}`))
+        console.log(`      #${seq} ${result.ms}ms > ${result.reply.slice(0, 60)}`)
+      }
+      return failures
+    },
+  },
+]
+
 async function main(): Promise<void> {
+  const suiteArg = process.argv.indexOf("--suite")
+  const suite = suiteArg >= 0 ? process.argv[suiteArg + 1] : undefined
+  if (suite === "reliability") {
+    let failed = 0
+    for (const entry of RELIABILITY) {
+      let failures: string[] = []
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        if (attempt > 1) console.log(`      retrying ${entry.id} (attempt ${attempt})`)
+        failures = await entry.run(sender)
+        if (failures.length === 0) break
+      }
+      if (failures.length > 0) failed += 1
+      console.log(
+        `${failures.length === 0 ? "PASS" : "FAIL"}  ${entry.id}  ${entry.name}` +
+          (failures.length ? `\n      ${failures.join("; ")}` : ""),
+      )
+    }
+    console.log(`\n${RELIABILITY.length - failed}/${RELIABILITY.length} passed`)
+    process.exit(failed === 0 ? 0 : 1)
+  }
+
   const onlyArg = process.argv.indexOf("--only")
   const only = onlyArg >= 0 ? Number(process.argv[onlyArg + 1]) : undefined
   const selected = only === undefined ? CASES : CASES.filter((entry) => entry.id === only)
