@@ -7,10 +7,7 @@
  */
 import { readFileSync } from "node:fs"
 import type { ButlerMemoryPort } from "../../packages/ports/src/core/butler-memory.js"
-import type {
-  ButlerTaskPort,
-  ButlerTaskRef,
-} from "../../packages/ports/src/core/butler-task.js"
+import type { ButlerTaskPort, ButlerTaskRef } from "../../packages/ports/src/core/butler-task.js"
 import type { ButlerModelPort } from "../../packages/runtime/src/butler/model-port.js"
 import { ButlerRuntime } from "../../packages/runtime/src/butler/butler-runtime.js"
 import { MemoryButlerSessionStore } from "../../packages/runtime/src/butler/session-store.js"
@@ -115,8 +112,7 @@ async function runButlerEvalTask(task: ButlerEvalInput): Promise<void> {
       if (query.trim().length === 0) return userMemory
       return userMemory.filter(
         (entry) =>
-          entry.keywords === undefined ||
-          entry.keywords.some((keyword) => query.includes(keyword)),
+          entry.keywords === undefined || entry.keywords.some((keyword) => query.includes(keyword)),
       )
     },
   }
@@ -145,9 +141,7 @@ async function runButlerEvalTask(task: ButlerEvalInput): Promise<void> {
         userId: "owner",
         projectId,
         content: turn,
-        ...(fixtures.activeTaskId === undefined
-          ? {}
-          : { activeTaskId: fixtures.activeTaskId }),
+        ...(fixtures.activeTaskId === undefined ? {} : { activeTaskId: fixtures.activeTaskId }),
       })
     }
     replies.push(last.reply)

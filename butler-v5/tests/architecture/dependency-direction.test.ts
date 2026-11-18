@@ -49,20 +49,4 @@ describe("dependency direction", () => {
       expect(findPkgImports(src, "adapters")).toEqual([])
     }
   })
-  it("archived application must not import adapters", () => {
-    const files = listTs(join(process.cwd(), "_archive/packages/application/src"))
-    for (const file of files) {
-      const src = readFileSync(file, "utf8")
-      expect(findPkgImports(src, "adapters")).toEqual([])
-    }
-  })
-  it("archived contracts may import domain only", () => {
-    const files = listTs(join(process.cwd(), "_archive/packages/contracts/src"))
-    for (const file of files) {
-      const src = readFileSync(file, "utf8")
-      expect(findPkgImports(src, "application")).toEqual([])
-      expect(findPkgImports(src, "infrastructure")).toEqual([])
-      expect(findPkgImports(src, "ports")).toEqual([])
-    }
-  })
 })

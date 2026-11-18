@@ -80,9 +80,13 @@ describe("makeListDirTool", () => {
 
   it("rejects a path outside the workspace", async () => {
     root = mkdtempSync(join(tmpdir(), "ws-list-"))
-    const result = await runTool(makeListDirTool({ workspaceRoot: root }), { path: "../" }, {
-      timeoutMs: 1000,
-    })
+    const result = await runTool(
+      makeListDirTool({ workspaceRoot: root }),
+      { path: "../" },
+      {
+        timeoutMs: 1000,
+      },
+    )
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.reason).toContain("outside the workspace")

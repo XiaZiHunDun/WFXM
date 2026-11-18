@@ -218,7 +218,11 @@ async function runChildLlm(
   env: NodeJS.ProcessEnv,
   runtimeStore?: RuntimeStore,
   childRunId?: string | null,
-): Promise<{ readonly content: string; readonly waitingApproval?: boolean; readonly capped?: boolean }> {
+): Promise<{
+  readonly content: string
+  readonly waitingApproval?: boolean
+  readonly capped?: boolean
+}> {
   const ownerSubject = resolveOwnerSubject(env, parentConversationId)
   if (runtimeStore && childRunId) {
     try {

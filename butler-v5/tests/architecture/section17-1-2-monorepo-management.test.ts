@@ -33,10 +33,6 @@
  *     points (wechat / cli / schedule / task / channel-inbound /
  *     routes) import from ports + domain + runtime (not from
  *     adapters / persistence internal surfaces).
- *   - §17.3: `vitest.config.ts` (production config) excludes
- *     `_archive/` (D19 + D18). Archived tests live under
- *     `vitest.archived.config.ts` — separate runner, separate
- *     CI gate.
  *
  * Static checks (no runtime):
  *   - `pnpm-workspace.yaml` lists exactly `packages/*`, `apps/*`,
@@ -46,12 +42,8 @@
  *     persistence / ports / runtime) match §17.1.
  *   - No Core package imports `@butler/adapters` or `packages/adapters`
  *     (D26A #2 — re-locked under §17.1 framing).
- *   - `vitest.config.ts` excludes `_archive/` (production tests do
- *     not pick up archived scaffolding).
  *
  * Runtime behavior is verified by:
- *   - vitest.archived.config.ts separately runs archived tests
- *     (101 tests, D19 baseline).
  *   - D26A §20 #2 lock (Core 不 import adapters) — companion.
  *   - D19 §17.3 + D18 §4 — 5 active packages invariant.
  *
@@ -62,8 +54,6 @@
  *     restore.
  *   - Core package imports adapters: §17.1 "依赖方向" + §17.2
  *     "Core 不被反向依赖" violation; remove the import.
- *   - vitest.config.ts pulls in _archive/: §17.3 violation;
- *     exclude (use vitest.archived.config.ts for archived tests).
  */
 
 import { describe, expect, it } from "vitest"
@@ -74,7 +64,6 @@ const REPO_ROOT = join(__dirname, "../..")
 const WORKSPACE_YAML = join(REPO_ROOT, "pnpm-workspace.yaml")
 const TURBO_JSON = join(REPO_ROOT, "turbo.json")
 const PACKAGES = join(REPO_ROOT, "packages")
-const VITEST_CONFIG = join(REPO_ROOT, "vitest.config.ts")
 
 const EXPECTED_ACTIVE_PACKAGES: readonly string[] = [
   "adapters",
@@ -154,18 +143,6 @@ describe("arch: §17.1 包归属与依赖方向 + §17.2 并行开发边界 (D32
       `Core packages must NOT import adapters (§17.1 + D26A §20 #2): ${violations.join(", ")}`,
     ).toEqual([])
   })
-
-  // ── §17.3 5. _archive 不进入 prod 测试白名单 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
-
-  it("§17.3: production vitest.config.ts excludes _archive/ (archived scaffolding has its own runner)", () => {
-    expect(existsSync(VITEST_CONFIG), "vitest.config.ts must exist").toBe(true)
-    const src = readFileSync(VITEST_CONFIG, "utf-8")
-    // Production config must exclude _archive/ explicitly (D19 baseline).
-    expect(
-      src,
-      "vitest.config.ts must reference _archive in its exclude list — §17.3 hygiene invariant",
-    ).toMatch(new RegExp("_archive/"))
-  })
 })
 
 function listProductionTs(root: string): string[] {
@@ -179,7 +156,6 @@ function listProductionTs(root: string): string[] {
         if (
           entry === "node_modules" ||
           entry === "dist" ||
-          entry === "_archive" ||
           entry === "coverage" ||
           entry.startsWith(".")
         ) {

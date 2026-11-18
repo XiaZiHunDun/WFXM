@@ -7,12 +7,7 @@
  */
 
 export type ButlerMemoryKind =
-  | "profile"
-  | "preference"
-  | "relationship"
-  | "commitment"
-  | "convention"
-  | "note"
+  "profile" | "preference" | "relationship" | "commitment" | "convention" | "note"
 
 export interface ButlerMemoryFact {
   readonly title: string

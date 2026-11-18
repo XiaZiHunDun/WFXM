@@ -1,7 +1,4 @@
-import type {
-  ButlerSessionRecord,
-  ButlerSessionStore,
-} from "@butler/ports/core/butler-session.js"
+import type { ButlerSessionRecord, ButlerSessionStore } from "@butler/ports/core/butler-session.js"
 
 /** In-memory session store; the delivery shell can swap in a durable one. */
 export class MemoryButlerSessionStore implements ButlerSessionStore {

@@ -24,7 +24,9 @@ const DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 const DEFAULT_MODEL = "text-embedding-v3"
 const MAX_BATCH = 10
 
-export function makeDashScopeEmbeddingProvider(config: DashScopeEmbeddingConfig): EmbeddingProvider {
+export function makeDashScopeEmbeddingProvider(
+  config: DashScopeEmbeddingConfig,
+): EmbeddingProvider {
   const baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "")
   const model = config.model ?? DEFAULT_MODEL
   const dimensions = config.dimensions ?? 1024
@@ -83,7 +85,8 @@ export function dashScopeEmbeddingFromEnv(
   const apiKey = (env["DASHSCOPE_API_KEY"] ?? "").trim()
   if (!apiKey) return null
   const dimensionsRaw = Number(env["BUTLER_V5_EMBEDDING_DIMENSIONS"] ?? "1024")
-  const dimensions = Number.isFinite(dimensionsRaw) && dimensionsRaw > 0 ? Math.floor(dimensionsRaw) : 1024
+  const dimensions =
+    Number.isFinite(dimensionsRaw) && dimensionsRaw > 0 ? Math.floor(dimensionsRaw) : 1024
   return makeDashScopeEmbeddingProvider({
     apiKey,
     dimensions,

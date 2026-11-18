@@ -18,7 +18,6 @@ export default defineConfig({
       "**/dist/**",
       "**/.turbo/**",
       "**/*.tsbuildinfo",
-      "**/_archive/**",
       // Nested pnpm typecheck/lint/format:check. Duplicate of `pnpm gate`;
       // closed in docs/plans/decisions/v5-optional-debt-triage-2026-08-20.md.
       "tests/architecture/r2-end-to-end.test.ts",

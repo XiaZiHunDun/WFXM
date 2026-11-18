@@ -218,7 +218,9 @@ describe("chunk-level recall", () => {
     const paraphrased = "怎么报销差旅费？"
 
     // 旧路径会先按子串过滤文档，改写提问直接 0 命中。
-    expect(selectDocumentChunksForRecall({ records: [record], query: paraphrased, limit: 3 })).toHaveLength(0)
+    expect(
+      selectDocumentChunksForRecall({ records: [record], query: paraphrased, limit: 3 }),
+    ).toHaveLength(0)
 
     const hybrid = selectDocumentChunksForRecall({
       records: [record],

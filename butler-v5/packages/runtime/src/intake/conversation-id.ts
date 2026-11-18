@@ -1,8 +1,6 @@
 /**
  * Client-supplied / default conversationId helpers (Intake).
  *
- * Spec: docs/superpowers/specs/2026-08-19-conversation-id-client-supplied-design.md
- *
  * Absent → caller generates a server id.
  * Valid → reuse as stream id (WS can pre-subscribe).
  * Invalid → route returns 400 before the butler loop.

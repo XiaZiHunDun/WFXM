@@ -6,7 +6,11 @@ import { makeTestDb } from "@butler/persistence/testing.js"
 import { approveWaitingStep, createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import { resumeApprovedCapability, shouldFailRunAfterCapability, toRunResult } from "./approval-resume.js"
+import {
+  resumeApprovedCapability,
+  shouldFailRunAfterCapability,
+  toRunResult,
+} from "./approval-resume.js"
 import { makeWiring } from "./wiring.js"
 
 describe("approval resume result mapping", () => {

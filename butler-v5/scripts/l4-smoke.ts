@@ -123,9 +123,17 @@ const CASES: readonly Case[] = [
   {
     id: 5,
     name: "长回复：包名与描述",
-    turns: ["把 butler-v5/packages 下每个包的 package.json 里 name 和 description 都列出来，一条一行，不要省略"],
+    turns: [
+      "把 butler-v5/packages 下每个包的 package.json 里 name 和 description 都列出来，一条一行，不要省略",
+    ],
     expect: {
-      mustMention: ["@butler/domain", "@butler/ports", "@butler/adapters", "@butler/runtime", "@butler/persistence"],
+      mustMention: [
+        "@butler/domain",
+        "@butler/ports",
+        "@butler/adapters",
+        "@butler/runtime",
+        "@butler/persistence",
+      ],
       mustNotMatch: ["\\*\\*", "```", "`", "待执行：bash"],
       minLength: 120,
       maxLength: 8000,
@@ -146,7 +154,12 @@ if (!secret) {
   process.exit(2)
 }
 
-type TurnResult = { readonly ok: boolean; readonly reply: string; readonly ms: number; readonly error?: string }
+type TurnResult = {
+  readonly ok: boolean
+  readonly reply: string
+  readonly ms: number
+  readonly error?: string
+}
 
 async function sendTurn(
   conversation: string,
@@ -210,7 +223,9 @@ async function waitForFile(spec: NonNullable<Case["expectFile"]>): Promise<strin
   while (Date.now() < deadline) {
     try {
       const content = readFileSync(spec.path, "utf8")
-      return content.includes(spec.contains) ? [] : [`${spec.path} content missing "${spec.contains}"`]
+      return content.includes(spec.contains)
+        ? []
+        : [`${spec.path} content missing "${spec.contains}"`]
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 2000))
     }
@@ -296,7 +311,10 @@ const RELIABILITY: readonly ReliabilityCase[] = [
       const conversation = `l4-rel-approval-${Date.now()}`
       const first = await sendTurn(conversation, "确认", 1, from)
       const second = await sendTurn(conversation, "确认", 2, from)
-      const failures = [...inboundFailures(first, "confirm #1"), ...inboundFailures(second, "confirm #2")]
+      const failures = [
+        ...inboundFailures(first, "confirm #1"),
+        ...inboundFailures(second, "confirm #2"),
+      ]
       for (const [label, result] of [
         ["confirm #1", first],
         ["confirm #2", second],

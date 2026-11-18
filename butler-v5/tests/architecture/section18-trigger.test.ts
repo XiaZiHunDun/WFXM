@@ -57,6 +57,12 @@ import { join } from "node:path"
 const PROJECTION_PORT = join(__dirname, "../../packages/ports/src/core/projection.ts")
 const SNAPSHOT_MODULE = join(__dirname, "../../packages/persistence/src/snapshot.ts")
 const MEMORY_TYPES = join(__dirname, "../../packages/domain/src/memory/types.ts")
+
+/** Hybrid retrieval shipped: these files consume the vector field on purpose. */
+const EMBEDDING_CONSUMER_FILES: readonly string[] = [
+  "packages/adapters/src/embeddings/dashscope.ts",
+  "packages/domain/src/knowledge/document-ingest.ts",
+]
 const POSTGRES_PROJECTION_IMPL = join(
   __dirname,
   "../../packages/adapters/src/postgres/postgres-projection.ts",
@@ -176,6 +182,10 @@ describe("arch: §18 trigger guard (no premature activation of deferred features
       // The type declaration itself is allowed; the field must not be
       // read or assigned elsewhere.
       if (file === MEMORY_TYPES) continue
+      // Hybrid knowledge retrieval is now implemented (D-series): the
+      // DashScope embedding adapter and the document chunk scorer are the
+      // only legitimate consumers of the vector field.
+      if (EMBEDDING_CONSUMER_FILES.some((allowed) => file.endsWith(allowed))) continue
       const src = readFileSync(file, "utf-8")
       // Detect .embedding access (member expression only — bare `embedding`
       // identifier in identifiers is normal TypeScript).

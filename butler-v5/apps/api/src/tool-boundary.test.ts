@@ -60,7 +60,10 @@ describe("tool-boundary", () => {
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.reason).toContain("[需要确认]")
-      expect(result.reason).toContain("mcp_search")
+      // The approval copy names the provider in owner language; the raw MCP
+      // tool id must not leak into the question.
+      expect(result.reason).toContain("search")
+      expect(result.reason).not.toContain("mcp_search")
     }
   })
 

@@ -32,8 +32,6 @@
     "**/*.test-d.ts",
     "**/*.test.mjs",
     "**/_fixtures/**",
-    "**/_archive/**",
-    "_archive/**",
     "**/node_modules/**",
     "**/dist/**",
     "**/coverage/**",

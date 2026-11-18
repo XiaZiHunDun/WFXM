@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { Hono } from "hono"
 import type { ButlerTaskPort, ButlerTaskRef } from "@butler/ports/core/butler-task.js"
-import {
-  ButlerRuntime,
-  MemoryButlerSessionStore,
-} from "@butler/runtime/butler/index.js"
+import { ButlerRuntime, MemoryButlerSessionStore } from "@butler/runtime/butler/index.js"
 import type { ButlerAssembly } from "../butler-assembly.js"
 import type { Wiring } from "../wiring.js"
 import { parseProjectRoots, registerButlerRoutes } from "./butler.js"
@@ -129,11 +126,7 @@ describe("registerButlerRoutes", () => {
 
   it("requires the inbound shared secret", async () => {
     const app = makeApp(() => fakeAssembly())
-    const res = await post(
-      app,
-      { apiVersion: "v1", fromUserId: "u1", content: "hi" },
-      null,
-    )
+    const res = await post(app, { apiVersion: "v1", fromUserId: "u1", content: "hi" }, null)
     expect(res.status).toBe(401)
   })
 
@@ -180,8 +173,8 @@ describe("parseProjectRoots", () => {
     expect(() => parseProjectRoots({ BUTLER_V5_PROJECT_ROOTS: '["/srv/p1"]' })).toThrow(
       /object of projectId/,
     )
-    expect(() =>
-      parseProjectRoots({ BUTLER_V5_PROJECT_ROOTS: '{"p1":12}' }),
-    ).toThrow(/invalid root for p1/)
+    expect(() => parseProjectRoots({ BUTLER_V5_PROJECT_ROOTS: '{"p1":12}' })).toThrow(
+      /invalid root for p1/,
+    )
   })
 })

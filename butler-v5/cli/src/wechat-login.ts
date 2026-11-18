@@ -63,7 +63,8 @@ export async function runWechatLogin(
   const baseUrl = (opts.baseUrl ?? DEFAULT_ILINK_BASE_URL).replace(/\/+$/, "")
   const client = { baseUrl, ...(opts.fetch ? { fetch: opts.fetch } : {}) }
   const fetchQr = async (): Promise<
-    { readonly ok: true; readonly qrcode: string; readonly qrUrl: string } | { readonly ok: false; readonly reason: string }
+    | { readonly ok: true; readonly qrcode: string; readonly qrUrl: string }
+    | { readonly ok: false; readonly reason: string }
   > => {
     const res = await ilinkGetBotQr(client, "3", opts.localTokens ?? [])
     if (!res.ok) return { ok: false, reason: res.reason }

@@ -32,8 +32,7 @@ const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".turbo", "coverage"]
 const SAFE_ENV_KEYS = ["PATH", "HOME", "LANG", "LC_ALL", "NODE_ENV", "TERM", "TMPDIR"] as const
 
 export type ResolvePathResult =
-  | { readonly ok: true; readonly path: string }
-  | { readonly ok: false; readonly reason: string }
+  { readonly ok: true; readonly path: string } | { readonly ok: false; readonly reason: string }
 
 function escapesRoot(rootReal: string, candidate: string): boolean {
   const rel = relative(rootReal, candidate)
@@ -398,7 +397,11 @@ function makeBashTool(
             resolvePromise(textResult(body || "(no output)", details))
           } else {
             resolvePromise(
-              textResult(`[exit ${exitCode ?? "null"}] ${(reason ?? body) || "(no output)"}`, details, true),
+              textResult(
+                `[exit ${exitCode ?? "null"}] ${(reason ?? body) || "(no output)"}`,
+                details,
+                true,
+              ),
             )
           }
         }

@@ -813,13 +813,13 @@ Effect-TS 是可选实现工具，不是架构层级。
 > - **turbo.json**（D32 case #2 lock）：workspace root 存在；build/test pipeline orchestrator。
 > - **Core 不 import adapters**（D32 case #4 lock）：`runtime + domain` 0 import `@butler/adapters` / `packages/adapters`（§17.1 依赖方向 + §17.2 "Core 不被反向依赖" — 与 D26A §20 #2 互补）。
 > - **并行开发 3 条带**（§17.2）：driving (apps/api + cli) 只动 RunTrigger/Channel 端口（apps/api 6 entry points 都 import runButlerLoop，D26A #4 lock）；driven (adapters + persistence) 只动 Port 实现（D26A §20 #1 lock 三唯一 + D19 §17.3 lock workspace = 5 active）；Core (runtime + domain) 只动 RunEngine/策略/布会（D26A §20 #16 lock 单一 schema）。
-> - **§17.3 \_archive 隔离**（D32 case #5 lock）：`vitest.config.ts`（prod test runner）显式 exclude `_archive/**`；archived tests 走 `vitest.archived.config.ts` 独立 runner（22 files / 101 tests，D19 baseline）。
+> - **§17.3 归档已清空**（2026-11-18 第一阶段收尾）：`_archive/` 脚手架与 `vitest.archived.config.ts` 已删除，workspace 只剩 5 个 active package + `vendor/pi-agent`；未接入生产调用链的代码不再保留归档副本。
 >
 > 锁定方式：`tests/architecture/section17-1-2-monorepo-management.test.ts`（D32, 5 cases）+ `tests/architecture/section17-3-orphan-package.test.ts`（D18/D19）+ D26A §20 #2 + §20 #16 + D31 §7 5 cases 既有 lock。
 
 ### 17.3 脚手架修剪与卫生
 
-- 未接入生产调用链的 `package`（脚手架/归档）移入 `_archive/` 或删除，不在编译与测试白名单中；
+- 未接入生产调用链的 `package`（脚手架/归档）直接删除，不保留 `_archive/` 副本，也不在编译与测试白名单中；
 - 只保留一套 schema/migration（进入单一 `persistence`）；`migration` 包与 `persistence/migrations` 二选一收敛；
 - delivery 层不直接访问具体持久化 schema；跨层 import 由架构测试阻止；
 - 单文件大小、死代码、测试与依赖方向由工程门禁守护。

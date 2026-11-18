@@ -46,7 +46,6 @@ const SUBPROCESS_RUNNERS: readonly string[] = [
   join(__dirname, "../../packages/adapters/src/sandbox/bubblewrap-runner.ts"),
   join(__dirname, "../../packages/adapters/src/sandbox/slirp-egress.ts"),
   join(__dirname, "../../apps/api/src/mcp-spawn.ts"),
-  join(__dirname, "../../_archive/packages/migration/src/shadow-runner.ts"),
 ]
 
 /** Forbidden imports — each one signals that the subprocess runner
@@ -93,11 +92,6 @@ const ALLOWED_IMPORT_SUBSTRINGS: Readonly<Record<string, readonly RegExp[]>> = {
     /@butler\/runtime\/sandbox/, // sandbox profile for MCP stdio
     /@butler\/adapters\/sandbox\//, // sibling sandbox primitives
     /node:child_process/,
-  ],
-  [join(__dirname, "../../_archive/packages/migration/src/shadow-runner.ts")]: [
-    /\.\/v4-source/, // local sibling
-    /node:fs/,
-    /node:path/,
   ],
 }
 

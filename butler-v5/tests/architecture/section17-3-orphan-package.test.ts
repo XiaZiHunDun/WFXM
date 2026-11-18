@@ -66,7 +66,6 @@ function listProductionTsFiles(root: string): string[] {
         if (
           entry === "node_modules" ||
           entry === "dist" ||
-          entry === "_archive" ||
           entry === "coverage" ||
           entry.startsWith(".")
         ) {

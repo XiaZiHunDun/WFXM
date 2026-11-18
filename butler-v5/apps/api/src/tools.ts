@@ -712,8 +712,11 @@ function makeRecallDocumentTool(ctx: ButlerToolContext): ToolDefinition {
         const docs = records.slice(0, EMBEDDING_DOC_LIMIT)
         const [queryVector] = await provider.embed([query])
         const vectors = new Map<string, readonly number[]>()
-        const pending: { readonly key: string; readonly cacheKey: string; readonly text: string }[] =
-          []
+        const pending: {
+          readonly key: string
+          readonly cacheKey: string
+          readonly text: string
+        }[] = []
         for (const doc of docs) {
           for (const chunk of chunkDocumentText(doc.extractedText)) {
             const chunkKey = `${doc.id}#${chunk.index}`

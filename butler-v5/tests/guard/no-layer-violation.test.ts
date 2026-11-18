@@ -58,13 +58,10 @@ function checkLayerViolations(filePath: string): string[] {
       }
     }
 
-    // infrastructure/ 不能导入 application/
-    if (
-      rel.includes("packages/infrastructure/") ||
-      rel.includes("_archive/packages/infrastructure/")
-    ) {
+    // adapters/ 不能导入 application/
+    if (rel.includes("packages/adapters/")) {
       if (content.includes("@butler/application")) {
-        violations.push(`infrastructure 层导入 @butler/application`)
+        violations.push(`adapters 层导入 @butler/application`)
       }
     }
   } catch {
@@ -105,8 +102,8 @@ describe("守卫测试：架构分层约束 [NEW-OPT-21]", () => {
     expect(allViolations).toEqual([])
   })
 
-  it("infrastructure/ 层不导入 application/", () => {
-    const infraDir = resolve(ROOT, "_archive/packages/infrastructure/src")
+  it("adapters/ 层不导入 application/", () => {
+    const infraDir = resolve(ROOT, "packages/adapters/src")
     const files = collectTsFiles(infraDir)
     const allViolations: string[] = []
 

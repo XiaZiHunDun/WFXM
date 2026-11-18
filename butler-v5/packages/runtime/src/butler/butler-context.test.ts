@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type {
-  ButlerMemoryPort,
-  RecalledUserMemory,
-} from "@butler/ports/core/butler-memory.js"
+import type { ButlerMemoryPort, RecalledUserMemory } from "@butler/ports/core/butler-memory.js"
 import {
   ButlerRuntime,
   MemoryButlerSessionStore,
@@ -58,18 +55,18 @@ function keywordMemory(entries: readonly MemoryEntry[]) {
                 entry.keywords === undefined ||
                 entry.keywords.some((keyword) => query.includes(keyword)),
             )
-      return matched.map(
-        (entry): RecalledUserMemory => ({ title: entry.title, text: entry.text }),
-      )
+      return matched.map((entry): RecalledUserMemory => ({ title: entry.title, text: entry.text }))
     },
   }
   return { port, calls }
 }
 
 function userTurns(store: MemoryButlerSessionStore, conversationId: string): Promise<number> {
-  return store.load(conversationId).then((session) =>
-    session ? session.messages.filter((message) => message.role === "user").length : 0,
-  )
+  return store
+    .load(conversationId)
+    .then((session) =>
+      session ? session.messages.filter((message) => message.role === "user").length : 0,
+    )
 }
 
 /** Ambiguous follow-ups only make sense with prior history. */
@@ -189,10 +186,7 @@ describe("butler recall strategy (P1)", () => {
     const memory = keywordMemory([
       { title: "过往决策", text: "发布前必须先跑测试", keywords: ["永远不匹配"] },
     ])
-    const { model } = scriptedModel([
-      { content: "另一个无关查询" },
-      { content: "好的" },
-    ])
+    const { model } = scriptedModel([{ content: "另一个无关查询" }, { content: "好的" }])
     const store = new MemoryButlerSessionStore()
     await seedHistory(store)
     const butler = new ButlerRuntime({

@@ -9,7 +9,14 @@
  * Failures return `{ ok: false, reason }` — no throw.
  */
 import { spawn } from "node:child_process"
-import { mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from "node:fs"
 import { dirname } from "node:path"
 import { isAbsolute, relative, resolve } from "node:path"
 import { makeToolName, type ToolDefinition } from "@butler/runtime/tool-runtime.js"
@@ -148,8 +155,7 @@ export function makeListDirTool(ctx: WorkspaceToolContext = {}): ToolDefinition 
           .filter((entry) => entry.name !== "node_modules" && entry.name !== "dist")
           .sort(
             (a, b) =>
-              Number(b.isDirectory()) - Number(a.isDirectory()) ||
-              a.name.localeCompare(b.name),
+              Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name),
           )
         if (entries.length === 0) return { ok: true, output: "(empty)" }
         const shown = entries.slice(0, 200).map((entry) => {

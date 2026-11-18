@@ -176,9 +176,7 @@ export function buildIlinkHeaders(token: string): Record<string, string> {
 
 /** Official clients send base64(random uint32 as decimal string), not the raw number. */
 function buildWechatUin(): string {
-  return Buffer.from(String(Math.floor(Math.random() * 0x1_0000_0000)), "utf8").toString(
-    "base64",
-  )
+  return Buffer.from(String(Math.floor(Math.random() * 0x1_0000_0000)), "utf8").toString("base64")
 }
 
 export function buildQrRequestBody(localTokens: readonly string[] = []): string {

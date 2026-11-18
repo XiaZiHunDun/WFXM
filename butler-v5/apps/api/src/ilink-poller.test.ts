@@ -350,8 +350,16 @@ describe("runIlinkPollCycle", () => {
           ret: 0,
           get_updates_buf: "b2",
           msgs: [
-            { msg_id: "m-dup", from_user_id: "u-wx", item_list: [{ type: "text", text_item: { content: "同一条" } }] },
-            { msg_id: "m-dup", from_user_id: "u-wx", item_list: [{ type: "text", text_item: { content: "同一条" } }] },
+            {
+              msg_id: "m-dup",
+              from_user_id: "u-wx",
+              item_list: [{ type: "text", text_item: { content: "同一条" } }],
+            },
+            {
+              msg_id: "m-dup",
+              from_user_id: "u-wx",
+              item_list: [{ type: "text", text_item: { content: "同一条" } }],
+            },
           ],
         },
       }),

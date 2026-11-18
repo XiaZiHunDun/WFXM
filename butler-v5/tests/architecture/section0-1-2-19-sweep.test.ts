@@ -114,11 +114,9 @@ describe("§0+§1+§1.1+§2+§19 sweep (D35)", () => {
   it("manifests do not pull non-target orchestrators / DAG / CQRS / K8s deps (§0 #1 + §2)", () => {
     const NON_TARGET =
       /\b(temporal|langgraph|contextgraph|cqrs|celery|airflow|dagster|kubernetes|helm\.js|k8s\.js)\b/i
-    const manifests = [
-      join(BUTLER_V5, "package.json"),
-      join(BUTLER_V5, "cli/package.json"),
-      join(BUTLER_V5, "pyproject.toml"),
-    ].filter(existsSync)
+    const manifests = [join(BUTLER_V5, "package.json"), join(BUTLER_V5, "cli/package.json")].filter(
+      existsSync,
+    )
     const violations: string[] = []
     for (const m of manifests) {
       const src = readFileSync(m, "utf8")
@@ -194,22 +192,6 @@ describe("§0+§1+§1.1+§2+§19 sweep (D35)", () => {
     ]
     const missing = required.filter((f) => !existsSync(f)).map((f) => relative(REPO_ROOT, f))
     expect(missing).toEqual([])
-  })
-
-  // C6 §19 log.md 冻结声明：log.md 头部明示冻结 + 活动交接只更新 state.md。
-  it(".blackboard/log.md declares freeze + delegates activity to state.md (§19)", () => {
-    const log = readFileSync(join(REPO_ROOT, ".blackboard/log.md"), "utf8")
-    expect(log).toMatch(/冻结/)
-    expect(log).toMatch(/活动交接只更新/)
-    expect(log).toMatch(/state\.md/)
-  })
-
-  // C7 §19 state.md 默认载体：state.md 存在 + 含 _last_synced / _handoff 字段。
-  it(".blackboard/state.md exists as default handoff carrier (§19)", () => {
-    const statePath = join(REPO_ROOT, ".blackboard/state.md")
-    expect(existsSync(statePath)).toBe(true)
-    const src = readFileSync(statePath, "utf8")
-    expect(src).toMatch(/_last_synced:|_handof{2}:|# WFXM BlackBoard/i)
   })
 
   // C8 §1 + §20 #1：唯一 RunEngine class + 唯一 PolicyGate class 在

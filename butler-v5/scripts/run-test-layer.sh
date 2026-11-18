@@ -19,18 +19,21 @@ case "$LEVEL" in
     run_tests "packages/domain/src/**/*.test.ts"
     ;;
   app|application)
-    run_tests "_archive/packages/application/src/**/*.test.ts"
+    run_tests "apps/api/src/**/*.test.ts"
     ;;
   infra|infrastructure)
-    run_tests "_archive/packages/infrastructure/src/**/*.test.ts"
+    run_tests "packages/adapters/src/**/*.test.ts"
+    run_tests "packages/persistence/src/**/*.test.ts"
     ;;
   guard)
     run_tests "tests/guard/**/*.test.ts"
     ;;
   all)
     run_tests "packages/domain/src/**/*.test.ts"
-    run_tests "_archive/packages/application/src/**/*.test.ts"
-    run_tests "_archive/packages/infrastructure/src/**/*.test.ts"
+    run_tests "packages/runtime/src/**/*.test.ts"
+    run_tests "packages/adapters/src/**/*.test.ts"
+    run_tests "packages/persistence/src/**/*.test.ts"
+    run_tests "apps/api/src/**/*.test.ts"
     run_tests "tests/guard/**/*.test.ts"
     ;;
   *)

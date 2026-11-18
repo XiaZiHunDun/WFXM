@@ -96,7 +96,10 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true })
 })
 
-function runner(streamFn: StreamFn, extra: Partial<ConstructorParameters<typeof PiTaskRunner>[0]> = {}) {
+function runner(
+  streamFn: StreamFn,
+  extra: Partial<ConstructorParameters<typeof PiTaskRunner>[0]> = {},
+) {
   return new PiTaskRunner({
     model: MODEL,
     apiKey: "fake",
@@ -131,7 +134,11 @@ describe("PiTaskRunner", () => {
     expect(result.status).toBe("idle")
     expect(result.reply).toContain("读到了")
     expect(result.toolCalls).toHaveLength(1)
-    expect(result.toolCalls[0]).toMatchObject({ rawName: "read", normalizedName: "read_file", ok: true })
+    expect(result.toolCalls[0]).toMatchObject({
+      rawName: "read",
+      normalizedName: "read_file",
+      ok: true,
+    })
     expect(result.toolCalls[0]?.output).toContain("hello runner")
   })
 
@@ -157,12 +164,19 @@ describe("PiTaskRunner", () => {
     )
     await openTask(run)
     const result = await run.start("t1", "跑个命令")
-    expect(result.toolCalls[0]).toMatchObject({ rawName: "bash", normalizedName: "run_command", ok: true })
+    expect(result.toolCalls[0]).toMatchObject({
+      rawName: "bash",
+      normalizedName: "run_command",
+      ok: true,
+    })
     expect(result.toolCalls[0]?.output).toContain("bash-ok")
   })
 
   it("reports a finished turn to the memory port", async () => {
-    writeFileSync(join(root, "x.test.mjs"), "import { test } from 'node:test'\ntest('ok', () => {})\n")
+    writeFileSync(
+      join(root, "x.test.mjs"),
+      "import { test } from 'node:test'\ntest('ok', () => {})\n",
+    )
     const events: unknown[] = []
     const run = runner(
       scriptedStream([

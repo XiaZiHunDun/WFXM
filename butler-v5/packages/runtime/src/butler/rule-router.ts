@@ -55,7 +55,8 @@ export function matchButlerRule(input: ButlerRuleInput): ButlerRuleAction | null
     return { kind: "list_tasks", name: "tasks" }
   }
 
-  const newMatch = /^\/(?:new|task)\s+(.+)$/i.exec(text) ?? /^(?:新任务|新建任务)[:：\s]*(.+)$/.exec(text)
+  const newMatch =
+    /^\/(?:new|task)\s+(.+)$/i.exec(text) ?? /^(?:新任务|新建任务)[:：\s]*(.+)$/.exec(text)
   const goal = newMatch?.[1]?.trim()
   if (goal) return { kind: "start_task", name: "new", goal }
 
