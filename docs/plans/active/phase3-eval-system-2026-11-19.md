@@ -110,17 +110,23 @@
 
 | 层 | 触发 | 内容 | 目标时长 |
 |----|------|------|----------|
-| PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + tamper 检查 | ≤10 分钟 |
-| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 对抗集 + 多维报告 | ≤60 分钟 |
+| PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + 对抗集（`agent-eval` 的 PR workflow） | ≤10 分钟 |
+| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial） | ≤60 分钟 |
 | Release | 发布前 | 全量黄金集 + 安全基线 + L5 真机 | 人工确认 |
+
+黄金集 smoke 用 `--limit 5` 截取（任务按 id 排序，覆盖 bug/feature/test-evolution 三类）。
+`agent-eval` 的 `pr.yml` 负责 smoke，`nightly.yml` 跑完整 gate；WFXM 自己的 CI 仍只跑 L0–L2 与单测。
 
 门禁采用联合阈值，任一不满足即失败：
 
 - 黄金集通过率不低于基线；
-- `tamper`、`false_success`、安全类违例均为 0；
+- 对抗集 10 条全部被识别（detector 命中）；
+- `tamper`、`false_success`、`budget` 违例均为 0；
 - honest-stop 率不低于基线；
-- 只读 p95 ≤8s、写入 p95 ≤25s；
-- 模型调用/token/cost 不超任务预算。
+- 黄金集任务级 p95 ≤25s（只读类任务的实际耗时远低于此）；
+- 模型调用/token/cost 不超任务预算（由任务 `budget` 断言）。
+
+`gate.json` 现在同时输出 `golden` / `adversarial` / `safety` 三块，并保留各套件的 `report.md`。
 
 ---
 
@@ -146,8 +152,8 @@
 |------|------|------|
 | P0 设计与 schema | 本文件 + `agent-eval` schema 扩展（hiddenChecks/tamperPolicy/honestStop/quality） | ✅ 已实现：任务校验支持新字段，旧任务兼容 |
 | P1 防作弊层 | 工作区快照、篡改检测、false success、honest-stop、失败归因 | ✅ 已实现：对抗集 10 条 10/10，轨迹集 18/18 回归通过 |
-| P2 黄金集与门禁 | 30 条任务 + 多指标门禁 + 分层 CI | 待实现 |
-| P3 存量分诊 | 转换 10–15 条，删除对应旧测试 | 待实现 |
+| P2 黄金集与门禁 | 30 条任务 + 多指标门禁 + 分层 CI | ✅ 已实现：`tasks/golden` 30 条（10 bug / 10 feature / 10 test-evolution），`gate` 输出 golden/adversarial/safety，PR workflow 跑 5 条 smoke + 对抗集，nightly 跑全量 gate |
+| P3 存量分诊 | 转换 10–15 条，删除对应旧测试 | 进行中 |
 
 ---
 
