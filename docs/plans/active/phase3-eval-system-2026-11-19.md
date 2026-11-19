@@ -113,7 +113,7 @@
 |----|------|------|----------|
 | PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + 对抗集（`agent-eval` 的 PR workflow） | ≤10 分钟 |
 | Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial）+ 真实模型开发子集（10 条） | ≤60 分钟 |
-| Release | 打 tag | `release.yml` 的 `eval-gate`：agent-eval 框架测试 + 全量 gate（baseline/butler/golden/adversarial）+ 真实模型子集（有密钥时）；失败则 build 不启动 | ≤20 分钟 + L5 人工 |
+| Release | 打 tag | `release.yml` 的 `eval-gate`：agent-eval 框架测试 + 全量 gate（baseline/butler/golden/adversarial）+ L3 轨迹集 + 真实模型子集（有密钥时）；失败则 build 不启动 | ≤20 分钟 + L5 人工 |
 
 黄金集 smoke 用 `--limit 5` 截取（任务按 id 排序，覆盖 bug/feature/test-evolution 三类）。
 `agent-eval` 的 `pr.yml` 负责 smoke，`nightly.yml` 跑完整 gate；WFXM 的 `release.yml` 在 build 之前跑 `eval-gate`，失败即阻断镜像推送。L5 真机冒烟依赖运行中的服务与真实渠道，仍由发布前人工执行 `npx tsx scripts/l4-smoke.ts`。

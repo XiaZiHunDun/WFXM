@@ -73,6 +73,11 @@ jobs:
         env:
           WFXM_ROOT: ${{ github.workspace }}
         run: node src/cli.mjs gate
+      - name: L3 trajectory suite
+        working-directory: agent-eval
+        env:
+          WFXM_ROOT: ${{ github.workspace }}
+        run: node src/cli.mjs run --suite trajectory --runtime wfxm
       - name: Real-model capability subset (if configured)
         working-directory: agent-eval
         env:
