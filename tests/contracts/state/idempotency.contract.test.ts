@@ -6,6 +6,7 @@ import { makeTestDb } from "../../../packages/persistence/src/testing.js"
 import { messages, runs } from "../../../packages/persistence/src/schema.js"
 import {
   ActiveMainRunConflict,
+  CompletedMainRunReplay,
   RunEngine,
   RunPauseForApproval,
 } from "../../../packages/runtime/src/run-engine.js"
@@ -161,6 +162,36 @@ describe("inbound idempotency contract", () => {
     expect(runRows).toHaveLength(1)
     expect(messageRows).toHaveLength(1)
     expect(runRows[0]?.status).toBe("running")
+  })
+
+  it("rejects a duplicate delivery whose run already completed instead of re-executing (F-02)", async () => {
+    const engine = new RunEngine(store)
+    const conversationId = crypto.randomUUID()
+    let bodyRuns = 0
+    const body = async (): Promise<{ readonly ok: true }> => {
+      bodyRuns += 1
+      return { ok: true }
+    }
+    const input = {
+      conversationId,
+      subject: "owner-contract",
+      content: "duplicate delivery",
+      idempotencyKey: "completed-key-1",
+    }
+
+    await engine.executeInbound({ ...input, messageId: crypto.randomUUID() }, body)
+    const [before] = await db.db.select().from(runs)
+
+    await expect(
+      engine.executeInbound({ ...input, messageId: crypto.randomUUID() }, body),
+    ).rejects.toBeInstanceOf(CompletedMainRunReplay)
+
+    expect(bodyRuns).toBe(1)
+    const rows = await db.db.select().from(runs)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.status).toBe("succeeded")
+    expect(rows[0]?.version).toBe(before?.version)
+    expect(rows[0]?.runId).toBe(before?.runId)
   })
 
   it("creates a separate run and message for a different message id after completion", async () => {

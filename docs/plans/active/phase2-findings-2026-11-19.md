@@ -91,13 +91,17 @@ pi 引擎只在任务级设置 abort 定时器，单次模型调用可能长时�
 
 ## 5. T2–T5 期间发现的缺陷（记录，未修）
 
-### F-02 终态 Run 被同幂等键重投后复活并重复执行
+### F-02 终态 Run 被同幂等键重投后复活并重复执行（已修复）
 
 `RunEngine.executeInbound` 在既有 run 已 `succeeded` 时，`createRun` 幂等返回旧 run，
 随后仍无条件迁移到 `running` 并再次执行 runBody。同一幂等键二次投递时 runBody 执行两次，
 run 行数仍为 1，但 version 从 3 被推到 5。破坏“重复消息只处理一次”的副作用契约。
 由 `tests/contracts/state/idempotency.contract.test.ts` 的直连 store/engine 用例暴露；
 butler 层 `replayDuplicateInbound` 会先拦截，所以集成用例未复现。
+
+**修复**：`executeInbound` 在 `createRun` 后检查 `isTerminalRunStatus`，命中则抛
+`CompletedMainRunReplay`，不再迁移/执行；butler loop 捕获后返回「这条消息已经处理过了」。
+回归用例：`idempotency.contract.test.ts` 的 `rejects a duplicate delivery whose run already completed instead of re-executing (F-02)`。
 
 ### F-03 `createWaitingApprovalStep` 绕过状态机
 
@@ -143,13 +147,19 @@ butler 层 `replayDuplicateInbound` 会先拦截，所以集成用例未复现�
 代码里 `(empty file)` 的回退只在切片为空时触发，而 `"".split("\n")` 得到 `[""]`。
 契约测试按实际输出断言（`bytes=0` + 单行编号），未改实现。
 
-### F-12 审批提示暴露原始工具名
+### F-12 审批提示暴露原始工具名（已修复）
 
 写文件审批时用户可见文案为「需要 write_file 操作 ../../leak.txt，请确认」，
 直接暴露内部工具名（`write_file`）。`sanitizeForWechat` 只替换了少数术语，
 `userMessage.noRawTool` 也只匹配「待执行：(write|edit|...)」这一种格式。
 轨迹 `traj-018-write-escape` 按当前语义断言为「请求审批且不执行」，
 未把原始工具名泄漏作为通过条件；该泄漏需要产品侧统一改为中文动作名。
+
+**修复**：`packages/domain/src/governance/types.ts` 的 `approvalQuestion` 增加核心工具中文标签
+（write_file/edit_file/apply_patch → 修改文件，run_command → 执行命令 等）；未知内部
+snake_case 能力降级为「需要执行一项操作，请确认」，不再回显 token。MCP 路径保持原样。
+回归用例：`types.test.ts` 的核心工具标签与未知 token 两条；轨迹 `traj-018` 增加
+`mustNotMatch: ["write_file"]`。
 
 ## 6. T6–T8 评测资产
 

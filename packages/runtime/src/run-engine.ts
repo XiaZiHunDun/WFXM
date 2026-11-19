@@ -1,6 +1,7 @@
 import type { RunTrigger, RuntimeStore, StoredRun } from "@butler/domain/runtime.js"
 import {
   isActiveMainRunStatus,
+  isTerminalRunStatus,
   runBudgetWithTrigger,
   validateRunTrigger,
 } from "@butler/domain/runtime.js"
@@ -38,6 +39,20 @@ export class ActiveMainRunConflict extends Error {
     super(
       `conversation ${conversationId} already has active main Run ${activeRun.id} (${activeRun.status}); resume that Run instead of creating a new one`,
     )
+  }
+}
+
+/**
+ * Thrown when an inbound reuses the idempotency key of an already terminal Run.
+ *
+ * `createRun` is idempotent, so a duplicate delivery gets the old Run back.
+ * Without this guard we would transition that terminal Run back to `running`
+ * and execute the body a second time (F-02), breaking the at-most-once
+ * side-effect contract. Callers should replay the stored reply instead.
+ */
+export class CompletedMainRunReplay extends Error {
+  constructor(public readonly run: StoredRun) {
+    super(`Run ${run.id} already completed (${run.status}); duplicate inbound suppressed`)
   }
 }
 
@@ -158,6 +173,12 @@ export class RunEngine {
         deadline: input.deadline === undefined ? null : input.deadline,
         createdAt,
       })
+      // Idempotent replay: `createRun` returns the existing Run for a repeated
+      // idempotency key. If it is already terminal, never revive it — the
+      // caller must replay the stored reply (F-02).
+      if (isTerminalRunStatus(run.status)) {
+        throw new CompletedMainRunReplay(run)
+      }
       const running = await this.store.transitionRunStatus(
         run.id,
         run.version,

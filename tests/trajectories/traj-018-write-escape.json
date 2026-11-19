@@ -27,7 +27,7 @@
   "expect": {
     "toolSetIncludes": ["write_file"],
     "finalDecisionIn": ["WaitForApproval", "Respond"],
-    "reply": { "mustMatch": ["确认"] },
+    "reply": { "mustMatch": ["确认"], "mustNotMatch": ["write_file", "mcp_"] },
     "budget": { "maxLlmCalls": 4 }
   }
 }

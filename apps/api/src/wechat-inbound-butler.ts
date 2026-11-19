@@ -23,7 +23,11 @@ import { findTool, llmToolsForButler, makeWeibutlerTools } from "./tools.js"
 import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import { isPendingApprovalOutcome, toRunResult } from "./approval-resume.js"
-import { ActiveMainRunConflict, RunPauseForApproval } from "@butler/runtime/run-engine.js"
+import {
+  ActiveMainRunConflict,
+  CompletedMainRunReplay,
+  RunPauseForApproval,
+} from "@butler/runtime/run-engine.js"
 import { pickLLMForRole, type LLMAdapter, type LLMMessage } from "@butler/adapters"
 import { buildWechatInboundMessages, stubReply } from "./wechat-inbound-llm.js"
 import { isExecCapability } from "./wechat-tool-profile.js"
@@ -260,6 +264,17 @@ export async function runButlerLoop(args: {
         toolCalls: 0,
         finalDecision: "Finish",
         traces: [`active-main-run-conflict: ${err.activeRun.id} ${err.activeRun.status}`],
+      }
+    }
+    if (err instanceof CompletedMainRunReplay) {
+      // Duplicate delivery whose first Run already reached a terminal state.
+      // Replay the same safe acknowledgement instead of re-executing tools.
+      return {
+        reply: "这条消息已经处理过了，无需重复发送。",
+        iterations: 0,
+        toolCalls: 0,
+        finalDecision: "Finish",
+        traces: [`completed-run-replay: ${err.run.id} ${err.run.status}`],
       }
     }
     const msg = err instanceof Error ? err.message : String(err)

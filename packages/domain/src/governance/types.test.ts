@@ -84,6 +84,44 @@ describe("decidePolicy", () => {
     expect(decision.question).not.toContain("操作")
   })
 
+  it("uses a Chinese action label for core tools instead of the raw tool id (F-12)", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "write",
+        capability: "write_file",
+        resource: "notes/todo.md",
+        risk: "high",
+      },
+      policy,
+      1000,
+      null,
+    )
+    expect(decision._tag).toBe("Ask")
+    if (decision._tag !== "Ask") return
+    expect(decision.question).toContain("修改文件")
+    expect(decision.question).toContain("notes/todo.md")
+    expect(decision.question).not.toContain("write_file")
+  })
+
+  it("does not echo unknown internal snake_case capabilities", () => {
+    const decision = decidePolicy(
+      {
+        ...baseRequest,
+        kind: "write",
+        capability: "internal_secret_tool",
+        resource: "x",
+        risk: "high",
+      },
+      { ...policy, alwaysConfirm: ["internal_secret_tool"] },
+      1000,
+      null,
+    )
+    expect(decision._tag).toBe("Ask")
+    if (decision._tag !== "Ask") return
+    expect(decision.question).toBe("需要执行一项操作，请确认")
+  })
+
   it("allows always-confirm capabilities when a matching grant is active", () => {
     const decision = decidePolicy(
       {

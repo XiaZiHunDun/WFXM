@@ -89,18 +89,48 @@ const MCP_PROVIDER_LABELS: Readonly<Record<string, string>> = {
 }
 
 /**
- * MCP approval wording. Capability and resource are the same tool id, and the
- * id is an internal snake_case token — neither belongs in a WeChat prompt.
- * Name the external service once; keep the legacy template for non-MCP asks
- * (their capability/resource pair carries real operator meaning).
+ * Core (non-MCP) capabilities use snake_case tool ids internally. They must
+ * never appear verbatim in a WeChat approval prompt (F-12), so map the known
+ * ones to the same action words the butler presentation layer uses.
  */
-function mcpApprovalQuestion(capability: string, resource: string): string {
-  if (!capability.startsWith("mcp_")) {
-    return `需要 ${capability} 操作 ${resource}，请确认`
+const CORE_CAPABILITY_LABELS: Readonly<Record<string, string>> = {
+  read_file: "读取文件",
+  list_dir: "查看目录",
+  write_file: "修改文件",
+  edit_file: "修改文件",
+  apply_patch: "修改文件",
+  delete_file: "删除文件",
+  run_command: "执行命令",
+  send_wechat_file: "发送文件",
+  delegate_to_subagent: "委派子任务",
+}
+
+const INTERNAL_TOKEN = /^[a-z][a-z0-9_]*$/
+
+/**
+ * Owner-facing approval wording.
+ *
+ * MCP capabilities carry the same string as capability and resource, so name
+ * the external service once. Known core tools use a Chinese action label.
+ * Unknown internal snake_case ids degrade to a generic action instead of
+ * echoing the token; only genuinely operator-meaningful names keep the legacy
+ * `capability 操作 resource` template.
+ */
+function approvalQuestion(capability: string, resource: string): string {
+  if (capability.startsWith("mcp_")) {
+    const provider = capability.slice("mcp_".length).split("_")[0] ?? ""
+    const label = MCP_PROVIDER_LABELS[provider] ?? provider
+    return `需要调用 ${label} 的外部工具，请确认`
   }
-  const provider = capability.slice("mcp_".length).split("_")[0] ?? ""
-  const label = MCP_PROVIDER_LABELS[provider] ?? provider
-  return `需要调用 ${label} 的外部工具，请确认`
+  const label = CORE_CAPABILITY_LABELS[capability]
+  if (label) {
+    const target = resource.trim()
+    return target ? `需要${label} ${target}，请确认` : `需要${label}，请确认`
+  }
+  if (INTERNAL_TOKEN.test(capability)) {
+    return "需要执行一项操作，请确认"
+  }
+  return `需要 ${capability} 操作 ${resource}，请确认`
 }
 
 export function decidePolicy(
@@ -151,7 +181,7 @@ export function decidePolicy(
       // MCP capabilities carry the same string as resource, which produced
       // "[待审批] 需要 mcp_todoist_lst-tasks 操作 mcp_todoist_lst-tasks，请确认"
       // (L4-5). Name the external service once instead of echoing the id twice.
-      question: mcpApprovalQuestion(request.capability, request.resource),
+      question: approvalQuestion(request.capability, request.resource),
       expiresAtMs: nowMs + 15 * 60_000,
     }
   }
