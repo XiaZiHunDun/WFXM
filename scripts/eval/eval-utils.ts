@@ -3,8 +3,9 @@
  * Kept free of side effects so either driver can import it safely.
  */
 import { spawn, spawnSync } from "node:child_process"
-import { mkdirSync, writeFileSync } from "node:fs"
-import { dirname, isAbsolute, resolve } from "node:path"
+import { createHash } from "node:crypto"
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type { SeedFile } from "./task-input.js"
 
 export interface DiffStats {
@@ -12,6 +13,41 @@ export interface DiffStats {
   readonly added: number
   readonly removed: number
 }
+
+export interface WorkspaceFileSnapshot {
+  readonly hash: string
+  readonly lines: number
+  /** 文本内容；二进制或超大文件为 null。 */
+  readonly text: string | null
+}
+
+export type WorkspaceSnapshot = Map<string, WorkspaceFileSnapshot>
+
+export interface WorkspaceChange {
+  readonly path: string
+  readonly change: "added" | "modified" | "deleted"
+  readonly added: number
+  readonly removed: number
+}
+
+export interface WorkspaceDiff {
+  readonly changes: readonly WorkspaceChange[]
+  readonly baselineHash: string
+  readonly workspaceHash: string
+}
+
+const SNAPSHOT_SKIP_DIRS = new Set([
+  ".git",
+  "node_modules",
+  ".pnpm-store",
+  "dist",
+  "coverage",
+  ".cache",
+  ".eval",
+  ".turbo",
+])
+
+const MAX_TEXT_BYTES = 1_000_000
 
 export interface TestRun {
   readonly command: string
@@ -65,6 +101,115 @@ export function seedWorkspace(workspaceRoot: string, files: readonly SeedFile[])
     const abs = resolveInsideWorkspace(workspaceRoot, file.path)
     mkdirSync(dirname(abs), { recursive: true })
     writeFileSync(abs, file.content, "utf8")
+  }
+}
+
+/**
+ * 工作区快照：路径 → 内容哈希 + 行数。
+ *
+ * 防作弊层依赖它判断“测试/配置是否被改过”，质量门禁依赖它统计改动面。
+ * 跳过依赖、构建产物与 VCS 目录；二进制只保留哈希。
+ */
+export function snapshotWorkspace(root: string): WorkspaceSnapshot {
+  const out: WorkspaceSnapshot = new Map()
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) continue
+      const abs = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (!SNAPSHOT_SKIP_DIRS.has(entry.name)) walk(abs)
+        continue
+      }
+      if (!entry.isFile()) continue
+      const path = relative(root, abs).split(sep).join("/")
+      const buffer = readFileSync(abs)
+      const binary = buffer.includes(0)
+      const text = binary || buffer.byteLength > MAX_TEXT_BYTES ? null : buffer.toString("utf8")
+      out.set(path, {
+        hash: createHash("sha256").update(buffer).digest("hex"),
+        lines: text === null ? 0 : countLines(text),
+        text,
+      })
+    }
+  }
+  walk(root)
+  return out
+}
+
+function countLines(text: string): number {
+  if (text.length === 0) return 0
+  let lines = text.split("\n").length
+  if (text.endsWith("\n")) lines -= 1
+  return lines
+}
+
+/** 行级差异；文件较小时用 LCS，避免只按行数差误判“替换一行”。 */
+function lineDiff(
+  before: readonly string[],
+  after: readonly string[],
+): { added: number; removed: number } {
+  if (before.length === 0) return { added: after.length, removed: 0 }
+  if (after.length === 0) return { added: 0, removed: before.length }
+  if (before.length * after.length > 4_000_000) {
+    const delta = after.length - before.length
+    return delta >= 0 ? { added: delta, removed: 0 } : { added: 0, removed: -delta }
+  }
+  const width = after.length + 1
+  let prev = new Uint32Array(width)
+  let current = new Uint32Array(width)
+  for (let i = 1; i <= before.length; i += 1) {
+    for (let j = 1; j <= after.length; j += 1) {
+      current[j] =
+        before[i - 1] === after[j - 1]
+          ? (prev[j - 1] ?? 0) + 1
+          : Math.max(prev[j] ?? 0, current[j - 1] ?? 0)
+    }
+    const swap = prev
+    prev = current
+    current = swap
+    current.fill(0)
+  }
+  const common = prev[after.length] ?? 0
+  return { added: after.length - common, removed: before.length - common }
+}
+
+function snapshotDigest(snapshot: WorkspaceSnapshot): string {
+  const hash = createHash("sha256")
+  for (const path of [...snapshot.keys()].sort()) {
+    hash.update(`${path}:${snapshot.get(path)?.hash ?? ""}\n`)
+  }
+  return `sha256:${hash.digest("hex")}`
+}
+
+/** 对比前后快照，只返回变更文件与行级规模。 */
+export function diffWorkspaceSnapshots(
+  before: WorkspaceSnapshot,
+  after: WorkspaceSnapshot,
+): WorkspaceDiff {
+  const paths = new Set([...before.keys(), ...after.keys()])
+  const changes: WorkspaceChange[] = []
+  for (const path of [...paths].sort()) {
+    const prev = before.get(path)
+    const next = after.get(path)
+    if (prev === undefined && next === undefined) continue
+    if (prev === undefined && next !== undefined) {
+      changes.push({ path, change: "added", added: next.lines, removed: 0 })
+      continue
+    }
+    if (prev !== undefined && next === undefined) {
+      changes.push({ path, change: "deleted", added: 0, removed: prev.lines })
+      continue
+    }
+    if (prev?.hash === next?.hash) continue
+    const beforeLines = prev?.text?.split("\n") ?? []
+    const afterLines = next?.text?.split("\n") ?? []
+    const { added, removed } = lineDiff(beforeLines, afterLines)
+    changes.push({ path, change: "modified", added, removed })
+  }
+  return {
+    changes,
+    baselineHash: snapshotDigest(before),
+    workspaceHash: snapshotDigest(after),
   }
 }
 

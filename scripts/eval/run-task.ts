@@ -15,10 +15,12 @@ import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer
 import { makeAcceptanceApp, sendWechatMessage } from "../../tests/acceptance/harness.js"
 import {
   diffWorkspace,
+  diffWorkspaceSnapshots,
   emitResult,
   resolveInsideWorkspace,
   runTests,
   seedWorkspace,
+  snapshotWorkspace,
 } from "./eval-utils.js"
 import type { EvalTaskInput, TraceEvent } from "./task-input.js"
 
@@ -291,6 +293,10 @@ async function main(): Promise<void> {
     // repo-task 的审批恢复需要沿用同一份 plan 游标，因此只在开始时装一次。
     if (task.repoFixture) installFixtures()
 
+    // 防作弊 / 质量门禁：在 agent 动手前记录基线，测试命令运行前取终态，
+    // 避免测试自身产生的临时文件污染改动面。
+    const baselineSnapshot = snapshotWorkspace(app.workspaceRoot)
+
     for (const [index, content] of task.turns.entries()) {
       push("turn.start", { index: index + 1, input: content }, { kind: "owner", id: "u-owner" })
       const turnStartedAt = Date.now()
@@ -330,6 +336,10 @@ async function main(): Promise<void> {
     }
 
     const durationMs = Date.now() - startedAt
+    const workspaceDiff = diffWorkspaceSnapshots(
+      baselineSnapshot,
+      snapshotWorkspace(app.workspaceRoot),
+    )
     // 变更规模在测试前采样，避免测试命令自己产生的临时文件污染 diff。
     const repoDiff = task.repoFixture ? diffWorkspace(task.repoFixture, app.workspaceRoot) : null
     if (repoDiff) push("workspace.diff", { ...repoDiff })
@@ -386,6 +396,9 @@ async function main(): Promise<void> {
           }
         : {}),
       ...(Object.keys(workspace).length > 0 ? { workspace } : {}),
+      workspaceChanges: workspaceDiff.changes,
+      baselineHash: workspaceDiff.baselineHash,
+      workspaceHash: workspaceDiff.workspaceHash,
       ...(repoDiff ? { diff: repoDiff } : {}),
       durationMs,
       trace,

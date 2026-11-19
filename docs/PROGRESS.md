@@ -86,8 +86,9 @@
 | L4 开放任务 | agent-eval `tasks/butler-open` 20 条 + `src/judge.mjs` | `npm test`（judge/trajectory 单测）；真机基线待跑 |
 | CI | WFXM L0–L2 分层；agent-eval nightly L3–L4 | `.github/workflows/{ci,nightly}.yml` |
 
-全量回归：`pnpm test` → 285 文件 / 2295 通过 / 2 skipped；`pnpm typecheck`、`pnpm lint`、`pnpm format:check` 均通过。
-清理幅度：测试文件 314 → 285，行数 47,302 → 43,549（两轮清理，第二轮见 findings §8）；T2–T5 新增契约/集成测试替换旧实现细节断言，而非叠加。
+全量回归：`pnpm test` → 286 文件 / 2299 通过 / 2 skipped；`pnpm typecheck`、`pnpm lint`、`pnpm format:check` 均通过。
+清理幅度：测试文件 314 → 286，用例 2,346 → 2,299；两轮清理见 findings §8。
+评估体系：Phase 3 P0/P1 已落地——`agent-eval` 支持 hiddenChecks / tamperPolicy / honestStop / quality / detector，WFXM 驱动输出工作区变更快照；对抗集 10 条 10/10，轨迹集 18/18。
 发现但未修的问题记录在 [`plans/active/phase2-findings-2026-11-19.md`](plans/active/phase2-findings-2026-11-19.md)（F-01…F-12），其中 F-02「终态 Run 被同幂等键重投后复活」优先级最高。
 
 入口条件：
