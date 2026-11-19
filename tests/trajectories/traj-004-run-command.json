@@ -22,6 +22,7 @@
   },
   "expect": {
     "toolSetIncludes": ["run_command"],
+    "toolArgs": [{ "name": "run_command", "args": { "argv": ["echo", "hello-eval"] } }],
     "toolSetExcludes": ["write_file"],
     "finalDecisionIn": ["Respond"],
     "reply": { "mustMatch": ["hello-eval"], "mustNotMatch": ["mcp_"] },

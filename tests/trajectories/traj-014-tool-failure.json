@@ -22,6 +22,7 @@
   },
   "expect": {
     "toolSetIncludes": ["read_file"],
+    "toolArgs": [{ "name": "read_file", "args": { "path": "config/missing.json" } }],
     "finalDecisionIn": ["Respond"],
     "reply": { "mustMatch": ["不存在"], "mustNotMatch": ["mcp_"] },
     "budget": { "maxLlmCalls": 4 }

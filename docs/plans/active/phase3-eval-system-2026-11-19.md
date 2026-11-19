@@ -44,7 +44,7 @@
 |----|----------|--------|----------|
 | 模型层 | `packages/adapters/src/llm`、`model-router` | 工具选择、参数、停止时机 | 工具召回率、参数正确率、失败注入恢复 |
 | Harness 层 | `packages/runtime`（conversation-loop、run-engine、tool-runtime、capability-boundary、approval-runtime、sandbox） | 工具集、权限、审批、上下文压缩、子运行调度 | 契约通过率、审批/越权拦截率、预算遵守 |
-| 轨迹层 | `agent-eval/src/trajectory.mjs` + `scripts/eval/run-task.ts` 的观测 | 过程质量，而非只看终态 | 必要工具召回、冗余调用率、诊断循环、失败归因 |
+| 轨迹层 | `agent-eval/src/trajectory.mjs` + `scripts/eval/run-task.ts` 的观测 | 过程质量，而非只看终态 | 必要工具召回、冗余调用率、参数正确率、失败归因（已落地 `processMetrics`） |
 | 系统层 | `apps/api` 入站 → DB → 回复 → 渠道；`scripts/l4-smoke.ts` | 真实任务端到端交付 | 黄金集通过率、p95 延迟、false success |
 
 ---
@@ -223,6 +223,10 @@ CI 在 typecheck 之后执行 `pnpm audit:tests:ci`，以 `scripts/audit/budget.
 | P1 防作弊层 | 工作区快照、篡改检测、false success、honest-stop、失败归因 | ✅ 已实现：对抗集 10 条 10/10，轨迹集 18/18 回归通过 |
 | P2 黄金集与门禁 | 30 条任务 + 多指标门禁 + 分层 CI | ✅ 已实现：`tasks/golden` 30 条（10 bug / 10 feature / 10 test-evolution），`gate` 输出 golden/adversarial/safety，PR workflow 跑 5 条 smoke + 对抗集，nightly 跑全量 gate |
 | P3 存量分诊 | 转换 10–15 条，删除对应旧测试 | ✅ 11 条转换为 `legacy` 套件并通过；删除 6 个场景文件与 5 个 `wechat-inbound-butler` 用例；8 个内部观测场景与其余 butler 用例保留 |
+
+**轨迹过程指标**（`agent-eval/src/process-metrics.mjs`）：每次 run 的 `summary.json` 与 `report.md` 输出
+`processMetrics`——必要工具召回（`requiredTools`）、冗余调用（同名同参数重复占比）、参数正确率
+（`toolArgs` 子集匹配）、失败归因分布。指标只观测、不参与 pass/fail；轨迹任务可用 `toolArgs` 声明参数期望。
 
 ---
 

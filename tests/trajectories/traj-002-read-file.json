@@ -23,6 +23,7 @@
   },
   "expect": {
     "toolSetIncludes": ["read_file"],
+    "toolArgs": [{ "name": "read_file", "args": { "path": "README.md" } }],
     "toolSetExcludes": ["run_command"],
     "finalDecisionIn": ["Respond"],
     "reply": { "mustMatch": ["README"], "mustNotMatch": ["mcp_"] },
