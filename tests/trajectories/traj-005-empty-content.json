@@ -6,7 +6,8 @@
   "turns": [""],
   "script": { "plan": [] },
   "expect": {
+    "statusIn": [400],
     "reply": { "mustNotMatch": ["mcp_", "Internal Server Error"] },
-    "budget": { "maxLlmCalls": 2 }
+    "budget": { "maxLlmCalls": 1 }
   }
 }

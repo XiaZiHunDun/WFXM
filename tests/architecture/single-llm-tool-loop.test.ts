@@ -90,10 +90,7 @@ describe("arch: LLM calls are timeout-bounded (§15)", () => {
   })
 
   it("direct adapter.complete call sites are timeout-bounded", () => {
-    // Known gap: butler-assembly wraps the Effect adapter into a Promise port
-    // for the pi engine, which applies a task-level timeout upstream. Tracked
-    // in docs/plans/active/phase2-findings-2026-11-19.md (F-01).
-    const KNOWN_UNBOUNDED = new Set(["apps/api/src/butler-assembly.ts"])
+    // F-01 is fixed: butler-assembly wraps the Promise port with Effect.timeout.
     const violations: string[] = []
     const files = [
       ...listProductionTs(join(process.cwd(), "apps")),
@@ -101,7 +98,6 @@ describe("arch: LLM calls are timeout-bounded (§15)", () => {
     ]
     for (const file of files) {
       const rel = relative(process.cwd(), file)
-      if (KNOWN_UNBOUNDED.has(rel)) continue
       const src = readFileSync(file, "utf-8")
       if (!/\badapter\.complete\s*\(/.test(src)) continue
       const routed = /runConversationLoop\s*\(|completeWithTimeout/.test(src)

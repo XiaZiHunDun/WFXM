@@ -220,10 +220,15 @@ function makeReadTool(cwd: string, maxBytes: number): AgentTool {
             ? Math.min(Math.floor(params.limit), MAX_READ_LINES)
             : MAX_READ_LINES
         const slice = lines.slice(offset - 1, offset - 1 + limit)
-        const text = slice
-          .map((line, index) => `${String(offset + index).padStart(6, " ")} | ${line}`)
-          .join("\n")
-        return textResult(text || "(empty file)", {
+        // F-11: a truly empty file must read as "(empty file)", not as a
+        // numbered blank line invented by "".split("\n").
+        const text =
+          buffer.byteLength === 0
+            ? "(empty file)"
+            : slice
+                .map((line, index) => `${String(offset + index).padStart(6, " ")} | ${line}`)
+                .join("\n") || "(empty file)"
+        return textResult(text, {
           tool: "read",
           path: resolved.path,
           lines: slice.length,

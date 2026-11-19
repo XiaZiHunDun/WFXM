@@ -71,6 +71,24 @@ describe("sanitizeForWechat：不把内部形态泄漏给用户", () => {
     expect(out).not.toContain("Project Knowledge")
     expect(out.trim().length).toBeGreaterThan(0)
   })
+
+  it("不把原始工具名或 mcp_ 标识泄漏给用户（F-08）", () => {
+    const out = finalizeReply("已调用 write_file 和 run_command，mcp_todoist_lst-tasks 完成")
+    expect(out).not.toContain("write_file")
+    expect(out).not.toContain("run_command")
+    expect(out).not.toContain("mcp_")
+    expect(out).toContain("修改文件")
+  })
+
+  it("剥离不可见控制字符，仅剩控制字符时走兜底（F-06）", () => {
+    // eslint-disable-next-line no-control-regex -- asserting C0/C1 controls are removed
+    const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/
+    expect(finalizeReply("\u0000\u0007\u001b[31m")).not.toMatch(CONTROL)
+    const onlyControls = finalizeReply("\u0000\u0007")
+    expect(onlyControls.trim().length).toBeGreaterThan(0)
+    // eslint-disable-next-line no-control-regex -- asserting NUL/BEL are removed
+    expect(onlyControls).not.toMatch(/[\u0000-\u0008]/)
+  })
 })
 
 describe("splitForWechat：分条后可发送", () => {
@@ -97,6 +115,18 @@ describe("splitForWechat：分条后可发送", () => {
 
   it("纯空白内容不产生任何待发送分段", () => {
     expect(splitForWechat(" \n\t ")).toEqual([])
+  })
+
+  it("不在 emoji 代理对中间切断，拼接后与原文一致（F-07）", () => {
+    const raw = "a" + "🚀".repeat(200)
+    const parts = splitForWechat(raw, 100)
+    for (const part of parts) {
+      expect(part.length).toBeLessThanOrEqual(100)
+      // 每段都不应以孤立的高代理项结尾。
+      const last = part.charCodeAt(part.length - 1)
+      expect(last >= 0xd800 && last <= 0xdbff).toBe(false)
+    }
+    expect(parts.join("")).toBe(raw)
   })
 
   it("最终出口组合（finalizeReply → splitForWechat）对 200k 输入仍可发送", () => {

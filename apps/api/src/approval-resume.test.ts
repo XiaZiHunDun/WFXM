@@ -1,34 +1,23 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import { eq } from "drizzle-orm"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
-import { runs, steps } from "@butler/persistence/schema.js"
+import { runs, steps, messages } from "@butler/persistence/schema.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { approveWaitingStep, createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import {
-  resumeApprovedCapability,
-  shouldFailRunAfterCapability,
-  toRunResult,
-} from "./approval-resume.js"
+import { resumeApprovedCapability, toRunResult } from "./approval-resume.js"
 import { makeWiring } from "./wiring.js"
 
 describe("approval resume result mapping", () => {
-  it("keeps a non-zero command exit as a tool result instead of failing the Run", () => {
+  it("keeps a non-zero command exit as a tool result", () => {
     const result = toRunResult({ ok: false, reason: "exit 1: boom", exitCode: 1 })
     expect(result).toEqual({ ok: false, reason: "exit 1: boom", exitCode: 1 })
-    expect(shouldFailRunAfterCapability(result)).toBe(false)
   })
 
-  it("fails the Run for execution errors without an exit code", () => {
-    const result = toRunResult({ ok: false, reason: "timeout after 1000ms" })
-    expect(result).toEqual({ ok: false, reason: "timeout after 1000ms" })
-    expect(shouldFailRunAfterCapability(result)).toBe(true)
-  })
-
-  it("treats a successful capability as success", () => {
-    const result = toRunResult({ ok: true, output: "ok" })
-    expect(shouldFailRunAfterCapability(result)).toBe(false)
+  it("keeps an execution error without an exit code as a tool result (F-09)", () => {
+    const result = toRunResult({ ok: false, reason: "path is outside the workspace" })
+    expect(result).toEqual({ ok: false, reason: "path is outside the workspace" })
   })
 })
 
@@ -124,5 +113,12 @@ describe("resumeApprovedCapability (A1 same-Run resume)", () => {
         input?.source === "conversation_loop" ||
         input?.source === "exec_direct",
     ).toBe(true)
+
+    // F-10: the post-approval reply must be replayable as an assistant message.
+    const conversationMessages = await db.db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+    expect(conversationMessages.some((row) => row.role === "assistant")).toBe(true)
   })
 })

@@ -42,15 +42,6 @@ export function toRunResult(outcome: ToolExecutionOutcome): RunResult {
     : { ok: false, reason: outcome.reason }
 }
 
-/**
- * 命令非零退出是工具结果，不是 Run 失败：调试时（跑测试看到失败）必须把
- * 输出交回模型继续，而不是把整个 Run 标失败并只回“请稍后重试”。
- * 只有缺少 exitCode 的真实执行错误才终结 Run。
- */
-export function shouldFailRunAfterCapability(result: RunResult): boolean {
-  return !result.ok && result.exitCode === undefined
-}
-
 async function persistCapabilityStep(
   store: RuntimeStore,
   args: {
@@ -146,6 +137,24 @@ async function continueLoopAfterCapability(args: {
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
 }): Promise<string> {
+  /** F-10: approval replies must be replayable like any other assistant turn. */
+  const persistReply = async (content: string): Promise<void> => {
+    try {
+      await args.wiring.runtimeStore.appendMessage({
+        messageId: crypto.randomUUID(),
+        conversationId: args.conversationId,
+        role: "assistant",
+        content: { text: content },
+        triggerSource: "api",
+        idempotencyKey: `assistant:approval:${args.runId}:${crypto.randomUUID()}`,
+        createdAt: new Date(),
+      })
+    } catch (err) {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error("[approval-resume] appendMessage failed:", err)
+    }
+  }
+
   if (isExecCapability(args.capability) && !args.execFailed && !postApprovalLoopEnabled(args.env)) {
     const reply = formatPostExecReply(args.capability, args.toolOutput)
     const now = new Date()
@@ -163,11 +172,13 @@ async function continueLoopAfterCapability(args: {
       output: { reply },
       updatedAt: now,
     })
+    await persistReply(reply)
     return reply
   }
 
   const adapter = pickLLMForRole(args.env, "plan")
   if (!adapter) {
+    const reply = args.execFailed ? `操作没有完成：${args.toolOutput}` : args.toolOutput
     const now = new Date()
     const stepId = crypto.randomUUID()
     await args.wiring.runtimeStore.createStep({
@@ -180,10 +191,11 @@ async function continueLoopAfterCapability(args: {
     })
     await args.wiring.runtimeStore.updateStep({
       stepId,
-      output: { reply: args.toolOutput },
+      output: { reply },
       updatedAt: now,
     })
-    return args.toolOutput
+    await persistReply(reply)
+    return reply
   }
   const kernel = new AgentKernel({
     bridge: args.wiring.eventBridge,
@@ -513,9 +525,8 @@ export async function resumeApprovedCapability(
       // execution on owner-driven retry. Consuming up-front is safe because
       // persistCapabilityStep already recorded the attempt.
       await markGrantConsumed(wiring.runtimeStore, decision.grant)
-      if (!result.ok && shouldFailRunAfterCapability(result)) {
-        return failRun(result.reason)
-      }
+      // F-09: a failed capability is handed back to the model below instead of
+      // terminalizing the Run, so the owner gets an explanation and a next step.
 
       // 非零退出（exitCode 存在）走这里：Run 继续，模型拿到命令输出。
       const reply = await continueLoopAfterCapability({

@@ -87,12 +87,12 @@ describe("pi native read contract", () => {
     })
   }
 
-  it("returns a single empty numbered line for an empty file", async () => {
+  it("reads an empty file as an explicit empty marker (F-11)", async () => {
     writeFileSync(join(tmp.root, "empty.txt"), "", "utf8")
     const result = await call(build(), "read", { path: "empty.txt" })
     expect(result.isError).toBeFalsy()
     expect(result.details["bytes"]).toBe(0)
-    expect(textOf(result)).toMatch(/1 \| /)
+    expect(textOf(result)).toContain("(empty file)")
   })
 
   it("rejects binary content", async () => {

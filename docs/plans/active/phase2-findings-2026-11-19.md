@@ -193,3 +193,21 @@ snake_case 能力降级为「需要执行一项操作，请确认」，不再回
 
 - 超长消息由 `detectSpam` 在 `executeInbound` 之前短路，DB 不创建 Run；用户仍收到可读提示。
 - `run_command` 输出截断按“整块丢弃超限 chunk”实现，实际输出可能略小于 32KiB，但截断标记存在。
+
+## 7. F-01 / F-03～F-11 修复记录（2026-11-19）
+
+| 缺陷 | 修复 | 回归 |
+|------|------|------|
+| F-01 单次 LLM 调用无超时 | `createButlerModelPort` 用 `Effect.timeout(BUTLER_V5_LLM_TIMEOUT_MS, 默认 30s)` 包住每次 `adapter.complete`；从超时守卫白名单移除 | `single-llm-tool-loop.test.ts` |
+| F-03 审批绕过状态机 | `createWaitingApprovalStep` 先 `canTransitionRun(run.status, "waiting_approval")`，否则抛 `IllegalRunTransitionError` | `approval.contract.test.ts`「refuses to move a terminal run back」 |
+| F-04 channel 幂等键分叉 | 统一为 `messageId ?? channel-{channelId}-{conversationId}-{turnId}`，并作为 `messageId` 传入 `buildChannelRunTrigger` | `normalize-inbound.contract.test.ts` 键矩阵 |
+| F-05 空内容进入 LLM | 两个入口对 `content.trim() === ""` 返回 `invalid_body` | 键矩阵新增空/纯空白拒绝 |
+| F-06 控制字符直达出站 | `sanitizeForWechat` 剥离 C0/C1（保留 `\n`/`\t`），仅剩控制字符时走兜底 | `outbound-render.contract.test.ts` |
+| F-07 emoji 代理对被切断 | `splitForWechat` 在代理对边界回退一码元，拼接与原文一致 | `outbound-render.contract.test.ts` |
+| F-08 原始工具名/mcp_ 泄漏 | 出口把 `mcp_*` 替换为「外部工具」，已知 snake_case 工具名替换为中文动作 | `outbound-render.contract.test.ts` |
+| F-09 审批后工具失败终结 Run | 删除「无 exitCode 即 failRun」分支；失败作为工具结果交回模型；无模型时回「操作没有完成：…」 | `butler-main-chain.integration.test.ts` |
+| F-10 审批回复未落库 | `continueLoopAfterCapability` 的 exec-direct / tool-fallback 分支补 `appendMessage(assistant)` | `approval-resume.test.ts` |
+| F-11 空文件显示空行号 | `read` 对 `byteLength === 0` 返回 `(empty file)` | `pi-native-tools.contract.test.ts` |
+
+注意：F-08 会影响任何把原始工具名当作「用户可见文案」的旧断言——验收场景
+`F2-sensitive` / `C-F2-checklist-proceed` 已改为断言中文动作「发送文件」。

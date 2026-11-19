@@ -10,8 +10,9 @@ import {
 import { hashNetworkAllowlistForAudit } from "@butler/ports/network-allowlist-hash.js"
 import { outboundNetworkHostsForCapability } from "./grant-network.js"
 import { mcpServerIdForCapability } from "./mcp-consent.js"
-import { transitionRunToTerminal } from "./run-lifecycle.js"
+import { IllegalRunTransitionError, transitionRunToTerminal } from "./run-lifecycle.js"
 import type { RuntimeStore, StoredStep } from "@butler/domain/runtime.js"
+import { canTransitionRun } from "@butler/domain/runtime.js"
 import { parseSandboxProfileName, sandboxProfileForApprovedCapability } from "./sandbox/profiles.js"
 
 export interface PendingCapabilityInput {
@@ -116,6 +117,11 @@ export async function createWaitingApprovalStep(
   const run = await store.getRun(request.runId)
   if (!run) {
     throw new Error(`run not found: ${request.runId}`)
+  }
+  // F-03: go through the same lifecycle rules as every other transition. A
+  // terminal Run must never be rewritten to waiting_approval.
+  if (!canTransitionRun(run.status, "waiting_approval")) {
+    throw new IllegalRunTransitionError(run.id, run.status, "waiting_approval")
   }
   await store.transitionRunStatus(run.id, run.version, "waiting_approval", new Date())
   const stepId = crypto.randomUUID()

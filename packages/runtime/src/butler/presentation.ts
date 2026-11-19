@@ -59,15 +59,40 @@ const TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
 ]
 
 /**
+ * F-08: raw tool ids that the model may echo. Only snake_case ids are mapped —
+ * short English words such as `find`/`ls` can be legitimate prose.
+ */
+const TOOL_ID_LABELS: Readonly<Record<string, string>> = {
+  read_file: "读取文件",
+  list_dir: "查看目录",
+  write_file: "修改文件",
+  edit_file: "修改文件",
+  apply_patch: "修改文件",
+  delete_file: "删除文件",
+  run_command: "执行命令",
+  send_wechat_file: "发送文件",
+  delegate_to_subagent: "委派子任务",
+}
+
+/** C0/C1 control characters are invisible or render as garbage on WeChat. */
+// eslint-disable-next-line no-control-regex -- intentionally stripping C0/C1 controls
+const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g
+
+/**
  * Removes markdown that WeChat would show literally. Code content is kept;
  * only the markers go away. Conservative on purpose: `__name__`-style Python
  * identifiers survive because only complete `__x__` pairs are unwrapped.
  */
 export function sanitizeForWechat(text: string): string {
-  let value = text.replace(/\r\n/g, "\n")
+  let value = text.replace(/\r\n/g, "\n").replace(CONTROL_CHARS, "")
   for (const [pattern, replacement] of TERM_REPLACEMENTS) {
     value = value.replace(pattern, replacement)
   }
+  value = value.replace(/\bmcp_[A-Za-z0-9_.-]+\b/g, "外部工具")
+  value = value.replace(
+    /\b(read_file|list_dir|write_file|edit_file|apply_patch|delete_file|run_command|send_wechat_file|delegate_to_subagent)\b/g,
+    (name: string) => TOOL_ID_LABELS[name] ?? name,
+  )
   value = value.replace(/```[^\n]*\n([\s\S]*?)```/g, "$1")
   value = value.replace(/```/g, "")
   value = value.replace(/`([^`\n]+)`/g, "$1")
@@ -111,8 +136,18 @@ export function splitForWechat(
   for (const line of text.split("\n")) {
     if (line.length > maxChars) {
       flush()
-      for (let offset = 0; offset < line.length; offset += maxChars) {
-        parts.push(line.slice(offset, offset + maxChars))
+      // F-07: never slice between a high/low surrogate pair; joining the parts
+      // must reproduce the original text exactly.
+      let offset = 0
+      while (offset < line.length) {
+        let end = Math.min(offset + maxChars, line.length)
+        if (end < line.length) {
+          const last = line.charCodeAt(end - 1)
+          if (last >= 0xd800 && last <= 0xdbff) end -= 1
+          if (end === offset) end = Math.min(offset + maxChars + 1, line.length)
+        }
+        parts.push(line.slice(offset, end))
+        offset = end
       }
       continue
     }

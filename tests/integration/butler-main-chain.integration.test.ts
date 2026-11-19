@@ -271,10 +271,10 @@ describe("butler main chain (integration)", () => {
     )
   })
 
-  it("write_file 越界：审批后执行失败，Run failed 且用户收到可读说明（当前源码语义）", async () => {
-    // shouldFailRunAfterCapability() terminalizes a capability error without an
-    // exitCode, and write_file always requires approval. This pins the current
-    // behavior: no follow-up LLM turn, no exception, no file outside the root.
+  it("write_file 越界：审批后工具失败不再终结 Run（F-09）", async () => {
+    // A capability error is a tool result: the run continues (or falls back to
+    // a readable reply) instead of being terminalized, and nothing lands outside
+    // the workspace.
     const conversationId = "int-write-escape"
     const escapeName = `${basename(workspace)}-escape.txt`
     const adapter = makeScriptedAdapter([
@@ -302,10 +302,12 @@ describe("butler main chain (integration)", () => {
       allowedToolNames: ["write_file"],
       adapter,
     })
-    expect(confirmed.reply).toContain("失败")
+    expect(confirmed.reply).toContain("没有完成")
     expect(existsSync(join(workspace, "..", escapeName))).toBe(false)
 
+    // F-09: a tool-level failure is a result the model can explain, not a Run
+    // terminalization; the conversation stays usable.
     const rows = await runsFor(conversationId)
-    expect(rows[0]?.status).toBe("failed")
+    expect(rows[0]?.status).toBe("succeeded")
   })
 })

@@ -58,14 +58,34 @@ function toLlmTools(tools: readonly ButlerToolSpec[]): readonly LLMTool[] {
   }))
 }
 
-/** Wraps the Effect-based LLM adapter into the butler's Promise port. */
-export function createButlerModelPort(adapter: LLMAdapter): ButlerModelPort {
+const DEFAULT_MODEL_CALL_TIMEOUT_MS = 30_000
+
+function resolveModelCallTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env["BUTLER_V5_LLM_TIMEOUT_MS"] ?? "").trim()
+  if (!raw) return DEFAULT_MODEL_CALL_TIMEOUT_MS
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MODEL_CALL_TIMEOUT_MS
+}
+
+/**
+ * Wraps the Effect-based LLM adapter into the butler's Promise port.
+ *
+ * F-01: every model call is bounded. The pi engine only sets a task-level
+ * abort timer, which still let a single hung call block the whole Run.
+ */
+export function createButlerModelPort(
+  adapter: LLMAdapter,
+  options: { readonly timeoutMs?: number; readonly env?: NodeJS.ProcessEnv } = {},
+): ButlerModelPort {
+  const timeoutMs = options.timeoutMs ?? resolveModelCallTimeoutMs(options.env)
   return {
     async complete({ messages, tools }) {
       const response = await Effect.runPromise(
-        adapter.complete(toLlmMessages(messages), {
-          ...(tools === undefined ? {} : { tools: toLlmTools(tools) }),
-        }),
+        adapter
+          .complete(toLlmMessages(messages), {
+            ...(tools === undefined ? {} : { tools: toLlmTools(tools) }),
+          })
+          .pipe(Effect.timeout(timeoutMs)),
       )
       const toolCalls = response.toolCalls.map((call) => ({
         id: call.id,

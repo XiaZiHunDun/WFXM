@@ -720,8 +720,8 @@ export const scenariosC: readonly Scenario[] = [
       finalDecision: "WaitForApproval",
       requireApproval: true,
       minToolCalls: 1,
-      // turn 1: checklist prompt
-      containsAll: ["不可撤销", "send_wechat_file"],
+      // turn 1: checklist prompt（F-08 后原始工具名在出口会被替换为中文动作）
+      containsAll: ["不可撤销", "发送文件"],
     },
     setup: (ctx) => {
       // D67 T1b: empty audit path so fatigue reader sees count=0 → high-sensitivity
@@ -844,8 +844,8 @@ export const scenariosC: readonly Scenario[] = [
       finalDecision: "WaitForApproval",
       requireApproval: true,
       minToolCalls: 1,
-      // turn 1: checklist prompt
-      containsAll: ["不可撤销", "send_wechat_file"],
+      // turn 1: checklist prompt（F-08 后原始工具名在出口会被替换为中文动作）
+      containsAll: ["不可撤销", "发送文件"],
     },
     setup: (ctx) => {
       // D67 T2a-1: empty audit path so fatigue reader sees count=0 → high-sensitivity

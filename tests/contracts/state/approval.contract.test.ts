@@ -10,7 +10,11 @@ import {
   denyWaitingStep,
   type PendingApprovalRequest,
 } from "../../../packages/runtime/src/approval-runtime.js"
-import { cancelRun } from "../../../packages/runtime/src/run-lifecycle.js"
+import {
+  cancelRun,
+  IllegalRunTransitionError,
+  transitionRunToTerminal,
+} from "../../../packages/runtime/src/run-lifecycle.js"
 
 const CREATED_AT = new Date("2026-10-01T00:00:00.000Z")
 
@@ -88,6 +92,20 @@ describe("approval lifecycle contract", () => {
     return all.filter((grant) => grant.approvalId === stepId)
   }
 
+  it("refuses to move a terminal run back to waiting_approval (F-03)", async () => {
+    const { run, conversationId } = await seedRunningRun()
+    await transitionRunToTerminal(store, run.id, {
+      from: ["running"],
+      to: "succeeded",
+      now: new Date(CREATED_AT.getTime() + 2000),
+      subject: "owner-contract",
+    })
+    await expect(
+      createWaitingApprovalStep(store, request(run, conversationId)),
+    ).rejects.toBeInstanceOf(IllegalRunTransitionError)
+    expect((await store.getRun(run.id))?.status).toBe("succeeded")
+  })
+
   it("enters waiting_approval and exposes the pending step for the conversation", async () => {
     const { run, conversationId } = await seedRunningRun()
     const { stepId } = await createWaitingApprovalStep(store, request(run, conversationId))
@@ -96,7 +114,6 @@ describe("approval lifecycle contract", () => {
     const step = await store.getStep(stepId)
     expect(step?.kind).toBe("approval")
     expect(step?.status).toBe("waiting")
-
     const pending = await store.listWaitingApprovalStepsForConversation(conversationId)
     expect(pending.map((row) => row.id)).toContain(stepId)
     expect(await grantsForStep(stepId)).toHaveLength(0)

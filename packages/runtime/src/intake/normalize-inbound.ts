@@ -70,6 +70,11 @@ export function normalizeWechatInbound(input: {
   if (typeof content !== "string") {
     return { ok: false, error: { kind: "invalid_body", reason: "content is required" } }
   }
+  // F-05: an empty/blank inbound carries no intent and must not reach the
+  // LLM fallback path as if it were a real user turn.
+  if (content.trim().length === 0) {
+    return { ok: false, error: { kind: "invalid_body", reason: "content is required" } }
+  }
   const projectId = (input.projectId ?? "wechat").trim() || "wechat"
   const resolved = resolveConversationId(input.conversationId, () =>
     defaultWechatConversationId(projectId, fromUserId),
@@ -121,6 +126,11 @@ export function normalizeChannelInbound(input: {
   if (typeof content !== "string") {
     return { ok: false, error: { kind: "invalid_body", reason: "content is required" } }
   }
+  // F-05: an empty/blank inbound carries no intent and must not reach the
+  // LLM fallback path as if it were a real user turn.
+  if (content.trim().length === 0) {
+    return { ok: false, error: { kind: "invalid_body", reason: "content is required" } }
+  }
   const resolved = resolveConversationId(input.conversationId, () =>
     defaultChannelConversationId(channelId, fromSubject),
   )
@@ -129,13 +139,16 @@ export function normalizeChannelInbound(input: {
   const turnId = `turn-${nowMs}`
   const projectId = `channel:${channelId}`
   const messageId = input.messageId?.trim() || undefined
-  const idempotencyKey = messageId ?? `channel-${resolved.conversationId}-${turnId}`
+  // F-04: one key for both the normalized inbound and the RunTrigger. Without
+  // a messageId the old trigger key (`channel-{id}-{conversation}`) was stable
+  // across deliveries, so every later message looked like a duplicate.
+  const idempotencyKey = messageId ?? `channel-${channelId}-${resolved.conversationId}-${turnId}`
   const runTrigger = buildChannelRunTrigger({
     channelId,
     fromSubject,
     conversationId: resolved.conversationId,
     content,
-    ...(messageId ? { messageId } : {}),
+    messageId: idempotencyKey,
   })
   return {
     ok: true,
