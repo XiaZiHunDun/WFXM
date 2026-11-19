@@ -132,12 +132,19 @@ export function ingestDocumentRecord(input: IngestDocumentInput): DocumentValida
   }
 }
 
+/**
+ * 文档级粗筛：任一词项命中即可进入块级打分。
+ *
+ * 之前直接 `includes(整串查询)`，模型把查询改写成「差旅 住宿」这类空格分词
+ * 形式时会 0 命中；块级 `scoreRecallText` 已按词项覆盖率排序，粗筛用 OR
+ * 不会降低精度，只避免改写后的查询被整串匹配挡掉。
+ */
 export function matchDocumentQuery(record: DocumentRecord, query: string): boolean {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
+  const terms = tokenizeRecallQuery(query)
+  if (terms.length === 0) return true
   const hay =
     `${record.title}\n${record.extractedText}\n${record.provenance.note ?? ""}`.toLowerCase()
-  return hay.includes(q)
+  return terms.some((term) => hay.includes(term))
 }
 
 export function selectDocumentsForRecall(input: {
@@ -293,8 +300,12 @@ export function selectDocumentChunksForRecall(input: {
     limit: input.records.length,
   })
   const hits: ScoredDocumentChunk[] = []
+  // 标题命中作为同分时的排序权重：正文同覆盖率时，标题含查询词的文档更可能是
+  // 目标（如「payments-api 部署手册」优于在正文顺带提到端口的网关说明书）。
+  const titleScores = new Map<string, number>()
   for (const record of docs) {
     const chunks = chunkDocumentText(record.extractedText, { maxChars: input.chunkChars })
+    const titleCoverage = query.trim() ? scoreRecallText(query, record.title).score : 0
     const scored = chunks
       .map((chunk) => {
         const withIds: DocumentChunk = {
@@ -302,6 +313,7 @@ export function selectDocumentChunksForRecall(input: {
           docId: record.id,
           chunkId: `${record.id}#${chunk.index}`,
         }
+        titleScores.set(withIds.chunkId, titleCoverage)
         const lexical = scoreRecallText(query, `${record.title}\n${chunk.text}`)
         let score = lexical.score
         let semanticScore: number | undefined
@@ -325,15 +337,30 @@ export function selectDocumentChunksForRecall(input: {
         }
       })
       .filter((hit) => {
-        if (!semantic) return true
+        if (!semantic) {
+          // 纯词法模式只保留真正命中的块：查询非空时丢弃 0 覆盖率的块，
+          // 否则会把不相关文档按时间顺序当成“命中”返回。
+          return query.trim().length === 0 || hit.matchedTerms.length > 0
+        }
         const minScore = embedding?.minScore ?? 0.05
         return hit.score >= minScore || hit.matchedTerms.length > 0
       })
-      .sort((a, b) => b.score - a.score || a.chunk.index - b.chunk.index)
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          (titleScores.get(b.chunk.chunkId) ?? 0) - (titleScores.get(a.chunk.chunkId) ?? 0) ||
+          a.chunk.index - b.chunk.index,
+      )
       .slice(0, perDoc)
     hits.push(...scored)
   }
-  if (query.trim()) hits.sort((a, b) => b.score - a.score)
+  if (query.trim()) {
+    hits.sort(
+      (a, b) =>
+        b.score - a.score ||
+        (titleScores.get(b.chunk.chunkId) ?? 0) - (titleScores.get(a.chunk.chunkId) ?? 0),
+    )
+  }
   return hits.slice(0, limit)
 }
 

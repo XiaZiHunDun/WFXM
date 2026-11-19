@@ -155,12 +155,22 @@ describe("document ingest pure helpers", () => {
     expect(matchDocumentQuery(d, "missing")).toBe(false)
     expect(matchDocumentQuery(d, "")).toBe(true)
   })
+
+  it("matches spaced CJK queries by any token (query-rewrite friendly)", () => {
+    const d = doc({
+      title: "差旅费用标准 2026",
+      extractedText: "## 住宿\n- 一线城市（北京、上海）：上限 650 元/晚",
+    })
+    expect(matchDocumentQuery(d, "差旅 住宿")).toBe(true)
+    expect(matchDocumentQuery(d, "住宿标准 上海")).toBe(true)
+    expect(matchDocumentQuery(d, "审批 流程")).toBe(false)
+  })
 })
 
 describe("chunk-level recall", () => {
-  function ingested(text: string, title = "架构手册") {
+  function ingested(text: string, title = "架构手册", id = "doc-1") {
     const created = ingestDocumentRecord({
-      id: "doc-1",
+      id,
       subject: "owner",
       title,
       format: "markdown",
@@ -191,6 +201,34 @@ describe("chunk-level recall", () => {
     expect(scoreRecallText("missing", "本文说明部署流程").score).toBe(0)
   })
 
+  it("recalls rewritten spaced queries and drops zero-overlap chunks", () => {
+    const travel = ingested(
+      "# 差旅费用标准 2026\n## 住宿\n- 一线城市（北京、上海）：上限 650 元/晚",
+      "差旅费用标准 2026",
+      "doc-travel",
+    )
+    const meeting = ingested(
+      "# 会议与活动费用说明\n客户会议场地费需提前询价并附三家比价",
+      "会议与活动费用说明",
+      "doc-meeting",
+    )
+
+    // 模型常把查询改写成空格分词形式；整串 includes 会 0 命中，词项粗筛应命中。
+    const hits = selectDocumentChunksForRecall({
+      records: [travel, meeting],
+      query: "差旅 住宿",
+      limit: 3,
+    })
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits[0]?.chunk.docId).toBe(travel.id)
+    expect(hits.every((hit) => hit.matchedTerms.length > 0)).toBe(true)
+
+    // 纯词法模式不再把 0 覆盖率的文档当作命中返回。
+    expect(
+      selectDocumentChunksForRecall({ records: [travel, meeting], query: "不存在的词", limit: 3 }),
+    ).toHaveLength(0)
+  })
+
   it("selects top chunks with citation and scoreKind", () => {
     const record = ingested(
       ["安装步骤：pnpm install", "部署流程：先灰度再全量", "回滚方案：保留上一版本"].join("\n"),
@@ -213,14 +251,18 @@ describe("chunk-level recall", () => {
     expect(snippet).toContain("score=")
   })
 
-  it("hybrid recall matches paraphrases that lexical filtering drops", () => {
+  it("hybrid recall ranks paraphrases above low-coverage lexical hits", () => {
     const record = ingested("费用审批与发票提交步骤：先由直属主管审批，再提交发票。", "报销说明")
     const paraphrased = "怎么报销差旅费？"
 
-    // 旧路径会先按子串过滤文档，改写提问直接 0 命中。
-    expect(
-      selectDocumentChunksForRecall({ records: [record], query: paraphrased, limit: 3 }),
-    ).toHaveLength(0)
+    // 词项粗筛仍能命中「报销」，但覆盖率很低，排序不可靠。
+    const lexical = selectDocumentChunksForRecall({
+      records: [record],
+      query: paraphrased,
+      limit: 3,
+    })
+    expect(lexical.length).toBeGreaterThan(0)
+    expect(lexical[0]?.score).toBeLessThan(0.5)
 
     const hybrid = selectDocumentChunksForRecall({
       records: [record],
@@ -234,6 +276,7 @@ describe("chunk-level recall", () => {
     expect(hybrid.length).toBeGreaterThan(0)
     expect(hybrid[0]?.scoreKind).toBe("hybrid")
     expect(hybrid[0]?.semanticScore).toBeGreaterThan(0.9)
+    expect(hybrid[0]?.score).toBeGreaterThan(lexical[0]?.score ?? 0)
     expect(hybrid[0]?.score).toBeGreaterThan(0.4)
   })
 

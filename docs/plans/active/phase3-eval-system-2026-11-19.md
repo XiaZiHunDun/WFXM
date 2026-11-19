@@ -72,6 +72,8 @@
 | **对抗集** | 不可完成、矛盾需求、删测试让它过、跳过审批、假装已写入 | 10 | 每 PR / nightly |
 | **能力集** | 现有轨迹（18）、开放任务（20）、butler fixture（11）、L5 smoke（5+5） | 49 + 10 | nightly / 发布前 |
 | **旧场景转换集** | 从 `tests/eval/scenarios` 与 `wechat-inbound-butler` 转换的确定性任务 | 11 | nightly |
+| **RAG 检索集** | 文档库召回：Hit@1/Hit@3/MRR 与任务通过率分开判定 | 10 | nightly（真实模型） |
+| **仓库修复集** | `repo-task`：真实仓库内 fail-to-pass + pass-to-pass 闭环 | 5 | nightly（真实模型） |
 | **公共基准** | TerminalBench 子集（仅工具纪律校准） | 可选 | 每季度 |
 
 黄金集来源：`docs/FEATURES.md` 的真实能力、git 历史中的修复 PR、`tests/eval` 中仍有价值的长跑场景。
@@ -125,7 +127,7 @@ capability 子集两模型均 10/10。MiniMax 保留为无 DeepSeek key 时的�
 | 层 | 触发 | 内容 | 目标时长 |
 |----|------|------|----------|
 | PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + 对抗集（`agent-eval` 的 PR workflow） | ≤10 分钟 |
-| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial）+ 真实模型开发子集（10 条 capability）+ heldout 子集（6 条，基线 0.90） | ≤60 分钟 |
+| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial/RAG）+ 真实模型开发子集（10 条 capability）+ 仓库修复集（5 条 repo）+ heldout 子集（6 条，基线 0.90） | ≤60 分钟 |
 | Release | 打 tag | `release.yml` 的 `eval-gate`：agent-eval 框架测试 + 全量 gate（baseline/butler/golden/adversarial）+ L3 轨迹集 + 真实模型子集（有密钥时）；失败则 build 不启动 | ≤20 分钟 + L5 人工 |
 
 黄金集 smoke 用 `--limit 5` 截取（任务按 id 排序，覆盖 bug/feature/test-evolution 三类）。
@@ -158,6 +160,18 @@ capability 子集两模型均 10/10。MiniMax 保留为无 DeepSeek key 时的�
 - 历史对照：同一子集 MiniMax-M3.1-Flash 为 95%（`cap-code-edit-parse-duration` 抖动），DeepSeek Flash 为 100%。
 - 选型依据见 §4「默认选型结论」：heldout 是主要区分点（6/6 vs 5/6，P95 28s vs 142s）。
 - 无模型密钥时整步跳过，不影响其他 job。
+
+### RAG 与仓库修复集（nightly）
+
+- RAG：跑 `node src/cli.mjs gate --with-rag --real --repeats 1`，10 条文档库检索任务随 gate 一起执行；
+  检索指标（Hit@3 ≥ 0.9、MRR ≥ 0.8）与任务通过率（≥ 0.9）分开判定，Ragas 生成指标不进 gate。
+  无 `DEEPSEEK_API_KEY` 时退化为纯确定性 `gate`，不影响其他步骤。
+  2026-11-19 修复检索粗筛后复跑：20/20 次尝试通过、Hit@3 100%、MRR 0.95。修复点：
+  `matchDocumentQuery` 由“整串 includes”改为词项 OR（兼容模型把查询改写成空格分词）；
+  纯词法模式丢弃 0 覆盖率块；同分时按标题覆盖率排序（避免正文顺带提到关键词的文档排在目标前）。
+- 仓库修复集：跑 `node src/cli.mjs run --suite repo --runtime wfxm --real --repeats 2 --baseline baselines/repo-real.json`。
+  5 条 `repo-task` 在真实仓库 fixture 上做 fail-to-pass + pass-to-pass 验证；2026-11-19 用 DeepSeek Flash 实跑 5/5 ×2、
+  P95 ≈21s，基线阈值取 **0.80**（5 条任务只能取 0.8/1.0，留一条抖动余量）。
 
 ### 配对比较（两臂 lift）
 
@@ -223,7 +237,7 @@ CI 在 typecheck 之后执行 `pnpm audit:tests:ci`，以 `scripts/audit/budget.
 
 保留的 8 个场景：09/11/13/16 依赖计时或并发；15 依赖内部检索规模；19 需观察 outbox；20 需多会话；22 需压缩观测量。`wechat-inbound-butler` 剩余用例均断言用户可见回复、事件持久化或安全边界（工具面、MCP allowlist、项目知识注入），删除会失去唯一覆盖，故保留。
 
-**保留的 9 个场景**：`09`（慢 LLM）、`11`（活跃 Run 冲突）、`13`（跨会话并发）、`15`（历史召回伸缩）、`16`（LLM 超时）、`19`（子 Agent outbox）、`20`（三层记忆隔离）、`21`（无自动授权）、`22`（工作集压缩）。
+**保留的 8 个场景**：`09`（慢 LLM）、`11`（活跃 Run 冲突）、`13`（跨会话并发）、`15`（历史召回伸缩）、`16`（LLM 超时）、`19`（子 Agent outbox）、`20`（三层记忆隔离）、`22`（工作集压缩）。
 它们依赖注入延迟/超时、并发调度、活跃 Run 预置、outbox/记忆分层等内部观测量；当前 eval 驱动只暴露 HTTP 状态、回复、工具、工作区与测试结果。扩展驱动前保留 vitest，避免覆盖空窗。
 
 ---
