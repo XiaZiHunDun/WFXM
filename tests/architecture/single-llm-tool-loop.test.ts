@@ -20,8 +20,8 @@
  */
 
 import { describe, expect, it } from "vitest"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { readFileSync, readdirSync, statSync } from "node:fs"
+import { join, relative } from "node:path"
 
 const SUBAGENT_WORKER = join(__dirname, "../../apps/api/src/subagent-worker.ts")
 const SCHEDULE_WORKER = join(__dirname, "../../apps/api/src/schedule-worker.ts")
@@ -65,5 +65,56 @@ describe("arch: single LLM-tool loop (§20 #11)", () => {
     const src = readFileSync(PROJECT_KNOWLEDGE_WATCH, "utf-8")
     expect(src).not.toMatch(/\badapter\.complete\b/)
     expect(src).not.toMatch(/for\s*\([^)]*iteration[^)]*\)/)
+  })
+})
+
+// ── §15: every LLM call is timeout-bounded ────────────────────────────────
+
+const CONVERSATION_LOOP = join(process.cwd(), "packages/runtime/src/execution/conversation-loop.ts")
+
+function listProductionTs(root: string): string[] {
+  const out: string[] = []
+  for (const entry of readdirSync(root)) {
+    if (["node_modules", "dist", "_archive", "coverage"].includes(entry)) continue
+    const p = join(root, entry)
+    if (statSync(p).isDirectory()) out.push(...listProductionTs(p))
+    else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts")) out.push(p)
+  }
+  return out
+}
+
+describe("arch: LLM calls are timeout-bounded (§15)", () => {
+  it("canonical loop wraps ports.complete in completeWithTimeout", () => {
+    const src = readFileSync(CONVERSATION_LOOP, "utf-8")
+    expect(src).toMatch(/completeWithTimeout[\s\S]{0,400}ports\.complete/)
+  })
+
+  it("direct adapter.complete call sites are timeout-bounded", () => {
+    // Known gap: butler-assembly wraps the Effect adapter into a Promise port
+    // for the pi engine, which applies a task-level timeout upstream. Tracked
+    // in docs/plans/active/phase2-findings-2026-11-19.md (F-01).
+    const KNOWN_UNBOUNDED = new Set(["apps/api/src/butler-assembly.ts"])
+    const violations: string[] = []
+    const files = [
+      ...listProductionTs(join(process.cwd(), "apps")),
+      ...listProductionTs(join(process.cwd(), "packages")),
+    ]
+    for (const file of files) {
+      const rel = relative(process.cwd(), file)
+      if (KNOWN_UNBOUNDED.has(rel)) continue
+      const src = readFileSync(file, "utf-8")
+      if (!/\badapter\.complete\s*\(/.test(src)) continue
+      const routed = /runConversationLoop\s*\(|completeWithTimeout/.test(src)
+      const bounded = /Effect\.timeout/.test(src)
+      if (!routed && !bounded) violations.push(rel)
+    }
+    expect(violations, `unbounded LLM calls: ${violations.join(", ")}`).toEqual([])
+  })
+
+  it("adapter implementations do not impose a timeout policy (caller owns it)", () => {
+    const violations = listProductionTs(join(process.cwd(), "packages/adapters/src/llm")).filter(
+      (f) => /\bEffect\.timeout\b/.test(readFileSync(f, "utf-8")),
+    )
+    expect(violations).toEqual([])
   })
 })

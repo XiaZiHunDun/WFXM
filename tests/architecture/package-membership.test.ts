@@ -118,7 +118,36 @@ describe("package-membership (DESIGN invariant 16)", () => {
     // no _archive in file → trivially OK
   })
 
-  it("(4) ports/src/index.ts thin barrel — R2 Effect Tag classes 已经归档（R12, 2026-08-28）", () => {
+  it("(4) no orphan workspace package — every packages/* has a production importer", () => {
+    const packagesDir = join(REPO_ROOT, "packages")
+    const names = readdirSync(packagesDir)
+      .filter((n) => statSync(join(packagesDir, n)).isDirectory())
+      .map((n) => `@butler/${n}`)
+    const importers = [
+      ...walk(join(REPO_ROOT, "apps")),
+      ...walk(join(REPO_ROOT, "cli")),
+      ...walk(join(REPO_ROOT, "packages")),
+      ...walk(join(REPO_ROOT, "vendor")),
+    ]
+    const orphans = names.filter((name) => {
+      const re = new RegExp(`from\\s+["']${name.replace("/", "\\/")}`)
+      return !importers.some((file) => {
+        const rel = relative(packagesDir, file)
+        if (rel.startsWith(`${name.split("/")[1]}/`)) return false // self
+        return re.test(readFileSync(file, "utf8"))
+      })
+    })
+    expect(orphans, `orphan packages: ${orphans.join(", ")}`).toEqual([])
+  })
+
+  it("(5) workspace keeps exactly the 5 active packages", () => {
+    const dirs = readdirSync(join(REPO_ROOT, "packages"))
+      .filter((n) => statSync(join(REPO_ROOT, "packages", n)).isDirectory())
+      .sort()
+    expect(dirs).toEqual(["adapters", "domain", "persistence", "ports", "runtime"])
+  })
+
+  it("(6) ports/src/index.ts thin barrel — R2 Effect Tag classes 已经归档（R12, 2026-08-28）", () => {
     const ix = readFileSync(join(BUTLER_V5, "packages/ports/src/index.ts"), "utf8")
     // R12: 全部 14 R2 Effect Tag 类与 postgres 适配器一并清理；本测试断言反例。
     expect(ix, "EventStoreService must NOT be present (R12 archived to _archive)").not.toMatch(

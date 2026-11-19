@@ -75,6 +75,20 @@ function extractMethodBody(src: string, signatureRegex: RegExp): string | null {
   return src.slice(bodyStart, bodyEnd)
 }
 
+function listProductionTs(root: string): string[] {
+  const out: string[] = []
+  for (const entry of readdirSync(root)) {
+    const p = join(root, entry)
+    if (statSync(p).isDirectory()) {
+      if (entry === "node_modules" || entry === "dist" || entry === "_archive") continue
+      out.push(...listProductionTs(p))
+    } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts")) {
+      out.push(p)
+    }
+  }
+  return out
+}
+
 describe("arch: capability registration does not auto-grant (§20 #10)", () => {
   it("CapabilityRegistry.register is sync void with no awaited calls", () => {
     const src = readFileSync(POLICY_GATE, "utf-8")
@@ -143,5 +157,22 @@ describe("arch: capability registration does not auto-grant (§20 #10)", () => {
     walk(join(root, "packages"))
     walk(join(root, "apps"))
     expect(violations, `unexpected grant-creation callers: ${violations.join(", ")}`).toEqual([])
+  })
+
+  it("Model / Channel adapters are NOT registered as capabilities", () => {
+    const files = [CAPABILITY_BOUNDARY, ...listProductionTs(join(__dirname, "../../apps"))]
+    const forbidden = [
+      /\bregistry\.register\s*\([^)]*LLM/i,
+      /\bregistry\.register\s*\([^)]*[Cc]hannel/i,
+      /\bregistry\.register\s*\([^)]*[Mm]odel/i,
+    ]
+    const violations: string[] = []
+    for (const file of files) {
+      const src = readFileSync(file, "utf-8")
+      for (const re of forbidden) {
+        if (re.test(src)) violations.push(`${file}: ${re.source}`)
+      }
+    }
+    expect(violations).toEqual([])
   })
 })

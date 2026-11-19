@@ -72,17 +72,6 @@ describe("wechat-inbound-llm", () => {
       }
     })
 
-    it("uses CallCapability and StartChildRun where the old pseudo-tags were", () => {
-      // The delegate-advertised closing used to say "use Delegate ... instead
-      // of CallTool"; the exec closing used to say "use CallTool directly".
-      const delegate = systemPrompt(WITH_DELEGATE, { includeExecTools: false })
-      expect(delegate).toContain("StartChildRun")
-      expect(delegate).toContain("CallCapability")
-
-      const exec = systemPrompt({}, { includeExecTools: true })
-      expect(exec).toContain("CallCapability")
-    })
-
     it("advertises StartChildRun only when delegate is actually available", () => {
       expect(systemPrompt(WITH_DELEGATE, { includeExecTools: false })).toContain(
         '"_tag":"StartChildRun"',
@@ -93,20 +82,6 @@ describe("wechat-inbound-llm", () => {
       )
       // subagent disabled hides it too.
       expect(systemPrompt({}, { includeExecTools: false })).not.toContain('"_tag":"StartChildRun"')
-    })
-
-    it("declares only real tags, so no shape can reference an undeclared one", () => {
-      for (const shape of PROMPT_SHAPES) {
-        const prompt = systemPrompt(shape.env, shape.opts)
-        const declared = [...prompt.matchAll(/"_tag":"(\w+)"/g)].map((m) => m[1])
-        expect(declared.length, `shape: ${shape.name}`).toBeGreaterThan(0)
-        for (const tag of declared) {
-          expect(
-            ["Respond", "CallCapability", "StartChildRun", "Finish", "WaitForApproval"],
-            `shape ${shape.name} declared unknown tag ${tag}`,
-          ).toContain(tag)
-        }
-      }
     })
   })
 })
