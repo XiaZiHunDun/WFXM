@@ -112,7 +112,7 @@
 | 层 | 触发 | 内容 | 目标时长 |
 |----|------|------|----------|
 | PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + 对抗集（`agent-eval` 的 PR workflow） | ≤10 分钟 |
-| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial） | ≤60 分钟 |
+| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial）+ 真实模型开发子集（10 条） | ≤60 分钟 |
 | Release | 发布前 | 全量黄金集 + 安全基线 + L5 真机 | 人工确认 |
 
 黄金集 smoke 用 `--limit 5` 截取（任务按 id 排序，覆盖 bug/feature/test-evolution 三类）。
@@ -128,6 +128,20 @@
 - 模型调用/token/cost 不超任务预算（由任务 `budget` 断言）。
 
 `gate.json` 现在同时输出 `golden` / `adversarial` / `safety` 三块，并保留各套件的 `report.md`。
+
+### 真实模型开发子集（nightly）
+
+- 任务：`capability` 套件中的 10 条 code-edit / debug / planning，`--repeats 2`，用 `--tasks` 显式列出。
+- 基线：`agent-eval/baselines/capability-real.json`，只约束“整体通过率 + 任务覆盖”；单任务通过率写进文件供诊断，不参与判定（真实模型有随机性）。
+- 更新基线：
+
+  ```bash
+  node src/cli.mjs run --suite capability --runtime wfxm --real --repeats 2 \
+    --tasks <id1,id2,...> --record baselines/capability-real.json
+  ```
+
+- 首版基线是保守下限 0.6；跑出稳定数据后按实际值收紧。
+- 无模型密钥时整步跳过，不影响其他 job。
 
 ---
 
