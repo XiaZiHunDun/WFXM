@@ -73,7 +73,7 @@
 
 ## Phase 2 — 功能深化（⏳）
 
-> 本阶段首个任务是**测试与评估体系建设**：层/模块/组件清单、场景目录、静态轨迹集与开放任务集的设计与实现任务书见 [`plans/active/phase2-test-eval-system-2026-11-19.md`](plans/active/phase2-test-eval-system-2026-11-19.md)。
+> 本阶段首个任务是**测试与评估体系建设**：以使用与关键节点为中心（v2），包含旧测试清理、契约/集成套件、18 条轨迹与 20 条开放任务，并明确 WFXM 与 agent-eval 的仓库边界。任务书见 [`plans/active/phase2-test-eval-system-2026-11-19.md`](plans/active/phase2-test-eval-system-2026-11-19.md)。
 
 入口条件：
 
