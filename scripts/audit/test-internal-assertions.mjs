@@ -14,8 +14,8 @@
  *   node scripts/audit/test-internal-assertions.mjs --min 1 --top 40 --details
  *   node scripts/audit/test-internal-assertions.mjs --json > audit.json
  */
-import { readdirSync, readFileSync, writeFileSync } from "node:fs"
-import { join, relative, sep } from "node:path"
+import { readdirSync, readFileSync } from "node:fs"
+import { join, relative, resolve, sep } from "node:path"
 
 const ROOT = process.cwd()
 const SKIP_DIRS = new Set([
@@ -54,15 +54,34 @@ const OUTCOME_SIGNALS = [
 const LEGACY_TAG = /\bR8\.x\.\d+|\bD\d{1,2}\b|§\d+/g
 
 function parseArgs(argv) {
-  const opts = { json: false, details: false, min: 2, top: 25 }
+  const opts = { json: false, details: false, min: 2, top: 25, max: undefined, budget: undefined }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === "--json") opts.json = true
     else if (arg === "--details") opts.details = true
     else if (arg === "--min") opts.min = Number(argv[++i] ?? opts.min)
     else if (arg === "--top") opts.top = Number(argv[++i] ?? opts.top)
+    else if (arg === "--max") opts.max = Number(argv[++i] ?? NaN)
+    else if (arg === "--budget") opts.budget = argv[++i]
   }
   return opts
+}
+
+/** 预算：显式 --max 优先，否则读 --budget 文件里的 maxInternalOnly。 */
+function resolveLimit(opts) {
+  if (opts.max !== undefined) {
+    if (!Number.isFinite(opts.max)) throw new Error("--max 需要一个数字")
+    return opts.max
+  }
+  if (!opts.budget) return undefined
+  const file = resolve(ROOT, opts.budget)
+  let parsed
+  try {
+    parsed = JSON.parse(readFileSync(file, "utf8"))
+  } catch {
+    throw new Error(`读取预算文件失败：${file}`)
+  }
+  return typeof parsed.maxInternalOnly === "number" ? parsed.maxInternalOnly : undefined
 }
 
 function walk(dir, out) {
@@ -253,8 +272,17 @@ function main() {
     allFiles: perFile,
   }
 
+  const limit = resolveLimit(opts)
+  const overBudget = limit !== undefined && report.totals.internalOnly > limit
+  const budgetLine =
+    limit === undefined
+      ? null
+      : `internal-only ${report.totals.internalOnly} / 预算 ${limit}${overBudget ? "（超出）" : ""}`
+
   if (opts.json) {
     process.stdout.write(JSON.stringify(report, null, 2) + "\n")
+    if (budgetLine) console.error(`${overBudget ? "✗" : "✓"} ${budgetLine}`)
+    if (overBudget) process.exitCode = 1
     return
   }
 
@@ -285,6 +313,14 @@ function main() {
   )
   console.log("统计口径：只扫描显式 it/test 块，it.each 与循环生成的用例不计。")
   console.log("注意：这是候选清单，删除前仍需确认对应契约/集成/评测任务已覆盖。")
+
+  if (budgetLine) console.log(`\n${overBudget ? "✗" : "✓"} ${budgetLine}`)
+  if (overBudget) {
+    console.error(
+      "预算超出：请删除等价的内部用例，或调整 scripts/audit/budget.json 并在 PR 说明理由。",
+    )
+    process.exitCode = 1
+  }
 }
 
 main()

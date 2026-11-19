@@ -81,6 +81,10 @@ jobs:
         working-directory: .
         run: bash scripts/typecheck-gate.sh
 
+      - name: Test triage budget (internal-only assertions)
+        working-directory: .
+        run: pnpm audit:tests:ci
+
       - name: L0 structural invariants
         working-directory: .
         run: pnpm vitest run tests/architecture

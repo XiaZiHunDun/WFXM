@@ -12,6 +12,7 @@
     "test:acceptance": "vitest run tests/acceptance",
     "test:full": "vitest run",
     "audit:tests": "node scripts/audit/test-internal-assertions.mjs",
+    "audit:tests:ci": "node scripts/audit/test-internal-assertions.mjs --budget scripts/audit/budget.json",
     "test:p4-acceptance": "bash scripts/p4-acceptance.sh",
     "demo": "tsx scripts/demo.ts",
     "record:real-llm": "tsx scripts/acceptance/record-real-llm.ts",

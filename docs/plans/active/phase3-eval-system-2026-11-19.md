@@ -187,6 +187,9 @@ node src/cli.mjs compare --a .eval-runs/base --b .eval-runs/cand
 用法：`--min 2 --top 20` 控制阈值与展示；`--details` 列出具体用例；`--json` 输出机器可读结果。
 统计只覆盖显式 `it/test` 块（`it.each` 与循环生成不计）；脚本只给候选，删除前仍需确认契约/集成/评测覆盖。
 
+CI 在 typecheck 之后执行 `pnpm audit:tests:ci`，以 `scripts/audit/budget.json` 的 **49** 为上限，超出即失败。
+预算只允许下调；确需上调时必须在 PR 说明理由，避免实现级用例重新堆积。
+
 ### P3 已完成的转换（11 条）
 
 | 旧测试 | 新任务（`agent-eval`） | 覆盖点 |
