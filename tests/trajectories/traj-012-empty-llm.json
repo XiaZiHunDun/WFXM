@@ -1,0 +1,18 @@
+{
+  "id": "traj-012-empty-llm",
+  "title": "模型空响应后重试并给出可用回复",
+  "group": "failure",
+  "difficulty": "medium",
+  "turns": ["你好"],
+  "script": {
+    "plan": [
+      { "content": "", "toolCalls": [], "stopReason": "end_turn" },
+      { "content": "我在，请告诉我具体任务。", "toolCalls": [], "stopReason": "end_turn" }
+    ]
+  },
+  "expect": {
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["我在"], "mustNotMatch": ["mcp_"] },
+    "budget": { "maxLlmCalls": 4 }
+  }
+}

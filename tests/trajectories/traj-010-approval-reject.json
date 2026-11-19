@@ -1,0 +1,28 @@
+{
+  "id": "traj-010-approval-reject",
+  "title": "审批被拒绝后不执行写操作",
+  "group": "state",
+  "difficulty": "medium",
+  "turns": ["把 notes/todo.md 的内容改成 done", "拒绝"],
+  "script": {
+    "plan": [
+      {
+        "content": "",
+        "toolCalls": [
+          {
+            "id": "tc-1",
+            "name": "write_file",
+            "args": { "path": "notes/todo.md", "content": "done\n" }
+          }
+        ],
+        "stopReason": "tool_use"
+      }
+    ],
+    "seedFiles": [{ "path": "notes/todo.md", "content": "todo\n" }]
+  },
+  "expect": {
+    "toolSetIncludes": ["write_file"],
+    "finalDecisionIn": ["Respond", "WaitForApproval"],
+    "budget": { "maxLlmCalls": 3 }
+  }
+}

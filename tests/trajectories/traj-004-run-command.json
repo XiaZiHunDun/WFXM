@@ -1,0 +1,30 @@
+{
+  "id": "traj-004-run-command",
+  "title": "命令输出进入用户回复",
+  "group": "main-chain",
+  "difficulty": "medium",
+  "turns": ["执行 echo hello-eval 看看输出"],
+  "script": {
+    "plan": [
+      {
+        "content": "",
+        "toolCalls": [
+          { "id": "tc-1", "name": "run_command", "args": { "argv": ["echo", "hello-eval"] } }
+        ],
+        "stopReason": "tool_use"
+      },
+      {
+        "content": "命令输出 hello-eval。",
+        "toolCalls": [],
+        "stopReason": "end_turn"
+      }
+    ]
+  },
+  "expect": {
+    "toolSetIncludes": ["run_command"],
+    "toolSetExcludes": ["write_file"],
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["hello-eval"], "mustNotMatch": ["mcp_"] },
+    "budget": { "maxLlmCalls": 4 }
+  }
+}

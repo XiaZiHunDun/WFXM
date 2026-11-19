@@ -255,6 +255,8 @@ export async function sendWechatMessage(
   msg: {
     readonly content: string
     readonly conversationId?: string
+    /** Optional fixed messageId (idempotency / replay trajectories). */
+    readonly messageId?: string
     /** Optional Run budget forwarded to the inbound route. */
     readonly budget?: Readonly<Record<string, unknown>>
   },
@@ -274,7 +276,7 @@ export async function sendWechatMessage(
       apiVersion: "v1",
       fromUserId: "u-owner",
       content: msg.content,
-      messageId: `m-${Date.now()}-${msgSeq}`,
+      messageId: msg.messageId ?? `m-${Date.now()}-${msgSeq}`,
       ...(msg.conversationId ? { conversationId: msg.conversationId } : {}),
       ...(msg.budget ? { budget: msg.budget } : {}),
       projectId: "wechat",

@@ -1,0 +1,29 @@
+{
+  "id": "traj-003-write-approval",
+  "title": "写文件触发审批而不是直接落盘",
+  "group": "main-chain",
+  "difficulty": "medium",
+  "turns": ["把 notes/todo.md 的内容改成 done"],
+  "script": {
+    "plan": [
+      {
+        "content": "",
+        "toolCalls": [
+          {
+            "id": "tc-1",
+            "name": "write_file",
+            "args": { "path": "notes/todo.md", "content": "done\n" }
+          }
+        ],
+        "stopReason": "tool_use"
+      },
+      { "content": "已更新 notes/todo.md。", "toolCalls": [], "stopReason": "end_turn" }
+    ],
+    "seedFiles": [{ "path": "notes/todo.md", "content": "todo\n" }]
+  },
+  "expect": {
+    "toolSetIncludes": ["write_file"],
+    "finalDecisionIn": ["WaitForApproval", "Respond"],
+    "budget": { "maxLlmCalls": 4 }
+  }
+}

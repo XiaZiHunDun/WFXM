@@ -307,6 +307,7 @@ async function main(): Promise<void> {
       const reply = await sendWechatMessage(app, {
         content,
         ...(conversationId ? { conversationId } : {}),
+        ...(task.messageIds?.[index] ? { messageId: task.messageIds[index] } : {}),
         // 把剩余工具预算传给 Run，让 loop 每轮看到剩余额度。
         ...(turnBudget ? { budget: turnBudget } : {}),
       })

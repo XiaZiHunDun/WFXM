@@ -1,0 +1,21 @@
+{
+  "id": "traj-007-emoji-mixed",
+  "title": "emoji 与中英混合消息正常处理",
+  "group": "message-shape",
+  "difficulty": "easy",
+  "turns": ["帮我看看 🚀 emoji 和 English 混排会不会出问题 🙂"],
+  "script": {
+    "plan": [
+      {
+        "content": "emoji 和英文混排可以正常处理 🚀，不需要额外转义。",
+        "toolCalls": [],
+        "stopReason": "end_turn"
+      }
+    ]
+  },
+  "expect": {
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["emoji"], "mustNotMatch": ["�"] },
+    "budget": { "maxLlmCalls": 3 }
+  }
+}

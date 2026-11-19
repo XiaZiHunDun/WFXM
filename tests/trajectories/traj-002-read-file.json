@@ -1,0 +1,31 @@
+{
+  "id": "traj-002-read-file",
+  "title": "读文件后基于内容回答",
+  "group": "main-chain",
+  "difficulty": "easy",
+  "turns": ["看下 README 讲的是什么"],
+  "script": {
+    "plan": [
+      {
+        "content": "",
+        "toolCalls": [{ "id": "tc-1", "name": "read_file", "args": { "path": "README.md" } }],
+        "stopReason": "tool_use"
+      },
+      {
+        "content": "README 说明这是微信编码管家，支持读代码、改文件和记忆。",
+        "toolCalls": [],
+        "stopReason": "end_turn"
+      }
+    ],
+    "seedFiles": [
+      { "path": "README.md", "content": "# WFXM\n\n微信编码管家：读代码、改文件、会话记忆。\n" }
+    ]
+  },
+  "expect": {
+    "toolSetIncludes": ["read_file"],
+    "toolSetExcludes": ["run_command"],
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["README"], "mustNotMatch": ["mcp_"] },
+    "budget": { "maxLlmCalls": 4 }
+  }
+}

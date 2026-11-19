@@ -30,6 +30,8 @@ export interface RagExpectation {
 export interface EvalTaskInput {
   readonly id: string
   readonly turns: readonly string[]
+  /** 可选：每轮固定的 messageId（用于重复投递/幂等轨迹）；缺省由 harness 生成。 */
+  readonly messageIds?: readonly (string | null)[]
   /** 单轮超时；由任务声明透传给驱动。 */
   readonly timeoutMs?: number
   /** 任务预算；maxToolCalls 会作为 Run budget 传给运行时。 */

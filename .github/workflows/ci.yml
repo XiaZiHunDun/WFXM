@@ -81,7 +81,19 @@ jobs:
         working-directory: .
         run: bash scripts/typecheck-gate.sh
 
-      - name: Unit / contract tests
+      - name: L0 structural invariants
+        working-directory: .
+        run: pnpm vitest run tests/architecture
+
+      - name: L1 contract suites (tools / messages / state)
+        working-directory: .
+        run: pnpm vitest run tests/contracts
+
+      - name: L2 integration main chain (outcome-only)
+        working-directory: .
+        run: pnpm vitest run tests/integration
+
+      - name: Unit / contract tests (full suite)
         working-directory: .
         run: pnpm test
 

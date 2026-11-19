@@ -1,0 +1,12 @@
+{
+  "id": "traj-005-empty-content",
+  "title": "空消息不崩溃且回复可发送",
+  "group": "message-shape",
+  "difficulty": "easy",
+  "turns": [""],
+  "script": { "plan": [] },
+  "expect": {
+    "reply": { "mustNotMatch": ["mcp_", "Internal Server Error"] },
+    "budget": { "maxLlmCalls": 2 }
+  }
+}

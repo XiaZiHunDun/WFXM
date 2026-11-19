@@ -1,0 +1,27 @@
+{
+  "id": "traj-013-unknown-tool",
+  "title": "未知工具调用降级为可读说明",
+  "group": "failure",
+  "difficulty": "medium",
+  "turns": ["帮我查一下这个东西"],
+  "script": {
+    "plan": [
+      {
+        "content": "",
+        "toolCalls": [{ "id": "tc-1", "name": "not_a_tool", "args": {} }],
+        "stopReason": "tool_use"
+      },
+      {
+        "content": "这个操作暂不支持，我可以帮你读代码或改文件。",
+        "toolCalls": [],
+        "stopReason": "end_turn"
+      }
+    ]
+  },
+  "expect": {
+    "toolSetExcludes": ["run_command"],
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["不支持"], "mustNotMatch": ["mcp_"] },
+    "budget": { "maxLlmCalls": 4 }
+  }
+}

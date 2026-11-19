@@ -143,6 +143,42 @@ butler 层 `replayDuplicateInbound` 会先拦截，所以集成用例未复现�
 代码里 `(empty file)` 的回退只在切片为空时触发，而 `"".split("\n")` 得到 `[""]`。
 契约测试按实际输出断言（`bytes=0` + 单行编号），未改实现。
 
+### F-12 审批提示暴露原始工具名
+
+写文件审批时用户可见文案为「需要 write_file 操作 ../../leak.txt，请确认」，
+直接暴露内部工具名（`write_file`）。`sanitizeForWechat` 只替换了少数术语，
+`userMessage.noRawTool` 也只匹配「待执行：(write|edit|...)」这一种格式。
+轨迹 `traj-018-write-escape` 按当前语义断言为「请求审批且不执行」，
+未把原始工具名泄漏作为通过条件；该泄漏需要产品侧统一改为中文动作名。
+
+## 6. T6–T8 评测资产
+
+### T6 轨迹集（18 条）
+
+- 位置：`tests/trajectories/*.json`（数据在 WFXM）
+- 执行：`agent-eval` 的 `src/trajectory.mjs` 归一化为 EvalTask，交给既有 `wfxm` adapter
+  （`scripts/eval/run-task.ts`）跑真实 `/v1/wechat/inbound` 路径；判定复用 `verify.mjs`。
+- 分组：主链路 4、消息形态 3、状态/幂等 4、失败注入 5、安全 2。
+- 只允许结果断言：`toolSetIncludes/Excludes`、`finalDecisionIn`、`reply.mustMatch/mustNotMatch`、
+  `files`、`budget.maxLlmCalls`；`toolSequence/llmCalls/promptContains` 会在加载时直接报错。
+- 验证：`WFXM_ROOT=/home/ailearn/projects/WFXM node src/cli.mjs run --suite trajectory --runtime wfxm`
+  → 18/18 通过。
+
+### T7 开放任务（20 条）
+
+- 位置：`agent-eval/tasks/butler-open/*.json`；评分：`agent-eval/src/judge.mjs`。
+- 类别：代码理解 4、只读检索 4、小改动 5、多步 4、澄清/拒绝 3。
+- 评分顺序：`rubric.hard`（产物文件、工具集合、测试通过、预算）全部通过后，
+  才调用固定 judge（1–5 分，缺省均值 ≥4）；未配置 judge 时记录 `judge.pending`，
+  不把「未评分」当成失败。
+- 首轮只记基线；CI 仅在存在模型密钥时运行 L4。
+
+### T8 CI 分层
+
+- WFXM `ci.yml`：L0 结构不变量 → L1 契约（tests/contracts）→ L2 集成（tests/integration）→ 全量测试。
+- agent-eval `.github/workflows/nightly.yml`：每晚跑 L3 轨迹 + butler fixture；
+  有 `MINIMAX_API_KEY` 时追加 L4 开放任务；产物 `.eval-runs` 归档。
+
 ### 观察（非缺陷，记录语义）
 
 - 超长消息由 `detectSpam` 在 `executeInbound` 之前短路，DB 不创建 Run；用户仍收到可读提示。

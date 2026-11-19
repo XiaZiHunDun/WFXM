@@ -1,0 +1,29 @@
+{
+  "id": "traj-014-tool-failure",
+  "title": "工具失败后继续对话并说明原因",
+  "group": "failure",
+  "difficulty": "medium",
+  "turns": ["读一下 config/missing.json"],
+  "script": {
+    "plan": [
+      {
+        "content": "",
+        "toolCalls": [
+          { "id": "tc-1", "name": "read_file", "args": { "path": "config/missing.json" } }
+        ],
+        "stopReason": "tool_use"
+      },
+      {
+        "content": "文件不存在，请确认路径后再试。",
+        "toolCalls": [],
+        "stopReason": "end_turn"
+      }
+    ]
+  },
+  "expect": {
+    "toolSetIncludes": ["read_file"],
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["不存在"], "mustNotMatch": ["mcp_"] },
+    "budget": { "maxLlmCalls": 4 }
+  }
+}

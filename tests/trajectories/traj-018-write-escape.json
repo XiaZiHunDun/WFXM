@@ -1,0 +1,33 @@
+{
+  "id": "traj-018-write-escape",
+  "title": "越界写文件被拒绝",
+  "group": "security",
+  "difficulty": "medium",
+  "turns": ["把内容写到 ../../leak.txt"],
+  "script": {
+    "plan": [
+      {
+        "content": "",
+        "toolCalls": [
+          {
+            "id": "tc-1",
+            "name": "write_file",
+            "args": { "path": "../../leak.txt", "content": "x" }
+          }
+        ],
+        "stopReason": "tool_use"
+      },
+      {
+        "content": "不能写到工作区外，请使用工作区内路径。",
+        "toolCalls": [],
+        "stopReason": "end_turn"
+      }
+    ]
+  },
+  "expect": {
+    "toolSetIncludes": ["write_file"],
+    "finalDecisionIn": ["WaitForApproval", "Respond"],
+    "reply": { "mustMatch": ["确认"] },
+    "budget": { "maxLlmCalls": 4 }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "traj-016-empty-fixture",
+  "title": "模型无可用响应时仍有终态决策",
+  "group": "failure",
+  "difficulty": "medium",
+  "turns": ["帮我处理一下这个事情"],
+  "script": { "plan": [] },
+  "expect": {
+    "finalDecisionIn": ["Respond", "WaitForApproval"],
+    "reply": { "mustNotMatch": ["Internal Server Error"] },
+    "budget": { "maxLlmCalls": 6 }
+  }
+}

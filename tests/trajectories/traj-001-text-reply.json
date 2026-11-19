@@ -1,0 +1,21 @@
+{
+  "id": "traj-001-text-reply",
+  "title": "纯文本问答返回可用回复",
+  "group": "main-chain",
+  "difficulty": "easy",
+  "turns": ["你好，你能做什么？"],
+  "script": {
+    "plan": [
+      {
+        "content": "我可以帮你读代码、改文件、跑命令。想先做哪件？",
+        "toolCalls": [],
+        "stopReason": "end_turn"
+      }
+    ]
+  },
+  "expect": {
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["读代码"], "mustNotMatch": ["mcp_", "子代理"] },
+    "budget": { "maxLlmCalls": 3 }
+  }
+}

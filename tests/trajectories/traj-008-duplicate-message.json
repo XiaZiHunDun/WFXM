@@ -1,0 +1,16 @@
+{
+  "id": "traj-008-duplicate-message",
+  "title": "重复 messageId 只处理一次",
+  "group": "state",
+  "difficulty": "medium",
+  "turns": ["第一次请求", "第一次请求"],
+  "messageIds": ["m-traj-dup-1", "m-traj-dup-1"],
+  "script": {
+    "plan": [{ "content": "收到第一次请求，我会处理。", "toolCalls": [], "stopReason": "end_turn" }]
+  },
+  "expect": {
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["收到"] },
+    "budget": { "maxLlmCalls": 2 }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "traj-009-multi-turn-context",
+  "title": "多轮对话保留上一轮约束",
+  "group": "state",
+  "difficulty": "medium",
+  "turns": ["记住：以后都用中文回答", "我刚才要求什么？"],
+  "script": {
+    "plan": [
+      { "content": "好的，我会用中文回答。", "toolCalls": [], "stopReason": "end_turn" },
+      { "content": "你要求我用中文回答。", "toolCalls": [], "stopReason": "end_turn" }
+    ]
+  },
+  "expect": {
+    "finalDecisionIn": ["Respond"],
+    "reply": { "mustMatch": ["中文"], "mustNotMatch": ["mcp_"] },
+    "budget": { "maxLlmCalls": 4 }
+  }
+}

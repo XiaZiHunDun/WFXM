@@ -1,0 +1,12 @@
+{
+  "id": "traj-011-undo-noop",
+  "title": "没有可撤销写入时安全返回",
+  "group": "state",
+  "difficulty": "easy",
+  "turns": ["/undo"],
+  "script": { "plan": [] },
+  "expect": {
+    "reply": { "mustNotMatch": ["Internal Server Error", "mcp_"] },
+    "budget": { "maxLlmCalls": 1 }
+  }
+}
