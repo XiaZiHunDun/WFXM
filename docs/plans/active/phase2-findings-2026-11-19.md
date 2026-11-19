@@ -211,3 +211,20 @@ snake_case 能力降级为「需要执行一项操作，请确认」，不再回
 
 注意：F-08 会影响任何把原始工具名当作「用户可见文案」的旧断言——验收场景
 `F2-sensitive` / `C-F2-checklist-proceed` 已改为断言中文动作「发送文件」。
+
+## 8. 第二轮冗余测试清理（2026-11-19）
+
+T2–T5 落地后，旧实现层测试与新契约/集成套件出现实质重复，本轮按「同一输入 + 同一断言」删除：
+
+| 处置 | 文件 | 理由 |
+|------|------|------|
+| 删除 | `packages/runtime/src/execution/pi-native-tools.test.ts` | 5 条全部被 `tests/contracts/tools/pi-native-tools.contract.test.ts` 覆盖 |
+| 删除 | `packages/persistence/src/memory/runtime-store.test.ts` | 13 条全部由 `runtime-store.cross-impl.test.ts` 对双实现锁定（S-A…S-H） |
+| 删除 | `tests/eval/scenarios/{01,02,03,04,06,07,08,12}-*.test.ts` | 主链路/未知工具/崩溃恢复/幂等已由 L1–L3 与 `wechat-inbound-butler.test.ts` 覆盖；保留多轮、超时、并发、内存隔离等独有压力场景 |
+| 精简 | `apps/api/src/workspace-tools.test.ts` | 删除 12 条路径/读写/白名单基础用例，保留凭证授权、多命令执行、目录排序等独有行为 |
+| 精简 | `packages/persistence/src/runtime-store.test.ts` | 删除会话/Run/Step 基础 CRUD，保留脱敏、grant 吊销、PK 回滚等生产实现独有行为 |
+| 精简 | `packages/runtime/src/run-lifecycle.test.ts` | 删除状态迁移/到期基础矩阵，保留审计原子性、级联、waiting_external、并发清理等独有行为 |
+
+结果：测试文件 295 → 285，用例 2,346 → 2,295，测试行数 45,084 → 43,549。
+剩余未动的高价值守卫：`tests/eval` 的压力场景（8 轮、慢模型、并发、工作集压缩）、
+`owner-routes`（鉴权/分页/审计）、`runtime-store.cross-impl`（双实现契约）。

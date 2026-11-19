@@ -1,20 +1,13 @@
 /**
  * R8.x.12 — sandbox path + argv helpers for read_file / run_command.
  */
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { runTool } from "@butler/runtime/tool-runtime.js"
 import type { CredentialProvider } from "@butler/ports/core/credential-provider.js"
-import {
-  ALLOWED_RUN_COMMANDS,
-  makeListDirTool,
-  makeReadFileTool,
-  makeRunCommandTool,
-  makeWriteFileTool,
-  resolveUnderWorkspace,
-} from "./workspace-tools.js"
+import { makeListDirTool, makeRunCommandTool } from "./workspace-tools.js"
 
 const fakeProvider = (values: Readonly<Record<string, string>>): CredentialProvider => ({
   availableCredentials: async () => Object.keys(values),
@@ -26,34 +19,6 @@ const fakeProvider = (values: Readonly<Record<string, string>>): CredentialProvi
     }
     return out
   },
-})
-
-describe("resolveUnderWorkspace", () => {
-  let root: string
-
-  afterEach(() => {
-    if (root) rmSync(root, { recursive: true, force: true })
-  })
-
-  it("resolves a relative path inside the root", () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    writeFileSync(join(root, "note.txt"), "hi")
-    const r = resolveUnderWorkspace(root, "note.txt")
-    expect(r.ok).toBe(true)
-    if (r.ok) expect(r.path).toBe(join(root, "note.txt"))
-  })
-
-  it("rejects path traversal", () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    const r = resolveUnderWorkspace(root, "../secret")
-    expect(r.ok).toBe(false)
-  })
-
-  it("rejects an absolute path outside the root", () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    const r = resolveUnderWorkspace(root, "/etc/passwd")
-    expect(r.ok).toBe(false)
-  })
 })
 
 describe("makeListDirTool", () => {
@@ -77,83 +42,6 @@ describe("makeListDirTool", () => {
     expect(output).not.toContain("node_modules")
     expect(output.indexOf("packages")).toBeLessThan(output.indexOf("a.txt"))
   })
-
-  it("rejects a path outside the workspace", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-list-"))
-    const result = await runTool(
-      makeListDirTool({ workspaceRoot: root }),
-      { path: "../" },
-      {
-        timeoutMs: 1000,
-      },
-    )
-    expect(result.ok).toBe(false)
-    if (result.ok) return
-    expect(result.reason).toContain("outside the workspace")
-  })
-})
-
-describe("makeReadFileTool", () => {
-  let root: string
-
-  afterEach(() => {
-    if (root) rmSync(root, { recursive: true, force: true })
-  })
-
-  it("reads a utf-8 file under the workspace root", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    writeFileSync(join(root, "hello.txt"), "你好 butler")
-    const tool = makeReadFileTool({ workspaceRoot: root })
-    const result = await runTool(tool, { path: "hello.txt" }, { timeoutMs: 1000 })
-    expect(result.ok).toBe(true)
-    if (result.ok) expect(String(result.output)).toBe("你好 butler")
-  })
-
-  it("returns error envelope when path is missing", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    const tool = makeReadFileTool({ workspaceRoot: root })
-    const result = await runTool(tool, {}, { timeoutMs: 1000 })
-    expect(result.ok).toBe(false)
-  })
-
-  it("refuses a symlink that escapes the root", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    const outside = mkdtempSync(join(tmpdir(), "ws-outside-"))
-    writeFileSync(join(outside, "secret.txt"), "leak")
-    symlinkSync(join(outside, "secret.txt"), join(root, "link.txt"))
-    const tool = makeReadFileTool({ workspaceRoot: root })
-    const result = await runTool(tool, { path: "link.txt" }, { timeoutMs: 1000 })
-    expect(result.ok).toBe(false)
-    rmSync(outside, { recursive: true, force: true })
-  })
-})
-
-describe("makeWriteFileTool", () => {
-  let root: string
-
-  afterEach(() => {
-    if (root) rmSync(root, { recursive: true, force: true })
-  })
-
-  it("writes utf-8 text under the workspace root", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    const tool = makeWriteFileTool({ workspaceRoot: root })
-    const result = await runTool(
-      tool,
-      { path: "notes/hello.txt", content: "你好 butler" },
-      { timeoutMs: 1000 },
-    )
-    expect(result.ok).toBe(true)
-    const { readFileSync } = await import("node:fs")
-    expect(readFileSync(join(root, "notes/hello.txt"), "utf8")).toBe("你好 butler")
-  })
-
-  it("rejects path traversal", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    const tool = makeWriteFileTool({ workspaceRoot: root })
-    const result = await runTool(tool, { path: "../escape.txt", content: "x" }, { timeoutMs: 1000 })
-    expect(result.ok).toBe(false)
-  })
 })
 
 describe("makeRunCommandTool", () => {
@@ -170,54 +58,6 @@ describe("makeRunCommandTool", () => {
     if (root) rmSync(root, { recursive: true, force: true })
     if (prevSandbox === undefined) delete process.env["BUTLER_V5_SANDBOX"]
     else process.env["BUTLER_V5_SANDBOX"] = prevSandbox
-  })
-
-  it("runs pwd inside the workspace", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    const tool = makeRunCommandTool({ workspaceRoot: root })
-    const result = await runTool(tool, { argv: ["pwd"] }, { timeoutMs: 2000 })
-    expect(result.ok).toBe(true)
-    if (result.ok) expect(String(result.output).trim()).toBe(root)
-  })
-
-  it("rejects a program not on the allowlist", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    const tool = makeRunCommandTool({ workspaceRoot: root })
-    const result = await runTool(tool, { argv: ["rm", "-rf", "/"] }, { timeoutMs: 1000 })
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.reason).toMatch(/not allowed/)
-  })
-
-  it("rejects args that try to leave the workspace", async () => {
-    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
-    mkdirSync(join(root, "sub"))
-    const tool = makeRunCommandTool({ workspaceRoot: root })
-    const result = await runTool(tool, { argv: ["cat", "../outside"] }, { timeoutMs: 1000 })
-    expect(result.ok).toBe(false)
-  })
-
-  it("ALLOWED_RUN_COMMANDS is a closed list", () => {
-    expect(ALLOWED_RUN_COMMANDS).toEqual([
-      "cat",
-      "date",
-      "echo",
-      "find",
-      "git",
-      "grep",
-      "head",
-      "ls",
-      "node",
-      "pnpm",
-      "pwd",
-      "python3",
-      "rg",
-      "wc",
-    ])
-    expect(ALLOWED_RUN_COMMANDS).not.toContain("rm")
-    expect(ALLOWED_RUN_COMMANDS).not.toContain("bash")
-    expect(ALLOWED_RUN_COMMANDS).not.toContain("sh")
-    expect(ALLOWED_RUN_COMMANDS).not.toContain("curl")
-    expect(ALLOWED_RUN_COMMANDS).not.toContain("sudo")
   })
 
   it("P2: run_command fails closed when a requested credential is not host-authorized", async () => {

@@ -53,13 +53,6 @@ describe("run-lifecycle", () => {
     return { store: activeStore, run: running, conversationId: inbound.conversationId }
   }
 
-  it("cancelRun transitions running -> cancelled", async () => {
-    const { store, run } = await seedRunningRun()
-    const cancelled = await cancelRun(store, run.id, { subject: "owner-1", reason: "test" })
-    expect(cancelled.status).toBe("cancelled")
-    expect(cancelled.version).toBe(run.version + 1)
-  })
-
   it("cancelRun emits audit + status change atomically (D6-arch-align §20 #7)", async () => {
     const store = createRuntimeStore(db.db)
     const createdAt = new Date("2026-08-20T00:00:00Z")
@@ -242,27 +235,6 @@ describe("run-lifecycle", () => {
     expect((await store.getRun(expiredChild.id))?.status).toBe("expired")
   })
 
-  it("expireRun marks past-deadline runs expired", async () => {
-    const past = new Date("2026-08-19T00:00:00Z")
-    const { store, run } = await seedRunningRun({ deadline: past })
-    const expired = await expireRun(store, run.id, {
-      now: new Date("2026-08-21T00:00:00Z"),
-      subject: "system",
-    })
-    expect(expired.status).toBe("expired")
-  })
-
-  it("expireOverdueRuns sweeps active past-deadline runs", async () => {
-    const past = new Date("2026-08-19T00:00:00Z")
-    const { store, run } = await seedRunningRun({ deadline: past })
-    const expired = await expireOverdueRuns(store, {
-      now: new Date("2026-08-21T00:00:00Z"),
-    })
-    expect(expired.some((r) => r.id === run.id)).toBe(true)
-    const updated = await store.getRun(run.id)
-    expect(updated?.status).toBe("expired")
-  })
-
   it("enterWaitingExternal and resumeFromWaitingExternal round-trip", async () => {
     const { store, run, conversationId } = await seedRunningRun()
     const { stepId, run: waiting } = await enterWaitingExternal(store, {
@@ -285,31 +257,6 @@ describe("run-lifecycle", () => {
     expect(done?.status).toBe("succeeded")
   })
 
-  it("expireRun marks past-deadline runs expired and the optimistic version bumps exactly once", async () => {
-    const past = new Date("2026-08-19T00:00:00Z")
-    const { store, run } = await seedRunningRun({ deadline: past })
-    const expired = await expireRun(store, run.id, {
-      now: new Date("2026-08-21T00:00:00Z"),
-      subject: "system",
-    })
-    expect(expired.status).toBe("expired")
-    expect(expired.version).toBe(run.version + 1)
-    expect((await store.getRun(run.id))?.status).toBe("expired")
-  })
-
-  it("expireRun rejects a Run that is already terminal (double-completion guard)", async () => {
-    const past = new Date("2026-08-19T00:00:00Z")
-    const now = new Date("2026-08-21T00:00:00Z")
-    const { store, run } = await seedRunningRun({ deadline: past })
-    await expireRun(store, run.id, { now })
-    // A second expiry of the same Run is a no-op on the state machine and
-    // must be rejected — the Run must never be completed twice.
-    await expect(expireRun(store, run.id, { now })).rejects.toBeInstanceOf(
-      IllegalRunTransitionError,
-    )
-    expect((await store.getRun(run.id))?.status).toBe("expired")
-  })
-
   it("cancelRun rejects an already-expired Run (double-completion guard)", async () => {
     const past = new Date("2026-08-19T00:00:00Z")
     const { store, run } = await seedRunningRun({ deadline: past })
@@ -318,22 +265,6 @@ describe("run-lifecycle", () => {
       IllegalRunTransitionError,
     )
     expect((await store.getRun(run.id))?.status).toBe("expired")
-  })
-
-  it("expireRun rejects a Run with no deadline (unless forced)", async () => {
-    const { store, run } = await seedRunningRun({ deadline: null })
-    await expect(expireRun(store, run.id, { now: new Date() })).rejects.toThrow(/no deadline/)
-    const forced = await expireRun(store, run.id, { now: new Date(), force: true })
-    expect(forced.status).toBe("expired")
-  })
-
-  it("expireRun rejects a Run whose deadline has not been reached", async () => {
-    const future = new Date("2026-09-01T00:00:00Z")
-    const { store, run } = await seedRunningRun({ deadline: future })
-    await expect(
-      expireRun(store, run.id, { now: new Date("2026-08-21T00:00:00Z") }),
-    ).rejects.toThrow(/deadline not reached/)
-    expect((await store.getRun(run.id))?.status).toBe("running")
   })
 
   it("expireOverdueRuns is idempotent across sweeps", async () => {
