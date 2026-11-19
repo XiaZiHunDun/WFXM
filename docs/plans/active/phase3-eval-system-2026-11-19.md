@@ -174,6 +174,15 @@ node src/cli.mjs compare --a .eval-runs/base --b .eval-runs/cand
 第一批转换候选（10–15 条）：`tests/eval` 的多轮/超时/并发场景、`wechat-inbound-butler` 的长跑与事件断言、`acceptance/product-regressions` 中可任务化的场景。
 转换完成前不删除对应旧测试，避免出现覆盖空窗。
 
+### 内部分诊脚本
+
+`pnpm audit:tests`（`scripts/audit/test-internal-assertions.mjs`）静态扫描全部 `*.test.ts`：
+命中 mock/事件表/prompt 文本/注册表断言、且没有返回结果/回复/状态/workspace 等显式结果断言的用例，
+按文件聚合并排序。当前结果：**276 个文件、1995 个静态 `it/test` 块，其中 69 个内部-only（3.5%）**。
+
+用法：`--min 2 --top 20` 控制阈值与展示；`--details` 列出具体用例；`--json` 输出机器可读结果。
+统计只覆盖显式 `it/test` 块（`it.each` 与循环生成不计）；脚本只给候选，删除前仍需确认契约/集成/评测覆盖。
+
 ### P3 已完成的转换（11 条）
 
 | 旧测试 | 新任务（`agent-eval`） | 覆盖点 |
