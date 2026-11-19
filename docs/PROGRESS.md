@@ -75,6 +75,21 @@
 
 > 本阶段首个任务是**测试与评估体系建设**：以使用与关键节点为中心（v2），包含旧测试清理、契约/集成套件、18 条轨迹与 20 条开放任务，并明确 WFXM 与 agent-eval 的仓库边界。任务书见 [`plans/active/phase2-test-eval-system-2026-11-19.md`](plans/active/phase2-test-eval-system-2026-11-19.md)。
 
+### 测试与评估体系（✅ 已完成，2026-11-19）
+
+| 层 | 交付 | 证据 |
+|----|------|------|
+| L0 结构不变量 | 24 个 `section*` 守卫 → 8 个不变量文件 | `pnpm vitest run tests/architecture` |
+| L1 契约 | `tests/contracts/{tools,messages,state}` 8 个新文件 + 1 个既有文件，共 221 用例 | `pnpm vitest run tests/contracts` |
+| L2 集成 | `tests/integration` 12 条 outcome-only 场景 | `pnpm vitest run tests/integration` |
+| L3 轨迹 | `tests/trajectories` 18 条 JSON | `node src/cli.mjs run --suite trajectory --runtime wfxm` → 18/18 |
+| L4 开放任务 | agent-eval `tasks/butler-open` 20 条 + `src/judge.mjs` | `npm test`（judge/trajectory 单测）；真机基线待跑 |
+| CI | WFXM L0–L2 分层；agent-eval nightly L3–L4 | `.github/workflows/{ci,nightly}.yml` |
+
+全量回归：`pnpm test` → 295 文件 / 2336 通过 / 2 skipped；`pnpm typecheck`、`pnpm lint`、`pnpm format:check` 均通过。
+清理幅度：测试文件 314 → 282（T1 阶段），行数 47,302 → 42,356；T2–T5 新增契约/集成测试 2,823 行，替换而非叠加实现细节断言。
+发现但未修的问题记录在 [`plans/active/phase2-findings-2026-11-19.md`](plans/active/phase2-findings-2026-11-19.md)（F-01…F-12），其中 F-02「终态 Run 被同幂等键重投后复活」优先级最高。
+
 入口条件：
 
 1. Phase 1 验收证据保持最新（任一回归先修复）；
