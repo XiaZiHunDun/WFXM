@@ -77,7 +77,7 @@ async function main(): Promise<void> {
     process.env["BUTLER_V5_MODEL_PLAN"] ??
     process.env["ANTHROPIC_MODEL"] ??
     process.env["MINIMAX_MODEL"] ??
-    "MiniMax-M3"
+    "MiniMax-M3.1-Flash"
   const modelExec = process.env["BUTLER_V5_MODEL_EXEC"] ?? modelPlan
 
   // CRITICAL: do NOT set BUTLER_V5_LLM_FIXTURE_DIR — we want real LLM.

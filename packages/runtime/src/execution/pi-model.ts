@@ -35,7 +35,7 @@ export function resolvePiModelFromEnv(env: NodeJS.ProcessEnv = process.env): PiM
   }
 
   const model: Model<"openai-completions"> = {
-    id: envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3",
+    id: envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3.1-Flash",
     name: "minimax",
     api: "openai-completions",
     provider: "minimax",

@@ -22,10 +22,10 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
       ).toEqual({ provider: "anthropic", model: "claude-haiku-4-5-20251001" })
     })
 
-    it("returns DeepSeek (default deepseek-chat) when only DEEPSEEK_API_KEY set", () => {
+    it("returns DeepSeek (default deepseek-flash) when only DEEPSEEK_API_KEY set", () => {
       expect(resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", ...empty })).toEqual({
         provider: "deepseek",
-        model: "deepseek-chat",
+        model: "deepseek-flash",
       })
     })
 
@@ -49,7 +49,7 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
     it("P2 2026-09-04: returns MiniMax when only MINIMAX_API_KEY set", () => {
       expect(resolveModelForRole({ MINIMAX_API_KEY: "sk-mm", ...empty })).toEqual({
         provider: "minimax",
-        model: "MiniMax-M3",
+        model: "MiniMax-M3.1-Flash",
       })
     })
 
@@ -105,7 +105,7 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
     it("prefers MiniMax when MINIMAX_API_KEY set", () => {
       expect(resolveModelForRole({ MINIMAX_API_KEY: "sk-mm", ...empty }, "exec")).toEqual({
         provider: "minimax",
-        model: "MiniMax-M3",
+        model: "MiniMax-M3.1-Flash",
       })
     })
 
@@ -135,7 +135,7 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
     it("falls back to plan when no exec provider configured", () => {
       expect(resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", ...empty }, "exec")).toEqual({
         provider: "deepseek",
-        model: "deepseek-chat",
+        model: "deepseek-flash",
       })
     })
   })
@@ -144,7 +144,7 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
     it("prefers DeepSeek when DEEPSEEK_API_KEY set", () => {
       expect(resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", ...empty }, "intake")).toEqual({
         provider: "deepseek",
-        model: "deepseek-chat",
+        model: "deepseek-flash",
       })
     })
 

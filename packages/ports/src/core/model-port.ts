@@ -74,14 +74,14 @@ function resolvePlan(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefine
   }
   if (hasMiniMaxKey(env)) {
     // P2 fix 2026-09-04: plan role now accepts minimax (previously only
-    // exec/intake did). Default model "MiniMax-M3" matches exec default
+    // exec/intake did). Default model "MiniMax-M3.1-Flash" matches exec default
     // so a single key covers both roles. Owners using minimax for the
     // wechat butler loop no longer need to provision a second provider
     // key for plan.
-    const model = planModel || envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3"
+    const model = planModel || envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3.1-Flash"
     return { provider: "minimax", model }
   }
-  const model = planModel || envTrim(env, "DEEPSEEK_MODEL") || "deepseek-chat"
+  const model = planModel || envTrim(env, "DEEPSEEK_MODEL") || "deepseek-flash"
   if (envTrim(env, "DEEPSEEK_API_KEY")) {
     return { provider: "deepseek", model }
   }
@@ -96,7 +96,7 @@ function resolveExec(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefine
     envTrim(env, "BUTLER_V5_MODEL_EXEC") ||
     envTrim(env, "MINIMAX_MODEL") ||
     envTrim(env, "BUTLER_SMOKE_MINIMAX_MODEL") ||
-    "MiniMax-M3"
+    "MiniMax-M3.1-Flash"
   // BUTLER_V5_MODEL_EXEC 可能指定 deepseek 模型（如 deepseek-chat）：
   // 按模型名路由到 deepseek 通道，避免把 deepseek 模型名发给 MiniMax（400）。
   if (isDeepSeekModelName(model)) {
@@ -116,7 +116,7 @@ function resolveIntake(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefi
     envTrim(env, "BUTLER_V5_MODEL_INTAKE") ||
     envTrim(env, "BUTLER_V5_MODEL_PLAN") ||
     envTrim(env, "DEEPSEEK_MODEL") ||
-    "deepseek-chat"
+    "deepseek-flash"
   // 同 resolvePlan：模型名归属优先，避免 MiniMax 模型名被发到 DeepSeek 通道。
   const modelProvider = providerForModelName(model)
   if (modelProvider === "deepseek" && hasDeepSeekKey(env)) {

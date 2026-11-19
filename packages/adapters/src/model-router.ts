@@ -101,7 +101,7 @@ export function execModelTrace(env: NodeJS.ProcessEnv = process.env): string {
     envTrim(env, "BUTLER_V5_MODEL_EXEC") ||
     envTrim(env, "MINIMAX_MODEL") ||
     envTrim(env, "BUTLER_SMOKE_MINIMAX_MODEL") ||
-    "MiniMax-M3"
+    "MiniMax-M3.1-Flash"
   if (isDeepSeekModelName(model)) {
     if (envTrim(env, "DEEPSEEK_API_KEY")) return `exec:${model}`
     return "exec-fallback:plan"

@@ -140,9 +140,10 @@
     --tasks <id1,id2,...> --record baselines/capability-real.json
   ```
 
-- 2026-11-19 实跑：10 条 ×2 共 20 次，**10/10 任务全过，平均任务通过率 100%**（MiniMax-M3）；基线阈值取 **0.95**，留一次抖动余量。
-- 早前同一子集用 DeepSeek flash 交叉验证为 95%（`cap-planning-env-migration` 1/2），说明阈值对模型差异有区分度。
-- 实跑发现本地 `.env` 的 MiniMax key 已失效（401），更新后 20 次全部通过；CI 侧需确认 secret 有效。
+- 2026-11-19 实跑：10 条 ×2 共 20 次，**9/10 任务全过，平均任务通过率 95%**（MiniMax-M3.1-Flash；`cap-code-edit-parse-duration` 1/2）；基线阈值取 **0.90**，留一次抖动余量。
+- 模型 id：plan / exec 使用 `MiniMax-M3.1-Flash`，intake 使用 `deepseek-flash`（即 DeepSeek-V4.1-Flash-1017 的 API id；API 不接受展示名）。
+- 历史对照：MiniMax-M3 为 100%，DeepSeek flash 为 95%，阈值对模型差异有区分度。
+- 实跑发现本地 `.env` 的 MiniMax key 已失效（401），更新后恢复；CI 侧需确认 secret 有效。
 - 无模型密钥时整步跳过，不影响其他 job。
 
 ### 配对比较（两臂 lift）
@@ -222,7 +223,7 @@ node src/cli.mjs compare --a .eval-runs/base --b .eval-runs/cand
 
 | 增强 | 内容 | 状态 |
 |------|------|------|
-| A 真实模型子集 | 10 条 capability 开发任务，nightly `--repeats 2` + 基线 `baselines/capability-real.json` | ✅ MiniMax 实跑 100%，阈值 0.95 |
+| A 真实模型子集 | 10 条 capability 开发任务，nightly `--repeats 2` + 基线 `baselines/capability-real.json` | ✅ MiniMax-M3.1-Flash 实跑 95%，阈值 0.90 |
 | B 配对比较 | `compare --a/--b` 输出逐任务 lift；缺任务/重复/未评分/套件不一致即 BLOCKED | ✅ 已实现 |
 | C 变异抽查 | `npm run eval:mutation` 把 `golden-bug` 的写入内容换回缺陷版本，任务必须失败 | ✅ 10/10 被抓住 |
 
