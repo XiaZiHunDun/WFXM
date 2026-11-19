@@ -41,8 +41,58 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-  build:
+  # 发布前测评门禁：确定性黄金集/对抗集/基线/butler + 真实模型子集（有密钥时）。
+  # 任一失败则 build 不启动，镜像不会推送。
+  eval-gate:
     needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout WFXM
+        uses: actions/checkout@v4
+      - name: Checkout agent-eval
+        uses: actions/checkout@v4
+        with:
+          repository: XiaZiHunDun/agent-eval
+          path: agent-eval
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - name: Install WFXM dependencies
+        run: pnpm install --frozen-lockfile
+      - name: agent-eval framework tests
+        working-directory: agent-eval
+        run: npm test
+      - name: Deterministic evaluation gate
+        working-directory: agent-eval
+        env:
+          WFXM_ROOT: ${{ github.workspace }}
+        run: node src/cli.mjs gate
+      - name: Real-model capability subset (if configured)
+        working-directory: agent-eval
+        env:
+          WFXM_ROOT: ${{ github.workspace }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          MINIMAX_MODEL: MiniMax-M3.1-Flash
+          DEEPSEEK_MODEL: deepseek-flash
+        run: |
+          if [ -z "${MINIMAX_API_KEY:-}" ]; then
+            echo "::warning::MINIMAX_API_KEY 未配置，跳过真实模型子集"
+            exit 0
+          fi
+          node src/cli.mjs run --suite capability --runtime wfxm --real --repeats 2 \
+            --tasks cap-code-edit-clamp,cap-code-edit-parse-duration,cap-code-edit-port-env,cap-code-edit-slugify,cap-debug-async-await,cap-debug-loop-bound,cap-debug-null-guard,cap-debug-range-end,cap-planning-env-migration,cap-planning-release-order \
+            --baseline baselines/capability-real.json
+      # L5 真机冒烟依赖运行中的服务与真实微信通道，保留为发布前人工确认：
+      # 在目标机执行 `npx tsx scripts/l4-smoke.ts`，失败则停止发布。
+
+  build:
+    needs: [validate, eval-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
