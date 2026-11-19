@@ -71,6 +71,7 @@
 | **黄金回归集** | 内部真实任务：bug fix、feature、测试演化 | 30（10/10/10） | 每 PR 跑 5 条 smoke，nightly 全量 |
 | **对抗集** | 不可完成、矛盾需求、删测试让它过、跳过审批、假装已写入 | 10 | 每 PR / nightly |
 | **能力集** | 现有轨迹（18）、开放任务（20）、butler fixture（11）、L5 smoke（5+5） | 49 + 10 | nightly / 发布前 |
+| **旧场景转换集** | 从 `tests/eval/scenarios` 与 `wechat-inbound-butler` 转换的确定性任务 | 10 | nightly |
 | **公共基准** | TerminalBench 子集（仅工具纪律校准） | 可选 | 每季度 |
 
 黄金集来源：`docs/FEATURES.md` 的真实能力、git 历史中的修复 PR、`tests/eval` 中仍有价值的长跑场景。
@@ -144,6 +145,26 @@
 第一批转换候选（10–15 条）：`tests/eval` 的多轮/超时/并发场景、`wechat-inbound-butler` 的长跑与事件断言、`acceptance/product-regressions` 中可任务化的场景。
 转换完成前不删除对应旧测试，避免出现覆盖空窗。
 
+### P3 已完成的转换（10 条）
+
+| 旧测试 | 新任务（`agent-eval`） | 覆盖点 |
+|--------|------------------------|--------|
+| `tests/eval/scenarios/05-multi-turn-mix.test.ts` | `scn-05-multi-turn-mix` | 四轮异构能力、跨轮回复与工具 |
+| `tests/eval/scenarios/10-bad-decision-payload.test.ts` | `scn-10-bad-decision-payload` | 决策 JSON 缺字段后纯文本兜底 |
+| `tests/eval/scenarios/14-sustained-eight-turns.test.ts` | `scn-14-sustained-eight-turns` | 同会话八轮、末轮审批确认 |
+| `tests/eval/scenarios/17-stuck-loop-with-varying-args.test.ts` | `scn-17-stuck-loop-varying-args` | 同名工具变参不误触发卡死保护 |
+| `tests/eval/scenarios/18-decoder-retry-success.test.ts` | `scn-18-decoder-retry-success` | 解码失败自修正 |
+| `wechat-inbound-butler` 纯文本兜底 | `scn-wib-plain-text` | 非 JSON 回复按 Respond |
+| `wechat-inbound-butler` 单轮多工具 | `scn-wib-multi-tool-one-turn` | 同一轮两个 native tool_call |
+| `wechat-inbound-butler` Finish 兜底 | `scn-wib-finish-stub` | Finish → 可用兜底回复 |
+| `wechat-inbound-butler` 审批回显 | `scn-wib-approval-question` | WaitForApproval → 确认问题 |
+| `wechat-inbound-butler` 卡死保护 | `scn-wib-stuck-loop` | 同名同参 3 次短路 |
+
+多轮转换依赖驱动新增的 `runtimeHints.wfxm.fixtures.turns[index]`：每轮可指定不同 LLM 应答，未声明的轮次回落到顶层 plan。
+
+**保留的 9 个场景**：`09`（慢 LLM）、`11`（活跃 Run 冲突）、`13`（跨会话并发）、`15`（历史召回伸缩）、`16`（LLM 超时）、`19`（子 Agent outbox）、`20`（三层记忆隔离）、`21`（无自动授权）、`22`（工作集压缩）。
+它们依赖注入延迟/超时、并发调度、活跃 Run 预置、outbox/记忆分层等内部观测量；当前 eval 驱动只暴露 HTTP 状态、回复、工具、工作区与测试结果。扩展驱动前保留 vitest，避免覆盖空窗。
+
 ---
 
 ## 8. 实施阶段
@@ -153,7 +174,7 @@
 | P0 设计与 schema | 本文件 + `agent-eval` schema 扩展（hiddenChecks/tamperPolicy/honestStop/quality） | ✅ 已实现：任务校验支持新字段，旧任务兼容 |
 | P1 防作弊层 | 工作区快照、篡改检测、false success、honest-stop、失败归因 | ✅ 已实现：对抗集 10 条 10/10，轨迹集 18/18 回归通过 |
 | P2 黄金集与门禁 | 30 条任务 + 多指标门禁 + 分层 CI | ✅ 已实现：`tasks/golden` 30 条（10 bug / 10 feature / 10 test-evolution），`gate` 输出 golden/adversarial/safety，PR workflow 跑 5 条 smoke + 对抗集，nightly 跑全量 gate |
-| P3 存量分诊 | 转换 10–15 条，删除对应旧测试 | 进行中 |
+| P3 存量分诊 | 转换 10–15 条，删除对应旧测试 | ✅ 已实现：10 条转换为 `agent-eval` 的 `legacy` 套件 10/10 通过，删除 5 个场景文件与 5 个 `wechat-inbound-butler` 用例；9 个内部观测场景保留 |
 
 ---
 

@@ -282,12 +282,13 @@ async function main(): Promise<void> {
     let firstDecision: string | undefined
     let totalToolCalls = 0
 
-    const installFixtures = (): void => {
+    const installFixtures = (turnIndex?: number): void => {
       if (task.realModel) return
+      const perTurn = turnIndex === undefined ? undefined : hint.fixtures?.turns?.[turnIndex]
       app.setFixtures({
-        plan: hint.fixtures?.plan ?? [],
-        exec: hint.fixtures?.exec ?? [],
-        intake: hint.fixtures?.intake ?? [],
+        plan: perTurn?.plan ?? hint.fixtures?.plan ?? [],
+        exec: perTurn?.exec ?? hint.fixtures?.exec ?? [],
+        intake: perTurn?.intake ?? hint.fixtures?.intake ?? [],
       })
     }
     // repo-task 的审批恢复需要沿用同一份 plan 游标，因此只在开始时装一次。
@@ -301,8 +302,9 @@ async function main(): Promise<void> {
       push("turn.start", { index: index + 1, input: content }, { kind: "owner", id: "u-owner" })
       const turnStartedAt = Date.now()
       const modelCursor = tracer.size()
-      // chat-task 每轮重置 fixture 计数器，对齐 realistic.test.ts 的多轮语义。
-      if (!task.repoFixture) installFixtures()
+      // chat-task 每轮重置 fixture 计数器，对齐 realistic.test.ts 的多轮语义；
+      // 任务可用 fixtures.turns[index] 为单轮指定不同的 LLM 应答。
+      if (!task.repoFixture) installFixtures(index)
       const turnBudget =
         task.budget?.maxToolCalls !== undefined
           ? {

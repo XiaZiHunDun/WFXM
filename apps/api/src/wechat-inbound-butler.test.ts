@@ -200,22 +200,6 @@ describe("runButlerLoop", () => {
     expect(result.toolCalls).toBe(0)
   })
 
-  it("treats plain text as Respond when decodeDecision fails", async () => {
-    const adapter = makeMockAdapter([textResponse("plain text reply")])
-    const result = await runButlerLoop({
-      wiring,
-      conversationId: "c-test-3",
-      content: "hello",
-      fromUserId: "u-1",
-      projectId: "p-1",
-      env: {},
-      logger: silentLogger,
-      adapter,
-    })
-    expect(result.reply).toBe("plain text reply")
-    expect(result.finalDecision).toBe("Respond")
-  })
-
   it("executes a native OpenAI-style tool_call and returns the model's follow-up Respond", async () => {
     const adapter = makeMockAdapter([
       toolCallResponse([{ id: "tc_1", name: "get_current_time", args: {} }]),
@@ -410,33 +394,6 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.includes("earlier msg"))).toBe(true)
   })
 
-  it("runs multiple native tool_calls in one assistant turn", async () => {
-    const adapter = makeMockAdapter([
-      toolCallResponse([
-        { id: "tc_a", name: "get_current_time", args: {} },
-        { id: "tc_b", name: "recall_history", args: { limit: 2 } },
-      ]),
-      textResponse("both done"),
-    ])
-    const result = await runButlerLoop({
-      wiring,
-      conversationId: "c-test-multi",
-      content: "time and history?",
-      fromUserId: "u-1",
-      projectId: "p-1",
-      env: {},
-      logger: silentLogger,
-      adapter,
-    })
-    expect(result.reply).toBe("both done")
-    expect(result.toolCalls).toBe(2)
-    // B-08/10: decoder failure now triggers 1 retry (default MAX_DECODE_RETRIES=1),
-    // so total iterations per "tool_call + plain-text Respond" round-trip = 3
-    // (tool_call iter + decode-fail retry iter + adapter-exhausted iter that surfaces
-    // lastNonEmptyRaw as Respond).
-    expect(result.iterations).toBe(2)
-  })
-
   it("runs legacy JSON-decision CallCapability as a fallback when no native tool_calls", async () => {
     const adapter = makeMockAdapter([
       textResponse(
@@ -465,43 +422,6 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
   })
 
-  it("falls back to stub on Finish decision", async () => {
-    const adapter = makeMockAdapter([
-      textResponse(JSON.stringify({ _tag: "Finish", reason: "all done" })),
-    ])
-    const result = await runButlerLoop({
-      wiring,
-      conversationId: "c-test-6",
-      content: "hi",
-      fromUserId: "u-1",
-      projectId: "p-1",
-      env: {},
-      logger: silentLogger,
-      adapter,
-    })
-    expect(result.reply).toContain("已收到")
-    expect(result.finalDecision).toBe("Finish")
-  })
-
-  it("echoes WaitForApproval question back as reply", async () => {
-    const adapter = makeMockAdapter([
-      textResponse(JSON.stringify({ _tag: "WaitForApproval", question: "delete?" })),
-    ])
-    const result = await runButlerLoop({
-      wiring,
-      conversationId: "c-test-7",
-      content: "delete the file",
-      fromUserId: "u-1",
-      projectId: "p-1",
-      env: {},
-      logger: silentLogger,
-      adapter,
-    })
-    expect(result.reply).toContain("delete?")
-    expect(result.reply).toContain("需要确认")
-    expect(result.finalDecision).toBe("WaitForApproval")
-  })
-
   it("falls back to stub when LLM call fails", async () => {
     const failingAdapter: LLMAdapter = {
       complete: vi.fn(() => Effect.fail(new Error("network-down"))),
@@ -519,36 +439,6 @@ describe("runButlerLoop", () => {
     expect(result.reply).toContain("已收到")
     expect(result.finalDecision).toBe("Finish")
     expect(result.traces.some((t) => t.includes("llm failure"))).toBe(true)
-  })
-
-  it("bounds the loop via stuck-loop detection (B-06): same tool calls 3x with same args triggers Finish", async () => {
-    // Adapter always asks for the same tool with same args — Phase D fix B-06
-    // short-circuits with stuck-loop trace before exhausting the iteration cap.
-    const adapter = makeMockAdapter(
-      Array.from({ length: 10 }, () =>
-        toolCallResponse([{ id: "tc_loop", name: "get_current_time", args: {} }]),
-      ),
-    )
-    const result = await runButlerLoop({
-      wiring,
-      conversationId: "c-test-9",
-      content: "loop me",
-      fromUserId: "u-1",
-      projectId: "p-1",
-      env: {},
-      logger: silentLogger,
-      adapter,
-    })
-    // Stuck-loop detector fires at the 3rd invocation of (get_current_time, {}).
-    expect(result.iterations).toBe(3)
-    expect(result.reply).toContain("已收到")
-    expect(
-      result.traces.some((t) =>
-        /stuck-loop: get_current_time invoked 3x with same args; aborting/.test(t),
-      ),
-    ).toBe(true)
-    // No loop-exhausted trace — we short-circuit earlier.
-    expect(result.traces.some((t) => t.includes("loop exhausted"))).toBe(false)
   })
 
   it("returns stub when the model requests an unknown tool via native tool_calls", async () => {

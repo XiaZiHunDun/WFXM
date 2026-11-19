@@ -55,6 +55,12 @@ export interface EvalTaskInput {
         readonly exec?: readonly FixtureEntry[]
         readonly intake?: readonly FixtureEntry[]
         readonly seedFiles?: readonly SeedFile[]
+        /** 多轮任务：按轮次覆盖 LLM 应答；未声明的轮次回落到 plan/exec/intake。 */
+        readonly turns?: readonly {
+          readonly plan?: readonly FixtureEntry[]
+          readonly exec?: readonly FixtureEntry[]
+          readonly intake?: readonly FixtureEntry[]
+        }[]
       }
       /** RAG 任务：入库文档与检索真值。 */
       readonly rag?: {
