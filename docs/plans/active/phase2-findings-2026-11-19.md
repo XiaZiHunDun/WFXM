@@ -70,3 +70,80 @@ pi 引擎只在任务级设置 abort 定时器，单次模型调用可能长时�
 | §10 PolicyDecision / ActionRequest / ScopedGrant 字段清单 | 同上 | `policy-gate.test.ts`、`capability-boundary.test.ts` |
 | §18 未触发特性（projection/embedding/snapshot）不得被引用 | 属产品触发决策，功能上线时必然失败 | 发布评审；如需恢复应改为「触发器检查清单」而非测试 |
 | §0「不存在进程内 EventBus」 | 一次性架构决策 | code review |
+
+## 4. T2–T5 新增契约/集成套件
+
+| 层 | 文件 | 用例数 | 锚点 |
+|----|------|--------|------|
+| L1 工具 | `tests/contracts/tools/workspace-tools.contract.test.ts` | 47 | list_dir/read_file/write_file/run_command/send_wechat_file 的入参、错误 envelope、路径逃逸、大小预算、退出码 |
+| L1 工具 | `tests/contracts/tools/pi-native-tools.contract.test.ts` | 51 | read/write/edit/bash/grep/find/ls 的必填参数、逃逸、边界、截断、超时 |
+| L1 消息 | `tests/contracts/messages/normalize-inbound.contract.test.ts` | 71 | wechat/channel 规范化的形态矩阵、错误 kind、幂等键规则 |
+| L1 消息 | `tests/contracts/messages/outbound-render.contract.test.ts` | 20 | 回复可发送性：截断、兜底、术语替换、分条 |
+| L1 状态 | `tests/contracts/state/run-state.contract.test.ts` | 12 | 迁移矩阵、终态不可回退、double-completion、版本冲突、到期/级联 |
+| L1 状态 | `tests/contracts/state/idempotency.contract.test.ts` | 5 | 重复入站/run 幂等键、并发重复投递、不同消息独立 |
+| L1 状态 | `tests/contracts/state/approval.contract.test.ts` | 6 | 待审批落库、确认/拒绝/重复确认/过期、外部取消 |
+| L1 状态 | `tests/contracts/state/migration.contract.test.ts` | 2 | 空库到最新 schema、旧数据迁移后关键行可读 |
+| L2 集成 | `tests/integration/butler-main-chain.integration.test.ts` | 6 | 纯文本/write_file/read_file/run_command/工具失败/越界写的用户可见结果 + DB 终态 |
+| L2 集成 | `tests/integration/butler-resilience.integration.test.ts` | 6 | 重复 messageId、审批拒绝、空/超长内容、LLM 空响应、非法 toolCall |
+
+合计 10 文件 / 233 个用例。全部离线可跑，未改动生产代码与已有测试。
+`pnpm test`：295 文件 / 2336 通过 / 2 skipped。
+
+## 5. T2–T5 期间发现的缺陷（记录，未修）
+
+### F-02 终态 Run 被同幂等键重投后复活并重复执行
+
+`RunEngine.executeInbound` 在既有 run 已 `succeeded` 时，`createRun` 幂等返回旧 run，
+随后仍无条件迁移到 `running` 并再次执行 runBody。同一幂等键二次投递时 runBody 执行两次，
+run 行数仍为 1，但 version 从 3 被推到 5。破坏“重复消息只处理一次”的副作用契约。
+由 `tests/contracts/state/idempotency.contract.test.ts` 的直连 store/engine 用例暴露；
+butler 层 `replayDuplicateInbound` 会先拦截，所以集成用例未复现。
+
+### F-03 `createWaitingApprovalStep` 绕过状态机
+
+直接调用 `store.transitionRunStatus(..., "waiting_approval")`，未走 `canTransitionRun`；
+若误用于终态 run，会把终态改写为 `waiting_approval`。
+
+### F-04 channel 入口幂等键分叉
+
+无 `messageId` 时 `NormalizedInbound.idempotencyKey = channel-{conversationId}-turn-{nowMs}`，
+而 `runTrigger.idempotencyKey = channel-{channelId}-{conversationId}`。同一入站存在两个键，
+取决于下游用哪一个去重。
+
+### F-05 空 content 在规范化层被接受
+
+`content: ""` 返回 `ok: true`，空消息继续流入 LLM/兜底路径，而不是在 intake 拒绝。
+
+### F-06 控制字符可直达出站
+
+`finalizeReply("\u0000\u0007")` 不被判为“空回复”，会原样发送不可见控制字符（仅纯空白走兜底）。
+
+### F-07 `splitForWechat` 可能切断 emoji 代理对
+
+按 UTF-16 码元硬切，边界落在 emoji 内部时每段产生孤立代理项，微信/iLink 侧可能显示替换字符或拒收。
+
+### F-08 最终出口未过滤 `mcp_` / 原始工具名
+
+`sanitizeForWechat` / `finalizeReply` 只替换「子代理 / Durable Memory / Project Knowledge」，
+模型正文里的 `mcp_...` 等工具标识会直接到达用户；仅审批文案走 `toolActionLabel` 兜底。
+
+### F-09 write_file 审批后失败直接终结 Run
+
+`shouldFailRunAfterCapability` 对无 `exitCode` 的失败返回 true，`resumeApprovedCapability` 随即
+`failRun`，用户只收到泛化文案“审批后执行失败，请稍后重试”，LLM 没有机会解释或给替代方案；
+与 run_command 非零退出可继续对话的语义不一致。
+
+### F-10 审批成功后的回复未作为 assistant 消息落库
+
+`continueLoopAfterCapability` 的 exec 直返路径只写 `steps`/`result`，不调用 `appendMessage`；
+审批确认后的回复无法通过会话消息回放，重投只会得到“这条消息已经处理过了”。
+
+### F-11 pi-native `read` 对真正空文件输出 `"     1 | "`
+
+代码里 `(empty file)` 的回退只在切片为空时触发，而 `"".split("\n")` 得到 `[""]`。
+契约测试按实际输出断言（`bytes=0` + 单行编号），未改实现。
+
+### 观察（非缺陷，记录语义）
+
+- 超长消息由 `detectSpam` 在 `executeInbound` 之前短路，DB 不创建 Run；用户仍收到可读提示。
+- `run_command` 输出截断按“整块丢弃超限 chunk”实现，实际输出可能略小于 32KiB，但截断标记存在。
