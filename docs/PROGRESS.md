@@ -73,6 +73,8 @@
 
 ## Phase 2 — 功能深化（⏳）
 
+> 本阶段首个任务是**测试与评估体系建设**：层/模块/组件清单、场景目录、静态轨迹集与开放任务集的设计与实现任务书见 [`plans/active/phase2-test-eval-system-2026-11-19.md`](plans/active/phase2-test-eval-system-2026-11-19.md)。
+
 入口条件：
 
 1. Phase 1 验收证据保持最新（任一回归先修复）；
