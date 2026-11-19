@@ -5,6 +5,7 @@
 > **关系**:
 > - 未来 P0-P4 优先级 → [`v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md)（v5 产品路线，**权威源**）
 > - 已闭环 D-series 维度累计 → 本文件
+> - 阶段级进度（Phase 1 ✅ 2026-11-19）→ [`PROGRESS.md`](PROGRESS.md)
 > - 完整 changelog → [`../CHANGELOG.md`](../CHANGELOG.md)
 
 ---

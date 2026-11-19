@@ -1,6 +1,6 @@
 # Butler 文档索引
 
-> 更新：**2026-11-18** | 主线：**Butler v5**（单 Owner、自托管、可扩展个人管家）
+> 更新：**2026-11-19** | 主线：**Butler v5**（单 Owner、自托管、可扩展个人管家）
 > **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../DESIGN.md`](../DESIGN.md) → [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 >
@@ -14,6 +14,7 @@
 | [`../DESIGN.md`](../DESIGN.md) | **v5 目标架构 SSOT**：三模块、五实体、混合数据、ScopedGrant |
 | [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) | **当前实现全景与第一阶段验收**：三层架构、分层测试 L1–L4 |
 | [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md) | **当前生产事实**：调用链、包和数据现状 |
+| [`PROGRESS.md`](PROGRESS.md) | **开发进度台账**：阶段目标、验收证据、遗留与下阶段入口 |
 
 ## 协调与交接
 
