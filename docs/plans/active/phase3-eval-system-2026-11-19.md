@@ -82,6 +82,8 @@
 单条任务失败视为数据而非基础设施故障（只有 summary 未落盘才中止），blocked 时不报 headline。
 首次结果：capability 10 条两臂均 10/10（该子集已饱和，无区分度）；heldout 6 条 MiniMax 5/6、DeepSeek 6/6，
 headline **+16.7pp**，差异集中在 `heldout-ambiguity-optimize`。矩阵按季度执行，单次结果只作参照。
+nightly 已把 heldout 6 条纳入真实模型步骤（`baselines/heldout-real.json`，实测 83.3%、阈值 0.75），
+用于补足 capability 子集饱和后的区分度；两次运行均显示 `heldout-ambiguity-optimize` 是 MiniMax 的稳定弱项。
 
 ---
 
@@ -118,7 +120,7 @@ headline **+16.7pp**，差异集中在 `heldout-ambiguity-optimize`。矩阵按�
 | 层 | 触发 | 内容 | 目标时长 |
 |----|------|------|----------|
 | PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + 对抗集（`agent-eval` 的 PR workflow） | ≤10 分钟 |
-| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial）+ 真实模型开发子集（10 条） | ≤60 分钟 |
+| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial）+ 真实模型开发子集（10 条 capability）+ heldout 子集（6 条，基线 0.75） | ≤60 分钟 |
 | Release | 打 tag | `release.yml` 的 `eval-gate`：agent-eval 框架测试 + 全量 gate（baseline/butler/golden/adversarial）+ L3 轨迹集 + 真实模型子集（有密钥时）；失败则 build 不启动 | ≤20 分钟 + L5 人工 |
 
 黄金集 smoke 用 `--limit 5` 截取（任务按 id 排序，覆盖 bug/feature/test-evolution 三类）。
