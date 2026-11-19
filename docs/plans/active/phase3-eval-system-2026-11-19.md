@@ -143,6 +143,18 @@
 - 首版基线是保守下限 0.6；跑出稳定数据后按实际值收紧。
 - 无模型密钥时整步跳过，不影响其他 job。
 
+### 配对比较（两臂 lift）
+
+同一套件用两种配置（模型 / prompt / 上下文）各跑一次并打标签，再比较任务级通过率：
+
+```bash
+node src/cli.mjs run --suite capability --runtime wfxm --real --label base --out .eval-runs/base
+node src/cli.mjs run --suite capability --runtime wfxm --real --label cand --out .eval-runs/cand
+node src/cli.mjs compare --a .eval-runs/base --b .eval-runs/cand
+```
+
+规则对照 pi 的 evals：任一臂缺任务、任务重复、任务未评分、套件不一致 → `BLOCKED`，不报告 headline lift，退出码 1；否则输出逐任务 lift 与改善/回退/持平计数，并写 `compare.json`。
+
 ---
 
 ## 7. 存量测试分诊
@@ -201,3 +213,20 @@
 | 隐藏检查泄漏 | 检查只存在 agent-eval，不进 WFXM 工作区 |
 | 旧测试删过头 | 先转换再删除；每批删除附映射与理由 |
 | LLM judge 不稳定 | 固定模型/温度 0/双评均值；确定性检查优先 |
+
+---
+
+## 10. 对照 pi 的增强（已完成）
+
+| 增强 | 内容 | 状态 |
+|------|------|------|
+| A 真实模型子集 | 10 条 capability 开发任务，nightly `--repeats 2` + 基线 `baselines/capability-real.json` | ✅ 已接入 nightly |
+| B 配对比较 | `compare --a/--b` 输出逐任务 lift；缺任务/重复/未评分/套件不一致即 BLOCKED | ✅ 已实现 |
+| C 变异抽查 | `npm run eval:mutation` 把 `golden-bug` 的写入内容换回缺陷版本，任务必须失败 | ✅ 10/10 被抓住 |
+
+**回归沉淀约定**：
+- 每个线上回归先新增一条 golden 任务（含 `hiddenChecks` 与 `tests` oracle），再提交修复；
+- reviewer 的复现直接作为任务种子，不另写一次性脚本；
+- 新增 golden bug 任务必须通过变异抽查，证明断言能抓住该缺陷。
+
+**明确不照搬**：Docker 双镜像、1k/10k/100k 性能 bench、Node/Bun 安装包冒烟——产品是常驻服务，成本高于收益。
