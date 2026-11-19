@@ -178,7 +178,11 @@ node src/cli.mjs compare --a .eval-runs/base --b .eval-runs/cand
 
 `pnpm audit:tests`（`scripts/audit/test-internal-assertions.mjs`）静态扫描全部 `*.test.ts`：
 命中 mock/事件表/prompt 文本/注册表断言、且没有返回结果/回复/状态/workspace 等显式结果断言的用例，
-按文件聚合并排序。当前结果：**276 个文件、1995 个静态 `it/test` 块，其中 69 个内部-only（3.5%）**。
+按文件聚合并排序。当前结果：**275 个文件、1991 个静态 `it/test` 块，其中 49 个内部-only（2.5%）**。
+
+首轮复核结论：多数命中是该层的契约（持久化行断言、沙箱 argv、错误文案），不应删除；实际删除 4 条——
+`packages/persistence/src/sanity.test.ts`（schema 导出/表名 2 条）与 `audit-reader` 的 2 条纯调用参数断言。
+“2000+ 用例大半是 v4 遗留”的假设不成立，剩余维护成本主要来自实现级用例的**增量新增**，需靠 CR 约束而非批量删除。
 
 用法：`--min 2 --top 20` 控制阈值与展示；`--details` 列出具体用例；`--json` 输出机器可读结果。
 统计只覆盖显式 `it/test` 块（`it.each` 与循环生成不计）；脚本只给候选，删除前仍需确认契约/集成/评测覆盖。

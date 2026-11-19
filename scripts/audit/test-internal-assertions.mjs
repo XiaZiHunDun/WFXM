@@ -191,8 +191,13 @@ function categoryOf(relPath) {
   return "单测"
 }
 
-function classify(text) {
-  const internal = INTERNAL_SIGNALS.filter(([, re]) => re.test(text)).map(([name]) => name)
+function classify(text, relPath) {
+  const internal = INTERNAL_SIGNALS.filter(([name, re]) => {
+    if (!re.test(text)) return false
+    // 持久化层的职责就是事件/表行，行断言属于该层的结果而非内部实现。
+    if (name === "event-row" && relPath.startsWith("packages/persistence/")) return false
+    return true
+  }).map(([name]) => name)
   const outcome = OUTCOME_SIGNALS.filter(([, re]) => re.test(text)).map(([name]) => name)
   return { internal, outcome, internalOnly: internal.length > 0 && outcome.length === 0 }
 }
@@ -213,7 +218,7 @@ function main() {
     if (blocks.length === 0) continue
     const flagged = []
     for (const block of blocks) {
-      const verdict = classify(block.text)
+      const verdict = classify(block.text, rel)
       if (verdict.internalOnly) {
         flagged.push({ name: block.name, line: block.line, signals: verdict.internal })
       }

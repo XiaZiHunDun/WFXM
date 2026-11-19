@@ -39,22 +39,6 @@ describe("auditFatigueReader", () => {
     ])
   })
 
-  test("R2: passes windowMs + limit to store.listRecentAuditEvents", async () => {
-    const list = vi.fn(async () => [])
-    const store = { listRecentAuditEvents: list } as unknown as RuntimeStore
-    const reader = auditFatigueReader(store, { limit: 25 })
-    await reader.readRecent(120_000)
-    expect(list).toHaveBeenCalledWith({ windowMs: 120_000, limit: 25 })
-  })
-
-  test("R3: default limit is 100 when options omitted", async () => {
-    const list = vi.fn(async () => [])
-    const store = { listRecentAuditEvents: list } as unknown as RuntimeStore
-    const reader = auditFatigueReader(store)
-    await reader.readRecent(60_000)
-    expect(list).toHaveBeenCalledWith({ windowMs: 60_000, limit: 100 })
-  })
-
   test("R4: empty store returns empty array", async () => {
     const reader = auditFatigueReader(makeStore([]))
     const result = await reader.readRecent(60_000)
