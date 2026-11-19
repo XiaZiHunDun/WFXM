@@ -77,6 +77,12 @@
 黄金集来源：`docs/FEATURES.md` 的真实能力、git 历史中的修复 PR、`tests/eval` 中仍有价值的长跑场景。
 每条任务固定 commit、固定工作区 fixture、隐藏测试与防作弊规则；任务不得引用 WFXM 内部文件名作为答案。
 
+**模型矩阵**（`agent-eval` 的 `npm run eval:matrix -- [--suite heldout] [--repeats 2]`）：
+两臂分别把 plan/exec/intake 固定为 `MiniMax-M3.1-Flash` 与 `deepseek-flash`，跑同一批任务后输出逐任务 lift；
+单条任务失败视为数据而非基础设施故障（只有 summary 未落盘才中止），blocked 时不报 headline。
+首次结果：capability 10 条两臂均 10/10（该子集已饱和，无区分度）；heldout 6 条 MiniMax 5/6、DeepSeek 6/6，
+headline **+16.7pp**，差异集中在 `heldout-ambiguity-optimize`。矩阵按季度执行，单次结果只作参照。
+
 ---
 
 ## 5. 防作弊与诚实停止（本阶段重点）
