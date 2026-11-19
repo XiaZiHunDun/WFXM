@@ -183,22 +183,18 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
       ).toBe("deepseek-v4-x")
     })
 
-    it("routes plan model to MiniMax when both DEEPSEEK_API_KEY and MINIMAX_API_KEY are set (D44 P2)", () => {
-      // P2 fix 2026-09-04: MINIMAX_API_KEY is now accepted for the plan
-      // role (previously plan only consulted ANTHROPIC/DEEPSEEK/DASHSCOPE
-      // keys). When both DeepSeek and MiniMax keys are present, plan
-      // resolves to its default MiniMax-M3.1-Flash — independent of any
-      // BUTLER_V5_MODEL_EXEC override (set to the non-default "abab6.5"
-      // here so exec-role bleed would visibly fail the assertion).
-      // DeepSeek-only deployments are still covered by the dedicated
-      // "returns DeepSeek default when only DEEPSEEK_API_KEY is set" test.
+    it("defaults plan model to DeepSeek when both DEEPSEEK_API_KEY and MINIMAX_API_KEY are set", () => {
+      // 2026-11-19 默认选型：两个 key 共存且未显式指定模型时，plan 默认
+      // deepseek-flash（heldout 6/6、P95 28s vs MiniMax 5/6、P95 142s）。
+      // 该断言与 BUTLER_V5_MODEL_EXEC 无关（此处设为 "abab6.5"，
+      // 若 exec 角色串入 plan 会立即失败）。
       expect(
         resolveCurrentLlmModel({
           DEEPSEEK_API_KEY: "ds-1234",
           MINIMAX_API_KEY: "sk-mm",
           BUTLER_V5_MODEL_EXEC: "abab6.5",
         }),
-      ).toBe("MiniMax-M3.1-Flash")
+      ).toBe("deepseek-flash")
     })
   })
 })

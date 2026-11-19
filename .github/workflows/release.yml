@@ -82,17 +82,35 @@ jobs:
         working-directory: agent-eval
         env:
           WFXM_ROOT: ${{ github.workspace }}
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-          MINIMAX_MODEL: MiniMax-M3.1-Flash
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DEEPSEEK_MODEL: deepseek-flash
+          BUTLER_V5_MODEL_PLAN: deepseek-flash
+          BUTLER_V5_MODEL_EXEC: deepseek-flash
+          BUTLER_V5_MODEL_INTAKE: deepseek-flash
         run: |
-          if [ -z "${MINIMAX_API_KEY:-}" ]; then
-            echo "::warning::MINIMAX_API_KEY 未配置，跳过真实模型子集"
+          if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+            echo "::warning::DEEPSEEK_API_KEY 未配置，跳过真实模型子集"
             exit 0
           fi
           node src/cli.mjs run --suite capability --runtime wfxm --real --repeats 2 \
             --tasks cap-code-edit-clamp,cap-code-edit-parse-duration,cap-code-edit-port-env,cap-code-edit-slugify,cap-debug-async-await,cap-debug-loop-bound,cap-debug-null-guard,cap-debug-range-end,cap-planning-env-migration,cap-planning-release-order \
             --baseline baselines/capability-real.json
+      - name: Real-model heldout subset (if configured)
+        working-directory: agent-eval
+        env:
+          WFXM_ROOT: ${{ github.workspace }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: deepseek-flash
+          BUTLER_V5_MODEL_PLAN: deepseek-flash
+          BUTLER_V5_MODEL_EXEC: deepseek-flash
+          BUTLER_V5_MODEL_INTAKE: deepseek-flash
+        run: |
+          if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+            echo "::warning::DEEPSEEK_API_KEY 未配置，跳过 heldout 子集"
+            exit 0
+          fi
+          node src/cli.mjs run --suite heldout --runtime wfxm --real --repeats 2 \
+            --baseline baselines/heldout-real.json
       # L5 真机冒烟依赖运行中的服务与真实微信通道，保留为发布前人工确认：
       # 在目标机执行 `npx tsx scripts/l4-smoke.ts`，失败则停止发布。
 

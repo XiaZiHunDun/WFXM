@@ -3,11 +3,7 @@ import { buildDeepSeekRequestExtras } from "./llm/deepseek-request.js"
 import { makeAnthropicAdapter } from "./llm/anthropic.js"
 import type { LLMAdapter } from "./llm-provider.js"
 import { makeFixtureLLMAdapter, pickLLMFixtureDir } from "./llm-fixture.js"
-import {
-  isDeepSeekModelName,
-  resolveModelForRole,
-  type ResolvedModel,
-} from "@butler/ports/core/model-port.js"
+import { resolveModelForRole, type ResolvedModel } from "@butler/ports/core/model-port.js"
 
 /** Model routing role: plan (main loop), exec (subagent/dev), intake (classification). */
 export type ModelRole = "plan" | "exec" | "intake"
@@ -93,22 +89,13 @@ export function pickPlanLLM(env: NodeJS.ProcessEnv = process.env): LLMAdapter | 
 }
 
 /**
- * Exec model: code/tool-heavy subagent runs (default MiniMax M3).
- * Falls back to plan model when MiniMax is unavailable.
+ * Exec model: code/tool-heavy subagent runs. 默认跟随 plan（DeepSeek Flash），
+ * 无 DeepSeek key 时回落 MiniMax。
  */
 export function execModelTrace(env: NodeJS.ProcessEnv = process.env): string {
-  const model =
-    envTrim(env, "BUTLER_V5_MODEL_EXEC") ||
-    envTrim(env, "MINIMAX_MODEL") ||
-    envTrim(env, "BUTLER_SMOKE_MINIMAX_MODEL") ||
-    "MiniMax-M3.1-Flash"
-  if (isDeepSeekModelName(model)) {
-    if (envTrim(env, "DEEPSEEK_API_KEY")) return `exec:${model}`
-    return "exec-fallback:plan"
-  }
-  const key = envTrim(env, "MINIMAX_API_KEY") || envTrim(env, "MINIMAX_CN_API_KEY")
-  if (key) return `exec:${model}`
-  return "exec-fallback:plan"
+  const resolved = resolveModelForRole(env, "exec")
+  if (!resolved) return "exec-fallback:plan"
+  return `exec:${resolved.model}`
 }
 
 export function pickExecLLM(env: NodeJS.ProcessEnv = process.env): LLMAdapter | undefined {

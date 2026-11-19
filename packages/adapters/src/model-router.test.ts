@@ -81,7 +81,7 @@ describe("model-router", () => {
         DEEPSEEK_API_KEY: "sk-ds",
         ...emptyEnv,
       }),
-    ).toBe("exec-fallback:plan")
+    ).toBe("exec:deepseek-flash")
   })
 
   it("pickLLMForRole routes by role", () => {

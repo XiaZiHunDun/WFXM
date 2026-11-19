@@ -96,6 +96,12 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
       ).toEqual({ provider: "minimax", model: "custom-alias" })
     })
 
+    it("defaults to DeepSeek when both keys exist and no model is explicit", () => {
+      expect(
+        resolveModelForRole({ DEEPSEEK_API_KEY: "ds-1", MINIMAX_API_KEY: "sk-mm", ...empty }),
+      ).toEqual({ provider: "deepseek", model: "deepseek-flash" })
+    })
+
     it("returns undefined when no provider configured", () => {
       expect(resolveModelForRole(empty)).toBeUndefined()
     })
@@ -130,6 +136,15 @@ describe("model-port (P5 Model Port — 角色级 provider+model 单一真相源
           "exec",
         ),
       ).toEqual({ provider: "deepseek", model: "deepseek-chat" })
+    })
+
+    it("defaults to DeepSeek when both keys exist", () => {
+      expect(
+        resolveModelForRole(
+          { DEEPSEEK_API_KEY: "ds-1", MINIMAX_API_KEY: "sk-mm", ...empty },
+          "exec",
+        ),
+      ).toEqual({ provider: "deepseek", model: "deepseek-flash" })
     })
 
     it("falls back to plan when no exec provider configured", () => {

@@ -82,8 +82,13 @@
 单条任务失败视为数据而非基础设施故障（只有 summary 未落盘才中止），blocked 时不报 headline。
 首次结果：capability 10 条两臂均 10/10（该子集已饱和，无区分度）；heldout 6 条 MiniMax 5/6、DeepSeek 6/6，
 headline **+16.7pp**，差异集中在 `heldout-ambiguity-optimize`。矩阵按季度执行，单次结果只作参照。
-nightly 已把 heldout 6 条纳入真实模型步骤（`baselines/heldout-real.json`，实测 83.3%、阈值 0.75），
-用于补足 capability 子集饱和后的区分度；两次运行均显示 `heldout-ambiguity-optimize` 是 MiniMax 的稳定弱项。
+nightly 已把 heldout 6 条纳入真实模型步骤（`baselines/heldout-real.json`，DeepSeek 实测 100%、阈值 0.90），
+用于补足 capability 子集饱和后的区分度；两轮复跑均显示 `heldout-ambiguity-optimize` 是 MiniMax 的稳定弱项。
+
+**默认选型结论（2026-11-19）**：默认 plan/exec/intake 切到 `deepseek-flash`。
+依据：heldout 两轮 DeepSeek 6/6（工具召回 12/12、冗余 0%、P95 28s），MiniMax 两轮 5/6（`ambiguity` 0/2、P95 142s）；
+capability 子集两模型均 10/10。MiniMax 保留为无 DeepSeek key 时的回落与显式覆盖
+（`BUTLER_V5_MODEL_PLAN/EXEC/INTAKE=MiniMax-M3.1-Flash`）；未知模型别名仍按旧行为优先 MiniMax。
 
 ---
 
@@ -120,7 +125,7 @@ nightly 已把 heldout 6 条纳入真实模型步骤（`baselines/heldout-real.j
 | 层 | 触发 | 内容 | 目标时长 |
 |----|------|------|----------|
 | PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + 对抗集（`agent-eval` 的 PR workflow） | ≤10 分钟 |
-| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial）+ 真实模型开发子集（10 条 capability）+ heldout 子集（6 条，基线 0.75） | ≤60 分钟 |
+| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial）+ 真实模型开发子集（10 条 capability）+ heldout 子集（6 条，基线 0.90） | ≤60 分钟 |
 | Release | 打 tag | `release.yml` 的 `eval-gate`：agent-eval 框架测试 + 全量 gate（baseline/butler/golden/adversarial）+ L3 轨迹集 + 真实模型子集（有密钥时）；失败则 build 不启动 | ≤20 分钟 + L5 人工 |
 
 黄金集 smoke 用 `--limit 5` 截取（任务按 id 排序，覆盖 bug/feature/test-evolution 三类）。
@@ -148,10 +153,10 @@ nightly 已把 heldout 6 条纳入真实模型步骤（`baselines/heldout-real.j
     --tasks <id1,id2,...> --record baselines/capability-real.json
   ```
 
-- 2026-11-19 实跑：10 条 ×2 共 20 次，**9/10 任务全过，平均任务通过率 95%**（MiniMax-M3.1-Flash；`cap-code-edit-parse-duration` 1/2）；基线阈值取 **0.90**，留一次抖动余量。
-- 模型 id：plan / exec 使用 `MiniMax-M3.1-Flash`，intake 使用 `deepseek-flash`（即 DeepSeek-V4.1-Flash-1017 的 API id；API 不接受展示名）。
-- 历史对照：MiniMax-M3 为 100%，DeepSeek flash 为 95%，阈值对模型差异有区分度。
-- 实跑发现本地 `.env` 的 MiniMax key 已失效（401），更新后恢复；CI 侧需确认 secret 有效。
+- 2026-11-19 实跑（DeepSeek Flash，默认模型）：10 条 ×2 共 20 次，**10/10 任务全过，平均任务通过率 100%**，工具召回 36/36、参数正确率 100%；基线阈值取 **0.90**，留抖动余量。
+- 模型 id：plan / exec / intake 默认 `deepseek-flash`（即 DeepSeek-V4.1-Flash-1017 的 API id；API 不接受展示名）。MiniMax-M3.1-Flash 可通过 `BUTLER_V5_MODEL_*` 显式切回。
+- 历史对照：同一子集 MiniMax-M3.1-Flash 为 95%（`cap-code-edit-parse-duration` 抖动），DeepSeek Flash 为 100%。
+- 选型依据见 §4「默认选型结论」：heldout 是主要区分点（6/6 vs 5/6，P95 28s vs 142s）。
 - 无模型密钥时整步跳过，不影响其他 job。
 
 ### 配对比较（两臂 lift）
@@ -254,7 +259,7 @@ CI 在 typecheck 之后执行 `pnpm audit:tests:ci`，以 `scripts/audit/budget.
 
 | 增强 | 内容 | 状态 |
 |------|------|------|
-| A 真实模型子集 | 10 条 capability 开发任务，nightly `--repeats 2` + 基线 `baselines/capability-real.json` | ✅ MiniMax-M3.1-Flash 实跑 95%，阈值 0.90 |
+| A 真实模型子集 | 10 条 capability 开发任务，nightly `--repeats 2` + 基线 `baselines/capability-real.json`；默认模型 DeepSeek Flash | ✅ 实跑 100%（工具召回 36/36），阈值 0.90 |
 | B 配对比较 | `compare --a/--b` 输出逐任务 lift；缺任务/重复/未评分/套件不一致即 BLOCKED | ✅ 已实现 |
 | C 变异抽查 | `npm run eval:mutation` 把 `golden-bug` 的写入内容换回缺陷版本，任务必须失败 | ✅ 10/10 被抓住 |
 | D 发布门禁 | `release.yml` 增加 `eval-gate`，build 依赖它；L5 真机保留人工确认 | ✅ 已接入 |

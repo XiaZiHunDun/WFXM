@@ -72,18 +72,24 @@ function resolvePlan(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefine
   if (planModelProvider === "minimax" && hasMiniMaxKey(env)) {
     return { provider: "minimax", model: planModel }
   }
-  if (hasMiniMaxKey(env)) {
-    // P2 fix 2026-09-04: plan role now accepts minimax (previously only
-    // exec/intake did). Default model "MiniMax-M3.1-Flash" matches exec default
-    // so a single key covers both roles. Owners using minimax for the
-    // wechat butler loop no longer need to provision a second provider
-    // key for plan.
-    const model = planModel || envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3.1-Flash"
-    return { provider: "minimax", model }
-  }
-  const model = planModel || envTrim(env, "DEEPSEEK_MODEL") || "deepseek-flash"
-  if (envTrim(env, "DEEPSEEK_API_KEY")) {
-    return { provider: "deepseek", model }
+  // 未显式指定时优先 DeepSeek：2026-11-19 heldout 评估 6/6、P95 28s，
+  // MiniMax-M3.1-Flash 为 5/6、P95 142s（弱项集中在歧义需求）。
+  if (!planModel) {
+    if (hasDeepSeekKey(env)) {
+      return {
+        provider: "deepseek",
+        model: envTrim(env, "DEEPSEEK_MODEL") || "deepseek-flash",
+      }
+    }
+    if (hasMiniMaxKey(env)) {
+      const model = envTrim(env, "MINIMAX_MODEL") || "MiniMax-M3.1-Flash"
+      return { provider: "minimax", model }
+    }
+  } else if (hasMiniMaxKey(env)) {
+    // 未知别名保持旧行为：优先进 MiniMax，避免把未知模型名发给 DeepSeek。
+    return { provider: "minimax", model: planModel }
+  } else if (hasDeepSeekKey(env)) {
+    return { provider: "deepseek", model: planModel }
   }
   if (envTrim(env, "DASHSCOPE_API_KEY")) {
     return { provider: "dashscope", model: "qwen-turbo" }
@@ -92,21 +98,20 @@ function resolvePlan(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefine
 }
 
 function resolveExec(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefined {
-  const model =
-    envTrim(env, "BUTLER_V5_MODEL_EXEC") ||
-    envTrim(env, "MINIMAX_MODEL") ||
-    envTrim(env, "BUTLER_SMOKE_MINIMAX_MODEL") ||
-    "MiniMax-M3.1-Flash"
-  // BUTLER_V5_MODEL_EXEC 可能指定 deepseek 模型（如 deepseek-chat）：
-  // 按模型名路由到 deepseek 通道，避免把 deepseek 模型名发给 MiniMax（400）。
-  if (isDeepSeekModelName(model)) {
-    if (envTrim(env, "DEEPSEEK_API_KEY")) {
-      return { provider: "deepseek", model }
+  // exec 未显式指定时跟随 plan：默认 DeepSeek，MiniMax 仅作为无 DeepSeek key 时的回落。
+  const explicit =
+    envTrim(env, "BUTLER_V5_MODEL_EXEC") || envTrim(env, "BUTLER_SMOKE_MINIMAX_MODEL")
+  if (explicit) {
+    const provider = providerForModelName(explicit)
+    if (provider === "deepseek") {
+      return hasDeepSeekKey(env) ? { provider: "deepseek", model: explicit } : resolvePlan(env)
     }
-    return resolvePlan(env)
-  }
-  if (envTrim(env, "MINIMAX_API_KEY") || envTrim(env, "MINIMAX_CN_API_KEY")) {
-    return { provider: "minimax", model }
+    if (provider === "minimax") {
+      return hasMiniMaxKey(env) ? { provider: "minimax", model: explicit } : resolvePlan(env)
+    }
+    // 未知别名沿用旧的 key 优先级：MiniMax 在前。
+    if (hasMiniMaxKey(env)) return { provider: "minimax", model: explicit }
+    if (hasDeepSeekKey(env)) return { provider: "deepseek", model: explicit }
   }
   return resolvePlan(env)
 }
@@ -137,8 +142,8 @@ function resolveIntake(env: Readonly<NodeJS.ProcessEnv>): ResolvedModel | undefi
  * 模型名前缀（deepseek-* / minimax-* / abab*）优先决定 provider，其次才按
  * key 存在性回退，避免多 key 共存时把某家的模型名发给另一家（400）。
  *
- * - plan：Anthropic → 模型名归属（deepseek / minimax）→ MiniMax key → DeepSeek → DashScope。
- * - exec：deepseek-name + DEEPSEEK key→DeepSeek else MiniMax else 回退 plan。
+ * - plan：Anthropic → 模型名归属（deepseek / minimax）→ DeepSeek（默认）→ MiniMax → DashScope。
+ * - exec：显式名归属 → 未指定时跟随 plan（默认 DeepSeek）。
  * - intake：模型名归属 → DeepSeek → 回退 plan。
  *
  * 返回 `undefined` 表示无任何 provider 配置（调用方回退 stub/fixture）。
