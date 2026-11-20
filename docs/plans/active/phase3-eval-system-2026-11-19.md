@@ -1,6 +1,6 @@
 # Phase 3 — 测评体系设计（产品型 Agent）
 
-> **状态**：设计稿（待评审） | **日期**：2026-11-19 | **Owner**：主公
+> **状态**：已实施（P0–P3 + A–D 增强；剩余仅为定期复核与人工项） | **日期**：2026-11-19 | **Owner**：主公
 > **上游**：[`../PROGRESS.md`](../PROGRESS.md) · [`phase2-test-eval-system-2026-11-19.md`](./phase2-test-eval-system-2026-11-19.md) · [`phase2-findings-2026-11-19.md`](./phase2-findings-2026-11-19.md)
 > **定位**：Phase 2 解决“测试锚点从实现细节转向外部结果”；Phase 3 解决“如何证明它真的做对了、有没有作弊、成本是否可接受”。
 
@@ -84,16 +84,21 @@
 两臂分别把 plan/exec/intake 固定为 `MiniMax-M3.1-Flash` 与 `deepseek-flash`，跑同一批任务后输出逐任务 lift；
 单条任务失败视为数据而非基础设施故障（只有 summary 未落盘才中止），blocked 时不报 headline。
 首次结果：capability 10 条两臂均 10/10（该子集已饱和，无区分度）；heldout 6 条 MiniMax 5/6、DeepSeek 6/6，
-headline **+16.7pp**，差异集中在 `heldout-ambiguity-optimize`。矩阵按季度执行，单次结果只作参照。
+headline **+16.7pp**，差异集中在 `heldout-ambiguity-optimize`。
+2026-11-20 在扩到 11 条的 heldout 上复跑（每任务 ×2）：MiniMax 8/11（72.7%，P95 71s）对 DeepSeek 11/11（100%，P95 26s），
+headline **+27.3pp**；改善 3 条（`ambiguity`、`debug-multifile-import`、`multiturn-debug-verify`），回退 0 条，两臂成本接近
+（$0.031 / $0.036）。矩阵按季度执行，单次结果只作参照。
 nightly 已把 heldout 纳入真实模型步骤（`baselines/heldout-real.json`，阈值 0.90），
-用于补足 capability 子集饱和后的区分度；两轮复跑均显示 `heldout-ambiguity-optimize` 是 MiniMax 的稳定弱项。
+用于补足 capability 子集饱和后的区分度；两轮复跑均显示 `heldout-ambiguity-optimize` 是 MiniMax 的稳定弱项，
+扩集后多文件修复与多轮先读后改的抖动也只在 MiniMax 出现。
 2026-11-19 将 heldout 从 6 条扩到 **11 条**：新增 CSV 引号解析、稳定去重、跨文件导入修复、
 重试延迟封顶、多轮先读后改。DeepSeek 实跑 ×2 为 10/11 全过、平均 95.5%，阈值仍取 0.90。
 `heldout-debug-multifile-import` 与 `heldout-multiturn-debug-verify` 各出现 1/2 抖动，
 分别暴露“用 run_command 代替 write_file”和“首轮不说明原因”的失败形态。
 
 **默认选型结论（2026-11-19）**：默认 plan/exec/intake 切到 `deepseek-flash`。
-依据：heldout 两轮 DeepSeek 6/6（工具召回 12/12、冗余 0%、P95 28s），MiniMax 两轮 5/6（`ambiguity` 0/2、P95 142s）；
+依据：2026-11-20 11 条 heldout 矩阵 DeepSeek 11/11、P95 26s，MiniMax 8/11、P95 71s；
+此前 6 条两轮 DeepSeek 6/6（工具召回 12/12、冗余 0%、P95 28s），MiniMax 5/6（`ambiguity` 0/2、P95 142s）；
 capability 子集两模型均 10/10。MiniMax 保留为无 DeepSeek key 时的回落与显式覆盖
 （`BUTLER_V5_MODEL_PLAN/EXEC/INTAKE=MiniMax-M3.1-Flash`）；未知模型别名仍按旧行为优先 MiniMax。
 
@@ -167,7 +172,7 @@ nightly 先用观测模式，稳定两周后切到严格模式。judge 分数写
 - 2026-11-19 实跑（DeepSeek Flash，默认模型）：10 条 ×2 共 20 次，**10/10 任务全过，平均任务通过率 100%**，工具召回 36/36、参数正确率 100%；基线阈值取 **0.90**，留抖动余量。
 - 模型 id：plan / exec / intake 默认 `deepseek-flash`（即 DeepSeek-V4.1-Flash-1017 的 API id；API 不接受展示名）。MiniMax-M3.1-Flash 可通过 `BUTLER_V5_MODEL_*` 显式切回。
 - 历史对照：同一子集 MiniMax-M3.1-Flash 为 95%（`cap-code-edit-parse-duration` 抖动），DeepSeek Flash 为 100%。
-- 选型依据见 §4「默认选型结论」：heldout 是主要区分点（6/6 vs 5/6，P95 28s vs 142s）。
+- 选型依据见 §4「默认选型结论」：heldout 是主要区分点（11/11 vs 8/11，P95 26s vs 71s）。
 - 无模型密钥时整步跳过，不影响其他 job。
 
 ### RAG 与仓库修复集（nightly）
