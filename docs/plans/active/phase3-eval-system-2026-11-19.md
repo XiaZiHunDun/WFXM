@@ -74,6 +74,7 @@
 | **旧场景转换集** | 从 `tests/eval/scenarios` 与 `wechat-inbound-butler` 转换的确定性任务 | 11 | nightly |
 | **RAG 检索集** | 文档库召回：Hit@1/Hit@3/MRR 与任务通过率分开判定 | 10 | nightly（真实模型） |
 | **仓库修复集** | `repo-task`：真实仓库内 fail-to-pass + pass-to-pass 闭环 | 5 | nightly（真实模型） |
+| **留出集** | 真实模型难例：多文件修复、稳定去重、CSV 解析、多轮先读后改 | 11 | nightly / 发布前 |
 | **公共基准** | TerminalBench 子集（仅工具纪律校准） | 可选 | 每季度 |
 
 黄金集来源：`docs/FEATURES.md` 的真实能力、git 历史中的修复 PR、`tests/eval` 中仍有价值的长跑场景。
@@ -84,8 +85,12 @@
 单条任务失败视为数据而非基础设施故障（只有 summary 未落盘才中止），blocked 时不报 headline。
 首次结果：capability 10 条两臂均 10/10（该子集已饱和，无区分度）；heldout 6 条 MiniMax 5/6、DeepSeek 6/6，
 headline **+16.7pp**，差异集中在 `heldout-ambiguity-optimize`。矩阵按季度执行，单次结果只作参照。
-nightly 已把 heldout 6 条纳入真实模型步骤（`baselines/heldout-real.json`，DeepSeek 实测 100%、阈值 0.90），
+nightly 已把 heldout 纳入真实模型步骤（`baselines/heldout-real.json`，阈值 0.90），
 用于补足 capability 子集饱和后的区分度；两轮复跑均显示 `heldout-ambiguity-optimize` 是 MiniMax 的稳定弱项。
+2026-11-19 将 heldout 从 6 条扩到 **11 条**：新增 CSV 引号解析、稳定去重、跨文件导入修复、
+重试延迟封顶、多轮先读后改。DeepSeek 实跑 ×2 为 10/11 全过、平均 95.5%，阈值仍取 0.90。
+`heldout-debug-multifile-import` 与 `heldout-multiturn-debug-verify` 各出现 1/2 抖动，
+分别暴露“用 run_command 代替 write_file”和“首轮不说明原因”的失败形态。
 
 **默认选型结论（2026-11-19）**：默认 plan/exec/intake 切到 `deepseek-flash`。
 依据：heldout 两轮 DeepSeek 6/6（工具召回 12/12、冗余 0%、P95 28s），MiniMax 两轮 5/6（`ambiguity` 0/2、P95 142s）；
@@ -127,8 +132,8 @@ capability 子集两模型均 10/10。MiniMax 保留为无 DeepSeek key 时的�
 | 层 | 触发 | 内容 | 目标时长 |
 |----|------|------|----------|
 | PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + 对抗集（`agent-eval` 的 PR workflow） | ≤10 分钟 |
-| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial/RAG）+ 真实模型开发子集（10 条 capability）+ 仓库修复集（5 条 repo）+ heldout 子集（6 条，基线 0.90） | ≤60 分钟 |
-| Release | 打 tag | `release.yml` 的 `eval-gate`：agent-eval 框架测试 + 全量 gate（baseline/butler/golden/adversarial）+ L3 轨迹集 + 真实模型子集（有密钥时）；失败则 build 不启动 | ≤20 分钟 + L5 人工 |
+| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial/RAG）+ 真实模型开发子集（10 条 capability）+ 仓库修复集（5 条 repo）+ heldout 子集（11 条，基线 0.90） | ≤60 分钟 |
+| Release | 打 tag | `release.yml` 的 `eval-gate`：agent-eval 框架测试 + 多指标 gate（含 RAG）+ L3 轨迹集 + 真实模型 capability/repo/heldout（有密钥时）；失败则 build 不启动 | ≤35 分钟 + L5 人工 |
 
 黄金集 smoke 用 `--limit 5` 截取（任务按 id 排序，覆盖 bug/feature/test-evolution 三类）。
 `agent-eval` 的 `pr.yml` 负责 smoke，`nightly.yml` 跑完整 gate；WFXM 的 `release.yml` 在 build 之前跑 `eval-gate`，失败即阻断镜像推送。L5 真机冒烟依赖运行中的服务与真实渠道，仍由发布前人工执行 `npx tsx scripts/l4-smoke.ts`。

@@ -41,12 +41,12 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-  # 发布前测评门禁：确定性黄金集/对抗集/基线/butler + 真实模型子集（有密钥时）。
+  # 发布前测评门禁：确定性黄金集/对抗集/基线/butler + RAG + 真实模型子集（有密钥时）。
   # 任一失败则 build 不启动，镜像不会推送。
   eval-gate:
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     permissions:
       contents: read
     steps:
@@ -68,11 +68,22 @@ jobs:
       - name: agent-eval framework tests
         working-directory: agent-eval
         run: npm test
-      - name: Deterministic evaluation gate
+      - name: Multi-metric gate (deterministic + RAG when key present)
         working-directory: agent-eval
         env:
           WFXM_ROOT: ${{ github.workspace }}
-        run: node src/cli.mjs gate
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: deepseek-flash
+          BUTLER_V5_MODEL_PLAN: deepseek-flash
+          BUTLER_V5_MODEL_EXEC: deepseek-flash
+          BUTLER_V5_MODEL_INTAKE: deepseek-flash
+        run: |
+          if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+            echo "::warning::DEEPSEEK_API_KEY 未配置，RAG 门禁降级为确定性 gate"
+            node src/cli.mjs gate
+            exit 0
+          fi
+          node src/cli.mjs gate --with-rag --real --repeats 1
       - name: L3 trajectory suite
         working-directory: agent-eval
         env:
@@ -95,6 +106,22 @@ jobs:
           node src/cli.mjs run --suite capability --runtime wfxm --real --repeats 2 \
             --tasks cap-code-edit-clamp,cap-code-edit-parse-duration,cap-code-edit-port-env,cap-code-edit-slugify,cap-debug-async-await,cap-debug-loop-bound,cap-debug-null-guard,cap-debug-range-end,cap-planning-env-migration,cap-planning-release-order \
             --baseline baselines/capability-real.json
+      - name: Real-model repo-task suite (if configured)
+        working-directory: agent-eval
+        env:
+          WFXM_ROOT: ${{ github.workspace }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: deepseek-flash
+          BUTLER_V5_MODEL_PLAN: deepseek-flash
+          BUTLER_V5_MODEL_EXEC: deepseek-flash
+          BUTLER_V5_MODEL_INTAKE: deepseek-flash
+        run: |
+          if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+            echo "::warning::DEEPSEEK_API_KEY 未配置，跳过 repo 修复集"
+            exit 0
+          fi
+          node src/cli.mjs run --suite repo --runtime wfxm --real --repeats 2 \
+            --baseline baselines/repo-real.json
       - name: Real-model heldout subset (if configured)
         working-directory: agent-eval
         env:
