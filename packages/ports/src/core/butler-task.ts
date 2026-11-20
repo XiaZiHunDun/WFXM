@@ -21,6 +21,10 @@ export interface ButlerTaskRef {
   readonly status: ButlerTaskStatus
   readonly summary?: string
   readonly pending?: ButlerTaskPending
+  /** Latest task reply, surfaced to the owner by status/list. */
+  readonly lastReply?: string
+  /** Failure reason of the latest turn, when status is failed. */
+  readonly error?: string
 }
 
 export interface ButlerTaskPort {

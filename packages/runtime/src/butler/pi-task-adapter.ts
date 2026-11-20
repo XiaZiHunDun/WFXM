@@ -43,13 +43,22 @@ function defaultTaskId(): string {
   return `task-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`
 }
 
+function redactWorkspacePath(text: string | undefined, cwd: string): string | undefined {
+  if (text === undefined || cwd.length === 0) return text
+  return text.split(cwd).join("项目目录")
+}
+
 function toRef(record: PiTaskSessionRecord): ButlerTaskRef {
   const pending = record.pendingStep
+  const lastReply = redactWorkspacePath(record.snapshot.lastReply, record.cwd)
+  const lastError = redactWorkspacePath(record.snapshot.lastError, record.cwd)
   return {
     taskId: record.taskId,
     projectId: record.projectId,
     status: record.status,
     ...(record.snapshot.summary === undefined ? {} : { summary: record.snapshot.summary }),
+    ...(lastReply === undefined ? {} : { lastReply }),
+    ...(lastError === undefined ? {} : { error: lastError }),
     ...(pending === null
       ? {}
       : {

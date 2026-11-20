@@ -321,6 +321,64 @@ describe("ButlerRuntime", () => {
     expect(result.reply).toContain("待执行：修改文件")
   })
 
+  it("surfaces a completed task result instead of only the creation notice", async () => {
+    const ref: ButlerTaskRef = {
+      taskId: "t1",
+      projectId: "p1",
+      status: "idle",
+      summary: "写 README",
+      lastReply: "已补好 README。",
+    }
+    const tasks: ButlerTaskPort = {
+      async start() {
+        return ref
+      },
+      async status() {
+        return ref
+      },
+      async list() {
+        return [ref]
+      },
+    }
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/new 写 README",
+    })
+    expect(result.reply).toContain("已补好 README")
+  })
+
+  it("surfaces a failed task reason", async () => {
+    const ref: ButlerTaskRef = {
+      taskId: "t2",
+      projectId: "p1",
+      status: "failed",
+      summary: "写 README",
+      error: "模型超时",
+    }
+    const tasks: ButlerTaskPort = {
+      async start() {
+        return ref
+      },
+      async status() {
+        return ref
+      },
+      async list() {
+        return [ref]
+      },
+    }
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/new 写 README",
+    })
+    expect(result.reply).toContain("模型超时")
+  })
+
   it("shows the pending step from /status", async () => {
     const tasks = fakeTasks([
       {

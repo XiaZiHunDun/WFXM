@@ -129,15 +129,45 @@ describe("createPiTaskPortAdapter", () => {
     const ref = await adapter.start({ projectId: "p1", goal: "写 a.txt" })
 
     expect(ref).toMatchObject({ projectId: "p1", status: "idle", summary: "写 a.txt" })
+    expect(ref.lastReply).toContain("已写入")
     expect(readFileSync(join(root, "a.txt"), "utf8")).toBe("hi")
 
     const status = await adapter.status(ref.taskId)
     expect(status).toMatchObject({ taskId: ref.taskId, status: "idle" })
+    expect(status?.lastReply).toContain("已写入")
 
     const list = await adapter.list("p1")
     expect(list.map((task) => task.taskId)).toContain(ref.taskId)
     expect(await adapter.list("p2")).toHaveLength(0)
     expect(await adapter.status("missing")).toBeNull()
+  })
+
+  it("reports the failure reason on the task ref", async () => {
+    const { adapter } = setup(() => {
+      throw new Error("model down")
+    })
+
+    const ref = await adapter.start({ projectId: "p1", goal: "会失败的任务" })
+    expect(ref.status).toBe("failed")
+    expect(ref.error).toContain("model down")
+  })
+
+  it("redacts the workspace path from task results", async () => {
+    const { adapter } = setup(scriptedStream([{ text: `已写入 ${root}/a.txt` }]))
+
+    const ref = await adapter.start({ projectId: "p1", goal: "写文件" })
+    expect(ref.lastReply).toContain("项目目录")
+    expect(ref.lastReply).not.toContain(root)
+  })
+
+  it("redacts the workspace path from failure reasons", async () => {
+    const { adapter } = setup(() => {
+      throw new Error(`boom at ${root}/x`)
+    })
+
+    const ref = await adapter.start({ projectId: "p1", goal: "会失败的任务" })
+    expect(ref.error).toContain("项目目录")
+    expect(ref.error).not.toContain(root)
   })
 
   it("injects a repository map into the task system prompt", async () => {
@@ -168,6 +198,7 @@ describe("createPiTaskPortAdapter", () => {
 
     const resumed = await adapter.approve(paused.taskId, true)
     expect(resumed).toMatchObject({ taskId: paused.taskId, status: "idle" })
+    expect(resumed?.lastReply).toContain("已写入")
     expect(readFileSync(join(root, "b.txt"), "utf8")).toBe("approved")
 
     expect(await adapter.approve(paused.taskId, true)).toBeNull()

@@ -263,9 +263,19 @@ export class ButlerRuntime {
     const decision = input.approved
       ? `已确认，继续执行 ${task.taskId}。`
       : `已拒绝 ${task.taskId} 的待执行步骤。`
+    const detail =
+      task.status === "paused"
+        ? ""
+        : task.error
+          ? `\n执行失败：${task.error}`
+          : task.lastReply
+            ? `\n${task.lastReply}`
+            : ""
     // Approving one step can immediately pause on the next one.
     const notice = buildApprovalNotice(task)
-    const reply = finalizeReply(notice ? `${decision}\n\n${notice.text}` : decision)
+    const reply = finalizeReply(
+      notice ? `${decision}${detail}\n\n${notice.text}` : `${decision}${detail}`,
+    )
     await this.persist(session, [userMessage, { role: "assistant", content: reply }], now)
     return {
       reply,
@@ -346,10 +356,16 @@ export class ButlerRuntime {
       case "start_task": {
         if (!input.projectId) return { reply: "请先选择项目，再创建任务。" }
         const task = await tasks.start({ projectId: input.projectId, goal: rule.goal })
-        const created = `已创建任务 ${task.taskId}（${task.status}），完成后我会汇总改动。`
         const notice = buildApprovalNotice(task)
+        const created = `已创建任务 ${task.taskId}（${task.status}），完成后我会汇总改动。`
+        const reply =
+          task.status === "failed"
+            ? `任务 ${task.taskId} 执行失败：${task.error ?? "未知原因"}`
+            : task.lastReply && task.status !== "running" && task.status !== "paused"
+              ? `任务 ${task.taskId}（${task.status}）：\n${task.lastReply}`
+              : created
         return {
-          reply: notice ? `${created}\n\n${notice.text}` : created,
+          reply: notice ? `${reply}\n\n${notice.text}` : reply,
           taskId: task.taskId,
         }
       }
@@ -357,10 +373,18 @@ export class ButlerRuntime {
         if (!tasks.approve) return { reply: "任务层不支持审批转发。" }
         const task = await tasks.approve(rule.taskId, rule.approved)
         if (!task) return { reply: `任务 ${rule.taskId} 当前不在等待审批。` }
+        const detail =
+          task.status === "paused"
+            ? ""
+            : task.error
+              ? `\n执行失败：${task.error}`
+              : task.lastReply
+                ? `\n${task.lastReply}`
+                : ""
         return {
           reply: rule.approved
-            ? `已确认，继续执行 ${task.taskId}。`
-            : `已拒绝 ${task.taskId} 的待执行步骤。`,
+            ? `已确认，继续执行 ${task.taskId}。${detail}`
+            : `已拒绝 ${task.taskId} 的待执行步骤。${detail}`,
           taskId: task.taskId,
         }
       }
@@ -507,10 +531,13 @@ export class ButlerRuntime {
             return { output: "当前会话未绑定项目，无法创建任务。", failed: true }
           }
           const task = await tasks.start({ projectId: input.projectId, goal })
-          return {
-            output: `已创建任务 ${task.taskId}（${task.status}）。`,
-            taskId: task.taskId,
-          }
+          const output =
+            task.status === "failed"
+              ? `任务 ${task.taskId} 执行失败：${task.error ?? "未知原因"}`
+              : task.lastReply && task.status !== "running" && task.status !== "paused"
+                ? `任务 ${task.taskId}（${task.status}）：\n${task.lastReply}`
+                : `已创建任务 ${task.taskId}（${task.status}）。`
+          return { output, taskId: task.taskId }
         }
         case "list_tasks": {
           const items = await tasks.list(input.projectId)
@@ -913,7 +940,15 @@ function transcriptFallback(transcript: string): string {
 
 function describeTask(task: ButlerTaskRef): string {
   const suffix = task.summary ? `：${task.summary}` : ""
-  return `${task.taskId}（${taskStatusLabel(task.status)}${suffix}）`
+  const result =
+    task.status === "paused"
+      ? ""
+      : task.error
+        ? `\n失败原因：${task.error}`
+        : task.lastReply
+          ? `\n结果：${task.lastReply}`
+          : ""
+  return `${task.taskId}（${taskStatusLabel(task.status)}${suffix}）${result}`
 }
 
 function formatTaskList(items: readonly ButlerTaskRef[]): string {

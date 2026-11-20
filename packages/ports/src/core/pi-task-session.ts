@@ -15,6 +15,11 @@ export interface PiTaskPendingStep {
   readonly args: Readonly<Record<string, unknown>>
   readonly reason: string
   readonly requestedAt: string
+  /**
+   * Durable claim written before the approved tool runs. A second process that
+   * sees this marker must not execute the same pending step again.
+   */
+  readonly decidedAt?: string
 }
 
 /**
@@ -27,6 +32,10 @@ export interface PiTaskSessionSnapshot {
   readonly systemPrompt: string
   readonly summary?: string
   readonly messages: readonly unknown[]
+  /** Latest owner-facing reply, so status/list can report the outcome. */
+  readonly lastReply?: string
+  /** Failure reason when the latest turn failed. */
+  readonly lastError?: string
 }
 
 export interface PiTaskSessionRecord {

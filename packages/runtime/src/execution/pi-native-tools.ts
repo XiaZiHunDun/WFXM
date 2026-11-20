@@ -7,7 +7,7 @@
  * feed them back to the model without aborting the run.
  */
 import { spawn } from "node:child_process"
-import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises"
+import { mkdir, lstat, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve } from "node:path"
 import type { AgentTool, AgentToolResult } from "@butler/pi-agent"
 
@@ -41,7 +41,9 @@ function escapesRoot(rootReal: string, candidate: string): boolean {
 
 async function pathExists(path: string): Promise<boolean> {
   try {
-    await stat(path)
+    // lstat, not stat: a dangling symlink must count as an existing component
+    // so its target gets resolved and rejected instead of written through.
+    await lstat(path)
     return true
   } catch {
     return false
@@ -86,8 +88,14 @@ export async function resolveInsideWorkspace(
       return { ok: false, reason: "path is outside the workspace" }
     }
     if (existing === abs) return { ok: true, path: real }
-  } catch {
-    // Fall through to the lexical path; the write itself will surface errors.
+  } catch (error) {
+    // Fail closed: a component exists but cannot be resolved (dangling symlink,
+    // permission error). Falling back to the lexical path could write through
+    // a symlink that points outside the workspace.
+    return {
+      ok: false,
+      reason: `cannot resolve path inside the workspace: ${error instanceof Error ? error.message : String(error)}`,
+    }
   }
   return { ok: true, path: abs }
 }
@@ -421,18 +429,27 @@ function makeBashTool(
             truncated = true
           }
         }
-        child.stdout.on("data", append)
-        child.stderr.on("data", append)
-        child.on("error", (error) => finish(null, error.message))
-        child.on("close", (code) => finish(code))
         const onAbort = (): void => {
           child.kill("SIGKILL")
+          // Resolve immediately; waiting for "close" can hang when the shell
+          // spawned grandchildren that keep the pipes open.
+          finish(null, "aborted")
         }
-        signal?.addEventListener("abort", onAbort, { once: true })
+        // Declared before the process listeners so every async finish path has
+        // an initialized handle; callbacks never run during this synchronous block.
         const timer = setTimeout(() => {
           child.kill("SIGKILL")
           finish(null, `timeout after ${limit}ms`)
         }, limit)
+        child.stdout.on("data", append)
+        child.stderr.on("data", append)
+        child.on("error", (error) => finish(null, error.message))
+        child.on("close", (code) => finish(code))
+        if (signal?.aborted) {
+          onAbort()
+          return
+        }
+        signal?.addEventListener("abort", onAbort, { once: true })
       })
     },
   }
