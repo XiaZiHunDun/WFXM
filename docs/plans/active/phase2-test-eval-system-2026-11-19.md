@@ -1,6 +1,6 @@
 # Phase 2 — 测试与评估体系设计 v2（以使用为中心）
 
-> **状态**：设计稿 v2（待实现） | **日期**：2026-11-19 | **Owner**：主公
+> **状态**：已完成（T1–T8 已交付；评估能力由 Phase 3 扩展） | **日期**：2026-11-19 | **Owner**：主公
 > **实现方**：另一 AI 开发工具（只实现，不做产品决策） | **验收方**：我
 > **v1**：已被本文件取代（git 历史保留）。v1 的问题是把大量断言放在实现细节上，和 agent 项目的迭代速度冲突。
 > **上游依据**：[`../PROGRESS.md`](../PROGRESS.md) · [`../FEATURES.md`](../FEATURES.md) · [`../architecture/wfxm-agent-runtime.html`](../architecture/wfxm-agent-runtime.html)

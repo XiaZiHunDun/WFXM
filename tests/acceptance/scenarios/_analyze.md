@@ -1,6 +1,6 @@
 # Acceptance Realistic Scenarios — 产品层行为分析
 
-生成时间：2026-11-18（58 场景自动跑出）
+生成时间：2026-11-19（58 场景自动跑出）
 
 ## 总览
 
@@ -8,7 +8,7 @@
 - 通过：58 / 失败：0
 - 触发 approval：23 次
 - 工具调用总数：55
-- reply 字符总数：6998
+- reply 字符总数：6740
 
 ## 按类别汇总
 
@@ -115,10 +115,10 @@ _decision=Respond | toolCalls=1 | replyLen=69_
 
 > in: 帮我改 user 路由支持手机号登录
 
-< [待审批] 需要 write_file 操作 apps/api/src/routes/user.ts，请确认
+< [待审批] 需要修改文件 apps/api/src/routes/user.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=2 | replyLen=72_
+_decision=WaitForApproval | toolCalls=2 | replyLen=62_
 
 ### A3 — 跑 pnpm test（A-concrete）
 
@@ -153,10 +153,10 @@ _decision=Respond | toolCalls=0 | replyLen=296_
 
 > in: 把 packages/domain/src/foo.ts 里没人用的 import 删掉
 
-< [待审批] 需要 write_file 操作 packages/domain/src/foo.ts，请确认
+< [待审批] 需要修改文件 packages/domain/src/foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=2 | replyLen=71_
+_decision=WaitForApproval | toolCalls=2 | replyLen=61_
 
 ### A6 — timeout 可配（A-concrete）
 
@@ -164,10 +164,10 @@ _decision=WaitForApproval | toolCalls=2 | replyLen=71_
 
 > in: 把 utils.ts 的 timeout 改成可配的
 
-< [待审批] 需要 write_file 操作 apps/api/src/utils.ts，请确认
+< [待审批] 需要修改文件 apps/api/src/utils.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=2 | replyLen=66_
+_decision=WaitForApproval | toolCalls=2 | replyLen=56_
 
 ### A7 — git log -5（A-concrete）
 
@@ -488,10 +488,10 @@ _decision=Respond | toolCalls=1 | replyLen=23_
 
 > in: 帮我写个东西
 
-< [待审批] 需要 write_file 操作 foo.txt，请确认
+< [待审批] 需要修改文件 foo.txt，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=52_
+_decision=WaitForApproval | toolCalls=1 | replyLen=42_
 
 **turn 2**
 
@@ -516,7 +516,7 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-YyiwcL/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] /tmp/wb-accept-ws-wE6ZYs/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
 _decision=Respond | toolCalls=0 | replyLen=63_
 
@@ -536,10 +536,10 @@ _decision=Respond | toolCalls=1 | replyLen=82_
 
 > in: 改 foo.ts 加 log
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 2**
 
@@ -554,10 +554,10 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 
 > in: 改 bar.ts
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 4**
 
@@ -572,10 +572,10 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 
 > in: 改 baz.ts
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 6**
 
@@ -590,10 +590,10 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 
 > in: 改 qux.ts
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 8**
 
@@ -610,19 +610,19 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 
 > in: 把 README.md 发到我微信
 
-< 此操作 [send_wechat_file] 不可撤销，请确认：
+< 此操作 [发送文件] 不可撤销，请确认：
 1. 我已读此操作的后果，且操作不可撤销。
 2. 我确认目标对象正确（recipient / path / target）。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=95_
+_decision=WaitForApproval | toolCalls=1 | replyLen=83_
 
 **turn 2**
 
 > in: 确认
 
-< 已升级确认（send_wechat_file），操作将按你之前的请求执行。
+< 已升级确认（发送文件），操作将按你之前的请求执行。
 
-_decision=Respond | toolCalls=0 | replyLen=37_
+_decision=Respond | toolCalls=0 | replyLen=25_
 
 ### F3-replay — F3 owner 询问 replay API, harness pre-injects 3 audit events, reader sees real data（C-edge）
 
@@ -640,10 +640,10 @@ _decision=Respond | toolCalls=0 | replyLen=80_
 
 > in: 改 foo.ts 加 log
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 2**
 
@@ -658,10 +658,10 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 
 > in: 改 bar.ts
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 4**
 
@@ -676,10 +676,10 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 
 > in: 改 baz.ts
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 6**
 
@@ -694,10 +694,10 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 
 > in: 改 qux.ts
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 8**
 
@@ -714,19 +714,19 @@ _decision=Respond | toolCalls=1 | replyLen=31_
 
 > in: 把 owner-default project memory 发到我微信
 
-< 此操作 [send_wechat_file] 不可撤销，请确认：
+< 此操作 [发送文件] 不可撤销，请确认：
 1. 我已读此操作的后果，且操作不可撤销。
 2. 我确认目标对象正确（recipient / path / target）。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=95_
+_decision=WaitForApproval | toolCalls=1 | replyLen=83_
 
 **turn 2**
 
 > in: 确认
 
-< 已升级确认（send_wechat_file），操作将按你之前的请求执行。
+< 已升级确认（发送文件），操作将按你之前的请求执行。
 
-_decision=Respond | toolCalls=0 | replyLen=37_
+_decision=Respond | toolCalls=0 | replyLen=25_
 
 ### C-F3-replay-api — C-F3 replay 变体: 5 events 跨 2 conversationId (多 sequence pattern) — reader sees 2 sequences（C-edge）
 
@@ -789,10 +789,10 @@ _decision=Respond | toolCalls=0 | replyLen=35_
 
 > in: 加个 helper 跑下测试
 
-< [待审批] 需要 write_file 操作 packages/runtime/src/helper.ts，请确认
+< [待审批] 需要修改文件 packages/runtime/src/helper.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=75_
+_decision=WaitForApproval | toolCalls=1 | replyLen=65_
 
 **turn 2**
 
@@ -807,10 +807,10 @@ _decision=Respond | toolCalls=1 | replyLen=55_
 
 > in: 跑 test
 
-< [待审批] 需要 write_file 操作 packages/runtime/src/helper.ts，请确认
+< [待审批] 需要修改文件 packages/runtime/src/helper.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=75_
+_decision=WaitForApproval | toolCalls=1 | replyLen=65_
 
 ### D1-chain-extension — D1 5 步链撤销（多 tool undo）（D-combo）
 
@@ -819,9 +819,9 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=75_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 3 步）
-✅ /tmp/wb-accept-ws-YyiwcL/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-YyiwcL/test.ts → 还原为上版
-✅ /tmp/wb-accept-ws-YyiwcL/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-wE6ZYs/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-wE6ZYs/test.ts → 还原为上版
+✅ /tmp/wb-accept-ws-wE6ZYs/helper.ts → 还原为上版
 
 以下 2 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -835,10 +835,10 @@ _decision=Respond | toolCalls=0 | replyLen=206_
 
 > in: 帮我改 helper.ts
 
-< [待审批] 需要 write_file 操作 helper.ts，请确认
+< [待审批] 需要修改文件 helper.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=2 | replyLen=54_
+_decision=WaitForApproval | toolCalls=2 | replyLen=44_
 
 **turn 2**
 
@@ -854,8 +854,8 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-YyiwcL/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-YyiwcL/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-wE6ZYs/helper.ts → 还原为上版
+✅ /tmp/wb-accept-ws-wE6ZYs/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
@@ -884,7 +884,7 @@ _decision=Respond | toolCalls=0 | replyLen=96_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 1 步）
-✅ /tmp/wb-accept-ws-YyiwcL/old.ts → 还原为上版
+✅ /tmp/wb-accept-ws-wE6ZYs/old.ts → 还原为上版
 
 _decision=Respond | toolCalls=0 | replyLen=55_
 
@@ -922,10 +922,10 @@ _decision=Respond | toolCalls=1 | replyLen=45_
 
 > in: 把 user.ts 的 password validator 换成 zod schema
 
-< [待审批] 需要 write_file 操作 apps/api/src/user.ts，请确认
+< [待审批] 需要修改文件 apps/api/src/user.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=2 | replyLen=65_
+_decision=WaitForApproval | toolCalls=2 | replyLen=55_
 
 ### D4 — 被打断 resume（D-combo）
 
@@ -951,10 +951,10 @@ _decision=Respond | toolCalls=1 | replyLen=29_
 
 > in: 加个 /debug 命令
 
-< [待审批] 需要 write_file 操作 apps/api/src/wechat-inbound-commands.ts，请确认
+< [待审批] 需要修改文件 apps/api/src/wechat-inbound-commands.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=84_
+_decision=WaitForApproval | toolCalls=1 | replyLen=74_
 
 **turn 2**
 
@@ -969,10 +969,10 @@ _decision=Respond | toolCalls=1 | replyLen=64_
 
 > in: 它安全吗
 
-< [待审批] 需要 write_file 操作 apps/api/src/wechat-inbound-commands.ts，请确认
+< [待审批] 需要修改文件 apps/api/src/wechat-inbound-commands.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=84_
+_decision=WaitForApproval | toolCalls=1 | replyLen=74_
 
 ### D-cross-channel-consistency — D-cross-channel 一致性: 同一 conv 跨 wechat+telegram+CLI 注入 3 audit events, 第 4 个写触发 cooldown（D-combo）
 
@@ -980,10 +980,10 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=84_
 
 > in: 改 foo.ts 加 log
 
-< [待审批] 需要 write_file 操作 foo.ts，请确认
+< [待审批] 需要修改文件 foo.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 2**
 
@@ -1020,10 +1020,10 @@ _decision=Respond | toolCalls=0 | replyLen=50_
 
 > in: 改 bar.ts 加 log
 
-< [待审批] 需要 write_file 操作 bar.ts，请确认
+< [待审批] 需要修改文件 bar.ts，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=51_
+_decision=WaitForApproval | toolCalls=1 | replyLen=41_
 
 **turn 2**
 
@@ -1050,10 +1050,10 @@ _decision=Respond | toolCalls=0 | replyLen=33_
 
 > in: 帮我写个 demo-hello.txt
 
-< [待审批] 需要 write_file 操作 demo-hello.txt，请确认
+< [待审批] 需要修改文件 demo-hello.txt，请确认
 回复「确认」批准，或「拒绝」取消。
 
-_decision=WaitForApproval | toolCalls=1 | replyLen=59_
+_decision=WaitForApproval | toolCalls=1 | replyLen=49_
 
 **turn 2**
 

@@ -41,6 +41,9 @@ v4 时期的 archive / comparisons / corpus / roadmaps / templates / pilot-repor
 | [`active/v5-steady-state-handoff-2026-08-25.md`](active/v5-steady-state-handoff-2026-08-25.md) | 稳态交接 |
 | [`active/v5-acceptance-handoff-2026-08.md`](active/v5-acceptance-handoff-2026-08.md) | 验收交接 |
 | [`active/v5-real-llm-v8-iteration-2026-09.md`](active/v5-real-llm-v8-iteration-2026-09.md) | 真实 LLM v8 迭代 |
+| [`active/phase2-test-eval-system-2026-11-19.md`](active/phase2-test-eval-system-2026-11-19.md) | 测试清理与分层任务书（已完成） |
+| [`active/phase2-findings-2026-11-19.md`](active/phase2-findings-2026-11-19.md) | T1 清理记录与遗留缺陷 |
+| [`active/phase3-eval-system-2026-11-19.md`](active/phase3-eval-system-2026-11-19.md) | 测评体系设计与实施记录（已完成） |
 
 其余 `v5-*.md` 为各专题 handoff / proposal / 触发说明，按文件名查阅。
 
