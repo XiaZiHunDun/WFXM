@@ -11,6 +11,7 @@
 import { cpSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { ingestDocumentRecord } from "@butler/domain/knowledge/document-ingest.js"
+import { createProjectKnowledgeStore } from "@butler/persistence/project-knowledge-store.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import { makeAcceptanceApp, sendWechatMessage } from "../../tests/acceptance/harness.js"
 import {
@@ -36,6 +37,8 @@ async function main(): Promise<void> {
 
   const traceId = crypto.randomUUID()
   const runId = task.id
+  // 场景级环境变量必须在 wiring 装配前生效（例如 LLM 超时守卫）。
+  for (const [key, value] of Object.entries(hint.env ?? {})) process.env[key] = value
   const trace: TraceEvent[] = []
   let seq = 0
   let rootSpanId: string | null = null
@@ -71,6 +74,58 @@ async function main(): Promise<void> {
   })
 
   const app = await makeAcceptanceApp({ noFixture: task.realModel === true })
+  // 内部场景预置：只提供评估需要的状态原语，不暴露生产内部实现。
+  for (const op of hint.setup ?? []) {
+    if (op.op === "createConversation") {
+      await app.wiring.runtimeStore.createConversationWithUserMessage({
+        conversationId: op.conversationId,
+        messageId: crypto.randomUUID(),
+        subject: op.subject,
+        content: { text: op.text ?? "seed" },
+        triggerSource: "channel",
+        idempotencyKey: `setup-conv-${crypto.randomUUID()}`,
+        createdAt: new Date(),
+      })
+    } else if (op.op === "createActiveRun") {
+      const conversationId = op.conversationId
+      await app.wiring.runtimeStore.createConversationWithUserMessage({
+        conversationId,
+        messageId: crypto.randomUUID(),
+        subject: op.subject,
+        content: { text: "seed" },
+        triggerSource: "channel",
+        idempotencyKey: `setup-active-conv-${crypto.randomUUID()}`,
+        createdAt: new Date(),
+      })
+      await app.wiring.runtimeStore.createRun({
+        id: crypto.randomUUID(),
+        conversationId,
+        parentRunId: null,
+        triggerSource: "channel",
+        idempotencyKey: `setup-active-run-${crypto.randomUUID()}`,
+        subject: op.subject,
+        goal: op.goal ?? "active seed",
+        budget: {},
+        deadline: null,
+        createdAt: new Date(),
+      })
+    } else if (op.op === "createProjectKnowledge") {
+      await createProjectKnowledgeStore(app.db).create({
+        id: crypto.randomUUID(),
+        projectId: op.projectId,
+        title: op.title,
+        kind: op.kind ?? "manual_note",
+        body: op.body,
+        byteSize: Buffer.byteLength(op.body, "utf8"),
+        provenance: { note: "eval setup" },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    }
+  }
+  if ((hint.setup?.length ?? 0) > 0) {
+    push("setup.done", { ops: hint.setup?.map((op) => op.op) ?? [] })
+  }
   // 模型事件：生产 wiring 的 llm_call step 记录已带 token / costUsd /
   // request / response 元数据；这里按轮次切片导出成 eval TraceEvent。
   const tracer = getSharedLocalTracer()
@@ -278,7 +333,7 @@ async function main(): Promise<void> {
 
     const replies: string[] = []
     const statuses: number[] = []
-    let conversationId: string | undefined
+    let conversationId: string | undefined = hint.conversationId
     let firstDecision: string | undefined
     let totalToolCalls = 0
 

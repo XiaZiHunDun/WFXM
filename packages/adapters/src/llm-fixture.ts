@@ -12,6 +12,11 @@ type FixtureEntry = {
   }[]
   readonly stopReason?: LLMAssistantResponse["stopReason"]
   /**
+   * 可选延迟：只用于评估场景注入慢 LLM / 超时行为。
+   * Effect.timeout 会中断 sleep，因此仍能验证调用侧的超时守卫。
+   */
+  readonly latencyMs?: number
+  /**
    * D23: optional `usage` so scripted-LLM fixtures and recorded traces
    * can carry token counts through the boundary and exercise the trace
    * event first-class field. Most fixtures omit this and the field
@@ -62,12 +67,16 @@ export function makeFixtureLLMAdapter(args: {
         toolCalls: [],
         stopReason: "end_turn" as const,
       }
-      return Effect.succeed({
+      const response = {
         content: entry.content ?? "",
         toolCalls: entry.toolCalls ?? [],
         stopReason: entry.stopReason ?? "end_turn",
         ...(entry.usage !== undefined ? { usage: entry.usage } : {}),
-      })
+      }
+      if (entry.latencyMs !== undefined && entry.latencyMs > 0) {
+        return Effect.sleep(entry.latencyMs).pipe(Effect.map(() => response))
+      }
+      return Effect.succeed(response)
     },
   }
 }

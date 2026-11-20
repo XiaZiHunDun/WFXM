@@ -14,6 +14,7 @@
     "./testing.js": "./src/testing.ts",
     "./event-bridge.js": "./src/event-bridge.ts",
     "./runtime-store.js": "./src/runtime-store.ts",
+    "./project-knowledge-store.js": "./src/project-knowledge-store.ts",
     "./task-session-store.js": "./src/task-session-store.ts"
   },
   "types": "./src/index.ts",

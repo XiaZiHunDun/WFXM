@@ -8,7 +8,32 @@ export interface FixtureEntry {
     readonly args: Record<string, unknown>
   }[]
   readonly stopReason?: "end_turn" | "tool_use" | "stop" | "max_tokens"
+  /** 模拟 LLM 延迟（毫秒）；配合 BUTLER_V5_LLM_TIMEOUT_MS 验证超时路径。 */
+  readonly latencyMs?: number
 }
+
+/** 内部场景转换用的最小 setup 原语；只暴露评估必需的状态预置。 */
+export type SetupOperation =
+  | {
+      readonly op: "createConversation"
+      readonly conversationId: string
+      readonly subject: string
+      readonly text?: string
+    }
+  | {
+      readonly op: "createActiveRun"
+      readonly conversationId: string
+      readonly subject: string
+      readonly goal?: string
+    }
+  | {
+      readonly op: "createProjectKnowledge"
+      readonly projectId: string
+      readonly title: string
+      readonly body: string
+      readonly kind?: "file_snapshot" | "memory_md" | "manual_note" | "ingested_document"
+      readonly tags?: readonly string[]
+    }
 
 export interface SeedFile {
   readonly path: string
@@ -67,6 +92,12 @@ export interface EvalTaskInput {
         readonly documents?: readonly SeedDocument[]
         readonly expectation?: RagExpectation
       }
+      /** 首轮使用的会话；内部场景（活跃 Run 冲突）需要预置同一会话。 */
+      readonly conversationId?: string
+      /** 场景级环境变量，在装配 wiring 之前生效（如 LLM 超时）。 */
+      readonly env?: Readonly<Record<string, string>>
+      /** 场景预置操作，按顺序在首轮之前执行。 */
+      readonly setup?: readonly SetupOperation[]
     }
   }
 }

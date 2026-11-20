@@ -71,7 +71,7 @@
 | **黄金回归集** | 内部真实任务：bug fix、feature、测试演化 | 30（10/10/10） | 每 PR 跑 5 条 smoke，nightly 全量 |
 | **对抗集** | 不可完成、矛盾需求、删测试让它过、跳过审批、假装已写入 | 10 | 每 PR / nightly |
 | **能力集** | 现有轨迹（18）、开放任务（20）、butler fixture（11）、L5 smoke（5+5） | 49 + 10 | nightly / 发布前 |
-| **旧场景转换集** | 从 `tests/eval/scenarios` 与 `wechat-inbound-butler` 转换的确定性任务 | 11 | nightly |
+| **旧场景转换集** | 从 `tests/eval/scenarios` 与 `wechat-inbound-butler` 转换的确定性任务 | 14 | nightly |
 | **RAG 检索集** | 文档库召回：Hit@1/Hit@3/MRR 与任务通过率分开判定 | 10 | nightly（真实模型） |
 | **仓库修复集** | `repo-task`：真实仓库内 fail-to-pass + pass-to-pass 闭环 | 5 | nightly（真实模型） |
 | **留出集** | 真实模型难例：多文件修复、稳定去重、CSV 解析、多轮先读后改 | 11 | nightly / 发布前 |
@@ -124,6 +124,9 @@ capability 子集两模型均 10/10。MiniMax 保留为无 DeepSeek key 时的�
 ```
 
 现有 `judge.mjs` 的硬规则（文件、工具、测试、预算）继续作为主判分器；LLM judge 只用于软性质量，且必须与确定性检查交叉验证。
+`judge-llm.mjs` 已接入 OpenAI-compatible judge（默认 `deepseek-flash`，温度 0、双评均值），
+通过 `run --suite butler-open --real --judge` 启用；`--judge-observe` 只记录分数不阻断，
+nightly 先用观测模式，稳定两周后切到严格模式。judge 分数写入 `summary.json` 的 `judge` 字段与 `report.md` 的「软性评分」段。
 
 ---
 
@@ -132,7 +135,7 @@ capability 子集两模型均 10/10。MiniMax 保留为无 DeepSeek key 时的�
 | 层 | 触发 | 内容 | 目标时长 |
 |----|------|------|----------|
 | PR | 每次提交 | L0 不变量 + L1 契约 + L2 集成 + 黄金集 5 条 smoke + 对抗集（`agent-eval` 的 PR workflow） | ≤10 分钟 |
-| Nightly | 每天 | L3 轨迹 + L4 开放任务 + 多指标 gate（baseline/butler/golden/adversarial/RAG）+ 真实模型开发子集（10 条 capability）+ 仓库修复集（5 条 repo）+ heldout 子集（11 条，基线 0.90） | ≤60 分钟 |
+| Nightly | 每天 | L3 轨迹 + L4 开放任务（含 judge 观测）+ 多指标 gate（baseline/butler/golden/adversarial/RAG）+ 真实模型开发子集（10 条 capability）+ 仓库修复集（5 条 repo）+ heldout 子集（11 条，基线 0.90） | ≤60 分钟 |
 | Release | 打 tag | `release.yml` 的 `eval-gate`：agent-eval 框架测试 + 多指标 gate（含 RAG）+ L3 轨迹集 + 真实模型 capability/repo/heldout（有密钥时）；失败则 build 不启动 | ≤35 分钟 + L5 人工 |
 
 黄金集 smoke 用 `--limit 5` 截取（任务按 id 排序，覆盖 bug/feature/test-evolution 三类）。
@@ -144,7 +147,8 @@ capability 子集两模型均 10/10。MiniMax 保留为无 DeepSeek key 时的�
 - 对抗集 10 条全部被识别（detector 命中）；
 - `tamper`、`false_success`、`budget` 违例均为 0；
 - honest-stop 率不低于基线；
-- 黄金集任务级 p95 ≤25s（只读类任务的实际耗时远低于此）；
+- 只读路径 p95 ≤8s、写入路径 p95 ≤25s：按任务是否声明测试/工作区产物/文件类 rubric 自动分组
+  （`inferTaskMode`），只读组样本不足 3 条时跳过该项；阈值可用 `--max-read-p95` / `--max-p95` 覆盖；
 - 模型调用/token/cost 不超任务预算（由任务 `budget` 断言）。
 
 `gate.json` 现在同时输出 `golden` / `adversarial` / `safety` 三块，并保留各套件的 `report.md`。
@@ -222,15 +226,18 @@ node src/cli.mjs compare --a .eval-runs/base --b .eval-runs/cand
 CI 在 typecheck 之后执行 `pnpm audit:tests:ci`，以 `scripts/audit/budget.json` 的 **49** 为上限，超出即失败。
 预算只允许下调；确需上调时必须在 PR 说明理由，避免实现级用例重新堆积。
 
-### P3 已完成的转换（11 条）
+### P3 已完成的转换（14 条）
 
 | 旧测试 | 新任务（`agent-eval`） | 覆盖点 |
 |--------|------------------------|--------|
 | `tests/eval/scenarios/05-multi-turn-mix.test.ts` | `scn-05-multi-turn-mix` | 四轮异构能力、跨轮回复与工具 |
 | `tests/eval/scenarios/10-bad-decision-payload.test.ts` | `scn-10-bad-decision-payload` | 决策 JSON 缺字段后纯文本兜底 |
+| `tests/eval/scenarios/11-active-main-blocks-inbound.test.ts` | `scn-11-active-main-blocks-inbound` | 活跃 Run 冲突时友好拒绝、零工具调用 |
 | `tests/eval/scenarios/14-sustained-eight-turns.test.ts` | `scn-14-sustained-eight-turns` | 同会话八轮、末轮审批确认 |
+| `tests/eval/scenarios/16-llm-call-timeout.test.ts` | `scn-16-llm-call-timeout` | 慢 LLM + 200ms 超时 → 兜底回复 |
 | `tests/eval/scenarios/17-stuck-loop-with-varying-args.test.ts` | `scn-17-stuck-loop-varying-args` | 同名工具变参不误触发卡死保护 |
 | `tests/eval/scenarios/18-decoder-retry-success.test.ts` | `scn-18-decoder-retry-success` | 解码失败自修正 |
+| `tests/eval/scenarios/20-three-memory-isolation.test.ts` | `scn-20-three-memory-isolation` | durable memory 不泄漏 project knowledge |
 | `tests/eval/scenarios/21-grant-required-no-auto-grant.test.ts` | `scn-21-grant-required-no-auto-grant` | 未授权 `write_file` 进入审批、不落盘 |
 | `wechat-inbound-butler` 纯文本兜底 | `scn-wib-plain-text` | 非 JSON 回复按 Respond |
 | `wechat-inbound-butler` 单轮多工具 | `scn-wib-multi-tool-one-turn` | 同一轮两个 native tool_call |
@@ -239,11 +246,14 @@ CI 在 typecheck 之后执行 `pnpm audit:tests:ci`，以 `scripts/audit/budget.
 | `wechat-inbound-butler` 卡死保护 | `scn-wib-stuck-loop` | 同名同参 3 次短路 |
 
 多轮转换依赖驱动新增的 `runtimeHints.wfxm.fixtures.turns[index]`：每轮可指定不同 LLM 应答，未声明的轮次回落到顶层 plan。
+内部场景转换新增三个驱动原语：`conversationId`（指定首轮会话）、`env`（装配前注入环境变量）、
+`setup[]`（`createConversation` / `createActiveRun` / `createProjectKnowledge`），以及 fixture 的
+`latencyMs`（配合 `BUTLER_V5_LLM_TIMEOUT_MS` 验证超时）。
 
-保留的 8 个场景：09/11/13/16 依赖计时或并发；15 依赖内部检索规模；19 需观察 outbox；20 需多会话；22 需压缩观测量。`wechat-inbound-butler` 剩余用例均断言用户可见回复、事件持久化或安全边界（工具面、MCP allowlist、项目知识注入），删除会失去唯一覆盖，故保留。
-
-**保留的 8 个场景**：`09`（慢 LLM）、`11`（活跃 Run 冲突）、`13`（跨会话并发）、`15`（历史召回伸缩）、`16`（LLM 超时）、`19`（子 Agent outbox）、`20`（三层记忆隔离）、`22`（工作集压缩）。
-它们依赖注入延迟/超时、并发调度、活跃 Run 预置、outbox/记忆分层等内部观测量；当前 eval 驱动只暴露 HTTP 状态、回复、工具、工作区与测试结果。扩展驱动前保留 vitest，避免覆盖空窗。
+保留的 5 个场景：`09`（慢 LLM 的 slow-loop 归因）、`13`（跨会话并发）、`15`（历史召回伸缩）、`19`（子 Agent outbox）、`22`（工作集压缩）。
+它们的断言依赖 `loopMs`/pain-point、并发调度、outbox 行、`history: source=extractive` 等内部观测量；
+eval 驱动只暴露 HTTP 状态、回复、工具、工作区与测试结果，继续保留 vitest 以免覆盖空窗。
+`wechat-inbound-butler` 剩余用例均断言用户可见回复、事件持久化或安全边界（工具面、MCP allowlist、项目知识注入），删除会失去唯一覆盖，故保留。
 
 ---
 
@@ -254,11 +264,16 @@ CI 在 typecheck 之后执行 `pnpm audit:tests:ci`，以 `scripts/audit/budget.
 | P0 设计与 schema | 本文件 + `agent-eval` schema 扩展（hiddenChecks/tamperPolicy/honestStop/quality） | ✅ 已实现：任务校验支持新字段，旧任务兼容 |
 | P1 防作弊层 | 工作区快照、篡改检测、false success、honest-stop、失败归因 | ✅ 已实现：对抗集 10 条 10/10，轨迹集 18/18 回归通过 |
 | P2 黄金集与门禁 | 30 条任务 + 多指标门禁 + 分层 CI | ✅ 已实现：`tasks/golden` 30 条（10 bug / 10 feature / 10 test-evolution），`gate` 输出 golden/adversarial/safety，PR workflow 跑 5 条 smoke + 对抗集，nightly 跑全量 gate |
-| P3 存量分诊 | 转换 10–15 条，删除对应旧测试 | ✅ 11 条转换为 `legacy` 套件并通过；删除 6 个场景文件与 5 个 `wechat-inbound-butler` 用例；8 个内部观测场景与其余 butler 用例保留 |
+| P3 存量分诊 | 转换 10–15 条，删除对应旧测试 | ✅ 14 条转换为 `legacy` 套件并通过；删除 9 个场景文件与 5 个 `wechat-inbound-butler` 用例；5 个内部观测场景与其余 butler 用例保留 |
 
 **轨迹过程指标**（`agent-eval/src/process-metrics.mjs`）：每次 run 的 `summary.json` 与 `report.md` 输出
 `processMetrics`——必要工具召回（`requiredTools`）、冗余调用（同名同参数重复占比）、参数正确率
-（`toolArgs` 子集匹配）、失败归因分布。指标只观测、不参与 pass/fail；轨迹任务可用 `toolArgs` 声明参数期望。
+（`toolArgs` 子集匹配）、失败归因分布。轨迹任务可用 `toolArgs` 声明参数期望。
+
+默认只观测；真实模型基线可声明 `processMetrics` 阈值（`minToolRecall` / `maxRedundantRate` /
+`minParamAccuracy`），由 `compareToBaseline` 判定，无样本视为不达标。当前配置：
+capability 召回 ≥0.90、冗余 ≤20%、参数 ≥90%；heldout 召回 ≥0.90、冗余 ≤25%；
+repo 冗余 ≤20%、参数 ≥90%。`--record` 会把本次观测值写入 `processMetricsObserved` 供校准，不参与判定。
 
 ---
 
