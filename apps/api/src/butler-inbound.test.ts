@@ -287,7 +287,7 @@ describe("local WeChat replay", () => {
     })
 
     expect(outcome.sent).toBe(true)
-    expect(channel.sent[0]).toContain("不在等待审批")
+    expect(channel.sent[0]).toContain("没有找到任务")
   })
 })
 

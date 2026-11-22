@@ -205,7 +205,7 @@ describe("createButlerAssembly", () => {
     expect(calls).toHaveLength(0)
   })
 
-  it("rejects tasks for projects missing from the root map", async () => {
+  it("returns a readable reply for projects missing from the root map", async () => {
     const { adapter } = fakeButlerAdapter()
     const assembly = await createButlerAssembly({
       projects: { p1: root },
@@ -215,14 +215,13 @@ describe("createButlerAssembly", () => {
       env: {},
     })
 
-    await expect(
-      assembly.butler.handle({
-        conversationId: "c1",
-        userId: "u1",
-        projectId: "nope",
-        content: "/new 写文件",
-      }),
-    ).rejects.toThrow(/unknown project: nope/)
+    const result = await assembly.butler.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "nope",
+      content: "/new 写文件",
+    })
+    expect(result.reply).toContain("暂时没完成")
   })
 
   it("runs the pi task, pauses for approval and reports the outcome to memory", async () => {

@@ -54,6 +54,7 @@ function fakeTasks(initial: readonly ButlerTaskRef[] = []): ButlerTaskPort & {
       const task: ButlerTaskRef = {
         taskId: `task-${started.length}`,
         projectId: input.projectId,
+        ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
         status: "idle",
         summary: input.goal,
       }
@@ -483,7 +484,394 @@ describe("ButlerRuntime", () => {
       taskId: "nope",
       approved: true,
     })
-    expect(unknown.reply).toContain("不在等待审批")
+    expect(unknown.reply).toContain("没有找到任务")
+  })
+
+  it("rejects an approval from another conversation", async () => {
+    const tasks = fakeTasks([
+      {
+        taskId: "t1",
+        projectId: "p1",
+        conversationId: "c2",
+        status: "paused",
+        pending: { toolName: "write", reason: "需要审批" },
+      },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handleApprovalCallback({
+      conversationId: "c1",
+      userId: "u1",
+      taskId: "t1",
+      approved: true,
+    })
+
+    expect(result.reply).toContain("不属于当前会话")
+    expect(tasks.approvals).toHaveLength(0)
+  })
+
+  it("rejects a rule approval from another conversation", async () => {
+    const tasks = fakeTasks([
+      {
+        taskId: "t1",
+        projectId: "p1",
+        conversationId: "c2",
+        status: "paused",
+        pending: { toolName: "write", reason: "需要审批" },
+      },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "确认",
+      activeTaskId: "t1",
+    })
+
+    expect(result.reply).toContain("不属于当前会话")
+    expect(tasks.approvals).toHaveLength(0)
+  })
+
+  it("distinguishes an already handled approval", async () => {
+    const tasks = fakeTasks([{ taskId: "t1", projectId: "p1", status: "idle" }])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handleApprovalCallback({
+      conversationId: "c1",
+      userId: "u1",
+      taskId: "t1",
+      approved: true,
+    })
+
+    expect(result.reply).toContain("可能已处理")
+    expect(tasks.approvals).toHaveLength(0)
+  })
+
+  it("binds a newly created task to the conversation", async () => {
+    const tasks = fakeTasks()
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/new 写 README",
+    })
+
+    expect((await tasks.list())[0]?.conversationId).toBe("c1")
+  })
+
+  it("derives the paused task from the conversation for a bare approval", async () => {
+    const tasks = fakeTasks([
+      {
+        taskId: "t1",
+        projectId: "p1",
+        conversationId: "c1",
+        status: "paused",
+        pending: { toolName: "write", reason: "需要审批" },
+      },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "确认",
+    })
+
+    expect(result.reply).toContain("已确认")
+    expect(tasks.approvals).toEqual([{ taskId: "t1", approved: true }])
+  })
+
+  it("asks which task when several are pending", async () => {
+    const tasks = fakeTasks([
+      {
+        taskId: "t1",
+        projectId: "p1",
+        conversationId: "c1",
+        status: "paused",
+        pending: { toolName: "write", reason: "需要审批" },
+      },
+      {
+        taskId: "t2",
+        projectId: "p1",
+        conversationId: "c1",
+        status: "paused",
+        pending: { toolName: "write", reason: "需要审批" },
+      },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "确认",
+    })
+
+    expect(result.reply).toContain("多个待确认")
+    expect(tasks.approvals).toHaveLength(0)
+  })
+
+  it("replies when nothing is pending", async () => {
+    const model = fakeModel()
+    const runtime = new ButlerRuntime({ model, tasks: fakeTasks(), clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "确认",
+    })
+
+    expect(result.reply).toContain("没有待确认")
+    expect(model.requests).toHaveLength(0)
+  })
+
+  it("hides tasks from another project in status", async () => {
+    const tasks = fakeTasks([
+      {
+        taskId: "t2",
+        projectId: "p2",
+        status: "paused",
+        pending: { toolName: "write", reason: "需要审批" },
+      },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "状态",
+      activeTaskId: "t2",
+    })
+
+    expect(result.reply).toContain("没有找到任务")
+  })
+
+  it("lets /status target an explicit task id", async () => {
+    const tasks = fakeTasks([
+      { taskId: "t1", projectId: "p1", conversationId: "c1", status: "idle" },
+      {
+        taskId: "t2",
+        projectId: "p1",
+        conversationId: "c1",
+        status: "paused",
+        pending: { toolName: "write", reason: "需要审批" },
+      },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/status t2",
+      activeTaskId: "t1",
+    })
+
+    expect(result.rule).toBe("status")
+    expect(result.reply).toContain("t2")
+  })
+
+  it("points to /tasks when the explicit task id is unknown", async () => {
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks: fakeTasks(), clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/status nope",
+    })
+
+    expect(result.reply).toContain("没有找到任务 nope")
+    expect(result.reply).toContain("/tasks")
+  })
+
+  it("documents the optional task id in help", async () => {
+    const runtime = new ButlerRuntime({ model: fakeModel(), clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "/help",
+    })
+
+    expect(result.reply).toContain("/status [任务ID]")
+  })
+
+  it("scopes recalled memory and its cache by user", async () => {
+    const calls: { query: string; userId?: string }[] = []
+    const memory: ButlerMemoryPort = {
+      async recordSessionSummary() {},
+      async recallUserMemory(query, _limit, userId) {
+        calls.push({ query, ...(userId === undefined ? {} : { userId }) })
+        return [{ title: `m-${userId ?? "none"}`, text: "x" }]
+      },
+    }
+    const model = fakeModel([{ content: "a" }, { content: "b" }, { content: "c" }])
+    const runtime = new ButlerRuntime({ model, memory, clock })
+
+    await runtime.handle({ conversationId: "c1", userId: "u1", content: "部署进度" })
+    await runtime.handle({ conversationId: "c2", userId: "u2", content: "部署进度" })
+    expect(calls.map((call) => call.userId)).toEqual(["u1", "u2"])
+
+    await runtime.handle({ conversationId: "c1", userId: "u1", content: "部署进度" })
+    expect(calls).toHaveLength(2)
+  })
+
+  it("projects memory on a message cadence", async () => {
+    const events: ButlerSessionSummaryEvent[] = []
+    const memory: ButlerMemoryPort = {
+      async recordSessionSummary(event) {
+        events.push(event)
+      },
+      async recallUserMemory() {
+        return []
+      },
+    }
+    const runtime = new ButlerRuntime({
+      model: fakeModel([{ content: "一" }, { content: "二" }, { content: "summary" }]),
+      memory,
+      clock,
+      summaryEveryMessages: 4,
+    })
+
+    await runtime.handle({ conversationId: "c1", userId: "u1", content: "你好" })
+    expect(await runtime.summarizeIfDue("c1")).toBeNull()
+
+    await runtime.handle({ conversationId: "c1", userId: "u1", content: "再说一句" })
+    const event = await runtime.summarizeIfDue("c1")
+    expect(event?.userId).toBe("u1")
+    expect(events).toHaveLength(1)
+    expect(await runtime.summarizeIfDue("c1")).toBeNull()
+  })
+
+  it("keeps the projected summary when memory write fails", async () => {
+    const memory: ButlerMemoryPort = {
+      async recordSessionSummary() {
+        throw new Error("memory down")
+      },
+      async recallUserMemory() {
+        return []
+      },
+    }
+    const runtime = new ButlerRuntime({
+      model: fakeModel([{ content: "一" }, { content: "二" }, { content: "summary" }]),
+      memory,
+      clock,
+      summaryEveryMessages: 4,
+    })
+
+    await runtime.handle({ conversationId: "c1", userId: "u1", content: "你好" })
+    await runtime.handle({ conversationId: "c1", userId: "u1", content: "再来" })
+    const event = await runtime.summarizeIfDue("c1")
+
+    expect(event).not.toBeNull()
+    expect(event?.userId).toBe("u1")
+  })
+
+  it("returns a readable reply when the task layer fails", async () => {
+    const tasks: ButlerTaskPort = {
+      async start() {
+        throw new Error("task layer down")
+      },
+      async status() {
+        return null
+      },
+      async list() {
+        return []
+      },
+    }
+    const store = new MemoryButlerSessionStore()
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, store, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/new 写 README",
+    })
+
+    expect(result.reply).toContain("暂时没完成")
+    const session = await store.load("c1")
+    expect(session?.messages.at(-2)?.content).toBe("/new 写 README")
+    expect(session?.messages.at(-1)?.content).toContain("暂时没完成")
+  })
+
+  it("returns a readable reply when pending lookup fails", async () => {
+    const tasks: ButlerTaskPort = {
+      async start() {
+        throw new Error("unused")
+      },
+      async status() {
+        return null
+      },
+      async list() {
+        throw new Error("list down")
+      },
+    }
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "确认",
+    })
+
+    expect(result.reply).toContain("暂时无法查询")
+  })
+
+  it("returns a readable reply when approval forwarding fails", async () => {
+    const paused: ButlerTaskRef = {
+      taskId: "t1",
+      projectId: "p1",
+      conversationId: "c1",
+      status: "paused",
+      pending: { toolName: "write", reason: "需要审批" },
+    }
+    const tasks: ButlerTaskPort = {
+      async start() {
+        return paused
+      },
+      async status() {
+        return paused
+      },
+      async list() {
+        return [paused]
+      },
+      async approve() {
+        throw new Error("task layer down")
+      },
+    }
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handleApprovalCallback({
+      conversationId: "c1",
+      userId: "u1",
+      taskId: "t1",
+      approved: true,
+    })
+
+    expect(result.reply).toContain("审批暂时没提交成功")
+  })
+
+  it("still replies when the session store fails", async () => {
+    class FailingStore extends MemoryButlerSessionStore {
+      override async save(): Promise<void> {
+        throw new Error("db down")
+      }
+    }
+    const runtime = new ButlerRuntime({
+      model: fakeModel([{ content: "收到" }]),
+      store: new FailingStore(),
+      clock,
+    })
+
+    const rule = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "/help",
+    })
+    expect(rule.reply).toContain("可用指令")
+
+    const agent = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "随便聊聊",
+    })
+    expect(agent.reply).toBe("收到")
   })
 
   it("exposes the notice for a paused task", async () => {

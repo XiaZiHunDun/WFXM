@@ -9,7 +9,7 @@
 export const BUTLER_HELP_TEXT = [
   "可用指令：",
   "/help 查看帮助",
-  "/status 查看当前任务",
+  "/status [任务ID] 查看任务，缺省看当前任务",
   "/tasks 列出项目任务",
   "/new <目标> 创建任务",
   "确认 / 拒绝 处理任务审批",
@@ -35,6 +35,15 @@ export interface ButlerRuleInput {
 const APPROVE_WORDS = new Set(["确认", "同意", "通过", "approve"])
 const REJECT_WORDS = new Set(["拒绝", "不同意", "reject"])
 
+/** Bare approval words; the runtime resolves the task from the conversation. */
+export function matchApprovalWord(content: string): { approved: boolean } | null {
+  const text = content.trim()
+  const lower = text.toLowerCase()
+  if (APPROVE_WORDS.has(lower) || APPROVE_WORDS.has(text)) return { approved: true }
+  if (REJECT_WORDS.has(lower) || REJECT_WORDS.has(text)) return { approved: false }
+  return null
+}
+
 export function matchButlerRule(input: ButlerRuleInput): ButlerRuleAction | null {
   const text = input.content.trim()
   if (!text) return null
@@ -44,7 +53,15 @@ export function matchButlerRule(input: ButlerRuleInput): ButlerRuleAction | null
     return { kind: "reply", name: "help", reply: BUTLER_HELP_TEXT }
   }
 
-  if (lower === "/status" || text === "状态" || text === "进度") {
+  const statusMatch = /^\/status(?:\s+(\S+))?$/i.exec(text)
+  if (statusMatch) {
+    const taskId = statusMatch[1]?.trim() ?? input.activeTaskId
+    return taskId
+      ? { kind: "task_status", name: "status", taskId }
+      : { kind: "list_tasks", name: "status" }
+  }
+
+  if (text === "状态" || text === "进度") {
     const taskId = input.activeTaskId
     return taskId
       ? { kind: "task_status", name: "status", taskId }
@@ -65,11 +82,14 @@ export function matchButlerRule(input: ButlerRuleInput): ButlerRuleAction | null
   }
 
   const taskId = input.activeTaskId
-  if (taskId && (APPROVE_WORDS.has(lower) || APPROVE_WORDS.has(text))) {
-    return { kind: "approve", name: "approve", taskId, approved: true }
-  }
-  if (taskId && (REJECT_WORDS.has(lower) || REJECT_WORDS.has(text))) {
-    return { kind: "approve", name: "reject", taskId, approved: false }
+  const intent = matchApprovalWord(text)
+  if (taskId && intent) {
+    return {
+      kind: "approve",
+      name: intent.approved ? "approve" : "reject",
+      taskId,
+      approved: intent.approved,
+    }
   }
 
   return null

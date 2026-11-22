@@ -51,6 +51,8 @@ export async function handleButlerInbound(args: {
       })
 
   const delivery = await deliver(channel, recipient, result.reply)
+  // Project memory on a cadence; a slow or failing summary never blocks the reply.
+  void butler.summarizeIfDue(input.conversationId).catch(() => undefined)
   return {
     result,
     ...(delivery.sent ? { sent: true } : { sent: false }),

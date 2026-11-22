@@ -30,7 +30,7 @@ import {
   type ButlerTokenUsage,
   type ButlerToolSpec,
 } from "./model-port.js"
-import { matchButlerRule, type ButlerRuleAction } from "./rule-router.js"
+import { matchApprovalWord, matchButlerRule, type ButlerRuleAction } from "./rule-router.js"
 import { buildApprovalNotice, type ButlerApprovalNotice } from "./approval-notice.js"
 import { finalizeReply, taskStatusLabel } from "./presentation.js"
 import { MemoryButlerSessionStore } from "./session-store.js"
@@ -38,6 +38,7 @@ import { MemoryButlerSessionStore } from "./session-store.js"
 const DEFAULT_MAX_ITERATIONS = 3
 const DEFAULT_MAX_TOOL_CALLS = 8
 const DEFAULT_RECALL_LIMIT = 4
+const DEFAULT_SUMMARY_EVERY_MESSAGES = 20
 const MAX_TRANSCRIPT_CHARS = 6_000
 const DEFAULT_WINDOW_TURNS = 12
 const DEFAULT_MAX_SUMMARY_CHARS = 2_000
@@ -90,6 +91,8 @@ export interface ButlerRuntimeOptions {
   readonly maxIterations?: number
   readonly maxToolCalls?: number
   readonly recallLimit?: number
+  /** Messages accumulated before an automatic memory projection; 0 disables. */
+  readonly summaryEveryMessages?: number
   /** Raw turns kept verbatim; older turns fold into the rolling summary. */
   readonly windowTurns?: number
   readonly maxSummaryChars?: number
@@ -114,6 +117,7 @@ export class ButlerRuntime {
   private readonly store: ButlerSessionStore
   private readonly sessions = new Map<string, ButlerSessionRecord>()
   private readonly recallCache = new Map<string, { block: string; expiresAt: string }>()
+  private readonly summaryMarks = new Map<string, number>()
   private readonly clock: () => string
   private readonly logger: { warn(message: string, extra?: unknown): void }
 
@@ -138,16 +142,29 @@ export class ButlerRuntime {
       content: input.content,
       ...(input.activeTaskId === undefined ? {} : { activeTaskId: input.activeTaskId }),
     })
+    const resolvedRule = rule ?? (await this.resolveApprovalRule(input))
 
-    if (rule) {
-      const outcome = await this.applyRule(rule, input)
+    if (resolvedRule) {
+      let outcome: RuleOutcome
+      try {
+        outcome = await this.applyRule(resolvedRule, input, session.projectId)
+      } catch (error) {
+        traces.push("rule:error")
+        this.logger.warn(`[butler] rule ${resolvedRule.name} failed`, error)
+        outcome = { reply: "这个操作暂时没完成，请稍后再试。" }
+      }
       const reply = finalizeReply(outcome.reply)
-      traces.push(`rule:${rule.name}`)
-      await this.persist(session, [userMessage, { role: "assistant", content: reply }], now)
+      traces.push(`rule:${resolvedRule.name}`)
+      await this.safePersist(
+        session,
+        [userMessage, { role: "assistant", content: reply }],
+        now,
+        traces,
+      )
       return {
         reply,
         route: "rule",
-        rule: rule.name,
+        rule: resolvedRule.name,
         ...(outcome.taskId === undefined ? {} : { taskId: outcome.taskId }),
         traces,
         usage: ZERO_USAGE,
@@ -214,6 +231,26 @@ export class ButlerRuntime {
     return event
   }
 
+  /**
+   * Projects the session when enough messages accumulated since the last one.
+   * Callers can fire-and-forget: failures are logged and swallowed.
+   */
+  async summarizeIfDue(conversationId: string): Promise<ButlerSessionSummaryEvent | null> {
+    const every = this.options.summaryEveryMessages ?? DEFAULT_SUMMARY_EVERY_MESSAGES
+    if (every <= 0) return null
+    const session = this.sessions.get(conversationId) ?? (await this.store.load(conversationId))
+    if (!session) return null
+    const mark = this.summaryMarks.get(conversationId) ?? 0
+    if (session.messages.length - mark < every) return null
+    this.summaryMarks.set(conversationId, session.messages.length)
+    try {
+      return await this.summarize(conversationId)
+    } catch (error) {
+      this.logger.warn(`[butler] ${conversationId} automatic summary failed`, error)
+      return null
+    }
+  }
+
   async forgetSession(conversationId: string): Promise<void> {
     this.sessions.delete(conversationId)
     this.recallCache.clear()
@@ -249,16 +286,49 @@ export class ButlerRuntime {
     const tasks = this.options.tasks
     if (!tasks?.approve) {
       const reply = finalizeReply("任务层尚未接入，暂时无法处理审批。")
-      await this.persist(session, [userMessage, { role: "assistant", content: reply }], now)
+      await this.safePersist(
+        session,
+        [userMessage, { role: "assistant", content: reply }],
+        now,
+        traces,
+      )
       return { reply, route: "rule", rule: "approval-card", traces, usage: ZERO_USAGE }
     }
 
-    const task = await tasks.approve(input.taskId, input.approved)
-    if (!task) {
-      const reply = finalizeReply(`任务 ${input.taskId} 当前不在等待审批。`)
-      await this.persist(session, [userMessage, { role: "assistant", content: reply }], now)
+    const deny = async (message: string): Promise<ButlerTurnResult> => {
+      const reply = finalizeReply(message)
+      await this.safePersist(
+        session,
+        [userMessage, { role: "assistant", content: reply }],
+        now,
+        traces,
+      )
       return { reply, route: "rule", rule: "approval-card", traces, usage: ZERO_USAGE }
     }
+
+    let current: ButlerTaskRef | null
+    try {
+      current = await tasks.status(input.taskId)
+    } catch (error) {
+      this.logger.warn(`[butler] ${input.conversationId} task lookup failed`, error)
+      return deny("任务操作暂时失败，请稍后再试。")
+    }
+    if (!current) return deny(`没有找到任务 ${input.taskId}。`)
+    if (!taskBelongsToConversation(current, input.conversationId, session.projectId)) {
+      return deny(`任务 ${input.taskId} 不属于当前会话，无法操作。`)
+    }
+    if (current.status !== "paused") {
+      return deny(`任务 ${input.taskId} 当前不在等待审批（可能已处理）。`)
+    }
+
+    let task: ButlerTaskRef | null
+    try {
+      task = await tasks.approve(input.taskId, input.approved)
+    } catch (error) {
+      this.logger.warn(`[butler] ${input.conversationId} approval failed`, error)
+      return deny("审批暂时没提交成功，请稍后再试。")
+    }
+    if (!task) return deny(`任务 ${input.taskId} 当前不在等待审批。`)
 
     const decision = input.approved
       ? `已确认，继续执行 ${task.taskId}。`
@@ -276,7 +346,12 @@ export class ButlerRuntime {
     const reply = finalizeReply(
       notice ? `${decision}${detail}\n\n${notice.text}` : `${decision}${detail}`,
     )
-    await this.persist(session, [userMessage, { role: "assistant", content: reply }], now)
+    await this.safePersist(
+      session,
+      [userMessage, { role: "assistant", content: reply }],
+      now,
+      traces,
+    )
     return {
       reply,
       route: "rule",
@@ -332,7 +407,76 @@ export class ButlerRuntime {
     await this.store.save(next)
   }
 
-  private async applyRule(rule: ButlerRuleAction, input: ButlerTurnInput): Promise<RuleOutcome> {
+  /** Resolves a bare "确认/拒绝" to the conversation's single paused task. */
+  private async resolveApprovalRule(input: ButlerTurnInput): Promise<ButlerRuleAction | null> {
+    const intent = matchApprovalWord(input.content)
+    if (!intent) return null
+    const tasks = this.options.tasks
+    if (!tasks) {
+      return { kind: "reply", name: "approve-none", reply: "任务层尚未接入，暂时无法处理审批。" }
+    }
+    let pending: readonly ButlerTaskRef[]
+    try {
+      pending = (await tasks.list(input.projectId)).filter((task) => task.status === "paused")
+    } catch (error) {
+      this.logger.warn(`[butler] ${input.conversationId} pending task lookup failed`, error)
+      return {
+        kind: "reply",
+        name: "approve-error",
+        reply: "暂时无法查询待确认任务，请稍后再试。",
+      }
+    }
+    const owned = pending.filter((task) => task.conversationId === input.conversationId)
+    const candidates =
+      owned.length > 0
+        ? owned
+        : pending.filter(
+            (task) =>
+              task.conversationId === undefined &&
+              (input.projectId === undefined || task.projectId === input.projectId),
+          )
+    if (candidates.length === 0) {
+      return { kind: "reply", name: "approve-none", reply: "当前没有待确认的任务。" }
+    }
+    if (candidates.length > 1) {
+      return {
+        kind: "reply",
+        name: "approve-many",
+        reply: "有多个待确认的任务，请点击审批卡片，或先用 /status 确认是哪一个。",
+      }
+    }
+    const only = candidates[0]
+    if (!only) {
+      return { kind: "reply", name: "approve-none", reply: "当前没有待确认的任务。" }
+    }
+    return {
+      kind: "approve",
+      name: intent.approved ? "approve" : "reject",
+      taskId: only.taskId,
+      approved: intent.approved,
+    }
+  }
+
+  /** Persist best-effort: a store outage must not swallow the reply. */
+  private async safePersist(
+    session: ButlerSessionRecord,
+    messages: readonly ButlerMessage[],
+    now: string,
+    traces: string[],
+  ): Promise<void> {
+    try {
+      await this.persist(session, messages, now)
+    } catch (error) {
+      traces.push("store:error")
+      this.logger.warn(`[butler] ${session.conversationId} persist failed`, error)
+    }
+  }
+
+  private async applyRule(
+    rule: ButlerRuleAction,
+    input: ButlerTurnInput,
+    sessionProjectId?: string,
+  ): Promise<RuleOutcome> {
     if (rule.kind === "reply") return { reply: rule.reply }
 
     const tasks = this.options.tasks
@@ -345,7 +489,9 @@ export class ButlerRuntime {
       }
       case "task_status": {
         const task = await tasks.status(rule.taskId)
-        if (!task) return { reply: `没有找到任务 ${rule.taskId}。` }
+        if (!task || !taskVisibleToProject(task, sessionProjectId ?? input.projectId)) {
+          return { reply: `没有找到任务 ${rule.taskId}，可以用 /tasks 查看项目任务。` }
+        }
         const notice = buildApprovalNotice(task)
         return {
           reply: notice
@@ -355,7 +501,11 @@ export class ButlerRuntime {
       }
       case "start_task": {
         if (!input.projectId) return { reply: "请先选择项目，再创建任务。" }
-        const task = await tasks.start({ projectId: input.projectId, goal: rule.goal })
+        const task = await tasks.start({
+          projectId: input.projectId,
+          goal: rule.goal,
+          conversationId: input.conversationId,
+        })
         const notice = buildApprovalNotice(task)
         const created = `已创建任务 ${task.taskId}（${task.status}），完成后我会汇总改动。`
         const reply =
@@ -371,6 +521,20 @@ export class ButlerRuntime {
       }
       case "approve": {
         if (!tasks.approve) return { reply: "任务层不支持审批转发。" }
+        const current = await tasks.status(rule.taskId)
+        if (!current) return { reply: `没有找到任务 ${rule.taskId}。` }
+        if (
+          !taskBelongsToConversation(
+            current,
+            input.conversationId,
+            sessionProjectId ?? input.projectId,
+          )
+        ) {
+          return { reply: `任务 ${rule.taskId} 不属于当前会话，无法操作。` }
+        }
+        if (current.status !== "paused") {
+          return { reply: `任务 ${rule.taskId} 当前不在等待审批（可能已处理）。` }
+        }
         const task = await tasks.approve(rule.taskId, rule.approved)
         if (!task) return { reply: `任务 ${rule.taskId} 当前不在等待审批。` }
         const detail =
@@ -473,7 +637,12 @@ export class ButlerRuntime {
       traces.push("agent:iteration-limit")
     }
 
-    await this.persist(bounded, [userMessage, { role: "assistant", content: reply }], now)
+    await this.safePersist(
+      bounded,
+      [userMessage, { role: "assistant", content: reply }],
+      now,
+      traces,
+    )
     return {
       reply,
       route: "agent",
@@ -530,7 +699,11 @@ export class ButlerRuntime {
           if (!input.projectId) {
             return { output: "当前会话未绑定项目，无法创建任务。", failed: true }
           }
-          const task = await tasks.start({ projectId: input.projectId, goal })
+          const task = await tasks.start({
+            projectId: input.projectId,
+            goal,
+            conversationId: input.conversationId,
+          })
           const output =
             task.status === "failed"
               ? `任务 ${task.taskId} 执行失败：${task.error ?? "未知原因"}`
@@ -547,7 +720,10 @@ export class ButlerRuntime {
           const taskId = asNonEmptyString(call.args["taskId"]) ?? input.activeTaskId
           if (!taskId) return { output: "缺少任务 ID。", failed: true }
           const task = await tasks.status(taskId)
-          return { output: task ? describeTask(task) : `没有找到任务 ${taskId}。`, failed: !task }
+          if (!task || !taskVisibleToProject(task, input.projectId)) {
+            return { output: `没有找到任务 ${taskId}。`, failed: true }
+          }
+          return { output: describeTask(task) }
         }
         default:
           return { output: `未知工具：${call.name}`, failed: true }
@@ -569,22 +745,22 @@ export class ButlerRuntime {
     const memory = this.options.memory
     if (!memory?.recallUserMemory) return ""
     const limit = this.options.recallLimit ?? DEFAULT_RECALL_LIMIT
-    const cacheKey = `${limit}|${query.trim()}`
+    const cacheKey = `${session.userId}|${limit}|${query.trim()}`
     const cached = this.readRecallCache(cacheKey)
     if (cached !== undefined) {
       traces.push("memory:recall:cache")
       return cached.block
     }
 
-    let hits = await this.safeRecall(query, limit, traces)
+    let hits = await this.safeRecall(query, limit, traces, session.userId)
     if (hits.length === 0 && this.shouldRewrite(query, session)) {
       const rewritten = await this.rewriteQuery(session, query, traces)
       if (rewritten !== null) {
         traces.push("memory:rewrite")
-        hits = await this.safeRecall(rewritten, limit, traces)
+        hits = await this.safeRecall(rewritten, limit, traces, session.userId)
         if (hits.length === 0) {
           // 改写仍空时退回最近有效记忆，避免整轮丢掉画像。
-          hits = await this.safeRecall("", limit, traces)
+          hits = await this.safeRecall("", limit, traces, session.userId)
           if (hits.length > 0) traces.push("memory:recall:fallback")
         }
       }
@@ -604,11 +780,12 @@ export class ButlerRuntime {
     query: string,
     limit: number,
     traces: string[],
+    userId: string,
   ): Promise<readonly RecalledUserMemory[]> {
     const recall = this.options.memory?.recallUserMemory
     if (!recall) return []
     try {
-      const hits = await recall(query, limit)
+      const hits = await recall(query, limit, userId)
       traces.push(`memory:recall:${hits.length}`)
       return hits
     } catch (error) {
@@ -936,6 +1113,20 @@ function transcriptFallback(transcript: string): string {
   const last = transcript.split("\n").filter(Boolean).pop()
   const fallback = last ? last.replace(/^(?:用户|管家)：/, "") : "本次会话没有形成有效结论。"
   return fallback.length > 200 ? `${fallback.slice(0, 200)}…` : fallback
+}
+
+function taskVisibleToProject(task: ButlerTaskRef, projectId: string | undefined): boolean {
+  return projectId === undefined || task.projectId === projectId
+}
+
+function taskBelongsToConversation(
+  task: ButlerTaskRef,
+  conversationId: string,
+  projectId: string | undefined,
+): boolean {
+  if (task.conversationId !== undefined) return task.conversationId === conversationId
+  // Tasks created before conversation binding fall back to project scope.
+  return projectId === undefined || task.projectId === projectId
 }
 
 function describeTask(task: ButlerTaskRef): string {

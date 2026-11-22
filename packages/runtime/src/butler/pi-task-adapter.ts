@@ -57,6 +57,9 @@ function toRef(record: PiTaskSessionRecord): ButlerTaskRef {
     projectId: record.projectId,
     status: record.status,
     ...(record.snapshot.summary === undefined ? {} : { summary: record.snapshot.summary }),
+    ...(record.snapshot.conversationId === undefined
+      ? {}
+      : { conversationId: record.snapshot.conversationId }),
     ...(lastReply === undefined ? {} : { lastReply }),
     ...(lastError === undefined ? {} : { error: lastError }),
     ...(pending === null
@@ -135,6 +138,7 @@ export function createPiTaskPortAdapter(
         projectId: input.projectId,
         cwd,
         summary: input.goal,
+        ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
         ...(repoMap.length === 0
           ? {}
           : {
@@ -155,7 +159,7 @@ export function createPiTaskPortAdapter(
     status: statusOf,
 
     async list(projectId): Promise<readonly ButlerTaskRef[]> {
-      const refs = runner.list().map((record) => {
+      const refs = (await runner.listStored()).map((record) => {
         const ref = toRef(record)
         return inFlight.has(ref.taskId) ? { ...ref, status: "running" as const } : ref
       })

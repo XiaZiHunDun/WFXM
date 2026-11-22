@@ -36,6 +36,8 @@ export interface PiTaskSessionSnapshot {
   readonly lastReply?: string
   /** Failure reason when the latest turn failed. */
   readonly lastError?: string
+  /** Conversation that owns the task; approvals are scoped to it. */
+  readonly conversationId?: string
 }
 
 export interface PiTaskSessionRecord {
@@ -53,4 +55,7 @@ export interface PiTaskSessionStore {
   load(taskId: string): Promise<PiTaskSessionRecord | null>
   save(record: PiTaskSessionRecord): Promise<void>
   delete(taskId: string): Promise<void>
+  /** Optional durable scan; enables /tasks and approval lookup after restarts. */
+  list?(): Promise<readonly PiTaskSessionRecord[]>
+  listByStatus?(status: PiTaskSessionStatus): Promise<readonly PiTaskSessionRecord[]>
 }

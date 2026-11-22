@@ -75,4 +75,9 @@ export class DrizzlePiTaskSessionStore implements PiTaskSessionStore {
       .orderBy(desc(taskSessions.updatedAt))
     return rows.map(toRecord)
   }
+
+  async list(): Promise<readonly PiTaskSessionRecord[]> {
+    const rows = await this.db.select().from(taskSessions).orderBy(desc(taskSessions.updatedAt))
+    return rows.map(toRecord)
+  }
 }

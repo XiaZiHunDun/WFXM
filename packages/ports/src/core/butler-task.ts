@@ -18,6 +18,8 @@ export interface ButlerTaskPending {
 export interface ButlerTaskRef {
   readonly taskId: string
   readonly projectId: string
+  /** Conversation that created the task; approvals are scoped to it. */
+  readonly conversationId?: string
   readonly status: ButlerTaskStatus
   readonly summary?: string
   readonly pending?: ButlerTaskPending
@@ -28,7 +30,11 @@ export interface ButlerTaskRef {
 }
 
 export interface ButlerTaskPort {
-  start(input: { readonly projectId: string; readonly goal: string }): Promise<ButlerTaskRef>
+  start(input: {
+    readonly projectId: string
+    readonly goal: string
+    readonly conversationId?: string
+  }): Promise<ButlerTaskRef>
   status(taskId: string): Promise<ButlerTaskRef | null>
   list(projectId?: string): Promise<readonly ButlerTaskRef[]>
   /** Forward an owner approval decision for a paused task. */

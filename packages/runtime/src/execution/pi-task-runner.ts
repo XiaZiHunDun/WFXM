@@ -46,6 +46,8 @@ export interface PiTaskOpenInput {
   readonly cwd: string
   readonly summary?: string
   readonly systemPrompt?: string
+  /** Conversation that owns the task; persisted for approval scoping. */
+  readonly conversationId?: string
 }
 
 export type PiApprovalCheck =
@@ -162,6 +164,10 @@ export class MemoryPiTaskSessionStore implements PiTaskSessionStore {
 
   async delete(taskId: string): Promise<void> {
     this.records.delete(taskId)
+  }
+
+  async list(): Promise<readonly PiTaskSessionRecord[]> {
+    return [...this.records.values()]
   }
 }
 
@@ -507,6 +513,7 @@ export class PiTaskRunner {
         systemPrompt:
           input.systemPrompt ?? this.options.systemPrompt ?? DEFAULT_PI_TASK_SYSTEM_PROMPT,
         ...(input.summary === undefined ? {} : { summary: input.summary }),
+        ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
         messages: [],
       },
       pendingStep: null,
@@ -645,6 +652,17 @@ export class PiTaskRunner {
 
   list(): readonly PiTaskSessionRecord[] {
     return [...this.sessions.values()].map((session) => session.record)
+  }
+
+  /**
+   * Every known task: the durable store plus in-memory sessions.
+   * In-memory records win because they carry the newest turn.
+   */
+  async listStored(): Promise<readonly PiTaskSessionRecord[]> {
+    const stored = this.store.list ? await this.store.list() : []
+    const byId = new Map(stored.map((record) => [record.taskId, record]))
+    for (const [taskId, session] of this.sessions) byId.set(taskId, session.record)
+    return [...byId.values()]
   }
 
   private async requireSession(taskId: string): Promise<SessionState> {
@@ -1014,6 +1032,7 @@ export class PiTaskRunner {
       messages: readonly unknown[]
       lastReply?: string
       lastError?: string
+      conversationId?: string
     } = {
       ...session.record.snapshot,
       messages: cloneMessages(finalMessages),

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { StreamFn } from "@butler/pi-agent"
+import type { PiTaskSessionStore } from "@butler/ports/core/pi-task-session.js"
 import {
   createAssistantMessageEventStream,
   type AssistantMessage,
@@ -99,13 +100,14 @@ function setup(
   options: {
     readonly approvalPolicy?: PiApprovalPolicy
     readonly detached?: boolean
+    readonly store?: PiTaskSessionStore
   } = {},
 ) {
   const runner = new PiTaskRunner({
     model: MODEL,
     apiKey: "fake",
     streamFn,
-    store: new MemoryPiTaskSessionStore(),
+    store: options.store ?? new MemoryPiTaskSessionStore(),
     lock: new GlobalAgentLock(),
     approvalPolicy: options.approvalPolicy ?? autoApprove,
   })
@@ -126,15 +128,21 @@ describe("createPiTaskPortAdapter", () => {
         { text: "已写入" },
       ]),
     )
-    const ref = await adapter.start({ projectId: "p1", goal: "写 a.txt" })
+    const ref = await adapter.start({
+      projectId: "p1",
+      goal: "写 a.txt",
+      conversationId: "c1",
+    })
 
     expect(ref).toMatchObject({ projectId: "p1", status: "idle", summary: "写 a.txt" })
+    expect(ref.conversationId).toBe("c1")
     expect(ref.lastReply).toContain("已写入")
     expect(readFileSync(join(root, "a.txt"), "utf8")).toBe("hi")
 
     const status = await adapter.status(ref.taskId)
     expect(status).toMatchObject({ taskId: ref.taskId, status: "idle" })
     expect(status?.lastReply).toContain("已写入")
+    expect(status?.conversationId).toBe("c1")
 
     const list = await adapter.list("p1")
     expect(list.map((task) => task.taskId)).toContain(ref.taskId)
@@ -228,5 +236,27 @@ describe("createPiTaskPortAdapter", () => {
     await adapter.idle()
     const status = await adapter.status(ref.taskId)
     expect(status).toMatchObject({ taskId: ref.taskId, status: "idle" })
+  })
+
+  it("lists tasks from the durable store after a restart", async () => {
+    const store = new MemoryPiTaskSessionStore()
+    writeFileSync(join(root, "a.txt"), "x")
+    const first = setup(
+      scriptedStream([
+        { tools: [{ id: "c1", name: "read", args: { path: "a.txt" } }] },
+        { text: "完成" },
+      ]),
+      { store },
+    )
+    const ref = await first.adapter.start({
+      projectId: "p1",
+      goal: "读 a.txt",
+      conversationId: "c1",
+    })
+
+    const second = setup(scriptedStream([{ text: "另一个进程" }]), { store })
+    const list = await second.adapter.list("p1")
+    expect(list.map((task) => task.taskId)).toContain(ref.taskId)
+    expect(list.find((task) => task.taskId === ref.taskId)?.conversationId).toBe("c1")
   })
 })
