@@ -8,6 +8,7 @@ import type {
   DocumentStore,
   ProcedureStore,
   ProjectKnowledgeStore,
+  ReminderStore,
   TaskStore,
 } from "@butler/persistence"
 import type { McpToolBundle } from "./mcp-bootstrap.js"
@@ -25,6 +26,7 @@ export interface WiringConfig {
   readonly projectKnowledgeStore?: ProjectKnowledgeStore
   readonly procedureStore?: ProcedureStore
   readonly taskStore?: TaskStore
+  readonly reminderStore?: ReminderStore
   /** ChannelPort registry, keyed by ChannelKind. Populated by Composition Root. */
   readonly channels?: ReadonlyMap<ChannelKind, ChannelPort>
 }
@@ -43,6 +45,7 @@ export interface Wiring {
   readonly projectKnowledgeStore: ProjectKnowledgeStore | null
   readonly procedureStore: ProcedureStore | null
   readonly taskStore: TaskStore | null
+  readonly reminderStore: ReminderStore | null
   /** ChannelPort registry — empty when Composition Root provides no env. */
   readonly channels: ReadonlyMap<ChannelKind, ChannelPort>
 }
@@ -74,6 +77,7 @@ export function makeWiring(config: WiringConfig): Wiring {
     projectKnowledgeStore: config.projectKnowledgeStore ?? null,
     procedureStore: config.procedureStore ?? null,
     taskStore: config.taskStore ?? null,
+    reminderStore: config.reminderStore ?? null,
     channels: config.channels ?? new Map(),
   }
 }

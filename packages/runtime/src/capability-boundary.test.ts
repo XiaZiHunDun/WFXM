@@ -273,6 +273,70 @@ describe("capability-boundary", () => {
     }
   })
 
+  it("appends the C2 preview to the Ask reply and persists it on the step", async () => {
+    const db = await makeTestDb()
+    try {
+      const store: RuntimeStore = createRuntimeStore(db.db)
+      const createdAt = new Date("2026-08-20T00:00:00Z")
+      const inbound = await store.createConversationWithUserMessage({
+        conversationId: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        subject: "owner-1",
+        content: { text: "run it" },
+        triggerSource: "channel",
+        idempotencyKey: crypto.randomUUID(),
+        createdAt,
+      })
+      const run = await store.createRun({
+        id: crypto.randomUUID(),
+        conversationId: inbound.conversationId,
+        parentRunId: null,
+        triggerSource: "channel",
+        idempotencyKey: crypto.randomUUID(),
+        subject: "owner-1",
+        goal: "run it",
+        budget: {},
+        deadline: null,
+        createdAt,
+      })
+      await store.transitionRunStatus(run.id, run.version, "running", createdAt)
+
+      const def: ToolDefinition = {
+        name: "run_command" as ToolDefinition["name"],
+        risk: "high",
+        run: vi.fn(async () => ({ ok: true, output: "ok" })),
+      }
+      const registry = buildCapabilityRegistryFromTools([def])
+      const gate = new PolicyGate(productionPermissionPolicy("owner-1"), () => 1000)
+      const outcome = await executeToolThroughBoundary(
+        registry,
+        gate,
+        def,
+        { argv: ["git", "push"] },
+        { subject: "owner-1", resource: "git push", grant: null },
+        {
+          store,
+          runId: run.id,
+          conversationId: run.conversationId,
+          subject: "owner-1",
+          preview: "命令：git push",
+        },
+      )
+      expect(outcome.ok).toBe(false)
+      if (outcome.ok) throw new Error("expected Ask")
+      expect(outcome.reason).toContain("命令：git push")
+
+      const steps = await store.listWaitingApprovalSteps()
+      const step = steps.find((s) => s.runId === run.id)
+      expect(step).toBeDefined()
+      if (!step) throw new Error("expected persisted step")
+      const { parsePendingCapabilityInput } = await import("./approval-runtime.js")
+      expect(parsePendingCapabilityInput(step.input)?.preview).toBe("命令：git push")
+    } finally {
+      await db.close()
+    }
+  })
+
   it("returns capability failed when an allowed tool errors", async () => {
     const def: ToolDefinition = {
       name: "get_current_time" as ToolDefinition["name"],

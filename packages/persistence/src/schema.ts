@@ -346,3 +346,31 @@ export const taskSessions = pgTable(
     statusUpdatedIdx: index("task_sessions_status_updated_idx").on(t.status, t.updatedAt),
   }),
 )
+
+/**
+ * Phase 2 C1: owner reminders created from chat. The reminder worker sends
+ * plain text only — no tool execution, no side effects.
+ */
+export const reminders = pgTable(
+  "reminders",
+  {
+    reminderId: uuid("reminder_id").primaryKey().notNull(),
+    subject: text("subject").notNull(),
+    wechatUserId: text("wechat_user_id").notNull(),
+    conversationId: text("conversation_id").notNull(),
+    content: text("content").notNull(),
+    fireAt: timestamp("fire_at", { withTimezone: true }).notNull(),
+    repeat: text("repeat").notNull(),
+    status: text("status").notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    firedAt: timestamp("fired_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    statusFireIdx: index("reminders_status_fire_idx").on(t.status, t.fireAt),
+    subjectStatusIdx: index("reminders_subject_status_idx").on(t.subject, t.status, t.fireAt),
+  }),
+)

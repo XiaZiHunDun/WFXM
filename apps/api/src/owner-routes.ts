@@ -9,6 +9,7 @@ import { registerTracesProceduresTasksRoutes } from "./owner-routes/traces-proce
 import { registerUsageRoutes } from "./owner-routes/usage.js"
 import { registerMcpRoutes } from "./owner-routes/mcp.js"
 import { registerAuditFatigueRoutes } from "./owner-routes/audit-fatigue.js"
+import { registerReminderRoutes } from "./owner-routes/reminders.js"
 import { tryAcquireOwnerSlot } from "./lib/owner-rate-limit.js"
 
 /**
@@ -44,4 +45,5 @@ export function createOwnerRoutes(app: Hono, wiring: Wiring): void {
   registerUsageRoutes(app, wiring)
   registerMcpRoutes(app, wiring)
   registerAuditFatigueRoutes(app, wiring)
+  registerReminderRoutes(app, wiring)
 }

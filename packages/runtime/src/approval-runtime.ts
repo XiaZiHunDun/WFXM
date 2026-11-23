@@ -27,6 +27,8 @@ export interface PendingCapabilityInput {
   readonly digest: string
   readonly kind: ActionKind
   readonly risk: RiskLevel
+  /** C2: pre-rendered owner-facing diff / command preview (optional). */
+  readonly preview?: string
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
 }
@@ -43,6 +45,7 @@ export interface PendingApprovalRequest {
   readonly digest: string
   readonly kind: ActionKind
   readonly risk: RiskLevel
+  readonly preview?: string
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
 }
@@ -103,6 +106,9 @@ export function parsePendingCapabilityInput(
     digest,
     kind,
     risk,
+    ...(typeof input["preview"] === "string" && input["preview"].trim()
+      ? { preview: input["preview"] }
+      : {}),
     ...(typeof input["wechatUserId"] === "string" ? { wechatUserId: input["wechatUserId"] } : {}),
     ...(typeof input["wechatContextToken"] === "string"
       ? { wechatContextToken: input["wechatContextToken"] }
@@ -138,6 +144,7 @@ export async function createWaitingApprovalStep(
     digest: request.digest,
     kind: request.kind,
     risk: request.risk,
+    ...(request.preview ? { preview: request.preview } : {}),
     ...(request.wechatUserId ? { wechatUserId: request.wechatUserId } : {}),
     ...(request.wechatContextToken ? { wechatContextToken: request.wechatContextToken } : {}),
   }

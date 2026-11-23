@@ -461,4 +461,13 @@ describe("parsePendingCapabilityInput", () => {
   it("rejects non-number expiresAtMs", () => {
     expect(parsePendingCapabilityInput({ ...valid, expiresAtMs: "soon" })).toBeNull()
   })
+
+  it("parses the optional C2 preview", () => {
+    expect(parsePendingCapabilityInput(valid)?.preview).toBeUndefined()
+    const withPreview = parsePendingCapabilityInput({
+      ...valid,
+      preview: "命令：pnpm test",
+    })
+    expect(withPreview?.preview).toBe("命令：pnpm test")
+  })
 })

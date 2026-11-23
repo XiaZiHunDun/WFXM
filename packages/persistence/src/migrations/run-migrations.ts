@@ -18,6 +18,7 @@ const MIGRATION_FILES = [
   "0014_audit_actor_column.sql",
   "0015_task_sessions.sql",
   "0016_butler_sessions.sql",
+  "0017_reminders.sql",
 ] as const
 
 export type MigrationFileName = (typeof MIGRATION_FILES)[number]

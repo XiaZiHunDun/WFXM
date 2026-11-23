@@ -25,6 +25,7 @@ import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { devSessionRunId } from "./dev-session-grant.js"
 import { markGrantConsumed } from "./tool-boundary-helpers.js"
 import { validateRunCommandArgs } from "./workspace-tools.js"
+import { buildToolApprovalPreview } from "./approval-preview.js"
 
 const DEFAULT_TOOL_TIMEOUT_MS = 5_000
 const SEND_WECHAT_FILE_TIMEOUT_MS = 120_000
@@ -121,6 +122,8 @@ export function makeToolExecutor(args: {
   readonly runId?: string
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
+  /** C2: workspace root for the approval diff preview (defaults to env/cwd). */
+  readonly workspaceRoot?: string
   readonly mcpServerIdByCapability?: Readonly<Record<string, string>>
 }): ToolExecutor {
   const { core, mcp } = splitCoreAndMcpTools(args.tools)
@@ -180,6 +183,18 @@ export function makeToolExecutor(args: {
               digest: request.digest,
             })
           : null)
+      const approvalPreview =
+        approval === undefined
+          ? null
+          : buildToolApprovalPreview({
+              capability: def.name as string,
+              args: toolArgs,
+              ...(args.workspaceRoot === undefined ? {} : { workspaceRoot: args.workspaceRoot }),
+            })
+      const approvalWithPreview =
+        approval === undefined
+          ? undefined
+          : { ...approval, ...(approvalPreview === null ? {} : { preview: approvalPreview }) }
       const outcome = await executeToolThroughBoundary(
         registry,
         gate,
@@ -193,7 +208,7 @@ export function makeToolExecutor(args: {
             ? {}
             : { mcpServerId: resolveMcpServerId(def.name as string) }),
         },
-        approval,
+        approvalWithPreview,
       )
       if (!explicitGrant && grant && outcome.ok && args.store) {
         // D62 T1 (audit #1 F-01): wrap in try/catch so a DB throw on

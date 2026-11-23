@@ -18,6 +18,7 @@
     "./policy-gate.js": "./src/policy-gate.ts",
     "./capability-boundary.js": "./src/capability-boundary.ts",
     "./approval-runtime.js": "./src/approval-runtime.ts",
+    "./approval-preview.js": "./src/approval-preview.ts",
     "./run-lifecycle.js": "./src/run-lifecycle.ts",
     "./inline-approval-intent.js": "./src/inline-approval-intent.ts",
     "./grant-network.js": "./src/grant-network.ts",

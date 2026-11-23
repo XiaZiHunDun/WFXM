@@ -41,6 +41,7 @@
 | **Owner HTTP API `/v1/owner/*`** | CRUD memories / tasks / procedures / projects / approvals / audit / usage | owner-routes | [`apps/api/src/owner-routes.ts`](../apps/api/src/owner-routes.ts) | ✅ |
 | **WebSocket 订阅** | 长连接订阅 Run/Step 状态变更 | ws-subscribe | [`apps/api/src/routes/ws-subscribe.ts`](../apps/api/src/routes/ws-subscribe.ts) | ✅ |
 | **Schedule / Cron 定时触发** | 周期或单次定时启动 Run | schedule-run + schedule-worker | [`apps/api/src/schedule-run.ts`](../apps/api/src/schedule-run.ts), [`schedule-worker.ts`](../apps/api/src/schedule-worker.ts) | ✅ |
+| **自然语言提醒** | 微信里一句话创建一次性 / 每天 / 每周提醒，到点主动推送纯文本；可查看、取消；重启不丢 | reminder-store + reminder-worker | [`apps/api/src/reminder-tools.ts`](../apps/api/src/reminder-tools.ts), [`reminder-worker.ts`](../apps/api/src/reminder-worker.ts) | 🟡 默认关闭 |
 | **parent_run (Subagent)** | 子 Run 由 `delegate-runtime` 直接触发，不反向 Intake | delegate-runtime | [`packages/runtime/src/delegate-runtime.ts`](../packages/runtime/src/delegate-runtime.ts), DESIGN §8 | ✅ |
 
 ## §2 对话 / Run / 审批（Conversation / Run / Approval）
@@ -58,6 +59,7 @@
 | **Decoder 失败 retry** | decode 失败注入 system msg + max retries；超限后 Respond 含 raw | conversation-loop | DESIGN §6.2 line 269 | ✅ |
 | **waiting_approval Step** | 高风险动作等待 owner 确认；持久化动作摘要+过期+响应主体 | policy-gate | [`packages/runtime/src/approval-runtime.ts`](../packages/runtime/src/approval-runtime.ts), DESIGN §10.2 | ✅ |
 | **approval-resume** | 重启 / 审批后安全恢复（lock + concurrency） | approval-runtime | [`apps/api/src/approval-resume.ts`](../apps/api/src/approval-resume.ts) | ✅ |
+| **审批前预览** | 审批消息直接展示 `write_file` 相对路径 + 增删行摘要、`run_command` 命令全文；owner 接口返回 `preview` | approval-preview | [`packages/runtime/src/approval-preview.ts`](../packages/runtime/src/approval-preview.ts), [`apps/api/src/approval-preview.ts`](../apps/api/src/approval-preview.ts) | 🟡 默认关闭 |
 | **审批 TTL 与到期语义** | 审批等待可配置超时（`BUTLER_V5_APPROVAL_TTL_MS`，默认 30 分钟）；到期清空 pending 并明确回「审批已过期，本步未执行。」，不误报已执行 | pi-task-runner / butler-runtime | [`packages/runtime/src/execution/pi-task-runner.ts`](../packages/runtime/src/execution/pi-task-runner.ts), [`apps/api/src/butler-assembly.ts`](../apps/api/src/butler-assembly.ts) | ✅ |
 | **入站乱序防护** | 同一会话旧序号或超窗消息不追加事件、不执行、不发送；Slack `ts`、Telegram `message_id`、iLink 时间戳；窗口 `BUTLER_V5_INBOUND_ORDER_WINDOW_MS`（默认 120s，0 关闭） | inbound-ordering | [`apps/api/src/inbound-ordering.ts`](../apps/api/src/inbound-ordering.ts), [`apps/api/src/channel-inbound.ts`](../apps/api/src/channel-inbound.ts) | ✅ |
 | **Subagent 委派** | 把子任务委派给配置化角色（child run + 收窄 grants） | delegate-runtime | [`packages/runtime/src/delegate-runtime.ts`](../packages/runtime/src/delegate-runtime.ts) | ✅ |

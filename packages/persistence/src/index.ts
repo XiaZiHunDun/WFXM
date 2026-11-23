@@ -14,6 +14,13 @@ export { createProjectKnowledgeStore } from "./project-knowledge-store.js"
 export type { ProjectKnowledgeStore } from "./project-knowledge-store.js"
 export { createProcedureStore, createTaskStore } from "./task-procedure-store.js"
 export type { ProcedureStore, TaskStore } from "./task-procedure-store.js"
+export { createReminderStore } from "./reminder-store.js"
+export type {
+  ReminderRecord,
+  ReminderRepeat,
+  ReminderStatus,
+  ReminderStore,
+} from "./reminder-store.js"
 export { DrizzlePiTaskSessionStore } from "./task-session-store.js"
 export { DrizzleButlerSessionStore } from "./butler-session-store.js"
 export {

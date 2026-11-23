@@ -393,6 +393,7 @@ async function runButlerLoopBody(args: {
     durableMemoryStore: args.wiring.durableMemoryStore,
     documentStore: args.wiring.documentStore,
     projectKnowledgeStore: args.wiring.projectKnowledgeStore,
+    reminderStore: args.wiring.reminderStore,
     memorySubject,
     projectId: args.projectId,
     // D5-arch-align §20 #5 (opt-in): ButlerToolContext exposes
@@ -426,6 +427,7 @@ async function runButlerLoopBody(args: {
     conversationId: args.conversationId,
     timeoutMsFor: toolTimeoutMs,
     wechatUserId: args.fromUserId,
+    workspaceRoot: (env["BUTLER_V5_WORKSPACE_ROOT"] ?? "").trim() || process.cwd(),
     mcpServerIdByCapability: args.wiring.mcp.serverIdByCapability,
   })
 

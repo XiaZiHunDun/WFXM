@@ -48,6 +48,8 @@ v4 时期的 archive / comparisons / corpus / roadmaps / templates / pilot-repor
 | [`active/phase3c-channel-product-2026-11-23.md`](active/phase3c-channel-product-2026-11-23.md) | 渠道层与产品能力体检及 C1–C6 打磨方案（已交付；C3 暂不切换） |
 | [`active/phase1-approval-ttl-ordering-2026-11-23/spec.md`](active/phase1-approval-ttl-ordering-2026-11-23/spec.md) | Phase 1 遗留补齐：审批 TTL 可配置与到期语义、入站乱序防护（已交付） |
 | [`active/demo-console-2026-11-23/spec.md`](active/demo-console-2026-11-23/spec.md) | 本地 Demo 控制台 + Playwright E2E（已交付） |
+| [`active/phase2-c1-reminders/spec.md`](active/phase2-c1-reminders/spec.md) | Phase 2 C1：自然语言提醒 / 个人定时任务（实施中） |
+| [`active/phase2-c2-approval-preview/spec.md`](active/phase2-c2-approval-preview/spec.md) | Phase 2 C2：审批前预览 diff / 命令全文（实施中） |
 
 其余 `v5-*.md` 为各专题 handoff / proposal / 触发说明，按文件名查阅。
 

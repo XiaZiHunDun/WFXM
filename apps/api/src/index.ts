@@ -7,6 +7,7 @@ import { pickLLMForRole } from "@butler/adapters"
 import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer, type WsServerHandle } from "./ws-routes.js"
 import { startScheduleWorkerIfEnabled } from "./schedule-worker.js"
+import { startReminderWorkerIfEnabled } from "./reminder-worker.js"
 import { startProjectKnowledgeWatchWorkerIfEnabled } from "./project-knowledge-watch-worker.js"
 import { startCandidateExpiresSweeperIfEnabled } from "./candidate-expires-sweeper.js"
 import { startAutoPromoteSweeperIfEnabled } from "./auto-promote-sweeper.js"
@@ -145,6 +146,12 @@ if (scheduleHandle) {
   console.error("[butler-v5] schedule worker started")
 }
 
+const reminderHandle = startReminderWorkerIfEnabled({ wiring, env: process.env })
+if (reminderHandle) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error("[butler-v5] reminder worker started")
+}
+
 const projectKnowledgeWatchHandle = startProjectKnowledgeWatchWorkerIfEnabled({
   wiring,
   env: process.env,
@@ -219,6 +226,7 @@ if (autoPromoteHandle) {
 
 const shutdown = (): void => {
   scheduleHandle?.stop()
+  reminderHandle?.stop()
   projectKnowledgeWatchHandle?.stop()
   candidateExpiresHandle?.stop()
   autoPromoteHandle?.stop()

@@ -41,6 +41,7 @@ export function registerApprovalsRunsRoutes(app: Hono, wiring: Wiring): void {
         digest: pending.digest,
         kind: pending.kind,
         risk: pending.risk,
+        ...(pending.preview ? { preview: pending.preview } : {}),
         ...(pending.wechatUserId ? { wechatUserId: pending.wechatUserId } : {}),
       }
     })

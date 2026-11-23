@@ -18,6 +18,7 @@ describe("migrations registry", () => {
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS project_knowledge_items")
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS task_sessions")
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS butler_sessions")
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS reminders")
   })
 
   it("includes D2.2 scoped_grants capability column migration", () => {

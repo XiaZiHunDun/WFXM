@@ -1,6 +1,11 @@
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { RuntimeStore, StoredMessage } from "@butler/domain/runtime.js"
-import type { DurableMemoryStore, DocumentStore, ProjectKnowledgeStore } from "@butler/persistence"
+import type {
+  DurableMemoryStore,
+  DocumentStore,
+  ProjectKnowledgeStore,
+  ReminderStore,
+} from "@butler/persistence"
 import { resolveReadModelSource } from "@butler/domain/runtime.js"
 import type { LLMTool } from "@butler/adapters"
 import {
@@ -29,6 +34,8 @@ import { loadMcpToolDefinitions, loadMcpLlmTools, type McpToolsOptions } from ".
 import type { McpToolBundle } from "./mcp-bootstrap.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 import { defaultCapabilitiesForRole } from "./delegate-capabilities.js"
+import { isRemindersEnabled } from "./reminder-config.js"
+import { makeReminderTools, REMINDER_LLM_TOOLS } from "./reminder-tools.js"
 
 /**
  * Minimal context passed to tool handlers. The butler loop wires the
@@ -73,6 +80,8 @@ export interface ButlerToolContext {
   readonly projectId?: string
   /** Project Knowledge store for explicit recall. */
   readonly projectKnowledgeStore?: ProjectKnowledgeStore | null
+  /** Phase 2 C1: owner reminder store (registered only when reminders are enabled). */
+  readonly reminderStore?: ReminderStore | null
 }
 
 function storedMessageText(content: Readonly<Record<string, unknown>>): string {
@@ -966,6 +975,9 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
   if (isSubagentEnabled(env)) {
     core.push(makeDelegateToSubagentTool(ctx))
   }
+  if (isRemindersEnabled(env)) {
+    core.push(...makeReminderTools(ctx))
+  }
   return enrichDeclaredSchemas([...core, ...mcp])
 }
 
@@ -976,7 +988,9 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
  * Never fabricates a schema when there is no real source.
  */
 function enrichDeclaredSchemas(tools: readonly ToolDefinition[]): readonly ToolDefinition[] {
-  const paramsByName = new Map(WEIBUTLER_LLM_TOOLS.map((t) => [t.name, t.parameters]))
+  const paramsByName = new Map(
+    [...WEIBUTLER_LLM_TOOLS, ...REMINDER_LLM_TOOLS].map((t) => [t.name, t.parameters]),
+  )
   return tools.map((t) => {
     const params = paramsByName.get(t.name as string)
     if (!params) return t
@@ -996,7 +1010,8 @@ export function llmToolsForButler(
   const core = isSubagentEnabled(env)
     ? WEIBUTLER_LLM_TOOLS
     : WEIBUTLER_LLM_TOOLS.filter((t) => t.name !== "delegate_to_subagent")
-  return [...core, ...mcp]
+  const reminders = isRemindersEnabled(env) ? REMINDER_LLM_TOOLS : []
+  return [...core, ...reminders, ...mcp]
 }
 
 /**

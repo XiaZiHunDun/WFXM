@@ -11,7 +11,7 @@
 | 阶段 | 目标 | 状态 | 验收日期 |
 |------|------|------|----------|
 | Phase 1 | 主要流程打通，基础功能正常，不报错，无明显消息丢失 | ✅ 完成 | 2026-11-19 |
-| Phase 2 | 功能深化（爆点/差异化），按 ROI 选点 | 🚧 进行中（测评体系已完成） | — |
+| Phase 2 | 功能深化（爆点/差异化），按 ROI 选点 | 🚧 进行中（测评体系已完成；C1 提醒 / C2 审批预览已实现） | — |
 | Phase 3 | 功能打磨：地基 → 楼层 → 体验 | ✅ 完成（任务层 / 管家层 / 渠道与产品能力） | 2026-11-23 |
 
 ---
@@ -258,3 +258,25 @@
 | 手动冒烟 | `pnpm demo:web` → `/health` 200，控制台页面可加载 |
 
 范围说明：本轮只做本地 + CI 的浏览器 demo，不做公网 demo 实例；真实 LLM 与 MCP 均未接入。
+
+### Phase 2 C1 + C2（2026-11-23，第四批）
+
+选点来自 [`plans/active/phase2-feature-deepening-2026-11-23.md`](plans/active/phase2-feature-deepening-2026-11-23.md)：
+C1 自然语言提醒（[spec](plans/active/phase2-c1-reminders/spec.md)）、
+C2 审批前预览（[spec](plans/active/phase2-c2-approval-preview/spec.md)）。
+
+| 项 | 结果 |
+|----|------|
+| C1 持久化 | `reminders` 表（迁移 0017）+ `ReminderStore`；按状态/时间建索引 |
+| C1 工具 | `create_reminder` / `list_reminders` / `cancel_reminder`，仅 `BUTLER_V5_REMINDERS_ENABLED=1` 时注册 |
+| C1 到点 | `reminder-worker` 轮询到期提醒 → 复用微信出站纯文本推送；once 完成、daily/weekly 推进；失败保留并冷却重试；迟到写 `reminder.missed` |
+| C1 时间 | 固定 `Asia/Shanghai`；非法日期拒绝、过去时间 once 拒绝、重复提醒自动推进 |
+| C2 渲染 | `renderApprovalPreview`（纯函数）：`run_command` 全文、`write_file` 相对路径 + 增删行摘要、截断与路径脱敏 |
+| C2 链路 | Ask 回复追加预览；等待步骤落库 `preview`；`GET /v1/owner/approvals` 返回 `preview`；开关 `BUTLER_V5_APPROVAL_PREVIEW` 默认关闭 |
+| 边界 | 不改审批状态机 / TTL / Grant；关闭开关后行为与旧版本一致 |
+
+验收证据（2026-11-23 复跑）：`pnpm test` 285 文件 / 2,460 通过 / 2 skipped；
+`pnpm typecheck` / `pnpm lint` / `pnpm format:check` 全绿，0 warning。
+新增用例覆盖：store 持久化、时区/非法日期/过去时间、工具上限与取消、
+worker 到点/推进/失败重试/迟到标注、审批预览渲染/截断/路径脱敏/开关回退。
+

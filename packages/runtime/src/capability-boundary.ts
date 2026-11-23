@@ -41,6 +41,8 @@ export interface ApprovalExecutionContext {
   readonly store: RuntimeStore
   readonly runId: string
   readonly conversationId: string
+  /** C2: owner-readable preview computed by the app layer (optional). */
+  readonly preview?: string
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
 }
@@ -297,7 +299,10 @@ export async function executeToolThroughBoundary(
         })
         return {
           ok: false,
-          reason: `[待审批] ${decision.question}`,
+          reason:
+            approval.preview && approval.preview.trim()
+              ? `[待审批] ${decision.question}\n\n${approval.preview.trim()}`
+              : `[待审批] ${decision.question}`,
           pendingApproval: { stepId: step.stepId, question: decision.question },
         }
       }
@@ -435,6 +440,7 @@ async function persistAskApproval(
     digest: request.digest,
     kind: definition.kind,
     risk: definition.risk,
+    ...(approval.preview ? { preview: approval.preview } : {}),
     ...(approval.wechatUserId ? { wechatUserId: approval.wechatUserId } : {}),
     ...(approval.wechatContextToken ? { wechatContextToken: approval.wechatContextToken } : {}),
   }

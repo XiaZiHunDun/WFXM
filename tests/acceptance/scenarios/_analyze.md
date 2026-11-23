@@ -1,6 +1,6 @@
 # Acceptance Realistic Scenarios — 产品层行为分析
 
-生成时间：2026-11-19（58 场景自动跑出）
+生成时间：2026-11-23（58 场景自动跑出）
 
 ## 总览
 
@@ -8,7 +8,7 @@
 - 通过：58 / 失败：0
 - 触发 approval：23 次
 - 工具调用总数：55
-- reply 字符总数：6740
+- reply 字符总数：6600
 
 ## 按类别汇总
 
@@ -516,9 +516,9 @@ _decision=Respond | toolCalls=0 | replyLen=24_
 
 > in: 撤销刚才
 
-< [undo] /tmp/wb-accept-ws-wE6ZYs/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
+< [undo] 项目目录/foo.txt 是新建文件，已置空（如需彻底删除请手工 rm）
 
-_decision=Respond | toolCalls=0 | replyLen=63_
+_decision=Respond | toolCalls=0 | replyLen=43_
 
 ### C10 — 多语言混合（C-edge）
 
@@ -819,15 +819,15 @@ _decision=WaitForApproval | toolCalls=1 | replyLen=65_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 3 步）
-✅ /tmp/wb-accept-ws-wE6ZYs/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-wE6ZYs/test.ts → 还原为上版
-✅ /tmp/wb-accept-ws-wE6ZYs/helper.ts → 还原为上版
+✅ 项目目录/helper.ts → 还原为上版
+✅ 项目目录/test.ts → 还原为上版
+✅ 项目目录/helper.ts → 还原为上版
 
 以下 2 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
 • pnpm test
 
-_decision=Respond | toolCalls=0 | replyLen=206_
+_decision=Respond | toolCalls=0 | replyLen=146_
 
 ### D2-chain-approval — D2 chain 跨 WaitForApproval 撤销（D-combo）
 
@@ -854,13 +854,13 @@ _decision=Respond | toolCalls=1 | replyLen=33_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 2 步）
-✅ /tmp/wb-accept-ws-wE6ZYs/helper.ts → 还原为上版
-✅ /tmp/wb-accept-ws-wE6ZYs/helper.ts → 还原为上版
+✅ 项目目录/helper.ts → 还原为上版
+✅ 项目目录/helper.ts → 还原为上版
 
 以下 1 个命令副作用需手工 reverse（无法自动 undo）：
 • pnpm test
 
-_decision=Respond | toolCalls=0 | replyLen=151_
+_decision=Respond | toolCalls=0 | replyLen=111_
 
 ### D3-chain-commands — D3 chain 全 run_command 无 auto-undo（D-combo）
 
@@ -884,9 +884,9 @@ _decision=Respond | toolCalls=0 | replyLen=96_
 > in: 撤销这轮
 
 < 【撤销轮次】（共 1 步）
-✅ /tmp/wb-accept-ws-wE6ZYs/old.ts → 还原为上版
+✅ 项目目录/old.ts → 还原为上版
 
-_decision=Respond | toolCalls=0 | replyLen=55_
+_decision=Respond | toolCalls=0 | replyLen=35_
 
 ### D5-chain-restart — D5 restart 后 chain 丢失, honest reply（D-combo）
 

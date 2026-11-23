@@ -9,6 +9,7 @@ import {
   createProjectKnowledgeStore,
   createProcedureStore,
   createTaskStore,
+  createReminderStore,
   backfillRuntimeFromEventStore,
 } from "@butler/persistence"
 import { resetSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
@@ -64,6 +65,7 @@ export async function createProductionWiring(
   const projectKnowledgeStore = createProjectKnowledgeStore(db)
   const procedureStore = createProcedureStore(db)
   const taskStore = createTaskStore(db)
+  const reminderStore = createReminderStore(db)
   // Composition Root: 注入系统时钟；测试可用 fixedClock 注入假时钟做确定性断言。
   const runEngine = new RunEngine(runtimeStore, undefined, systemClock)
   const mcp = await bootstrapMcpTools(env, { runtimeStore })
@@ -80,6 +82,7 @@ export async function createProductionWiring(
     projectKnowledgeStore,
     procedureStore,
     taskStore,
+    reminderStore,
     channels,
     backfillConversation: async (conversationId) => {
       await backfillRuntimeFromEventStore(db, [conversationId])

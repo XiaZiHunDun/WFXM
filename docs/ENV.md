@@ -209,6 +209,10 @@
 | `BUTLER_V5_POST_APPROVAL_LOOP` | bool | `0` | `1` 审批后 Run 自动继续 | `run-engine.ts` | 🟡 |
 | `BUTLER_V5_APPROVAL_TTL_MS` | int | `1800000` | pi 任务审批等待上限（毫秒）；`<=0` 关闭过期判定 | [`apps/api/src/butler-assembly.ts`](../apps/api/src/butler-assembly.ts), [`packages/runtime/src/execution/pi-task-runner.ts`](../packages/runtime/src/execution/pi-task-runner.ts) | ✅ |
 | `BUTLER_V5_INBOUND_ORDER_WINDOW_MS` | int | `120000` | 入站乱序时间窗（毫秒）；`0` 仅按序号判定 | [`apps/api/src/inbound-ordering.ts`](../apps/api/src/inbound-ordering.ts) | ✅ |
+| `BUTLER_V5_APPROVAL_PREVIEW` | bool | `0` | `1` 时审批消息附带 `write_file` diff / `run_command` 全文 | [`apps/api/src/approval-preview.ts`](../apps/api/src/approval-preview.ts) | 🟡 |
+| `BUTLER_V5_REMINDERS_ENABLED` | bool | `0` | `1` 启用 `create/list/cancel_reminder` 工具与提醒 worker | [`apps/api/src/reminder-config.ts`](../apps/api/src/reminder-config.ts) | 🟡 |
+| `BUTLER_V5_REMINDERS_TICK_MS` | int | `30000` | 提醒轮询间隔（限定 5s–5min） | `reminder-config.ts` | 🟡 |
+| `BUTLER_V5_REMINDERS_MAX_PER_OWNER` | int | `20` | 每个 owner 的 active 提醒上限（1–100） | `reminder-config.ts` | 🟡 |
 
 ## §12 Owner Rate Limit / WS Auth
 

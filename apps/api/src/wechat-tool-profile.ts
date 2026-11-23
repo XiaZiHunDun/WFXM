@@ -2,6 +2,8 @@
 import { WEIBUTLER_LLM_TOOLS } from "./tools.js"
 import { envTruthy } from "./env-util.js"
 import { isSubagentEnabled } from "./subagent-config.js"
+import { isRemindersEnabled } from "./reminder-config.js"
+import { REMINDER_TOOL_NAMES } from "./reminder-tools.js"
 
 export type WechatIntakeIntentKind =
   "chat" | "dev_task" | "dev_session" | "switch_project" | "continue_dev" | "task_digest"
@@ -9,7 +11,8 @@ export type WechatIntakeIntentKind =
 const EXEC_TOOL_NAMES = ["run_command", "write_file"] as const
 
 function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
-  const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name)
+  const names: string[] = WEIBUTLER_LLM_TOOLS.map((t) => t.name)
+  if (isRemindersEnabled(env)) names.push(...REMINDER_TOOL_NAMES)
   if (isSubagentEnabled(env)) return names
   return names.filter((n) => n !== "delegate_to_subagent")
 }

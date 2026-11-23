@@ -102,6 +102,22 @@ export async function sendWechatProactiveNotify(args: {
     )
     return { ok: false, reason: "run notify disabled" }
   }
+  return sendWechatText(args)
+}
+
+/**
+ * Ungated WeChat text delivery: port → mock outbox → iLink.
+ *
+ * Reminders use this directly (their own BUTLER_V5_REMINDERS_ENABLED switch
+ * governs them); run/task notifications stay behind sendWechatProactiveNotify.
+ */
+export async function sendWechatText(args: {
+  readonly to: string
+  readonly text: string
+  readonly env?: NodeJS.ProcessEnv
+  readonly channels?: ReadonlyMap<ChannelKind, ChannelPort>
+}): Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }> {
+  const env = args.env ?? process.env
   const to = args.to.trim()
   const rawText = args.text.trim()
   if (!to || !rawText) {
