@@ -66,12 +66,16 @@
 
 ## §4 维度 2: 功能验证（D79 候选）
 
-**范围**（未定 cycle）：
+**范围**：
 
-- Demo deployment（公开可访问的 demo 实例）
-- E2E 测试覆盖（playwright 或 Vercel Agent Browser）
-- Self-hosting runbook（社区自托管指南）
+- Demo deployment（公开可访问的 demo 实例）— 待办
+- E2E 测试覆盖（Playwright）— ✅ 本地 Demo 控制台，2026-11-23
+- Self-hosting runbook（社区自托管指南）— 待办
 - 真实 LLM v8+ 迭代（[`v5-real-llm-v8-iteration-2026-09.md`](plans/active/v5-real-llm-v8-iteration-2026-09.md)）
+
+**已完成增量**：`pnpm demo:web` 提供仅 loopback 的浏览器控制台（脚本化 LLM + 内存
+PGlite），`pnpm test:e2e:demo` 用 Playwright 覆盖发消息、审批批准/拒绝、重置；CI 新增
+`demo-e2e` job。规格见 [`plans/active/demo-console-2026-11-23/spec.md`](plans/active/demo-console-2026-11-23/spec.md)。
 
 **前置依赖**: D77 维度 1 已完成（部署地基）。
 

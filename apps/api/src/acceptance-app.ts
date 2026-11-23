@@ -21,6 +21,7 @@ import type { Wiring } from "./wiring.js"
 // ts-prune-ignore-next: 仅被 tests/acceptance 使用（tests 不参与 ts-prune 扫描）。
 export function buildHonoApp(wiring: Wiring): {
   readonly request: (path: string, init: RequestInit) => Promise<Response>
+  readonly fetch: (req: Request, env?: unknown) => Promise<Response>
 } {
   const app = new Hono()
   createRoutes(app, wiring)
@@ -29,5 +30,8 @@ export function buildHonoApp(wiring: Wiring): {
   // `Promise<Response>` 以匹配 tests/acceptance harness 的 typed request 接口。
   return {
     request: (path, init) => Promise.resolve(app.request(path, init)),
+    // 真实 socket 场景（scripts/demo-server.ts）：调用方显式传入 env，
+    // owner 路由据 `env.incoming.socket.remoteAddress` 判定 loopback。
+    fetch: (req, env) => Promise.resolve(app.fetch(req, env as Record<string, unknown>)),
   }
 }

@@ -43,6 +43,7 @@
 | L3 | 评估场景（gate） | `pnpm vitest run tests/eval` |
 | L4 | 渠道前验收窗口（真实路由 + 真实 runtime） | `npx tsx scripts/l4-smoke.ts` |
 | L4 可靠性 | 重投 / 并发 / 连续投递 / 无待审批 | `npx tsx scripts/l4-smoke.ts --suite reliability` |
+| Demo 控制台 E2E | 浏览器交互：发消息 / 审批批准拒绝 / 重置（Playwright） | `pnpm test:e2e:demo` |
 | 对话调试 | 管家入口（规则 / 审批 / 项目 / 记忆），无需微信 | `pnpm chat`（交互）、`pnpm chat --script <file>` 或 `pnpm verify:butler`（场景包） |
 | 真实模型抽测 | 任务执行 / 项目切换 / 多轮上下文（非 gate，消耗额度） | `pnpm verify:butler:real` |
 
@@ -189,6 +190,11 @@ pnpm vitest run tests/_meta
 | `eval/` | `harness.ts` / `metrics.ts` / `mock-llm-scripted.ts` / `scenarios/*.test.ts` | Model Port 与 LLM eval 工具集（10 个流程场景） | ✅ |
 | `guard/` | `no-layer-violation.test.ts` | 无 layer 违规（§3 依赖方向硬规则） | ✅ |
 | `_meta/` | `architecture-typed-rules.test.ts` / `list-unique-test-files.test.ts` | 守护 architecture test 规则与 test 文件唯一性 | ✅ |
+
+> **Demo 控制台 E2E**：`tests/e2e-demo/console.spec.ts`（Playwright，4 用例）不在 vitest
+> 收集范围内（vitest 仅收 `*.test.ts`）。由 `pnpm test:e2e:demo` 执行，Playwright 的
+> `webServer` 自动启动 `scripts/demo-server.ts`（脚本化 LLM + 内存 PGlite，仅 loopback）；
+> CI 独立 job `demo-e2e` 运行。
 
 ## §5 Inline Unit Tests（233 files）
 

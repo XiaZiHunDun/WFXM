@@ -116,3 +116,48 @@ jobs:
           name: butler-v5-test-log-${{ github.run_id }}
           path: test-output.txt
           if-no-files-found: warn
+
+  demo-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm (pinned to 9.15.0 to match dev + lockfile v9)
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        working-directory: .
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Demo console E2E (scripted LLM, loopback only)
+        working-directory: .
+        run: pnpm test:e2e:demo
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-e2e-report-${{ github.run_id }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: warn

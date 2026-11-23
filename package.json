@@ -15,6 +15,8 @@
     "audit:tests:ci": "node scripts/audit/test-internal-assertions.mjs --budget scripts/audit/budget.json",
     "test:p4-acceptance": "bash scripts/p4-acceptance.sh",
     "demo": "tsx scripts/demo.ts",
+    "demo:web": "tsx scripts/demo-server.ts",
+    "test:e2e:demo": "playwright test",
     "chat": "tsx scripts/chat.ts",
     "smoke:chat": "tsx scripts/chat.ts --script scripts/chat-scenario.example.json",
     "verify:butler": "tsx scripts/chat.ts --dir scripts/chat-scenarios",
@@ -63,6 +65,7 @@
   "devDependencies": {
     "@ivotoby/openapi-mcp-server": "^1.16.1",
     "@modelcontextprotocol/server-github": "^2025.4.8",
+    "@playwright/test": "1.65.1",
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",

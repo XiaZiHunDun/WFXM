@@ -47,6 +47,7 @@ v4 时期的 archive / comparisons / corpus / roadmaps / templates / pilot-repor
 | [`active/phase3b-butler-layer-2026-11-20.md`](active/phase3b-butler-layer-2026-11-20.md) | 管家层体检与 B11–B16 打磨方案（已全部交付） |
 | [`active/phase3c-channel-product-2026-11-23.md`](active/phase3c-channel-product-2026-11-23.md) | 渠道层与产品能力体检及 C1–C6 打磨方案（已交付；C3 暂不切换） |
 | [`active/phase1-approval-ttl-ordering-2026-11-23/spec.md`](active/phase1-approval-ttl-ordering-2026-11-23/spec.md) | Phase 1 遗留补齐：审批 TTL 可配置与到期语义、入站乱序防护（已交付） |
+| [`active/demo-console-2026-11-23/spec.md`](active/demo-console-2026-11-23/spec.md) | 本地 Demo 控制台 + Playwright E2E（已交付） |
 
 其余 `v5-*.md` 为各专题 handoff / proposal / 触发说明，按文件名查阅。
 

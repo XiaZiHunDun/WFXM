@@ -247,6 +247,7 @@
 | `BUTLER_V5_TEST_FULL_SANDBOX` | bool | `0` | 测试用 full sandbox（bwrap） | `vitest.config.ts` | 🟡 |
 | `BUTLER_V5_INTAKE_ENABLED` | bool | `0` | intake path 启用 | [`apps/api/src/wechat-intake-llm.ts`](../apps/api/src/wechat-intake-llm.ts) | 🟡 |
 | `BUTLER_V5_INTAKE_LLM` | bool | `0` | intake 用 LLM | `wechat-intake-llm.ts` | 🟡 |
+| `BUTLER_V5_DEMO_PORT` | int | `4520` | 本地 demo 控制台监听端口（仅 `127.0.0.1`） | [`scripts/demo-server.ts`](../scripts/demo-server.ts) | 🟡 |
 
 ## §15 Tracing / OTEL / Misc
 
@@ -279,9 +280,9 @@
 | §11 | Schedule / Loop / Decoder | 9 |
 | §12 | Owner Rate Limit / WS Auth | 3 |
 | §13 | Sweeper / Task Run / Session Digest | 5 |
-| §14 | Dev / CI / Test / Inline Approval | 8 |
+| §14 | Dev / CI / Test / Inline Approval | 9 |
 | §15 | Tracing / OTEL / Misc | 7 |
-| **Total** | — | **131 env vars (BUTLER_V5_*)** |
+| **Total** | — | **132 env vars (BUTLER_V5_*)** |
 
 ## §17 跨文件指针
 
@@ -296,4 +297,4 @@
 
 ---
 
-**End of ENV.md** | D80 cycle 26 inventory batch | **131 env vars / 1 prefix (`BUTLER_V5_*`)** | 仅覆盖 v5 实读
+**End of ENV.md** | D80 cycle 26 inventory batch | **132 env vars / 1 prefix (`BUTLER_V5_*`)** | 仅覆盖 v5 实读

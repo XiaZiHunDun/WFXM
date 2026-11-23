@@ -159,6 +159,7 @@ projects/                  试点项目工作区
 | **文档体系**           | [DOCUMENTATION.md](docs/DOCUMENTATION.md)                                                                            |
 | **自托管**             | [docs/deployment/SELF-HOSTING.md](docs/deployment/SELF-HOSTING.md)                                                   |
 | **本地 zero-LLM 试玩** | `pnpm demo`                                                                                                          |
+| **浏览器 demo 控制台** | `pnpm demo:web` → [docs/deployment/DEMO.md](docs/deployment/DEMO.md)                                                 |
 
 ---
 

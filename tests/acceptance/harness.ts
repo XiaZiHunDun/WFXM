@@ -58,6 +58,8 @@ export interface InboundResult {
 
 export interface AcceptanceApp {
   readonly request: (path: string, init: RequestInit) => Promise<Response>
+  /** 真实 HTTP 服务（scripts/demo-server.ts）用；`env` 携带 loopback socket 信息。 */
+  readonly fetch: (req: Request, env?: unknown) => Promise<Response>
   readonly wiring: Wiring
   readonly db: ButlerDb
   readonly workspaceRoot: string
@@ -202,6 +204,7 @@ export async function makeAcceptanceApp(opts?: {
 
   const server = buildHonoApp(wiring)
   const request = server.request
+  const fetch = server.fetch
   const setFixtures: AcceptanceApp["setFixtures"] = (fixtures) => {
     resetFixtureLLMCounters()
     for (const def of FIXTURE_DEFS) {
@@ -244,7 +247,7 @@ export async function makeAcceptanceApp(opts?: {
     delete process.env["BUTLER_V5_CHANNEL_INBOUND_SECRET"]
   }
 
-  return { request, wiring, db, workspaceRoot, fixtureDir, setFixtures, close }
+  return { request, fetch, wiring, db, workspaceRoot, fixtureDir, setFixtures, close }
 }
 
 let msgSeq = 0

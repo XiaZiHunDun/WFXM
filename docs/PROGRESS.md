@@ -238,3 +238,23 @@
   - 切项目后列目录：在 `wechat` 工作区列出 `packages/runtime/src/butler` 前 5 个文件，无 ENOENT。
   - 多轮上下文：第二轮正确回答“渠道层”。
   - 说明：`--real` 默认把任务工作区指向当前仓库；需要隔离时用 `--workspace`。
+
+### Demo 控制台 + Playwright E2E（2026-11-23，第三批）
+
+| 项 | 结果 |
+|----|------|
+| 本地 demo server | `scripts/demo-server.ts`（`pnpm demo:web`）：仅监听 `127.0.0.1`，自包含 HTML 控制台，代理 chat / approvals / approve / deny / reset；复用 acceptance harness + 脚本化 LLM + 内存 PGlite |
+| 装配 | `buildHonoApp` / `AcceptanceApp` 增加 `fetch(req, env)`，供真实 HTTP 服务注入 loopback socket 地址 |
+| E2E | `tests/e2e-demo/console.spec.ts`（Playwright，4 用例）：发消息、审批批准、拒绝、重置 |
+| CI | `.github/workflows/ci.yml` 新增独立 `demo-e2e` job：安装 chromium → 跑 E2E → 失败上传 `playwright-report/` 与 `test-results/` |
+
+验收证据（2026-11-23 复跑）：
+
+| 项 | 结果 |
+|----|------|
+| `pnpm test` | 279 文件 / 2,423 通过 / 2 skipped |
+| `pnpm test:e2e:demo` | 4 passed（约 12s） |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 全绿，0 warning |
+| 手动冒烟 | `pnpm demo:web` → `/health` 200，控制台页面可加载 |
+
+范围说明：本轮只做本地 + CI 的浏览器 demo，不做公网 demo 实例；真实 LLM 与 MCP 均未接入。

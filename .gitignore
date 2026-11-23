@@ -158,6 +158,9 @@ memory_profile_report.json
 .scratch/
 .turbo/
 coverage/
+# Playwright (demo console E2E)
+playwright-report/
+test-results/
 node_modules/
 pgdata/
 tmp-*.txt
