@@ -351,13 +351,18 @@ JSON 持久化 + 原生前端）。规格与证据见
 |----|------|
 | 真实模式 | Demo 控制台新增 `BUTLER_V5_DEMO_REAL_LLM=1` + `BUTLER_V5_DEMO_WORKSPACE`；默认脚本模式与 4 个 E2E 不变 |
 | 开发过程 | 全程通过浏览器控制台发送需求；`write_file` / `run_command` 逐项审批；真实模型生成 7 个源文件 + 2 个测试文件 + README |
-| 项目自测 | `npm test`：25 / 25 通过 |
+| 项目自测 | 首轮 `npm test`：25 / 25；开放任务新增奶茶账本后 40 / 40 |
 | 浏览器验收 | 3 笔录入 → 收入 5,000.00 / 支出 88.50 / 结余 4,911.50；分类筛选 1 行；删除后 2 行且支出 38.50 |
 | 导出 | `/api/export.csv` 返回 `text/csv`、正确文件名与 2 行数据 |
+| 开放任务 | 仅用模糊需求「加一个奶茶账本」驱动 WFXM 自行实现：首页新增本月杯数 / 花费 / 均价 + 6 个月趋势，新增 15 个测试 |
 | 回归 | `pnpm test:e2e:demo` 4 passed；`pnpm typecheck` / `pnpm lint` / `pnpm format:check` 全绿 |
 
-过程中发现并修复：Node 22 下 `node --test test/` 会把目录当模块，WFXM 将脚本改为
-`node --test test/*.test.js` 后 `npm test` 通过。
+过程中发现并修复：
+
+1. Node 22 下 `node --test test/` 会把目录当模块，WFXM 将脚本改为
+   `node --test test/*.test.js` 后 `npm test` 通过；
+2. 奶茶账本首版把 `pad2` 声明在 `state` 之后，初始化触发暂时性死区、首页按钮全部失效；
+   用用户口吻反馈「页面没反应、控制台提到 pad2」后，WFXM 将 `pad2` 前移并补注释。
 
 遗留 / 后续：CSV 金额统一两位小数、编辑交易、分页与图表、多用户鉴权。项目源码位于
 [`projects/ledger-lite/`](../projects/ledger-lite/)。
