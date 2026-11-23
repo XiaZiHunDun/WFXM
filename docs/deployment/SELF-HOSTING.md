@@ -14,8 +14,12 @@
 ```bash
 
 pnpm install
-pnpm demo    # 脚本化 fixture LLM + 内存 PGlite CLI REPL
+pnpm demo    # 脚本化 fixture LLM + 内存 PGlite CLI REPL（旧入口）
+pnpm chat    # 同上，但驱动 Butler 入口，支持审批 / 场景脚本
 ```
+
+`pnpm chat` 默认零 LLM、零微信；接真实模型用 `pnpm chat --real`，跑脚本用
+`pnpm chat --script scripts/chat-scenario.example.json`。
 
 真实 LLM + Docker Compose 自托管（推荐）：
 

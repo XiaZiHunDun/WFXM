@@ -1,0 +1,30 @@
+{
+  "conversationId": "chat-smoke",
+  "fromUserId": "u-owner",
+  "projectId": "wechat",
+  "turns": [
+    {
+      "content": "/help",
+      "expect": {
+        "route": "rule",
+        "rule": "help",
+        "mustContain": ["/status [任务ID]", "/project"]
+      }
+    },
+    {
+      "content": "/status",
+      "expect": {
+        "route": "rule",
+        "rule": "status"
+      }
+    },
+    {
+      "content": "/project",
+      "expect": {
+        "route": "rule",
+        "rule": "project",
+        "mustContain": ["项目"]
+      }
+    }
+  ]
+}

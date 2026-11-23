@@ -158,6 +158,7 @@
 | **dependabot (npm/github-actions/docker)** | 周依赖更新 | dependabot | [`.github/dependabot.yml`](../.github/dependabot.yml) | ✅ (D77 T3 `4b085b82`) |
 | **production-hardening.md** | 7 节 + 13 ❌ anti-patterns（secrets + 容器 + 网络） | — | [`deployment/production-hardening.md`](deployment/production-hardening.md) | ✅ (D77 T6 `cea04051`) |
 | **`pnpm demo` (zero-LLM REPL)** | 本地试玩（无需 Docker / API key；脚本化 fixture LLM + 内存 PGlite） | acceptance-harness | [`scripts/demo.ts`](../scripts/demo.ts) | ✅ (D79 T1 `b6a30a6e`) |
+| **`pnpm chat`（对话调试入口）** | 驱动 Butler 入口，支持多轮、审批、`--script` 场景断言；无需微信 | acceptance-harness | [`scripts/chat.ts`](../scripts/chat.ts) | ✅ |
 | **SELF-HOSTING.md** | §0-§10 自托管完整路径（前置 + docker + demo + 安全 + 升级） | docker + demo | [`deployment/SELF-HOSTING.md`](deployment/SELF-HOSTING.md) | ✅ (D79 T3 `9bd60e49`) |
 | **Acceptance harness + 41+ scenarios** | 自动化验收（3 E-demo scenarios 已加） | vitest + harness | [`tests/acceptance/scenarios/`](../tests/acceptance/scenarios/) | ✅ (D52 + D79 T2) |
 | **recordings-archive (v1→v7)** | baseline recordings + diff-real-llm 脚本 | harness | [`tests/acceptance/scenarios/recordings-archive/`](../tests/acceptance/scenarios/recordings-archive/) | ✅ |
