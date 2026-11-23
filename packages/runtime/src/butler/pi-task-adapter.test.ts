@@ -285,4 +285,44 @@ describe("createPiTaskPortAdapter", () => {
     expect(list.map((task) => task.taskId)).toContain(ref.taskId)
     expect(list.find((task) => task.taskId === ref.taskId)?.conversationId).toBe("c1")
   })
+
+  it("retries a failed task with its original goal", async () => {
+    const retryStream = scriptedStream([{ text: "重试成功" }])
+    let calls = 0
+    const stream: StreamFn = (model, context) => {
+      calls += 1
+      if (calls === 1) throw new Error("model down")
+      return retryStream(model, context)
+    }
+    const { adapter } = setup(stream)
+
+    const failed = await adapter.start({ projectId: "p1", goal: "写 a.txt" })
+    expect(failed.status).toBe("failed")
+
+    const retried = await adapter.retry(failed.taskId)
+    expect(retried).toMatchObject({ taskId: failed.taskId, status: "idle" })
+    expect(retried?.lastReply).toContain("重试成功")
+  })
+
+  it("does not retry a paused task awaiting approval", async () => {
+    const { adapter } = setup(
+      scriptedStream([
+        { tools: [{ id: "c1", name: "write", args: { path: "r.txt", content: "x" } }] },
+      ]),
+      { approvalPolicy: createDefaultApprovalPolicy({ BUTLER_V5_PI_APPROVAL: "always" }) },
+    )
+
+    const paused = await adapter.start({ projectId: "p1", goal: "写 r.txt" })
+    expect(paused.status).toBe("paused")
+
+    const retried = await adapter.retry(paused.taskId)
+    expect(retried?.status).toBe("paused")
+    expect(retried?.pending).toMatchObject({ toolName: "write" })
+    expect(() => readFileSync(join(root, "r.txt"), "utf8")).toThrow()
+  })
+
+  it("returns null when retrying an unknown task", async () => {
+    const { adapter } = setup(scriptedStream([{ text: "ok" }]))
+    expect(await adapter.retry("missing")).toBeNull()
+  })
 })

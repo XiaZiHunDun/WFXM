@@ -12,6 +12,9 @@ export const BUTLER_HELP_TEXT = [
   "/status [任务ID] 查看任务，缺省看当前任务",
   "/tasks 列出项目任务",
   "/new <目标> 创建任务",
+  "/retry [任务ID] 重试失败或中断的任务",
+  "/diagnose 诊断当前会话与任务状态",
+  "/undo 查看撤销边界（不支持自动撤销）",
   "/project [项目ID] 查看或切换项目",
   "/remember <内容> 记住一条长期信息",
   "确认 / 拒绝 处理任务审批",
@@ -24,6 +27,9 @@ export type ButlerRuleAction =
   | { readonly kind: "start_task"; readonly name: string; readonly goal: string }
   | { readonly kind: "remember"; readonly name: string; readonly text: string }
   | { readonly kind: "project"; readonly name: string; readonly projectId?: string }
+  | { readonly kind: "retry"; readonly name: string; readonly taskId?: string }
+  | { readonly kind: "diagnose"; readonly name: string }
+  | { readonly kind: "undo"; readonly name: string }
   | {
       readonly kind: "approve"
       readonly name: string
@@ -38,6 +44,9 @@ export interface ButlerRuleInput {
 
 const APPROVE_WORDS = new Set(["确认", "同意", "通过", "approve"])
 const REJECT_WORDS = new Set(["拒绝", "不同意", "reject"])
+const RETRY_WORDS = new Set(["重试", "重试刚才", "重试上次", "重试上一个任务", "重试任务"])
+const DIAGNOSE_WORDS = new Set(["诊断", "诊断一下"])
+const UNDO_WORDS = new Set(["撤销", "撤销刚才", "撤销上一步"])
 
 /** Bare approval words; the runtime resolves the task from the conversation. */
 export function matchApprovalWord(content: string): { approved: boolean } | null {
@@ -110,6 +119,24 @@ export function matchButlerRule(input: ButlerRuleInput): ButlerRuleAction | null
 
   if (lower === "/new" || text === "新任务" || text === "新建任务") {
     return { kind: "reply", name: "new-usage", reply: "用法：/new <目标>，例如 /new 修复登录超时" }
+  }
+
+  const retryMatch = /^\/retry(?:\s+(\S+))?$/i.exec(text)
+  if (retryMatch) {
+    const target = retryMatch[1]?.trim()
+    return target === undefined
+      ? { kind: "retry", name: "retry" }
+      : { kind: "retry", name: "retry", taskId: target }
+  }
+
+  if (RETRY_WORDS.has(text)) return { kind: "retry", name: "retry" }
+
+  if (lower === "/diagnose" || DIAGNOSE_WORDS.has(text)) {
+    return { kind: "diagnose", name: "diagnose" }
+  }
+
+  if (lower === "/undo" || UNDO_WORDS.has(text)) {
+    return { kind: "undo", name: "undo" }
   }
 
   const taskId = input.activeTaskId

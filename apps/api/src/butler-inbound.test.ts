@@ -329,7 +329,7 @@ describe("detached task notifications", () => {
   })
 
   it("pushes exactly one completion notice to the conversation owner", async () => {
-    const pushes: { to: string; text: string }[] = []
+    const pushes: { owner: string; text: string }[] = []
     const notify = createTaskSettledNotifier({
       approvalNotice: async () => null,
       resolveOwner: (conversationId) => (conversationId === "c1" ? "user-1" : undefined),
@@ -349,12 +349,12 @@ describe("detached task notifications", () => {
     })
 
     expect(pushes).toHaveLength(1)
-    expect(pushes[0]?.to).toBe("user-1")
+    expect(pushes[0]?.owner).toBe("user-1")
     expect(pushes[0]?.text).toContain("【任务完成】")
   })
 
   it("pushes the approval notice when the task pauses", async () => {
-    const pushes: { to: string; text: string }[] = []
+    const pushes: { owner: string; text: string }[] = []
     let noticeFor = ""
     const notify = createTaskSettledNotifier({
       approvalNotice: async (taskId) => {

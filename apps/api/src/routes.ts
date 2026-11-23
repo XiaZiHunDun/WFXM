@@ -24,6 +24,7 @@ import { registerTelegramWebhookRoutes } from "./routes/telegram-webhook.js"
 import { registerWsSubscribeRoutes } from "./routes/ws-subscribe.js"
 import { registerHealthRoutes } from "./routes/health.js"
 import { registerButlerRoutes } from "./routes/butler.js"
+import { createButlerRuntimeProvider } from "./butler-runtime-provider.js"
 
 /**
  * D71 T3 (audit #12 SEC-004 / SEC-005): parse a comma-separated
@@ -86,14 +87,20 @@ export function createRoutes(app: Hono, wiring: Wiring, options: RoutesOptions =
     return c.json({ conversationId, turnId: `turn-${Date.now()}` }, 201)
   })
 
-  registerInboundRoutes(app, wiring)
+  // One provider per process: the assembly is lazy and shared by every
+  // channel entry point; per-channel cutover is decided at the route.
+  const butler = createButlerRuntimeProvider(wiring, {
+    ...(options.memory === undefined ? {} : { memory: options.memory }),
+  })
+  registerInboundRoutes(app, wiring, butler)
   // New Butler Runtime entry point; legacy /v1/wechat/inbound stays primary
   // until butler-eval parity is reached.
   registerButlerRoutes(app, wiring, {
+    provider: butler,
     ...(options.memory === undefined ? {} : { memory: options.memory }),
   })
-  registerSlackEventsRoutes(app, wiring, parseAllowlist)
-  registerTelegramWebhookRoutes(app, wiring, parseAllowlist)
+  registerSlackEventsRoutes(app, wiring, parseAllowlist, butler)
+  registerTelegramWebhookRoutes(app, wiring, parseAllowlist, butler)
   registerWsSubscribeRoutes(app)
   // D77 T5 (DEPLOY-HEALTH): /health (readiness) + /health/live (liveness).
   registerHealthRoutes(app, wiring)

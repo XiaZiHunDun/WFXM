@@ -12,7 +12,7 @@
  * Per DESIGN §7 "ports-stable × real-need driven": adding a second live
  * channel (Slack, per DESIGN §18 trigger) is what motivated this Port.
  */
-export type ChannelKind = "wechat" | "slack" | "telegram"
+export type ChannelKind = "wechat" | "slack" | "telegram" | "generic"
 
 export interface ChannelRecipient {
   /** Channel-specific address (WeChat: user ID; Slack: DM channel ID; ...). */

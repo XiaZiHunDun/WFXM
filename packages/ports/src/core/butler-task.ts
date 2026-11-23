@@ -39,4 +39,9 @@ export interface ButlerTaskPort {
   list(projectId?: string): Promise<readonly ButlerTaskRef[]>
   /** Forward an owner approval decision for a paused task. */
   approve?(taskId: string, approved: boolean): Promise<ButlerTaskRef | null>
+  /**
+   * Re-runs a stopped task (failed / idle / paused without a pending step).
+   * Returns null when the task is unknown or cannot be retried.
+   */
+  retry?(taskId: string): Promise<ButlerTaskRef | null>
 }

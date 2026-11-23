@@ -110,7 +110,7 @@
 
 ## Phase 3 — 功能打磨（✅ 2026-11-23；任务层地基 ✅ 2026-11-20、管家层 ✅ 2026-11-23、渠道与产品能力 ✅ 2026-11-23）
 
-> 任务层 B1–B10、管家层 B11–B16、渠道与产品能力 C1–C6 均已交付。C3 按决策保持旧入口为生产默认，未做渠道 cutover；遗留项见阶段收尾。
+> 任务层 B1–B10、管家层 B11–B16、渠道与产品能力 C1–C6 均已交付。C3 保持旧入口为生产默认，但已补齐 per-channel 灰度开关与回退；遗留项见阶段收尾与「遗留清理」。
 
 ### 目标与验收口径
 
@@ -179,14 +179,30 @@
 | `pnpm typecheck` / `pnpm lint` | 全绿，0 warning |
 | 内部断言审计 | 49 条 internal-only（2.4%，2,082 用例） |
 
-阶段结论：任务层、管家层、渠道层与产品能力打磨完成；C3 按决策保持旧入口为生产默认，未做 cutover。
+阶段结论：任务层、管家层、渠道层与产品能力打磨完成；C3 按决策保持旧入口为生产默认，未做默认 cutover。
+
+### 遗留清理（2026-11-23，同日）
+
+| 项 | 结果 |
+|----|------|
+| 管家能力面 | 补齐 `/retry [任务ID]`、`/diagnose`、`/undo` 边界；`/diagnose` 不调模型，`/undo` 只给手工回滚指引 |
+| 任务层重试 | `ButlerTaskPort.retry` + pi 适配器：failed/idle/closed 重跑，paused 有 pending 时不自动批准 |
+| 渠道 cutover | per-channel `BUTLER_V5_<CHANNEL>_ENGINE`（优先）/ 共享 `BUTLER_V5_CHANNEL_ENGINE`，默认 legacy；`BUTLER_V5_CHANNEL_PROJECTS` / `BUTLER_V5_DEFAULT_PROJECT_ID` 决定管家项目 |
+| 契约测试 | 覆盖 butler/legacy 路由分支、provider 缺失与 assembly 失败 503、引擎与项目解析、任务端口重试 |
+
+验收证据（2026-11-23 复跑）：
+
+| 项 | 结果 |
+|----|------|
+| `pnpm test` | 278 文件 / 2,401 通过 / 2 skipped |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 全绿，0 warning |
+| `pnpm verify:butler` | 3 场景 / 13 轮全过（含 `/diagnose` `/undo` `/retry`） |
 
 遗留与风险（不阻塞，需单独立项）：
 
 | 项 | 说明 |
 |----|------|
-| 渠道 cutover | Slack/Telegram/generic 仍走旧引擎；前置：管家补齐撤销/诊断、per-channel 灰度与回滚、契约测试 |
-| 管家能力面 | 撤销/重试/诊断/质量门/子代理仅在旧入口，管家路径不可达 |
+| 质量门 / 子代理 | 仍只在旧入口；迁到管家路径需单独立项 |
 | ChannelPort 契约 | 空文本/超长/超时语义未统一，暂由各适配器防御性裁剪 |
 | 进程内并行 | 全局锁为 FIFO 串行；真正的并行需多 worker / 多进程设计 |
 | 429/5xx 重试 | 委托 `retryAssistantCall`，未新增网络级重试用例 |

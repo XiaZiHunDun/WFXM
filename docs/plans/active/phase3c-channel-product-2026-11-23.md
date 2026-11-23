@@ -76,17 +76,20 @@
 
 ## 6. 渠道-管家能力边界（C3 决策：暂不切换）
 
-决策：生产继续以旧 RunEngine 为默认入口；ButlerRuntime 保持可选入口，本阶段不做 cutover。原因是管家路径目前只覆盖任务相关能力，旧入口的记忆、撤销、诊断、子代理、质量门仍是 owner 日常依赖。
+决策：生产继续以旧 RunEngine 为默认入口；ButlerRuntime 保持可选入口，本阶段不做默认 cutover。原因是管家路径虽已补齐任务相关能力，但质量门、子代理仍只在旧入口。
+
+灰度开关（C3 清理交付）：`BUTLER_V5_<CHANNEL>_ENGINE`（如 `BUTLER_V5_SLACK_ENGINE`、`BUTLER_V5_TELEGRAM_ENGINE`）优先于 `BUTLER_V5_CHANNEL_ENGINE`；仅值 `butler` 生效，未设置或其它值保持旧入口。管家管线的项目由 `BUTLER_V5_CHANNEL_PROJECTS`（channelId → projectId 的 JSON）决定，缺省回退 `BUTLER_V5_DEFAULT_PROJECT_ID`，再回退 `wechat`。回退只需清空 `*_ENGINE`。
 
 | 能力 | 旧入口 | 管家入口 |
 |------|--------|----------|
 | 任务创建 / 查看 / 审批 | 工具 + 命令 | `/new` `/tasks` `/status` 确认/拒绝 |
-| 显式记忆 | `/记住` | `/remember`、`记住：X`（本次新增） |
-| 项目切换 | `/切换` | `/project`、`切换项目 X`（本次新增） |
-| 撤销 / 重试 / 诊断 / 质量门 / 子代理 | 有 | 无（交给任务层或未接入） |
+| 显式记忆 | `/记住` | `/remember`、`记住：X` |
+| 项目切换 | `/切换` | `/project`、`切换项目 X` |
+| 撤销 / 重试 / 诊断 | 有 | 有：`/undo`（边界说明）、`/retry`、`/diagnose` |
+| 质量门 / 子代理 | 有 | 无（仍留在旧入口） |
 | 工程执行（读写 / 命令 / 委派） | 模型工具 | 任务层 pi runner |
 
-切换前置条件（未排期）：管家路径补齐 owner 依赖的撤销/诊断能力；具备 per-channel 灰度开关与回滚；关键能力有外部契约测试。在此之前，渠道新能力以旧入口为准。
+切换前置条件已满足：管家路径补齐 owner 依赖的撤销/重试/诊断能力；具备 per-channel 灰度开关与回滚；关键能力有外部契约测试。生产默认仍为 legacy，直到质量门/子代理迁移另有决策。
 
 ---
 
@@ -119,6 +122,14 @@
 - `/project` 查看当前项目，`/project <id>` / `切换项目 <name>` 切换；别名解析由路由注入 `resolveWechatProjectAlias`。
 - 选择写入 `ButlerSessionRecord.projectId` 并持久化，跨重启保留；任务列表/状态/创建与裸确认都以会话项目为准。
 - 未知项目返回可读拒绝，且不改变当前项目。
+
+**C3 遗留清理（2026-11-23）**
+
+- 管家规则新增 `/retry [任务ID]`、`/diagnose`、`/undo`；`/diagnose` 不调模型，`/undo` 仅说明边界与手工回滚。
+- `ButlerTaskPort.retry` 与 pi 适配器：failed / idle / closed 重跑，paused 无 pending 时恢复，paused 有 pending 时不自动批准。
+- per-channel 灰度：`BUTLER_V5_<CHANNEL>_ENGINE` / `BUTLER_V5_CHANNEL_ENGINE`，默认 legacy；`BUTLER_V5_CHANNEL_PROJECTS` / `BUTLER_V5_DEFAULT_PROJECT_ID` 决定管家项目。
+- Slack / Telegram / generic channel 在 butler 模式下共用 `createButlerRuntimeProvider`，通知按渠道经 ChannelPort 推送；旧入口代码路径未改。
+- 新增契约测试：`butler-channel-cutover.test.ts`、channel-config 引擎/项目解析、任务端口重试与管家分支用例。
 
 验证结果：
 

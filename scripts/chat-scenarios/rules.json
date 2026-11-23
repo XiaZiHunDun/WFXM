@@ -40,6 +40,30 @@
         "rule": "status",
         "mustContain": ["没有找到任务 nope", "/tasks"]
       }
+    },
+    {
+      "content": "/diagnose",
+      "expect": {
+        "route": "rule",
+        "rule": "diagnose",
+        "mustContain": ["【诊断】"]
+      }
+    },
+    {
+      "content": "/undo",
+      "expect": {
+        "route": "rule",
+        "rule": "undo",
+        "mustContain": ["暂不支持自动撤销"]
+      }
+    },
+    {
+      "content": "/retry",
+      "expect": {
+        "route": "rule",
+        "rule": "retry",
+        "mustContain": ["没有可重试"]
+      }
     }
   ]
 }

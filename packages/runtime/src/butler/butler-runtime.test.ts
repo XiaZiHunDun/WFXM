@@ -42,13 +42,16 @@ function fakeModel(replies: readonly ButlerModelReply[] = []): ButlerModelPort &
 function fakeTasks(initial: readonly ButlerTaskRef[] = []): ButlerTaskPort & {
   readonly started: { projectId: string; goal: string }[]
   readonly approvals: { taskId: string; approved: boolean }[]
+  readonly retries: string[]
 } {
   const tasks = [...initial]
   const started: { projectId: string; goal: string }[] = []
   const approvals: { taskId: string; approved: boolean }[] = []
+  const retries: string[] = []
   return {
     started,
     approvals,
+    retries,
     async start(input) {
       started.push({ projectId: input.projectId, goal: input.goal })
       const task: ButlerTaskRef = {
@@ -71,6 +74,15 @@ function fakeTasks(initial: readonly ButlerTaskRef[] = []): ButlerTaskPort & {
       approvals.push({ taskId, approved })
       const task = tasks.find((entry) => entry.taskId === taskId)
       return task ? { ...task, status: "idle" } : null
+    },
+    async retry(taskId) {
+      retries.push(taskId)
+      const index = tasks.findIndex((task) => task.taskId === taskId)
+      const task = tasks[index]
+      if (!task) return null
+      const updated: ButlerTaskRef = { ...task, status: "idle" }
+      tasks[index] = updated
+      return updated
     },
   }
 }
@@ -135,6 +147,17 @@ describe("matchButlerRule", () => {
       kind: "project",
       projectId: "lingwen",
     })
+    expect(matchButlerRule({ content: "/retry" })).toMatchObject({ kind: "retry" })
+    expect(matchButlerRule({ content: "/retry task-1" })).toMatchObject({
+      kind: "retry",
+      taskId: "task-1",
+    })
+    expect(matchButlerRule({ content: "重试" })).toMatchObject({ kind: "retry" })
+    expect(matchButlerRule({ content: "重试上一个任务" })).toMatchObject({ kind: "retry" })
+    expect(matchButlerRule({ content: "诊断" })).toMatchObject({ kind: "diagnose" })
+    expect(matchButlerRule({ content: "/diagnose" })).toMatchObject({ kind: "diagnose" })
+    expect(matchButlerRule({ content: "撤销" })).toMatchObject({ kind: "undo" })
+    expect(matchButlerRule({ content: "/undo" })).toMatchObject({ kind: "undo" })
     expect(matchButlerRule({ content: "切换项目 灵文" })).toMatchObject({
       kind: "project",
       projectId: "灵文",
@@ -1058,5 +1081,196 @@ describe("ButlerRuntime", () => {
     const notice = await runtime.approvalNotice("t1")
     expect(notice?.actions.map((action) => action.payload)).toEqual(["approve:t1", "reject:t1"])
     expect(await runtime.approvalNotice("missing")).toBeNull()
+  })
+})
+
+describe("ButlerRuntime retry / diagnose / undo", () => {
+  it("retries the latest task bound to the conversation", async () => {
+    const tasks = fakeTasks([
+      { taskId: "t1", projectId: "p1", conversationId: "c1", status: "idle" },
+      { taskId: "t2", projectId: "p1", conversationId: "c1", status: "failed", summary: "b" },
+      { taskId: "t3", projectId: "p1", conversationId: "c2", status: "failed" },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/retry",
+    })
+
+    expect(result.route).toBe("rule")
+    expect(result.rule).toBe("retry")
+    expect(result.taskId).toBe("t2")
+    expect(tasks.retries).toEqual(["t2"])
+    expect(result.reply).toContain("已重新执行任务 t2")
+  })
+
+  it("retries an explicit task id", async () => {
+    const tasks = fakeTasks([
+      { taskId: "t1", projectId: "p1", conversationId: "c1", status: "failed" },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/retry t1",
+    })
+
+    expect(result.taskId).toBe("t1")
+    expect(result.reply).toContain("已重新执行任务 t1")
+  })
+
+  it("explains when there is nothing to retry", async () => {
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks: fakeTasks(), clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "重试",
+    })
+    expect(result.reply).toContain("当前没有可重试的任务")
+  })
+
+  it("reports unknown explicit task ids", async () => {
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks: fakeTasks(), clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/retry nope",
+    })
+    expect(result.reply).toBe("没有找到任务 nope。")
+  })
+
+  it("does not retry a running task", async () => {
+    const tasks = fakeTasks([
+      { taskId: "t1", projectId: "p1", conversationId: "c1", status: "running" },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/retry",
+    })
+
+    expect(result.reply).toContain("正在执行")
+    expect(tasks.retries).toHaveLength(0)
+  })
+
+  it("does not implicitly approve a paused task", async () => {
+    const tasks = fakeTasks([
+      { taskId: "t1", projectId: "p1", conversationId: "c1", status: "paused" },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/retry",
+    })
+
+    expect(result.reply).toContain("正在等待审批")
+    expect(tasks.retries).toHaveLength(0)
+    expect(tasks.approvals).toHaveLength(0)
+  })
+
+  it("explains when the task layer is missing or has no retry", async () => {
+    const withoutTasks = new ButlerRuntime({ model: fakeModel(), clock })
+    const missing = await withoutTasks.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "/retry",
+    })
+    expect(missing.reply).toContain("任务层尚未接入")
+
+    const base = fakeTasks([
+      { taskId: "t1", projectId: "p1", conversationId: "c1", status: "failed" },
+    ])
+    const withoutRetry: ButlerTaskPort = {
+      start: (input) => base.start(input),
+      status: (taskId) => base.status(taskId),
+      list: (projectId) => base.list(projectId),
+    }
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks: withoutRetry, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/retry t1",
+    })
+    expect(result.reply).toContain("任务层暂不支持重试")
+  })
+
+  it("diagnoses task counts, pending ids and memory wiring", async () => {
+    const tasks = fakeTasks([
+      { taskId: "t1", projectId: "p1", conversationId: "c1", status: "running" },
+      { taskId: "t2", projectId: "p1", conversationId: "c1", status: "paused" },
+      { taskId: "t3", projectId: "p1", conversationId: "c1", status: "failed", error: "boom" },
+      { taskId: "t4", projectId: "p1", conversationId: "c1", status: "idle" },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, memory: fakeMemory(), clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/diagnose",
+    })
+
+    expect(result.route).toBe("rule")
+    expect(result.reply).toContain("【诊断】")
+    expect(result.reply).toContain("项目：p1")
+    expect(result.reply).toContain("会话：c1")
+    expect(result.reply).toContain("执行中 1 / 待审批 1 / 失败 1 / 其他 1")
+    expect(result.reply).toContain("待审批：t2")
+    expect(result.reply).toContain("boom")
+    expect(result.reply).toContain("长期记忆：已接入")
+  })
+
+  it("degrades diagnose to a readable line when task lookup fails", async () => {
+    const tasks: ButlerTaskPort = {
+      async start() {
+        throw new Error("unused")
+      },
+      async status() {
+        return null
+      },
+      async list() {
+        throw new Error("list down")
+      },
+    }
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "诊断一下",
+    })
+
+    expect(result.reply).toContain("【诊断】")
+    expect(result.reply).toContain("任务层：查询失败")
+    expect(result.reply).toContain("长期记忆：未接入")
+  })
+
+  it("explains the undo boundary without touching files or tasks", async () => {
+    const tasks = fakeTasks([
+      { taskId: "t1", projectId: "p1", conversationId: "c1", status: "idle" },
+    ])
+    const runtime = new ButlerRuntime({ model: fakeModel(), tasks, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "撤销",
+    })
+
+    expect(result.route).toBe("rule")
+    expect(result.rule).toBe("undo")
+    expect(result.reply).toContain("暂不支持自动撤销")
+    expect(result.reply).toContain("git diff")
+    expect(tasks.retries).toHaveLength(0)
+    expect(tasks.approvals).toHaveLength(0)
   })
 })

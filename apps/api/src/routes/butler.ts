@@ -11,15 +11,18 @@ import type { ChannelPort } from "@butler/ports/core/channel.js"
 import type { TaskMemoryPort } from "@butler/ports/core/task-memory.js"
 import { parseApprovalPayload } from "@butler/runtime/butler/approval-notice.js"
 import { normalizeWechatInbound } from "@butler/runtime/intake/index.js"
-import { handleButlerInbound, createTaskSettledNotifier } from "../butler-inbound.js"
-import { createButlerAssembly, type ButlerAssembly } from "../butler-assembly.js"
-import { requireInboundSharedSecret, envTruthy } from "../env-util.js"
-import { sendWechatProactiveNotify } from "../wechat-run-notify.js"
+import { handleButlerInbound } from "../butler-inbound.js"
+import type { ButlerAssembly } from "../butler-assembly.js"
+import { requireInboundSharedSecret } from "../env-util.js"
+import { parseProjectRoots } from "../butler-projects.js"
 import {
-  resolveWechatInboundProjectId,
-  resolveWechatProjectAlias,
-} from "../wechat-active-project.js"
+  createButlerRuntimeProvider,
+  type ButlerRuntimeProvider,
+} from "../butler-runtime-provider.js"
+import { resolveWechatInboundProjectId } from "../wechat-active-project.js"
 import type { Wiring } from "../wiring.js"
+
+export { parseProjectRoots }
 
 export interface ButlerRoutesOptions {
   readonly env?: NodeJS.ProcessEnv
@@ -33,29 +36,8 @@ export interface ButlerRoutesOptions {
     wiring: Wiring,
     env: NodeJS.ProcessEnv,
   ) => ButlerAssembly | Promise<ButlerAssembly>
-}
-
-/** BUTLER_V5_PROJECT_ROOTS='{"proj-1":"/srv/repos/proj-1"}' */
-export function parseProjectRoots(env: NodeJS.ProcessEnv): Record<string, string> {
-  const raw = (env["BUTLER_V5_PROJECT_ROOTS"] ?? "").trim()
-  if (raw.length === 0) return {}
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    throw new Error("BUTLER_V5_PROJECT_ROOTS must be valid JSON")
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("BUTLER_V5_PROJECT_ROOTS must be an object of projectId -> root")
-  }
-  const roots: Record<string, string> = {}
-  for (const [projectId, root] of Object.entries(parsed)) {
-    if (typeof root !== "string" || root.length === 0) {
-      throw new Error(`BUTLER_V5_PROJECT_ROOTS has an invalid root for ${projectId}`)
-    }
-    roots[projectId] = root
-  }
-  return roots
+  /** Shared provider; one is created per route registration when omitted. */
+  readonly provider?: ButlerRuntimeProvider
 }
 
 function errorMessage(error: unknown): string {
@@ -68,43 +50,13 @@ export function registerButlerRoutes(
   options: ButlerRoutesOptions = {},
 ): void {
   const env = options.env ?? process.env
-  let cached: Promise<ButlerAssembly> | null = null
-  /** conversationId -> WeChat address, refreshed on every inbound turn. */
-  const owners = new Map<string, string>()
-  const detached = envTruthy(env["BUTLER_V5_DETACHED_TASKS"])
-  const notifier = createTaskSettledNotifier({
-    approvalNotice: async (taskId) => (await assembly()).butler.approvalNotice(taskId),
-    resolveOwner: (conversationId) => owners.get(conversationId),
-    push: (input) => sendWechatProactiveNotify({ to: input.to, text: input.text, env }),
-  })
-
-  async function assembly(): Promise<ButlerAssembly> {
-    if (cached === null) {
-      cached = Promise.resolve()
-        .then(() =>
-          options.createAssembly
-            ? options.createAssembly(wiring, env)
-            : createButlerAssembly({
-                db: wiring.db,
-                projects: parseProjectRoots(env),
-                env,
-                detachedTasks: detached,
-                resolveProjectName: (raw) => resolveWechatProjectAlias(raw, env),
-                ...(detached ? { onTaskSettled: notifier } : {}),
-                ...(options.memory?.butler === undefined
-                  ? {}
-                  : { butlerMemory: options.memory.butler }),
-                ...(options.memory?.task === undefined ? {} : { taskMemory: options.memory.task }),
-              }),
-        )
-        .catch((error: unknown) => {
-          // Do not cache failures: a config fix + retry should work.
-          cached = null
-          throw error
-        })
-    }
-    return cached
-  }
+  const provider =
+    options.provider ??
+    createButlerRuntimeProvider(wiring, {
+      env,
+      ...(options.memory === undefined ? {} : { memory: options.memory }),
+      ...(options.createAssembly === undefined ? {} : { createAssembly: options.createAssembly }),
+    })
 
   app.post("/v1/wechat/butler/inbound", async (c) => {
     const denied = requireInboundSharedSecret(env, c.req.header("x-inbound-secret"))
@@ -153,7 +105,7 @@ export function registerButlerRoutes(
 
     let runtime: ButlerAssembly
     try {
-      runtime = await assembly()
+      runtime = await provider.assembly()
     } catch (error) {
       return c.json({ error: `butler runtime unavailable: ${errorMessage(error)}` }, 503)
     }
@@ -167,7 +119,10 @@ export function registerButlerRoutes(
     }
 
     try {
-      owners.set(inbound.conversationId, inbound.subject)
+      provider.rememberOwner(inbound.conversationId, {
+        channelKind: "wechat",
+        address: inbound.subject,
+      })
       const outcome = await handleButlerInbound({
         butler: runtime.butler,
         channel,

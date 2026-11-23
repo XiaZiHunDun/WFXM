@@ -197,6 +197,28 @@ export function createPiTaskPortAdapter(
       return (await statusOf(taskId)) ?? toRef(record)
     },
 
+    /**
+     * Re-runs a stopped task. A task paused on a step is reported as-is:
+     * retry must not silently approve a pending write.
+     */
+    async retry(taskId): Promise<ButlerTaskRef | null> {
+      const record = await runner.load(taskId)
+      if (!record) return null
+      if (inFlight.has(taskId)) return statusOf(taskId)
+      if (record.status === "paused" && record.pendingStep !== null) return statusOf(taskId)
+
+      let run: Promise<unknown>
+      if (record.status === "paused") {
+        run = runner.resume(taskId, { approved: true })
+      } else {
+        const goal = record.snapshot.summary?.trim()
+        if (!goal) return null
+        run = runner.start(taskId, goal, turnOptions)
+      }
+      await track(taskId, run)
+      return (await statusOf(taskId)) ?? toRef(record)
+    },
+
     async idle(): Promise<void> {
       await Promise.allSettled([...pending])
     },

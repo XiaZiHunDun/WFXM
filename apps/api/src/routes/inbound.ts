@@ -10,8 +10,9 @@
 import type { Hono } from "hono"
 import { normalizeWechatInbound } from "@butler/runtime/intake/index.js"
 import type { Wiring } from "../wiring.js"
-import { isChannelApiEnabled } from "../channel-config.js"
+import { isChannelApiEnabled, resolveChannelEngine } from "../channel-config.js"
 import { ChannelInboundError, handleChannelInbound } from "../channel-inbound.js"
+import type { ButlerRuntimeProvider } from "../butler-runtime-provider.js"
 import { runButlerLoop } from "../wechat-inbound-butler.js"
 import { isWechatIntakeEnabled, routeWechatIntake } from "../wechat-intake.js"
 import { resolveWechatInboundProjectId } from "../wechat-active-project.js"
@@ -21,7 +22,11 @@ import { maybePrependSessionDigest } from "../wechat-session-digest.js"
 import { requireInboundSharedSecret } from "../env-util.js"
 import { finalizeReply } from "@butler/runtime/butler/presentation.js"
 
-export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
+export function registerInboundRoutes(
+  app: Hono,
+  wiring: Wiring,
+  butler?: ButlerRuntimeProvider,
+): void {
   app.post("/v1/wechat/inbound", async (c) => {
     // D63 T4 (audit #9 F-03): require BUTLER_V5_INBOUND_SHARED_SECRET in
     // env + x-inbound-secret header in request. FAIL-CLOSED when env
@@ -246,6 +251,7 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
       return c.text("invalid body", 400)
     }
     try {
+      const engine = resolveChannelEngine(process.env, body.channelId)
       const result = await handleChannelInbound({
         wiring,
         channelId: body.channelId,
@@ -253,6 +259,8 @@ export function registerInboundRoutes(app: Hono, wiring: Wiring): void {
         content: body.content,
         ...(body.messageId ? { messageId: body.messageId } : {}),
         conversationId: body.conversationId,
+        engine,
+        ...(butler === undefined ? {} : { butler }),
       })
       return c.json(result, 201)
     } catch (err) {

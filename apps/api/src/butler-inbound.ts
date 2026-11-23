@@ -34,8 +34,8 @@ interface ButlerSendResult {
   readonly sendError?: string
 }
 
-export interface TaskSettledPushInput {
-  readonly to: string
+export interface TaskSettledPushInput<TOwner = string> {
+  readonly owner: TOwner
   readonly text: string
 }
 
@@ -59,10 +59,10 @@ export function formatTaskSettledNotice(ref: ButlerTaskRef): string {
  * Turns detached-task settle events into one push. Missing owner mapping or a
  * task that already carries no notice is skipped rather than guessed.
  */
-export function createTaskSettledNotifier(args: {
+export function createTaskSettledNotifier<TOwner = string>(args: {
   readonly approvalNotice: (taskId: string) => Promise<{ readonly text: string } | null>
-  readonly resolveOwner: (conversationId: string) => string | undefined
-  readonly push: (input: TaskSettledPushInput) => Promise<TaskSettledPushResult>
+  readonly resolveOwner: (conversationId: string) => TOwner | undefined
+  readonly push: (input: TaskSettledPushInput<TOwner>) => Promise<TaskSettledPushResult>
   readonly logger?: { warn(message: string, extra?: unknown): void }
 }): (ref: ButlerTaskRef) => Promise<void> {
   const logger = args.logger ?? {
@@ -74,13 +74,14 @@ export function createTaskSettledNotifier(args: {
   return async (ref: ButlerTaskRef): Promise<void> => {
     const conversationId = ref.conversationId
     if (conversationId === undefined) return
-    const to = args.resolveOwner(conversationId)
-    if (to === undefined || to.trim().length === 0) return
+    const owner = args.resolveOwner(conversationId)
+    if (owner === undefined) return
+    if (typeof owner === "string" && owner.trim().length === 0) return
     const notice = ref.status === "paused" ? await args.approvalNotice(ref.taskId) : null
     const text = (notice?.text ?? formatTaskSettledNotice(ref)).trim()
     if (text.length === 0) return
     try {
-      const result = await args.push({ to, text })
+      const result = await args.push({ owner, text })
       if (!result.ok) logger.warn(`[butler] ${ref.taskId} proactive push failed`, result.reason)
     } catch (error) {
       logger.warn(`[butler] ${ref.taskId} proactive push threw`, error)

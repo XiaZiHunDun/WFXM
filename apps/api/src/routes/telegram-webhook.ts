@@ -12,14 +12,16 @@
  *   - unwrap Secret<string> at the fetch call site (D74 T4 SEC-006)
  */
 import type { Hono } from "hono"
+import type { ChannelPort } from "@butler/ports/core/channel.js"
 import type { Wiring } from "../wiring.js"
-import { isTelegramChannelEnabled } from "../channel-config.js"
+import { isTelegramChannelEnabled, resolveChannelEngine } from "../channel-config.js"
 import {
   ChannelInboundError,
   handleChannelInbound,
   parseTelegramUpdate,
   telegramWebhookAuthorized,
 } from "../channel-inbound.js"
+import type { ButlerRuntimeProvider } from "../butler-runtime-provider.js"
 import { deliverTelegramChannelReply, telegramBotToken } from "../channel-outbound.js"
 import { resolveTelegramInboundContent } from "../channel-media.js"
 import { markChannelSeen } from "../lib/channel-seen-ids.js"
@@ -28,6 +30,7 @@ export function registerTelegramWebhookRoutes(
   app: Hono,
   wiring: Wiring,
   parseAllowlist: (raw: string | undefined) => ReadonlySet<string> | null,
+  butler?: ButlerRuntimeProvider,
 ): void {
   app.post("/v1/channel/telegram/webhook", async (c) => {
     if (!isTelegramChannelEnabled(process.env)) {
@@ -65,6 +68,48 @@ export function registerTelegramWebhookRoutes(
     }
     try {
       const inboundContent = await resolveTelegramInboundContent(parsed, process.env)
+      const engine = resolveChannelEngine(process.env, "telegram")
+      if (engine === "butler") {
+        // D74 T4 (audit #20 SEC-006): see Slack handler above.
+        const telegramToken = telegramBotToken(process.env).unwrap()
+        const channel: ChannelPort = {
+          channelKind: "telegram",
+          async sendText({ content }) {
+            if (!telegramToken) {
+              return { ok: false, reason: "BUTLER_V5_TELEGRAM_BOT_TOKEN 未配置" }
+            }
+            const outbound = await deliverTelegramChannelReply({
+              token: telegramToken,
+              chatId: parsed.fromSubject,
+              reply: content,
+            })
+            return outbound.delivered
+              ? { ok: true, messageId: null }
+              : { ok: false, reason: outbound.deliveryReason ?? "telegram delivery failed" }
+          },
+        }
+        const result = await handleChannelInbound({
+          wiring,
+          channelId: "telegram",
+          fromSubject: parsed.fromSubject,
+          content: inboundContent,
+          messageId: parsed.messageId,
+          engine,
+          ...(butler === undefined ? {} : { butler }),
+          channel,
+        })
+        return c.json(
+          {
+            ok: true,
+            reply: result.reply,
+            conversationId: result.conversationId,
+            delivered: result.delivered ?? false,
+            mediaCount: 0,
+            ...(result.deliveryReason ? { deliveryReason: result.deliveryReason } : {}),
+          },
+          200,
+        )
+      }
       const result = await handleChannelInbound({
         wiring,
         channelId: "telegram",

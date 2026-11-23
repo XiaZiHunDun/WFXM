@@ -1,6 +1,15 @@
 import { normalizeChannelInbound } from "@butler/runtime/intake/index.js"
+import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
 import type { Wiring } from "./wiring.js"
-import { isChannelAllowed, parseAllowedChannelIds } from "./channel-config.js"
+import {
+  isChannelAllowed,
+  parseAllowedChannelIds,
+  resolveChannelProjectId,
+  type ChannelEngine,
+} from "./channel-config.js"
+import type { ButlerAssembly } from "./butler-assembly.js"
+import { handleButlerInbound } from "./butler-inbound.js"
+import type { ButlerRuntimeProvider } from "./butler-runtime-provider.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import { describeTelegramMedia, type ChannelInboundMedia } from "./channel-media.js"
 import { timingSafeEqualStrings } from "./lib/secure-compare.js"
@@ -12,6 +21,12 @@ export interface ChannelInboundInput {
   readonly content: string
   readonly messageId?: string
   readonly conversationId?: unknown
+  /** Per-channel cutover switch; omit/legacy keeps the RunEngine pipeline. */
+  readonly engine?: ChannelEngine
+  readonly butler?: ButlerRuntimeProvider
+  /** Outbound port used by the butler pipeline; a no-op is used when omitted. */
+  readonly channel?: ChannelPort
+  readonly ownerThreadTs?: string
 }
 
 export interface ChannelInboundResult {
@@ -25,6 +40,15 @@ export interface ChannelInboundResult {
     readonly finalDecision: string
     readonly traces: readonly string[]
   }
+  /** Butler pipeline only: whether the reply reached the channel. */
+  readonly delivered?: boolean
+  readonly deliveryReason?: string
+}
+
+function channelKindOf(channelId: string): ChannelKind {
+  return channelId === "wechat" || channelId === "slack" || channelId === "telegram"
+    ? channelId
+    : "generic"
 }
 
 export async function handleChannelInbound(
@@ -73,6 +97,61 @@ export async function handleChannelInbound(
       channelId,
     },
   })
+
+  if (input.engine === "butler") {
+    const provider = input.butler
+    if (!provider) {
+      throw new ChannelInboundError("butler runtime unavailable: provider not configured", 503)
+    }
+    let runtime: ButlerAssembly
+    try {
+      runtime = await provider.assembly()
+    } catch (error) {
+      throw new ChannelInboundError(
+        `butler runtime unavailable: ${error instanceof Error ? error.message : String(error)}`,
+        503,
+      )
+    }
+    const channelKind = channelKindOf(channelId)
+    provider.rememberOwner(value.conversationId, {
+      channelKind,
+      address: value.subject,
+      ...(input.ownerThreadTs === undefined ? {} : { threadTs: input.ownerThreadTs }),
+    })
+    const channel: ChannelPort = input.channel ?? {
+      channelKind,
+      async sendText() {
+        // Generic intake returns the reply in the HTTP body.
+        return { ok: true, messageId: null }
+      },
+    }
+    const outcome = await handleButlerInbound({
+      butler: runtime.butler,
+      channel,
+      recipient: { address: value.subject, channelKind },
+      input: {
+        conversationId: value.conversationId,
+        userId: value.subject,
+        projectId: resolveChannelProjectId(channelId, process.env),
+        content: value.content,
+      },
+    })
+    return {
+      conversationId: value.conversationId,
+      turnId: value.turnId,
+      channelId,
+      reply: outcome.result.reply,
+      meta: {
+        iterations: 0,
+        toolCalls: 0,
+        finalDecision: "Respond",
+        traces: outcome.result.traces,
+      },
+      delivered: outcome.sent,
+      ...(outcome.sendError === undefined ? {} : { deliveryReason: outcome.sendError }),
+    }
+  }
+
   const loopResult = await runButlerLoop({
     wiring: input.wiring,
     conversationId: value.conversationId,

@@ -12,9 +12,11 @@
  * + body); the FAIL-CLOSED check lives in verifySlackSignature.
  */
 import type { Hono } from "hono"
+import type { ChannelPort } from "@butler/ports/core/channel.js"
 import type { Wiring } from "../wiring.js"
-import { isSlackChannelEnabled } from "../channel-config.js"
+import { isSlackChannelEnabled, resolveChannelEngine } from "../channel-config.js"
 import { ChannelInboundError, handleChannelInbound } from "../channel-inbound.js"
+import type { ButlerRuntimeProvider } from "../butler-runtime-provider.js"
 import { deliverSlackChannelReply, slackBotToken } from "../channel-outbound.js"
 import { parseSlackEventPayload, verifySlackSignature } from "@butler/adapters/slack/index.js"
 
@@ -22,6 +24,7 @@ export function registerSlackEventsRoutes(
   app: Hono,
   wiring: Wiring,
   parseAllowlist: (raw: string | undefined) => ReadonlySet<string> | null,
+  butler?: ButlerRuntimeProvider,
 ): void {
   app.post("/v1/channel/slack/events", async (c) => {
     if (!isSlackChannelEnabled(process.env)) {
@@ -73,6 +76,50 @@ export function registerSlackEventsRoutes(
       return c.body(null, 204)
     }
     try {
+      const engine = resolveChannelEngine(process.env, "slack")
+      if (engine === "butler") {
+        // D74 T4 (audit #20 SEC-006): unwrap Secret<string> at the fetch
+        // call site. The verbose .unwrap() is intentional — every site is
+        // a code-review signal for where cleartext tokens flow.
+        const slackToken = slackBotToken(process.env).unwrap()
+        const channel: ChannelPort = {
+          channelKind: "slack",
+          async sendText({ content }) {
+            if (!slackToken) return { ok: false, reason: "BUTLER_V5_SLACK_BOT_TOKEN 未配置" }
+            const outbound = await deliverSlackChannelReply({
+              token: slackToken,
+              channel: parsed.deliveryChannel,
+              reply: content,
+              ...(parsed.threadTs ? { threadTs: parsed.threadTs } : {}),
+            })
+            return outbound.delivered
+              ? { ok: true, messageId: null }
+              : { ok: false, reason: outbound.deliveryReason ?? "slack delivery failed" }
+          },
+        }
+        const result = await handleChannelInbound({
+          wiring,
+          channelId: "slack",
+          fromSubject: parsed.fromSubject,
+          content: parsed.content,
+          messageId: parsed.messageId,
+          engine,
+          ...(butler === undefined ? {} : { butler }),
+          channel,
+          ...(parsed.threadTs ? { ownerThreadTs: parsed.threadTs } : {}),
+        })
+        return c.json(
+          {
+            ok: true,
+            reply: result.reply,
+            conversationId: result.conversationId,
+            delivered: result.delivered ?? false,
+            mediaCount: 0,
+            ...(result.deliveryReason ? { deliveryReason: result.deliveryReason } : {}),
+          },
+          200,
+        )
+      }
       const result = await handleChannelInbound({
         wiring,
         channelId: "slack",

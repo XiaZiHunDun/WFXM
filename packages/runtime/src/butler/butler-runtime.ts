@@ -48,6 +48,10 @@ const MAX_RECALL_CACHE_ENTRIES = 100
 /** Questions that cannot be retrieved on their own. */
 const REWRITE_HINT = /这个|那个|它|刚才|上面|之前|那次|该|此/
 
+/** `/undo` boundary: the task layer owns file edits and has no undo stack. */
+const UNDO_BOUNDARY_TEXT =
+  "管家的文件改动由任务层执行，暂不支持自动撤销。可以先用 /status 查看任务结果；需要回滚时，在项目目录用 git diff 确认改动后手工处理。"
+
 const SUMMARY_PROMPT = [
   "你是管家会话复盘助手。阅读会话记录，只输出 JSON（不要 markdown 代码块）：",
   '{"summary":"一句话概括本次会话","profile":{"displayName":"","communicationStyle":"","preferences":[],"commitments":[]},',
@@ -155,7 +159,7 @@ export class ButlerRuntime {
           session = switched.session
           outcome = { reply: switched.reply }
         } else {
-          outcome = await this.applyRule(resolvedRule, input, effectiveProjectId)
+          outcome = await this.applyRule(resolvedRule, input, session, effectiveProjectId)
         }
       } catch (error) {
         traces.push("rule:error")
@@ -517,6 +521,7 @@ export class ButlerRuntime {
   private async applyRule(
     rule: ButlerRuleAction,
     input: ButlerTurnInput,
+    session: ButlerSessionRecord,
     sessionProjectId?: string,
   ): Promise<RuleOutcome> {
     if (rule.kind === "reply") return { reply: rule.reply }
@@ -538,9 +543,19 @@ export class ButlerRuntime {
       return { reply: `已记住：${rule.text}` }
     }
 
-    const tasks = this.options.tasks
-    if (!tasks) return { reply: "任务层尚未接入，暂时无法处理这个指令。" }
+    if (rule.kind === "undo") return { reply: UNDO_BOUNDARY_TEXT }
+
     const projectId = sessionProjectId ?? input.projectId
+    if (rule.kind === "diagnose") {
+      return { reply: await this.diagnose(session, projectId) }
+    }
+
+    const tasks = this.options.tasks
+    if (rule.kind === "retry") {
+      if (!tasks) return { reply: "任务层尚未接入，暂时无法重试。" }
+      return this.retryTask(tasks, rule, input, projectId)
+    }
+    if (!tasks) return { reply: "任务层尚未接入，暂时无法处理这个指令。" }
 
     switch (rule.kind) {
       case "project": {
@@ -616,6 +631,113 @@ export class ButlerRuntime {
           taskId: task.taskId,
         }
       }
+    }
+  }
+
+  /**
+   * Deterministic self-check: no model call, no state mutation. Reports what
+   * the conversation can act on right now so the owner can pick a command.
+   */
+  private async diagnose(
+    session: ButlerSessionRecord,
+    projectId: string | undefined,
+  ): Promise<string> {
+    const lines = [
+      "【诊断】",
+      `项目：${projectId ?? "未绑定"}`,
+      `会话：${session.conversationId.slice(0, 8)}`,
+    ]
+    const tasks = this.options.tasks
+    if (!tasks) {
+      lines.push("任务层：未接入")
+    } else {
+      try {
+        const items = await tasks.list(projectId)
+        const counts = { running: 0, paused: 0, failed: 0, other: 0 }
+        for (const item of items) {
+          if (item.status === "running") counts.running += 1
+          else if (item.status === "paused") counts.paused += 1
+          else if (item.status === "failed") counts.failed += 1
+          else counts.other += 1
+        }
+        lines.push(
+          `任务：执行中 ${counts.running} / 待审批 ${counts.paused} / 失败 ${counts.failed} / 其他 ${counts.other}`,
+        )
+        const paused = items.filter((item) => item.status === "paused")
+        if (paused.length > 0) {
+          lines.push(`待审批：${paused.map((item) => item.taskId).join("、")}`)
+        }
+        const recent = items.slice(-3).reverse()
+        if (recent.length > 0) {
+          lines.push(
+            `最近任务：${recent
+              .map((item) => {
+                const reason = item.error?.trim()
+                return reason === undefined || reason.length === 0
+                  ? `${item.taskId}（${taskStatusLabel(item.status)}）`
+                  : `${item.taskId}（${taskStatusLabel(item.status)}）：${clip(reason, 120)}`
+              })
+              .join("；")}`,
+          )
+        }
+      } catch (error) {
+        this.logger.warn(`[butler] ${session.conversationId} diagnose lookup failed`, error)
+        lines.push("任务层：查询失败")
+      }
+    }
+    lines.push(`长期记忆：${this.options.memory ? "已接入" : "未接入"}`)
+    lines.push("可用：/status 查看任务，/retry 重试，/tasks 列出任务")
+    return lines.join("\n")
+  }
+
+  /**
+   * Re-runs the conversation's current task (or an explicit one).
+   *
+   * Approval is never implicit: a task paused on a step must be confirmed
+   * through the normal approval path.
+   */
+  private async retryTask(
+    tasks: ButlerTaskPort,
+    rule: Extract<ButlerRuleAction, { kind: "retry" }>,
+    input: ButlerTurnInput,
+    projectId: string | undefined,
+  ): Promise<RuleOutcome> {
+    if (!tasks.retry) return { reply: "任务层暂不支持重试。" }
+
+    let taskId = rule.taskId
+    if (taskId === undefined) {
+      const items = await tasks.list(projectId)
+      const owned = items.filter((task) => task.conversationId === input.conversationId)
+      const last = owned[owned.length - 1]
+      if (!last) return { reply: "当前没有可重试的任务。" }
+      taskId = last.taskId
+    }
+
+    const current = await tasks.status(taskId)
+    if (!current) return { reply: `没有找到任务 ${taskId}。` }
+    if (current.status === "running") {
+      return { reply: `任务 ${taskId} 正在执行，稍后用 /status 查看。` }
+    }
+    if (current.status === "paused") {
+      return { reply: `任务 ${taskId} 正在等待审批，请先确认或拒绝。` }
+    }
+
+    const task = await tasks.retry(taskId)
+    if (!task) return { reply: `任务 ${taskId} 当前无法重试。` }
+
+    const notice = buildApprovalNotice(task)
+    const detail =
+      task.status === "paused"
+        ? ""
+        : task.error
+          ? `\n执行失败：${task.error}`
+          : task.lastReply
+            ? `\n${task.lastReply}`
+            : ""
+    const reply = `已重新执行任务 ${task.taskId}（${taskStatusLabel(task.status)}）。${detail}`
+    return {
+      reply: notice ? `${reply}\n\n${notice.text}` : reply,
+      taskId: task.taskId,
     }
   }
 
