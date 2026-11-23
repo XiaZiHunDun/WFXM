@@ -118,6 +118,29 @@ describe("matchButlerRule", () => {
       kind: "approve",
       approved: false,
     })
+    expect(matchButlerRule({ content: "/remember 我偏好要点式" })).toMatchObject({
+      kind: "remember",
+      text: "我偏好要点式",
+    })
+    expect(matchButlerRule({ content: "记住：先结论后细节" })).toMatchObject({
+      kind: "remember",
+      text: "先结论后细节",
+    })
+    expect(matchButlerRule({ content: "/remember" })).toMatchObject({
+      kind: "reply",
+      name: "remember-usage",
+    })
+    expect(matchButlerRule({ content: "/project" })).toMatchObject({ kind: "project" })
+    expect(matchButlerRule({ content: "/project lingwen" })).toMatchObject({
+      kind: "project",
+      projectId: "lingwen",
+    })
+    expect(matchButlerRule({ content: "切换项目 灵文" })).toMatchObject({
+      kind: "project",
+      projectId: "灵文",
+    })
+    expect(matchButlerRule({ content: "项目" })).toMatchObject({ kind: "project" })
+    expect(matchButlerRule({ content: "记住昨天说的吗？" })).toBeNull()
     expect(matchButlerRule({ content: "确认" })).toBeNull()
     expect(matchButlerRule({ content: "帮我看看登录为什么超时" })).toBeNull()
   })
@@ -135,6 +158,8 @@ describe("ButlerRuntime", () => {
     expect(result.route).toBe("rule")
     expect(result.rule).toBe("help")
     expect(result.reply).toContain("/new <目标>")
+    expect(result.reply).toContain("/remember <内容>")
+    expect(result.reply).toContain("/project [项目ID]")
     expect(result.usage.totalTokens).toBe(0)
     expect(model.requests).toHaveLength(0)
   })
@@ -228,6 +253,151 @@ describe("ButlerRuntime", () => {
 
     expect(model.requests[0]?.messages[0]?.content).toContain("偏好先结论后细节")
     expect(result.traces).toContain("memory:recall:1")
+  })
+
+  it("stores an explicit 记住 command in user memory", async () => {
+    const written: { userId: string; fact: { kind?: string; title: string; text: string } }[] = []
+    const memory: ButlerMemoryPort = {
+      async recordSessionSummary() {},
+      async rememberUserMemory(input) {
+        written.push(input)
+      },
+    }
+    const model = fakeModel()
+    const runtime = new ButlerRuntime({ model, memory, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "/remember 我偏好先结论后细节",
+    })
+
+    expect(result.route).toBe("rule")
+    expect(result.rule).toBe("remember")
+    expect(result.reply).toContain("已记住")
+    expect(written).toEqual([
+      {
+        userId: "u1",
+        fact: { kind: "note", title: "我偏好先结论后细节", text: "我偏好先结论后细节" },
+      },
+    ])
+    expect(model.requests).toHaveLength(0)
+  })
+
+  it("explains when explicit memory writes are not wired", async () => {
+    const memory: ButlerMemoryPort = { async recordSessionSummary() {} }
+    const runtime = new ButlerRuntime({ model: fakeModel(), memory, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "记住：有事提前说",
+    })
+
+    expect(result.route).toBe("rule")
+    expect(result.reply).toContain("没有接入长期记忆")
+  })
+
+  it("turns a failing memory write into a readable reply", async () => {
+    const memory: ButlerMemoryPort = {
+      async recordSessionSummary() {},
+      async rememberUserMemory() {
+        throw new Error("db down")
+      },
+    }
+    const runtime = new ButlerRuntime({ model: fakeModel(), memory, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "/remember 周报周五交",
+    })
+
+    expect(result.rule).toBe("remember")
+    expect(result.reply).toContain("保存这条记忆时出错")
+  })
+
+  it("switches the conversation project and keeps it across restarts", async () => {
+    const store = new MemoryButlerSessionStore()
+    const tasks = fakeTasks([{ taskId: "t9", projectId: "LingWen1", status: "idle" }])
+    const options = {
+      model: fakeModel(),
+      tasks,
+      store,
+      clock,
+      resolveProjectName: (raw: string) => (raw === "灵文" ? "LingWen1" : null),
+    }
+    const runtime = new ButlerRuntime(options)
+
+    const switched = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "wechat",
+      content: "/project 灵文",
+    })
+    expect(switched.reply).toContain("已切换到项目 LingWen1")
+
+    const listed = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "wechat",
+      content: "/tasks",
+    })
+    expect(listed.reply).toContain("t9")
+
+    const restarted = new ButlerRuntime(options)
+    const again = await restarted.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "wechat",
+      content: "/tasks",
+    })
+    expect(again.reply).toContain("t9")
+  })
+
+  it("keeps the current project when the requested one is unknown", async () => {
+    const tasks = fakeTasks([{ taskId: "t1", projectId: "p1", status: "idle" }])
+    const runtime = new ButlerRuntime({
+      model: fakeModel(),
+      tasks,
+      clock,
+      resolveProjectName: () => null,
+    })
+
+    const switched = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/project nope",
+    })
+    expect(switched.reply).toContain("没有找到项目 nope")
+
+    const listed = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/tasks",
+    })
+    expect(listed.reply).toContain("t1")
+  })
+
+  it("shows the current project", async () => {
+    const runtime = new ButlerRuntime({
+      model: fakeModel(),
+      clock,
+      resolveProjectName: (raw: string) => (raw === "灵文" ? "LingWen1" : null),
+    })
+    await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "wechat",
+      content: "/project 灵文",
+    })
+
+    const current = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "wechat",
+      content: "/project",
+    })
+    expect(current.reply).toContain("当前项目：LingWen1")
   })
 
   it("summarizes a session into structured user memory", async () => {

@@ -12,6 +12,8 @@ export const BUTLER_HELP_TEXT = [
   "/status [任务ID] 查看任务，缺省看当前任务",
   "/tasks 列出项目任务",
   "/new <目标> 创建任务",
+  "/project [项目ID] 查看或切换项目",
+  "/remember <内容> 记住一条长期信息",
   "确认 / 拒绝 处理任务审批",
 ].join("\n")
 
@@ -20,6 +22,8 @@ export type ButlerRuleAction =
   | { readonly kind: "list_tasks"; readonly name: string }
   | { readonly kind: "task_status"; readonly name: string; readonly taskId: string }
   | { readonly kind: "start_task"; readonly name: string; readonly goal: string }
+  | { readonly kind: "remember"; readonly name: string; readonly text: string }
+  | { readonly kind: "project"; readonly name: string; readonly projectId?: string }
   | {
       readonly kind: "approve"
       readonly name: string
@@ -51,6 +55,33 @@ export function matchButlerRule(input: ButlerRuleInput): ButlerRuleAction | null
 
   if (lower === "/help" || lower === "help" || text === "帮助" || text === "?" || text === "？") {
     return { kind: "reply", name: "help", reply: BUTLER_HELP_TEXT }
+  }
+
+  const projectMatch = /^\/project(?:\s+(\S+))?$/i.exec(text)
+  if (projectMatch) {
+    const target = projectMatch[1]?.trim()
+    return target === undefined
+      ? { kind: "project", name: "project" }
+      : { kind: "project", name: "project", projectId: target }
+  }
+
+  const switchMatch = /^(?:切换项目|项目)[:：]?\s+(.+)$/.exec(text)
+  const switchTarget = switchMatch?.[1]?.trim()
+  if (switchTarget) return { kind: "project", name: "project", projectId: switchTarget }
+
+  if (text === "项目") return { kind: "project", name: "project" }
+
+  const rememberMatch =
+    /^\/(?:remember|记住)\s+(.+)$/i.exec(text) ?? /^记住[:：]\s*(.+)$/.exec(text)
+  const remembered = rememberMatch?.[1]?.trim()
+  if (remembered) return { kind: "remember", name: "remember", text: remembered }
+
+  if (lower === "/remember" || lower === "/记住") {
+    return {
+      kind: "reply",
+      name: "remember-usage",
+      reply: "用法：/remember <要记住的内容>，例如 /remember 我偏好先结论后细节",
+    }
   }
 
   const statusMatch = /^\/status(?:\s+(\S+))?$/i.exec(text)

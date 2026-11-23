@@ -100,6 +100,8 @@ export interface ButlerRuntimeOptions {
   readonly maxPromptChars?: number
   /** Recall cache TTL; 0 disables caching. */
   readonly recallCacheTtlMs?: number
+  /** Normalizes an owner-supplied project name; `null` means unknown. */
+  readonly resolveProjectName?: (raw: string) => string | null
   readonly clock?: () => string
   readonly logger?: { warn(message: string, extra?: unknown): void }
 }
@@ -135,19 +137,26 @@ export class ButlerRuntime {
   async handle(input: ButlerTurnInput): Promise<ButlerTurnResult> {
     const now = this.clock()
     const loaded = await this.loadSession(input)
-    const session = this.compactSession(loaded, now)
+    let session = this.compactSession(loaded, now)
+    const effectiveProjectId = session.projectId ?? input.projectId
     const traces: string[] = []
     const userMessage: ButlerMessage = { role: "user", content: input.content }
     const rule = matchButlerRule({
       content: input.content,
       ...(input.activeTaskId === undefined ? {} : { activeTaskId: input.activeTaskId }),
     })
-    const resolvedRule = rule ?? (await this.resolveApprovalRule(input))
+    const resolvedRule = rule ?? (await this.resolveApprovalRule(input, effectiveProjectId))
 
     if (resolvedRule) {
       let outcome: RuleOutcome
       try {
-        outcome = await this.applyRule(resolvedRule, input, session.projectId)
+        if (resolvedRule.kind === "project") {
+          const switched = this.applyProjectRule(resolvedRule, session, effectiveProjectId)
+          session = switched.session
+          outcome = { reply: switched.reply }
+        } else {
+          outcome = await this.applyRule(resolvedRule, input, effectiveProjectId)
+        }
       } catch (error) {
         traces.push("rule:error")
         this.logger.warn(`[butler] rule ${resolvedRule.name} failed`, error)
@@ -373,9 +382,12 @@ export class ButlerRuntime {
       if (existing.userId !== input.userId) {
         throw new Error(`conversation ${input.conversationId} belongs to another user`)
       }
+      // A /project switch is the conversation default and outranks the
+      // caller's per-turn hint; the hint only seeds a fresh conversation.
+      const projectId = existing.projectId ?? input.projectId
       const merged: ButlerSessionRecord = {
         ...existing,
-        ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
+        ...(projectId === undefined ? {} : { projectId }),
       }
       this.sessions.set(input.conversationId, merged)
       return merged
@@ -408,7 +420,10 @@ export class ButlerRuntime {
   }
 
   /** Resolves a bare "确认/拒绝" to the conversation's single paused task. */
-  private async resolveApprovalRule(input: ButlerTurnInput): Promise<ButlerRuleAction | null> {
+  private async resolveApprovalRule(
+    input: ButlerTurnInput,
+    projectId?: string,
+  ): Promise<ButlerRuleAction | null> {
     const intent = matchApprovalWord(input.content)
     if (!intent) return null
     const tasks = this.options.tasks
@@ -417,7 +432,9 @@ export class ButlerRuntime {
     }
     let pending: readonly ButlerTaskRef[]
     try {
-      pending = (await tasks.list(input.projectId)).filter((task) => task.status === "paused")
+      pending = (await tasks.list(projectId ?? input.projectId)).filter(
+        (task) => task.status === "paused",
+      )
     } catch (error) {
       this.logger.warn(`[butler] ${input.conversationId} pending task lookup failed`, error)
       return {
@@ -472,6 +489,31 @@ export class ButlerRuntime {
     }
   }
 
+  private applyProjectRule(
+    rule: Extract<ButlerRuleAction, { kind: "project" }>,
+    session: ButlerSessionRecord,
+    current: string | undefined,
+  ): { readonly session: ButlerSessionRecord; readonly reply: string } {
+    if (rule.projectId === undefined) {
+      return {
+        session,
+        reply:
+          current === undefined
+            ? "当前还没有选择项目。用 /project <项目ID> 选择。"
+            : `当前项目：${current}。用 /project <项目ID> 切换。`,
+      }
+    }
+    const raw = rule.projectId.trim()
+    const resolved = this.options.resolveProjectName ? this.options.resolveProjectName(raw) : raw
+    if (resolved === null || resolved.length === 0) {
+      return {
+        session,
+        reply: `没有找到项目 ${raw}。用 /project 查看当前项目。`,
+      }
+    }
+    return { session: { ...session, projectId: resolved }, reply: `已切换到项目 ${resolved}。` }
+  }
+
   private async applyRule(
     rule: ButlerRuleAction,
     input: ButlerTurnInput,
@@ -479,17 +521,39 @@ export class ButlerRuntime {
   ): Promise<RuleOutcome> {
     if (rule.kind === "reply") return { reply: rule.reply }
 
+    if (rule.kind === "remember") {
+      const memory = this.options.memory
+      if (!memory?.rememberUserMemory) {
+        return { reply: "当前没有接入长期记忆，这条信息还没有保存。" }
+      }
+      try {
+        await memory.rememberUserMemory({
+          userId: input.userId,
+          fact: { kind: "note", title: rule.text.slice(0, 30), text: rule.text },
+        })
+      } catch (error) {
+        this.logger.warn(`[butler] remember failed for ${input.userId}`, error)
+        return { reply: "保存这条记忆时出错了，请稍后再试。" }
+      }
+      return { reply: `已记住：${rule.text}` }
+    }
+
     const tasks = this.options.tasks
     if (!tasks) return { reply: "任务层尚未接入，暂时无法处理这个指令。" }
+    const projectId = sessionProjectId ?? input.projectId
 
     switch (rule.kind) {
+      case "project": {
+        // Handled in `handle` because it mutates the conversation session.
+        return { reply: "用 /project 查看或切换项目。" }
+      }
       case "list_tasks": {
-        const items = await tasks.list(input.projectId)
+        const items = await tasks.list(projectId)
         return { reply: formatTaskList(items) }
       }
       case "task_status": {
         const task = await tasks.status(rule.taskId)
-        if (!task || !taskVisibleToProject(task, sessionProjectId ?? input.projectId)) {
+        if (!task || !taskVisibleToProject(task, projectId)) {
           return { reply: `没有找到任务 ${rule.taskId}，可以用 /tasks 查看项目任务。` }
         }
         const notice = buildApprovalNotice(task)
@@ -500,9 +564,9 @@ export class ButlerRuntime {
         }
       }
       case "start_task": {
-        if (!input.projectId) return { reply: "请先选择项目，再创建任务。" }
+        if (!projectId) return { reply: "请先选择项目，再创建任务。" }
         const task = await tasks.start({
-          projectId: input.projectId,
+          projectId,
           goal: rule.goal,
           conversationId: input.conversationId,
         })
@@ -563,6 +627,7 @@ export class ButlerRuntime {
     now: string,
   ): Promise<ButlerTurnResult> {
     const memoryBlock = await this.recallBlock(session, input.content, traces)
+    const projectId = session.projectId ?? input.projectId
     const bounded = this.enforcePromptBudget(session, memoryBlock, input.content, now)
     const summaryBlock = bounded.summary ? `\n\n[此前对话摘要]\n${bounded.summary}` : ""
     const messages: ButlerMessage[] = [
@@ -620,7 +685,7 @@ export class ButlerRuntime {
           continue
         }
         executed += 1
-        const outcome = await this.executeTool(call, input)
+        const outcome = await this.executeTool(call, input, projectId)
         traces.push(`tool:${call.name}:${outcome.failed ? "error" : "ok"}`)
         if (outcome.taskId) taskId = outcome.taskId
         messages.push({
@@ -688,19 +753,21 @@ export class ButlerRuntime {
   private async executeTool(
     call: ButlerToolCall,
     input: ButlerTurnInput,
+    sessionProjectId?: string,
   ): Promise<{ output: string; taskId?: string; failed?: boolean }> {
     const tasks = this.options.tasks
     if (!tasks) return { output: "任务层尚未接入。", failed: true }
+    const projectId = sessionProjectId ?? input.projectId
     try {
       switch (call.name) {
         case "start_task": {
           const goal = asNonEmptyString(call.args["goal"])
           if (!goal) return { output: "缺少任务目标。", failed: true }
-          if (!input.projectId) {
+          if (!projectId) {
             return { output: "当前会话未绑定项目，无法创建任务。", failed: true }
           }
           const task = await tasks.start({
-            projectId: input.projectId,
+            projectId,
             goal,
             conversationId: input.conversationId,
           })
@@ -713,14 +780,14 @@ export class ButlerRuntime {
           return { output, taskId: task.taskId }
         }
         case "list_tasks": {
-          const items = await tasks.list(input.projectId)
+          const items = await tasks.list(projectId)
           return { output: formatTaskList(items) }
         }
         case "task_status": {
           const taskId = asNonEmptyString(call.args["taskId"]) ?? input.activeTaskId
           if (!taskId) return { output: "缺少任务 ID。", failed: true }
           const task = await tasks.status(taskId)
-          if (!task || !taskVisibleToProject(task, input.projectId)) {
+          if (!task || !taskVisibleToProject(task, projectId)) {
             return { output: `没有找到任务 ${taskId}。`, failed: true }
           }
           return { output: describeTask(task) }

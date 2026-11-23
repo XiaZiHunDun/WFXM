@@ -6,6 +6,7 @@ import {
 } from "./channel-outbound-media.js"
 import { sendSlackOutboundFile, sendSlackOutboundMessage } from "@butler/adapters/slack/index.js"
 import { DEFAULT_TELEGRAM_TEXT_TIMEOUT_MS } from "@butler/adapters"
+import { finalizeReply, splitForWechat } from "@butler/runtime/butler/presentation.js"
 import { Secret } from "@butler/adapters/wechat/secret.js"
 import { mapChannelErrorToOwnerJargon } from "./owner-jargon.js"
 
@@ -21,11 +22,42 @@ export interface TelegramOutboundConfig {
 }
 
 const TELEGRAM_API = "https://api.telegram.org"
+/** Conservative text budget shared by Slack and Telegram delivery. */
+const CHANNEL_TEXT_LIMIT = 3900
+/** Telegram captions are much shorter than message text. */
+const TELEGRAM_CAPTION_LIMIT = 1024
 
 function clipOutboundText(text: string, maxChars: number): string {
   const trimmed = text.trim()
   if (trimmed.length <= maxChars) return trimmed
   return `${trimmed.slice(0, Math.max(0, maxChars - 1))}…`
+}
+
+/**
+ * Sends pre-split parts in order and reports which part failed. The caller
+ * keeps ownership of wording; this helper only guarantees no silent drop.
+ */
+async function sendTextParts(
+  parts: readonly string[],
+  send: (text: string) => Promise<ChannelOutboundResult>,
+): Promise<{ readonly ok: boolean; readonly reason?: string }> {
+  for (const [index, part] of parts.entries()) {
+    const result = await send(part)
+    if (!result.ok) {
+      return {
+        ok: false,
+        reason:
+          parts.length > 1
+            ? `${result.reason}（第 ${index + 1}/${parts.length} 段）`
+            : result.reason,
+      }
+    }
+  }
+  return { ok: true }
+}
+
+function cleanedText(text: string): string {
+  return text.trim().length === 0 ? "" : finalizeReply(text)
 }
 
 export async function sendTelegramOutboundMessage(
@@ -111,63 +143,63 @@ export async function deliverSlackChannelReply(config: {
   readonly fetch?: typeof fetch
 }): Promise<ChannelDeliveryResult> {
   const env = config.env ?? process.env
+  if (config.reply.trim().length === 0) {
+    return { delivered: false, mediaCount: 0, deliveryReason: "回复内容为空" }
+  }
   const parsed = parseChannelOutboundMedia(config.reply)
+  const text = cleanedText(parsed.text)
+  const parts = text.length === 0 ? [] : splitForWechat(text, CHANNEL_TEXT_LIMIT)
   const useMedia = channelOutboundMediaEnabled(env) && parsed.attachments.length > 0
-  let mediaSent = 0
-  const reasons: string[] = []
 
-  if (useMedia) {
-    for (const attachment of parsed.attachments) {
-      const resolved = await resolveOutboundAttachment(attachment, env)
-      if (!resolved.ok) {
-        reasons.push(resolved.reason)
-        continue
-      }
-      const upload = await sendSlackOutboundFile({
-        token: config.token,
-        channel: config.channel,
-        filePath: resolved.path,
-        fileName: attachment.name,
-        bytes: resolved.bytes,
-        ...(mediaSent === 0 && parsed.text ? { comment: parsed.text } : {}),
-        ...(config.threadTs ? { threadTs: config.threadTs } : {}),
-        ...(config.fetch ? { fetch: config.fetch } : {}),
-      })
-      if (upload.ok) mediaSent += 1
-      else reasons.push(upload.reason)
-    }
-    if (parsed.text && mediaSent === 0) {
-      const textOnly = await sendSlackOutboundMessage({
-        token: config.token,
-        channel: config.channel,
-        text: parsed.text,
-        ...(config.threadTs ? { threadTs: config.threadTs } : {}),
-        ...(config.fetch ? { fetch: config.fetch } : {}),
-      })
-      return {
-        delivered: textOnly.ok,
-        mediaCount: 0,
-        ...(textOnly.ok ? {} : { deliveryReason: textOnly.reason }),
-      }
-    }
+  const sendPart = (part: string): Promise<ChannelOutboundResult> =>
+    sendSlackOutboundMessage({
+      token: config.token,
+      channel: config.channel,
+      text: part,
+      ...(config.threadTs ? { threadTs: config.threadTs } : {}),
+      ...(config.fetch ? { fetch: config.fetch } : {}),
+    })
+
+  if (!useMedia) {
+    const outcome = await sendTextParts(parts, sendPart)
     return {
-      delivered: mediaSent > 0,
-      mediaCount: mediaSent,
-      ...(reasons.length > 0 ? { deliveryReason: reasons.join("; ") } : {}),
+      delivered: outcome.ok,
+      mediaCount: 0,
+      ...(outcome.reason === undefined ? {} : { deliveryReason: outcome.reason }),
     }
   }
 
-  const outbound = await sendSlackOutboundMessage({
-    token: config.token,
-    channel: config.channel,
-    text: config.reply,
-    ...(config.threadTs ? { threadTs: config.threadTs } : {}),
-    ...(config.fetch ? { fetch: config.fetch } : {}),
-  })
+  let mediaSent = 0
+  const reasons: string[] = []
+  for (const attachment of parsed.attachments) {
+    const resolved = await resolveOutboundAttachment(attachment, env)
+    if (!resolved.ok) {
+      reasons.push(resolved.reason)
+      continue
+    }
+    const upload = await sendSlackOutboundFile({
+      token: config.token,
+      channel: config.channel,
+      filePath: resolved.path,
+      fileName: attachment.name,
+      bytes: resolved.bytes,
+      ...(mediaSent === 0 && parts[0] ? { comment: parts[0] } : {}),
+      ...(config.threadTs ? { threadTs: config.threadTs } : {}),
+      ...(config.fetch ? { fetch: config.fetch } : {}),
+    })
+    if (upload.ok) mediaSent += 1
+    else reasons.push(upload.reason)
+  }
+  // Any text the first attachment did not carry is still delivered separately.
+  const remainder = mediaSent === 0 ? parts : parts.slice(1)
+  const outcome = await sendTextParts(remainder, sendPart)
+  const deliveryReason = [reasons.join("; "), outcome.reason].filter(
+    (reason): reason is string => typeof reason === "string" && reason.length > 0,
+  )
   return {
-    delivered: outbound.ok,
-    mediaCount: 0,
-    ...(outbound.ok ? {} : { deliveryReason: outbound.reason }),
+    delivered: outcome.ok && (mediaSent > 0 || parts.length > 0),
+    mediaCount: mediaSent,
+    ...(deliveryReason.length === 0 ? {} : { deliveryReason: deliveryReason.join("; ") }),
   }
 }
 
@@ -179,59 +211,68 @@ export async function deliverTelegramChannelReply(config: {
   readonly fetch?: typeof fetch
 }): Promise<ChannelDeliveryResult> {
   const env = config.env ?? process.env
+  if (config.reply.trim().length === 0) {
+    return { delivered: false, mediaCount: 0, deliveryReason: "回复内容为空" }
+  }
   const parsed = parseChannelOutboundMedia(config.reply)
+  const text = cleanedText(parsed.text)
+  const parts = text.length === 0 ? [] : splitForWechat(text, CHANNEL_TEXT_LIMIT)
   const useMedia = channelOutboundMediaEnabled(env) && parsed.attachments.length > 0
-  let mediaSent = 0
-  const reasons: string[] = []
 
-  if (useMedia) {
-    for (const [index, attachment] of parsed.attachments.entries()) {
-      const resolved = await resolveOutboundAttachment(attachment, env)
-      if (!resolved.ok) {
-        reasons.push(resolved.reason)
-        continue
-      }
-      const upload = await sendTelegramOutboundMedia({
-        token: config.token,
-        chatId: config.chatId,
-        attachment,
-        bytes: resolved.bytes,
-        ...(index === 0 && parsed.text ? { caption: parsed.text } : {}),
-        ...(config.fetch ? { fetch: config.fetch } : {}),
-      })
-      if (upload.ok) mediaSent += 1
-      else reasons.push(upload.reason)
-    }
-    if (parsed.text && mediaSent === 0) {
-      const textOnly = await sendTelegramOutboundMessage({
-        token: config.token,
-        chatId: config.chatId,
-        text: parsed.text,
-        ...(config.fetch ? { fetch: config.fetch } : {}),
-      })
-      return {
-        delivered: textOnly.ok,
-        mediaCount: 0,
-        ...(textOnly.ok ? {} : { deliveryReason: textOnly.reason }),
-      }
-    }
+  const sendPart = (part: string): Promise<ChannelOutboundResult> =>
+    sendTelegramOutboundMessage({
+      token: config.token,
+      chatId: config.chatId,
+      text: part,
+      ...(config.fetch ? { fetch: config.fetch } : {}),
+    })
+
+  if (!useMedia) {
+    const outcome = await sendTextParts(parts, sendPart)
     return {
-      delivered: mediaSent > 0,
-      mediaCount: mediaSent,
-      ...(reasons.length > 0 ? { deliveryReason: reasons.join("; ") } : {}),
+      delivered: outcome.ok,
+      mediaCount: 0,
+      ...(outcome.reason === undefined ? {} : { deliveryReason: outcome.reason }),
     }
   }
 
-  const outbound = await sendTelegramOutboundMessage({
-    token: config.token,
-    chatId: config.chatId,
-    text: config.reply,
-    ...(config.fetch ? { fetch: config.fetch } : {}),
-  })
+  // Telegram captions are shorter than message text; the rest goes as messages.
+  const captionParts = text.length === 0 ? [] : splitForWechat(text, TELEGRAM_CAPTION_LIMIT)
+  const caption = captionParts[0]
+  const remainderSource = captionParts.slice(1).join("\n")
+  let mediaSent = 0
+  const reasons: string[] = []
+  for (const [index, attachment] of parsed.attachments.entries()) {
+    const resolved = await resolveOutboundAttachment(attachment, env)
+    if (!resolved.ok) {
+      reasons.push(resolved.reason)
+      continue
+    }
+    const upload = await sendTelegramOutboundMedia({
+      token: config.token,
+      chatId: config.chatId,
+      attachment,
+      bytes: resolved.bytes,
+      ...(index === 0 && caption ? { caption } : {}),
+      ...(config.fetch ? { fetch: config.fetch } : {}),
+    })
+    if (upload.ok) mediaSent += 1
+    else reasons.push(upload.reason)
+  }
+  const remainder =
+    mediaSent === 0
+      ? parts
+      : remainderSource.length === 0
+        ? []
+        : splitForWechat(remainderSource, CHANNEL_TEXT_LIMIT)
+  const outcome = await sendTextParts(remainder, sendPart)
+  const deliveryReason = [reasons.join("; "), outcome.reason].filter(
+    (reason): reason is string => typeof reason === "string" && reason.length > 0,
+  )
   return {
-    delivered: outbound.ok,
-    mediaCount: 0,
-    ...(outbound.ok ? {} : { deliveryReason: outbound.reason }),
+    delivered: outcome.ok && (mediaSent > 0 || parts.length > 0),
+    mediaCount: mediaSent,
+    ...(deliveryReason.length === 0 ? {} : { deliveryReason: deliveryReason.join("; ") }),
   }
 }
 

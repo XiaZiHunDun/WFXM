@@ -31,6 +31,11 @@ export interface PiTaskPortAdapterOptions {
    * `/status` for the result.
    */
   readonly detached?: boolean
+  /**
+   * Detached-only: called once per settled turn with the latest ref, so the
+   * composition root can push an approval prompt or completion notice.
+   */
+  readonly onSettled?: (ref: ButlerTaskRef) => void | Promise<void>
   readonly logger?: { warn(message: string, extra?: unknown): void }
 }
 
@@ -99,6 +104,23 @@ export function createPiTaskPortAdapter(
         pending.delete(settled)
       })
     pending.add(settled)
+
+    const onSettled = options.onSettled
+    if (options.detached === true && onSettled) {
+      // Notifications must not delay or break the run; idle() still waits.
+      const notified = settled
+        .then(async () => {
+          const record = await runner.load(taskId)
+          if (record) await onSettled(toRef(record))
+        })
+        .catch((error) => {
+          logger.warn(`[butler-task] ${taskId} settle hook failed`, error)
+        })
+        .finally(() => {
+          pending.delete(notified)
+        })
+      pending.add(notified)
+    }
     return settled
   }
 

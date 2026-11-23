@@ -11,10 +11,14 @@ import type { ChannelPort } from "@butler/ports/core/channel.js"
 import type { TaskMemoryPort } from "@butler/ports/core/task-memory.js"
 import { parseApprovalPayload } from "@butler/runtime/butler/approval-notice.js"
 import { normalizeWechatInbound } from "@butler/runtime/intake/index.js"
-import { handleButlerInbound } from "../butler-inbound.js"
+import { handleButlerInbound, createTaskSettledNotifier } from "../butler-inbound.js"
 import { createButlerAssembly, type ButlerAssembly } from "../butler-assembly.js"
-import { requireInboundSharedSecret } from "../env-util.js"
-import { resolveWechatInboundProjectId } from "../wechat-active-project.js"
+import { requireInboundSharedSecret, envTruthy } from "../env-util.js"
+import { sendWechatProactiveNotify } from "../wechat-run-notify.js"
+import {
+  resolveWechatInboundProjectId,
+  resolveWechatProjectAlias,
+} from "../wechat-active-project.js"
 import type { Wiring } from "../wiring.js"
 
 export interface ButlerRoutesOptions {
@@ -65,8 +69,16 @@ export function registerButlerRoutes(
 ): void {
   const env = options.env ?? process.env
   let cached: Promise<ButlerAssembly> | null = null
+  /** conversationId -> WeChat address, refreshed on every inbound turn. */
+  const owners = new Map<string, string>()
+  const detached = envTruthy(env["BUTLER_V5_DETACHED_TASKS"])
+  const notifier = createTaskSettledNotifier({
+    approvalNotice: async (taskId) => (await assembly()).butler.approvalNotice(taskId),
+    resolveOwner: (conversationId) => owners.get(conversationId),
+    push: (input) => sendWechatProactiveNotify({ to: input.to, text: input.text, env }),
+  })
 
-  const assembly = (): Promise<ButlerAssembly> => {
+  async function assembly(): Promise<ButlerAssembly> {
     if (cached === null) {
       cached = Promise.resolve()
         .then(() =>
@@ -76,6 +88,9 @@ export function registerButlerRoutes(
                 db: wiring.db,
                 projects: parseProjectRoots(env),
                 env,
+                detachedTasks: detached,
+                resolveProjectName: (raw) => resolveWechatProjectAlias(raw, env),
+                ...(detached ? { onTaskSettled: notifier } : {}),
                 ...(options.memory?.butler === undefined
                   ? {}
                   : { butlerMemory: options.memory.butler }),
@@ -152,6 +167,7 @@ export function registerButlerRoutes(
     }
 
     try {
+      owners.set(inbound.conversationId, inbound.subject)
       const outcome = await handleButlerInbound({
         butler: runtime.butler,
         channel,

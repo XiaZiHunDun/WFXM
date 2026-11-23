@@ -46,7 +46,7 @@ describe("normalizeWechatInbound", () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.value.conversationId).toBe("c.custom:1")
-    expect(result.value.idempotencyKey).toBe("wechat-c.custom:1-turn-42")
+    expect(result.value.idempotencyKey).toMatch(/^wechat-c\.custom:1-w0-/)
   })
 
   it("rejects empty fromUserId", () => {
@@ -97,8 +97,20 @@ describe("normalizeWechatInbound", () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value.messageId).toBeUndefined()
-      expect(result.value.idempotencyKey).toBe("wechat-c-wechat-u1-turn-7")
+      expect(result.value.idempotencyKey).toMatch(/^wechat-c-wechat-u1-w0-/)
     }
+  })
+
+  it("dedupes a redelivery without messageId inside the retry window", () => {
+    const first = normalizeWechatInbound({ fromUserId: "u1", content: "你好", nowMs: 61_000 })
+    const retry = normalizeWechatInbound({ fromUserId: "u1", content: "你好", nowMs: 62_000 })
+    const later = normalizeWechatInbound({ fromUserId: "u1", content: "你好", nowMs: 121_001 })
+    const other = normalizeWechatInbound({ fromUserId: "u1", content: "另一句", nowMs: 62_000 })
+    if (!first.ok || !retry.ok || !later.ok || !other.ok) throw new Error("normalize failed")
+
+    expect(retry.value.idempotencyKey).toBe(first.value.idempotencyKey)
+    expect(later.value.idempotencyKey).not.toBe(first.value.idempotencyKey)
+    expect(other.value.idempotencyKey).not.toBe(first.value.idempotencyKey)
   })
 })
 
@@ -155,5 +167,30 @@ describe("normalizeChannelInbound", () => {
     expect(result.value.projectId).toBe("channel:slack")
     expect(result.value.idempotencyKey).toBe("m9")
     expect(result.value.runTrigger.idempotencyKey).toBe("m9")
+  })
+
+  it("dedupes a redelivery without messageId inside the retry window", () => {
+    const first = normalizeChannelInbound({
+      channelId: "slack",
+      fromSubject: "U1",
+      content: "hi",
+      nowMs: 61_000,
+    })
+    const retry = normalizeChannelInbound({
+      channelId: "slack",
+      fromSubject: "U1",
+      content: "hi",
+      nowMs: 62_000,
+    })
+    const later = normalizeChannelInbound({
+      channelId: "slack",
+      fromSubject: "U1",
+      content: "hi",
+      nowMs: 121_001,
+    })
+    if (!first.ok || !retry.ok || !later.ok) throw new Error("normalize failed")
+
+    expect(retry.value.idempotencyKey).toBe(first.value.idempotencyKey)
+    expect(later.value.idempotencyKey).not.toBe(first.value.idempotencyKey)
   })
 })

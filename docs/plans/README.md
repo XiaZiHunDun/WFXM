@@ -46,6 +46,7 @@ v4 时期的 archive / comparisons / corpus / roadmaps / templates / pilot-repor
 | [`active/phase3-eval-system-2026-11-19.md`](active/phase3-eval-system-2026-11-19.md) | 测评体系设计与实施记录（已完成） |
 | [`active/phase3-task-layer-foundation-2026-11-20.md`](active/phase3-task-layer-foundation-2026-11-20.md) | 任务层地基十层打磨与关键点测评（已完成） |
 | [`active/phase3b-butler-layer-2026-11-20.md`](active/phase3b-butler-layer-2026-11-20.md) | 管家层体检与 B11–B16 打磨方案（已全部交付） |
+| [`active/phase3c-channel-product-2026-11-23.md`](active/phase3c-channel-product-2026-11-23.md) | 渠道层与产品能力体检及 C1–C6 打磨方案（已交付；C3 暂不切换） |
 
 其余 `v5-*.md` 为各专题 handoff / proposal / 触发说明，按文件名查阅。
 

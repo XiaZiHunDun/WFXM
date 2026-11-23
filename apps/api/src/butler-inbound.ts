@@ -9,6 +9,7 @@
 import type { ButlerRuntime, ButlerTurnResult } from "@butler/runtime/butler/butler-runtime.js"
 import { parseApprovalPayload } from "@butler/runtime/butler/approval-notice.js"
 import { finalizeReply, splitForWechat } from "@butler/runtime/butler/presentation.js"
+import type { ButlerTaskRef } from "@butler/ports/core/butler-task.js"
 import type { ChannelPort, ChannelRecipient } from "@butler/ports/core/channel.js"
 
 export interface ButlerInboundInput {
@@ -31,6 +32,60 @@ export interface ButlerInboundResult {
 export interface ButlerSendResult {
   readonly sent: boolean
   readonly sendError?: string
+}
+
+export interface TaskSettledPushInput {
+  readonly to: string
+  readonly text: string
+}
+
+export type TaskSettledPushResult =
+  { readonly ok: true } | { readonly ok: false; readonly reason: string }
+
+/** Owner-facing copy for a detached task that finished without a prompt. */
+export function formatTaskSettledNotice(ref: ButlerTaskRef): string {
+  if (ref.status === "paused" || ref.status === "running") return ""
+  const failed = ref.status === "failed"
+  const header = failed ? "【任务失败】" : "【任务完成】"
+  const title = ref.summary?.trim().slice(0, 60) ?? ""
+  const detail = (failed ? ref.error : ref.lastReply)?.trim().slice(0, 400) ?? ""
+  return [
+    `${header}${ref.taskId.slice(0, 8)} ${title}`.trim(),
+    ...(detail.length === 0 ? [] : [failed ? `原因：${detail}` : `结果：${detail}`]),
+  ].join("\n")
+}
+
+/**
+ * Turns detached-task settle events into one push. Missing owner mapping or a
+ * task that already carries no notice is skipped rather than guessed.
+ */
+export function createTaskSettledNotifier(args: {
+  readonly approvalNotice: (taskId: string) => Promise<{ readonly text: string } | null>
+  readonly resolveOwner: (conversationId: string) => string | undefined
+  readonly push: (input: TaskSettledPushInput) => Promise<TaskSettledPushResult>
+  readonly logger?: { warn(message: string, extra?: unknown): void }
+}): (ref: ButlerTaskRef) => Promise<void> {
+  const logger = args.logger ?? {
+    warn: (message: string, extra?: unknown) => {
+      // eslint-disable-next-line no-console -- operator-facing warning
+      console.warn(message, extra ?? "")
+    },
+  }
+  return async (ref: ButlerTaskRef): Promise<void> => {
+    const conversationId = ref.conversationId
+    if (conversationId === undefined) return
+    const to = args.resolveOwner(conversationId)
+    if (to === undefined || to.trim().length === 0) return
+    const notice = ref.status === "paused" ? await args.approvalNotice(ref.taskId) : null
+    const text = (notice?.text ?? formatTaskSettledNotice(ref)).trim()
+    if (text.length === 0) return
+    try {
+      const result = await args.push({ to, text })
+      if (!result.ok) logger.warn(`[butler] ${ref.taskId} proactive push failed`, result.reason)
+    } catch (error) {
+      logger.warn(`[butler] ${ref.taskId} proactive push threw`, error)
+    }
+  }
 }
 
 export async function handleButlerInbound(args: {

@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { StreamFn } from "@butler/pi-agent"
 import type { PiTaskSessionStore } from "@butler/ports/core/pi-task-session.js"
+import type { ButlerTaskRef } from "@butler/ports/core/butler-task.js"
 import {
   createAssistantMessageEventStream,
   type AssistantMessage,
@@ -101,6 +102,7 @@ function setup(
     readonly approvalPolicy?: PiApprovalPolicy
     readonly detached?: boolean
     readonly store?: PiTaskSessionStore
+    readonly onSettled?: (ref: ButlerTaskRef) => void | Promise<void>
   } = {},
 ) {
   const runner = new PiTaskRunner({
@@ -115,6 +117,7 @@ function setup(
     resolveCwd: () => root,
     newTaskId: () => `t-${++sequence}`,
     ...(options.detached === undefined ? {} : { detached: options.detached }),
+    ...(options.onSettled === undefined ? {} : { onSettled: options.onSettled }),
   }
   const adapter = createPiTaskPortAdapter(runner, adapterOptions)
   return { runner, adapter }
@@ -236,6 +239,29 @@ describe("createPiTaskPortAdapter", () => {
     await adapter.idle()
     const status = await adapter.status(ref.taskId)
     expect(status).toMatchObject({ taskId: ref.taskId, status: "idle" })
+  })
+
+  it("calls the settle hook once when a detached turn pauses", async () => {
+    const settled: ButlerTaskRef[] = []
+    const { adapter } = setup(
+      scriptedStream([
+        { tools: [{ id: "c1", name: "write", args: { path: "d.txt", content: "x" } }] },
+        { text: "等确认" },
+      ]),
+      {
+        detached: true,
+        approvalPolicy: createDefaultApprovalPolicy({ BUTLER_V5_PI_APPROVAL: "always" }),
+        onSettled: (ref) => {
+          settled.push(ref)
+        },
+      },
+    )
+
+    await adapter.start({ projectId: "p1", goal: "写 d.txt" })
+    await adapter.idle()
+
+    expect(settled).toHaveLength(1)
+    expect(settled[0]).toMatchObject({ status: "paused", pending: { toolName: "write" } })
   })
 
   it("lists tasks from the durable store after a restart", async () => {

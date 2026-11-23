@@ -22,6 +22,8 @@
 ## §1 入站与触发（Triggers）
 
 > DESIGN §8 — 所有入口归一化为 `RunTrigger`；`source` ∈ `channel | cli | api | webhook | schedule | parent_run`。
+>
+> **入口说明（2026-11-23）**：本表默认描述旧 RunEngine 入口（`/v1/wechat/inbound`、Slack、Telegram、generic channel）。另有并行的 Butler Runtime 入口 `/v1/wechat/butler/inbound`，命令面为 `/help` `/status` `/tasks` `/new` `/project` `/remember` 与确认/拒绝，工程执行交给任务层；两者边界见 [`plans/active/phase3c-channel-product-2026-11-23.md`](plans/active/phase3c-channel-product-2026-11-23.md) §6。C3 已确认暂不 cutover。
 
 | 功能名 | Owner 能干什么 | 依赖 | Source 指针 | 状态 |
 |--------|--------------|------|------------|------|
@@ -35,6 +37,7 @@
 | **Telegram Webhook 入站** | 通过 Telegram 触发 Run | telegram webhook | [`apps/api/src/routes/telegram-webhook.ts`](../apps/api/src/routes/telegram-webhook.ts), parser+deliverer 在 `apps/api/src/{channel-inbound,channel-outbound,channel-media}.ts` | ✅ (D62 T4 secret_token FAIL-CLOSED + D71 T3 per-user allowlist + D74 T4 replay dedup + Secret unwrap) |
 | **owner-direct CLI** | 本地命令行触发 Run / 调试 | cli + node:test | [`cli/src/index.ts`](../cli/src/index.ts), [`wechat-login.ts`](../cli/src/wechat-login.ts) | ✅ |
 | **HTTP `POST /v1/wechat/inbound`** | 内部 POST 触发（demo / 集成 / 测试） | `x-inbound-secret` | [`apps/api/src/routes/inbound.ts`](../apps/api/src/routes/inbound.ts) | ✅ |
+| **Butler Runtime 入口（并行）** | `/v1/wechat/butler/inbound`：`/help` `/status` `/tasks` `/new` `/project` `/remember`、确认/拒绝；任务交给 pi runner | butler assembly + `BUTLER_V5_*` | [`apps/api/src/routes/butler.ts`](../apps/api/src/routes/butler.ts), [`packages/runtime/src/butler/`](../packages/runtime/src/butler/) | 🟡 可选入口（未 cutover） |
 | **Owner HTTP API `/v1/owner/*`** | CRUD memories / tasks / procedures / projects / approvals / audit / usage | owner-routes | [`apps/api/src/owner-routes.ts`](../apps/api/src/owner-routes.ts) | ✅ |
 | **WebSocket 订阅** | 长连接订阅 Run/Step 状态变更 | ws-subscribe | [`apps/api/src/routes/ws-subscribe.ts`](../apps/api/src/routes/ws-subscribe.ts) | ✅ |
 | **Schedule / Cron 定时触发** | 周期或单次定时启动 Run | schedule-run + schedule-worker | [`apps/api/src/schedule-run.ts`](../apps/api/src/schedule-run.ts), [`schedule-worker.ts`](../apps/api/src/schedule-worker.ts) | ✅ |

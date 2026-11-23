@@ -54,6 +54,27 @@ function resolveConversationId(
   }
 }
 
+/**
+ * Retries of one webhook delivery arrive within seconds. When the transport
+ * gives no message id, dedupe by content inside a short bucket; an intentional
+ * repeat in a later bucket still runs.
+ */
+const DEDUPE_WINDOW_MS = 60_000
+
+function contentFingerprint(text: string): string {
+  let hash = 0x811c9dc5
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return `${text.length}-${hash.toString(16)}`
+}
+
+function fallbackIdempotencyKey(prefix: string, content: string, nowMs: number): string {
+  const window = Math.floor(nowMs / DEDUPE_WINDOW_MS)
+  return `${prefix}-w${window}-${contentFingerprint(content)}`
+}
+
 export function normalizeWechatInbound(input: {
   readonly fromUserId: string
   readonly content: string
@@ -83,7 +104,8 @@ export function normalizeWechatInbound(input: {
   const nowMs = input.nowMs ?? Date.now()
   const turnId = `turn-${nowMs}`
   const messageId = input.messageId?.trim() || undefined
-  const idempotencyKey = messageId ?? `wechat-${resolved.conversationId}-${turnId}`
+  const idempotencyKey =
+    messageId ?? fallbackIdempotencyKey(`wechat-${resolved.conversationId}`, content, nowMs)
   const runTrigger = buildWechatRunTrigger({
     userId: fromUserId,
     conversationId: resolved.conversationId,
@@ -139,10 +161,12 @@ export function normalizeChannelInbound(input: {
   const turnId = `turn-${nowMs}`
   const projectId = `channel:${channelId}`
   const messageId = input.messageId?.trim() || undefined
-  // F-04: one key for both the normalized inbound and the RunTrigger. Without
-  // a messageId the old trigger key (`channel-{id}-{conversation}`) was stable
-  // across deliveries, so every later message looked like a duplicate.
-  const idempotencyKey = messageId ?? `channel-${channelId}-${resolved.conversationId}-${turnId}`
+  // F-04: without a messageId, retries used a per-delivery key and re-ran the
+  // turn. A content fingerprint inside a short window keeps redeliveries
+  // idempotent while allowing the owner to repeat a message later.
+  const idempotencyKey =
+    messageId ??
+    fallbackIdempotencyKey(`channel-${channelId}-${resolved.conversationId}`, content, nowMs)
   const runTrigger = buildChannelRunTrigger({
     channelId,
     fromSubject,

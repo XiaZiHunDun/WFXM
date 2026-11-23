@@ -6,7 +6,12 @@ import {
 } from "@butler/runtime/butler/index.js"
 import type { ButlerTaskPort, ButlerTaskRef } from "@butler/ports/core/butler-task.js"
 import type { ChannelPort, ChannelRecipient } from "@butler/ports/core/channel.js"
-import { handleButlerInbound, notifyApprovalIfPaused } from "./butler-inbound.js"
+import {
+  handleButlerInbound,
+  notifyApprovalIfPaused,
+  createTaskSettledNotifier,
+  formatTaskSettledNotice,
+} from "./butler-inbound.js"
 
 const recipient: ChannelRecipient = { address: "user-1", channelKind: "wechat" }
 
@@ -325,5 +330,112 @@ describe("notifyApprovalIfPaused", () => {
     const outcome = await notifyApprovalIfPaused({ butler, channel, recipient, taskId: "t1" })
     expect(outcome).toBeNull()
     expect(channel.sent).toHaveLength(0)
+  })
+})
+
+describe("detached task notifications", () => {
+  it("formats settled tasks with a short id and a readable result", () => {
+    const done = formatTaskSettledNotice({
+      taskId: "task-123456789",
+      projectId: "p1",
+      status: "idle",
+      summary: "补一版 README",
+      lastReply: "已完成并提交",
+    })
+    expect(done).toContain("【任务完成】task-123")
+    expect(done).toContain("补一版 README")
+    expect(done).toContain("结果：已完成并提交")
+
+    const failed = formatTaskSettledNotice({
+      taskId: "task-987654321",
+      projectId: "p1",
+      status: "failed",
+      summary: "修登录",
+      error: "测试未通过",
+    })
+    expect(failed).toContain("【任务失败】task-987")
+    expect(failed).toContain("原因：测试未通过")
+
+    expect(
+      formatTaskSettledNotice({
+        taskId: "task-1",
+        projectId: "p1",
+        status: "paused",
+        summary: "等待审批",
+      }),
+    ).toBe("")
+  })
+
+  it("pushes exactly one completion notice to the conversation owner", async () => {
+    const pushes: { to: string; text: string }[] = []
+    const notify = createTaskSettledNotifier({
+      approvalNotice: async () => null,
+      resolveOwner: (conversationId) => (conversationId === "c1" ? "user-1" : undefined),
+      push: async (input) => {
+        pushes.push(input)
+        return { ok: true }
+      },
+    })
+
+    await notify({
+      taskId: "task-1",
+      projectId: "p1",
+      conversationId: "c1",
+      status: "idle",
+      summary: "补 README",
+      lastReply: "已完成",
+    })
+
+    expect(pushes).toHaveLength(1)
+    expect(pushes[0]?.to).toBe("user-1")
+    expect(pushes[0]?.text).toContain("【任务完成】")
+  })
+
+  it("pushes the approval notice when the task pauses", async () => {
+    const pushes: { to: string; text: string }[] = []
+    let noticeFor = ""
+    const notify = createTaskSettledNotifier({
+      approvalNotice: async (taskId) => {
+        noticeFor = taskId
+        return { text: "任务 task-1 需要确认" }
+      },
+      resolveOwner: () => "user-1",
+      push: async (input) => {
+        pushes.push(input)
+        return { ok: true }
+      },
+    })
+
+    await notify({
+      taskId: "task-1",
+      projectId: "p1",
+      conversationId: "c1",
+      status: "paused",
+      summary: "等待审批",
+    })
+
+    expect(noticeFor).toBe("task-1")
+    expect(pushes).toHaveLength(1)
+    expect(pushes[0]?.text).toContain("需要确认")
+  })
+
+  it("skips when the conversation has no owner mapping", async () => {
+    const pushes: unknown[] = []
+    const notify = createTaskSettledNotifier({
+      approvalNotice: async () => ({ text: "需要确认" }),
+      resolveOwner: () => undefined,
+      push: async (input) => {
+        pushes.push(input)
+        return { ok: true }
+      },
+    })
+
+    await notify({
+      taskId: "task-1",
+      projectId: "p1",
+      conversationId: "c-missing",
+      status: "idle",
+    })
+    expect(pushes).toHaveLength(0)
   })
 })

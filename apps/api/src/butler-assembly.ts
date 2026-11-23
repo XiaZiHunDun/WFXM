@@ -14,6 +14,7 @@ import { pickLLMForRole, type LLMAdapter, type LLMMessage, type LLMTool } from "
 import { DrizzleButlerSessionStore, type ButlerDb } from "@butler/persistence"
 import type { ButlerMemoryPort } from "@butler/ports/core/butler-memory.js"
 import type { ButlerMessage, ButlerSessionStore } from "@butler/ports/core/butler-session.js"
+import type { ButlerTaskRef } from "@butler/ports/core/butler-task.js"
 import type { PiTaskSessionStore } from "@butler/ports/core/pi-task-session.js"
 import type { TaskMemoryPort } from "@butler/ports/core/task-memory.js"
 import { ButlerRuntime } from "@butler/runtime/butler/butler-runtime.js"
@@ -117,9 +118,13 @@ export interface ButlerAssemblyOptions {
   readonly taskRunner?: PiTaskRunner
   readonly taskSessionStore?: PiTaskSessionStore
   readonly detachedTasks?: boolean
+  /** Detached-only: receives each settled task so the caller can push a notice. */
+  readonly onTaskSettled?: (ref: ButlerTaskRef) => void | Promise<void>
   readonly newTaskId?: (projectId: string) => string
   readonly taskTimeoutMs?: number
   readonly systemPrompt?: string
+  /** Normalizes owner-supplied project names for `/project`. */
+  readonly resolveProjectName?: (raw: string) => string | null
   readonly logger?: { warn(message: string, extra?: unknown): void }
 }
 
@@ -171,6 +176,7 @@ export async function createButlerAssembly(
     ...(options.newTaskId === undefined ? {} : { newTaskId: options.newTaskId }),
     ...(options.taskTimeoutMs === undefined ? {} : { timeoutMs: options.taskTimeoutMs }),
     ...(options.detachedTasks === undefined ? {} : { detached: options.detachedTasks }),
+    ...(options.onTaskSettled === undefined ? {} : { onSettled: options.onTaskSettled }),
     ...(options.logger === undefined ? {} : { logger: options.logger }),
   })
 
@@ -185,6 +191,9 @@ export async function createButlerAssembly(
     store: sessionStore,
     ...(options.butlerMemory === undefined ? {} : { memory: options.butlerMemory }),
     ...(options.systemPrompt === undefined ? {} : { systemPrompt: options.systemPrompt }),
+    ...(options.resolveProjectName === undefined
+      ? {}
+      : { resolveProjectName: options.resolveProjectName }),
     ...(options.logger === undefined ? {} : { logger: options.logger }),
   })
 

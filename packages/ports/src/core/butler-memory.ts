@@ -44,6 +44,11 @@ export interface RecalledUserMemory {
 
 export interface ButlerMemoryPort {
   recordSessionSummary(event: ButlerSessionSummaryEvent): Promise<void>
+  /** Optional: explicit owner instruction ("记住：…") outside a session summary. */
+  rememberUserMemory?(input: {
+    readonly userId: string
+    readonly fact: ButlerMemoryFact
+  }): Promise<void>
   /** Optional: recall user-scope memory before a butler agent turn. */
   recallUserMemory?(
     query: string,

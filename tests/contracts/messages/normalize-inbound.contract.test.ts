@@ -34,8 +34,8 @@ interface NormalizeEntry {
   readonly expectedProjectId: string
   readonly defaultConversationId: string
   readonly normalize: (input: CaseInput) => NormalizeInboundResult
-  /** 缺省 messageId 时规范化层生成的幂等键。 */
-  readonly generatedKey: (conversationId: string, nowMs: number) => string
+  /** 缺省 messageId 时生成键的稳定前缀（时间窗内的内容指纹由实现决定）。 */
+  readonly generatedKeyPrefix: (conversationId: string, nowMs: number) => string
 }
 
 /** 两条入口用同一份输入表驱动；入口差异（字段名/默认 id）收敛在适配器里。 */
@@ -45,7 +45,8 @@ const ENTRIES: readonly NormalizeEntry[] = [
     keyPrefix: "wechat",
     expectedProjectId: "wechat",
     defaultConversationId: "c-wechat-u-1",
-    generatedKey: (conversationId, nowMs) => `wechat-${conversationId}-turn-${nowMs}`,
+    generatedKeyPrefix: (conversationId, nowMs) =>
+      `wechat-${conversationId}-w${Math.floor(nowMs / 60_000)}-`,
     normalize: (input) =>
       normalizeWechatInbound({
         fromUserId: input.identity ?? "u-1",
@@ -61,8 +62,10 @@ const ENTRIES: readonly NormalizeEntry[] = [
     keyPrefix: "channel",
     expectedProjectId: "channel:slack",
     defaultConversationId: "c-ch-slack-u-1",
-    // F-04: channel 无 messageId 时必须带上 turn，否则后续消息会被当成重投。
-    generatedKey: (conversationId, nowMs) => `channel-slack-${conversationId}-turn-${nowMs}`,
+    // F-04/C2: channel 无 messageId 时按「会话 + 时间窗 + 内容」生成键，
+    // 同窗口重投复用，跨窗口的相同内容仍会重新执行。
+    generatedKeyPrefix: (conversationId, nowMs) =>
+      `channel-slack-${conversationId}-w${Math.floor(nowMs / 60_000)}-`,
     normalize: (input) =>
       normalizeChannelInbound({
         channelId: input.channelId ?? "slack",
@@ -92,6 +95,17 @@ function expectError(
   expect(result.error.reason.trim().length).toBeGreaterThan(0)
 }
 
+function expectGeneratedKey(
+  value: NormalizedInbound,
+  entry: NormalizeEntry,
+  conversationId: string,
+  nowMs: number,
+): void {
+  const prefix = entry.generatedKeyPrefix(conversationId, nowMs)
+  expect(value.idempotencyKey.startsWith(prefix)).toBe(true)
+  expect(value.idempotencyKey.length).toBeGreaterThan(prefix.length)
+}
+
 const ACCEPTED_SHAPES = [
   { name: "纯文本", content: "你好，帮我看下登录超时" },
   { name: "超长文本（200k 字符）", content: LONG_TEXT_200K },
@@ -111,9 +125,8 @@ describe.each(ENTRIES)("$name：数据形态矩阵", (entry) => {
       expect(value.conversationId).toBe(entry.defaultConversationId)
       expect(value.turnId).toBe(`turn-${FIXED_NOW_MS}`)
       expect(value.messageId).toBeUndefined()
-      expect(value.idempotencyKey).toBe(
-        entry.generatedKey(entry.defaultConversationId, FIXED_NOW_MS),
-      )
+      expect(value.idempotencyKey).toMatch(/^.*-w\d+-/)
+      expectGeneratedKey(value, entry, entry.defaultConversationId, FIXED_NOW_MS)
       expect(value.conversationId).toMatch(/^[A-Za-z0-9_.:-]+$/)
       expect(value.conversationId.length).toBeLessThanOrEqual(CONVERSATION_ID_MAX_LEN)
     })
@@ -218,7 +231,8 @@ describe.each(ENTRIES)("$name：conversationId 契约", (entry) => {
         entry.normalize({ content: "hi", conversationId: valid.raw, nowMs: FIXED_NOW_MS }),
       )
       expect(value.conversationId).toBe(valid.expected)
-      expect(value.idempotencyKey).toBe(entry.generatedKey(valid.expected, FIXED_NOW_MS))
+      expect(value.idempotencyKey).toMatch(/^.*-w\d+-/)
+      expectGeneratedKey(value, entry, valid.expected, FIXED_NOW_MS)
     })
   }
 
@@ -254,12 +268,10 @@ describe.each(ENTRIES)("$name：conversationId 契约", (entry) => {
 })
 
 describe.each(ENTRIES)("$name：messageId / 幂等键规则", (entry) => {
-  const generatedKey = entry.generatedKey
-
-  it("缺省 messageId：由「前缀 + 会话 + turn」生成确定性幂等键", () => {
+  it("缺省 messageId：由「前缀 + 会话 + 时间窗 + 内容」生成确定性幂等键", () => {
     const value = expectOk(entry.normalize({ content: "hi", nowMs: FIXED_NOW_MS }))
     expect(value.messageId).toBeUndefined()
-    expect(value.idempotencyKey).toBe(generatedKey(entry.defaultConversationId, FIXED_NOW_MS))
+    expectGeneratedKey(value, entry, entry.defaultConversationId, FIXED_NOW_MS)
     // F-04: NormalizedInbound 与 RunTrigger 必须使用同一个去重键。
     expect(value.runTrigger.idempotencyKey).toBe(value.idempotencyKey)
   })
@@ -277,7 +289,7 @@ describe.each(ENTRIES)("$name：messageId / 幂等键规则", (entry) => {
       entry.normalize({ content: "hi", messageId: "   ", nowMs: FIXED_NOW_MS }),
     )
     expect(value.messageId).toBeUndefined()
-    expect(value.idempotencyKey).toBe(generatedKey(entry.defaultConversationId, FIXED_NOW_MS))
+    expectGeneratedKey(value, entry, entry.defaultConversationId, FIXED_NOW_MS)
   })
 
   // 投递壳（apps/api）的 replayDuplicateInbound 以「会话内 user 消息的该键」
@@ -290,10 +302,19 @@ describe.each(ENTRIES)("$name：messageId / 幂等键规则", (entry) => {
     expect(first.turnId).not.toBe(second.turnId)
   })
 
-  it("缺省 messageId 时不同 nowMs 产生不同幂等键", () => {
+  it("缺省 messageId 时同一时间窗内重投复用幂等键", () => {
     const first = expectOk(entry.normalize({ content: "hi", nowMs: 1 }))
     const second = expectOk(entry.normalize({ content: "hi", nowMs: 2 }))
-    expect(first.idempotencyKey).not.toBe(second.idempotencyKey)
+    expect(first.idempotencyKey).toBe(second.idempotencyKey)
+    expect(first.turnId).not.toBe(second.turnId)
+  })
+
+  it("缺省 messageId 时跨时间窗或不同内容产生不同幂等键", () => {
+    const first = expectOk(entry.normalize({ content: "hi", nowMs: 1 }))
+    const later = expectOk(entry.normalize({ content: "hi", nowMs: 60_001 }))
+    const other = expectOk(entry.normalize({ content: "另一句", nowMs: 1 }))
+    expect(first.idempotencyKey).not.toBe(later.idempotencyKey)
+    expect(first.idempotencyKey).not.toBe(other.idempotencyKey)
   })
 
   it("缺省 messageId 时不同会话产生不同幂等键", () => {
