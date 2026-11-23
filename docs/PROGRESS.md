@@ -140,14 +140,6 @@
 | 任务结果不回流管家层 | `lastReply` / `lastError` 持久化并在 `/new`、`/status`、审批回调中展示 |
 | 任务结果泄漏 workspace 绝对路径 | adapter 统一脱敏为“项目目录” |
 
-### 遗留与风险（不阻塞 Phase 3）
-
-| 项 | 说明 |
-|----|------|
-| 进程内并行 | 全局锁为 FIFO 串行；真正的并行需多 worker / 多进程设计 |
-| 429/5xx 重试 | 委托 `retryAssistantCall`，未新增网络级重试用例 |
-| judge 严格模式 | 仍为 observe，稳定后再转 `--judge` |
-
 ### 管家层打磨（✅，2026-11-20 起）
 
 | 批次 | 内容 | 状态 |
@@ -199,3 +191,14 @@
 | 进程内并行 | 全局锁为 FIFO 串行；真正的并行需多 worker / 多进程设计 |
 | 429/5xx 重试 | 委托 `retryAssistantCall`，未新增网络级重试用例 |
 | judge 严格模式 | 仍为 observe，稳定后再转 `--judge` |
+
+补充验证（2026-11-23）：
+
+- 基线：`pnpm test` 277 文件 / 2,379 通过 / 2 skipped；`tests/eval` 6 文件 / 9 通过。
+- 确定性 gate：`pnpm verify:butler` 覆盖规则、项目切换、审批回退，3 场景 / 10 轮全过；断言失败时退出码 1（已反向验证）。
+- 入口边界：fixture 模式不跑真实任务与工具；C1 分条、C4 主动推送、跨重启持久化仍由现有测试覆盖。
+- 真实模型抽测（`pnpm verify:butler:real`，3 场景 / 9 轮，2026-11-23）：
+  - 读 README 并总结：任务完成，回复正确概括项目定位。
+  - 切项目后列目录：在 `wechat` 工作区列出 `packages/runtime/src/butler` 前 5 个文件，无 ENOENT。
+  - 多轮上下文：第二轮正确回答“渠道层”。
+  - 说明：`--real` 默认把任务工作区指向当前仓库；需要隔离时用 `--workspace`。

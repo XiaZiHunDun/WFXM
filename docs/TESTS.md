@@ -43,7 +43,8 @@
 | L3 | 评估场景（gate） | `pnpm vitest run tests/eval` |
 | L4 | 渠道前验收窗口（真实路由 + 真实 runtime） | `npx tsx scripts/l4-smoke.ts` |
 | L4 可靠性 | 重投 / 并发 / 连续投递 / 无待审批 | `npx tsx scripts/l4-smoke.ts --suite reliability` |
-| 对话调试 | 管家入口（规则 / 审批 / 项目 / 记忆），无需微信 | `pnpm chat`（交互）或 `pnpm chat --script scripts/chat-scenario.example.json` |
+| 对话调试 | 管家入口（规则 / 审批 / 项目 / 记忆），无需微信 | `pnpm chat`（交互）、`pnpm chat --script <file>` 或 `pnpm verify:butler`（场景包） |
+| 真实模型抽测 | 任务执行 / 项目切换 / 多轮上下文（非 gate，消耗额度） | `pnpm verify:butler:real` |
 
 L4 脚本要求网关已启动，并从 `~/.config/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。
 

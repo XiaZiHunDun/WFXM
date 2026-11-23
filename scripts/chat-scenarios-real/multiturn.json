@@ -1,0 +1,15 @@
+{
+  "conversationId": "real-multiturn",
+  "fromUserId": "u-owner",
+  "projectId": "wechat",
+  "turns": [
+    {
+      "content": "我正在调试渠道层。",
+      "expect": { "route": "agent" }
+    },
+    {
+      "content": "我刚才说我在调试哪一层？只回答层名。",
+      "expect": { "route": "agent", "mustContain": ["渠道"] }
+    }
+  ]
+}

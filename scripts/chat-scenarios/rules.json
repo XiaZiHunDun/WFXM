@@ -1,0 +1,45 @@
+{
+  "conversationId": "verify-rules",
+  "fromUserId": "u-owner",
+  "projectId": "wechat",
+  "turns": [
+    {
+      "content": "/help",
+      "expect": {
+        "route": "rule",
+        "rule": "help",
+        "mustContain": ["/status [任务ID]", "/tasks", "/project", "/remember"]
+      }
+    },
+    {
+      "content": "/status",
+      "expect": {
+        "route": "rule",
+        "rule": "status"
+      }
+    },
+    {
+      "content": "/tasks",
+      "expect": {
+        "route": "rule",
+        "rule": "tasks"
+      }
+    },
+    {
+      "content": "/new",
+      "expect": {
+        "route": "rule",
+        "rule": "new-usage",
+        "mustContain": ["用法"]
+      }
+    },
+    {
+      "content": "/status nope",
+      "expect": {
+        "route": "rule",
+        "rule": "status",
+        "mustContain": ["没有找到任务 nope", "/tasks"]
+      }
+    }
+  ]
+}

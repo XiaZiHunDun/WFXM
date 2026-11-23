@@ -12,6 +12,7 @@
  *   pnpm chat --real                           # 用环境里的真实模型
  *   pnpm chat --legacy                         # 改走旧 /v1/wechat/inbound
  *   pnpm chat --script scripts/chat-scenario.example.json
+ *   pnpm chat --dir scripts/chat-scenarios      # 批量场景
  *
  * REPL 内部命令：
  *   /help                显示帮助
@@ -23,7 +24,8 @@
  * 其余输入（含 /status、/tasks、/new、/project、/remember、/help 规则命令）
  * 原样发送给管家。
  */
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { createInterface, type Interface as RLInterface } from "node:readline"
 import { makeAcceptanceApp, type AcceptanceApp } from "../tests/acceptance/harness.js"
 
@@ -36,7 +38,9 @@ const DEFAULT_FROM_USER = "u-owner"
 interface CliOptions {
   readonly real: boolean
   readonly legacy: boolean
-  readonly scriptPath?: string
+  readonly verbose: boolean
+  readonly workspace?: string
+  readonly scriptPaths: readonly string[]
   readonly projectId: string
   readonly conversationId: string
 }
@@ -59,6 +63,7 @@ interface ScenarioExpectation {
 
 interface ScenarioTurn {
   readonly content?: string
+  readonly waitMs?: number
   readonly approval?: { readonly taskId?: string; readonly approved: boolean }
   readonly expect?: ScenarioExpectation
 }
@@ -74,12 +79,16 @@ function parseArgs(argv: readonly string[]): CliOptions {
   const options: {
     real: boolean
     legacy: boolean
-    scriptPath?: string
+    verbose: boolean
+    workspace?: string
+    scriptPaths: string[]
     projectId: string
     conversationId: string
   } = {
     real: false,
     legacy: false,
+    verbose: false,
+    scriptPaths: [],
     projectId: DEFAULT_PROJECT_ID,
     conversationId: `chat-${Date.now().toString(36)}`,
   }
@@ -88,10 +97,26 @@ function parseArgs(argv: readonly string[]): CliOptions {
     const arg = argv[index]
     if (arg === "--real") options.real = true
     else if (arg === "--legacy") options.legacy = true
-    else if (arg === "--script") {
+    else if (arg === "--verbose") options.verbose = true
+    else if (arg === "--workspace") {
+      const value = argv[index + 1]
+      if (!value) throw new Error("--workspace requires a path")
+      options.workspace = value
+      index += 1
+    } else if (arg === "--script") {
       const value = argv[index + 1]
       if (!value) throw new Error("--script requires a file path")
-      options.scriptPath = value
+      options.scriptPaths.push(value)
+      index += 1
+    } else if (arg === "--dir") {
+      const value = argv[index + 1]
+      if (!value) throw new Error("--dir requires a directory")
+      options.scriptPaths.push(
+        ...readdirSync(value)
+          .filter((name) => name.endsWith(".json"))
+          .sort()
+          .map((name) => join(value, name)),
+      )
       index += 1
     } else if (arg === "--project") {
       const value = argv[index + 1]
@@ -122,8 +147,14 @@ Butler v5 chat (zero-WeChat debug entry)
 命令：
   pnpm chat                       交互 REPL
   pnpm chat --real                使用环境里的真实模型
+  pnpm chat --verbose             打印每轮完整回复
+  pnpm chat --workspace <path>    任务工作区（--real 默认当前仓库）
+
+注意：--real 会真实读写所选工作区；不希望在仓库内产生副作用时，
+用 --workspace 指向临时目录。
   pnpm chat --legacy              走旧 /v1/wechat/inbound
   pnpm chat --script <file.json>  跑多轮场景并断言
+  pnpm chat --dir <dir>           批量跑目录下所有 *.json 场景
   pnpm chat --project <id>        指定项目（默认 wechat）
 
 REPL 快捷命令：
@@ -139,16 +170,27 @@ async function main(): Promise<void> {
     process.env["MINIMAX_API_KEY"] ??= "fixture-key"
   }
   const app = await makeAcceptanceApp({ ...(options.real ? { noFixture: true } : {}) })
-  // 让任务层能解析项目根；显式 projectId 优先，因此两个别名都指向临时工作区。
+  // 让任务层能解析项目根；--real 默认指向当前仓库，fixture 用临时工作区。
+  const workspace = options.workspace ?? (options.real ? process.cwd() : app.workspaceRoot)
   process.env["BUTLER_V5_PROJECT_ROOTS"] = JSON.stringify({
-    wechat: app.workspaceRoot,
-    wfxm: app.workspaceRoot,
+    wechat: workspace,
+    wfxm: workspace,
   })
+  if (options.real || options.workspace !== undefined) {
+    // 任务工具默认读取/命令 cwd；显式工作区时一并钉住。
+    process.env["BUTLER_V5_WORKSPACE_ROOT"] = workspace
+    process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"] = workspace
+  }
   if (!options.real) app.setFixtures(defaultFixtures())
 
   try {
-    if (options.scriptPath) {
-      await runScenario(app, options, options.scriptPath)
+    if (options.scriptPaths.length > 0) {
+      let failures = 0
+      for (const path of options.scriptPaths) {
+        console.log(`\n# ${path}`)
+        failures += await runScenario(app, options, path)
+      }
+      if (failures > 0) process.exitCode = 1
     } else {
       await runRepl(app, options)
     }
@@ -256,24 +298,37 @@ async function sendAndPrint(
   }
 }
 
-async function runScenario(app: AcceptanceApp, options: CliOptions, path: string): Promise<void> {
+async function runScenario(app: AcceptanceApp, options: CliOptions, path: string): Promise<number> {
   const scenario = JSON.parse(readFileSync(path, "utf8")) as Scenario
   const conversationId = scenario.conversationId ?? options.conversationId
   const projectId = scenario.projectId ?? options.projectId
   const fromUserId = scenario.fromUserId ?? DEFAULT_FROM_USER
   let failures = 0
+  let lastTaskId: string | undefined
 
   for (const [index, turn] of scenario.turns.entries()) {
     const label = `turn ${index + 1}`
+    if (turn.waitMs !== undefined) {
+      console.log(`WAIT ${label} · ${turn.waitMs}ms`)
+      await new Promise((resolve) => setTimeout(resolve, turn.waitMs))
+      continue
+    }
     let meta: TurnMeta
     try {
+      const approvalTaskId = turn.approval?.taskId ?? lastTaskId
+      if (turn.approval && !approvalTaskId) {
+        throw new Error("approval turn needs a taskId (or a previous task turn)")
+      }
       meta = await sendTurn(
         app,
         { ...options, projectId },
         conversationId,
-        turn.approval ?? { content: turn.content ?? "" },
+        turn.approval
+          ? { approved: turn.approval.approved, taskId: approvalTaskId as string }
+          : { content: (turn.content ?? "").replaceAll("{{taskId}}", lastTaskId ?? "") },
         fromUserId,
       )
+      if (meta.taskId) lastTaskId = meta.taskId
     } catch (error) {
       failures += 1
       console.log(`FAIL ${label}: ${(error as Error).message}`)
@@ -287,14 +342,15 @@ async function runScenario(app: AcceptanceApp, options: CliOptions, path: string
       continue
     }
     console.log(`PASS ${label} · ${metaLine(meta)}`)
+    if (options.verbose) console.log(`  reply: ${meta.reply}`)
   }
 
   if (failures > 0) {
     console.log(`\n${failures}/${scenario.turns.length} turns failed`)
-    process.exitCode = 1
   } else {
-    console.log(`\nall ${scenario.turns.length} turns passed`)
+    console.log(`all ${scenario.turns.length} turns passed`)
   }
+  return failures
 }
 
 function checkExpectations(meta: TurnMeta, expect?: ScenarioExpectation): string[] {

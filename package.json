@@ -17,6 +17,8 @@
     "demo": "tsx scripts/demo.ts",
     "chat": "tsx scripts/chat.ts",
     "smoke:chat": "tsx scripts/chat.ts --script scripts/chat-scenario.example.json",
+    "verify:butler": "tsx scripts/chat.ts --dir scripts/chat-scenarios",
+    "verify:butler:real": "tsx scripts/chat.ts --dir scripts/chat-scenarios-real --real --verbose",
     "record:real-llm": "tsx scripts/acceptance/record-real-llm.ts",
     "diff:real-llm": "tsx scripts/acceptance/diff-real-llm.ts",
     "smoke:multi-project": "node scripts/cutover/smoke-multi-project.mjs",

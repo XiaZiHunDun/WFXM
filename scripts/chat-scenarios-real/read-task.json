@@ -1,0 +1,21 @@
+{
+  "conversationId": "real-read-task",
+  "fromUserId": "u-owner",
+  "projectId": "wechat",
+  "turns": [
+    {
+      "content": "/new 阅读 README.md，用一句话说明这个项目是什么",
+      "expect": { "route": "rule", "rule": "new" }
+    },
+    { "waitMs": 90000 },
+    {
+      "content": "/status {{taskId}}",
+      "expect": {
+        "route": "rule",
+        "rule": "status",
+        "mustContain": ["Butler"],
+        "mustNotContain": ["没有找到任务"]
+      }
+    }
+  ]
+}

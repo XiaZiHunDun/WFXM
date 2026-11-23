@@ -1,0 +1,31 @@
+{
+  "conversationId": "verify-project",
+  "fromUserId": "u-owner",
+  "projectId": "wechat",
+  "turns": [
+    {
+      "content": "/project",
+      "expect": {
+        "route": "rule",
+        "rule": "project",
+        "mustContain": ["wechat"]
+      }
+    },
+    {
+      "content": "/project wfxm",
+      "expect": {
+        "route": "rule",
+        "rule": "project",
+        "mustContain": ["已切换到项目 wechat"]
+      }
+    },
+    {
+      "content": "/project nope",
+      "expect": {
+        "route": "rule",
+        "rule": "project",
+        "mustContain": ["没有找到项目 nope", "/project"]
+      }
+    }
+  ]
+}

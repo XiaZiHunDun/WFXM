@@ -1,0 +1,23 @@
+{
+  "conversationId": "verify-approval",
+  "fromUserId": "u-owner",
+  "projectId": "wechat",
+  "turns": [
+    {
+      "content": "确认",
+      "expect": {
+        "route": "rule",
+        "rule": "approve-none",
+        "mustContain": ["没有待确认的任务"]
+      }
+    },
+    {
+      "content": "拒绝",
+      "expect": {
+        "route": "rule",
+        "rule": "approve-none",
+        "mustContain": ["没有待确认的任务"]
+      }
+    }
+  ]
+}
