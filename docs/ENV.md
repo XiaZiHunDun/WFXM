@@ -213,6 +213,11 @@
 | `BUTLER_V5_REMINDERS_ENABLED` | bool | `0` | `1` 启用 `create/list/cancel_reminder` 工具与提醒 worker | [`apps/api/src/reminder-config.ts`](../apps/api/src/reminder-config.ts) | 🟡 |
 | `BUTLER_V5_REMINDERS_TICK_MS` | int | `30000` | 提醒轮询间隔（限定 5s–5min） | `reminder-config.ts` | 🟡 |
 | `BUTLER_V5_REMINDERS_MAX_PER_OWNER` | int | `20` | 每个 owner 的 active 提醒上限（1–100） | `reminder-config.ts` | 🟡 |
+| `BUTLER_V5_WEEKLY_DIGEST_ENABLED` | bool | `0` | `1` 启用每周周报自动推送 | [`apps/api/src/weekly-digest-config.ts`](../apps/api/src/weekly-digest-config.ts) | 🟡 |
+| `BUTLER_V5_WEEKLY_DIGEST_TO` | string | — | 周报接收人 wechat user id；缺失时 worker 不启动 | `weekly-digest-config.ts` | 🟡 |
+| `BUTLER_V5_WEEKLY_DIGEST_WEEKDAY` | int | `1` | 推送星期（0=周日 … 6=周六，Asia/Shanghai） | `weekly-digest-config.ts` | 🟡 |
+| `BUTLER_V5_WEEKLY_DIGEST_TIME` | string | `09:00` | 推送时间 `HH:mm`（Asia/Shanghai） | `weekly-digest-config.ts` | 🟡 |
+| `BUTLER_V5_WEEKLY_DIGEST_TICK_MS` | int | `60000` | 周报轮询间隔（限定 5s–10min） | `weekly-digest-config.ts` | 🟡 |
 
 ## §12 Owner Rate Limit / WS Auth
 

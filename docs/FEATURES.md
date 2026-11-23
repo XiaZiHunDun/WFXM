@@ -42,6 +42,7 @@
 | **WebSocket 订阅** | 长连接订阅 Run/Step 状态变更 | ws-subscribe | [`apps/api/src/routes/ws-subscribe.ts`](../apps/api/src/routes/ws-subscribe.ts) | ✅ |
 | **Schedule / Cron 定时触发** | 周期或单次定时启动 Run | schedule-run + schedule-worker | [`apps/api/src/schedule-run.ts`](../apps/api/src/schedule-run.ts), [`schedule-worker.ts`](../apps/api/src/schedule-worker.ts) | ✅ |
 | **自然语言提醒** | 微信里一句话创建一次性 / 每天 / 每周提醒，到点主动推送纯文本；可查看、取消；重启不丢 | reminder-store + reminder-worker | [`apps/api/src/reminder-tools.ts`](../apps/api/src/reminder-tools.ts), [`reminder-worker.ts`](../apps/api/src/reminder-worker.ts) | 🟡 默认关闭 |
+| **每周周报** | 每周固定时间主动推送完成 / 待办 / 失败 / 审批四项数字；也可 `/周报` 手动查看；空周不打扰 | weekly-digest + tracer + audit | [`apps/api/src/weekly-digest.ts`](../apps/api/src/weekly-digest.ts), [`weekly-digest-worker.ts`](../apps/api/src/weekly-digest-worker.ts) | 🟡 默认关闭 |
 | **parent_run (Subagent)** | 子 Run 由 `delegate-runtime` 直接触发，不反向 Intake | delegate-runtime | [`packages/runtime/src/delegate-runtime.ts`](../packages/runtime/src/delegate-runtime.ts), DESIGN §8 | ✅ |
 
 ## §2 对话 / Run / 审批（Conversation / Run / Approval）

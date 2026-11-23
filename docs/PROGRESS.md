@@ -11,7 +11,7 @@
 | 阶段 | 目标 | 状态 | 验收日期 |
 |------|------|------|----------|
 | Phase 1 | 主要流程打通，基础功能正常，不报错，无明显消息丢失 | ✅ 完成 | 2026-11-19 |
-| Phase 2 | 功能深化（爆点/差异化），按 ROI 选点 | 🚧 进行中（测评体系已完成；C1 提醒 / C2 审批预览已实现） | — |
+| Phase 2 | 功能深化（爆点/差异化），按 ROI 选点 | 🚧 进行中（测评体系已完成；C1 提醒 / C2 审批预览 / C3 周报已实现） | — |
 | Phase 3 | 功能打磨：地基 → 楼层 → 体验 | ✅ 完成（任务层 / 管家层 / 渠道与产品能力） | 2026-11-23 |
 
 ---
@@ -279,4 +279,24 @@ C2 审批前预览（[spec](plans/active/phase2-c2-approval-preview/spec.md)）�
 `pnpm typecheck` / `pnpm lint` / `pnpm format:check` 全绿，0 warning。
 新增用例覆盖：store 持久化、时区/非法日期/过去时间、工具上限与取消、
 worker 到点/推进/失败重试/迟到标注、审批预览渲染/截断/路径脱敏/开关回退。
+
+### Phase 2 C3（2026-11-23，第五批）
+
+选点来自 [`plans/active/phase2-feature-deepening-2026-11-23.md`](plans/active/phase2-feature-deepening-2026-11-23.md)：
+C3 每周周报（[spec](plans/active/phase2-c3-weekly-digest/spec.md)）。
+
+| 项 | 结果 |
+|----|------|
+| 统计 | `collectWeeklyDigest` 只读查询 tasks / tracer `run_failed` / audit `approval.requested`，输出完成、待办、失败、审批四项数字 |
+| 渲染 | `renderWeeklyDigest` 纯函数；手动 `/周报` 与自动推送共用，空周输出「没有可汇总的记录」 |
+| 手动 | `/周报`（别名 `/weekly`）在 LLM 之前拦截，不消耗模型调用 |
+| 自动 | `weekly-digest-worker` 按星期 + `HH:mm` + 10 分钟窗口触发；同日 audit 去重；空周不推送 |
+| 失败 | 查询/发送失败回复「周报生成失败：<原因>」并写 `weekly_digest.failed` audit |
+| 边界 | 默认关闭（`BUTLER_V5_WEEKLY_DIGEST_ENABLED=0`）；无 schema 变更、只读、不改任务/Run/审批状态 |
+
+验收证据（2026-11-23 复跑）：`pnpm test` 288 文件 / 2,480 通过 / 2 skipped；
+`pnpm typecheck` / `pnpm lint` / `pnpm format:check` 全绿，0 warning。
+新增用例覆盖：四项统计口径与时间窗、空周、渲染结构、手动命令、同日去重、
+发送失败/查询失败审计、开关关闭。
+
 

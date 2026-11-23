@@ -1,15 +1,16 @@
 # Phase 2 功能深化 — 选点建议（2026-11-23）
 
 > **状态**：已选点并展开 — C1 见 [`phase2-c1-reminders/spec.md`](phase2-c1-reminders/spec.md)，
-> C2 见 [`phase2-c2-approval-preview/spec.md`](phase2-c2-approval-preview/spec.md)（2026-11-23）
+> C2 见 [`phase2-c2-approval-preview/spec.md`](phase2-c2-approval-preview/spec.md)，
+> C3 见 [`phase2-c3-weekly-digest/spec.md`](phase2-c3-weekly-digest/spec.md)（均已交付，2026-11-23）
 > **依据**：[`ROADMAP.md`](../../ROADMAP.md) §4、[`PROGRESS.md`](../../PROGRESS.md) Phase 2、
 > [`v5-real-llm-v8-iteration-2026-09.md`](v5-real-llm-v8-iteration-2026-09.md) 候选 D
 > **结论先行**：架构与地基已足够，下一步应从「owner 真实高频摩擦」里选 2–3 个点，
 > 而不是继续扩能力面。本文给出 3 个推荐候选 + 1 个备选，均已写明场景 / 判据 /
 > 失败可见性 / 回滚。
 >
-> **Owner 决策（2026-11-23）**：选 C1 + C2；C3 暂缓，C4 不做。下一步展开为
-> `phase2-c1-reminders/` 与 `phase2-c2-approval-preview/` 的 spec / tasks，再实施。
+> **Owner 决策（2026-11-23）**：选 C1 + C2 + C3；C4 不做。C1/C2 先交付，
+> C3 随后补齐为 `phase2-c3-weekly-digest/` 的 spec / tasks。
 
 ## 1. 当前判断
 

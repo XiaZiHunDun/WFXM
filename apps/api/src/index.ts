@@ -8,6 +8,7 @@ import { runSubagentWorker } from "./subagent-worker.js"
 import { startWsServer, type WsServerHandle } from "./ws-routes.js"
 import { startScheduleWorkerIfEnabled } from "./schedule-worker.js"
 import { startReminderWorkerIfEnabled } from "./reminder-worker.js"
+import { startWeeklyDigestWorkerIfEnabled } from "./weekly-digest-worker.js"
 import { startProjectKnowledgeWatchWorkerIfEnabled } from "./project-knowledge-watch-worker.js"
 import { startCandidateExpiresSweeperIfEnabled } from "./candidate-expires-sweeper.js"
 import { startAutoPromoteSweeperIfEnabled } from "./auto-promote-sweeper.js"
@@ -152,6 +153,12 @@ if (reminderHandle) {
   console.error("[butler-v5] reminder worker started")
 }
 
+const weeklyDigestHandle = startWeeklyDigestWorkerIfEnabled({ wiring, env: process.env })
+if (weeklyDigestHandle) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error("[butler-v5] weekly digest worker started")
+}
+
 const projectKnowledgeWatchHandle = startProjectKnowledgeWatchWorkerIfEnabled({
   wiring,
   env: process.env,
@@ -227,6 +234,7 @@ if (autoPromoteHandle) {
 const shutdown = (): void => {
   scheduleHandle?.stop()
   reminderHandle?.stop()
+  weeklyDigestHandle?.stop()
   projectKnowledgeWatchHandle?.stop()
   candidateExpiresHandle?.stop()
   autoPromoteHandle?.stop()
