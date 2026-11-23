@@ -26,7 +26,7 @@
 | 维度 | 范围 | 详情 | Source 指针 |
 |------|------|------|-------------|
 | **Owner rate-limit** | 全部 `/v1/owner/*` | 120/min in-memory sliding window；env-tunable；key = `"owner"`（loopback）/ 未来 bearer subject | [`apps/api/src/owner-routes.ts:28`](../apps/api/src/owner-routes.ts), [`apps/api/src/lib/owner-rate-limit.ts`](../apps/api/src/lib/owner-rate-limit.ts) |
-| **Inbound shared secret** | 全部 `/v1/wechat/inbound` + `/v1/channel/inbound` + `/v1/ws/subscribe` | `x-inbound-secret` header = `BUTLER_V5_INBOUND_SHARED_SECRET`（demo 默认 `test-inbound-secret-9c2f`） | [`apps/api/src/routes/inbound.ts`](../apps/api/src/routes/inbound.ts), [`routes/ws-subscribe.ts`](../apps/api/src/routes/ws-subscribe.ts) |
+| **Inbound shared secret** | 全部 `/v1/wechat/inbound` + `/v1/wechat/butler/inbound` + `/v1/channel/inbound` + `/v1/ws/subscribe` | `x-inbound-secret` header = `BUTLER_V5_INBOUND_SHARED_SECRET`（demo 默认 `test-inbound-secret-9c2f`） | [`apps/api/src/routes/inbound.ts`](../apps/api/src/routes/inbound.ts), [`routes/butler.ts`](../apps/api/src/routes/butler.ts), [`routes/ws-subscribe.ts`](../apps/api/src/routes/ws-subscribe.ts) |
 | **Slack signing secret** | `/v1/channel/slack/events` | Slack `X-Slack-Signature` HMAC + `X-Slack-Request-Timestamp` 防 replay；fail-closed (D63 T3 SEC-006) | [`apps/api/src/routes/slack-events.ts`](../apps/api/src/routes/slack-events.ts), [`packages/adapters/src/slack/`](../packages/adapters/src/slack/) |
 | **Telegram secret_token** | `/v1/channel/telegram/webhook` | Telegram 自定义 `X-Telegram-Bot-Api-Secret-Token` | [`apps/api/src/routes/telegram-webhook.ts`](../apps/api/src/routes/telegram-webhook.ts) |
 | **WeChat iLink token** | iLink 长轮询 | `BUTLER_V5_ILINK_TOKEN`；Channel Port iLink impl 注入（DESIGN §7.1 🟡） | [`apps/api/src/ilink-config.ts`](../apps/api/src/ilink-config.ts), [`packages/adapters/src/wechat/`](../packages/adapters/src/wechat/) |
@@ -48,6 +48,7 @@
 | Method | Path | Auth | 用途 | Source 指针 | 状态 |
 |--------|------|------|------|------------|------|
 | POST | `/v1/wechat/inbound` | `x-inbound-secret` | 微信内部 POST 入口（demo / 集成 / 测试主路径） | [`apps/api/src/routes/inbound.ts:24`](../apps/api/src/routes/inbound.ts) | ✅ |
+| POST | `/v1/wechat/butler/inbound` | `x-inbound-secret` | Butler Runtime 并行入口：规则命令 + 任务工具 + 审批 + 记忆；工程执行交给任务层 | [`apps/api/src/routes/butler.ts`](../apps/api/src/routes/butler.ts) | 🟡 可选（未 cutover） |
 | POST | `/v1/channel/inbound` | `x-inbound-secret` | 通用 channel 入口（iLink 内部使用） | [`apps/api/src/routes/inbound.ts:202`](../apps/api/src/routes/inbound.ts) | ✅ |
 | POST | `/v1/channel/slack/events` | Slack signing secret | Slack Events API webhook；fail-closed；HMAC + replay 防 | [`apps/api/src/routes/slack-events.ts:29`](../apps/api/src/routes/slack-events.ts) | ✅ (D63 T3 SEC-006) |
 | POST | `/v1/channel/telegram/webhook` | Telegram secret_token | Telegram Bot API webhook | [`apps/api/src/routes/telegram-webhook.ts:32`](../apps/api/src/routes/telegram-webhook.ts) | 🟡 (route ready, no adapter dir) |

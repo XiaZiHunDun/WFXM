@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@effect/schema':
-        specifier: ^0.66.0
-        version: 0.66.16(effect@3.22.1)(fast-check@3.23.2)
       drizzle-orm:
         specifier: ^0.33.0
         version: 0.33.0(@electric-sql/pglite@0.2.17)(@types/pg@8.23.1)(pg@8.22.0)(postgres@3.4.9)
@@ -23,7 +20,7 @@ importers:
     devDependencies:
       '@ivotoby/openapi-mcp-server':
         specifier: ^1.16.1
-        version: 1.16.1(zod@4.4.3)
+        version: 1.16.1(zod@3.25.76)
       '@modelcontextprotocol/server-github':
         specifier: ^2025.4.8
         version: 2025.4.8
@@ -343,13 +340,6 @@ packages:
   '@earendil-works/pi-telemetry@1.5.2':
     resolution: {integrity: sha512-m+cumjIqNh1aMISi/9ttcG3ZOwIdriPbz/eMyWmRMJCGa/WcgY1RX4lrb7HvsHhSfI/JUeBESA4nOCr8C3y5ow==}
     engines: {node: '>=22.19.0'}
-
-  '@effect/schema@0.66.16':
-    resolution: {integrity: sha512-sT/k5NOgKslGPzs3DUaCFuM6g2JQoIIT8jpwEorAZooplPIMK2xIspr7ECz6pp6Dc7Wz/ppXGk7HVyGZQsIYEQ==}
-    deprecated: this package has been merged into the main effect package
-    peerDependencies:
-      effect: ^3.1.3
-      fast-check: ^3.13.2
 
   '@electric-sql/pglite@0.2.17':
     resolution: {integrity: sha512-qEpKRT2oUaWDH6tjRxLHjdzMqRUGYDnGZlKrnL4dJ77JVMcP2Hpo3NYnOSPKdZdeec57B6QPprCUFg0picx5Pw==}
@@ -3453,11 +3443,6 @@ snapshots:
 
   '@earendil-works/pi-telemetry@1.5.2': {}
 
-  '@effect/schema@0.66.16(effect@3.22.1)(fast-check@3.23.2)':
-    dependencies:
-      effect: 3.22.1
-      fast-check: 3.23.2
-
   '@electric-sql/pglite@0.2.17': {}
 
   '@emnapi/core@1.11.2':
@@ -3677,9 +3662,9 @@ snapshots:
 
   '@istanbuljs/schema@0.1.6': {}
 
-  '@ivotoby/openapi-mcp-server@1.16.1(zod@4.4.3)':
+  '@ivotoby/openapi-mcp-server@1.16.1(zod@3.25.76)':
     dependencies:
-      '@modelcontextprotocol/sdk': 1.30.0(zod@4.4.3)
+      '@modelcontextprotocol/sdk': 1.30.0(zod@3.25.76)
       axios: 1.20.0(debug@4.4.3)
       openapi-types: 12.1.3
       yargs: 17.7.3
@@ -3737,6 +3722,28 @@ snapshots:
       content-type: 1.0.5
       raw-body: 3.0.2
       zod: 3.25.76
+
+  '@modelcontextprotocol/sdk@1.30.0(zod@3.25.76)':
+    dependencies:
+      '@hono/node-server': 1.19.17(hono@4.13.1)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
+      content-type: 1.0.5
+      cors: 2.8.6
+      cross-spawn: 7.0.6
+      eventsource: 3.0.7
+      eventsource-parser: 3.1.1
+      express: 5.2.1
+      express-rate-limit: 8.7.0(express@5.2.1)
+      hono: 4.13.1
+      jose: 6.2.12
+      json-schema-typed: 8.0.2
+      pkce-challenge: 5.0.1
+      raw-body: 3.0.2
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
+    transitivePeerDependencies:
+      - supports-color
 
   '@modelcontextprotocol/sdk@1.30.0(zod@4.4.3)':
     dependencies:

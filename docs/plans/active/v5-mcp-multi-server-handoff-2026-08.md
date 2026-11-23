@@ -4,7 +4,7 @@
 > **上一 commit（multi bootstrap）**：`6c8d2ced`（2026-08-23）  
 > **加固**：`b59651a2`（github trim + allowlist）；验收 `pnpm smoke:mcp`  
 > **工程规约**：[`../decisions/v5-engineering-handoff-2026-08.md`](../decisions/v5-engineering-handoff-2026-08.md)  
-> **P3 契约背景**：[`v5-p3-mcp-contract-issue-draft-2026-08.md`](v5-p3-mcp-contract-issue-draft-2026-08.md)（GitHub #3 Done）  
+> **P3 契约背景**：GitHub [#3](https://github.com/XiaZiHunDun/WFXM/issues/3)（Done，2026-08-23）  
 > **生产事实**：[`../../architecture/v5-production-architecture-2026-08.md`](../../architecture/v5-production-architecture-2026-08.md)
 
 ---

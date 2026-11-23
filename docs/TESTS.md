@@ -1,6 +1,6 @@
 # Butler v5 — Test Coverage Inventory
 
-> **生成日期**: 2026-09-22 | **更新**: 2026-11-18（v4 退役后只保留 v5 测试） | **读者**: Owner / Contributor / 审稿人
+> **生成日期**: 2026-09-22 | **更新**: 2026-11-23（第三阶段收尾；§0 数量为最新，逐文件清单保留历史索引） | **读者**: Owner / Contributor / 审稿人
 > **关系**:
 > - 功能视角 → [`FEATURES.md`](FEATURES.md)
 > - HTTP/WS API → [`API_ENDPOINTS.md`](API_ENDPOINTS.md)
@@ -22,17 +22,17 @@
 
 | 类别 | 目录 | test 文件数 | 状态 |
 |------|------|------------|------|
-| Architecture（§3–§20 invariants） | `tests/architecture/` | **46** | ✅ |
+| Architecture（§3–§20 invariants） | `tests/architecture/` | **17** | ✅ |
 | Acceptance（harness + realistic + regression + subagent + audit-state + fault-tolerance + commands-approval + methodology） | `tests/acceptance/` | **7** | ✅ |
 | E2E（r7-wiring + r8-real-persistence） | `tests/e2e/` | **2** | ✅ |
-| Contracts（port stability） | `tests/contracts/` | **1** | ✅ |
-| Eval（harness + scenarios + mock-llm） | `tests/eval/` | **22** | ✅ |
-| Guard（no-layer-violation） | `tests/guard/` | **1** | ✅ |
+| Contracts（port / messages / tools / state） | `tests/contracts/` | **9** | ✅ |
+| Eval（harness + scenarios + mock-llm） | `tests/eval/` | **6** | ✅ |
+| Integration（outcome-only） | `tests/integration/` | **2** | ✅ |
 | _meta（typed-rules + unique-list） | `tests/_meta/` | **2** | ✅ |
-| Inline unit（apps/api/src + packages/*/src + cli/src） | 与源码同目录 | **233** | ✅ |
-| **Total test files** | — | **314** | 见 §1–§5 |
+| Inline unit（apps/api/src + packages/*/src + cli/src） | 与源码同目录 | **229** | ✅ |
+| **Total test files** | — | **274**（`find *.test.ts`） | 见 §1–§5 |
 
-> **数法说明**：按 `find . -name "*.test.ts"` 统计；`owner-routes-source.ts` 等非测试辅助文件不计入。
+> **数法说明**：按 `find . -name "*.test.ts"` 统计；`owner-routes-source.ts` 等非测试辅助文件不计入。2026-11-23 全量 `pnpm test` 为 277 文件 / 2,379 通过 / 2 skipped（vitest 收集口径）。§2–§5 的逐文件清单停留在 2026-09-22，仅作历史索引。
 
 ## §1 分层验证（L1–L4）
 
@@ -46,7 +46,7 @@
 
 L4 脚本要求网关已启动，并从 `~/.config/env` 读取 `BUTLER_V5_INBOUND_SHARED_SECRET`。
 
-## §2 Architecture Tests（46 files / §3–§20 invariants）
+## §2 Architecture Tests（17 files / §3–§20 invariants）
 
 > DESIGN §20 不变量 → 每个 arch test 锁 1 条；`section*-*.test.ts` 命名约定。命令：`pnpm vitest run tests/architecture`。
 

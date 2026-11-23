@@ -15,7 +15,7 @@ describe("project-knowledge-sources.json (production manifest)", () => {
     const globs = parsed.manifest.projects["WFXM"]?.globs ?? []
     expect(globs).toContain("docs/plans/active/v5-d1-execution-handoff-2026-08-25.md")
     expect(globs).toContain("docs/plans/active/v5-architecture-alignment-handoff-2026-08.md")
-    expect(globs).toContain("docs/plans/active/v5-p3-mcp-contract-issue-draft-2026-08.md")
+    expect(globs).not.toContain("docs/plans/active/v5-p3-mcp-contract-issue-draft-2026-08.md")
     expect(globs).toContain(".blackboard/state.md")
     expect(globs).toContain("AGENTS.md")
     expect(globs.length).toBeGreaterThanOrEqual(20)

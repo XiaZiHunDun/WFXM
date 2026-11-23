@@ -36,7 +36,6 @@ v4 时期的 archive / comparisons / corpus / roadmaps / templates / pilot-repor
 | 文档 | 用途 |
 |------|------|
 | [`active/v5-post-boundary-roadmap-2026-08.md`](active/v5-post-boundary-roadmap-2026-08.md) | v5 P0–P4 后续路线 |
-| [`active/v5-remaining-work-2026-08-20.md`](active/v5-remaining-work-2026-08-20.md) | v5 剩余开发 |
 | [`active/v5-followon-projects-2026-08-20.md`](active/v5-followon-projects-2026-08-20.md) | v5 跟进立项 R8.x.20–22 |
 | [`active/v5-steady-state-handoff-2026-08-25.md`](active/v5-steady-state-handoff-2026-08-25.md) | 稳态交接 |
 | [`active/v5-acceptance-handoff-2026-08.md`](active/v5-acceptance-handoff-2026-08.md) | 验收交接 |

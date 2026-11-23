@@ -8,7 +8,6 @@ import type { ButlerTaskPort, ButlerTaskRef } from "@butler/ports/core/butler-ta
 import type { ChannelPort, ChannelRecipient } from "@butler/ports/core/channel.js"
 import {
   handleButlerInbound,
-  notifyApprovalIfPaused,
   createTaskSettledNotifier,
   formatTaskSettledNotice,
 } from "./butler-inbound.js"
@@ -293,43 +292,6 @@ describe("local WeChat replay", () => {
 
     expect(outcome.sent).toBe(true)
     expect(channel.sent[0]).toContain("没有找到任务")
-  })
-})
-
-describe("notifyApprovalIfPaused", () => {
-  it("pushes the approval prompt for a paused task", async () => {
-    const tasks = fakeTasks([
-      {
-        taskId: "t1",
-        projectId: "p1",
-        status: "paused",
-        summary: "写 a.txt",
-        pending: { toolName: "write", reason: "需要审批" },
-      },
-    ])
-    const butler = new ButlerRuntime({ model: fakeModel(), tasks, clock })
-    const channel = fakeChannel()
-
-    const outcome = await notifyApprovalIfPaused({
-      butler,
-      channel,
-      recipient,
-      taskId: "t1",
-    })
-
-    expect(outcome?.sent).toBe(true)
-    expect(channel.sent[0]).toContain("任务 t1 需要确认")
-    expect(channel.sent[0]).toContain("待执行：修改文件")
-  })
-
-  it("does nothing when the task is not paused", async () => {
-    const tasks = fakeTasks([{ taskId: "t1", projectId: "p1", status: "idle" }])
-    const butler = new ButlerRuntime({ model: fakeModel(), tasks, clock })
-    const channel = fakeChannel()
-
-    const outcome = await notifyApprovalIfPaused({ butler, channel, recipient, taskId: "t1" })
-    expect(outcome).toBeNull()
-    expect(channel.sent).toHaveLength(0)
   })
 })
 

@@ -42,7 +42,6 @@
 | 看规划与命名 | [`plans/README.md`](plans/README.md) |
 | **v5 产品边界 / 条件准入** | [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) |
 | **v5 后续路线** | [`plans/active/v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) · [`ROADMAP.md`](ROADMAP.md) |
-| **v5 剩余开发** | [`plans/active/v5-remaining-work-2026-08-20.md`](plans/active/v5-remaining-work-2026-08-20.md) |
 | **v5 owner FAQ** | [`FAQ.md`](FAQ.md) |
 | 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
 
@@ -79,7 +78,6 @@
 | [`FAQ.md`](FAQ.md) | owner 视角 FAQ |
 | [`plans/decisions/v5-product-boundaries-2026-08.md`](plans/decisions/v5-product-boundaries-2026-08.md) | v5 需求 / 边界决策入口 |
 | [`plans/active/v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) | v5 P0–P4 后续路线 |
-| [`plans/active/v5-remaining-work-2026-08-20.md`](plans/active/v5-remaining-work-2026-08-20.md) | v5 剩余开发 |
 | [`plans/decisions/v5-engineering-handoff-2026-08.md`](plans/decisions/v5-engineering-handoff-2026-08.md) | 工程交接规约 |
 
 ## 配置模板

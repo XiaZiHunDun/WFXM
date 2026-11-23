@@ -1,7 +1,7 @@
 # v5 可选债 triage（2026-08-20）
 
 > **裁决**：从交接「下次 / optional debt」里清掉三项长期挂账。  
-> **关联**：[`v5-remaining-work-2026-08-20.md`](../active/v5-remaining-work-2026-08-20.md)
+> **关联**：[`v5-followon-projects-2026-08-20.md`](../active/v5-followon-projects-2026-08-20.md)
 
 ## 裁决表
 

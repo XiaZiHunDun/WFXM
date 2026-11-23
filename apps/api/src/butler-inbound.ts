@@ -29,7 +29,7 @@ export interface ButlerInboundResult {
   readonly sendError?: string
 }
 
-export interface ButlerSendResult {
+interface ButlerSendResult {
   readonly sent: boolean
   readonly sendError?: string
 }
@@ -113,21 +113,6 @@ export async function handleButlerInbound(args: {
     ...(delivery.sent ? { sent: true } : { sent: false }),
     ...(delivery.sendError === undefined ? {} : { sendError: delivery.sendError }),
   }
-}
-
-/**
- * Proactive path for detached tasks: after the owner's task pauses, poll this
- * to push the approval prompt without waiting for another inbound message.
- */
-export async function notifyApprovalIfPaused(args: {
-  readonly butler: ButlerRuntime
-  readonly channel: ChannelPort
-  readonly recipient: ChannelRecipient
-  readonly taskId: string
-}): Promise<ButlerSendResult | null> {
-  const notice = await args.butler.approvalNotice(args.taskId)
-  if (!notice) return null
-  return deliver(args.channel, args.recipient, notice.text)
 }
 
 async function resolveApproval(
