@@ -17,7 +17,7 @@ import type { ButlerMessage, ButlerSessionStore } from "@butler/ports/core/butle
 import type { ButlerTaskRef } from "@butler/ports/core/butler-task.js"
 import type { PiTaskSessionStore } from "@butler/ports/core/pi-task-session.js"
 import type { TaskMemoryPort } from "@butler/ports/core/task-memory.js"
-import { ButlerRuntime } from "@butler/runtime/butler/butler-runtime.js"
+import { ButlerRuntime, type ButlerRuntimeOptions } from "@butler/runtime/butler/butler-runtime.js"
 import type { ButlerModelPort, ButlerToolSpec } from "@butler/runtime/butler/model-port.js"
 import {
   createPiTaskPortAdapter,
@@ -66,6 +66,24 @@ function resolveModelCallTimeoutMs(env: NodeJS.ProcessEnv = process.env): number
   if (!raw) return DEFAULT_MODEL_CALL_TIMEOUT_MS
   const parsed = Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MODEL_CALL_TIMEOUT_MS
+}
+
+/**
+ * Approval TTL for pi-backed tasks. Undefined keeps the runner default
+ * (30 minutes); `<= 0` disables expiry so pending steps wait forever.
+ */
+export function resolvePiApprovalTtlMs(
+  env: NodeJS.ProcessEnv = process.env,
+  logger?: { warn(message: string): void },
+): number | undefined {
+  const raw = (env["BUTLER_V5_APPROVAL_TTL_MS"] ?? "").trim()
+  if (!raw) return undefined
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) {
+    logger?.warn(`[butler] invalid BUTLER_V5_APPROVAL_TTL_MS=${raw}; using default`)
+    return undefined
+  }
+  return parsed <= 0 ? 0 : parsed
 }
 
 /**
@@ -122,9 +140,15 @@ export interface ButlerAssemblyOptions {
   readonly onTaskSettled?: (ref: ButlerTaskRef) => void | Promise<void>
   readonly newTaskId?: (projectId: string) => string
   readonly taskTimeoutMs?: number
+  /** Overrides BUTLER_V5_APPROVAL_TTL_MS; undefined keeps the runner default. */
+  readonly approvalTtlMs?: number
   readonly systemPrompt?: string
   /** Normalizes owner-supplied project names for `/project`. */
   readonly resolveProjectName?: (raw: string) => string | null
+  /** Subagent dispatch; omit when subagents are disabled. */
+  readonly subagent?: ButlerRuntimeOptions["subagent"]
+  /** Project quality gate runner; omit when the project has no gate. */
+  readonly qualityGate?: ButlerRuntimeOptions["qualityGate"]
   readonly logger?: { warn(message: string, extra?: unknown): void }
 }
 
@@ -157,12 +181,14 @@ export async function createButlerAssembly(
       await import("@butler/runtime/execution/pi-model.js")
     const { PiTaskRunner } = await import("@butler/runtime/execution/pi-task-runner.js")
     const config = resolvePiModelFromEnv(env)
+    const approvalTtlMs = options.approvalTtlMs ?? resolvePiApprovalTtlMs(env, options.logger)
     runner = new PiTaskRunner({
       model: config.model,
       apiKey: config.apiKey,
       streamFn: createPiStreamFn({ model: config.model, apiKey: config.apiKey }),
       ...(options.taskSessionStore === undefined ? {} : { store: options.taskSessionStore }),
       ...(options.taskMemory === undefined ? {} : { memory: options.taskMemory }),
+      ...(approvalTtlMs === undefined ? {} : { approvalTtlMs }),
       ...(options.logger === undefined ? {} : { logger: options.logger }),
     })
   }
@@ -194,6 +220,8 @@ export async function createButlerAssembly(
     ...(options.resolveProjectName === undefined
       ? {}
       : { resolveProjectName: options.resolveProjectName }),
+    ...(options.subagent === undefined ? {} : { subagent: options.subagent }),
+    ...(options.qualityGate === undefined ? {} : { qualityGate: options.qualityGate }),
     ...(options.logger === undefined ? {} : { logger: options.logger }),
   })
 

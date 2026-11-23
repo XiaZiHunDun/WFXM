@@ -207,6 +207,8 @@
 | `BUTLER_V5_KILL_SWITCH` | bool | `0` | `1` 启用全局 kill switch（拒绝新 Run） | [`apps/api/src/kill-switch.ts`](../apps/api/src/kill-switch.ts) | 🟡 |
 | `BUTLER_V5_STUCK_LOOP_THRESHOLD` | int | — | Run stuck 检测阈值 | [`packages/runtime/src/run-engine.ts`](../packages/runtime/src/run-engine.ts) | 🟡 |
 | `BUTLER_V5_POST_APPROVAL_LOOP` | bool | `0` | `1` 审批后 Run 自动继续 | `run-engine.ts` | 🟡 |
+| `BUTLER_V5_APPROVAL_TTL_MS` | int | `1800000` | pi 任务审批等待上限（毫秒）；`<=0` 关闭过期判定 | [`apps/api/src/butler-assembly.ts`](../apps/api/src/butler-assembly.ts), [`packages/runtime/src/execution/pi-task-runner.ts`](../packages/runtime/src/execution/pi-task-runner.ts) | ✅ |
+| `BUTLER_V5_INBOUND_ORDER_WINDOW_MS` | int | `120000` | 入站乱序时间窗（毫秒）；`0` 仅按序号判定 | [`apps/api/src/inbound-ordering.ts`](../apps/api/src/inbound-ordering.ts) | ✅ |
 
 ## §12 Owner Rate Limit / WS Auth
 

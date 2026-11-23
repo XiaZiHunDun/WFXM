@@ -714,10 +714,16 @@ export class PiTaskRunner {
       replaceToolResult(parseSnapshot(session.record), pending, text, true),
       "等待审批，本步未执行；批准后请重新发起该调用。",
     )
+    const snapshot = {
+      ...session.record.snapshot,
+      messages: cloneMessages(messages),
+      lastReply: text,
+    }
+    if (snapshot.lastError !== undefined) delete snapshot.lastError
     const record: PiTaskSessionRecord = {
       ...session.record,
       status: "idle",
-      snapshot: { ...session.record.snapshot, messages: cloneMessages(messages) },
+      snapshot,
       pendingStep: null,
       updatedAt: nowIso(),
     }

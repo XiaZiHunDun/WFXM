@@ -27,6 +27,7 @@ import {
 import { loadSyncBuf, saveSyncBuf } from "./ilink-sync.js"
 import { resolveWechatInboundProjectId } from "./wechat-active-project.js"
 import { envAllowsPrivateInboundHosts, isBlockedInboundHost } from "./mcp-config.js"
+import { checkInboundOrder } from "./inbound-ordering.js"
 import { makeGuardedFetch } from "./lib/dns-recheck.js"
 
 export type IlinkPollerLogger = {
@@ -147,6 +148,16 @@ export async function runIlinkPollCycle(
     }
     if (!isDmAllowed(inbound.fromUserId, dmPolicy, allowedUserIds)) {
       deps.log?.(`[ilink-poller] skip: sender not allowed (policy=${dmPolicy})`)
+      skipped += 1
+      continue
+    }
+    const ordering = checkInboundOrder({
+      channelId: "wechat",
+      conversationId: inbound.fromUserId,
+      ...(inbound.occurredAtMs === undefined ? {} : { occurredAtMs: inbound.occurredAtMs }),
+    })
+    if (!ordering.ok) {
+      deps.log?.(`[ilink-poller] skip: out-of-order (${ordering.reason})`)
       skipped += 1
       continue
     }

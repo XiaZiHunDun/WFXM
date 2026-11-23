@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createHmac } from "node:crypto"
-import { parseTelegramUpdate, telegramWebhookAuthorized } from "./channel-inbound.js"
+import {
+  handleChannelInbound,
+  parseTelegramUpdate,
+  telegramWebhookAuthorized,
+} from "./channel-inbound.js"
+import { checkInboundOrder, resetInboundOrdering } from "./inbound-ordering.js"
+import type { Wiring } from "./wiring.js"
 import { parseSlackEventPayload, verifySlackSignature } from "@butler/adapters/slack/index.js"
 
 describe("slack channel adapter", () => {
@@ -27,6 +33,8 @@ describe("slack channel adapter", () => {
       messageId: "slack-123.456",
       deliveryChannel: "C99",
       threadTs: "123.456",
+      sequence: 123.456,
+      occurredAtMs: 123.456 * 1000,
     })
   })
 
@@ -69,6 +77,7 @@ describe("telegram channel adapter", () => {
       fromSubject: "42",
       content: "hi",
       messageId: "telegram-9",
+      sequence: 9,
     })
   })
 
@@ -86,8 +95,17 @@ describe("telegram channel adapter", () => {
       fromSubject: "7",
       content: "[telegram image file_id=big-photo]",
       messageId: "telegram-10",
+      sequence: 10,
       media: [{ kind: "image", fileId: "big-photo", mimeType: "image/jpeg" }],
     })
+  })
+
+  it("carries the telegram message date as occurredAtMs", () => {
+    const parsed = parseTelegramUpdate({
+      update_id: 3,
+      message: { message_id: 11, from: { id: 7 }, text: "hi", date: 1_700_000_000 },
+    })
+    expect(parsed).toMatchObject({ sequence: 11, occurredAtMs: 1_700_000_000_000 })
   })
 
   it("checks optional webhook secret header", () => {
@@ -97,5 +115,43 @@ describe("telegram channel adapter", () => {
     expect(telegramWebhookAuthorized({ BUTLER_V5_TELEGRAM_WEBHOOK_SECRET: "tok" }, "bad")).toBe(
       false,
     )
+  })
+})
+
+describe("inbound ordering", () => {
+  beforeEach(() => {
+    vi.stubEnv("BUTLER_V5_CHANNEL_ALLOWLIST", "telegram")
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("skips an older message before appending an event", async () => {
+    resetInboundOrdering()
+    const appended: unknown[] = []
+    const wiring = {
+      eventBridge: {
+        async appendConversationEvent(input: unknown) {
+          appended.push(input)
+        },
+      },
+    } as unknown as Wiring
+    checkInboundOrder({ channelId: "telegram", conversationId: "conv-order", sequence: 20 })
+
+    const result = await handleChannelInbound({
+      wiring,
+      channelId: "telegram",
+      fromSubject: "u1",
+      content: "旧消息",
+      messageId: "telegram-10",
+      conversationId: "conv-order",
+      sequence: 10,
+    })
+
+    expect(result.skipped).toBe(true)
+    expect(result.skipReason).toBe("stale_sequence")
+    expect(result.meta.traces).toContain("inbound-order:stale_sequence")
+    expect(appended).toHaveLength(0)
   })
 })

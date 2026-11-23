@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import type { ChannelPort, ChannelKind, ChannelRecipient } from "./channel.js"
+import {
+  EMPTY_CHANNEL_TEXT_REASON,
+  isBlankChannelText,
+  type ChannelPort,
+  type ChannelKind,
+  type ChannelRecipient,
+} from "./channel.js"
 
 describe("Channel Port contract", () => {
   it("accepts an in-memory ChannelPort that implements sendText", async () => {
@@ -32,5 +38,11 @@ describe("Channel Port contract", () => {
     expect(slackLike.channelKind).toBe("slack")
     const kinds: readonly ChannelKind[] = ["wechat", "slack", "telegram"]
     expect(kinds).toContain(slackLike.channelKind)
+  })
+
+  it("treats blank text as a contract violation", () => {
+    expect(isBlankChannelText("   \n\t ")).toBe(true)
+    expect(isBlankChannelText(" hi ")).toBe(false)
+    expect(EMPTY_CHANNEL_TEXT_REASON).toBe("empty text")
   })
 })

@@ -22,6 +22,7 @@ import type {
   ButlerToolCall,
 } from "@butler/ports/core/butler-session.js"
 import type { ButlerTaskPort, ButlerTaskRef } from "@butler/ports/core/butler-task.js"
+import type { ButlerSubagentPort } from "@butler/ports/core/butler-subagent.js"
 import {
   DEFAULT_BUTLER_SYSTEM_PROMPT,
   ZERO_USAGE,
@@ -89,6 +90,16 @@ export interface ButlerTurnResult {
 export interface ButlerRuntimeOptions {
   readonly model: ButlerModelPort
   readonly tasks?: ButlerTaskPort
+  /** Subagent dispatch; omitted when BUTLER_V5_SUBAGENT_ENABLED is off. */
+  readonly subagent?: ButlerSubagentPort
+  /**
+   * Project quality gate runner. Injected by the composition root so the
+   * legacy `/验` command and the butler rule share one implementation.
+   */
+  readonly qualityGate?: (input: {
+    readonly projectId: string
+    readonly nameFilter?: string
+  }) => Promise<{ readonly reply: string; readonly traces?: readonly string[] }>
   readonly memory?: ButlerMemoryPort
   readonly store?: ButlerSessionStore
   readonly systemPrompt?: string
@@ -342,6 +353,8 @@ export class ButlerRuntime {
       return deny("审批暂时没提交成功，请稍后再试。")
     }
     if (!task) return deny(`任务 ${input.taskId} 当前不在等待审批。`)
+    if (task.approvalOutcome === "expired") return deny("审批已过期，本步未执行。")
+    if (task.approvalOutcome === "duplicate") return deny("该审批已处理，未重复执行。")
 
     const decision = input.approved
       ? `已确认，继续执行 ${task.taskId}。`
@@ -550,6 +563,17 @@ export class ButlerRuntime {
       return { reply: await this.diagnose(session, projectId) }
     }
 
+    if (rule.kind === "quality") {
+      const gate = this.options.qualityGate
+      if (!gate) return { reply: "当前没有接入质量门禁。" }
+      if (!projectId) return { reply: "请先选择项目，再运行质量门禁。" }
+      const outcome = await gate({
+        projectId,
+        ...(rule.nameFilter === undefined ? {} : { nameFilter: rule.nameFilter }),
+      })
+      return { reply: outcome.reply }
+    }
+
     const tasks = this.options.tasks
     if (rule.kind === "retry") {
       if (!tasks) return { reply: "任务层尚未接入，暂时无法重试。" }
@@ -616,6 +640,12 @@ export class ButlerRuntime {
         }
         const task = await tasks.approve(rule.taskId, rule.approved)
         if (!task) return { reply: `任务 ${rule.taskId} 当前不在等待审批。` }
+        if (task.approvalOutcome === "expired") {
+          return { reply: "审批已过期，本步未执行。", taskId: task.taskId }
+        }
+        if (task.approvalOutcome === "duplicate") {
+          return { reply: "该审批已处理，未重复执行。", taskId: task.taskId }
+        }
         const detail =
           task.status === "paused"
             ? ""
@@ -840,36 +870,58 @@ export class ButlerRuntime {
   }
 
   private toolSpecs(): readonly ButlerToolSpec[] {
-    if (!this.options.tasks) return []
-    return [
-      {
-        name: "start_task",
-        description: "把编码任务交给任务层执行。目标需要具体、可验证。",
+    const specs: ButlerToolSpec[] = []
+    if (this.options.tasks) {
+      specs.push(
+        {
+          name: "start_task",
+          description: "把编码任务交给任务层执行。目标需要具体、可验证。",
+          parameters: {
+            type: "object",
+            properties: {
+              goal: { type: "string", description: "任务目标" },
+            },
+            required: ["goal"],
+          },
+        },
+        {
+          name: "list_tasks",
+          description: "列出当前项目的任务及状态。",
+          parameters: { type: "object", properties: {} },
+        },
+        {
+          name: "task_status",
+          description: "查询单个任务的状态。",
+          parameters: {
+            type: "object",
+            properties: {
+              taskId: { type: "string", description: "任务 ID" },
+            },
+            required: ["taskId"],
+          },
+        },
+      )
+    }
+    if (this.options.subagent) {
+      specs.push({
+        name: "delegate_to_subagent",
+        description: "把一段独立工作交给后台子代理执行，返回子代理结果。",
         parameters: {
           type: "object",
           properties: {
-            goal: { type: "string", description: "任务目标" },
+            task: { type: "string", description: "子代理任务，需自包含" },
+            role: { type: "string", description: "子代理角色" },
+            capabilities: {
+              type: "array",
+              items: { type: "string" },
+              description: "允许的能力白名单",
+            },
           },
-          required: ["goal"],
+          required: ["task"],
         },
-      },
-      {
-        name: "list_tasks",
-        description: "列出当前项目的任务及状态。",
-        parameters: { type: "object", properties: {} },
-      },
-      {
-        name: "task_status",
-        description: "查询单个任务的状态。",
-        parameters: {
-          type: "object",
-          properties: {
-            taskId: { type: "string", description: "任务 ID" },
-          },
-          required: ["taskId"],
-        },
-      },
-    ]
+      })
+    }
+    return specs
   }
 
   private async executeTool(
@@ -877,10 +929,27 @@ export class ButlerRuntime {
     input: ButlerTurnInput,
     sessionProjectId?: string,
   ): Promise<{ output: string; taskId?: string; failed?: boolean }> {
-    const tasks = this.options.tasks
-    if (!tasks) return { output: "任务层尚未接入。", failed: true }
     const projectId = sessionProjectId ?? input.projectId
     try {
+      if (call.name === "delegate_to_subagent") {
+        const subagent = this.options.subagent
+        if (!subagent) return { output: "子代理尚未接入。", failed: true }
+        const task = asNonEmptyString(call.args["task"])
+        if (!task) return { output: "缺少子代理任务。", failed: true }
+        const role = asNonEmptyString(call.args["role"])
+        const capabilities = asStringList(call.args["capabilities"])
+        const result = await subagent.delegate({
+          task,
+          conversationId: input.conversationId,
+          userId: input.userId,
+          ...(role === undefined ? {} : { role }),
+          ...(capabilities === undefined ? {} : { capabilities }),
+        })
+        return result.ok ? { output: result.output } : { output: result.reason, failed: true }
+      }
+
+      const tasks = this.options.tasks
+      if (!tasks) return { output: "任务层尚未接入。", failed: true }
       switch (call.name) {
         case "start_task": {
           const goal = asNonEmptyString(call.args["goal"])

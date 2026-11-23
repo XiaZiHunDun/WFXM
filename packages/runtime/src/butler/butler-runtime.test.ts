@@ -4,6 +4,10 @@ import type {
   ButlerSessionSummaryEvent,
 } from "@butler/ports/core/butler-memory.js"
 import type { ButlerTaskPort, ButlerTaskRef } from "@butler/ports/core/butler-task.js"
+import type {
+  ButlerSubagentPort,
+  ButlerSubagentRequest,
+} from "@butler/ports/core/butler-subagent.js"
 import {
   ButlerRuntime,
   MemoryButlerSessionStore,
@@ -158,6 +162,13 @@ describe("matchButlerRule", () => {
     expect(matchButlerRule({ content: "/diagnose" })).toMatchObject({ kind: "diagnose" })
     expect(matchButlerRule({ content: "撤销" })).toMatchObject({ kind: "undo" })
     expect(matchButlerRule({ content: "/undo" })).toMatchObject({ kind: "undo" })
+    expect(matchButlerRule({ content: "/验" })).toMatchObject({ kind: "quality" })
+    expect(matchButlerRule({ content: "/验 lint" })).toMatchObject({
+      kind: "quality",
+      nameFilter: "lint",
+    })
+    expect(matchButlerRule({ content: "质量门禁" })).toMatchObject({ kind: "quality" })
+    expect(matchButlerRule({ content: "/门禁" })).toMatchObject({ kind: "quality" })
     expect(matchButlerRule({ content: "切换项目 灵文" })).toMatchObject({
       kind: "project",
       projectId: "灵文",
@@ -262,6 +273,91 @@ describe("ButlerRuntime", () => {
     expect(result.reply).toBe("已交给任务层。")
     expect(tasks.started).toEqual([{ projectId: "p1", goal: "补一版 README" }])
     expect(result.traces).toContain("tool:start_task:ok")
+  })
+
+  it("delegates to a subagent through the tool loop", async () => {
+    const model = fakeModel([
+      {
+        content: "",
+        toolCalls: [
+          {
+            id: "call-1",
+            name: "delegate_to_subagent",
+            args: { task: "调研登录超时", role: "researcher" },
+          },
+        ],
+      },
+      { content: "已交给子代理。" },
+    ])
+    const calls: ButlerSubagentRequest[] = []
+    const subagent: ButlerSubagentPort = {
+      async delegate(input) {
+        calls.push(input)
+        return { ok: true, output: "child-run-1" }
+      },
+    }
+    const runtime = new ButlerRuntime({ model, subagent, clock })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "让子代理调研一下登录超时",
+    })
+
+    expect(result.route).toBe("agent")
+    expect(result.reply).toContain("已交给")
+    expect(calls[0]).toMatchObject({
+      task: "调研登录超时",
+      role: "researcher",
+      conversationId: "c1",
+      userId: "u1",
+    })
+    expect(result.traces).toContain("tool:delegate_to_subagent:ok")
+  })
+
+  it("runs the project quality gate from a rule", async () => {
+    const seen: { projectId: string; nameFilter?: string }[] = []
+    const runtime = new ButlerRuntime({
+      model: fakeModel(),
+      qualityGate: async (input) => {
+        seen.push(input)
+        return { reply: "【WFXM 质量门禁】\n全部通过。" }
+      },
+      clock,
+    })
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/验 lint",
+    })
+
+    expect(result.route).toBe("rule")
+    expect(result.rule).toBe("quality")
+    expect(seen).toEqual([{ projectId: "p1", nameFilter: "lint" }])
+    expect(result.reply).toContain("全部通过")
+  })
+
+  it("explains when the quality gate is not wired or no project is bound", async () => {
+    const withoutGate = new ButlerRuntime({ model: fakeModel(), clock })
+    const missing = await withoutGate.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "/门禁",
+    })
+    expect(missing.reply).toContain("当前没有接入质量门禁")
+
+    const withGate = new ButlerRuntime({
+      model: fakeModel(),
+      qualityGate: async () => ({ reply: "unused" }),
+      clock,
+    })
+    const noProject = await withGate.handle({
+      conversationId: "c1",
+      userId: "u1",
+      content: "质量门禁",
+    })
+    expect(noProject.reply).toContain("请先选择项目")
   })
 
   it("injects recalled user memory into the system prompt", async () => {
@@ -624,6 +720,64 @@ describe("ButlerRuntime", () => {
     const session = await store.load("c1")
     expect(session?.messages.at(-2)?.content).toBe("确认")
     expect(session?.messages.at(-1)?.content).toContain("已确认")
+  })
+
+  it("does not claim an expired card approval was confirmed", async () => {
+    const paused: ButlerTaskRef = {
+      taskId: "t1",
+      projectId: "p1",
+      conversationId: "c1",
+      status: "paused",
+      summary: "写 a.txt",
+      pending: { toolName: "write", reason: "需要审批" },
+    }
+    const tasks = fakeTasks([paused])
+    tasks.approve = async () => ({ ...paused, status: "idle", approvalOutcome: "expired" })
+    const runtime = new ButlerRuntime({
+      model: fakeModel(),
+      tasks,
+      store: new MemoryButlerSessionStore(),
+      clock,
+    })
+
+    const result = await runtime.handleApprovalCallback({
+      conversationId: "c1",
+      userId: "u1",
+      taskId: "t1",
+      approved: true,
+    })
+
+    expect(result.reply).toContain("过期")
+    expect(result.reply).not.toContain("已确认")
+  })
+
+  it("does not confirm an expired rule approval", async () => {
+    const paused: ButlerTaskRef = {
+      taskId: "t1",
+      projectId: "p1",
+      conversationId: "c1",
+      status: "paused",
+      summary: "写 a.txt",
+      pending: { toolName: "write", reason: "需要审批" },
+    }
+    const tasks = fakeTasks([paused])
+    tasks.approve = async () => ({ ...paused, status: "idle", approvalOutcome: "expired" })
+    const runtime = new ButlerRuntime({
+      model: fakeModel(),
+      tasks,
+      store: new MemoryButlerSessionStore(),
+      clock,
+    })
+
+    const result = await runtime.handle({
+      conversationId: "c1",
+      userId: "u1",
+      projectId: "p1",
+      content: "确认",
+    })
+
+    expect(result.reply).toContain("过期")
+    expect(result.reply).not.toContain("已确认")
   })
 
   it("returns the next notice when approval pauses on another step", async () => {

@@ -12,7 +12,11 @@
  * + body); the FAIL-CLOSED check lives in verifySlackSignature.
  */
 import type { Hono } from "hono"
-import type { ChannelPort } from "@butler/ports/core/channel.js"
+import {
+  EMPTY_CHANNEL_TEXT_REASON,
+  isBlankChannelText,
+  type ChannelPort,
+} from "@butler/ports/core/channel.js"
 import type { Wiring } from "../wiring.js"
 import { isSlackChannelEnabled, resolveChannelEngine } from "../channel-config.js"
 import { ChannelInboundError, handleChannelInbound } from "../channel-inbound.js"
@@ -85,6 +89,9 @@ export function registerSlackEventsRoutes(
         const channel: ChannelPort = {
           channelKind: "slack",
           async sendText({ content }) {
+            if (isBlankChannelText(content)) {
+              return { ok: false, reason: EMPTY_CHANNEL_TEXT_REASON }
+            }
             if (!slackToken) return { ok: false, reason: "BUTLER_V5_SLACK_BOT_TOKEN 未配置" }
             const outbound = await deliverSlackChannelReply({
               token: slackToken,
@@ -103,6 +110,8 @@ export function registerSlackEventsRoutes(
           fromSubject: parsed.fromSubject,
           content: parsed.content,
           messageId: parsed.messageId,
+          ...(parsed.sequence === undefined ? {} : { sequence: parsed.sequence }),
+          ...(parsed.occurredAtMs === undefined ? {} : { occurredAtMs: parsed.occurredAtMs }),
           engine,
           ...(butler === undefined ? {} : { butler }),
           channel,
@@ -115,6 +124,7 @@ export function registerSlackEventsRoutes(
             conversationId: result.conversationId,
             delivered: result.delivered ?? false,
             mediaCount: 0,
+            ...(result.skipped === true ? { skipped: true, skipReason: result.skipReason } : {}),
             ...(result.deliveryReason ? { deliveryReason: result.deliveryReason } : {}),
           },
           200,
@@ -126,6 +136,8 @@ export function registerSlackEventsRoutes(
         fromSubject: parsed.fromSubject,
         content: parsed.content,
         messageId: parsed.messageId,
+        ...(parsed.sequence === undefined ? {} : { sequence: parsed.sequence }),
+        ...(parsed.occurredAtMs === undefined ? {} : { occurredAtMs: parsed.occurredAtMs }),
       })
       let delivered = false
       let deliveryReason: string | undefined
@@ -134,7 +146,7 @@ export function registerSlackEventsRoutes(
       // call site. The verbose .unwrap() is intentional — every site is
       // a code-review signal for where cleartext tokens flow.
       const slackToken = slackBotToken(process.env).unwrap()
-      if (slackToken) {
+      if (!result.skipped && slackToken) {
         const outbound = await deliverSlackChannelReply({
           token: slackToken,
           channel: parsed.deliveryChannel,
@@ -152,6 +164,7 @@ export function registerSlackEventsRoutes(
           conversationId: result.conversationId,
           delivered,
           mediaCount,
+          ...(result.skipped === true ? { skipped: true, skipReason: result.skipReason } : {}),
           ...(deliveryReason ? { deliveryReason } : {}),
         },
         200,

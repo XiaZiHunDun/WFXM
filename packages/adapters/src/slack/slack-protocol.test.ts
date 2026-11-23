@@ -151,6 +151,8 @@ describe("parseSlackEventPayload", () => {
       messageId: "slack-123.456",
       deliveryChannel: "C99",
       threadTs: "123.456",
+      sequence: 123.456,
+      occurredAtMs: 123.456 * 1000,
     })
   })
 
@@ -168,6 +170,8 @@ describe("parseSlackEventPayload", () => {
     })
     if (parsed.kind !== "message") throw new Error("expected message")
     expect(parsed.threadTs).toBe("1.000")
+    expect(parsed.sequence).toBe(2)
+    expect(parsed.occurredAtMs).toBe(2000)
   })
 
   it("falls back to ts for threadTs when thread_ts absent", () => {
@@ -186,6 +190,8 @@ describe("parseSlackEventPayload", () => {
     })
     if (parsed.kind !== "message") throw new Error("expected message")
     expect(parsed.messageId).toMatch(/^slack-\d+$/)
+    expect(parsed.sequence).toBeUndefined()
+    expect(parsed.occurredAtMs).toBeUndefined()
   })
 
   it("returns ignore when message missing user", () => {

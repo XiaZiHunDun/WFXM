@@ -105,6 +105,64 @@ describe("tryWechatInlineApproval", () => {
     expect(active).toBeNull()
   })
 
+  it("explains an expired approval instead of a generic already-processed reply", async () => {
+    const runtimeStore = createRuntimeStore(db.db)
+    const wiring = makeWiring({
+      bridge: new EventBridge({ db: db.db, workerId: "test" }),
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
+    const createdAt = new Date("2026-08-20T00:00:00Z")
+    const inbound = await runtimeStore.createConversationWithUserMessage({
+      conversationId: "conv-inline-expired",
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "send" },
+      triggerSource: "channel",
+      idempotencyKey: "inline-expired-msg",
+      createdAt,
+    })
+    const run = await runtimeStore.createRun({
+      id: crypto.randomUUID(),
+      conversationId: inbound.conversationId,
+      parentRunId: null,
+      triggerSource: "channel",
+      idempotencyKey: "inline-expired-run",
+      subject: "owner-1",
+      goal: "reply",
+      budget: { maxSteps: 5 },
+      deadline: null,
+      createdAt,
+    })
+    await runtimeStore.transitionRunStatus(run.id, run.version, "running", createdAt)
+    await createWaitingApprovalStep(runtimeStore, {
+      runId: run.id,
+      conversationId: inbound.conversationId,
+      subject: "owner-1",
+      capability: "get_current_time",
+      resource: inbound.conversationId,
+      args: {},
+      question: "Confirm?",
+      expiresAtMs: Date.now() - 1,
+      digest: "inline-expired-digest",
+      kind: "read",
+      risk: "low",
+    })
+
+    const out = await tryWechatInlineApproval({
+      wiring,
+      conversationId: inbound.conversationId,
+      content: "确认",
+      fromUserId: "owner-1",
+    })
+
+    expect(out?.reply).toContain("过期")
+    expect(out?.toolCalls).toBe(0)
+  })
+
   // D67 T1b — consume-path bridge for fatigue_checklist steps. The new
   // T1a step shape (`{ reason: "fatigue_checklist", toolName, items }`)
   // does NOT match `parsePendingCapabilityInput`. The inline-approval

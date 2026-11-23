@@ -12,6 +12,7 @@ import { handleButlerInbound } from "./butler-inbound.js"
 import type { ButlerRuntimeProvider } from "./butler-runtime-provider.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import { describeTelegramMedia, type ChannelInboundMedia } from "./channel-media.js"
+import { checkInboundOrder, type InboundOrderSkipReason } from "./inbound-ordering.js"
 import { timingSafeEqualStrings } from "./lib/secure-compare.js"
 
 export interface ChannelInboundInput {
@@ -21,6 +22,10 @@ export interface ChannelInboundInput {
   readonly content: string
   readonly messageId?: string
   readonly conversationId?: unknown
+  /** Monotonic per-conversation ordering hint from the channel (optional). */
+  readonly sequence?: number
+  /** Source message time in epoch milliseconds (optional). */
+  readonly occurredAtMs?: number
   /** Per-channel cutover switch; omit/legacy keeps the RunEngine pipeline. */
   readonly engine?: ChannelEngine
   readonly butler?: ButlerRuntimeProvider
@@ -43,6 +48,9 @@ export interface ChannelInboundResult {
   /** Butler pipeline only: whether the reply reached the channel. */
   readonly delivered?: boolean
   readonly deliveryReason?: string
+  /** True when an older/out-of-order message was dropped before any run. */
+  readonly skipped?: boolean
+  readonly skipReason?: InboundOrderSkipReason
 }
 
 function channelKindOf(channelId: string): ChannelKind {
@@ -83,6 +91,28 @@ export async function handleChannelInbound(
     throw new ChannelInboundError(message, 400)
   }
   const { value } = normalized
+  const ordering = checkInboundOrder({
+    channelId,
+    conversationId: value.conversationId,
+    ...(input.sequence === undefined ? {} : { sequence: input.sequence }),
+    ...(input.occurredAtMs === undefined ? {} : { occurredAtMs: input.occurredAtMs }),
+  })
+  if (!ordering.ok) {
+    return {
+      conversationId: value.conversationId,
+      turnId: value.turnId,
+      channelId,
+      reply: "",
+      meta: {
+        iterations: 0,
+        toolCalls: 0,
+        finalDecision: "Skip",
+        traces: [`inbound-order:${ordering.reason}`],
+      },
+      skipped: true,
+      skipReason: ordering.reason,
+    }
+  }
   await input.wiring.eventBridge.appendConversationEvent({
     streamId: value.conversationId,
     eventId: `evt-${Date.now()}-channel-${input.messageId ?? "no-msgid"}`,
@@ -191,6 +221,9 @@ export type TelegramWebhookParseResult =
       readonly fromSubject: string
       readonly content: string
       readonly messageId: string
+      /** Telegram's per-chat monotonic message id, when numeric. */
+      readonly sequence?: number
+      readonly occurredAtMs?: number
       readonly media?: readonly ChannelInboundMedia[]
     }
   | { readonly kind: "ignore" }
@@ -220,6 +253,15 @@ export function parseTelegramUpdate(body: unknown): TelegramWebhookParseResult {
   const mediaContent = describeTelegramMedia(msg)
   const content = mediaContent?.content ?? text
   if (!content) return { kind: "ignore" }
+  const numericMessageId =
+    typeof messageId === "number"
+      ? messageId
+      : typeof messageId === "string" && messageId.trim() !== ""
+        ? Number(messageId)
+        : Number.NaN
+  const date = msg["date"]
+  const occurredAtMs =
+    typeof date === "number" && Number.isFinite(date) && date > 0 ? date * 1000 : undefined
   return {
     kind: "message",
     fromSubject: String(userId),
@@ -228,6 +270,8 @@ export function parseTelegramUpdate(body: unknown): TelegramWebhookParseResult {
       typeof messageId === "number" || typeof messageId === "string"
         ? `telegram-${String(messageId)}`
         : `telegram-${Date.now()}`,
+    ...(Number.isFinite(numericMessageId) ? { sequence: numericMessageId } : {}),
+    ...(occurredAtMs === undefined ? {} : { occurredAtMs }),
     ...(mediaContent?.media ? { media: mediaContent.media } : {}),
   }
 }

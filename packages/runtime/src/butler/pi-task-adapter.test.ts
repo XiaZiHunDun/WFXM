@@ -216,6 +216,41 @@ describe("createPiTaskPortAdapter", () => {
     expect(await adapter.approve("missing", true)).toBeNull()
   })
 
+  it("reports an expired approval instead of claiming it ran", async () => {
+    const store = new MemoryPiTaskSessionStore()
+    const first = setup(
+      scriptedStream([
+        { tools: [{ id: "c1", name: "write", args: { path: "e.txt", content: "x" } }] },
+      ]),
+      { store, approvalPolicy: createDefaultApprovalPolicy({ BUTLER_V5_PI_APPROVAL: "always" }) },
+    )
+    const paused = await first.adapter.start({ projectId: "p1", goal: "写 e.txt" })
+    expect(paused.status).toBe("paused")
+
+    const record = await store.load(paused.taskId)
+    if (!record?.pendingStep) throw new Error("expected a pending step")
+    await store.save({
+      ...record,
+      pendingStep: {
+        ...record.pendingStep,
+        requestedAt: new Date(Date.now() - 60 * 60_000).toISOString(),
+      },
+    })
+
+    const second = setup(scriptedStream([{ text: "不应执行" }]), {
+      store,
+      approvalPolicy: createDefaultApprovalPolicy({ BUTLER_V5_PI_APPROVAL: "always" }),
+    })
+    const resumed = await second.adapter.approve(paused.taskId, true)
+
+    expect(resumed?.approvalOutcome).toBe("expired")
+    expect(resumed?.status).toBe("idle")
+    expect(resumed?.pending).toBeUndefined()
+    expect(resumed?.lastReply).toContain("过期")
+    expect(() => readFileSync(join(root, "e.txt"), "utf8")).toThrow()
+    expect((await store.load(paused.taskId))?.pendingStep).toBeNull()
+  })
+
   it("keeps a rejected task unexecuted", async () => {
     const { adapter } = setup(
       scriptedStream([

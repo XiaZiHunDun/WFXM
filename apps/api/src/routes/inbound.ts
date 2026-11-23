@@ -240,6 +240,9 @@ export function registerInboundRoutes(
       content?: string
       messageId?: string
       conversationId?: unknown
+      /** Optional ordering hints for out-of-order webhook delivery. */
+      sequence?: unknown
+      occurredAtMs?: unknown
     }
     if (
       !body ||
@@ -259,6 +262,8 @@ export function registerInboundRoutes(
         content: body.content,
         ...(body.messageId ? { messageId: body.messageId } : {}),
         conversationId: body.conversationId,
+        ...(typeof body.sequence === "number" ? { sequence: body.sequence } : {}),
+        ...(typeof body.occurredAtMs === "number" ? { occurredAtMs: body.occurredAtMs } : {}),
         engine,
         ...(butler === undefined ? {} : { butler }),
       })

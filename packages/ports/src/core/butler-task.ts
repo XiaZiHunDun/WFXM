@@ -15,6 +15,9 @@ export interface ButlerTaskPending {
   readonly requestedAt?: string
 }
 
+/** Result of forwarding an owner decision; only `approve()` returns it. */
+export type ButlerTaskApprovalOutcome = "approved" | "denied" | "expired" | "duplicate"
+
 export interface ButlerTaskRef {
   readonly taskId: string
   readonly projectId: string
@@ -27,6 +30,11 @@ export interface ButlerTaskRef {
   readonly lastReply?: string
   /** Failure reason of the latest turn, when status is failed. */
   readonly error?: string
+  /**
+   * Set by `approve()` so the butler can distinguish a real approval from an
+   * expired or already-processed decision instead of claiming it ran.
+   */
+  readonly approvalOutcome?: ButlerTaskApprovalOutcome
 }
 
 export interface ButlerTaskPort {

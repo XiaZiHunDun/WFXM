@@ -24,6 +24,27 @@ export type ChannelSendResult =
   | { readonly ok: true; readonly messageId: string | null }
   | { readonly ok: false; readonly reason: string }
 
+/** Uniform reason implementations return for blank text. */
+export const EMPTY_CHANNEL_TEXT_REASON = "empty text"
+
+/** True when there is nothing an owner could read. */
+export function isBlankChannelText(content: string): boolean {
+  return content.trim().length === 0
+}
+
+/**
+ * Outbound contract shared by every channel:
+ *
+ * - `content` is one logical message. Implementations may split it to fit
+ *   their own transport limit, but must not silently drop the tail.
+ * - Blank text returns `{ok:false, reason: EMPTY_CHANNEL_TEXT_REASON}`
+ *   without calling the transport.
+ * - `sendText` never throws; transport/network failures come back as
+ *   `{ok:false, reason}`. Implementations bound their own calls with a
+ *   timeout.
+ * - A successful send reports `ok:true`; `messageId` may be `null` when the
+ *   upstream API has no stable identifier.
+ */
 export interface ChannelPort {
   readonly channelKind: ChannelKind
   /** Send plain text content to the recipient. */

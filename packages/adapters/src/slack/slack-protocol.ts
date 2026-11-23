@@ -41,6 +41,9 @@ export type SlackWebhookParseResult =
       readonly messageId: string
       readonly deliveryChannel: string
       readonly threadTs?: string
+      /** Slack event timestamp in epoch seconds; monotonic per channel. */
+      readonly sequence?: number
+      readonly occurredAtMs?: number
       readonly media?: readonly ChannelInboundMedia[]
     }
   | { readonly kind: "ignore" }
@@ -83,6 +86,8 @@ export function parseSlackEventPayload(body: unknown): SlackWebhookParseResult {
   const ts = ev["ts"]
   const channel = ev["channel"]
   const threadTs = ev["thread_ts"]
+  const numericTs = typeof ts === "string" && ts.trim() !== "" ? Number(ts) : Number.NaN
+  const hasNumericTs = Number.isFinite(numericTs)
   if (typeof user !== "string" || typeof channel !== "string" || !channel.trim()) {
     return { kind: "ignore" }
   }
@@ -95,6 +100,7 @@ export function parseSlackEventPayload(body: unknown): SlackWebhookParseResult {
     content,
     messageId: typeof ts === "string" ? `slack-${ts}` : `slack-${Date.now()}`,
     deliveryChannel: channel.trim(),
+    ...(hasNumericTs ? { sequence: numericTs, occurredAtMs: numericTs * 1000 } : {}),
     ...(fileContent?.media ? { media: fileContent.media } : {}),
     ...(typeof threadTs === "string" && threadTs.trim()
       ? { threadTs: threadTs.trim() }

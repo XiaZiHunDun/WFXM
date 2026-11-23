@@ -7,11 +7,13 @@
  * and proactive notifications without holding a direct iLink reference.
  */
 import { ilinkSendMessage, type ILinkClientConfig } from "./ilink.js"
-import type {
-  ChannelKind,
-  ChannelPort,
-  ChannelRecipient,
-  ChannelSendResult,
+import {
+  EMPTY_CHANNEL_TEXT_REASON,
+  isBlankChannelText,
+  type ChannelKind,
+  type ChannelPort,
+  type ChannelRecipient,
+  type ChannelSendResult,
 } from "@butler/ports/core/channel.js"
 
 export function createWechatChannelPort(client: ILinkClientConfig): ChannelPort {
@@ -21,6 +23,9 @@ export function createWechatChannelPort(client: ILinkClientConfig): ChannelPort 
       readonly recipient: ChannelRecipient
       readonly content: string
     }): Promise<ChannelSendResult> {
+      if (isBlankChannelText(input.content)) {
+        return { ok: false, reason: EMPTY_CHANNEL_TEXT_REASON }
+      }
       const result = await ilinkSendMessage(client, {
         to: input.recipient.address,
         text: input.content,

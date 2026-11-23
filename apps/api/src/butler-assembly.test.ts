@@ -15,7 +15,33 @@ import {
 } from "@butler/runtime/execution/pi-task-runner.js"
 import type { Model } from "@earendil-works/pi-ai"
 import { createAssistantMessageEventStream, type AssistantMessage } from "@earendil-works/pi-ai"
-import { createButlerAssembly, createButlerModelPort } from "./butler-assembly.js"
+import {
+  createButlerAssembly,
+  createButlerModelPort,
+  resolvePiApprovalTtlMs,
+} from "./butler-assembly.js"
+
+describe("resolvePiApprovalTtlMs", () => {
+  it("keeps the runner default when unset or invalid", () => {
+    expect(resolvePiApprovalTtlMs({})).toBeUndefined()
+    const warnings: string[] = []
+    expect(
+      resolvePiApprovalTtlMs(
+        { BUTLER_V5_APPROVAL_TTL_MS: "soon" },
+        {
+          warn: (message) => warnings.push(message),
+        },
+      ),
+    ).toBeUndefined()
+    expect(warnings).toHaveLength(1)
+  })
+
+  it("reads positive values and treats non-positive values as disabled", () => {
+    expect(resolvePiApprovalTtlMs({ BUTLER_V5_APPROVAL_TTL_MS: "60000" })).toBe(60_000)
+    expect(resolvePiApprovalTtlMs({ BUTLER_V5_APPROVAL_TTL_MS: "0" })).toBe(0)
+    expect(resolvePiApprovalTtlMs({ BUTLER_V5_APPROVAL_TTL_MS: "-5" })).toBe(0)
+  })
+})
 
 const MODEL: Model<"openai-completions"> = {
   id: "fake",

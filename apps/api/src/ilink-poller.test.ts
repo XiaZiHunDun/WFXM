@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { inboundFromIlinkMsg, SESSION_EXPIRED_ERRCODE } from "@butler/adapters"
 import { parseIlinkPollerConfig } from "./ilink-config.js"
+import { resetInboundOrdering } from "./inbound-ordering.js"
 import { runIlinkPollCycle, type IlinkPollState } from "./ilink-poller.js"
 
 describe("parseIlinkPollerConfig", () => {
@@ -154,6 +155,48 @@ describe("runIlinkPollCycle", () => {
     expect(inboundCalls).toEqual([{ fromUserId: "u-wx", content: "喝茶", messageId: "m1" }])
     expect(sendCalls).toEqual([{ to: "u-wx", text: "好的，喝茶", contextToken: "ct" }])
     expect(inboundFromIlinkMsg(undefined)).toBeUndefined()
+  })
+
+  it("skips a message that arrives out of order", async () => {
+    resetInboundOrdering()
+    const inboundCalls: unknown[] = []
+    const stats = await runIlinkPollCycle(
+      {
+        getUpdates: async () => ({
+          ok: true,
+          value: {
+            ret: 0,
+            msgs: [
+              {
+                msg_id: "new",
+                from_user_id: "u-order",
+                create_time: 2_000,
+                item_list: [{ type: "text", text_item: { content: "新消息" } }],
+              },
+              {
+                msg_id: "old",
+                from_user_id: "u-order",
+                create_time: 1_000,
+                item_list: [{ type: "text", text_item: { content: "旧消息" } }],
+              },
+            ],
+          },
+        }),
+        postInbound: async (input) => {
+          inboundCalls.push(input)
+          return { ok: true, value: "好的" }
+        },
+        sendMessage: async () => ({ ok: true, value: {} }),
+        accountId: "",
+        emptyPollDelayMs: 0,
+        sessionExpiredSleepMs: 0,
+        sleep: async () => undefined,
+      },
+      { syncBuf: "", seenIds: new Set() },
+    )
+
+    expect(stats).toMatchObject({ processed: 1, sent: 1, skipped: 1 })
+    expect(inboundCalls).toEqual([{ fromUserId: "u-order", content: "新消息", messageId: "new" }])
   })
 
   it("skips the bot's own account id and empty polls", async () => {

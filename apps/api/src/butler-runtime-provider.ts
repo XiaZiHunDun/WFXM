@@ -6,10 +6,12 @@
  */
 import type { ButlerMemoryPort } from "@butler/ports/core/butler-memory.js"
 import type { ChannelKind } from "@butler/ports/core/channel.js"
+import type { ButlerSubagentPort } from "@butler/ports/core/butler-subagent.js"
 import type { TaskMemoryPort } from "@butler/ports/core/task-memory.js"
 import { createButlerAssembly, type ButlerAssembly } from "./butler-assembly.js"
 import { createTaskSettledNotifier, type TaskSettledPushResult } from "./butler-inbound.js"
 import { parseProjectRoots } from "./butler-projects.js"
+import { createButlerSubagentPort } from "./butler-subagent-port.js"
 import {
   deliverSlackChannelReply,
   deliverTelegramChannelReply,
@@ -18,6 +20,7 @@ import {
 } from "./channel-outbound.js"
 import { envTruthy } from "./env-util.js"
 import { resolveWechatProjectAlias } from "./wechat-active-project.js"
+import { runQualityGate } from "./wechat-quality-gate.js"
 import { sendWechatProactiveNotify } from "./wechat-run-notify.js"
 import type { Wiring } from "./wiring.js"
 
@@ -52,6 +55,13 @@ export interface ButlerRuntimeProviderOptions {
     readonly owner: ButlerOwnerRef
     readonly text: string
   }) => Promise<TaskSettledPushResult>
+  /** Overrides the default project quality gate runner. */
+  readonly qualityGate?: (input: {
+    readonly projectId: string
+    readonly nameFilter?: string
+  }) => Promise<{ readonly reply: string; readonly traces?: readonly string[] }>
+  /** Overrides the default subagent dispatch (e.g. in tests). */
+  readonly subagent?: ButlerSubagentPort
 }
 
 /** Default proactive transport per channel kind. */
@@ -107,6 +117,16 @@ export function createButlerRuntimeProvider(
     options.push ??
     ((input: { owner: ButlerOwnerRef; text: string }) =>
       defaultProactivePush(input.owner, input.text, env))
+  const qualityGate =
+    options.qualityGate ??
+    ((input: { projectId: string; nameFilter?: string }) =>
+      runQualityGate({
+        projectId: input.projectId,
+        ...(input.nameFilter === undefined ? {} : { nameFilter: input.nameFilter }),
+        env,
+        ...(wiring.runtimeStore === undefined ? {} : { runtimeStore: wiring.runtimeStore }),
+      }))
+  const subagent = options.subagent ?? createButlerSubagentPort(wiring, env)
   let cached: Promise<ButlerAssembly> | null = null
 
   async function assembly(): Promise<ButlerAssembly> {
@@ -126,6 +146,8 @@ export function createButlerRuntimeProvider(
                   ? {}
                   : { butlerMemory: options.memory.butler }),
                 ...(options.memory?.task === undefined ? {} : { taskMemory: options.memory.task }),
+                qualityGate,
+                ...(subagent === undefined ? {} : { subagent }),
               }),
         )
         .catch((error: unknown) => {

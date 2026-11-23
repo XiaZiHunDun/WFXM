@@ -878,6 +878,7 @@ describe("PiTaskRunner", () => {
       expect(counter.runs).toBe(0)
       expect(result.reply).toContain("过期")
       expect((await second.load("t1"))?.pendingStep).toBeNull()
+      expect((await second.load("t1"))?.snapshot.lastReply).toContain("过期")
     })
   })
 

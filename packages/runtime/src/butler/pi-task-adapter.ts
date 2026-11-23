@@ -6,7 +6,11 @@
  * and approval forwarding.
  */
 import { randomUUID } from "node:crypto"
-import type { ButlerTaskPort, ButlerTaskRef } from "@butler/ports/core/butler-task.js"
+import type {
+  ButlerTaskApprovalOutcome,
+  ButlerTaskPort,
+  ButlerTaskRef,
+} from "@butler/ports/core/butler-task.js"
 import type { PiTaskSessionRecord } from "@butler/ports/core/pi-task-session.js"
 import type { PiTaskRunner } from "../execution/pi-task-runner.js"
 import { buildRepoMap } from "../execution/repo-map.js"
@@ -192,9 +196,14 @@ export function createPiTaskPortAdapter(
       const record = await runner.load(taskId)
       if (!record) return null
       if (record.status !== "paused" || record.pendingStep === null) return null
-      const run = runner.resume(taskId, { approved })
+      let approvalOutcome: ButlerTaskApprovalOutcome = approved ? "approved" : "denied"
+      const run = runner.resume(taskId, { approved }).then((result) => {
+        if (result.traces.includes("approval:expired")) approvalOutcome = "expired"
+        else if (result.traces.includes("approval:duplicate")) approvalOutcome = "duplicate"
+      })
       await track(taskId, run)
-      return (await statusOf(taskId)) ?? toRef(record)
+      const ref = (await statusOf(taskId)) ?? toRef(record)
+      return { ...ref, approvalOutcome }
     },
 
     /**

@@ -15,6 +15,7 @@ export const BUTLER_HELP_TEXT = [
   "/retry [任务ID] 重试失败或中断的任务",
   "/diagnose 诊断当前会话与任务状态",
   "/undo 查看撤销边界（不支持自动撤销）",
+  "/门禁 [步骤] 运行项目质量门禁",
   "/project [项目ID] 查看或切换项目",
   "/remember <内容> 记住一条长期信息",
   "确认 / 拒绝 处理任务审批",
@@ -30,6 +31,7 @@ export type ButlerRuleAction =
   | { readonly kind: "retry"; readonly name: string; readonly taskId?: string }
   | { readonly kind: "diagnose"; readonly name: string }
   | { readonly kind: "undo"; readonly name: string }
+  | { readonly kind: "quality"; readonly name: string; readonly nameFilter?: string }
   | {
       readonly kind: "approve"
       readonly name: string
@@ -138,6 +140,16 @@ export function matchButlerRule(input: ButlerRuleInput): ButlerRuleAction | null
   if (lower === "/undo" || UNDO_WORDS.has(text)) {
     return { kind: "undo", name: "undo" }
   }
+
+  const qualityMatch = /^\/(?:验|门禁|quality|gate)(?:\s+(\S+))?$/i.exec(text)
+  if (qualityMatch) {
+    const target = qualityMatch[1]?.trim()
+    return target === undefined || target.length === 0
+      ? { kind: "quality", name: "quality" }
+      : { kind: "quality", name: "quality", nameFilter: target }
+  }
+
+  if (text === "质量门禁") return { kind: "quality", name: "quality" }
 
   const taskId = input.activeTaskId
   const intent = matchApprovalWord(text)

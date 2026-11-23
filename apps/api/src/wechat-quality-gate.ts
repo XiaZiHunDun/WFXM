@@ -118,50 +118,56 @@ function done(reply: string, traces: readonly string[]): ButlerLoopResult {
   }
 }
 
-export async function tryWechatQualityGateCommand(args: {
-  readonly fromUserId: string
-  readonly content: string
+export interface QualityGateRunInput {
+  readonly projectId: string
+  readonly nameFilter?: string
   readonly env?: NodeJS.ProcessEnv
   readonly runtimeStore?: RuntimeStore
-}): Promise<ButlerLoopResult | null> {
-  const env = args.env ?? process.env
-  const trimmed = args.content.trim()
-  if (trimmed !== "/验" && trimmed !== "/门禁" && !trimmed.startsWith("/验 ")) {
-    return null
-  }
+  readonly subject?: string
+}
 
-  const active = getWechatActiveProjectId(args.fromUserId, env)
-  const project = gateProject(active, env)
+export interface QualityGateRunResult {
+  readonly reply: string
+  readonly traces: readonly string[]
+}
+
+/**
+ * Runs a project's configured quality gate. Shared by the legacy `/验`
+ * command and the butler rule so both入口 report identically.
+ */
+export async function runQualityGate(args: QualityGateRunInput): Promise<QualityGateRunResult> {
+  const env = args.env ?? process.env
+  const projectId = args.projectId.trim()
+  const project = gateProject(projectId, env)
   // D58 T5 + D59 T2 (audit #3 F-06 + F-02): surface the owner-facing label
   // (e.g. "WFXM") rather than the raw internal id ("wechat"). Catalog is
   // defined in parseWechatProjectCatalog; falls back to id when no
   // label exists. Resolve once at the top so the missing-config reply
   // and the success-path heading share the same owner-facing label.
-  const ownerLabel = resolveWechatProjectLabel(active, env)
+  const ownerLabel = resolveWechatProjectLabel(projectId, env)
   if (!project || project.commands.length === 0) {
-    return done(`项目「${ownerLabel}」未配置质量门禁。\n请联系管理员配置后重试。`, [
-      "quality-gate: missing config",
-    ])
+    return {
+      reply: `项目「${ownerLabel}」未配置质量门禁。\n请联系管理员配置后重试。`,
+      traces: ["quality-gate: missing config"],
+    }
   }
 
-  const nameFilter =
-    trimmed.startsWith("/验 ") && trimmed.length > "/验 ".length
-      ? trimmed.slice("/验 ".length).trim()
-      : undefined
+  const nameFilter = args.nameFilter?.trim()
   const commands = nameFilter
     ? project.commands.filter((cmd) => cmd.name === nameFilter)
     : project.commands
   if (commands.length === 0) {
-    return done(`未找到门禁「${nameFilter}」。`, ["quality-gate: unknown name"])
+    return { reply: `未找到门禁「${nameFilter}」。`, traces: ["quality-gate: unknown name"] }
   }
 
   const root = workspaceRootFromEnv(env)
   const cwd = resolve(root, (project.cwd ?? ".").trim() || ".")
   const lines = [`【${ownerLabel} 质量门禁】`]
   let failed = 0
-  const audit: ExecAuditContext | undefined = args.runtimeStore
-    ? { runtimeStore: args.runtimeStore, subject: args.fromUserId }
-    : undefined
+  const audit: ExecAuditContext | undefined =
+    args.runtimeStore && args.subject
+      ? { runtimeStore: args.runtimeStore, subject: args.subject }
+      : undefined
 
   for (const cmd of commands) {
     const timeoutMs = cmd.timeoutMs ?? 60_000
@@ -181,5 +187,32 @@ export async function tryWechatQualityGateCommand(args: {
   }
 
   lines.push("", failed === 0 ? "全部通过。" : `${failed} 项失败。`)
-  return done(lines.join("\n"), [`quality-gate: ${active} failed=${failed}`])
+  return { reply: lines.join("\n"), traces: [`quality-gate: ${projectId} failed=${failed}`] }
+}
+
+export async function tryWechatQualityGateCommand(args: {
+  readonly fromUserId: string
+  readonly content: string
+  readonly env?: NodeJS.ProcessEnv
+  readonly runtimeStore?: RuntimeStore
+}): Promise<ButlerLoopResult | null> {
+  const trimmed = args.content.trim()
+  if (trimmed !== "/验" && trimmed !== "/门禁" && !trimmed.startsWith("/验 ")) {
+    return null
+  }
+
+  const env = args.env ?? process.env
+  const active = getWechatActiveProjectId(args.fromUserId, env)
+  const nameFilter =
+    trimmed.startsWith("/验 ") && trimmed.length > "/验 ".length
+      ? trimmed.slice("/验 ".length).trim()
+      : undefined
+  const outcome = await runQualityGate({
+    projectId: active,
+    ...(nameFilter === undefined ? {} : { nameFilter }),
+    env,
+    ...(args.runtimeStore ? { runtimeStore: args.runtimeStore } : {}),
+    subject: args.fromUserId,
+  })
+  return done(outcome.reply, outcome.traces)
 }

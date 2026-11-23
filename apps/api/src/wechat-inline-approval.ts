@@ -146,7 +146,9 @@ export async function tryWechatInlineApproval(args: {
     const decision = await approveWaitingStep(args.wiring.runtimeStore, step.id, args.fromUserId)
     if (decision._tag === "alreadyProcessed") {
       return {
-        reply: "该操作已处理，无需重复审批。",
+        reply: decision.reason.includes("expired")
+          ? "审批已过期，本步未执行。"
+          : "该操作已处理，无需重复审批。",
         iterations: 0,
         toolCalls: 0,
         finalDecision: "Finish",

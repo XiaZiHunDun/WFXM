@@ -40,6 +40,8 @@ export type IlinkInbound = {
   readonly content: string
   readonly messageId: string
   readonly contextToken: string
+  /** Upstream message time in milliseconds, when provided. */
+  readonly occurredAtMs?: number
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -125,6 +127,21 @@ export function isIlinkGroupMessage(msg: unknown): boolean {
   return Boolean(strField(rec, "room_id").trim() || strField(rec, "chat_room_id").trim())
 }
 
+function ilinkOccurredAtMs(rec: Record<string, unknown>): number | undefined {
+  for (const field of ["create_time", "msg_time", "timestamp"]) {
+    const raw = rec[field]
+    const value =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string" && raw.trim() !== ""
+          ? Number(raw)
+          : Number.NaN
+    if (!Number.isFinite(value) || value <= 0) continue
+    return value < 1e12 ? value * 1000 : value
+  }
+  return undefined
+}
+
 export function inboundFromIlinkMsg(msg: unknown): IlinkInbound | undefined {
   const rec = asRecord(msg)
   if (!rec) {
@@ -143,7 +160,14 @@ export function inboundFromIlinkMsg(msg: unknown): IlinkInbound | undefined {
     strField(rec, "msg_id").trim() ||
     strField(rec, "client_id").trim()
   const contextToken = strField(rec, "context_token").trim()
-  return { fromUserId, content, messageId, contextToken }
+  const occurredAtMs = ilinkOccurredAtMs(rec)
+  return {
+    fromUserId,
+    content,
+    messageId,
+    contextToken,
+    ...(occurredAtMs === undefined ? {} : { occurredAtMs }),
+  }
 }
 
 export function isSessionExpired(response: Record<string, unknown>): boolean {

@@ -12,7 +12,11 @@
  *   - unwrap Secret<string> at the fetch call site (D74 T4 SEC-006)
  */
 import type { Hono } from "hono"
-import type { ChannelPort } from "@butler/ports/core/channel.js"
+import {
+  EMPTY_CHANNEL_TEXT_REASON,
+  isBlankChannelText,
+  type ChannelPort,
+} from "@butler/ports/core/channel.js"
 import type { Wiring } from "../wiring.js"
 import { isTelegramChannelEnabled, resolveChannelEngine } from "../channel-config.js"
 import {
@@ -75,6 +79,9 @@ export function registerTelegramWebhookRoutes(
         const channel: ChannelPort = {
           channelKind: "telegram",
           async sendText({ content }) {
+            if (isBlankChannelText(content)) {
+              return { ok: false, reason: EMPTY_CHANNEL_TEXT_REASON }
+            }
             if (!telegramToken) {
               return { ok: false, reason: "BUTLER_V5_TELEGRAM_BOT_TOKEN 未配置" }
             }
@@ -94,6 +101,8 @@ export function registerTelegramWebhookRoutes(
           fromSubject: parsed.fromSubject,
           content: inboundContent,
           messageId: parsed.messageId,
+          ...(parsed.sequence === undefined ? {} : { sequence: parsed.sequence }),
+          ...(parsed.occurredAtMs === undefined ? {} : { occurredAtMs: parsed.occurredAtMs }),
           engine,
           ...(butler === undefined ? {} : { butler }),
           channel,
@@ -105,6 +114,7 @@ export function registerTelegramWebhookRoutes(
             conversationId: result.conversationId,
             delivered: result.delivered ?? false,
             mediaCount: 0,
+            ...(result.skipped === true ? { skipped: true, skipReason: result.skipReason } : {}),
             ...(result.deliveryReason ? { deliveryReason: result.deliveryReason } : {}),
           },
           200,
@@ -116,13 +126,15 @@ export function registerTelegramWebhookRoutes(
         fromSubject: parsed.fromSubject,
         content: inboundContent,
         messageId: parsed.messageId,
+        ...(parsed.sequence === undefined ? {} : { sequence: parsed.sequence }),
+        ...(parsed.occurredAtMs === undefined ? {} : { occurredAtMs: parsed.occurredAtMs }),
       })
       let delivered = false
       let deliveryReason: string | undefined
       let mediaCount = 0
       // D74 T4 (audit #20 SEC-006): see Slack handler above.
       const telegramToken = telegramBotToken(process.env).unwrap()
-      if (telegramToken) {
+      if (!result.skipped && telegramToken) {
         const outbound = await deliverTelegramChannelReply({
           token: telegramToken,
           chatId: parsed.fromSubject,
@@ -139,6 +151,7 @@ export function registerTelegramWebhookRoutes(
           conversationId: result.conversationId,
           delivered,
           mediaCount,
+          ...(result.skipped === true ? { skipped: true, skipReason: result.skipReason } : {}),
           ...(deliveryReason ? { deliveryReason } : {}),
         },
         200,

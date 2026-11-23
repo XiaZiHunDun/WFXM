@@ -86,7 +86,7 @@
 | 显式记忆 | `/记住` | `/remember`、`记住：X` |
 | 项目切换 | `/切换` | `/project`、`切换项目 X` |
 | 撤销 / 重试 / 诊断 | 有 | 有：`/undo`（边界说明）、`/retry`、`/diagnose` |
-| 质量门 / 子代理 | 有 | 无（仍留在旧入口） |
+| 质量门 / 子代理 | 有 | 有：`/门禁 [步骤]`；`delegate_to_subagent` 工具（`BUTLER_V5_SUBAGENT_ENABLED` 控制） |
 | 工程执行（读写 / 命令 / 委派） | 模型工具 | 任务层 pi runner |
 
 切换前置条件已满足：管家路径补齐 owner 依赖的撤销/重试/诊断能力；具备 per-channel 灰度开关与回滚；关键能力有外部契约测试。生产默认仍为 legacy，直到质量门/子代理迁移另有决策。
@@ -130,6 +130,12 @@
 - per-channel 灰度：`BUTLER_V5_<CHANNEL>_ENGINE` / `BUTLER_V5_CHANNEL_ENGINE`，默认 legacy；`BUTLER_V5_CHANNEL_PROJECTS` / `BUTLER_V5_DEFAULT_PROJECT_ID` 决定管家项目。
 - Slack / Telegram / generic channel 在 butler 模式下共用 `createButlerRuntimeProvider`，通知按渠道经 ChannelPort 推送；旧入口代码路径未改。
 - 新增契约测试：`butler-channel-cutover.test.ts`、channel-config 引擎/项目解析、任务端口重试与管家分支用例。
+
+**C3 收尾第二批（2026-11-23）**
+
+- 质量门收敛为 `runQualityGate`：旧 `/验` `/门禁` 与管家 `/门禁 [步骤]` 共用，回复口径一致；管家未注入时返回可读提示。
+- 子代理接入管家：新增 `ButlerSubagentPort` 与 `delegate_to_subagent` 工具，包装既有 delegate 工具（capability 校验/审计/child-run 创建保持不变），受 `BUTLER_V5_SUBAGENT_ENABLED` 控制。
+- ChannelPort 出站契约统一：空文本返回 `EMPTY_CHANNEL_TEXT_REASON`，wechat / slack / telegram 三个出站口一致，且 `sendText` 不抛错。
 
 验证结果：
 

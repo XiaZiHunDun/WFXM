@@ -19,6 +19,7 @@
     "./core/task-memory.js": "./src/core/task-memory.ts",
     "./core/butler-memory.js": "./src/core/butler-memory.ts",
     "./core/butler-task.js": "./src/core/butler-task.ts",
+    "./core/butler-subagent.js": "./src/core/butler-subagent.ts",
     "./core/butler-session.js": "./src/core/butler-session.ts",
     "./mcp-manifest-path.js": "./src/mcp-manifest-path.ts",
     "./network-allowlist-hash.js": "./src/network-allowlist-hash.ts"

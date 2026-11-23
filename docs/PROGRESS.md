@@ -64,11 +64,25 @@
 
 | 项 | 说明 |
 |----|------|
-| 乱序到达 | 未覆盖；需要会话内序号或时间窗机制 |
-| 审批超时过期 | 当前无 TTL 机制，仅测了「无待审批」路径 |
 | capped 分支 | 模型未跑满 12 轮，真机只验证了推送通道，判定本身仍靠单测 |
 | compose 启动告警 | `POSTGRES_PASSWORD missing`，容器已在运行故不影响，但首次全新部署需补齐 |
 | 本机 SSH 代理 | `127.0.0.1:7890` 不可用时 push 需 `ProxyCommand=none` |
+
+### 遗留补齐（2026-11-23）
+
+| 项 | 结果 |
+|----|------|
+| 审批超时过期 | `PiTaskRunner.approvalTtlMs` 经 `BUTLER_V5_APPROVAL_TTL_MS` 可配置（默认 30 分钟，`<=0` 关闭）；过期后清空 pending、写入 `lastReply`，管家卡片与规则路径均回「审批已过期，本步未执行。」，不再误报「已确认」；legacy `approveWaitingStep` 过期时同样给出明确文案 |
+| 乱序到达 | 新增 `apps/api/src/inbound-ordering.ts`：会话级序号（Slack `ts`、Telegram `message_id`）+ 时间窗（`BUTLER_V5_INBOUND_ORDER_WINDOW_MS`，默认 120s，`0` 关闭）；旧消息不追加事件、不执行、不发送，响应带 `skipped/skipReason`，trace 为 `inbound-order:<reason>`；iLink 提供 `create_time/msg_time` 时同样生效 |
+| 边界 | 排序状态为进程内、有上限；多进程或跨重启不共享，无排序元数据的渠道退化为按到达顺序 + 既有幂等去重 |
+
+验收证据（2026-11-23 复跑）：
+
+| 项 | 结果 |
+|----|------|
+| `pnpm test` | 279 文件 / 2,423 通过 / 2 skipped |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 全绿，0 warning |
+| `pnpm verify:butler` | 3 场景 / 13 轮全过 |
 
 ---
 
@@ -194,16 +208,22 @@
 
 | 项 | 结果 |
 |----|------|
-| `pnpm test` | 278 文件 / 2,401 通过 / 2 skipped |
+| `pnpm test` | 278 文件 / 2,405 通过 / 2 skipped（含第二批收尾） |
 | `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 全绿，0 warning |
 | `pnpm verify:butler` | 3 场景 / 13 轮全过（含 `/diagnose` `/undo` `/retry`） |
+
+### Phase 3 收尾（2026-11-23，第二批）
+
+| 项 | 结果 |
+|----|------|
+| 质量门 | 抽出 `runQualityGate`，旧 `/验` `/门禁` 与管家 `/门禁 [步骤]` 共用同一实现；未注入时给可读提示 |
+| 子代理 | 新增 `ButlerSubagentPort` 与 `delegate_to_subagent` 工具，由 `BUTLER_V5_SUBAGENT_ENABLED` 控制，包装既有 delegate 工具 |
+| ChannelPort 契约 | 空文本统一 `EMPTY_CHANNEL_TEXT_REASON`；wechat / slack / telegram 出站口一致；generic 走 no-op 并在响应体回传 |
 
 遗留与风险（不阻塞，需单独立项）：
 
 | 项 | 说明 |
 |----|------|
-| 质量门 / 子代理 | 仍只在旧入口；迁到管家路径需单独立项 |
-| ChannelPort 契约 | 空文本/超长/超时语义未统一，暂由各适配器防御性裁剪 |
 | 进程内并行 | 全局锁为 FIFO 串行；真正的并行需多 worker / 多进程设计 |
 | 429/5xx 重试 | 委托 `retryAssistantCall`，未新增网络级重试用例 |
 | judge 严格模式 | 仍为 observe，稳定后再转 `--judge` |
