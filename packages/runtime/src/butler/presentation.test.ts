@@ -67,6 +67,29 @@ describe("sanitizeForWechat", () => {
     expect(sanitizeForWechat("已写入 Durable Memory")).toBe("已写入长期记忆")
     expect(sanitizeForWechat("更新了 Project Knowledge")).toBe("更新了项目知识")
   })
+
+  it("redacts absolute paths while leaving URLs and commands alone", () => {
+    expect(sanitizeForWechat("文件在 /home/ailearn/projects/WFXM/src/a.ts")).toBe(
+      "文件在 项目目录/a.ts",
+    )
+    expect(sanitizeForWechat("配置：C:\\Users\\me\\repo\\config.ts")).toBe(
+      "配置：项目目录/config.ts",
+    )
+    expect(sanitizeForWechat("目录 /home/ailearn/projects/WFXM")).toBe("目录 项目目录/WFXM")
+    expect(sanitizeForWechat("打开 file:///home/ailearn/projects/WFXM/a.ts")).toBe(
+      "打开 项目目录/a.ts",
+    )
+    expect(sanitizeForWechat("参考 https://example.com/home/page")).toBe(
+      "参考 https://example.com/home/page",
+    )
+    expect(sanitizeForWechat("/help 可用")).toBe("/help 可用")
+  })
+
+  it("maps butler tool ids to owner actions", () => {
+    expect(sanitizeForWechat("已调用 start_task 和 list_tasks")).toBe(
+      "已调用 创建任务 和 查看任务列表",
+    )
+  })
 })
 
 describe("finalizeReply", () => {

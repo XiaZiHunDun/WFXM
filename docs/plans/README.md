@@ -45,7 +45,7 @@ v4 时期的 archive / comparisons / corpus / roadmaps / templates / pilot-repor
 | [`active/phase2-findings-2026-11-19.md`](active/phase2-findings-2026-11-19.md) | T1 清理记录与遗留缺陷 |
 | [`active/phase3-eval-system-2026-11-19.md`](active/phase3-eval-system-2026-11-19.md) | 测评体系设计与实施记录（已完成） |
 | [`active/phase3-task-layer-foundation-2026-11-20.md`](active/phase3-task-layer-foundation-2026-11-20.md) | 任务层地基十层打磨与关键点测评（已完成） |
-| [`active/phase3b-butler-layer-2026-11-20.md`](active/phase3b-butler-layer-2026-11-20.md) | 管家层体检与 B11–B16 打磨方案（B11–B15 已交付） |
+| [`active/phase3b-butler-layer-2026-11-20.md`](active/phase3b-butler-layer-2026-11-20.md) | 管家层体检与 B11–B16 打磨方案（已全部交付） |
 
 其余 `v5-*.md` 为各专题 handoff / proposal / 触发说明，按文件名查阅。
 

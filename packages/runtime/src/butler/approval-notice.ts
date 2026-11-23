@@ -6,7 +6,7 @@
  * end up in `ButlerRuntime.handleApprovalCallback` via `parseApprovalPayload`.
  */
 import type { ButlerTaskRef } from "@butler/ports/core/butler-task.js"
-import { toolActionLabel } from "./presentation.js"
+import { sanitizeForWechat, toolActionLabel } from "./presentation.js"
 
 export interface ButlerApprovalAction {
   readonly id: "approve" | "reject"
@@ -32,11 +32,13 @@ export function buildApprovalNotice(task: ButlerTaskRef): ButlerApprovalNotice |
   if (!pending || task.status !== "paused") return null
 
   const title = `任务 ${task.taskId} 需要确认`
+  const summary = task.summary === undefined ? "" : sanitizeForWechat(task.summary)
+  const reason = sanitizeForWechat(pending.reason)
   const text = [
     title,
-    ...(task.summary === undefined ? [] : [`目标：${task.summary}`]),
+    ...(summary.length === 0 ? [] : [`目标：${summary}`]),
     `待执行：${toolActionLabel(pending.toolName)}`,
-    `原因：${pending.reason}`,
+    ...(reason.length === 0 ? [] : [`原因：${reason}`]),
     "回复「确认」继续，或「拒绝」取消。",
   ].join("\n")
 

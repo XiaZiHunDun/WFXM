@@ -28,6 +28,23 @@ describe("buildApprovalNotice", () => {
     expect(buildApprovalNotice({ ...paused, status: "idle" })).toBeNull()
     expect(buildApprovalNotice({ ...paused, pending: undefined })).toBeNull()
   })
+
+  it("keeps workspace paths and raw tool ids out of the notice", () => {
+    const notice = buildApprovalNotice({
+      ...paused,
+      summary: "修改 /home/ailearn/projects/WFXM/src/a.ts",
+      pending: {
+        toolName: "write",
+        reason: "write_file 要写入 /home/ailearn/projects/WFXM/src/a.ts，需要确认",
+        requestedAt: "2026-11-17T10:00:00Z",
+      },
+    })
+
+    expect(notice?.text).toContain("待执行：修改文件")
+    expect(notice?.text).toContain("项目目录")
+    expect(notice?.text).not.toContain("/home/")
+    expect(notice?.text).not.toContain("write_file")
+  })
 })
 
 describe("parseApprovalPayload", () => {

@@ -80,6 +80,16 @@ describe("sanitizeForWechat：不把内部形态泄漏给用户", () => {
     expect(out).toContain("修改文件")
   })
 
+  it("不把工作区绝对路径泄漏给用户", () => {
+    const out = finalizeReply(
+      "改动落在 /home/ailearn/projects/WFXM/packages/runtime/src/a.ts 和 C:\\work\\repo\\b.ts",
+    )
+    expect(out).not.toContain("/home/")
+    expect(out).not.toContain("C:\\work")
+    expect(out).toContain("项目目录/a.ts")
+    expect(out).toContain("项目目录/b.ts")
+  })
+
   it("剥离不可见控制字符，仅剩控制字符时走兜底（F-06）", () => {
     // eslint-disable-next-line no-control-regex -- asserting C0/C1 controls are removed
     const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/

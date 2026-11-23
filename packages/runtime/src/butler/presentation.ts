@@ -72,6 +72,33 @@ const TOOL_ID_LABELS: Readonly<Record<string, string>> = {
   run_command: "执行命令",
   send_wechat_file: "发送文件",
   delegate_to_subagent: "委派子任务",
+  start_task: "创建任务",
+  list_tasks: "查看任务列表",
+  task_status: "查询任务",
+}
+
+const TOOL_ID_PATTERN = new RegExp(`\\b(${Object.keys(TOOL_ID_LABELS).join("|")})\\b`, "g")
+
+/**
+ * Absolute paths are internal, but the file name is useful to the owner: keep
+ * the basename and replace the directory with "项目目录". Relative paths inside
+ * a repo map stay untouched.
+ */
+const UNIX_ABSOLUTE_PATH =
+  /(^|[\s（(：:，,。；;、"'])(\/(?:home|Users|root|opt|srv|var|tmp|mnt|media|usr|data|workspace|app|projects)\/[^\s，。；;、）)】」』"']*)/gm
+
+const WINDOWS_ABSOLUTE_PATH = /(^|[\s（(：:，,。；;、"'])([A-Za-z]:\\[^\s，。；;、）)】」』"']*)/g
+
+const FILE_URL_PATH = /file:\/\/[^\s，。；;、）)】」』"']*/g
+
+/** `/home/me/repo/a.ts` → `项目目录/a.ts`; a bare directory → `项目目录`. */
+function redactPath(path: string): string {
+  if (path.endsWith("/") || path.endsWith("\\")) return "项目目录"
+  const name = path
+    .split(/[\\/]/)
+    .filter((part) => part.length > 0)
+    .pop()
+  return name === undefined ? "项目目录" : `项目目录/${name}`
 }
 
 /** C0/C1 control characters are invisible or render as garbage on WeChat. */
@@ -89,9 +116,15 @@ export function sanitizeForWechat(text: string): string {
     value = value.replace(pattern, replacement)
   }
   value = value.replace(/\bmcp_[A-Za-z0-9_.-]+\b/g, "外部工具")
+  value = value.replace(TOOL_ID_PATTERN, (name: string) => TOOL_ID_LABELS[name] ?? name)
+  value = value.replace(FILE_URL_PATH, (path: string) => redactPath(path.replace(/^file:\/\//, "")))
   value = value.replace(
-    /\b(read_file|list_dir|write_file|edit_file|apply_patch|delete_file|run_command|send_wechat_file|delegate_to_subagent)\b/g,
-    (name: string) => TOOL_ID_LABELS[name] ?? name,
+    UNIX_ABSOLUTE_PATH,
+    (_match: string, prefix: string, path: string) => `${prefix}${redactPath(path)}`,
+  )
+  value = value.replace(
+    WINDOWS_ABSOLUTE_PATH,
+    (_match: string, prefix: string, path: string) => `${prefix}${redactPath(path)}`,
   )
   value = value.replace(/```[^\n]*\n([\s\S]*?)```/g, "$1")
   value = value.replace(/```/g, "")
