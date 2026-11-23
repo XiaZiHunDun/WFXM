@@ -11,7 +11,7 @@
 | 阶段 | 目标 | 状态 | 验收日期 |
 |------|------|------|----------|
 | Phase 1 | 主要流程打通，基础功能正常，不报错，无明显消息丢失 | ✅ 完成 | 2026-11-19 |
-| Phase 2 | 功能深化（爆点/差异化），按 ROI 选点 | 🚧 进行中（测评体系已完成；C1 提醒 / C2 审批预览 / C3 周报已实现） | — |
+| Phase 2 | 功能深化（爆点/差异化），按 ROI 选点 | ✅ 完成（测评体系 + C1 提醒 / C2 审批预览 / C3 周报） | 2026-11-23 |
 | Phase 3 | 功能打磨：地基 → 楼层 → 体验 | ✅ 完成（任务层 / 管家层 / 渠道与产品能力） | 2026-11-23 |
 
 ---
@@ -86,9 +86,9 @@
 
 ---
 
-## Phase 2 — 功能深化（🚧）
+## Phase 2 — 功能深化（✅ 2026-11-23）
 
-> 本阶段包含两块：**测试与评估体系**（✅ 已收尾）与**功能深化（爆点/差异化）**（未开始，需从 ROADMAP §4 选定 2–3 个 owner 撞点）。首块任务书见 [`plans/active/phase2-test-eval-system-2026-11-19.md`](plans/active/phase2-test-eval-system-2026-11-19.md)。
+> 本阶段包含两块：**测试与评估体系**（✅ 已收尾）与**功能深化（爆点/差异化）**（✅ 已收尾，C1–C3 已交付）。首块任务书见 [`plans/active/phase2-test-eval-system-2026-11-19.md`](plans/active/phase2-test-eval-system-2026-11-19.md)。
 >
 > 注意：部分测评文档（如 [`phase3-eval-system-2026-11-19.md`](plans/active/phase3-eval-system-2026-11-19.md)）里的 “Phase 2 / Phase 3” 指测评设计内部阶段，不是项目阶段编号。
 
@@ -118,7 +118,43 @@
 2. 从 [`ROADMAP.md`](ROADMAP.md) §4（维度 2）与 [`plans/active/v5-post-boundary-roadmap-2026-08.md`](plans/active/v5-post-boundary-roadmap-2026-08.md) 选定 2–3 个 owner 撞点；
 3. 每个选点写明：用户场景、成功判据、失败可见性、回滚方式。
 
-> 阶段结束时新增一节，写清目标、证据（复跑）、闭环问题、遗留，并把总览表状态改为 ✅。
+### 功能深化（✅ 已收尾，2026-11-23）
+
+选点：按入口条件从 [`plans/active/phase2-feature-deepening-2026-11-23.md`](plans/active/phase2-feature-deepening-2026-11-23.md)
+的候选中选定 C1 + C2 + C3；C4（入站图片 / 文件理解）明确不做。
+
+| 选点 | 用户场景 | 交付 | 规格 |
+|------|----------|------|------|
+| C1 自然语言提醒 | 微信一句话创建一次性 / 每天 / 每周提醒，到点主动推送，可查看 / 取消，重启不丢 | `reminders` 表 + 3 个工具 + reminder worker | [spec](plans/active/phase2-c1-reminders/spec.md) |
+| C2 审批前预览 | 审批消息直接展示 `write_file` diff / `run_command` 全文，降低误批 | 纯渲染器 + 审批链路 + owner `preview` 字段 | [spec](plans/active/phase2-c2-approval-preview/spec.md) |
+| C3 每周周报 | 每周固定时间推送完成 / 待办 / 失败 / 审批四项数字，也可 `/周报` 手动查看 | weekly-digest 统计/渲染 + 手动命令 + 定时 worker | [spec](plans/active/phase2-c3-weekly-digest/spec.md) |
+
+验收证据（2026-11-23 复跑）：
+
+| 项 | 结果 |
+|----|------|
+| `pnpm test` | 288 文件 / 2,480 通过 / 2 skipped |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 全绿，0 warning |
+| 冒烟 | 提醒：本地端到端 + 真实 iLink 推送成功；周报：acceptance 覆盖手动与自动推送 |
+| 默认开关 | C1 / C2 / C3 均默认关闭；关闭后无工具注册、worker 启动或文案变化 |
+
+本阶段闭环的问题：
+
+| 问题 | 结果 |
+|------|------|
+| 提醒时间歧义 / 非法日期 | 统一 `Asia/Shanghai`；非法日期与过去时间返回可读原因，不猜测 |
+| 审批正文只有「需要修改文件 X」 | 审批消息与 owner API 增加 diff / 命令全文，超限截断并标注 |
+| 周报数字口径不统一 | 复用 TaskStore / tracer `run_failed` / `approval.requested` audit，与 `/tasks`、`/usage` 对齐 |
+
+遗留（不阻塞 Phase 2 关闭）：
+
+| 项 | 说明 |
+|----|------|
+| C4 入站图片 / 文件理解 | 需 OCR / 多模态能力，当前无 owner 痛点实证，暂不做 |
+| 公网 Demo / 自托管手册 | 属 ROADMAP §4 后续维度，不在本阶段范围 |
+| 提醒 / 周报默认关闭 | 生产需显式开启并配置接收人；后续按 owner 手试反馈再评估默认值 |
+
+> 阶段收尾已按约定完成（2026-11-23），总览表状态已改为 ✅。
 
 ---
 
