@@ -257,6 +257,8 @@
 | `BUTLER_V5_INTAKE_ENABLED` | bool | `0` | intake path 启用 | [`apps/api/src/wechat-intake-llm.ts`](../apps/api/src/wechat-intake-llm.ts) | 🟡 |
 | `BUTLER_V5_INTAKE_LLM` | bool | `0` | intake 用 LLM | `wechat-intake-llm.ts` | 🟡 |
 | `BUTLER_V5_DEMO_PORT` | int | `4520` | 本地 demo 控制台监听端口（仅 `127.0.0.1`） | [`scripts/demo-server.ts`](../scripts/demo-server.ts) | 🟡 |
+| `BUTLER_V5_DEMO_REAL_LLM` | bool | `0` | `1` 时 demo 控制台使用真实 LLM（不加载 fixture） | [`scripts/demo-server.ts`](../scripts/demo-server.ts) | 🟡 |
+| `BUTLER_V5_DEMO_WORKSPACE` | path | `projects/ledger-lite` | 真实模式下的持久化项目工作区 | [`scripts/demo-server.ts`](../scripts/demo-server.ts) | 🟡 |
 
 ## §15 Tracing / OTEL / Misc
 

@@ -13,6 +13,7 @@
 | Phase 1 | 主要流程打通，基础功能正常，不报错，无明显消息丢失 | ✅ 完成 | 2026-11-19 |
 | Phase 2 | 功能深化（爆点/差异化），按 ROI 选点 | ✅ 完成（测评体系 + C1 提醒 / C2 审批预览 / C3 周报） | 2026-11-23 |
 | Phase 3 | 功能打磨：地基 → 楼层 → 体验 | ✅ 完成（任务层 / 管家层 / 渠道与产品能力） | 2026-11-23 |
+| Phase 4 | 验证实际开发能力：用 WFXM 开发实际可用项目 | ✅ 完成（Ledger Lite 记账应用） | 2026-11-23 |
 
 ---
 
@@ -293,7 +294,7 @@
 | `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 全绿，0 warning |
 | 手动冒烟 | `pnpm demo:web` → `/health` 200，控制台页面可加载 |
 
-范围说明：本轮只做本地 + CI 的浏览器 demo，不做公网 demo 实例；真实 LLM 与 MCP 均未接入。
+范围说明：本轮默认只做本地 + CI 的浏览器 demo，不做公网 demo 实例；真实 LLM 可通过 `BUTLER_V5_DEMO_REAL_LLM=1` 接入（见 Phase 4），MCP 未接入。
 
 ### Phase 2 C1 + C2（2026-11-23，第四批）
 
@@ -334,5 +335,32 @@ C3 每周周报（[spec](plans/active/phase2-c3-weekly-digest/spec.md)）。
 `pnpm typecheck` / `pnpm lint` / `pnpm format:check` 全绿，0 warning。
 新增用例覆盖：四项统计口径与时间窗、空周、渲染结构、手动命令、同日去重、
 发送失败/查询失败审计、开关关闭。
+
+---
+
+## Phase 4 — 真实开发能力验证（✅ 2026-11-23）
+
+**目标**：用 Butler / WFXM 通过真实 LLM 从零开发一个实际可用项目，验证
+「对话 → 写文件 → 审批 → 运行 → 浏览器验收」闭环。
+
+**选型**：Ledger Lite 本地个人记账 Web 应用（零第三方依赖；Node 内置 HTTP +
+JSON 持久化 + 原生前端）。规格与证据见
+[`plans/active/phase4-real-project-2026-11-23/spec.md`](plans/active/phase4-real-project-2026-11-23/spec.md)。
+
+| 项 | 结果 |
+|----|------|
+| 真实模式 | Demo 控制台新增 `BUTLER_V5_DEMO_REAL_LLM=1` + `BUTLER_V5_DEMO_WORKSPACE`；默认脚本模式与 4 个 E2E 不变 |
+| 开发过程 | 全程通过浏览器控制台发送需求；`write_file` / `run_command` 逐项审批；真实模型生成 7 个源文件 + 2 个测试文件 + README |
+| 项目自测 | `npm test`：25 / 25 通过 |
+| 浏览器验收 | 3 笔录入 → 收入 5,000.00 / 支出 88.50 / 结余 4,911.50；分类筛选 1 行；删除后 2 行且支出 38.50 |
+| 导出 | `/api/export.csv` 返回 `text/csv`、正确文件名与 2 行数据 |
+| 回归 | `pnpm test:e2e:demo` 4 passed；`pnpm typecheck` / `pnpm lint` / `pnpm format:check` 全绿 |
+
+过程中发现并修复：Node 22 下 `node --test test/` 会把目录当模块，WFXM 将脚本改为
+`node --test test/*.test.js` 后 `npm test` 通过。
+
+遗留 / 后续：CSV 金额统一两位小数、编辑交易、分页与图表、多用户鉴权。项目源码位于
+[`projects/ledger-lite/`](../projects/ledger-lite/)。
+
 
 

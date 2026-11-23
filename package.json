@@ -16,6 +16,7 @@
     "test:p4-acceptance": "bash scripts/p4-acceptance.sh",
     "demo": "tsx scripts/demo.ts",
     "demo:web": "tsx scripts/demo-server.ts",
+    "demo:real": "tsx --env-file=.env scripts/demo-server.ts",
     "test:e2e:demo": "playwright test",
     "chat": "tsx scripts/chat.ts",
     "smoke:chat": "tsx scripts/chat.ts --script scripts/chat-scenario.example.json",

@@ -51,6 +51,7 @@ v4 时期的 archive / comparisons / corpus / roadmaps / templates / pilot-repor
 | [`active/phase2-c1-reminders/spec.md`](active/phase2-c1-reminders/spec.md) | Phase 2 C1：自然语言提醒 / 个人定时任务（已交付） |
 | [`active/phase2-c2-approval-preview/spec.md`](active/phase2-c2-approval-preview/spec.md) | Phase 2 C2：审批前预览 diff / 命令全文（已交付） |
 | [`active/phase2-c3-weekly-digest/spec.md`](active/phase2-c3-weekly-digest/spec.md) | Phase 2 C3：每周周报 / 主动摘要（已交付） |
+| [`active/phase4-real-project-2026-11-23/spec.md`](active/phase4-real-project-2026-11-23/spec.md) | Phase 4：用 WFXM 真实开发 Ledger Lite 记账应用（已交付并验收） |
 
 其余 `v5-*.md` 为各专题 handoff / proposal / 触发说明，按文件名查阅。
 

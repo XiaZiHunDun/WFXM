@@ -20,12 +20,22 @@
  * `app.fetch(req, LOOPBACK_ENV)` 显式声明 loopback（与监听地址一致）。
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
+import { mkdirSync } from "node:fs"
+import { join } from "node:path"
 import { makeAcceptanceApp, type AcceptanceApp } from "../tests/acceptance/harness.js"
 
 const HOST = "127.0.0.1"
 const DEFAULT_PORT = 4520
-const MAX_BODY_BYTES = 16 * 1024
-const MAX_MESSAGE_CHARS = 2000
+const MAX_BODY_BYTES = 64 * 1024
+const MAX_MESSAGE_CHARS = 8000
+/** Real-LLM mode: writes go to a persistent project dir instead of a temp workspace. */
+const REAL_LLM = process.env["BUTLER_V5_DEMO_REAL_LLM"] === "1"
+const WORKSPACE = (
+  process.env["BUTLER_V5_DEMO_WORKSPACE"] ?? join(process.cwd(), "projects", "ledger-lite")
+).trim()
+const MODE_LABEL = REAL_LLM
+  ? "真实 LLM · 持久化工作区 · 仅本机"
+  : "脚本化 LLM · 内存数据库 · 仅本机"
 /** owner 路由从 env.incoming.socket.remoteAddress 判定 loopback。 */
 const LOOPBACK_ENV = { incoming: { socket: { remoteAddress: HOST } } } as const
 
@@ -99,10 +109,23 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
   return run
 }
 
+async function buildApp(): Promise<AcceptanceApp> {
+  if (!REAL_LLM) {
+    const next = await makeAcceptanceApp()
+    next.setFixtures(DEMO_FIXTURES)
+    return next
+  }
+  mkdirSync(WORKSPACE, { recursive: true })
+  const next = await makeAcceptanceApp({ noFixture: true })
+  // Harness pins a temp workspace; real mode must write to the project dir.
+  process.env["BUTLER_V5_WORKSPACE_ROOT"] = WORKSPACE
+  process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"] = WORKSPACE
+  return next
+}
+
 async function rebuild(): Promise<void> {
   await app.close()
-  app = await makeAcceptanceApp()
-  app.setFixtures(DEMO_FIXTURES)
+  app = await buildApp()
 }
 
 async function callApp(path: string, init?: RequestInit): Promise<Response> {
@@ -226,7 +249,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const path = url.pathname
 
   if (req.method === "GET" && path === "/") {
-    sendHtml(res, DASHBOARD_HTML)
+    sendHtml(res, DASHBOARD_HTML.replace("__MODE_LABEL__", MODE_LABEL))
     return
   }
   if (req.method === "GET" && path === "/health") {
@@ -273,8 +296,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
 const port = Number.parseInt(process.env["BUTLER_V5_DEMO_PORT"] ?? "", 10) || DEFAULT_PORT
 
 async function main(): Promise<void> {
-  app = await makeAcceptanceApp()
-  app.setFixtures(DEMO_FIXTURES)
+  app = await buildApp()
 
   const server = createServer((req, res) => {
     void route(req, res).catch((err: unknown) => {
@@ -290,7 +312,11 @@ async function main(): Promise<void> {
   await new Promise<void>((resolve) => server.listen(port, HOST, resolve))
 
   console.log("Butler v5 demo console → http://" + HOST + ":" + port)
-  console.log("脚本化 LLM · 内存 PGlite · 不调用真实模型。Ctrl+C 退出。")
+  console.log(
+    REAL_LLM
+      ? "真实 LLM · 工作区：" + WORKSPACE + " · Ctrl+C 退出。"
+      : "脚本化 LLM · 内存 PGlite · 不调用真实模型。Ctrl+C 退出。",
+  )
 
   const shutdown = (signal: string): void => {
     console.log("\n收到 " + signal + "，正在关闭…")
@@ -348,7 +374,7 @@ const DASHBOARD_HTML = `<!doctype html>
 <header>
   <div>
     <h1>Butler v5 Demo Console</h1>
-    <p class="sub">脚本化 LLM · 内存数据库 · 仅本机</p>
+    <p class="sub">__MODE_LABEL__</p>
   </div>
   <div class="actions">
     <span id="status" data-testid="status">就绪</span>
