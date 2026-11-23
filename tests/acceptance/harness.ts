@@ -27,6 +27,7 @@ import {
   createProjectKnowledgeStore,
   createProcedureStore,
   createTaskStore,
+  createReminderStore,
   backfillRuntimeFromEventStore,
   type ButlerDb,
 } from "@butler/persistence"
@@ -182,6 +183,7 @@ export async function makeAcceptanceApp(opts?: {
   const projectKnowledgeStore = createProjectKnowledgeStore(db)
   const procedureStore = createProcedureStore(db)
   const taskStore = createTaskStore(db)
+  const reminderStore = createReminderStore(db)
   const runEngine = new RunEngine(runtimeStore, undefined, systemClock)
   const mcp = await bootstrapMcpTools(env, { runtimeStore })
   const wiring = makeWiring({
@@ -196,6 +198,7 @@ export async function makeAcceptanceApp(opts?: {
     projectKnowledgeStore,
     procedureStore,
     taskStore,
+    reminderStore,
     channels: new Map(),
     backfillConversation: async (conversationId) => {
       await backfillRuntimeFromEventStore(db, [conversationId])
