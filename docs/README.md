@@ -1,7 +1,7 @@
 # Butler 文档索引
 
 > 更新：**2026-11-19** | 主线：**Butler v5**（单 Owner、自托管、可扩展个人管家）
-> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`../DESIGN.md`](../DESIGN.md) → [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
+> **新会话**：[`HANDOFF.md`](HANDOFF.md) → [`../AGENTS.md`](../AGENTS.md) → [`../DESIGN.md`](../DESIGN.md) → [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) → [`architecture/v5-production-architecture-2026-08.md`](architecture/v5-production-architecture-2026-08.md)
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 >
 > **与 [`DOCUMENTATION.md`](DOCUMENTATION.md) 的关系**：本文是**卡片**（「我要…」问答快速链接表）；DOCUMENTATION 是**手册**（分层 + 维护规则 + 索引结构 + 变更记录）。
@@ -10,6 +10,7 @@
 
 | 文档 | 说明 |
 |------|------|
+| [`HANDOFF.md`](HANDOFF.md) | **会话交接**：当前状态、运行态、提交、开关、遗留、验证命令、已知坑 |
 | [`../AGENTS.md`](../AGENTS.md) | Agent 必读索引 + v5 事实规则 + 撞点流程 |
 | [`../DESIGN.md`](../DESIGN.md) | **v5 目标架构 SSOT**：三模块、五实体、混合数据、ScopedGrant |
 | [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html) | **当前实现全景与第一阶段验收**：三层架构、分层测试 L1–L4 |

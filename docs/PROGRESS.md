@@ -1,6 +1,7 @@
 # 开发进度台账（阶段记录）
 
 > **用途**：按「阶段」记录开发进度——目标、验收口径、证据、遗留。D-series 单笔 ship 仍记 [`ROADMAP.md`](ROADMAP.md)；架构依据见 [`DESIGN.md`](../DESIGN.md) 与 [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html)。
+> **新会话**：先读 [`HANDOFF.md`](HANDOFF.md) 恢复当前运行态与待办，再读本台账。
 > **更新时机**：阶段开始/结束时；验收证据必须是复跑结果，不引用历史结论。
 > **最近更新**：2026-11-23
 

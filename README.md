@@ -1,4 +1,5 @@
 > 当前状态：Butler v5 是唯一活动产品主线（ADR-0001）。
+> **新会话 / 交接**：先读 [`docs/HANDOFF.md`](docs/HANDOFF.md)。
 
 [![CI](https://github.com/XiaZiHunDun/WFXM/actions/workflows/ci.yml/badge.svg)](https://github.com/XiaZiHunDun/WFXM/actions/workflows/ci.yml)
 
