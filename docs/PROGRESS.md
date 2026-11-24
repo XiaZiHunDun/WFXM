@@ -355,17 +355,23 @@ JSON 持久化 + 原生前端）。规格与证据见
 | 浏览器验收 | 3 笔录入 → 收入 5,000.00 / 支出 88.50 / 结余 4,911.50；分类筛选 1 行；删除后 2 行且支出 38.50 |
 | 导出 | `/api/export.csv` 返回 `text/csv`、正确文件名与 2 行数据 |
 | 开放任务 | 仅用模糊需求「加一个奶茶账本」驱动 WFXM 自行实现：首页新增本月杯数 / 花费 / 均价 + 6 个月趋势，新增 15 个测试 |
-| 回归 | `pnpm test:e2e:demo` 4 passed；`pnpm typecheck` / `pnpm lint` / `pnpm format:check` 全绿 |
+| 第二项目 | `projects/wakeup-cli`：一句模糊需求 → WFXM 先追问形态与时间 → 自行实现打卡 CLI；打卡 / 改时间 / 连续天数均验证通过，Ledger Lite 未受影响 |
+| Git 身份 | 沙箱内注入宿主全局 `user.name/email`，`git init/add/commit` 实测作者正确；新增 4 条单测 |
+| 真实微信 | 2026-11-24 10:26 收到 owner 消息，执行 `list_dir projects`，runId `80389008…`，`run.succeeded` |
+| 回归 | `pnpm test` 2,483 通过；1 个超时用例单独复跑通过；typecheck / lint / format 全绿 |
 
 过程中发现并修复：
 
 1. Node 22 下 `node --test test/` 会把目录当模块，WFXM 将脚本改为
    `node --test test/*.test.js` 后 `npm test` 通过；
 2. 奶茶账本首版把 `pad2` 声明在 `state` 之后，初始化触发暂时性死区、首页按钮全部失效；
-   用用户口吻反馈「页面没反应、控制台提到 pad2」后，WFXM 将 `pad2` 前移并补注释。
+   用用户口吻反馈「页面没反应、控制台提到 pad2」后，WFXM 将 `pad2` 前移并补注释；
+3. 沙箱 HOME 隔离导致 `git commit` 报 `Author identity unknown`，已改为注入宿主全局身份。
 
-遗留 / 后续：CSV 金额统一两位小数、编辑交易、分页与图表、多用户鉴权。项目源码位于
-[`projects/ledger-lite/`](../projects/ledger-lite/)。
+遗留 / 后续：wakeup-cli 自动测试未补（SSH 重连后浏览器代理无法连接 4521）；线上网关
+仍是修复前进程，需重启后 Git 身份注入才生效；CSV 金额统一两位小数、编辑交易、分页与
+图表、多用户鉴权。项目源码位于 [`projects/ledger-lite/`](../projects/ledger-lite/) 与
+`projects/wakeup-cli/`。
 
 
 

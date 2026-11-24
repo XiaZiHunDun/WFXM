@@ -78,6 +78,8 @@ projects/LingWen1/docs/pilot-log.md
 /projects/WFXM/
 # Ledger Lite 为独立本地仓库（Phase 4 交付物），不纳入主仓库
 /projects/ledger-lite/
+# Phase 4 第二项目工作区（验证多项目与模糊需求），不纳入主仓库
+/projects/wakeup-cli/
 
 # Runtime data & model caches
 chroma_data/

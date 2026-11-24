@@ -109,3 +109,56 @@ WFXM 自行决定实现方式，结果：
 暂时性死区，导致首页所有按钮失效。用用户口吻反馈「页面没反应、控制台提到 pad2」后，
 WFXM 将 `pad2` 前移并补充注释，页面恢复。
 
+## 9. 多项目 / 模糊需求 / 真实微信入口（2026-11-24）
+
+### 9.1 沙箱 Git 身份
+
+问题：沙箱 `HOME` 指向临时目录，读不到宿主 `~/.gitconfig`，`git commit` 报
+`Author identity unknown`。
+
+修复：`resolveSandboxGitIdentityEnv` 在宿主侧解析全局 `user.name` / `user.email`，
+仅对 `git` 命令注入 `GIT_AUTHOR_*` / `GIT_COMMITTER_*`，不暴露 git 配置的其他字段。
+显式传入的 `GIT_*` 优先。
+
+验证：沙箱内 `git init / add / commit` 成功，作者为 `XiaZiHunDun <cuiyangjs@163.com>`；
+新增 4 条单测，typecheck / lint 全绿。
+
+### 9.2 第二项目与模糊需求
+
+第二个独立工作区 `projects/wakeup-cli`，初始需求只有一句：
+
+> 我最近总是起不来，能不能帮我做个小工具，让我能坚持早起？
+
+WFXM 没有直接写代码，而是先追问形态与目标起床时间；补充「命令行、7:00、记录打卡与
+连续天数」后，自行实现 `apps/cli/wakeup.mjs` 与 README。
+
+| 项 | 结果 |
+|----|------|
+| 打卡 | `--at 06:45` 记录成功，连续 1 天 |
+| 改时间 | 同日 `--at 08:10` 覆盖为迟到 |
+| 查看 | `status` 显示最近记录与连续天数 |
+| 隔离 | Ledger Lite 仓库保持干净，未被第二项目改动 |
+
+### 9.3 真实微信入口
+
+通过真实 iLink 微信通道发送：
+
+> 你好，帮我看一下projects目录里有哪些项目，简单列一下
+
+网关记录：
+
+| 项 | 值 |
+|----|----|
+| runId | `80389008-6edd-4c0c-91d4-50e75b794263` |
+| 触发 | `channel` / `wechat` |
+| 时间 | 2026-11-24 10:26（Asia/Shanghai） |
+| 工具 | `list_dir`，参数 `projects` |
+| 结果 | `run.succeeded`，owner 已收到回复 |
+
+### 9.4 遗留
+
+- SSH 重连后浏览器控制台（4521）在本机可访问，但浏览器代理无法连接，wakeup-cli 的
+  自动测试未补；不影响本轮「多项目 + 模糊需求」结论。
+- 运行中的网关进程仍是修复前的代码，需重启后 Git 身份注入才会在线上生效。
+
+
