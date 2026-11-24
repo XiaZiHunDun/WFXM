@@ -423,7 +423,7 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         return { ok: false, reason: "aborted" }
       }
       const cwd = sandboxWorkspaceRootFrom(ctx)
-      const { executeArgvInSandbox, createDefaultProcessRunner } =
+      const { executeArgvInSandbox, createDefaultProcessRunner, resolveSandboxGitIdentityEnv } =
         await import("@butler/adapters/sandbox/bubblewrap-runner.js")
       const { currentNetworkAllowlist, currentSandboxProfileName } =
         await import("@butler/runtime/sandbox/index.js")
@@ -459,7 +459,10 @@ export function makeRunCommandTool(ctx: WorkspaceToolContext = {}): ToolDefiniti
         runner: sandboxRunner,
       })
       if ("mode" in sandboxed && sandboxed.mode === "disabled") {
-        const result = await spawnCaptured(argv, cwd, signal, injectedEnv)
+        const result = await spawnCaptured(argv, cwd, signal, {
+          ...resolveSandboxGitIdentityEnv(argv),
+          ...injectedEnv,
+        })
         await recordExecAudit(ctx.audit, {
           cmd: argv.join(" "),
           cwd,

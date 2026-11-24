@@ -3,6 +3,7 @@ import {
   resolveSandboxEgressIsolation,
 } from "@butler/domain/governance/network-allowlist.js"
 import type { spawn as ChildProcessSpawn } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import {
@@ -142,6 +143,49 @@ export function resolveSandboxHomeEnv(): NodeJS.ProcessEnv {
   }
 }
 
+function readHostGitConfig(key: "user.name" | "user.email"): string | undefined {
+  try {
+    const out = execFileSync("git", ["config", "--global", "--get", key], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      env: process.env,
+      timeout: 2000,
+    })
+    return out.trim() || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * 沙箱 HOME 指向临时目录，读不到宿主的 `~/.gitconfig`，`git commit` 会因
+ * `Author identity unknown` 失败。这里在宿主侧解析全局身份，并以
+ * `GIT_AUTHOR_*` / `GIT_COMMITTER_*` 注入子进程；仅对 `git` 命令生效。
+ *
+ * 只注入姓名与邮箱，不暴露 git 配置中的凭证或其它字段。显式传入的
+ * `GIT_AUTHOR_*` / `GIT_COMMITTER_*` 优先，便于部署时覆盖。
+ */
+export function resolveSandboxGitIdentityEnv(
+  argv: readonly string[],
+  input: {
+    readonly env?: Readonly<Record<string, string | undefined>>
+    readonly readGlobalConfig?: (key: "user.name" | "user.email") => string | undefined
+  } = {},
+): Readonly<Record<string, string>> {
+  if (argv[0] !== "git") return {}
+  const env = input.env ?? process.env
+  const read = input.readGlobalConfig ?? readHostGitConfig
+  const authorName = (env["GIT_AUTHOR_NAME"] ?? "").trim() || read("user.name")
+  const authorEmail = (env["GIT_AUTHOR_EMAIL"] ?? "").trim() || read("user.email")
+  if (!authorName || !authorEmail) return {}
+  return {
+    GIT_AUTHOR_NAME: authorName,
+    GIT_AUTHOR_EMAIL: authorEmail,
+    GIT_COMMITTER_NAME: (env["GIT_COMMITTER_NAME"] ?? "").trim() || authorName,
+    GIT_COMMITTER_EMAIL: (env["GIT_COMMITTER_EMAIL"] ?? "").trim() || authorEmail,
+  }
+}
+
 /**
  * PATH entries the sandbox can actually execute. The host PATH usually starts
  * with conda / IDE / nvm directories that are not mounted inside the
@@ -272,6 +316,7 @@ export async function executeArgvInSandbox(input: {
 }): Promise<BubblewrapRunResult | { readonly ok: true; readonly mode: "disabled" }> {
   const env = input.env ?? process.env
   const injectEnv = input.injectEnv ?? {}
+  const gitEnv = resolveSandboxGitIdentityEnv(input.argv, { env })
   if ((env["BUTLER_V5_SANDBOX"] ?? "").trim() !== "bubblewrap") {
     return { ok: true, mode: "disabled" }
   }
@@ -340,6 +385,7 @@ export async function executeArgvInSandbox(input: {
           PATH: resolveSandboxVisiblePath(profile, env),
           ...resolveSandboxHomeEnv(),
           ...buildSandboxProxyEnv(`http://${SLIRP_HOST_GATEWAY}:${proxyPort}`),
+          ...gitEnv,
           ...injectEnv,
         }
       } else {
@@ -348,6 +394,7 @@ export async function executeArgvInSandbox(input: {
           PATH: resolveSandboxVisiblePath(profile, env),
           ...resolveSandboxHomeEnv(),
           ...buildSandboxProxyEnv(proxyHandle.proxyUrl),
+          ...gitEnv,
           ...injectEnv,
         }
       }
@@ -392,6 +439,7 @@ export async function executeArgvInSandbox(input: {
         PATH: resolveSandboxVisiblePath(profile, env),
         ...resolveSandboxHomeEnv(),
         ...buildSandboxProxyEnv(proxyHandle.proxyUrl),
+        ...gitEnv,
         ...injectEnv,
       }
       return await runInBubblewrap({
@@ -600,6 +648,7 @@ export async function runInBubblewrap(input: BubblewrapRunInput): Promise<Bubble
   const spawnEnv: NodeJS.ProcessEnv = {
     PATH: resolveSandboxVisiblePath(input.profile, process.env),
     ...resolveSandboxHomeEnv(),
+    ...resolveSandboxGitIdentityEnv(input.argv),
     ...(input.childEnv ?? {}),
   }
 

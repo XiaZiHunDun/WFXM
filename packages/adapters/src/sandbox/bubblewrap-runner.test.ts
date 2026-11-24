@@ -9,6 +9,7 @@ import {
   resolveSandboxFileQuotaBytes,
   resolveSandboxExtraBinPaths,
   resolveSandboxHomeEnv,
+  resolveSandboxGitIdentityEnv,
   resolveSandboxCorepackSeedDir,
   SANDBOX_COREPACK_HOME,
   SANDBOX_HOME_DIR,
@@ -117,6 +118,53 @@ describe("bubblewrap runner", () => {
     expect(env["HOME"]).toBe(SANDBOX_HOME_DIR)
     expect(env["XDG_CACHE_HOME"]).toBe(`${SANDBOX_HOME_DIR}/.cache`)
     expect(env["COREPACK_HOME"]).toBe(SANDBOX_COREPACK_HOME)
+  })
+
+  it("injects host git identity for git commands", () => {
+    const env = resolveSandboxGitIdentityEnv(["git", "commit", "-m", "x"], {
+      env: {},
+      readGlobalConfig: (key) => (key === "user.name" ? "Alice" : "alice@example.com"),
+    })
+    expect(env).toEqual({
+      GIT_AUTHOR_NAME: "Alice",
+      GIT_AUTHOR_EMAIL: "alice@example.com",
+      GIT_COMMITTER_NAME: "Alice",
+      GIT_COMMITTER_EMAIL: "alice@example.com",
+    })
+  })
+
+  it("does not inject git identity for non-git commands", () => {
+    const env = resolveSandboxGitIdentityEnv(["node", "x.js"], {
+      env: {},
+      readGlobalConfig: () => {
+        throw new Error("must not read git config")
+      },
+    })
+    expect(env).toEqual({})
+  })
+
+  it("prefers explicit GIT_* identity and fills missing committer fields", () => {
+    const env = resolveSandboxGitIdentityEnv(["git", "commit"], {
+      env: {
+        GIT_AUTHOR_NAME: "Bob",
+        GIT_AUTHOR_EMAIL: "bob@example.com",
+      },
+      readGlobalConfig: () => undefined,
+    })
+    expect(env).toEqual({
+      GIT_AUTHOR_NAME: "Bob",
+      GIT_AUTHOR_EMAIL: "bob@example.com",
+      GIT_COMMITTER_NAME: "Bob",
+      GIT_COMMITTER_EMAIL: "bob@example.com",
+    })
+  })
+
+  it("returns empty when no git identity is configured", () => {
+    const env = resolveSandboxGitIdentityEnv(["git", "commit"], {
+      env: {},
+      readGlobalConfig: () => undefined,
+    })
+    expect(env).toEqual({})
   })
 
   it("executeArgvInSandbox returns disabled when env unset", async () => {
