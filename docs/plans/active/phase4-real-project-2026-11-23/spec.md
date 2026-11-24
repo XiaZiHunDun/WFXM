@@ -154,11 +154,13 @@ WFXM 没有直接写代码，而是先追问形态与目标起床时间；补充
 | 时间 | 2026-11-24 10:26（Asia/Shanghai） |
 | 工具 | `list_dir`，参数 `projects` |
 | 结果 | `run.succeeded`，owner 已收到回复 |
+| 回复 | 「projects 目录下有以下 7 个目录：_template、DemoPilot、docs、interview-ppt-2026-07、ledger-lite、LingWen1、wakeup-cli，另有一个 README.md。」 |
 
 ### 9.4 遗留
 
 - SSH 重连后浏览器控制台（4521）在本机可访问，但浏览器代理无法连接，wakeup-cli 的
   自动测试未补；不影响本轮「多项目 + 模糊需求」结论。
-- 运行中的网关进程仍是修复前的代码，需重启后 Git 身份注入才会在线上生效。
+- 网关已于 2026-11-24 10:29 重启，`/healthz` 与 iLink 健康检查正常，Git 身份注入
+  已在线上生效。
 
 

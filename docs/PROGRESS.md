@@ -357,7 +357,8 @@ JSON 持久化 + 原生前端）。规格与证据见
 | 开放任务 | 仅用模糊需求「加一个奶茶账本」驱动 WFXM 自行实现：首页新增本月杯数 / 花费 / 均价 + 6 个月趋势，新增 15 个测试 |
 | 第二项目 | `projects/wakeup-cli`：一句模糊需求 → WFXM 先追问形态与时间 → 自行实现打卡 CLI；打卡 / 改时间 / 连续天数均验证通过，Ledger Lite 未受影响 |
 | Git 身份 | 沙箱内注入宿主全局 `user.name/email`，`git init/add/commit` 实测作者正确；新增 4 条单测 |
-| 真实微信 | 2026-11-24 10:26 收到 owner 消息，执行 `list_dir projects`，runId `80389008…`，`run.succeeded` |
+| 真实微信 | 2026-11-24 10:26 收到 owner 消息，执行 `list_dir projects`，runId `80389008…`，`run.succeeded`；回复列出 7 个项目目录 |
+| 网关重启 | 2026-11-24 10:29 重启 `butler-v5-gateway`，`/healthz` 与 iLink 健康检查正常，Git 身份修复已上线 |
 | 回归 | `pnpm test` 2,483 通过；1 个超时用例单独复跑通过；typecheck / lint / format 全绿 |
 
 过程中发现并修复：
@@ -368,10 +369,9 @@ JSON 持久化 + 原生前端）。规格与证据见
    用用户口吻反馈「页面没反应、控制台提到 pad2」后，WFXM 将 `pad2` 前移并补注释；
 3. 沙箱 HOME 隔离导致 `git commit` 报 `Author identity unknown`，已改为注入宿主全局身份。
 
-遗留 / 后续：wakeup-cli 自动测试未补（SSH 重连后浏览器代理无法连接 4521）；线上网关
-仍是修复前进程，需重启后 Git 身份注入才生效；CSV 金额统一两位小数、编辑交易、分页与
-图表、多用户鉴权。项目源码位于 [`projects/ledger-lite/`](../projects/ledger-lite/) 与
-`projects/wakeup-cli/`。
+遗留 / 后续：wakeup-cli 自动测试未补（SSH 重连后浏览器代理无法连接 4521）；CSV 金额
+统一两位小数、编辑交易、分页与图表、多用户鉴权。项目源码位于
+[`projects/ledger-lite/`](../projects/ledger-lite/) 与 `projects/wakeup-cli/`。
 
 
 
