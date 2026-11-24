@@ -24,7 +24,7 @@ jobs:
       tag: ${{ steps.extract.outputs.tag }}
       version: ${{ steps.extract.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Extract version
         id: extract
         run: |
@@ -51,16 +51,16 @@ jobs:
       contents: read
     steps:
       - name: Checkout WFXM
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Checkout agent-eval
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: XiaZiHunDun/agent-eval
           path: agent-eval
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.15.0
       - name: Install WFXM dependencies
@@ -156,20 +156,20 @@ jobs:
           - linux/amd64
           - linux/arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to ghcr.io
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/xiazihundun/wfxm
           tags: |
@@ -179,7 +179,7 @@ jobs:
             type=sha,prefix=sha-,format=short
       - name: Build and push
         id: digest
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: ${{ matrix.platform }}
@@ -199,7 +199,7 @@ jobs:
           artifact-name: sbom-cyclonedx-${{ matrix.platform }}
       - name: Upload SBOM artifact
         if: ${{ !inputs.dry_run }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-${{ matrix.platform }}
           path: sbom-cyclonedx-${{ matrix.platform }}.json
@@ -221,11 +221,11 @@ jobs:
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Download SBOMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: sbom
           merge-multiple: true
@@ -248,7 +248,7 @@ jobs:
             echo "CycloneDX SBOM attached below for supply chain verification."
           } > RELEASE_NOTES.md
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.validate.outputs.tag }}
           name: "WFXM ${{ needs.validate.outputs.version }}"
