@@ -426,7 +426,7 @@ describe("runButlerLoop", () => {
     expect(result.traces.some((t) => t.startsWith("get_current_time@"))).toBe(true)
   })
 
-  it("falls back to stub when LLM call fails", async () => {
+  it("returns the owner-facing envelope when LLM call fails", async () => {
     const failingAdapter: LLMAdapter = {
       complete: vi.fn(() => Effect.fail(new Error("network-down"))),
     }
@@ -440,9 +440,10 @@ describe("runButlerLoop", () => {
       logger: silentLogger,
       adapter: failingAdapter,
     })
-    expect(result.reply).toContain("已收到")
+    expect(result.reply).toContain("[E-LLM-01")
     expect(result.finalDecision).toBe("Finish")
     expect(result.traces.some((t) => t.includes("llm failure"))).toBe(true)
+    expect(result.traces).toContain("loop-error: E-LLM-01")
   })
 
   it("returns stub when the model requests an unknown tool via native tool_calls", async () => {

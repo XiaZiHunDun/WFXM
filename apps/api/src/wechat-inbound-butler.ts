@@ -135,6 +135,46 @@ async function replayDuplicateInbound(
   return "这条消息已经处理过了，无需重复发送。"
 }
 
+const LLM_FAILURE_TRACE_PREFIX = "llm failure: "
+
+function findLlmFailureReason(traces: readonly string[]): string | null {
+  for (const trace of traces) {
+    if (trace.startsWith(LLM_FAILURE_TRACE_PREFIX)) {
+      return trace.slice(LLM_FAILURE_TRACE_PREFIX.length)
+    }
+  }
+  return null
+}
+
+/**
+ * Phase 5 P0: `runConversationLoop` degrades LLM failures to a stub reply
+ * instead of throwing, so the catch-path envelope above never runs for the
+ * most common failure (network / bad key / timeout). Convert that degraded
+ * result into the same owner-facing envelope and persist a `run/failure`
+ * trace so the Owner can correlate the reported turn id with the trace.
+ */
+function withLlmFailureEnvelope(
+  result: ButlerLoopResult,
+  args: { readonly conversationId: string; readonly turnId?: string },
+): ButlerLoopResult {
+  const reason = findLlmFailureReason(result.traces)
+  if (reason === null) return result
+  const code = "E-LLM-01" as const
+  getSharedLocalTracer().record({
+    kind: "run",
+    name: "failure",
+    status: "error",
+    turnId: args.turnId ?? null,
+    conversationId: args.conversationId,
+    detail: { code, reason },
+  })
+  return {
+    ...result,
+    reply: formatFailureEnvelope({ code, turnId: args.turnId }),
+    traces: [...result.traces, `loop-error: ${code}`],
+  }
+}
+
 /**
  * Delivery-shell entry: Intake already normalized; this wires WeChat-specific
  * tools/LLM/history then runs Execution `runConversationLoop` under RunEngine.
@@ -233,7 +273,7 @@ export async function runButlerLoop(args: {
       mcpBundle: args.wiring.mcp,
     })
   try {
-    return await args.wiring.runEngine.executeInbound(
+    const result = await args.wiring.runEngine.executeInbound(
       {
         conversationId: args.conversationId,
         messageId: crypto.randomUUID(),
@@ -261,6 +301,10 @@ export async function runButlerLoop(args: {
             : {}),
         }),
     )
+    return withLlmFailureEnvelope(result, {
+      conversationId: args.conversationId,
+      ...(args.turnId ? { turnId: args.turnId } : {}),
+    })
   } catch (err) {
     if (err instanceof ActiveMainRunConflict) {
       // D58 T5 (audit #3 F-18) + reliability: never leak internal state names

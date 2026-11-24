@@ -168,12 +168,18 @@ export function registerInboundRoutes(
     // B 方向 推 2: prepend "since you were last here" digest when owner
     // returns after a long idle. Slash replies skip this — they are
     // deterministic data views, not LLM prose, and don't need a preamble.
-    const { reply, digest: sessionDigest } = maybePrependSessionDigest({
-      reply: loopResult.reply,
-      userId: value.subject,
-      now: Date.now(),
-      env,
-    })
+    // Phase 5 P0: a failure envelope must lead the reply — prepending the
+    // "since you were last here" digest would bury the code the Owner needs
+    // to report. Skip the digest for envelope replies.
+    const isFailureEnvelope = /^\[E-[A-Z]+-\d+/.test(loopResult.reply)
+    const { reply, digest: sessionDigest } = isFailureEnvelope
+      ? { reply: loopResult.reply, digest: null }
+      : maybePrependSessionDigest({
+          reply: loopResult.reply,
+          userId: value.subject,
+          now: Date.now(),
+          env,
+        })
     const traces = sessionDigest
       ? [...loopResult.traces, "session-open-digest:shown"]
       : loopResult.traces
