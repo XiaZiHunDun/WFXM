@@ -112,4 +112,30 @@ describe("ensureDelegationToolGrants", () => {
     expect(write?.remainingUses).toBe(3)
     await db.close()
   })
+
+  it("pre-grants nothing when BUTLER_V5_DELEGATION_PREGRANT=0", () => {
+    const env = {
+      BUTLER_V5_DELEGATION_PREGRANT: "0",
+    } as NodeJS.ProcessEnv
+    expect(
+      delegationPregrantCapabilities({
+        capabilities: ["run_command", "write_file"],
+        env,
+      }),
+    ).toEqual([])
+  })
+
+  it("keeps pre-granting when the switch is unset or empty", () => {
+    for (const raw of [undefined, ""]) {
+      const env = (
+        raw === undefined ? {} : { BUTLER_V5_DELEGATION_PREGRANT: raw }
+      ) as NodeJS.ProcessEnv
+      expect(
+        delegationPregrantCapabilities({
+          capabilities: ["run_command", "write_file"],
+          env,
+        }),
+      ).toEqual(["run_command", "write_file"])
+    }
+  })
 })

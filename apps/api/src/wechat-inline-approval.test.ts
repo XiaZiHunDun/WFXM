@@ -105,6 +105,75 @@ describe("tryWechatInlineApproval", () => {
     expect(active).toBeNull()
   })
 
+  it("approves a child-run pending step from the parent conversation", async () => {
+    const runtimeStore = createRuntimeStore(db.db)
+    const wiring = makeWiring({
+      bridge: new EventBridge({ db: db.db, workerId: "test" }),
+      workerId: "test",
+      runtimeStore,
+      runEngine: new RunEngine(runtimeStore),
+      db: db.db,
+      backfillConversation: async () => undefined,
+    })
+    const createdAt = new Date("2026-08-20T00:00:00Z")
+    const parentConversationId = "conv-child-parent"
+    const childConversationId = `child-${parentConversationId}-uuid-1`
+    await runtimeStore.createConversationWithUserMessage({
+      conversationId: parentConversationId,
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "delegate" },
+      triggerSource: "channel",
+      idempotencyKey: "child-parent-msg",
+      createdAt,
+    })
+    await runtimeStore.createConversationWithUserMessage({
+      conversationId: childConversationId,
+      messageId: crypto.randomUUID(),
+      subject: "owner-1",
+      content: { text: "child task" },
+      triggerSource: "parent_run",
+      idempotencyKey: "child-conv-msg",
+      createdAt,
+    })
+    const run = await runtimeStore.createRun({
+      id: crypto.randomUUID(),
+      conversationId: childConversationId,
+      parentRunId: null,
+      triggerSource: "parent_run",
+      idempotencyKey: "child-run",
+      subject: "owner-1",
+      goal: "child",
+      budget: { maxSteps: 3 },
+      deadline: null,
+      createdAt,
+    })
+    await runtimeStore.transitionRunStatus(run.id, run.version, "running", createdAt)
+    await createWaitingApprovalStep(runtimeStore, {
+      runId: run.id,
+      conversationId: childConversationId,
+      subject: "owner-1",
+      capability: "get_current_time",
+      resource: childConversationId,
+      args: {},
+      question: "Confirm?",
+      expiresAtMs: Date.now() + 60_000,
+      digest: "child-digest",
+      kind: "read",
+      risk: "low",
+    })
+
+    const out = await tryWechatInlineApproval({
+      wiring,
+      conversationId: parentConversationId,
+      content: "确认",
+      fromUserId: "owner-1",
+    })
+    expect(out).not.toBeNull()
+    expect(out?.toolCalls).toBe(1)
+    expect(out?.traces.some((t) => t.startsWith("inline-approval: approved"))).toBe(true)
+  })
+
   it("explains an expired approval instead of a generic already-processed reply", async () => {
     const runtimeStore = createRuntimeStore(db.db)
     const wiring = makeWiring({

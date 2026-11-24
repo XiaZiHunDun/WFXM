@@ -95,14 +95,18 @@ describe("runButlerLoop", () => {
       content: "do something",
       fromUserId: "u-1",
       projectId: "p-1",
+      turnId: "turn-1723456789",
       env: {},
       logger: silentLogger,
     })
-    expect(result.reply).toContain("没处理成功")
+    // Phase 5 P0: stable error envelope, no raw exception text in the reply.
+    expect(result.reply).toContain("[E-INT-01 · turn-172]")
+    expect(result.reply).toContain("处理失败")
+    expect(result.reply).not.toContain("engine boom")
     expect(result.finalDecision).toBe("Finish")
     expect(result.iterations).toBe(0)
     expect(result.traces.some((t) => t.startsWith("loop-error:"))).toBe(true)
-    expect(result.traces.join(" ")).toContain("engine boom")
+    expect(result.traces.join(" ")).not.toContain("engine boom")
   })
 
   it("persists hyphenated projectId for listConversationsByProject", async () => {

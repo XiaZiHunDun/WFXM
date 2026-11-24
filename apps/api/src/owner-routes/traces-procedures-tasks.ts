@@ -4,23 +4,31 @@ import {
   resetSharedLocalTracer,
 } from "@butler/runtime/observability/local-tracer.js"
 import { createProcedureRecord, createTaskRecord } from "@butler/domain/knowledge/task-procedure.js"
+import type { TraceKind } from "@butler/domain/observability/local-trace.js"
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
 import { handleTaskRun } from "./tasks-run.js"
 import { isAllowedSubject, safeOwnerErrorString, unauthorizedForOwner } from "../owner-jargon.js"
+import { collectDiagnostics } from "../diagnostics.js"
 
 /**
  * Owner control-surface routes for traces, procedures and tasks.
  * Split from owner-routes.ts (file-size gate) — behavior unchanged.
  */
 export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): void {
+  app.get("/v1/owner/diagnostics", async (c) => {
+    if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
+    return c.json(await collectDiagnostics(wiring, process.env))
+  })
+
   app.get("/v1/owner/traces", async (c) => {
     if (!ownerAuthorized(c)) return unauthorizedForOwner(c)
     const tracer = getSharedLocalTracer()
     const runId = c.req.query("runId")?.trim()
     const conversationId = c.req.query("conversationId")?.trim()
+    const turnId = c.req.query("turnId")?.trim()
     const kindRaw = c.req.query("kind")?.trim()
-    const kind =
+    const kind: TraceKind | undefined =
       kindRaw === "run" ||
       kindRaw === "step" ||
       kindRaw === "capability" ||
@@ -31,12 +39,16 @@ export function registerTracesProceduresTasksRoutes(app: Hono, wiring: Wiring): 
         : undefined
     const limitRaw = Number(c.req.query("limit") ?? 100)
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 100
-    const items = tracer.list({
+    const filter = {
       ...(runId ? { runId } : {}),
       ...(conversationId ? { conversationId } : {}),
+      ...(turnId ? { turnId } : {}),
       ...(kind ? { kind } : {}),
       limit,
-    })
+    }
+    // Prefer the durable store (survives restarts); fall back to the
+    // in-process ring buffer when dual-write is disabled.
+    const items = wiring.traceStore ? await wiring.traceStore.list(filter) : tracer.list(filter)
     return c.json({
       enabled: tracer.config.enabled,
       exporter: tracer.config.exporter,

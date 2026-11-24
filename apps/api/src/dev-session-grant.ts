@@ -8,6 +8,7 @@
 import { createHash } from "node:crypto"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { issuePreconfiguredGrants } from "@butler/runtime/scoped-grant-service.js"
+import { envTruthy } from "./env-util.js"
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 
 const DEV_SESSION_TOOLS = ["run_command", "write_file"] as const
@@ -39,6 +40,17 @@ export function isDevSessionPhrase(content: string): boolean {
   return (
     t.includes("开发模式") || t.includes("进入开发") || t === "dev mode" || t.startsWith("开启开发")
   )
+}
+
+/**
+ * `BUTLER_V5_DEV_SESSION_AUTO_GRANT=0` 关闭「开发任务自动批量授权」：
+ * dev_task 仍按开发工作集执行，但 write_file / run_command 回到逐项审批。
+ * 未设置（或为空）保持旧行为；显式 `/开发模式` 不受此开关影响。
+ */
+export function devSessionAutoGrantEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = env["BUTLER_V5_DEV_SESSION_AUTO_GRANT"]
+  if (raw === undefined || raw.trim() === "") return true
+  return envTruthy(raw)
 }
 
 function devSessionTtlMs(env: NodeJS.ProcessEnv = process.env): number {

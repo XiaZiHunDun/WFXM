@@ -14,6 +14,8 @@ import { startCandidateExpiresSweeperIfEnabled } from "./candidate-expires-sweep
 import { startAutoPromoteSweeperIfEnabled } from "./auto-promote-sweeper.js"
 import { parseAutoPromoteConfig } from "./auto-promote-config.js"
 import { isSubagentEnabled } from "./subagent-config.js"
+import { parseTraceRetention } from "@butler/domain/observability/local-trace.js"
+import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import {
   formatAutoPromoteNotify,
   formatCandidateExpiresNotify,
@@ -240,10 +242,30 @@ const shutdown = (): void => {
   autoPromoteHandle?.stop()
   stopSubagent?.()
   void wsHandle?.close()
-  void boot.value.close()
+  // Phase 5 P0: flush the trace write queue before closing the DB.
+  void (async () => {
+    await getSharedLocalTracer().close()
+    await boot.value.close()
+  })()
 }
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
+
+// 每小时执行一次 trace 保留清理；unref 保证不阻止进程退出。
+if (wiring.traceStore) {
+  const traceStore = wiring.traceStore
+  const retention = parseTraceRetention(process.env)
+  const timer = setInterval(
+    () => {
+      void traceStore.prune(retention).catch((err: unknown) => {
+        // eslint-disable-next-line no-console -- operator log when no logger injected
+        console.error("[butler-v5] trace retention prune failed:", err)
+      })
+    },
+    60 * 60 * 1000,
+  )
+  if (typeof timer.unref === "function") timer.unref()
+}
 
 // D60 T5.2 (audit #2 F-09): barrel re-export cleanup. Only 3 exports
 // have external consumers — `default` (Hono app, used by cli + 2 e2e tests),

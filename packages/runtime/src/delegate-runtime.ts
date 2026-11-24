@@ -53,6 +53,8 @@ export interface DelegateInput {
   readonly bridge: EventStorePort
   /** When set with runtimeStore, creates a relational Child Run (A5). */
   readonly parentRunId?: string
+  /** Phase 5 P0: parent inbound turn id, carried into the outbox payload. */
+  readonly turnId?: string
   readonly runtimeStore?: RuntimeStore
   readonly subject?: string
   /** When set, proactive WeChat notify targets this user on child completion. */
@@ -195,6 +197,7 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
         capabilities: input.capabilities,
         ...(childRunId ? { childRunId } : {}),
         ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
+        ...(input.turnId ? { turnId: input.turnId } : {}),
         ...(input.notifySubject?.trim() ? { notifySubject: input.notifySubject.trim() } : {}),
       },
     },

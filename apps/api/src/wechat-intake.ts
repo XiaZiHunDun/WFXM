@@ -8,6 +8,7 @@ import { buildWechatRunTrigger } from "@butler/domain/runtime.js"
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import { runButlerLoop } from "./wechat-inbound-butler.js"
 import {
+  devSessionAutoGrantEnabled,
   ensureDevSessionGrants,
   formatDevSessionEnabledReply,
   isDevSessionPhrase,
@@ -206,6 +207,8 @@ export async function routeWechatIntake(args: {
   readonly fromUserId: string
   readonly projectId: string
   readonly idempotencyKey?: string
+  /** Phase 5 P0: intake turn id, threaded into Run / LLM / approval traces. */
+  readonly turnId?: string
   readonly runTrigger?: RunTrigger
   /** Run budget（来自入口请求）；maxToolCalls 会注入对话循环。 */
   readonly budget?: Readonly<Record<string, unknown>>
@@ -282,11 +285,13 @@ export async function routeWechatIntake(args: {
   ]
 
   if (loopOpts.requiresDevSession) {
-    await ensureDevSessionGrants({
-      store: args.wiring.runtimeStore,
-      subject: args.fromUserId,
-      env,
-    })
+    if (devSessionAutoGrantEnabled(env)) {
+      await ensureDevSessionGrants({
+        store: args.wiring.runtimeStore,
+        subject: args.fromUserId,
+        env,
+      })
+    }
     updateProjectState({
       userId: args.fromUserId,
       projectId: args.projectId,
@@ -316,6 +321,7 @@ export async function routeWechatIntake(args: {
       fromUserId: args.fromUserId,
       projectId: activeProject,
       ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}),
+      ...(args.turnId ? { turnId: args.turnId } : {}),
       runTrigger: intakeRunTrigger,
       allowedToolNames: loopOpts.allowedToolNames,
       ...(loopOpts.goal ? { goal: loopOpts.goal } : {}),

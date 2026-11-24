@@ -189,6 +189,7 @@ export async function handleChannelInbound(
     fromUserId: value.subject,
     projectId: value.projectId,
     idempotencyKey: value.idempotencyKey,
+    turnId: value.turnId,
     runTrigger: value.runTrigger,
   })
   return {

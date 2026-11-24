@@ -23,7 +23,8 @@
     "./knowledge/project-knowledge.js": "./src/knowledge/project-knowledge.ts",
     "./knowledge/project-knowledge-sources.js": "./src/knowledge/project-knowledge-sources.ts",
     "./knowledge/task-procedure.js": "./src/knowledge/task-procedure.ts",
-    "./observability/local-trace.js": "./src/observability/local-trace.ts"
+    "./observability/local-trace.js": "./src/observability/local-trace.ts",
+    "./observability/error-codes.js": "./src/observability/error-codes.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

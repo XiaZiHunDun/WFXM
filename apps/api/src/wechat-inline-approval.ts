@@ -23,6 +23,32 @@ function canRespondToInlineApproval(
 }
 
 /**
+ * 子代理的待审批步骤记录 conversationId = `child-<父会话>-<uuid>`，
+ * 父会话直接查不到。这里按前缀 + subject 权限回退查找，避免静默丢失审批。
+ */
+async function findChildPendingStep(args: {
+  readonly wiring: Wiring
+  readonly conversationId: string
+  readonly fromUserId: string
+  readonly env: NodeJS.ProcessEnv
+}): Promise<
+  Awaited<ReturnType<Wiring["runtimeStore"]["listWaitingApprovalSteps"]>>[number] | undefined
+> {
+  const prefix = `child-${args.conversationId}-`
+  const steps = await args.wiring.runtimeStore.listWaitingApprovalSteps()
+  return steps
+    .filter((candidate) => {
+      const raw = (candidate.input as { readonly conversationId?: unknown }).conversationId
+      if (typeof raw !== "string" || !raw.startsWith(prefix)) return false
+      const pending = parsePendingCapabilityInput(candidate.input)
+      return (
+        pending !== null && canRespondToInlineApproval(args.fromUserId, pending.subject, args.env)
+      )
+    })
+    .at(-1)
+}
+
+/**
  * Handle WeChat inline approval replies ("确认" / "拒绝") before starting a
  * new inbound Run. Returns null when the message is not an approval intent.
  */
@@ -31,6 +57,8 @@ export async function tryWechatInlineApproval(args: {
   readonly conversationId: string
   readonly content: string
   readonly fromUserId: string
+  /** Phase 5 P0: turn id from this approval reply. */
+  readonly turnId?: string
   readonly env?: NodeJS.ProcessEnv
 }): Promise<ButlerLoopResult | null> {
   const env = args.env ?? process.env
@@ -40,7 +68,14 @@ export async function tryWechatInlineApproval(args: {
   const pendingSteps = await args.wiring.runtimeStore.listWaitingApprovalStepsForConversation(
     args.conversationId,
   )
-  const step = pendingSteps.at(-1)
+  const step =
+    pendingSteps.at(-1) ??
+    (await findChildPendingStep({
+      wiring: args.wiring,
+      conversationId: args.conversationId,
+      fromUserId: args.fromUserId,
+      env,
+    }))
   if (!step) {
     return {
       // D63 T2 (audit #9 F-02/F-03): unify the no-pending reply and add a
@@ -155,7 +190,10 @@ export async function tryWechatInlineApproval(args: {
         traces: [`inline-approval: already processed ${step.id}`],
       }
     }
-    const resumed = await resumeApprovedCapability(args.wiring, decision, { env })
+    const resumed = await resumeApprovedCapability(args.wiring, decision, {
+      env,
+      ...(args.turnId ? { turnId: args.turnId } : {}),
+    })
     if (resumed.ok) {
       return {
         reply: String(resumed.output),

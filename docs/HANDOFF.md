@@ -23,7 +23,7 @@ Phase 1–4 均已完成。Phase 4 已用 WFXM 真实开发出 Ledger Lite 记�
 | 微信网关 | 运行中，user systemd 服务 | `systemctl --user status butler-v5-gateway.service` |
 | 网关 API | 端口 3000 | `curl -s http://127.0.0.1:3000/healthz` → `{"status":"ok","wiring":"v5"}` |
 | iLink | 端口 3001 | `curl -s http://127.0.0.1:3001/health` |
-| Demo 控制台 | 已停止 | 重启命令见 §7 |
+| Demo 控制台 | 运行中，真实 LLM 模式，端口 4521，工作区 `projects/water-cli` | `curl -s http://127.0.0.1:4521/health` |
 | Ledger Lite | 独立本地仓库，无 remote | `git -C projects/ledger-lite log --oneline -3` |
 | wakeup-cli | 文件保留，无独立 Git 仓库 | `find projects/wakeup-cli -type f` |
 
@@ -68,9 +68,13 @@ Ledger Lite 仓库（`projects/ledger-lite`）：`eface05`（奶茶账本），�
 
 ## 6. 未完成 / 下一步
 
-1. `wakeup-cli` 自动测试未补：SSH 重连后浏览器代理无法连接 4521；文件与 README 已就绪。
+1. ~~`wakeup-cli` 自动测试未补~~ 已补（2026-11-24）：`projects/wakeup-cli/apps/cli/test/wakeup.test.mjs`，
+   15 用例覆盖打卡 / 改时 / 连续天数 / 非法输入 / 损坏数据 / status，`node --test apps/cli/test/wakeup.test.mjs` 全过；
+   原先卡住的 4521 浏览器端到端仍未复跑。
 2. Ledger Lite 可选增强：CSV 金额统一两位小数、编辑交易、分页与图表、多用户鉴权。
-3. 若继续真实开发验证，优先用真实微信或恢复浏览器端口转发，而不是只跑单测。
+3. 若继续真实开发验证，优先用真实微信或浏览器控制台，而不是只跑单测。
+   2026-11-24 复验：浏览器可直连 `127.0.0.1:4521`，无需 SSH 端口转发；真实 LLM 完成
+   `write_file` / `run_command` 两轮审批闭环（`projects/water-cli`）。
 
 ## 7. 验证命令
 

@@ -206,6 +206,47 @@ export const auditEvents = pgTable(
   }),
 )
 
+/**
+ * Phase 5 P0: durable local trace events. Mirrors `TraceEvent` from
+ * `@butler/domain/observability/local-trace.js`. No foreign keys on
+ * purpose — traces must outlive Run / conversation cleanup, and writes
+ * must not be coupled to insert ordering.
+ */
+export const traceEvents = pgTable(
+  "trace_events",
+  {
+    id: uuid("id").primaryKey().notNull(),
+    kind: text("kind").notNull(),
+    name: text("name").notNull(),
+    status: text("status").notNull(),
+    turnId: text("turn_id"),
+    conversationId: text("conversation_id"),
+    runId: text("run_id"),
+    stepId: text("step_id"),
+    parentRunId: text("parent_run_id"),
+    subject: text("subject"),
+    triggerSource: text("trigger_source"),
+    capability: text("capability"),
+    policyDecision: text("policy_decision"),
+    grantId: text("grant_id"),
+    waitingStepId: text("waiting_step_id"),
+    durationMs: integer("duration_ms"),
+    tokenInput: integer("token_input"),
+    tokenOutput: integer("token_output"),
+    tokenTotal: integer("token_total"),
+    costUsd: doublePrecision("cost_usd"),
+    detail: jsonb("detail").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    createdIdx: index("trace_events_created_idx").on(t.createdAt),
+    runIdx: index("trace_events_run_idx").on(t.runId, t.createdAt),
+    conversationIdx: index("trace_events_conversation_idx").on(t.conversationId, t.createdAt),
+    turnIdx: index("trace_events_turn_idx").on(t.turnId, t.createdAt),
+    kindIdx: index("trace_events_kind_idx").on(t.kind, t.createdAt),
+  }),
+)
+
 export const durableMemories = pgTable(
   "durable_memories",
   {

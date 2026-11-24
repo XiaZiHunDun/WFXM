@@ -339,7 +339,7 @@ C3 每周周报（[spec](plans/active/phase2-c3-weekly-digest/spec.md)）。
 
 ---
 
-## Phase 4 — 真实开发能力验证（✅ 2026-11-23）
+## Phase 4 — 真实开发能力验证（✅ 2026-11-23，补充验证 2026-11-24）
 
 **目标**：用 Butler / WFXM 通过真实 LLM 从零开发一个实际可用项目，验证
 「对话 → 写文件 → 审批 → 运行 → 浏览器验收」闭环。
@@ -360,6 +360,10 @@ JSON 持久化 + 原生前端）。规格与证据见
 | Git 身份 | 沙箱内注入宿主全局 `user.name/email`，`git init/add/commit` 实测作者正确；新增 4 条单测 |
 | 真实微信 | 2026-11-24 10:26 收到 owner 消息，执行 `list_dir projects`，runId `80389008…`，`run.succeeded`；回复列出 7 个项目目录 |
 | 网关重启 | 2026-11-24 10:29 重启 `butler-v5-gateway`，`/healthz` 与 iLink 健康检查正常，Git 身份修复已上线 |
+| 浏览器真实 LLM 复验 | 2026-11-24：Demo 控制台 4521 真实 LLM 模式，一句模糊需求生成 `projects/water-cli/tools/water-cli/water.js`（282 行），`write_file` + `run_command` 两轮审批均通过；独立复跑 add/today/week/undo/goal/非法输入全部正常；发现沙箱 HOME 为临时目录导致默认数据不跨轮持久化 |
+| 真实微信开发闭环 | 2026-11-24：dev_task → 委派 executor → 子代理 `write_file` 待审批 → owner 回「确认」→ `projects/wechat-check/hello3.txt`（内容 `wechat-ok-3`）落盘；子代理审批回退修复生效 |
+| 验收 harness 对齐真机 | 2026-11-24：`makeAcceptanceApp` 新增 `intake` 选项，acceptance 可走真实分类/委派路径；新增 2 条确定性用例覆盖默认 dev-session 批量授权、关闭两层开关后的子代理待审批 + 父会话「确认」落盘 |
+| Demo 对齐真机 | 2026-11-24：真实模式默认开启 intake 与 subagent worker（`BUTLER_V5_DEMO_INTAKE=0` 可关回）；控制台聊天框支持发「确认」；Playwright 5/5 通过，4521 已重启验证 |
 | 回归 | `pnpm test` 2,483 通过；1 个超时用例单独复跑通过；typecheck / lint / format 全绿 |
 
 过程中发现并修复：
@@ -370,9 +374,36 @@ JSON 持久化 + 原生前端）。规格与证据见
    用用户口吻反馈「页面没反应、控制台提到 pad2」后，WFXM 将 `pad2` 前移并补注释；
 3. 沙箱 HOME 隔离导致 `git commit` 报 `Author identity unknown`，已改为注入宿主全局身份。
 
-遗留 / 后续：wakeup-cli 自动测试未补（SSH 重连后浏览器代理无法连接 4521）；CSV 金额
-统一两位小数、编辑交易、分页与图表、多用户鉴权。项目源码位于
+遗留 / 后续：wakeup-cli 自动测试已于 2026-11-24 补齐（`apps/cli/test/wakeup.test.mjs`，15 用例全过），
+4521 控制台已可直连并完成复跑；CSV 金额
+统一两位小数、编辑交易、分页与图表、多用户鉴权仍为可选后续。项目源码位于
 [`projects/ledger-lite/`](../projects/ledger-lite/) 与 `projects/wakeup-cli/`。
+
+---
+
+## Phase 5 — 日志与轨迹信息收集体系 P0（✅ 2026-11-24）
+
+**目标**：移动端窄通道下，后台失败/卡住/异常可事后定位。用户只看到
+「错误码 + turnId 前 8 位」，Owner 可查全量 trace 与依赖诊断。规格见
+[`plans/active/phase5-observability-2026-11-24/spec.md`](plans/active/phase5-observability-2026-11-24/spec.md)。
+
+| 项 | 结果 |
+|----|------|
+| 错误码 | 新增 `E-LLM-01 / E-CTX-01 / E-TOOL-01 / E-POL-01 / E-RUN-01 / E-DB-01 / E-REQ-01 / E-INT-01` 注册表；未知异常统一 `E-INT-01` |
+| 失败信封 | `[E-xxx · turn-172] 处理失败，已记录…`；原始异常/堆栈不再进入回复或 traces |
+| turnId 贯穿 | inbound → `routeWechatIntake` / `runButlerLoop` → LLM step trace / 失败 run trace → 子代理 outbox payload / LLM trace → 审批恢复 trace |
+| trace 双写 | `trace_events` 表（0018 迁移 + 5 索引）；`LocalTracer` 异步批量 sink（默认 50 条 / 2000ms），失败丢弃不阻塞主流程 |
+| 退出与保留 | SIGINT/SIGTERM 先 flush 再关库；启动 + 每小时 prune（默认 30 天 / 20 万行，定时器 `unref`） |
+| 健康检查 | `/healthz` 返回 db / outbox / approvals / runs / traces；DB 异常 503；历史无 db 的测试 wiring 降级为 ok |
+| Owner 诊断 | 新增 `GET /v1/owner/diagnostics`；`GET /v1/owner/traces` 支持 `turnId` 并优先读持久化表 |
+| 边界 | P1（微信「日志/状态」指令、卡住告警、控制台页、导出 CLI、OTLP 外送）未实现；无新依赖、未新增包 |
+
+验证（2026-11-24）：`pnpm typecheck` / `pnpm lint` 全绿；Phase 5 相关 13 个测试文件
+102 用例全部通过（domain error-codes / local-trace、runtime local-tracer、
+persistence trace-store / migrations-registry、apps/api diagnostics /
+owner-diagnostics / owner-traces / wechat-inbound-butler / wechat-inline-approval /
+approval-resume / subagent-worker / routes）。
+
 
 
 

@@ -29,4 +29,16 @@ describe("migrations registry", () => {
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS capability")
     expect(sql).toContain("scoped_grants_capability_idx")
   })
+
+  it("includes Phase 5 P0 trace_events migration with indexes", () => {
+    const files = listMigrationFiles()
+    expect(files).toContain("0018_trace_events.sql")
+    const sql = migrationSql()
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS trace_events")
+    expect(sql).toContain("trace_events_created_idx")
+    expect(sql).toContain("trace_events_run_idx")
+    expect(sql).toContain("trace_events_conversation_idx")
+    expect(sql).toContain("trace_events_turn_idx")
+    expect(sql).toContain("trace_events_kind_idx")
+  })
 })

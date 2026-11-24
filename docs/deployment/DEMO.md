@@ -38,9 +38,34 @@ BUTLER_V5_DEMO_PORT=4600 pnpm demo:web
 3. 第 3 轮 → 文本回复
 
 在第 2 轮后点「批准」，会真实执行一次 `write_file`（写入 harness 的临时工作区）；
-点「拒绝」则不会执行。
+点「拒绝」则不会执行。也可以直接在聊天框发送「确认」——与真机微信一样走
+`tryWechatInlineApproval`，执行后待审批自动清空。
+
+## 三种模式
+
+| 模式 | 启动 | LLM | intake | 子代理 worker | 工作区 |
+|------|------|-----|--------|---------------|--------|
+| 脚本化（默认） | `pnpm demo:web` | fixture 回放 | 关 | 不启动 | 临时目录，退出清理 |
+| 真实 LLM | `BUTLER_V5_DEMO_REAL_LLM=1 pnpm demo:real` | `.env` 中的真实模型 | **默认开**（`BUTLER_V5_DEMO_INTAKE=0` 关回） | **默认启动**（`BUTLER_V5_SUBAGENT_ENABLED=1`） | `BUTLER_V5_DEMO_WORKSPACE`，默认 `projects/ledger-lite` |
+| 真机微信 | 网关 systemd 服务 | 真实模型 | 开（`BUTLER_V5_INTAKE_ENABLED`，默认 1） | 开 | 生产工作区 |
+
+真实模式默认打开 intake，是为了让「开发任务 → 委派子代理 → 子代理审批」这条
+真机链路在浏览器里也能复现。若不希望委派（例如只测主循环直接调用工具），
+用 `BUTLER_V5_DEMO_INTAKE=0` 回到旧的 `runButlerLoop` 回退路径。
+
+```bash
+BUTLER_V5_DEMO_REAL_LLM=1 \
+BUTLER_V5_DEMO_WORKSPACE=/home/ailearn/projects/WFXM/projects/water-cli \
+BUTLER_V5_DEMO_PORT=4521 \
+pnpm demo:real
+```
+
+脚本化模式仍保持 intake 关闭，因为既有 fixture 剧本假设主循环直接调用
+`write_file`；打开 intake 后开发任务会被分类并委派，剧本语义会变。
 
 ## 安全边界
+
+脚本化模式（默认）：
 
 - **只绑定 loopback**：`127.0.0.1`，不接受局域网 / 公网访问。
 - **不接真实模型**：复用 `tests/acceptance/harness.ts` 的 fixture LLM，不需要
@@ -48,7 +73,15 @@ BUTLER_V5_DEMO_PORT=4600 pnpm demo:web
 - **不碰真实工作区**：数据库为内存 PGlite；`BUTLER_V5_WORKSPACE_ROOT` 指向临时目录，
   demo 退出时清理。
 - **不开启 MCP**：`BUTLER_V5_MCP_ENABLED=0`。
-- 请求体上限 16 KiB，消息上限 2000 字符。
+- 请求体上限 64 KiB，消息上限 8000 字符。
+
+真实模式：
+
+- 仍只绑定 loopback，但会调用 `.env` 中的真实模型并写入
+  `BUTLER_V5_DEMO_WORKSPACE`，请把工作区指向可丢弃的项目目录。
+- 子代理写文件默认预授权（dev-session / delegation grants）；需要逐项审批时，
+  在启动前设置 `BUTLER_V5_DEV_SESSION_AUTO_GRANT=0` 与
+  `BUTLER_V5_DELEGATION_PREGRANT=0`，再在聊天框回「确认」。
 
 ## API（demo 内部）
 
@@ -83,3 +116,5 @@ Playwright 配置见根目录 `playwright.config.ts`：`webServer` 自动执行 
 | Playwright 报浏览器不存在 | `pnpm exec playwright install chromium` |
 | 页面一直「处理中…」 | 查看终端日志；`/health` 是否 200 |
 | 待审批一直不出现 | 确认已发送第 2 轮消息；fixture 按轮次回放，重置后从头开始 |
+| 真实模式开发任务只回「已转到后台」 | 确认 `BUTLER_V5_SUBAGENT_ENABLED=1`（默认已设）；查看终端是否有 `[subagent-worker]` 日志 |
+| 真实模式一直有子代理待审批 | 默认会批量授权；若要复现逐项审批，设 `BUTLER_V5_DEV_SESSION_AUTO_GRANT=0` 与 `BUTLER_V5_DELEGATION_PREGRANT=0` |

@@ -4,6 +4,10 @@ import type { WorkingSetResult } from "@butler/runtime/working-set.js"
 import { AgentKernel } from "@butler/runtime/agent-kernel.js"
 import type { ModelDecision } from "@butler/runtime/decision.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
+import {
+  formatFailureEnvelope,
+  resolveErrorCode,
+} from "@butler/domain/observability/error-codes.js"
 import { computeCostUsd, parseLlmPricing, resolveCurrentLlmModel } from "./llm-pricing.js"
 import {
   DEFAULT_MAX_LOOP_ITERATIONS,
@@ -142,6 +146,8 @@ export async function runButlerLoop(args: {
   readonly fromUserId: string
   readonly projectId: string
   readonly idempotencyKey?: string
+  /** Phase 5 P0: intake-generated turn id, threaded into every trace. */
+  readonly turnId?: string
   readonly runTrigger?: RunTrigger
   readonly budget?: Readonly<Record<string, unknown>>
   readonly deadline?: Date | null
@@ -161,6 +167,7 @@ export async function runButlerLoop(args: {
     conversationId: args.conversationId,
     content: args.content,
     fromUserId: args.fromUserId,
+    ...(args.turnId ? { turnId: args.turnId } : {}),
     env,
   })
   if (inline) return inline
@@ -280,12 +287,23 @@ export async function runButlerLoop(args: {
     const msg = err instanceof Error ? err.message : String(err)
     const logger = args.logger ?? defaultLogger
     logger.error("butler-loop failed; responding with degraded reply", err)
+    // Phase 5 P0: raw error text only goes to the operator log + trace.
+    // The owner gets a stable code plus the first 8 chars of the turn id.
+    const code = resolveErrorCode(err)
+    getSharedLocalTracer().record({
+      kind: "run",
+      name: "failure",
+      status: "error",
+      turnId: args.turnId ?? null,
+      conversationId: args.conversationId,
+      detail: { code, reason: msg },
+    })
     return {
-      reply: `这次没处理成功，请稍后再发一次。若反复如此，请联系管理员处理。`,
+      reply: formatFailureEnvelope({ code, turnId: args.turnId }),
       iterations: 0,
       toolCalls: 0,
       finalDecision: "Finish",
-      traces: [`loop-error: ${msg}`],
+      traces: [`loop-error: ${code}`],
     }
   }
 }
@@ -319,6 +337,7 @@ async function runButlerLoopBody(args: {
   readonly projectId: string
   readonly runId: string
   readonly workingSet: WorkingSetResult
+  readonly turnId?: string
   readonly allowedToolNames?: readonly string[]
   readonly env?: NodeJS.ProcessEnv
   readonly logger?: ButlerLoopLogger
@@ -388,6 +407,7 @@ async function runButlerLoopBody(args: {
     wechatUserId: args.fromUserId,
     runtimeStore: args.wiring.runtimeStore,
     runId: args.runId,
+    turnId: args.turnId,
     env,
     mcpBundle: args.wiring.mcp,
     durableMemoryStore: args.wiring.durableMemoryStore,
@@ -570,6 +590,7 @@ async function runButlerLoopBody(args: {
                   name: "llm_call",
                   status: "error",
                   conversationId: args.conversationId,
+                  turnId: args.turnId ?? null,
                   runId: args.runId,
                   subject: memorySubject,
                   durationMs: Date.now() - llmStartedAt,
@@ -603,6 +624,7 @@ async function runButlerLoopBody(args: {
                   name: "llm_call",
                   status: "ok",
                   conversationId: args.conversationId,
+                  turnId: args.turnId ?? null,
                   runId: args.runId,
                   subject: memorySubject,
                   durationMs: Date.now() - llmStartedAt,

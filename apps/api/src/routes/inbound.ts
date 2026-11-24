@@ -148,6 +148,7 @@ export function registerInboundRoutes(
           fromUserId: value.subject,
           projectId: value.projectId,
           idempotencyKey: value.idempotencyKey,
+          turnId: value.turnId,
           runTrigger: value.runTrigger,
           ...(inboundBudget ? { budget: inboundBudget } : {}),
           env,
@@ -160,6 +161,7 @@ export function registerInboundRoutes(
           fromUserId: value.subject,
           projectId: value.projectId,
           idempotencyKey: value.idempotencyKey,
+          turnId: value.turnId,
           runTrigger: value.runTrigger,
           ...(inboundBudget ? { budget: inboundBudget } : {}),
         })

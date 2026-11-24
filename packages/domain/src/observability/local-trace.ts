@@ -22,6 +22,11 @@ export interface TraceEvent {
   readonly kind: TraceKind
   readonly name: string
   readonly status: "ok" | "error" | "waiting"
+  /**
+   * Phase 5 P0: inbound turn id threaded from intake through Run / LLM /
+   * subagent / approval so owner reports can be correlated with traces.
+   */
+  readonly turnId: string | null
   readonly conversationId: string | null
   readonly runId: string | null
   readonly stepId: string | null
@@ -55,6 +60,7 @@ export interface CreateTraceEventInput {
   readonly kind: TraceKind
   readonly name: string
   readonly status?: TraceEvent["status"]
+  readonly turnId?: string | null
   readonly conversationId?: string | null
   readonly runId?: string | null
   readonly stepId?: string | null
@@ -137,6 +143,7 @@ export function createTraceEvent(input: CreateTraceEventInput): TraceEvent {
     kind: input.kind,
     name: input.name,
     status: input.status ?? "ok",
+    turnId: input.turnId ?? null,
     conversationId: input.conversationId ?? null,
     runId: input.runId ?? null,
     stepId: input.stepId ?? null,
@@ -185,6 +192,24 @@ export function parseTraceConfig(
   return { enabled, redact, maxEvents, exporter }
 }
 
+export interface TraceRetentionConfig {
+  /** Delete trace rows older than this many days. */
+  readonly retentionDays: number
+  /** Hard cap on persisted trace rows; oldest rows are evicted first. */
+  readonly maxRows: number
+}
+
+/** Parse retention policy from env (defaults: 30 days / 200k rows). */
+export function parseTraceRetention(
+  env: Readonly<Record<string, string | undefined>> = {},
+): TraceRetentionConfig {
+  const daysRaw = Number(env["BUTLER_V5_TRACE_RETENTION_DAYS"] ?? 30)
+  const retentionDays = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.floor(daysRaw) : 30
+  const rowsRaw = Number(env["BUTLER_V5_TRACE_MAX_ROWS"] ?? 200000)
+  const maxRows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.floor(rowsRaw) : 200000
+  return { retentionDays, maxRows }
+}
+
 /** Minimal OTLP-ish JSON line for stdout exporter (not a full SDK). */
 export function formatOtelStdoutLine(event: TraceEvent): string {
   return JSON.stringify({
@@ -203,6 +228,9 @@ export function formatOtelStdoutLine(event: TraceEvent): string {
                 attributes: [
                   { key: "butler.kind", value: { stringValue: event.kind } },
                   { key: "butler.status", value: { stringValue: event.status } },
+                  ...(event.turnId
+                    ? [{ key: "butler.turnId", value: { stringValue: event.turnId } }]
+                    : []),
                   ...(event.conversationId
                     ? [
                         {
@@ -272,6 +300,7 @@ export function filterTraceEvents(
   filter: {
     readonly runId?: string
     readonly conversationId?: string
+    readonly turnId?: string
     readonly kind?: TraceKind
     readonly limit?: number
   },
@@ -281,6 +310,7 @@ export function filterTraceEvents(
   return events
     .filter((e) => (filter.runId ? e.runId === filter.runId : true))
     .filter((e) => (filter.conversationId ? e.conversationId === filter.conversationId : true))
+    .filter((e) => (filter.turnId ? e.turnId === filter.turnId : true))
     .filter((e) => (filter.kind ? e.kind === filter.kind : true))
     .slice(-limit)
 }

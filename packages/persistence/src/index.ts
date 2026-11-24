@@ -21,6 +21,8 @@ export type {
   ReminderStatus,
   ReminderStore,
 } from "./reminder-store.js"
+export { createTraceStore } from "./trace-store.js"
+export type { TraceListFilter, TracePruneResult, TraceStore } from "./trace-store.js"
 export { DrizzlePiTaskSessionStore } from "./task-session-store.js"
 export { DrizzleButlerSessionStore } from "./butler-session-store.js"
 export {

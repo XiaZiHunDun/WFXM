@@ -68,6 +68,22 @@ test.describe("Butler v5 demo console", () => {
     await expect(page.getByTestId("bubble-bot").last()).toContainText("已拒绝")
   })
 
+  test("聊天框文字「确认」完成审批", async ({ page }) => {
+    await send(page, "你好")
+    await expect(page.getByTestId("status")).toHaveText("就绪")
+
+    await send(page, "帮我写个文件")
+    await expect(page.getByTestId("status")).toHaveText("等待审批")
+    await expect(page.getByTestId("approval-item")).toHaveCount(1)
+
+    // 真机微信里 owner 直接回「确认」；控制台聊天框必须走同一条 inline approval。
+    await send(page, "确认")
+    await expect(page.getByTestId("approval-item")).toHaveCount(0)
+    await expect(page.getByTestId("pending-count")).toHaveText("0")
+    await expect(page.getByTestId("status")).toHaveText("就绪")
+    await expect(page.getByTestId("bubble-bot").last()).toContainText("wrote demo-note.txt")
+  })
+
   test("重置会话清空消息与待审批", async ({ page }) => {
     await send(page, "你好")
     await expect(page.getByTestId("bubble-user")).toHaveCount(1)

@@ -20,6 +20,8 @@ export interface ParsedDelegatePayload {
   readonly capabilities: readonly string[]
   readonly childRunId: string | null
   readonly notifySubject: string
+  /** Phase 5 P0: parent turn id (null when the delegating call had none). */
+  readonly turnId: string | null
 }
 
 /**
@@ -37,6 +39,7 @@ export function parseDelegateOutboxPayload(msg: OutboxMessage): ParsedDelegatePa
     childRunId?: unknown
     parentRunId?: unknown
     notifySubject?: unknown
+    turnId?: unknown
   }
   return {
     childConversationId:
@@ -46,5 +49,6 @@ export function parseDelegateOutboxPayload(msg: OutboxMessage): ParsedDelegatePa
     capabilities: normalizeCapabilityNames(payload.capabilities),
     childRunId: typeof payload.childRunId === "string" ? payload.childRunId : null,
     notifySubject: typeof payload.notifySubject === "string" ? payload.notifySubject.trim() : "",
+    turnId: typeof payload.turnId === "string" && payload.turnId.trim() ? payload.turnId : null,
   }
 }

@@ -10,8 +10,10 @@ import {
   createProcedureStore,
   createTaskStore,
   createReminderStore,
+  createTraceStore,
   backfillRuntimeFromEventStore,
 } from "@butler/persistence"
+import { parseTraceRetention } from "@butler/domain/observability/local-trace.js"
 import { resetSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import { systemClock } from "@butler/ports/core/clock.js"
 import type { ChannelKind, ChannelPort } from "@butler/ports/core/channel.js"
@@ -55,8 +57,10 @@ export async function createProductionWiring(
   if (!openedDb.ok) {
     return { ok: false, reason: openedDb.reason }
   }
-  resetSharedLocalTracer(env)
   const db = openedDb.value.db
+  const traceStore = createTraceStore(db)
+  // Phase 5 P0: dual-write traces (memory ring buffer + batched DB sink).
+  resetSharedLocalTracer(env, { sink: traceStore })
   const workerId = env["WORKER_ID"] ?? "w-default"
   const bridge = new EventBridge({ db, workerId })
   const runtimeStore = createRuntimeStore(db)
@@ -66,6 +70,13 @@ export async function createProductionWiring(
   const procedureStore = createProcedureStore(db)
   const taskStore = createTaskStore(db)
   const reminderStore = createReminderStore(db)
+  // Startup retention prune; a failure only logs and never blocks boot.
+  try {
+    await traceStore.prune(parseTraceRetention(env))
+  } catch (err) {
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error("[butler-v5] trace retention prune failed on startup:", err)
+  }
   // Composition Root: 注入系统时钟；测试可用 fixedClock 注入假时钟做确定性断言。
   const runEngine = new RunEngine(runtimeStore, undefined, systemClock)
   const mcp = await bootstrapMcpTools(env, { runtimeStore })
@@ -83,6 +94,7 @@ export async function createProductionWiring(
     procedureStore,
     taskStore,
     reminderStore,
+    traceStore,
     channels,
     backfillConversation: async (conversationId) => {
       await backfillRuntimeFromEventStore(db, [conversationId])

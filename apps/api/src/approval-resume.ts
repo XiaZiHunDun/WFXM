@@ -133,6 +133,7 @@ async function continueLoopAfterCapability(args: {
   readonly toolOutput: string
   /** 审批执行的 exec 以非零退出结束：必须继续对话，让模型解释/给下一步。 */
   readonly execFailed?: boolean
+  readonly turnId?: string | null
   readonly env: NodeJS.ProcessEnv
   readonly wechatUserId?: string
   readonly wechatContextToken?: string
@@ -308,6 +309,7 @@ async function continueLoopAfterCapability(args: {
                   status: "error",
                   conversationId: args.conversationId,
                   runId: args.runId,
+                  turnId: args.turnId ?? null,
                   subject: args.subject,
                   durationMs: Date.now() - llmStartedAt,
                   detail: {
@@ -338,6 +340,7 @@ async function continueLoopAfterCapability(args: {
                   status: "ok",
                   conversationId: args.conversationId,
                   runId: args.runId,
+                  turnId: args.turnId ?? null,
                   subject: args.subject,
                   durationMs: Date.now() - llmStartedAt,
                   ...(resp.usage !== undefined ? { token: resp.usage } : {}),
@@ -425,6 +428,8 @@ export async function resumeApprovedCapability(
     readonly env?: NodeJS.ProcessEnv
     readonly trigger?: RunTrigger
     readonly content?: string
+    /** Phase 5 P0: inbound turn id carrying the approval reply. */
+    readonly turnId?: string | null
   } = {},
 ): Promise<RunResult> {
   const env = options.env ?? process.env
@@ -432,6 +437,17 @@ export async function resumeApprovedCapability(
   if (!pending) {
     return { ok: false, reason: "invalid pending capability step" }
   }
+  getSharedLocalTracer().record({
+    kind: "approval",
+    name: "approval_resume",
+    status: "ok",
+    turnId: options.turnId ?? null,
+    conversationId: pending.conversationId,
+    runId: decision.runId,
+    stepId: decision.step.id,
+    capability: pending.capability,
+    detail: { grantId: decision.grant.id },
+  })
 
   const out = await wiring.runEngine.resumeRun(
     {
@@ -537,6 +553,7 @@ export async function resumeApprovedCapability(
         capability: pending.capability,
         toolOutput: result.ok ? String(result.output) : result.reason,
         execFailed: !result.ok,
+        turnId: options.turnId ?? null,
         env,
         ...(pending.wechatUserId ? { wechatUserId: pending.wechatUserId } : {}),
         ...(pending.wechatContextToken ? { wechatContextToken: pending.wechatContextToken } : {}),

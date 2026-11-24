@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
 import {
+  devSessionAutoGrantEnabled,
   devSessionRunId,
   ensureDevSessionGrants,
   formatDevSessionEnabledReply,
@@ -13,6 +14,14 @@ describe("dev-session-grant", () => {
     expect(isDevSessionPhrase("开发模式")).toBe(true)
     expect(isDevSessionPhrase("/dev mode")).toBe(true)
     expect(isDevSessionPhrase("你好")).toBe(false)
+  })
+
+  it("auto-grant stays on unless explicitly disabled", () => {
+    expect(devSessionAutoGrantEnabled({} as NodeJS.ProcessEnv)).toBe(true)
+    expect(devSessionAutoGrantEnabled({ BUTLER_V5_DEV_SESSION_AUTO_GRANT: "" })).toBe(true)
+    expect(devSessionAutoGrantEnabled({ BUTLER_V5_DEV_SESSION_AUTO_GRANT: "1" })).toBe(true)
+    expect(devSessionAutoGrantEnabled({ BUTLER_V5_DEV_SESSION_AUTO_GRANT: "0" })).toBe(false)
+    expect(devSessionAutoGrantEnabled({ BUTLER_V5_DEV_SESSION_AUTO_GRANT: "false" })).toBe(false)
   })
 
   it("creates scoped_grants-backed session grants", async () => {

@@ -11,6 +11,16 @@ describe("delegate-capabilities", () => {
     expect(defaultCapabilitiesForRole("dev")).toEqual(["read_file", "write_file", "run_command"])
   })
 
+  it("exec-style roles also default to exec capabilities", () => {
+    for (const role of ["exec", "executor", "Engineer", " coder "]) {
+      expect(defaultCapabilitiesForRole(role), role).toEqual([
+        "read_file",
+        "write_file",
+        "run_command",
+      ])
+    }
+  })
+
   it("other roles default to general", () => {
     expect(defaultCapabilitiesForRole("researcher")).toEqual(["general"])
     expect(defaultCapabilitiesForRole("")).toEqual(["general"])

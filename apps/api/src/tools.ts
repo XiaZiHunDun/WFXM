@@ -54,6 +54,8 @@ export interface ButlerToolContext {
   readonly runtimeStore?: RuntimeStore
   /** Parent Run id for Child Run creation on delegate (A5). */
   readonly runId?: string
+  /** Phase 5 P0: inbound turn id, forwarded to delegated child traces. */
+  readonly turnId?: string
   /**
    * D5-arch-align §20 #5: tools the parent Run is currently permitted to invoke.
    * Used to enforce that any child Run delegated from this parent does not
@@ -379,6 +381,7 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
       bridge: ctx.bridge,
       ...(ctx.runtimeStore ? { runtimeStore: ctx.runtimeStore } : {}),
       ...(ctx.runId ? { parentRunId: ctx.runId } : {}),
+      ...(ctx.turnId ? { turnId: ctx.turnId } : {}),
       // D5-arch-align §20 #5 (opt-in): thread parent tool allowlist into
       // delegate. Map string-tool-name to Capability brand so type contract
       // holds. When parentAllowedToolNames is undefined, no subset check

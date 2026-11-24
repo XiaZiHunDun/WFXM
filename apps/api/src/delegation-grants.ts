@@ -13,16 +13,28 @@ import type { RuntimeStore } from "@butler/domain/runtime.js"
 import { resolveSandboxNetworkMode } from "@butler/domain/governance/network-allowlist.js"
 import { issuePreconfiguredGrants } from "@butler/runtime/scoped-grant-service.js"
 import { executableCapabilities } from "./capability-guard.js"
+import { envTruthy } from "./env-util.js"
 
 const DELEGATION_CONFIRM_TOOLS = ["run_command", "write_file"] as const
 
 const DELEGATION_GRANT_TTL_MS = 60 * 60 * 1000
+
+/**
+ * `BUTLER_V5_DELEGATION_PREGRANT=0` 关闭预授权：委派不再代授权，
+ * 子代理的 write_file / run_command 走逐项审批。未设置（或为空）保持旧行为。
+ */
+function delegationPregrantEnabled(env: NodeJS.ProcessEnv): boolean {
+  const raw = env["BUTLER_V5_DELEGATION_PREGRANT"]
+  if (raw === undefined || raw.trim() === "") return true
+  return envTruthy(raw)
+}
 
 export function delegationPregrantCapabilities(args: {
   readonly capabilities: readonly string[]
   readonly env?: NodeJS.ProcessEnv
 }): readonly string[] {
   const env = args.env ?? process.env
+  if (!delegationPregrantEnabled(env)) return []
   const granted = executableCapabilities(args.capabilities).filter((cap) =>
     (DELEGATION_CONFIRM_TOOLS as readonly string[]).includes(cap),
   )

@@ -150,9 +150,22 @@ export {
   createTraceEvent,
   applyTraceRedaction,
   parseTraceConfig,
+  parseTraceRetention,
+  type TraceRetentionConfig,
   formatOtelStdoutLine,
   filterTraceEvents,
 } from "./observability/local-trace.js"
+
+// ─── 错误码注册表（Phase 5 P0）──────────────────────────
+export {
+  type TraceErrorCode,
+  type ErrorCodeInfo,
+  ERROR_CODES,
+  UNKNOWN_ERROR_CODE,
+  resolveErrorCode,
+  turnIdShort,
+  formatFailureEnvelope,
+} from "./observability/error-codes.js"
 
 // ─── 防错域 ──────────────────────────────────────────────
 export {

@@ -25,6 +25,7 @@ import { registerWsSubscribeRoutes } from "./routes/ws-subscribe.js"
 import { registerHealthRoutes } from "./routes/health.js"
 import { registerButlerRoutes } from "./routes/butler.js"
 import { createButlerRuntimeProvider } from "./butler-runtime-provider.js"
+import { collectDiagnostics } from "./diagnostics.js"
 
 /**
  * D71 T3 (audit #12 SEC-004 / SEC-005): parse a comma-separated
@@ -52,7 +53,10 @@ export interface RoutesOptions {
 }
 
 export function createRoutes(app: Hono, wiring: Wiring, options: RoutesOptions = {}) {
-  app.get("/healthz", (c) => c.json({ status: "ok", wiring: wiring.version }))
+  app.get("/healthz", async (c) => {
+    const report = await collectDiagnostics(wiring)
+    return c.json(report, report.status === "ok" ? 200 : 503)
+  })
   app.post("/v1/conversations", async (c) => {
     // D69 T4 (audit #10 SEC-2): require BUTLER_V5_INBOUND_SHARED_SECRET
     // header — same FAIL-CLOSED pattern as /v1/wechat/inbound (D63 T4).

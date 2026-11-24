@@ -22,7 +22,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { mkdirSync } from "node:fs"
 import { join } from "node:path"
+import { pickLLMForRole } from "@butler/adapters"
 import { makeAcceptanceApp, type AcceptanceApp } from "../tests/acceptance/harness.js"
+import { isSubagentEnabled } from "../apps/api/src/subagent-config.js"
+import { runSubagentWorker, type SubagentWorkerHandle } from "../apps/api/src/subagent-worker.js"
 
 const HOST = "127.0.0.1"
 const DEFAULT_PORT = 4520
@@ -30,11 +33,16 @@ const MAX_BODY_BYTES = 64 * 1024
 const MAX_MESSAGE_CHARS = 8000
 /** Real-LLM mode: writes go to a persistent project dir instead of a temp workspace. */
 const REAL_LLM = process.env["BUTLER_V5_DEMO_REAL_LLM"] === "1"
+/**
+ * 真实模式默认开启 intake（与生产 WeChat 一致）；`BUTLER_V5_DEMO_INTAKE=0`
+ * 关回旧的 runButlerLoop 回退路径。脚本化模式始终关闭 intake，保持既有剧本。
+ */
+const REAL_INTAKE = REAL_LLM && process.env["BUTLER_V5_DEMO_INTAKE"] !== "0"
 const WORKSPACE = (
   process.env["BUTLER_V5_DEMO_WORKSPACE"] ?? join(process.cwd(), "projects", "ledger-lite")
 ).trim()
 const MODE_LABEL = REAL_LLM
-  ? "真实 LLM · 持久化工作区 · 仅本机"
+  ? `真实 LLM · 持久化工作区 · intake ${REAL_INTAKE ? "开" : "关"} · 仅本机`
   : "脚本化 LLM · 内存数据库 · 仅本机"
 /** owner 路由从 env.incoming.socket.remoteAddress 判定 loopback。 */
 const LOOPBACK_ENV = { incoming: { socket: { remoteAddress: HOST } } } as const
@@ -98,6 +106,7 @@ let app: AcceptanceApp
 let conversationId: string | undefined
 let messageSeq = 0
 let queue: Promise<unknown> = Promise.resolve()
+let subagentWorker: SubagentWorkerHandle | undefined
 
 /** 串行执行：避免 reset 与在途 chat/approve 交错。 */
 function serialize<T>(task: () => Promise<T>): Promise<T> {
@@ -109,14 +118,35 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
   return run
 }
 
+/** 真实模式 + 子代理开启时，启动 outbox worker 消费委派任务（与生产一致）。 */
+function startSubagentWorker(): void {
+  if (!REAL_INTAKE || !isSubagentEnabled(process.env)) return
+  subagentWorker = runSubagentWorker(
+    app.wiring.eventBridge,
+    (env) => pickLLMForRole(env, "exec"),
+    process.env,
+    { runtimeStore: app.wiring.runtimeStore, intervalMs: 2000 },
+  )
+}
+
+function stopSubagentWorker(): void {
+  subagentWorker?.stop()
+  subagentWorker = undefined
+}
+
 async function buildApp(): Promise<AcceptanceApp> {
   if (!REAL_LLM) {
     const next = await makeAcceptanceApp()
     next.setFixtures(DEMO_FIXTURES)
     return next
   }
+  if (REAL_INTAKE && !process.env["BUTLER_V5_SUBAGENT_ENABLED"]) {
+    // intake 的 dev_task 会委派子代理；没有 worker 消费 outbox 会永远停在
+    // 「已转到后台」。默认开启，与生产网关一致。
+    process.env["BUTLER_V5_SUBAGENT_ENABLED"] = "1"
+  }
   mkdirSync(WORKSPACE, { recursive: true })
-  const next = await makeAcceptanceApp({ noFixture: true })
+  const next = await makeAcceptanceApp({ noFixture: true, intake: REAL_INTAKE })
   // Harness pins a temp workspace; real mode must write to the project dir.
   process.env["BUTLER_V5_WORKSPACE_ROOT"] = WORKSPACE
   process.env["BUTLER_V5_SANDBOX_WORKSPACE_ROOT"] = WORKSPACE
@@ -124,8 +154,10 @@ async function buildApp(): Promise<AcceptanceApp> {
 }
 
 async function rebuild(): Promise<void> {
+  stopSubagentWorker()
   await app.close()
   app = await buildApp()
+  startSubagentWorker()
 }
 
 async function callApp(path: string, init?: RequestInit): Promise<Response> {
@@ -297,6 +329,7 @@ const port = Number.parseInt(process.env["BUTLER_V5_DEMO_PORT"] ?? "", 10) || DE
 
 async function main(): Promise<void> {
   app = await buildApp()
+  startSubagentWorker()
 
   const server = createServer((req, res) => {
     void route(req, res).catch((err: unknown) => {
@@ -314,12 +347,17 @@ async function main(): Promise<void> {
   console.log("Butler v5 demo console → http://" + HOST + ":" + port)
   console.log(
     REAL_LLM
-      ? "真实 LLM · 工作区：" + WORKSPACE + " · Ctrl+C 退出。"
+      ? "真实 LLM · 工作区：" +
+          WORKSPACE +
+          " · intake " +
+          (REAL_INTAKE ? "开" : "关") +
+          " · Ctrl+C 退出。"
       : "脚本化 LLM · 内存 PGlite · 不调用真实模型。Ctrl+C 退出。",
   )
 
   const shutdown = (signal: string): void => {
     console.log("\n收到 " + signal + "，正在关闭…")
+    stopSubagentWorker()
     server.close(() => {
       void app.close().finally(() => process.exit(0))
     })

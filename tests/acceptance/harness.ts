@@ -109,6 +109,11 @@ export async function makeAcceptanceApp(opts?: {
    * 走真实 LLM（需 MINIMAX_API_KEY 等 env）。仅 record-real-llm.ts 用。
    */
   readonly noFixture?: boolean
+  /**
+   * 可选：打开真实 intake 分类路径（默认 false，走 runButlerLoop 回退）。
+   * 用于覆盖 dev_task → 委派子代理 → 子代理审批链路。
+   */
+  readonly intake?: boolean
 }): Promise<AcceptanceApp> {
   const fixtureDir = opts?.noFixture ? "" : mkdtempSync(join(tmpdir(), "wb-accept-fixture-"))
   const workspaceRoot = mkdtempSync(join(tmpdir(), "wb-accept-ws-"))
@@ -135,8 +140,19 @@ export async function makeAcceptanceApp(opts?: {
   const prevOwnerEnv = process.env["BUTLER_OWNER_WECHAT_ID"]
   process.env["BUTLER_OWNER_WECHAT_ID"] = "u-owner"
   // 路由以 process.env 判 isWechatIntakeEnabled（默认 1 → routeWechatIntake）。
-  // 统一关掉，走 runButlerLoop 真实回退路径（含完整微信工具集 + 审批链路）。
-  process.env["BUTLER_V5_INTAKE_ENABLED"] = "0"
+  // 默认关闭，走 runButlerLoop 真实回退路径（含完整微信工具集 + 审批链路）；
+  // 传 intake: true 时才走真实分类/委派路径。
+  const prevIntakeEnv = process.env["BUTLER_V5_INTAKE_ENABLED"]
+  const intakeEnabled = opts?.intake === true
+  process.env["BUTLER_V5_INTAKE_ENABLED"] = intakeEnabled ? "1" : "0"
+  // overrides 同时写入 process.env：inbound 路由与工具边界默认读 process.env，
+  // 只合并进下方局部 env 无法让 subagent / 授权开关在真实路径生效。
+  // 保存旧值供 close() 复原，避免跨 app 泄漏。
+  const prevOverrideEnv = new Map<string, string | undefined>()
+  for (const [key, value] of Object.entries(opts?.overrides ?? {})) {
+    prevOverrideEnv.set(key, process.env[key])
+    process.env[key] = value
+  }
   // D63 T4 (audit #9 F-03) post-fix: seed the inbound shared secrets so
   // the FAIL-CLOSED auth checks pass. Acceptance tests already provide a
   // matching x-inbound-secret header in sendWechatMessage() below.
@@ -150,9 +166,9 @@ export async function makeAcceptanceApp(opts?: {
     BUTLER_V5_LLM_FIXTURE_DIR: fixtureDir,
     BUTLER_V5_WORKSPACE_ROOT: workspaceRoot,
     BUTLER_V5_MCP_ENABLED: "0",
-    // HTTP 路由默认走 wechat-intake 分类路径；关闭以统一走 runButlerLoop
-    // （真实回退路径，含完整微信工具集 write_file + 审批链路）。
-    BUTLER_V5_INTAKE_ENABLED: "0",
+    // HTTP 路由默认走 runButlerLoop 回退路径（含完整微信工具集 write_file +
+    // 审批链路）；intake: true 时改走 wechat-intake 分类/委派路径。
+    BUTLER_V5_INTAKE_ENABLED: intakeEnabled ? "1" : "0",
     BUTLER_V5_WECHAT_SESSION_STATE: sessionStatePath,
     ...(opts?.overrides ?? {}),
     ...(opts?.pgliteDataDir ? { BUTLER_V5_PGLITE_DATA_DIR: opts.pgliteDataDir } : {}),
@@ -233,6 +249,18 @@ export async function makeAcceptanceApp(opts?: {
       delete process.env["BUTLER_OWNER_WECHAT_ID"]
     } else {
       process.env["BUTLER_OWNER_WECHAT_ID"] = prevOwnerEnv
+    }
+    for (const [key, value] of prevOverrideEnv) {
+      if (value === undefined) {
+        delete process.env[key]
+      } else {
+        process.env[key] = value
+      }
+    }
+    if (prevIntakeEnv === undefined) {
+      delete process.env["BUTLER_V5_INTAKE_ENABLED"]
+    } else {
+      process.env["BUTLER_V5_INTAKE_ENABLED"] = prevIntakeEnv
     }
     if (fixtureDir) rmSync(fixtureDir, { recursive: true, force: true })
     rmSync(workspaceRoot, { recursive: true, force: true })

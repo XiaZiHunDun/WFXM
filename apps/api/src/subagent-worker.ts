@@ -218,6 +218,7 @@ async function runChildLlm(
   env: NodeJS.ProcessEnv,
   runtimeStore?: RuntimeStore,
   childRunId?: string | null,
+  turnId?: string | null,
 ): Promise<{
   readonly content: string
   readonly waitingApproval?: boolean
@@ -258,6 +259,7 @@ async function runChildLlm(
     env,
     ...(runtimeStore === undefined ? {} : { runtimeStore }),
     ...(childRunId == null ? {} : { runId: childRunId }),
+    ...(turnId == null ? {} : { turnId }),
     ...(workspaceRoot === undefined ? {} : { workspaceRoot }),
   })
   const toolExecutor = makeToolExecutor({
@@ -317,6 +319,7 @@ async function runChildLlm(
           status: "ok",
           conversationId: childConversationId,
           runId: childRunId ?? null,
+          turnId: turnId ?? null,
           subject: ownerSubject,
           durationMs: Date.now() - llmStartedAt,
           ...(resp.usage !== undefined ? { token: resp.usage } : {}),
@@ -338,6 +341,7 @@ async function runChildLlm(
           status: "error",
           conversationId: childConversationId,
           runId: childRunId ?? null,
+          turnId: turnId ?? null,
           subject: ownerSubject,
           durationMs: Date.now() - llmStartedAt,
           detail: { reason: err instanceof Error ? err.message : String(err) },
@@ -485,7 +489,7 @@ async function handleOutboxMessage(
   }
   logger.warn(`[subagent-worker] processing outbox msg ${msg.messageId} for stream ${msg.streamId}`)
   logger.warn(`[subagent-worker] ${execModelTrace(env)}`)
-  const { childConversationId, role, task, capabilities, childRunId, notifySubject } =
+  const { childConversationId, role, task, capabilities, childRunId, notifySubject, turnId } =
     parseDelegateOutboxPayload(msg)
   if (!childConversationId || !task) {
     logger.warn(
@@ -563,6 +567,7 @@ async function handleOutboxMessage(
       env,
       runtimeStore,
       childRunId,
+      turnId,
     )
     logger.warn(`[subagent-worker] LLM replied: ${result.content.slice(0, 80)}`)
   } catch (err) {
