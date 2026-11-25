@@ -17,7 +17,7 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { expect } from "vitest"
+import assert from "node:assert/strict"
 import {
   UNDO_CHAIN_CONV_FOR_TEST,
   UNDO_CHAIN_FOR_TEST,
@@ -1176,8 +1176,8 @@ export const scenariosD: readonly Scenario[] = [
       //   step 1 write (beforeContent=ORIGINAL_HELPER) → helper.ts = ORIGINAL_HELPER
       const helperPath = join(ctx.workspaceRoot, "helper.ts")
       const testPath = join(ctx.workspaceRoot, "test.ts")
-      expect(readFileSync(helperPath, "utf8")).toBe("ORIGINAL_HELPER")
-      expect(readFileSync(testPath, "utf8")).toBe("ORIGINAL_TEST")
+      assert.equal(readFileSync(helperPath, "utf8"), "ORIGINAL_HELPER")
+      assert.equal(readFileSync(testPath, "utf8"), "ORIGINAL_TEST")
       // D68 T2 — 清理 setup 设的 env var 防止跨 scenario 泄漏
       delete process.env["BUTLER_V5_CONVERSATION_ID"]
     },
@@ -1240,7 +1240,7 @@ export const scenariosD: readonly Scenario[] = [
     verify: (ctx) => {
       // 跨 approval 的 chain 整链回滚：reverse order → entry 3 (beforeContent=FIXED) → entry 1 (beforeContent=ORIGINAL)
       const helperPath = join(ctx.workspaceRoot, "helper.ts")
-      expect(readFileSync(helperPath, "utf8")).toBe("ORIGINAL")
+      assert.equal(readFileSync(helperPath, "utf8"), "ORIGINAL")
       delete process.env["BUTLER_V5_CONVERSATION_ID"]
     },
   },
@@ -1295,7 +1295,7 @@ export const scenariosD: readonly Scenario[] = [
     verify: () => {
       // 全 non-invertible: UNDO_CHAIN 应已被清空（undoChain 末尾 delete）。
       // 通过 undoChain_listChainIds() 验 chain consumed。
-      expect(undoChain_listChainIds()).not.toContain("run-d3")
+      assert.ok(!undoChain_listChainIds().includes("run-d3"))
       // D68 T2 — 清理 setup 设的 env var 防止跨 scenario 泄漏
       delete process.env["BUTLER_V5_CONVERSATION_ID"]
     },
@@ -1352,8 +1352,8 @@ export const scenariosD: readonly Scenario[] = [
       // D68 T2: first-match 选中 run-d4a → old.ts 被 revert (OLD_ORIGINAL → 文件)；
       // run-d4b 应仍在 chain 中 (只有 run-d4a 被消费)。
       const oldPath = join(ctx.workspaceRoot, "old.ts")
-      expect(readFileSync(oldPath, "utf8")).toBe("OLD_ORIGINAL")
-      expect(undoChain_listChainIds()).toContain("run-d4b")
+      assert.equal(readFileSync(oldPath, "utf8"), "OLD_ORIGINAL")
+      assert.ok(undoChain_listChainIds().includes("run-d4b"))
       // D68 T2 — 清理 setup 设的 env var 防止跨 scenario 泄漏
       delete process.env["BUTLER_V5_CONVERSATION_ID"]
     },

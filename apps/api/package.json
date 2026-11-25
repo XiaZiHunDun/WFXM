@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./bootstrap-wiring.js": "./src/bootstrap-wiring.ts",
-    "./cli-run.js": "./src/cli-run.ts"
+    "./cli-run.js": "./src/cli-run.ts",
+    "./workspace-tools.js": "./src/workspace-tools.ts"
   },
   "bin": {
     "butler": "./src/index.ts"
