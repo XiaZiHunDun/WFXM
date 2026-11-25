@@ -126,8 +126,12 @@ const POLL_INTERVAL_MS = 5_000
  * 2026-11-18 later run: a write task burned 7 iterations on discovery and
  * hit the cap again, so 12 gives one more discovery round before the
  * forced tool-less final turn.
+ *
+ * Phase 7 fix F3: real-repo delegation needs write + verify across several
+ * files, so 20 leaves room for discovery, multiple writes, and the final
+ * tool-less summary turn.
  */
-const MAX_CHILD_ITERATIONS = 12
+const MAX_CHILD_ITERATIONS = 20
 
 async function markChildRunRunning(store: RuntimeStore, childRunId: string): Promise<void> {
   const run = await store.getRun(childRunId)
@@ -202,6 +206,32 @@ export function buildPauseForApprovalReply(reason: string): string {
 }
 
 /**
+ * Phase 7 fix F2: the child prompt must spell out the execution contract.
+ * Without it the model writes one file and answers in prose ("已完成"),
+ * which the loop correctly treats as a plain-text Respond — so the child
+ * run is recorded as done while the task is still half-finished.
+ * Exported for unit tests.
+ */
+export function buildChildSystemPrompt(
+  role: string,
+  advertisedTools: readonly { readonly name: string }[],
+): string {
+  const available = advertisedTools.map((t) => t.name)
+  if (available.length === 0) {
+    return `你是一名 ${role} 子代理，正在处理一个被委派的任务。你没有可用工具，请只用语言作答，并明确指出哪些部分无法落地。`
+  }
+  return [
+    `你是一名 ${role} 子代理，正在处理一个被委派的任务。`,
+    "执行规则：",
+    "1. 需要读写文件、执行命令时，必须实际调用工具（原生 tool call），不要用文字描述代替。",
+    "2. 读取/查看文件只是准备动作，不是任务目标；读完必须继续执行写入、修改或命令，直到任务点名的产物全部存在。",
+    "3. 任务目标没有全部落地前，不要用纯文本宣布完成；只有全部完成才允许给出简短总结。",
+    "4. 声明完成前，必须用 list_files / read_file 核对目标文件真实存在且内容符合要求。",
+    `5. 只能使用这些工具：${available.join(", ")}；禁止调用未列出的工具。`,
+  ].join("\n")
+}
+
+/**
  * Run the child LLM turn. R8.x.10: advertises only granted tools and
  * refuses to execute any tool_call outside that set. Existing
  * general-only delegations keep the previous single-shot text path
@@ -240,15 +270,8 @@ async function runChildLlm(
     }
   }
   const advertised = llmToolsForCapabilities(capabilities)
-  const toolHint =
-    advertised.length === 0
-      ? "你没有可用工具，请只用语言作答。"
-      : `你只能使用这些工具: ${advertised.map((t) => t.name).join(", ")}。禁止调用未列出的工具。`
   const messages: LLMMessage[] = [
-    {
-      role: "system",
-      content: `你是一名 ${role} 子代理，正在处理一个被委派的任务。请用简洁、可直接回复给用户的方式回答。${toolHint}`,
-    },
+    { role: "system", content: buildChildSystemPrompt(role, advertised) },
     { role: "user", content: task },
   ]
   const workspaceRoot = (env["BUTLER_V5_WORKSPACE_ROOT"] ?? "").trim() || undefined
@@ -435,14 +458,24 @@ async function runChildLlm(
       llmTools: advertised,
       ports,
       maxIterations: MAX_CHILD_ITERATIONS,
+      maxToolCalls: MAX_CHILD_ITERATIONS,
+      toolFirst: advertised.length > 0,
       llmTimeoutMs: LLM_TIMEOUT_MS,
     })
     // `iterations === cap` means the loop ran out of turns instead of the
     // model deciding it was done; the reply is then a progress/hand-off
     // text, not a completion. Surface that so the caller can stop telling
     // the owner the work succeeded.
+    // Phase 7 fix F4: a Finish decision on the failure path returns the
+    // generic stub reply. Attach the loop's last traces so the parent sees
+    // the real reason (e.g. `llm failure: ...`) instead of a bare
+    // "调用失败".
+    const finishDiagnostics =
+      loopResult.finalDecision === "Finish" && loopResult.traces.length > 0
+        ? `\n（诊断：${loopResult.traces.slice(-2).join("；")}）`
+        : ""
     return {
-      content: loopResult.reply,
+      content: `${loopResult.reply}${finishDiagnostics}`,
       capped: loopResult.iterations >= MAX_CHILD_ITERATIONS,
     }
   } catch (err) {
@@ -555,7 +588,9 @@ async function handleOutboxMessage(
   }
   let llmOk = true
   try {
-    logger.warn(`[subagent-worker] invoking LLM for role=${role} task=${task.slice(0, 60)}`)
+    logger.warn(
+      `[subagent-worker] invoking LLM for role=${role} task=${task.slice(0, 60)} len=${task.length}`,
+    )
     result = await runChildLlm(
       adapter,
       role,
@@ -578,11 +613,11 @@ async function handleOutboxMessage(
     // the notify path) is a safe Chinese fallback. Full error stays in
     // the logger.error call above.
     result = {
-      content: safeOwnerError(err, `（子代理 ${role} 调用失败，请稍后重试）`, {
+      content: `${safeOwnerError(err, `（子代理 ${role} 调用失败，请稍后重试）`, {
         operation: "subagent-llm-call",
         childConversationId,
         role,
-      }),
+      })}（诊断：${err instanceof Error ? err.name : "unknown"}）`,
     }
   }
   // A run that stopped at the iteration cap did not finish the task. Do not

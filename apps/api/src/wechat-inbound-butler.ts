@@ -81,6 +81,19 @@ const defaultLogger: ButlerLoopLogger = {
 }
 
 /**
+ * Phase 7 fix F6: the 5-turn default is too small for real-repo tasks — the
+ * model spends the whole turn budget on discovery, then the forced final turn
+ * produces "I'll do it next round" instead of writing files. Allow an
+ * explicit env override so the demo/operators can raise it; production keeps
+ * the conservative default.
+ */
+function resolveMaxLoopIterations(env: NodeJS.ProcessEnv): number {
+  const raw = (env["BUTLER_V5_MAX_LOOP_ITERATIONS"] ?? "").trim()
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_MAX_LOOP_ITERATIONS
+}
+
+/**
  * Result of a single butler loop run. Alias of Execution ConversationLoopResult.
  */
 export type ButlerLoopResult = ConversationLoopResult
@@ -598,7 +611,7 @@ async function runButlerLoopBody(args: {
     kernel,
     messages,
     llmTools,
-    maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
+    maxIterations: resolveMaxLoopIterations(env),
     initialTraces,
     ...(maxToolCalls !== undefined ? { maxToolCalls } : {}),
     ...(args.llmTimeoutMs !== undefined ? { llmTimeoutMs: args.llmTimeoutMs } : {}),

@@ -1,0 +1,48 @@
+# Phase 7（v2）— WFXM Web 对话驱动真实仓库开发（Tasks）
+
+> 对应 [spec.md](spec.md)。不自动 commit / push。
+> 原则：LingWen 代码一律由 WFXM 经 Web 对话产出；本执行方只做启动、只读核查、构建与浏览器验证。
+
+## T1 WFXM P0 修复
+- [x] F1 `conversation-loop.ts`：未知工具错误附带可用工具名；决策标签被当工具时给出正确指引
+- [x] F2 `subagent-worker.ts`：抽出 `buildChildSystemPrompt`，明确「用工具落地 / 完成前核对 / 才允许纯文本收尾」
+- [x] F3 `subagent-worker.ts`：`MAX_CHILD_ITERATIONS` 12→20；`maxIterations` 与 `maxToolCalls` 一致传入
+- [x] F4 `subagent-worker.ts`：失败回复带错误码 + 最后 trace，不再只回「调用失败」
+- [x] F5 outbox payload 的 task 改为全文（根因：`TASK_PREVIEW_CHARS=200`），新增回归测试
+- [x] F6 `wechat-inbound-butler.ts`：新增 `BUTLER_V5_MAX_LOOP_ITERATIONS` 覆盖（默认仍 5）
+- [x] F2b `conversation-loop.ts`：`toolFirst` 模式下纯文本提前收尾最多 2 次提示继续，新增单测
+
+## T2 修复验证
+- [x] `conversation-loop.test.ts` 增加未知工具提示断言
+- [x] 新增 `buildChildSystemPrompt` 单测
+- [x] 跑 `pnpm exec vitest run`（上述 + `wechat-dev-delegate.test.ts`）→ 30 passed
+- [x] 跑根脚本 `typecheck` / `lint`（typecheck 通过）
+
+## T3 重启 Web 入口
+- [x] `BUTLER_V5_DEMO_REAL_LM=1`…（实际：`BUTLER_V5_DEMO_REAL_LLM=1` + 4522 + workspace + 18 轮）
+- [x] 验证 `POST /demo/api/chat` 可用；子代理首轮只读不收工的问题经 F2/F2b 复现并修复
+
+## T4 LingWen M1 骨架
+- [x] 对话要求 WFXM 补齐 `src/app` 最小页面与 scripts（子代理写 3 个文件）
+- [x] 只读核查工作区；`pnpm build` 通过（4 个静态页）
+
+## T5 LingWen M2 数据层
+- [x] 对话统一表结构：`src/lib/db.js` 五表 + WAL + 外键，导出 initDb/getDb/closeDb
+- [x] `tests/db.test.mjs` 重写：8 tests passed；`pnpm test` + `typecheck` 通过
+- [x] 新增 `src/lib/repo.js`：14 个导出（books/bible/outlines/chapters/llm_logs 访问）
+
+## T6 LingWen M3 API
+- [x] books / bible / outline / chapters / generate(流式) / check / export 路由
+- [x] 核查路由文件与类型（10 个路由，`pnpm build` 通过；next.config 由 WFXM 自行补 serverExternalPackages 与 extensionAlias）
+
+## T7 LingWen M4 UI
+- [x] `/` 书架页（列表/新建/删除/进入工作台）
+- [x] `/books/[id]` 三栏工作台（大纲+章节 / 编辑器+AI 流式续写 / 设定集+体检+导出）
+- [x] 备注：M4-2 需求 2498 字符被 Demo Console 2000 上限拒绝，拆成 M4-2a/2b 两轮完成
+
+## T8 收口
+- [x] `pnpm build` 通过（含 `/books/[id]` 与 10 个 API 路由）
+- [x] 启动 `next start -p 3210` 并用 Playwright 验证书架 + 工作台（3 栏、正文载入、体检）
+- [x] 真实 LLM 烟测：建书→设定→大纲→建章→流式生成→落库→检查→导出
+- [x] 回填 spec §6（轮数、失败、根因、缺陷分级、证据）
+- [x] 未执行 commit/push（等待 owner 指令）

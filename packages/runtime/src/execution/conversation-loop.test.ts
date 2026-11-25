@@ -388,6 +388,84 @@ describe("runConversationLoop", () => {
     expect(result.traces.some((t) => t.includes("unknown tool: ghost"))).toBe(true)
   })
 
+  it("lists available tools and flags decision tags when an unknown tool is called", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "hi" } })
+    let turn = 0
+    let toolContent = ""
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "hi" }],
+      llmTools: [
+        {
+          name: "delegate_to_subagent",
+          description: "delegate",
+          parameters: { type: "object" },
+        },
+      ],
+      ports: {
+        complete: async (msgs) => {
+          turn += 1
+          if (turn === 1) {
+            return {
+              ok: true,
+              response: {
+                content: "",
+                toolCalls: [{ id: "tc-tag", name: "StartChildRun", args: {} }],
+              },
+            }
+          }
+          toolContent = msgs.find((m) => m.role === "tool")?.content ?? ""
+          return { ok: true, response: { content: "done", toolCalls: [] } }
+        },
+        findTool: () => undefined,
+        executeTool: async () => ({ ok: false, reason: "unused" }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(toolContent).toContain("delegate_to_subagent")
+    expect(toolContent).toContain("决策标签")
+    expect(result.finalDecision).toBe("Respond")
+  })
+
+  it("nudges a tool-first loop instead of ending on an early prose reply", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "write" } })
+    const tool: ToolDefinition = {
+      name: "tick" as ToolDefinition["name"],
+      risk: "low",
+      run: async () => ({ ok: true, output: "tick" }),
+    }
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "write" }],
+      llmTools: [{ name: "tick", description: "tick", parameters: { type: "object" } }],
+      toolFirst: true,
+      ports: {
+        complete: async () => {
+          turn += 1
+          if (turn === 1) return { ok: true, response: { content: "读完了", toolCalls: [] } }
+          if (turn === 2) {
+            return {
+              ok: true,
+              response: { content: "", toolCalls: [{ id: "tc1", name: "tick", args: {} }] },
+            }
+          }
+          return { ok: true, response: { content: "完成了", toolCalls: [] } }
+        },
+        findTool: (name) => (name === "tick" ? tool : undefined),
+        executeTool: async (def, args) => def.run({ ...args }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(result.traces.some((t) => t.includes("tool-first nudge"))).toBe(true)
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.reply).toBe("完成了")
+  })
+
   it("aborts on a stuck loop (same tool+args signature threshold)", async () => {
     const kernel = makeKernel()
     await kernel.openTurn({ userMessage: { role: "user", content: "tick" } })

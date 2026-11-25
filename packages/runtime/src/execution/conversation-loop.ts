@@ -340,6 +340,12 @@ export interface ConversationLoopInput {
   readonly maxEmptyContentRetries?: number
   /** Tool-call budget for this run; also raises the iteration cap. */
   readonly maxToolCalls?: number
+  /**
+   * Phase 7 fix F2b: when true, a plain-text reply before the final turn is
+   * treated as unfinished work — the loop nudges the model to keep calling
+   * tools instead of ending. Used by subagent loops that must land files.
+   */
+  readonly toolFirst?: boolean
 }
 
 /**
@@ -385,6 +391,8 @@ async function runNativeConversationLoop(
   let lastNonEmptyRaw = ""
   let budgetNoteIndex = -1
   let budgetExhaustedNotified = false
+  let toolFirstNudges = 0
+  const maxToolFirstNudges = 2
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const isFinalIteration = iteration === maxIterations - 1
@@ -459,10 +467,20 @@ async function runNativeConversationLoop(
           // D69 T3 (audit #10 CQ-19): Chinese owner-jargon phrasing in the
           // tool-result message so the LLM doesn't echo raw `unknown tool`
           // English to the owner. Mirrors D48 §4 owner-facing contract.
+          // Phase 7 fix F1: include the advertised tool names so a model that
+          // invented a tool (often a decision tag like `StartChildRun`) can
+          // self-correct on the next iteration instead of burning the whole
+          // turn budget on the same unknown name.
           traces.push(`unknown tool: ${tc.name}`)
+          const availableTools = input.llmTools.map((t) => t.name).join(", ") || "（无）"
+          const isDecisionTag = (
+            ["Respond", "Finish", "StartChildRun", "WaitForApproval", "CallCapability"] as const
+          ).includes(tc.name as never)
           toolResultMessages.push({
             role: "tool",
-            content: `[错误] 未注册的工具：${tc.name}`,
+            content: isDecisionTag
+              ? `[错误] "${tc.name}" 是决策标签，不是工具；启动子任务请调用 delegate_to_subagent。可用工具：${availableTools}。`
+              : `[错误] 未注册的工具：${tc.name}。可用工具：${availableTools}。请只调用这些工具。`,
             toolCallId: tc.id,
             toolName: tc.name,
           })
@@ -563,6 +581,23 @@ async function runNativeConversationLoop(
       // Max retries exceeded (Phase D fix B-08/10): prefer the last non-empty
       // LLM content (legitimate plain-text response); fall back to stub reply
       // when ALL attempts were empty (matches pre-fix behavior for empty raw).
+      // Phase 7 fix F2b: a tool-first loop treats an early prose reply as
+      // unfinished work — one or two nudges beat silently ending the run.
+      if (
+        input.toolFirst === true &&
+        input.llmTools.length > 0 &&
+        !isFinalIteration &&
+        toolFirstNudges < maxToolFirstNudges
+      ) {
+        toolFirstNudges += 1
+        messages.push({
+          role: "user",
+          content:
+            "[system] 任务还没完成：读取/查看文件只是准备动作，不是结果。请继续调用工具创建或修改任务要求的文件；全部落地后先用 list_files 核对，再给出纯文本总结。",
+        })
+        traces.push(`tool-first nudge ${toolFirstNudges}/${maxToolFirstNudges}`)
+        continue
+      }
       const respondContent = raw || lastNonEmptyRaw || input.ports.stubReply()
       const respondDecision: ModelDecision = {
         _tag: "Respond",

@@ -10,7 +10,7 @@
  * constraint to enforce; e.g. CLI one-shot tests or service-to-service
  * dispatch without a parent Run).
  */
-import { describe, expect, it, beforeEach, afterEach } from "vitest"
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest"
 import { delegate, type Capability } from "./delegate-runtime.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { createRuntimeStore } from "@butler/persistence/runtime-store.js"
@@ -32,8 +32,24 @@ describe("D5-arch-align: delegate child-cap ⊆ parent-allowlist", () => {
     return { tool: name as Capability["tool"] }
   }
 
-  it("parentRunId set + parentAllowlist omitted (= unrestricted parent) → no subset check, proceeds", async () => {
-    // parentAllowlist=undefined means "parent unrestricted" (no allowedToolNames
+  it("keeps the full task in the Delegate outbox payload (Phase 7 F5)", async () => {
+    const longTask = `需求：${"补齐数据层并运行测试。".repeat(40)}`
+    const spy = vi.spyOn(bridge, "appendConversationEventWithOutbox")
+    await delegate({
+      role: "developer",
+      task: longTask,
+      capabilities: [makeCap("read_file")],
+      parentConversationId: "c-full",
+      actor: { kind: "owner", id: "owner-1" },
+      bridge,
+    })
+    const call = spy.mock.calls[0]?.[0] as unknown as {
+      outbox: { payload: { task: string } }
+    }
+    expect(call.outbox.payload.task).toBe(longTask)
+  })
+
+  it("parentRunId set + parentAllowlist omitted (= unrestricted parent) → no subset check, proceeds", async () => {    // parentAllowlist=undefined means "parent unrestricted" (no allowedToolNames
     // arg passed at runButlerLoop). §20 #5 only constrains child when parent
     // is itself restricted.
     const result = await delegate({

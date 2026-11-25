@@ -193,7 +193,11 @@ export async function delegate(input: DelegateInput): Promise<DelegateOutcome> {
       payload: {
         childConversationId,
         role: input.role,
-        task: input.task.slice(0, TASK_PREVIEW_CHARS),
+        // Phase 7 fix F5: the outbox payload IS the child's task input
+        // (`parseDelegateOutboxPayload` → `runChildLlm`). Truncating it to
+        // TASK_PREVIEW_CHARS silently cut real requirements mid-sentence.
+        // Only the run/step metadata previews stay truncated.
+        task: input.task,
         capabilities: input.capabilities,
         ...(childRunId ? { childRunId } : {}),
         ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
