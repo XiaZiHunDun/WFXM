@@ -42,14 +42,30 @@ describe("wechat command routing", () => {
     expect(list?.reply).toContain("修 smoke")
   })
 
-  it("remembers and lists durable memory", async () => {
+  it("remembers as a candidate, then promotes it via 确认记忆", async () => {
     const remember = await tryWechatInboundCommand({
       wiring: h.wiring,
       fromUserId: "u-mem",
       content: "/记住 第三卷主角名禁止修改",
       env: h.env,
     })
-    expect(remember?.reply).toContain("已记住")
+    expect(remember?.reply).toContain("已记录候选记忆")
+
+    const pending = await tryWechatInboundCommand({
+      wiring: h.wiring,
+      fromUserId: "u-mem",
+      content: "/记忆候选",
+      env: h.env,
+    })
+    expect(pending?.reply).toContain("第三卷")
+
+    const confirmed = await tryWechatInboundCommand({
+      wiring: h.wiring,
+      fromUserId: "u-mem",
+      content: "/确认记忆",
+      env: h.env,
+    })
+    expect(confirmed?.reply).toContain("已确认记忆")
 
     const list = await tryWechatInboundCommand({
       wiring: h.wiring,
@@ -69,10 +85,10 @@ describe("memory commands", () => {
       content: "记住：我下周要去成都出差",
       env: h.env,
     })
-    expect(result?.reply).toContain("已记住")
+    expect(result?.reply).toContain("已记录候选记忆")
     const saved = await h.wiring.durableMemoryStore?.listBySubject({
       subject: "u-mem-natural",
-      status: "confirmed",
+      status: "candidate",
       limit: 10,
     })
     expect(saved?.some((item) => item.content.includes("成都"))).toBe(true)
@@ -104,7 +120,7 @@ describe("memory commands", () => {
     })
     expect(result).not.toBeNull()
     if (result === null) return
-    expect(result.reply).toContain("已记住")
+    expect(result.reply).toContain("已记录候选记忆")
     expect(result.reply).toContain("去重检查失败")
     expect(result.reply).not.toContain("simulated dedup outage")
   })
@@ -129,7 +145,7 @@ describe("memory commands", () => {
     })
     expect(result?.reply).toContain("相似度")
     expect(result?.reply).toContain("请先确认是否重复")
-    expect(result?.reply).not.toContain("已记住")
+    expect(result?.reply).not.toContain("已记录候选记忆")
   })
 })
 

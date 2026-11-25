@@ -4,10 +4,13 @@
  *
  * Data sources (kept in lockstep with existing owner surfaces):
  *   - completed / open tasks: TaskStore (same as `/待办` and /v1/owner/tasks)
- *   - failed runs: local tracer `run_failed` events (same as /v1/owner/usage)
+ *   - failed runs: persisted `trace_events` (same source as `/日志` and
+ *     /v1/owner/traces); falls back to the in-process tracer when the
+ *     trace store is not wired (tests / legacy wirings)
  *   - approvals: audit_events `approval.requested` (same as owner audit trail)
  */
 import type { TraceEvent } from "@butler/domain/observability/local-trace.js"
+import { isFailedRunTrace } from "@butler/domain/observability/local-trace.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import { formatReminderTime } from "./reminder-time.js"
 import type { Wiring } from "./wiring.js"
@@ -43,6 +46,47 @@ export interface TraceReader {
   }) => readonly TraceEvent[]
 }
 
+/**
+ * Phase 6: count `run_failed` step events in the window.
+ *
+ * Prefer the persisted trace store so the number survives restarts and is
+ * consistent with `/日志` + /v1/owner/traces. The in-process ring buffer is
+ * a fallback only (5xx wirings without a trace store, unit tests) because it
+ * keeps at most `BUTLER_V5_TRACE_MAX_EVENTS` entries and loses data on
+ * restart.
+ */
+async function countFailedRuns(args: {
+  readonly wiring: Wiring
+  readonly windowStartMs: number
+  readonly windowEndMs: number
+  readonly tracer?: TraceReader
+  readonly env?: NodeJS.ProcessEnv
+}): Promise<number> {
+  const persisted = args.wiring.traceStore
+  if (persisted) {
+    try {
+      const rows = await persisted.list({
+        sinceMs: args.windowStartMs,
+        untilMs: args.windowEndMs,
+        limit: 5000,
+      })
+      return rows.filter(isFailedRunTrace).length
+    } catch {
+      // Degrade to the in-process buffer; the digest must not fail because
+      // the trace table is temporarily unavailable.
+    }
+  }
+  const tracer = args.tracer ?? getSharedLocalTracer(args.env ?? process.env)
+  return tracer
+    .list({ limit: 5000 })
+    .filter(
+      (event) =>
+        isFailedRunTrace(event) &&
+        event.createdAt >= args.windowStartMs &&
+        event.createdAt <= args.windowEndMs,
+    ).length
+}
+
 export async function collectWeeklyDigest(args: {
   readonly wiring: Wiring
   readonly subject: string
@@ -68,16 +112,13 @@ export async function collectWeeklyDigest(args: {
   ).length
   const openTasks = tasks.filter((task) => task.status === "open").length
 
-  const tracer = args.tracer ?? getSharedLocalTracer(args.env ?? process.env)
-  const failedRuns = tracer
-    .list({ limit: 5000 })
-    .filter(
-      (event) =>
-        event.kind === "step" &&
-        event.name === "run_failed" &&
-        event.createdAt >= windowStartMs &&
-        event.createdAt <= windowEndMs,
-    ).length
+  const failedRuns = await countFailedRuns({
+    wiring: args.wiring,
+    windowStartMs,
+    windowEndMs,
+    ...(args.tracer === undefined ? {} : { tracer: args.tracer }),
+    ...(args.env === undefined ? {} : { env: args.env }),
+  })
 
   const audits = await args.wiring.runtimeStore.listRecentAuditEvents({
     windowMs,

@@ -26,11 +26,11 @@ describe("acceptance/commands-approval (微信核心命令 + 审批流)", () => 
     await app.close()
   })
 
-  it("/记住 命令捷径在 LLM-free 下返回「已记住」", async () => {
+  it("/记住 命令捷径在 LLM-free 下返回「已记录候选记忆」", async () => {
     app.setFixtures({ plan: [] })
     const res = await sendWechatMessage(app, { content: "/记住 accept: butler 验收标记" })
     expect(res.status).toBe(201)
-    expect(res.reply).toContain("已记住")
+    expect(res.reply).toContain("已记录候选记忆")
   }, 30_000)
 
   it("脚本化 LLM 以文本 Respond 返回普通答复", async () => {

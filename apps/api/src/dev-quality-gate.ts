@@ -2,6 +2,7 @@
  * P4: automatic dev verification after exec runs (write/command/subagent).
  */
 import { spawn } from "node:child_process"
+import { existsSync } from "node:fs"
 import { envTruthy } from "./env-util.js"
 import { resolve } from "node:path"
 import type { RuntimeStore } from "@butler/domain/runtime.js"
@@ -41,7 +42,12 @@ export function resolveDevVerifyCwd(
   const root = workspaceRootFromEnv(env)
   const gateProject = loadQualityGateConfig(env)?.projects?.[projectId.trim()]
   const rel = gateProject?.cwd?.trim()
-  return rel ? resolve(root, rel) : root
+  if (!rel) return root
+  const resolved = resolve(root, rel)
+  // Phase 6: a stale config entry (e.g. a directory removed in a refactor)
+  // must not make every dev-verify spawn fail with ENOENT — degrade to the
+  // workspace root instead of silently reporting a false failure.
+  return existsSync(resolved) ? resolved : root
 }
 
 export function resolveDevVerifyArgv(env: NodeJS.ProcessEnv = process.env): readonly string[] {

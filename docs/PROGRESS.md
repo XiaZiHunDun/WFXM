@@ -3,7 +3,7 @@
 > **用途**：按「阶段」记录开发进度——目标、验收口径、证据、遗留。D-series 单笔 ship 仍记 [`ROADMAP.md`](ROADMAP.md)；架构依据见 [`DESIGN.md`](../DESIGN.md) 与 [`architecture/wfxm-agent-runtime.html`](architecture/wfxm-agent-runtime.html)。
 > **新会话**：先读 [`HANDOFF.md`](HANDOFF.md) 恢复当前运行态与待办，再读本台账。
 > **更新时机**：阶段开始/结束时；验收证据必须是复跑结果，不引用历史结论。
-> **最近更新**：2026-11-23
+> **最近更新**：2026-11-25
 
 ---
 
@@ -15,6 +15,8 @@
 | Phase 2 | 功能深化（爆点/差异化），按 ROI 选点 | ✅ 完成（测评体系 + C1 提醒 / C2 审批预览 / C3 周报） | 2026-11-23 |
 | Phase 3 | 功能打磨：地基 → 楼层 → 体验 | ✅ 完成（任务层 / 管家层 / 渠道与产品能力） | 2026-11-23 |
 | Phase 4 | 验证实际开发能力：用 WFXM 开发实际可用项目 | ✅ 完成（Ledger Lite 记账应用） | 2026-11-23 |
+| Phase 5 | 日志与轨迹信息收集体系 | ✅ P0 完成 / 🟡 P1 部分（微信 `/诊断` `/日志`、`trace:export`） | 2026-11-25 |
+| Phase 6 | 闭环飞轮体系检查与验证 | ✅ P0 完成（8 个断裂点修复 + 回流入口） | 2026-11-25 |
 
 ---
 
@@ -422,6 +424,49 @@ approval-resume / subagent-worker / routes）。
 `wechat-observability-commands`（13 用例）、`scripts/trace-export`（7 用例），
 `wechat-commands` 补入口链路 2 用例、`trace-store` 补时间窗 1 用例；
 `pnpm trace:export` 空库与 `--out` 落盘实测通过。提交 `e9fa18a1`。
+
+---
+
+## Phase 6 — 闭环飞轮体系检查与验证（✅ 2026-11-25）
+
+> 规格与任务：[`plans/active/phase6-loop-validation-2026-11-25/`](plans/active/phase6-loop-validation-2026-11-25/spec.md)
+
+**审计结论**：六环节零件齐全，但审计前是「单向数据流 + 人工回填」，评分 10/25。
+
+| 环节 | 审计前 | 问题 |
+|------|--------|------|
+| 使用 | 强 4/5 | 无纠错入口 |
+| 信息收集 | 强 4/5 | trace 双写齐备，缺告警 |
+| 分析 | 弱 2/5 | 周报读内存；失败事件谓词与真实 emitter 不符；默认关闭 |
+| 反馈优化 | 弱 2/5 | `/记住` 绕过候选；门禁配置指向已删除目录；dev-verify 自指 |
+| 测评 | 中 3/5 | clean HEAD 有 2 个红灯（时间炸弹）、format:check 已红、基线陈旧 |
+| 回流 | 弱 1/5 | 线上 trace 无法转回归用例 |
+
+**本阶段修复（P0）**
+
+| ID | 断裂点 | 修复 |
+|----|--------|------|
+| P0-1 | 周报单测用真实时钟 + 写死 `NOW`，过一天必挂 | 新增 `auditWindowAroundNow()`，18→19 用例全绿 |
+| P0-2 | 周报/`/usage` 只认 `step/run_failed`，真实 emitter 是 `run/finish|failure + error`，且读内存 | 新增 domain `isFailedRunTrace`；周报优先读持久化 `trace_events`，内存仅回退；`/usage` 同步修正谓词 |
+| P0-3 | `config/quality-gate.json` 的 `wechat.cwd="butler-v5"` 已不存在 | 改为 `"."` + 真实门禁（typecheck/lint）；新增「配置 cwd 必须存在」守卫单测 |
+| P0-4 | dev-verify 配置 cwd 缺失时 ENOENT | `resolveDevVerifyCwd` 不存在即回退 workspace root；补 3 个单测 |
+| P0-5 | `/记住` 直接写 confirmed，候选/自动提升链空转 | 改为写 `candidate` 并提示「确认记忆」；补全 记住→候选→确认→召回 链路测试 |
+| P0-6 | 分析环节生产未开、文档缺失 | `ENV.md` §15.1「闭环所需开关」；校正 `BUTLER_V5_TRACE` 默认值 |
+| P0-7 | 线上失败无法回流测评 | 新增 `pnpm trace:to-scenario --turn <id>`，生成 JSON + `describe.skip` 测试骨架到 `drafts/`，不自动入库 |
+
+**验证（2026-11-25 复跑）**
+
+| 项 | 结果 |
+|----|------|
+| `pnpm test` | 296 文件 / 2,552 通过 / 4 skipped（0 failed） |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 全绿，0 warning |
+| 定向回归 | weekly-digest / wechat-commands / quality-gate / dev-quality-gate / trace-to-scenario / commands-approval 共 61 用例通过 |
+| CLI 实测 | `pnpm trace:to-scenario --help` 正常；未知 turnId 中文报错并 exit 1 |
+
+**遗留（P1，另起阶段）**：trace 采集失败告警、失败聚类分析、真实 LLM 基线保鲜、
+纠错入口、复盘队列。另：`systemd` 单元内明文 API Key 建议迁入 `EnvironmentFile`。
+
+
 
 
 

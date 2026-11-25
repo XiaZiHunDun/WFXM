@@ -1,5 +1,6 @@
 import type { Hono } from "hono"
 import type { TraceEvent } from "@butler/domain/observability/local-trace.js"
+import { isFailedRunTrace } from "@butler/domain/observability/local-trace.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
 import type { Wiring } from "../wiring.js"
 import { ownerAuthorized } from "../owner-auth.js"
@@ -146,13 +147,17 @@ export function aggregateUsage(events: readonly TraceEvent[]): UsageAggregate {
         [name]: (slot.capabilityCalls[name] ?? 0) + 1,
       }
       totals.capabilityCalls += 1
-    } else if (e.kind === "step" && e.name === "run_succeeded") {
+    } else if (
+      (e.kind === "step" && e.name === "run_succeeded") ||
+      (e.kind === "run" && e.name === "finish" && e.status === "ok")
+    ) {
       // D63 T5 (audit #9 F-12): extend aggregate to bucket run completion
       // events. Owner /v1/owner/usage now answers "how many runs
-      // succeeded/failed in this window".
+      // succeeded/failed in this window". Phase 6: run-engine emits
+      // `run/finish` with status ok/error, so cover that shape too.
       slot.runsSucceeded += 1
       totals.runsSucceeded += 1
-    } else if (e.kind === "step" && e.name === "run_failed") {
+    } else if (isFailedRunTrace(e)) {
       slot.runsFailed += 1
       totals.runsFailed += 1
     }

@@ -56,6 +56,23 @@ export interface TraceEvent {
   readonly createdAt: number
 }
 
+/**
+ * Phase 6: a "failed run" appears in two shapes in the wild.
+ *   - legacy step event: `kind="step", name="run_failed"`
+ *   - current emitters (run-engine / butler loop): `kind="run"`,
+ *     `name="failure" | "finish"`, `status="error"`
+ * Counting only the legacy shape silently reports zero failures, which is
+ * exactly what the weekly digest used to do. Both readers (`/周报`,
+ * `/v1/owner/usage`) must use this predicate.
+ */
+export function isFailedRunTrace(event: Pick<TraceEvent, "kind" | "name" | "status">): boolean {
+  if (event.kind === "step" && event.name === "run_failed") return true
+  if (event.kind === "run" && (event.name === "failure" || event.name === "finish")) {
+    return event.status === "error"
+  }
+  return false
+}
+
 export interface CreateTraceEventInput {
   readonly kind: TraceKind
   readonly name: string

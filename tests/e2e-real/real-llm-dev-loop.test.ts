@@ -33,9 +33,9 @@ if (ENABLED) {
 
 const HAS_KEY = Boolean(
   process.env["DEEPSEEK_API_KEY"] ??
-    process.env["MINIMAX_API_KEY"] ??
-    process.env["MINIMAX_CN_API_KEY"] ??
-    process.env["ANTHROPIC_API_KEY"],
+  process.env["MINIMAX_API_KEY"] ??
+  process.env["MINIMAX_CN_API_KEY"] ??
+  process.env["ANTHROPIC_API_KEY"],
 )
 
 const describeReal = ENABLED && HAS_KEY ? describe : describe.skip
@@ -61,46 +61,38 @@ describeReal("真实 LLM 开发闭环", () => {
     })
   }
 
-  test(
-    "write_file：模型发起写文件，审批后才落盘",
-    { timeout: 240_000 },
-    async () => {
-      const target = join(app.workspaceRoot, "real-llm-check.txt")
-      const first = await sendWechatMessage(app, {
-        content:
-          "请直接用 write_file 工具在当前工作区根目录创建文件，路径写 real-llm-check.txt，" +
-          "内容只有一行：wfxm-real-llm-ok。不要创建其他文件，不要追问，写完后用一句话汇报。",
-      })
-      expect(first.status).toBeLessThan(300)
-      // 写入属于副作用操作，必须进入审批。
-      expect(first.finalDecision, first.reply ?? first.text).toBe("WaitForApproval")
-      expect(existsSync(target)).toBe(false)
+  test("write_file：模型发起写文件，审批后才落盘", { timeout: 240_000 }, async () => {
+    const target = join(app.workspaceRoot, "real-llm-check.txt")
+    const first = await sendWechatMessage(app, {
+      content:
+        "请直接用 write_file 工具在当前工作区根目录创建文件，路径写 real-llm-check.txt，" +
+        "内容只有一行：wfxm-real-llm-ok。不要创建其他文件，不要追问，写完后用一句话汇报。",
+    })
+    expect(first.status).toBeLessThan(300)
+    // 写入属于副作用操作，必须进入审批。
+    expect(first.finalDecision, first.reply ?? first.text).toBe("WaitForApproval")
+    expect(existsSync(target)).toBe(false)
 
-      const done = await confirmIfWaiting(first)
-      expect(done.status).toBeLessThan(300)
-      // 批准后的回执既可能是「已批准并执行该步」，也可能直接是工具输出。
-      expect(done.reply ?? "").toMatch(/已批准|文件已写入/)
-      expect(existsSync(target)).toBe(true)
-      expect(readFileSync(target, "utf8")).toContain("wfxm-real-llm-ok")
-    },
-  )
+    const done = await confirmIfWaiting(first)
+    expect(done.status).toBeLessThan(300)
+    // 批准后的回执既可能是「已批准并执行该步」，也可能直接是工具输出。
+    expect(done.reply ?? "").toMatch(/已批准|文件已写入/)
+    expect(existsSync(target)).toBe(true)
+    expect(readFileSync(target, "utf8")).toContain("wfxm-real-llm-ok")
+  })
 
-  test(
-    "run_command：模型发起执行，审批后输出回流",
-    { timeout: 240_000 },
-    async () => {
-      const first = await sendWechatMessage(app, {
-        content:
-          '请直接用 run_command 执行 node -e "console.log(\'wfxm-run-ok\')"，' +
-          "然后把命令输出原样贴给我。不要做别的事。",
-      })
-      expect(first.status).toBeLessThan(300)
-      expect(first.finalDecision, first.reply ?? first.text).toBe("WaitForApproval")
+  test("run_command：模型发起执行，审批后输出回流", { timeout: 240_000 }, async () => {
+    const first = await sendWechatMessage(app, {
+      content:
+        "请直接用 run_command 执行 node -e \"console.log('wfxm-run-ok')\"，" +
+        "然后把命令输出原样贴给我。不要做别的事。",
+    })
+    expect(first.status).toBeLessThan(300)
+    expect(first.finalDecision, first.reply ?? first.text).toBe("WaitForApproval")
 
-      const done = await confirmIfWaiting(first)
-      expect(done.status).toBeLessThan(300)
-      expect(done.reply ?? "").toMatch(/已批准|命令已执行/)
-      expect(done.reply ?? "").toContain("wfxm-run-ok")
-    },
-  )
+    const done = await confirmIfWaiting(first)
+    expect(done.status).toBeLessThan(300)
+    expect(done.reply ?? "").toMatch(/已批准|命令已执行/)
+    expect(done.reply ?? "").toContain("wfxm-run-ok")
+  })
 })

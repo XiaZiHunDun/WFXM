@@ -2,12 +2,17 @@
   "version": 1,
   "projects": {
     "wechat": {
-      "cwd": "butler-v5",
+      "cwd": ".",
       "commands": [
         {
-          "name": "surface-test",
-          "argv": ["pnpm", "exec", "vitest", "run", "apps/api/src/wechat-project-surface.test.ts"],
-          "timeoutMs": 90000
+          "name": "typecheck",
+          "argv": ["pnpm", "typecheck"],
+          "timeoutMs": 300000
+        },
+        {
+          "name": "lint",
+          "argv": ["pnpm", "lint"],
+          "timeoutMs": 300000
         }
       ]
     },

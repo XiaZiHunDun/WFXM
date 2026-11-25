@@ -175,7 +175,12 @@ export async function tryWechatMemoryCommand(args: {
       subject,
       content: text,
       sourceKind: "owner",
-      status: "confirmed",
+      // Phase 6: write a candidate, not a confirmed memory. This is what makes
+      // the memory flywheel actually turn: owner statements enter the review
+      // queue, `/确认记忆` (or the auto-promote sweeper) promotes them, and
+      // `/记忆` only shows memories that survived review. Previously every
+      // `/记住` bypassed the candidate stage entirely.
+      status: "candidate",
       provenance: { note: `project:${active}` },
     })
     if (!created.ok) {
@@ -202,12 +207,15 @@ export async function tryWechatMemoryCommand(args: {
       )
     }
     const saved = await store.create(created.value)
-    const baseReply = `已记住（${shortId(saved.id)}）：${text.slice(0, 120)}${text.length > 120 ? "…" : ""}`
+    const baseReply = `已记录候选记忆（${shortId(saved.id)}）：${text.slice(0, 120)}${text.length > 120 ? "…" : ""}\n回复「确认记忆」后生效。`
     if (dedupHit.kind === "error") {
       const reply = `${baseReply}\n（注：去重检查失败：${dedupHit.reason}，记忆已保存但未做重复检查）`
-      return done(reply, ["wechat-memory: dedup failed", `wechat-memory: remember ${saved.id}`])
+      return done(reply, [
+        "wechat-memory: dedup failed",
+        `wechat-memory: remember-candidate ${saved.id}`,
+      ])
     }
-    return done(baseReply, [`wechat-memory: remember ${saved.id}`])
+    return done(baseReply, [`wechat-memory: remember-candidate ${saved.id}`])
   }
 
   if (trimmed === "/记忆候选" || trimmed === "/memories-pending") {

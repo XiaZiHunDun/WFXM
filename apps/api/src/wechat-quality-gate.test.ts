@@ -1,6 +1,6 @@
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 import { tryWechatQualityGateCommand } from "./wechat-quality-gate.js"
 
@@ -49,5 +49,21 @@ describe("tryWechatQualityGateCommand (D58 T5 owner-facing label)", () => {
     // Default active id when no store file is "wechat"; reply should now
     // contain the label "WFXM", not the raw id.
     expect(reply).toContain("WFXM")
+  })
+})
+
+// Phase 6 T3: the repo flattened `butler-v5/` in Phase 1, but the checked-in
+// config still pointed `wechat.cwd` at it, so `/验` could only ever spawn
+// into a missing directory. Guard the real config against that rot.
+describe("config/quality-gate.json", () => {
+  it("every project cwd exists under the workspace root", () => {
+    const cfgPath = resolve(process.cwd(), "config/quality-gate.json")
+    const parsed = JSON.parse(readFileSync(cfgPath, "utf8")) as {
+      projects?: Record<string, { cwd?: string }>
+    }
+    for (const [projectId, project] of Object.entries(parsed.projects ?? {})) {
+      const rel = (project.cwd ?? ".").trim() || "."
+      expect(existsSync(resolve(process.cwd(), rel)), `${projectId} -> ${rel}`).toBe(true)
+    }
   })
 })

@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
 import type { TraceEvent } from "@butler/domain/observability/local-trace.js"
+import { createTraceEvent } from "@butler/domain/observability/local-trace.js"
 import {
   createRuntimeStore,
   createTaskStore,
+  createTraceStore,
   type RuntimeStore,
   type TaskStore,
 } from "@butler/persistence"
@@ -31,6 +33,16 @@ const SUBJECT = "u-owner"
 
 function weekdayOf(ms: number): number {
   return new Date(ms + 8 * 60 * 60 * 1000).getUTCDay()
+}
+
+/**
+ * `listRecentAuditEvents` anchors its window to the real clock, so a fixed
+ * window breaks as soon as wall time drifts past it. Compute the window
+ * relative to `NOW` instead: cutoff becomes `NOW - DAY_MS` regardless of
+ * today's date.
+ */
+function auditWindowAroundNow(): number {
+  return Date.now() - NOW + DAY_MS
 }
 
 function baseConfig(overrides: Partial<WeeklyDigestConfig> = {}): WeeklyDigestConfig {
@@ -117,6 +129,34 @@ describe("collectWeeklyDigest", () => {
         windowEndMs: NOW,
         hasData: true,
       })
+    } finally {
+      await db.close()
+    }
+  })
+
+  it("counts failed runs from the persisted trace store, not the memory buffer", async () => {
+    const { db, wiring } = await setup()
+    try {
+      const traceStore = createTraceStore(db.db)
+      await traceStore.append([
+        createTraceEvent({ kind: "step", name: "run_failed", nowMs: NOW - DAY_MS }),
+        // Real emitter shape (run-engine): a failed run is `run/finish`+error.
+        createTraceEvent({
+          kind: "run",
+          name: "finish",
+          status: "error",
+          nowMs: NOW - 2 * 60 * 60 * 1000,
+        }),
+        createTraceEvent({ kind: "step", name: "run_failed", nowMs: NOW - 9 * DAY_MS }),
+      ])
+      const data = await collectWeeklyDigest({
+        wiring: { ...wiring, traceStore } as unknown as Wiring,
+        subject: SUBJECT,
+        nowMs: NOW,
+        // Empty memory buffer proves the persisted path is the source.
+        tracer: { list: () => [] },
+      })
+      expect(data.failedRuns).toBe(2)
     } finally {
       await db.close()
     }
@@ -317,7 +357,10 @@ describe("runWeeklyDigestTick", () => {
         send: async () => ({ ok: false, reason: "network" }),
       })
       expect(result).toEqual({ sent: false, reason: "send_failed", text: expect.any(String) })
-      const audits = await runtimeStore.listRecentAuditEvents({ windowMs: DAY_MS, limit: 10 })
+      const audits = await runtimeStore.listRecentAuditEvents({
+        windowMs: auditWindowAroundNow(),
+        limit: 10,
+      })
       expect(audits.some((e) => e.action === "weekly_digest.failed")).toBe(true)
     } finally {
       await db.close()
@@ -344,7 +387,10 @@ describe("runWeeklyDigestTick", () => {
         send: async () => ({ ok: true }),
       })
       expect(result).toEqual({ sent: false, reason: "error", text: "周报生成失败：db down" })
-      const audits = await runtimeStore.listRecentAuditEvents({ windowMs: DAY_MS, limit: 10 })
+      const audits = await runtimeStore.listRecentAuditEvents({
+        windowMs: auditWindowAroundNow(),
+        limit: 10,
+      })
       expect(audits.some((e) => e.action === "weekly_digest.failed")).toBe(true)
     } finally {
       await db.close()

@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   formatDevQualityReply,
@@ -34,10 +37,32 @@ describe("dev-quality-gate", () => {
 
   it("resolveDevVerifyCwd uses quality gate project cwd", () => {
     const cwd = resolveDevVerifyCwd("wechat", {
-      BUTLER_V5_WORKSPACE_ROOT: "/repo",
+      BUTLER_V5_WORKSPACE_ROOT: process.cwd(),
       BUTLER_V5_QUALITY_GATE_CONFIG: `${process.cwd()}/config/quality-gate.json`,
     })
-    expect(cwd.endsWith("butler-v5")).toBe(true)
+    expect(cwd).toBe(process.cwd())
+  })
+
+  it("resolveDevVerifyCwd falls back to the workspace root for unknown projects", () => {
+    const cwd = resolveDevVerifyCwd("no-such-project", {
+      BUTLER_V5_WORKSPACE_ROOT: process.cwd(),
+      BUTLER_V5_QUALITY_GATE_CONFIG: `${process.cwd()}/config/quality-gate.json`,
+    })
+    expect(cwd).toBe(process.cwd())
+  })
+
+  it("resolveDevVerifyCwd falls back to the root when the configured cwd is missing", () => {
+    const dir = mkdtempSync(join(tmpdir(), "dev-verify-"))
+    const cfgPath = join(dir, "qg.json")
+    writeFileSync(
+      cfgPath,
+      JSON.stringify({ version: 1, projects: { ghost: { cwd: "does-not-exist" } } }),
+    )
+    const cwd = resolveDevVerifyCwd("ghost", {
+      BUTLER_V5_WORKSPACE_ROOT: process.cwd(),
+      BUTLER_V5_QUALITY_GATE_CONFIG: cfgPath,
+    })
+    expect(cwd).toBe(process.cwd())
   })
 
   it("shouldAutoDevVerify requires direct exec tools in traces", () => {
@@ -145,20 +170,24 @@ describe("scheduleAsyncDevVerify", () => {
     stderrSpy.mockRestore()
   })
 
+  const fastEnv = {
+    BUTLER_V5_WORKSPACE_ROOT: process.cwd(),
+    BUTLER_V5_DEV_VERIFY_CMD: '["node","-e","0"]',
+  }
+
   it("logs stderr and resolves when updateProjectState throws (audit F-10)", async () => {
     updateProjectStateMock.mockImplementationOnce(() => {
       throw new Error("DB connection lost")
     })
-    // cwd points to butler-v5 (a real git repo) so the pre-verify git
-    // commands succeed; the throw is injected via updateProjectStateMock.
-    const cwd = resolveDevVerifyCwd("wechat", {})
+    // Fast verify command so the test never shells out to the real suite.
+    const cwd = resolveDevVerifyCwd("wechat", fastEnv)
     await expect(
       scheduleAsyncDevVerify({
         projectId: "wechat",
         fromUserId: "owner",
         baseReply: "已写",
         cwd,
-        env: {},
+        env: fastEnv,
       }),
     ).resolves.toBeUndefined()
     expect(stderrSpy).toHaveBeenCalledWith(
@@ -169,13 +198,13 @@ describe("scheduleAsyncDevVerify", () => {
 
   it("does not log when updateProjectState succeeds", async () => {
     updateProjectStateMock.mockImplementationOnce(() => undefined)
-    const cwd = resolveDevVerifyCwd("wechat", {})
+    const cwd = resolveDevVerifyCwd("wechat", fastEnv)
     await scheduleAsyncDevVerify({
       projectId: "wechat",
       fromUserId: "owner",
       baseReply: "已写",
       cwd,
-      env: {},
+      env: fastEnv,
     })
     expect(stderrSpy).not.toHaveBeenCalled()
   })

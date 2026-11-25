@@ -266,13 +266,38 @@
 
 | 变量 | 类型 | 默认 | 用途 | Source 指针 | 状态 |
 |------|------|------|------|------------|------|
-| `BUTLER_V5_TRACE` | bool | `0` | `1` 启用本地 trace | [`apps/api/src/trace.ts`](../apps/api/src/trace.ts) | 🟡 |
+| `BUTLER_V5_TRACE` | bool | `1` | `1` 启用本地 trace（Phase 6 校正：代码默认开启，见 `local-trace.ts`） | [`packages/domain/src/observability/local-trace.ts`](../packages/domain/src/observability/local-trace.ts) | 🟡 |
 | `BUTLER_V5_TRACE_MAX_EVENTS` | int | — | trace 单 Run 事件数上限 | `trace.ts` | 🟡 |
 | `BUTLER_V5_TRACE_REDACT` | csv | — | trace redaction 字段（csv） | `trace.ts` | 🟡 |
 | `BUTLER_V5_OTEL_EXPORTER` | enum | unset | OTEL exporter（unset = 不启用） | `trace.ts`, DESIGN §18 deferred | 📅 |
 | `BUTLER_V5_ENV_FILE` | path | `.env` | env file 路径覆盖 | [`apps/api/src/env-util.ts`](../apps/api/src/env-util.ts) | 🟡 |
 | `BUTLER_V5_ENV_PATH` | path | — | env file 搜索路径 | `env-util.ts` | 🟡 |
 | `BUTLER_V5_LLM_FIXTURE_DIR` | path | — | LLM fixture 目录（demo） | `harness/` | 🟡 |
+
+## §15.1 闭环所需开关（Phase 6）
+
+> 六环节飞轮是否真的转起来，取决于下列开关的组合。全部默认关闭；
+> 本表只说明**开启后的效果**，不改变任何线上配置。审计结论见
+> [`plans/active/phase6-loop-validation-2026-11-25/spec.md`](plans/active/phase6-loop-validation-2026-11-25/spec.md)。
+
+| 环节 | 变量 | 建议值 | 开启后效果 | 关闭时表现 |
+|------|------|--------|-----------|-----------|
+| 收集 | `BUTLER_V5_TRACE` | `1`（默认） | 事件写入 `trace_events`，`/日志`、`/诊断`、`/v1/owner/traces`、周报可用 | 轨迹为空，`/日志` 提示未启用 |
+| 收集 | `BUTLER_V5_TRACE_RETENTION_DAYS` | `30`（默认） | 每小时 prune 超出天数的旧事件 | — |
+| 分析 | `BUTLER_V5_WEEKLY_DIGEST_ENABLED` | `1` | 每周定时推送完成/待办/失败/审批四项数字 | 只有手动 `/周报` |
+| 分析 | `BUTLER_V5_WEEKLY_DIGEST_TO` | owner 会话 ID | 周报推送目标 | 无处可推，worker 跳过 |
+| 分析 | `BUTLER_V5_MEMORY_PATH` + `BUTLER_V5_OWNER_ID` | 路径 + owner | 会话摘要投影到 agent-rag 记忆并在后续轮次召回 | 摘要不生成，无长期人格记忆 |
+| 反馈 | `BUTLER_V5_MEMORY_DEDUP_THRESHOLD` | `0.82`（默认） | `/记住` 写入前做近似去重 | 默认值仍在，仅当显式设 `0` 关闭 |
+| 反馈 | `BUTLER_V5_AUTO_PROMOTE_ENABLED` | `1`（按需） | 候选记忆超过窗口自动转 confirmed | 候选长期停留在待审队列 |
+| 反馈 | `BUTLER_V5_CANDIDATE_EXPIRES_ENABLED` | `1`（按需） | 过期未确认的候选自动置为 expired | 队列无限增长 |
+| 反馈 | `BUTLER_V5_PROJECT_KNOWLEDGE` + `_WATCH` | `1` | 文档变更 → 项目知识 → 注入任务上下文 | 任务看不到项目文档 |
+| 反馈 | `BUTLER_V5_DEV_VERIFY_ENABLED` + `_CMD` | `1` + 真实门禁命令 | 每次执行后自动跑项目校验并回报 | 不做执行后校验 |
+| 测评 | `pnpm record:real-llm` / `pnpm diff:real-llm` | 手工/定时 | 刷新并对比真实模型基线 | 基线随代码漂移而失真 |
+| 回流 | `pnpm trace:to-scenario --turn <id>` | 手工 | 把线上失败 turn 转成 acceptance 场景草稿 | 失败只能靠人读日志 |
+
+> **注意**：`BUTLER_V5_DEV_VERIFY_CMD` 必须是**真实项目门禁**（例如
+> `["pnpm","typecheck"]`）。历史配置曾指向
+> `vitest run apps/api/src/dev-quality-gate.test.ts`——自指测试，不验证任何项目。
 
 ## §16 总览 / 统计
 
