@@ -396,13 +396,32 @@ JSON 持久化 + 原生前端）。规格与证据见
 | 退出与保留 | SIGINT/SIGTERM 先 flush 再关库；启动 + 每小时 prune（默认 30 天 / 20 万行，定时器 `unref`） |
 | 健康检查 | `/healthz` 返回 db / outbox / approvals / runs / traces；DB 异常 503；历史无 db 的测试 wiring 降级为 ok |
 | Owner 诊断 | 新增 `GET /v1/owner/diagnostics`；`GET /v1/owner/traces` 支持 `turnId` 并优先读持久化表 |
-| 边界 | P1（微信「日志/状态」指令、卡住告警、控制台页、导出 CLI、OTLP 外送）未实现；无新依赖、未新增包 |
+| 边界 | P1 范围见下节：微信诊断/日志指令与导出 CLI 已落地；卡住告警、控制台页、OTLP 外送仍未实现；无新依赖、未新增包 |
 
 验证（2026-11-24）：`pnpm typecheck` / `pnpm lint` 全绿；Phase 5 相关 13 个测试文件
 102 用例全部通过（domain error-codes / local-trace、runtime local-tracer、
 persistence trace-store / migrations-registry、apps/api diagnostics /
 owner-diagnostics / owner-traces / wechat-inbound-butler / wechat-inline-approval /
 approval-resume / subagent-worker / routes）。
+
+## Phase 5 — P1 观测入口补强（🟡 2026-11-25 部分完成）
+
+**目标**：让 Owner 无需服务器日志即可自查系统状态与最近轨迹，并把 trace
+导出为可附带的 JSONL。
+
+| 项 | 结果 |
+|----|------|
+| 微信诊断 | `/诊断`（别名 `/diag`）：DB 延迟、待发/失败消息、最久待发、待审批、最近成功运行、trace 内存/待写/已存、保留策略 |
+| 微信日志 | `/日志 [n]`（别名 `/logs`，默认 10 条、上限 50）：优先 `traceStore`，无 store 回落内存环形缓冲；每行 `时间 kind/name status [turnId前8位] [错误码]`，不含原始异常 |
+| 命名 | `/状态` 已被项目概况占用，系统诊断使用 `/诊断`，避免破坏既有语义 |
+| 鉴权 | fail-closed：须配置 `BUTLER_OWNER_WECHAT_ID` 且发件人在名单内；非 Owner 直接放行到普通对话 |
+| 导出 CLI | `pnpm trace:export`：`--since/--until`（日期按 Asia/Shanghai 边界）、`--kind`、`--turn`、`--conversation`、`--limit`、`--out`，缺省写 stdout；`TraceListFilter` 增加 `sinceMs/untilMs` |
+| 未做 | heartbeat 卡住告警（待阈值/告警渠道/静默期决策，已有 `/healthz` + 诊断兜底）；控制台诊断页（暂无 Web 消费方）；OTLP 外送、抽公共仓库（spec 明示暂缓） |
+
+验证（2026-11-25）：`pnpm typecheck` / `pnpm lint` 全绿；新增
+`wechat-observability-commands`（13 用例）、`scripts/trace-export`（7 用例），
+`wechat-commands` 补入口链路 2 用例、`trace-store` 补时间窗 1 用例；
+`pnpm trace:export` 空库与 `--out` 落盘实测通过。提交 `e9fa18a1`。
 
 
 
