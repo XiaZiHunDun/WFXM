@@ -48,6 +48,9 @@ const BUILTIN_PRICING: Readonly<Record<string, ModelPricing>> = {
   "minimax-m3.1-flash": { inputPriceUsdPerMTok: 0.15, outputPriceUsdPerMTok: 0.6 },
   "deepseek-flash": { inputPriceUsdPerMTok: 0.3, outputPriceUsdPerMTok: 1.2 },
   "deepseek-v4-flash": { inputPriceUsdPerMTok: 0.3, outputPriceUsdPerMTok: 1.2 },
+  // Company private deployment (OpenAI-compatible, single served model).
+  // Not billed per token, so internal cost is 0 rather than "unknown" (null).
+  "deepseek-v4.1-flash": { inputPriceUsdPerMTok: 0, outputPriceUsdPerMTok: 0 },
 }
 
 /** Case-insensitive pricing key; model ids come from provider routing. */

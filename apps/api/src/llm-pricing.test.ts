@@ -24,6 +24,10 @@ describe("llm-pricing (D24 costUsd 闭环)", () => {
         inputPriceUsdPerMTok: 0.3,
         outputPriceUsdPerMTok: 1.2,
       })
+      expect(map.get("deepseek-v4.1-flash")).toEqual({
+        inputPriceUsdPerMTok: 0,
+        outputPriceUsdPerMTok: 0,
+      })
     })
 
     it("parses one model with both input + output env vars", () => {
