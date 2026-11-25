@@ -10,6 +10,7 @@ import { startScheduleWorkerIfEnabled } from "./schedule-worker.js"
 import { startReminderWorkerIfEnabled } from "./reminder-worker.js"
 import { startWeeklyDigestWorkerIfEnabled } from "./weekly-digest-worker.js"
 import { startProjectKnowledgeWatchWorkerIfEnabled } from "./project-knowledge-watch-worker.js"
+import { startObservabilityHeartbeatIfEnabled } from "./observability-heartbeat.js"
 import { startCandidateExpiresSweeperIfEnabled } from "./candidate-expires-sweeper.js"
 import { startAutoPromoteSweeperIfEnabled } from "./auto-promote-sweeper.js"
 import { parseAutoPromoteConfig } from "./auto-promote-config.js"
@@ -170,6 +171,18 @@ if (projectKnowledgeWatchHandle) {
   console.error("[butler-v5] project-knowledge watch worker started")
 }
 
+// Phase 6 P1: proactive alerts derived from the `/诊断` aggregate.
+// Default on; `BUTLER_V5_ALERT_ENABLED=0` turns it off. Without a recipient
+// it only logs (never invents a target).
+const observabilityHeartbeatHandle = startObservabilityHeartbeatIfEnabled({
+  wiring,
+  env: process.env,
+})
+if (observabilityHeartbeatHandle) {
+  // eslint-disable-next-line no-console -- operator log when no logger injected
+  console.error("[butler-v5] observability heartbeat started")
+}
+
 // C 方向 推 3: sweeper → wechat push hooks (opt-in via env).
 // Each sweeper carries its own notify callback; the sweeper already wraps
 // notify errors so a failing push never blocks the tick.
@@ -238,6 +251,7 @@ const shutdown = (): void => {
   reminderHandle?.stop()
   weeklyDigestHandle?.stop()
   projectKnowledgeWatchHandle?.stop()
+  observabilityHeartbeatHandle?.stop()
   candidateExpiresHandle?.stop()
   autoPromoteHandle?.stop()
   stopSubagent?.()

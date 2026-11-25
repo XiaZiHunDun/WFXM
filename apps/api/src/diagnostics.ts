@@ -15,7 +15,13 @@ import {
   type TraceConfig,
 } from "@butler/domain/observability/local-trace.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
+import { clusterFailures, type FailureSummary } from "./failure-clusters.js"
+import { readEvalBaseline, type EvalBaselineStatus } from "./eval-baseline.js"
 import type { Wiring } from "./wiring.js"
+
+const DAY_MS = 24 * 60 * 60 * 1000
+/** Failure clustering window: same trailing week as the digest. */
+export const DIAGNOSTICS_FAILURE_WINDOW_MS = 7 * DAY_MS
 
 export interface DiagnosticsChecks {
   readonly db: {
@@ -36,6 +42,12 @@ export interface DiagnosticsChecks {
     readonly dropped: number
     readonly persisted: number | null
   }
+  /** Phase 6 P1: failures in the trailing week, grouped by `code × tool`. */
+  readonly failures: {
+    readonly window_ms: number
+    readonly total: number
+    readonly clusters: FailureSummary["clusters"]
+  }
 }
 
 export interface DiagnosticsReport {
@@ -46,6 +58,8 @@ export interface DiagnosticsReport {
     readonly retention_days: number
     readonly max_rows: number
   }
+  /** Phase 6 P1: age of the real-LLM regression baseline. */
+  readonly eval_baseline: EvalBaselineStatus
 }
 
 function emptyChecks(): DiagnosticsChecks {
@@ -55,6 +69,34 @@ function emptyChecks(): DiagnosticsChecks {
     approvals: { waiting: 0 },
     runs: { last_succeeded_at: null },
     traces: { memory: 0, pending_write: 0, dropped: 0, persisted: null },
+    failures: { window_ms: DIAGNOSTICS_FAILURE_WINDOW_MS, total: 0, clusters: [] },
+  }
+}
+
+/**
+ * Phase 6 P1: read the trailing week's trace rows and cluster failures.
+ * Prefers the persisted store (consistent with `/日志` + `/周报`); the
+ * in-process ring buffer is the fallback for wirings without one.
+ */
+async function collectFailures(
+  wiring: Wiring,
+  env: Readonly<Record<string, string | undefined>>,
+  nowMs: number,
+): Promise<DiagnosticsChecks["failures"]> {
+  const sinceMs = nowMs - DIAGNOSTICS_FAILURE_WINDOW_MS
+  const observed = wiring.traceStore
+    ? await wiring.traceStore.list({ sinceMs, untilMs: nowMs, limit: 5000 }).catch(() => null)
+    : null
+  const events =
+    observed ??
+    getSharedLocalTracer(env)
+      .list({ limit: 5000 })
+      .filter((event) => event.createdAt >= sinceMs && event.createdAt <= nowMs)
+  const summary = clusterFailures(events)
+  return {
+    window_ms: DIAGNOSTICS_FAILURE_WINDOW_MS,
+    total: summary.total,
+    clusters: summary.clusters,
   }
 }
 
@@ -90,11 +132,19 @@ export async function collectDiagnostics(
   const traceStore = wiring.traceStore ?? null
   const persisted = traceStore ? await traceStore.count().catch(() => null) : null
   const trace = traceBlock(env)
+  const failures = await collectFailures(wiring, env, nowMs)
+  const evalBaseline = await readEvalBaseline(env, nowMs)
 
   const db = (wiring as { readonly db?: ButlerDb }).db
   if (!db) {
     // Legacy route stubs (tests) pass a wiring without a DB handle.
-    return { status: "ok", wiring: "v5", checks: emptyChecks(), trace }
+    return {
+      status: "ok",
+      wiring: "v5",
+      checks: { ...emptyChecks(), failures },
+      trace,
+      eval_baseline: evalBaseline,
+    }
   }
 
   const started = Date.now()
@@ -169,6 +219,7 @@ export async function collectDiagnostics(
     approvals: { waiting: approvalsWaiting },
     runs: { last_succeeded_at: lastSucceededAt },
     traces: traceCounters(persisted),
+    failures,
   }
 
   return {
@@ -176,5 +227,6 @@ export async function collectDiagnostics(
     wiring: "v5",
     checks,
     trace,
+    eval_baseline: evalBaseline,
   }
 }

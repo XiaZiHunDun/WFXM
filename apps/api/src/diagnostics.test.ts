@@ -1,8 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { join } from "node:path"
+import { tmpdir } from "node:os"
+import { createTraceEvent } from "@butler/domain/observability/local-trace.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
 import { resetSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
-import { conversations, createRuntimeStore, outbox, runs, steps } from "@butler/persistence"
+import {
+  conversations,
+  createRuntimeStore,
+  createTraceStore,
+  outbox,
+  runs,
+  steps,
+} from "@butler/persistence"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import type { Wiring } from "./wiring.js"
 import { makeWiring } from "./wiring.js"
@@ -122,5 +132,40 @@ describe("collectDiagnostics", () => {
     expect(report.checks.db.status).toBe("up")
     expect(report.checks.outbox.pending).toBe(0)
     expect(report.checks.traces.persisted).toBeNull()
+  })
+
+  it("clusters trailing-week failures and reports baseline freshness", async () => {
+    const now = 1_700_000_000_000
+    const traceStore = createTraceStore(db.db)
+    await traceStore.append([
+      createTraceEvent({
+        kind: "run",
+        name: "finish",
+        status: "error",
+        detail: { code: "E-LLM-01", tool: "write_file" },
+        nowMs: now - 60_000,
+      }),
+      createTraceEvent({
+        kind: "run",
+        name: "failure",
+        status: "error",
+        detail: { code: "E-LLM-01", tool: "write_file" },
+        nowMs: now - 30_000,
+      }),
+      createTraceEvent({ kind: "run", name: "finish", status: "ok", nowMs: now - 20_000 }),
+    ])
+    const env = {
+      BUTLER_V5_EVAL_RECORDINGS_DIR: join(tmpdir(), "wfxm-no-recordings"),
+    } as NodeJS.ProcessEnv
+
+    const report = await collectDiagnostics(
+      { ...wiring, traceStore } as unknown as Wiring,
+      env,
+      now,
+    )
+    expect(report.checks.failures.total).toBe(2)
+    expect(report.checks.failures.clusters).toEqual([{ key: "E-LLM-01 × write_file", count: 2 }])
+    expect(report.eval_baseline.count).toBe(0)
+    expect(report.eval_baseline.stale).toBe(true)
   })
 })

@@ -293,7 +293,16 @@
 | 反馈 | `BUTLER_V5_PROJECT_KNOWLEDGE` + `_WATCH` | `1` | 文档变更 → 项目知识 → 注入任务上下文 | 任务看不到项目文档 |
 | 反馈 | `BUTLER_V5_DEV_VERIFY_ENABLED` + `_CMD` | `1` + 真实门禁命令 | 每次执行后自动跑项目校验并回报 | 不做执行后校验 |
 | 测评 | `pnpm record:real-llm` / `pnpm diff:real-llm` | 手工/定时 | 刷新并对比真实模型基线 | 基线随代码漂移而失真 |
+| 测评 | `BUTLER_V5_EVAL_RECORDINGS_DIR` | `tests/acceptance/scenarios/recordings` | `/诊断` 读取该目录最新录音时间 | 默认路径 |
+| 测评 | `BUTLER_V5_EVAL_BASELINE_MAX_AGE_DAYS` | `30`（默认） | 超过天数在 `/诊断` 标「已过期」并触发告警 | 不判定过期 |
 | 回流 | `pnpm trace:to-scenario --turn <id>` | 手工 | 把线上失败 turn 转成 acceptance 场景草稿 | 失败只能靠人读日志 |
+| 回流 | `/复盘 [n]` · `/转用例 <turnId>` | 微信 owner | 列出近 7 天失败 turn，并直接生成 `drafts/` 草稿 | 只能人读 `/日志` |
+| 回流 | `BUTLER_V5_EVAL_DRAFT_DIR` | `tests/acceptance/scenarios/drafts` | `/转用例` 的草稿输出目录 | 默认路径 |
+| 分析 | `BUTLER_V5_ALERT_ENABLED` | `1`（默认开） | 心跳按诊断信号推送微信告警 | `0/false/off` 关闭 |
+| 分析 | `BUTLER_V5_ALERT_TO` | owner 会话 ID | 告警接收人；未设则回退 `BUTLER_OWNER_WECHAT_ID` 首个 | 两者都无 → 只记日志，不推送 |
+| 分析 | `BUTLER_V5_ALERT_INTERVAL_MS` | `300000`（5 分钟） | 心跳检查间隔 | — |
+| 分析 | `BUTLER_V5_ALERT_SILENCE_MS` | `21600000`（6 小时） | 同一告警 key 的静默窗，防刷屏 | — |
+| 分析 | `BUTLER_V5_ALERT_FAILURE_THRESHOLD` | `20` | 近 7 天失败数超过该值才告警 | — |
 
 > **注意**：`BUTLER_V5_DEV_VERIFY_CMD` 必须是**真实项目门禁**（例如
 > `["pnpm","typecheck"]`）。历史配置曾指向

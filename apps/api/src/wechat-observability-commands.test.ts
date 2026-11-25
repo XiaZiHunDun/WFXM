@@ -27,6 +27,7 @@ function diagnosticsReport(
       approvals: { waiting: 0 },
       runs: { last_succeeded_at: null },
       traces: { memory: 3, pending_write: 0, dropped: 0, persisted: 42 },
+      failures: { window_ms: 7 * 24 * 60 * 60 * 1000, total: 0, clusters: [] },
       ...overrides,
     },
     trace: {
@@ -36,6 +37,14 @@ function diagnosticsReport(
       exporter: "off",
       retention_days: 30,
       max_rows: 200000,
+    },
+    eval_baseline: {
+      dir: "/tmp/recordings",
+      latest_at: null,
+      age_days: null,
+      stale: true,
+      max_age_days: 30,
+      count: 0,
     },
   }
 }
@@ -81,7 +90,31 @@ describe("formatDiagnosticsReply", () => {
     expect(reply).toContain("数据库：正常（2ms）")
     expect(reply).toContain("待审批：0 条")
     expect(reply).toContain("轨迹：内存 3 · 待写 0 · 已存 42")
+    expect(reply).toContain("失败（近 7 天）：0 次")
+    expect(reply).toContain("基线：无录音")
     expect(reply).toContain("保留：30 天 / 200000 条")
+  })
+
+  it("surfaces failure clusters and a fresh baseline", () => {
+    const reply = formatDiagnosticsReply({
+      ...diagnosticsReport({
+        failures: {
+          window_ms: 604_800_000,
+          total: 3,
+          clusters: [{ key: "E-LLM-01 × write_file", count: 2 }],
+        },
+      }),
+      eval_baseline: {
+        dir: "/tmp/recordings",
+        latest_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+        age_days: 2,
+        stale: false,
+        max_age_days: 30,
+        count: 8,
+      },
+    })
+    expect(reply).toContain("失败（近 7 天）：3 次 · E-LLM-01 × write_file（2）")
+    expect(reply).toContain("基线：2 天前（8 条）· 新鲜")
   })
 
   it("marks degraded database and surfaces backlog age", () => {

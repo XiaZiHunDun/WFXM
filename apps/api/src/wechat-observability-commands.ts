@@ -32,7 +32,7 @@ function pad(n: number): string {
 }
 
 /** `MM-DD HH:mm:ss` in Asia/Shanghai (UTC+8, no DST). */
-function formatClock(ms: number): string {
+export function formatClock(ms: number): string {
   const d = new Date(ms + SHANGHAI_OFFSET_MS)
   return [
     `${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`,
@@ -108,9 +108,27 @@ export function formatDiagnosticsReply(report: DiagnosticsReport): string {
   if (checks.outbox.pending > 0 && checks.outbox.oldest_pending_age_ms !== null) {
     lines.push(`最久待发：${formatAge(checks.outbox.oldest_pending_age_ms)}`)
   }
+  // Phase 6 P1: the analysis stage needs "失败在哪里", not just a count.
+  if (checks.failures.total > 0) {
+    const parts = checks.failures.clusters.map((cluster) => `${cluster.key}（${cluster.count}）`)
+    lines.push(`失败（近 7 天）：${checks.failures.total} 次 · ${parts.join("、")}`)
+  } else {
+    lines.push("失败（近 7 天）：0 次")
+  }
+  lines.push(formatBaselineLine(report.eval_baseline))
   lines.push(`保留：${report.trace.retention_days} 天 / ${report.trace.max_rows} 条`)
   if (!report.trace.enabled) lines.push("轨迹总开关：已关闭")
   return lines.join("\n")
+}
+
+/** Phase 6 P1: baseline freshness line for `/诊断`. */
+function formatBaselineLine(baseline: DiagnosticsReport["eval_baseline"]): string {
+  if (baseline.count === 0 || baseline.age_days === null) {
+    return "基线：无录音（应先采集 tests/acceptance/scenarios/recordings）"
+  }
+  const age = baseline.age_days === 0 ? "今天" : `${baseline.age_days} 天前`
+  const state = baseline.stale ? `已过期（阈值 ${baseline.max_age_days} 天）` : "新鲜"
+  return `基线：${age}（${baseline.count} 条）· ${state}`
 }
 
 function traceErrorCode(event: TraceEvent): string | null {

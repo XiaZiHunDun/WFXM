@@ -94,6 +94,29 @@ describe("memory commands", () => {
     expect(saved?.some((item) => item.content.includes("成都"))).toBe(true)
   })
 
+  it("records /纠错 as a candidate and audits memory.correction", async () => {
+    const result = await tryWechatMemoryCommand({
+      wiring: h.wiring,
+      fromUserId: "u-mem-fix",
+      content: "/纠错 主角名是林川，不是林晨",
+      env: h.env,
+    })
+    expect(result?.reply).toContain("已记录纠错候选")
+    expect(result?.traces[0]?.startsWith("wechat-memory: correction-candidate")).toBe(true)
+    const candidates = await h.wiring.durableMemoryStore?.listBySubject({
+      subject: "u-mem-fix",
+      status: "candidate",
+      limit: 10,
+    })
+    expect(candidates?.[0]?.content).toContain("林川")
+    expect(candidates?.[0]?.provenance.note).toContain("correction")
+    const audits = await h.wiring.runtimeStore.listRecentAuditEvents({
+      windowMs: 60_000,
+      limit: 20,
+    })
+    expect(audits.some((event) => event.action === "memory.correction")).toBe(true)
+  })
+
   it("does not hijack questions like 你还记得吗", async () => {
     const result = await tryWechatMemoryCommand({
       wiring: h.wiring,

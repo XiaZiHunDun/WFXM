@@ -16,7 +16,7 @@
 | Phase 3 | 功能打磨：地基 → 楼层 → 体验 | ✅ 完成（任务层 / 管家层 / 渠道与产品能力） | 2026-11-23 |
 | Phase 4 | 验证实际开发能力：用 WFXM 开发实际可用项目 | ✅ 完成（Ledger Lite 记账应用） | 2026-11-23 |
 | Phase 5 | 日志与轨迹信息收集体系 | ✅ P0 完成 / 🟡 P1 部分（微信 `/诊断` `/日志`、`trace:export`） | 2026-11-25 |
-| Phase 6 | 闭环飞轮体系检查与验证 | ✅ P0 完成（8 个断裂点修复 + 回流入口） | 2026-11-25 |
+| Phase 6 | 闭环飞轮体系检查与验证 | ✅ P0 + P1 完成（断裂点修复 + 告警/聚类/基线保鲜/纠错/复盘） | 2026-11-25 |
 
 ---
 
@@ -427,7 +427,7 @@ approval-resume / subagent-worker / routes）。
 
 ---
 
-## Phase 6 — 闭环飞轮体系检查与验证（✅ 2026-11-25）
+## Phase 6 — 闭环飞轮体系检查与验证（✅ P0 + P1 2026-11-25）
 
 > 规格与任务：[`plans/active/phase6-loop-validation-2026-11-25/`](plans/active/phase6-loop-validation-2026-11-25/spec.md)
 
@@ -454,17 +454,28 @@ approval-resume / subagent-worker / routes）。
 | P0-6 | 分析环节生产未开、文档缺失 | `ENV.md` §15.1「闭环所需开关」；校正 `BUTLER_V5_TRACE` 默认值 |
 | P0-7 | 线上失败无法回流测评 | 新增 `pnpm trace:to-scenario --turn <id>`，生成 JSON + `describe.skip` 测试骨架到 `drafts/`，不自动入库 |
 
+**本阶段加强（P1，简化版）**
+
+| ID | 内容 | 落点 |
+|----|------|------|
+| P1-1 | 诊断心跳告警：db down / outbox failed / trace dropped / 失败数超阈值 / 基线过期，微信推送 + 6h 静默 | `observability-heartbeat.ts`，`index.ts` 启动 |
+| P1-2 | 失败聚类（错误码 × 工具）：`/诊断` 与 `/周报` 新增一行摘要 | `failure-clusters.ts` |
+| P1-3 | 基线保鲜：`/诊断` 显示录音年龄与过期状态（默认 30 天） | `eval-baseline.ts` |
+| P1-4 | 纠错入口：`/纠错 <内容>` → candidate + audit `memory.correction` | `wechat-memory-commands.ts` |
+| P1-5 | 复盘队列：`/复盘 [n]` 列失败 turn，`/转用例 <turnId>` 生成回归草稿 | `wechat-replay-commands.ts` |
+
 **验证（2026-11-25 复跑）**
 
 | 项 | 结果 |
 |----|------|
-| `pnpm test` | 296 文件 / 2,552 通过 / 4 skipped（0 failed） |
+| `pnpm test` | 301 文件（300 通过 / 1 skipped）/ 2,577 通过 / 4 skipped（0 failed） |
 | `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 全绿，0 warning |
 | 定向回归 | weekly-digest / wechat-commands / quality-gate / dev-quality-gate / trace-to-scenario / commands-approval 共 61 用例通过 |
+| P1 定向回归 | failure-clusters / eval-baseline / replay / heartbeat / diagnostics / observability / digest / memory 共 77 用例通过 |
 | CLI 实测 | `pnpm trace:to-scenario --help` 正常；未知 turnId 中文报错并 exit 1 |
 
-**遗留（P1，另起阶段）**：trace 采集失败告警、失败聚类分析、真实 LLM 基线保鲜、
-纠错入口、复盘队列。另：`systemd` 单元内明文 API Key 建议迁入 `EnvironmentFile`。
+**遗留**：`systemd` 单元内明文 API Key 建议迁入 `EnvironmentFile`；告警静默状态为进程内存
+（重启后同一异常会再推一次，属简化取舍）。
 
 
 

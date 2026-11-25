@@ -12,6 +12,7 @@
 import type { TraceEvent } from "@butler/domain/observability/local-trace.js"
 import { isFailedRunTrace } from "@butler/domain/observability/local-trace.js"
 import { getSharedLocalTracer } from "@butler/runtime/observability/local-tracer.js"
+import { clusterFailures, type FailureSummary } from "./failure-clusters.js"
 import { formatReminderTime } from "./reminder-time.js"
 import type { Wiring } from "./wiring.js"
 
@@ -32,6 +33,8 @@ export interface WeeklyDigestStats {
 export interface WeeklyDigestData extends WeeklyDigestStats {
   readonly windowStartMs: number
   readonly windowEndMs: number
+  /** Phase 6 P1: trailing-week failures grouped by `code × tool`. */
+  readonly failureClusters?: FailureSummary
   /** False when every counter is zero — auto push stays quiet. */
   readonly hasData: boolean
 }
@@ -47,30 +50,29 @@ export interface TraceReader {
 }
 
 /**
- * Phase 6: count `run_failed` step events in the window.
+ * Phase 6: read the window's trace rows once.
  *
- * Prefer the persisted trace store so the number survives restarts and is
+ * Prefer the persisted trace store so the numbers survive restarts and are
  * consistent with `/日志` + /v1/owner/traces. The in-process ring buffer is
  * a fallback only (5xx wirings without a trace store, unit tests) because it
  * keeps at most `BUTLER_V5_TRACE_MAX_EVENTS` entries and loses data on
  * restart.
  */
-async function countFailedRuns(args: {
+async function readWindowTraceEvents(args: {
   readonly wiring: Wiring
   readonly windowStartMs: number
   readonly windowEndMs: number
   readonly tracer?: TraceReader
   readonly env?: NodeJS.ProcessEnv
-}): Promise<number> {
+}): Promise<readonly TraceEvent[]> {
   const persisted = args.wiring.traceStore
   if (persisted) {
     try {
-      const rows = await persisted.list({
+      return await persisted.list({
         sinceMs: args.windowStartMs,
         untilMs: args.windowEndMs,
         limit: 5000,
       })
-      return rows.filter(isFailedRunTrace).length
     } catch {
       // Degrade to the in-process buffer; the digest must not fail because
       // the trace table is temporarily unavailable.
@@ -79,12 +81,7 @@ async function countFailedRuns(args: {
   const tracer = args.tracer ?? getSharedLocalTracer(args.env ?? process.env)
   return tracer
     .list({ limit: 5000 })
-    .filter(
-      (event) =>
-        isFailedRunTrace(event) &&
-        event.createdAt >= args.windowStartMs &&
-        event.createdAt <= args.windowEndMs,
-    ).length
+    .filter((event) => event.createdAt >= args.windowStartMs && event.createdAt <= args.windowEndMs)
 }
 
 export async function collectWeeklyDigest(args: {
@@ -112,13 +109,15 @@ export async function collectWeeklyDigest(args: {
   ).length
   const openTasks = tasks.filter((task) => task.status === "open").length
 
-  const failedRuns = await countFailedRuns({
+  const traceEvents = await readWindowTraceEvents({
     wiring: args.wiring,
     windowStartMs,
     windowEndMs,
     ...(args.tracer === undefined ? {} : { tracer: args.tracer }),
     ...(args.env === undefined ? {} : { env: args.env }),
   })
+  const failedRuns = traceEvents.filter(isFailedRunTrace).length
+  const failureClusters = clusterFailures(traceEvents)
 
   const audits = await args.wiring.runtimeStore.listRecentAuditEvents({
     windowMs,
@@ -136,6 +135,7 @@ export async function collectWeeklyDigest(args: {
     openTasks,
     failedRuns,
     approvals,
+    failureClusters,
     windowStartMs,
     windowEndMs,
     hasData: completedTasks + openTasks + failedRuns + approvals > 0,
@@ -149,13 +149,22 @@ function monthDay(ms: number): string {
 
 /** Shared renderer for both the slash command and the scheduled push. */
 export function renderWeeklyDigest(data: WeeklyDigestData): string {
-  return [
+  const lines = [
     `【周报】${monthDay(data.windowStartMs)} ~ ${monthDay(data.windowEndMs)}`,
     `完成 ${data.completedTasks} 项`,
     `待办 ${data.openTasks} 项`,
     `失败 ${data.failedRuns} 次`,
     `审批 ${data.approvals} 次`,
-  ].join("\n")
+  ]
+  // Phase 6 P1: only when there is something to group, so the digest keeps
+  // its stable five-line shape for quiet weeks.
+  const clusters = data.failureClusters
+  if (clusters && clusters.total > 0 && clusters.clusters.length > 0) {
+    lines.push(
+      `失败聚类：${clusters.clusters.map((cluster) => `${cluster.key}（${cluster.count}）`).join("、")}`,
+    )
+  }
+  return lines.join("\n")
 }
 
 /** Owner-facing reply when the trailing week has nothing to report. */

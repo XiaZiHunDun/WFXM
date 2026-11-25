@@ -190,6 +190,65 @@ pnpm test
 
 ---
 
+## P1 闭环加强（简化版，5 项全部落地）
+
+> owner 决策：P1 属第六阶段范围，按「简化但可用」实现；告警走微信推送 + `/诊断`，
+> 未配置接收人时只落日志/诊断，不臆造目标。
+
+### P1-1 告警（信息收集 → 分析）
+
+- [x] 新增 `apps/api/src/observability-heartbeat.ts`：复用 `collectDiagnostics` 作为唯一信号源
+- [x] 信号：db down / outbox failed>0 / trace dropped>0 / 近 7 天失败数 > 阈值 / 基线过期（有录音时）
+- [x] 按 key 静默（默认 6h）；间隔默认 5min；默认开启，`BUTLER_V5_ALERT_ENABLED=0` 关闭
+- [x] 接收人 `BUTLER_V5_ALERT_TO` ?? `BUTLER_OWNER_WECHAT_ID`（首个）；未配置 → 只记日志
+- [x] `index.ts` 启动/停止接线；vitest 下不启动定时器
+- [x] 单测：信号判定、静默窗、无接收人、发送失败不标记已发
+
+### P1-2 失败聚类（分析）
+
+- [x] 新增 `apps/api/src/failure-clusters.ts`：按 `错误码 × 工具` 聚类，降序取 TopN
+- [x] `/诊断` 输出「失败（近 7 天）：N 次 · A（n）、B（n）」
+- [x] `/周报` 在有失败时追加「失败聚类：…」，无失败保持原 5 行结构
+- [x] 单测：分组排序、缺失 code/tool 回退、legacy `step/run_failed`、TopN 截断
+
+### P1-3 基线保鲜（测评）
+
+- [x] 新增 `apps/api/src/eval-baseline.ts`：读 recordings 目录最新 mtime，算年龄/是否过期
+- [x] `/诊断` 输出「基线：X 天前（N 条）· 新鲜/已过期」；无录音时提示先采集
+- [x] 阈值 `BUTLER_V5_EVAL_BASELINE_MAX_AGE_DAYS`（默认 30）；目录 `BUTLER_V5_EVAL_RECORDINGS_DIR`
+- [x] 单测：目录缺失不抛错、新鲜/过期判定、忽略非 JSON
+
+### P1-4 纠错入口（反馈优化）
+
+- [x] `wechat-memory-commands.ts` 新增 `/纠错 <内容>`：写 `candidate` + provenance `correction`
+- [x] 复用去重与 `/确认记忆` 流程（owner 仍是判官）；写 audit `memory.correction`
+- [x] 只识别显式 `/纠错`，不猜自然语言，避免误伤正常对话
+- [x] 单测：候选落库、provenance 标记、audit 写入
+
+### P1-5 复盘队列（回流）
+
+- [x] 新增 `apps/api/src/wechat-replay-commands.ts`：`/复盘 [n]` 列最近失败 turn
+- [x] `/转用例 <turnId>` 复用 domain `buildScenarioDraft`，写 `drafts/` JSON + `describe.skip` 骨架
+- [x] owner 门禁复用 `isWechatObservabilityOwner`；非 owner 静默回落
+- [x] 注册进 `wechat-inbound-commands.ts` 命令链
+- [x] 单测：解析、非 owner、列表口径、草稿落盘内容、未知 turn
+
+### P1 收口验证
+
+```bash
+pnpm exec vitest run apps/api/src/failure-clusters.test.ts apps/api/src/eval-baseline.test.ts \
+  apps/api/src/wechat-replay-commands.test.ts apps/api/src/observability-heartbeat.test.ts \
+  apps/api/src/diagnostics.test.ts apps/api/src/wechat-observability-commands.test.ts \
+  apps/api/src/weekly-digest.test.ts apps/api/src/wechat-commands.test.ts
+pnpm format:check && pnpm typecheck && pnpm lint
+pnpm test
+```
+
+**结果（2026-11-25）**：P1 定向 77 用例通过；全量 301 文件 / 2,577 通过 / 4 skipped / 0 failed；
+`format:check`、`typecheck`、`lint` 全绿（0 warning）。
+
+---
+
 ## 任务状态表
 
 | ID | 任务 | 优先级 | 状态 |
@@ -203,4 +262,8 @@ pnpm test
 | T6 | 闭环开关文档 | P0 | ✅ |
 | T7 | trace→场景草稿 | P0 | ✅ |
 | T8 | 全量收口验证 | P0 | ✅ |
-| P1-1…5 | 告警/聚类/基线保鲜/纠错/复盘队列 | P1 | 另起阶段 |
+| P1-1 | 告警（心跳） | P1 | ✅ |
+| P1-2 | 失败聚类 | P1 | ✅ |
+| P1-3 | 基线保鲜 | P1 | ✅ |
+| P1-4 | 纠错入口 | P1 | ✅ |
+| P1-5 | 复盘队列 | P1 | ✅ |

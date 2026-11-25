@@ -3,6 +3,7 @@ import { tryWechatMemoryCommand } from "./wechat-memory-commands.js"
 import { tryWechatObservabilityCommand } from "./wechat-observability-commands.js"
 import { tryWechatProjectCommand } from "./wechat-project-surface.js"
 import { tryWechatQualityGateCommand } from "./wechat-quality-gate.js"
+import { tryWechatReplayCommand } from "./wechat-replay-commands.js"
 import { tryWechatSubagentCommand } from "./wechat-subagent-commands.js"
 import { tryWechatTaskCommand } from "./wechat-task-commands.js"
 import { tryWechatUndoCommand } from "./wechat-undo-command.js"
@@ -73,6 +74,13 @@ export async function tryWechatInboundCommand(args: {
       }),
     () =>
       tryWechatObservabilityCommand({
+        wiring: args.wiring,
+        fromUserId: args.fromUserId,
+        content: args.content,
+        ...(args.env === undefined ? {} : { env: args.env }),
+      }),
+    () =>
+      tryWechatReplayCommand({
         wiring: args.wiring,
         fromUserId: args.fromUserId,
         content: args.content,

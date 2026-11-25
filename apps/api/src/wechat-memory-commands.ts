@@ -98,6 +98,34 @@ function done(reply: string, traces: readonly string[]): ButlerLoopResult {
   }
 }
 
+/**
+ * Phase 6 P1: an explicit correction must leave a trail.
+ * Best-effort — a failed audit write must not lose the owner's correction.
+ */
+async function recordCorrectionAudit(args: {
+  readonly wiring: Wiring
+  readonly subject: string
+  readonly memoryId: string
+  readonly project: string
+}): Promise<void> {
+  try {
+    await args.wiring.runtimeStore.appendAuditEvent({
+      auditId: crypto.randomUUID(),
+      runId: null,
+      conversationId: null,
+      correlationId: null,
+      action: "memory.correction",
+      actor: "owner-direct",
+      subject: args.subject || "owner",
+      detail: { memoryId: args.memoryId, project: args.project },
+      createdAt: new Date(),
+    })
+  } catch (err) {
+    // eslint-disable-next-line no-console -- operator log when no logger injected
+    console.error("[wechat-memory] correction audit failed:", err)
+  }
+}
+
 function shortId(id: string): string {
   return id.slice(0, 8)
 }
@@ -216,6 +244,64 @@ export async function tryWechatMemoryCommand(args: {
       ])
     }
     return done(baseReply, [`wechat-memory: remember-candidate ${saved.id}`])
+  }
+
+  // Phase 6 P1: explicit correction entry. When the owner notices a wrong
+  // memory, `/记住` alone has no notion of "replace the old belief" — the
+  // loop stays open. Corrections reuse the same candidate + `/确认记忆`
+  // review flow (owner stays judge), differ only in intent marker and audit
+  // action.
+  if (trimmed.startsWith("/纠错")) {
+    if (!store) {
+      return done("记忆存储不可用。", ["wechat-memory: no store"])
+    }
+    const text = trimmed.slice("/纠错".length).trim()
+    if (!text) {
+      return done("用法：/纠错 <正确的做法或内容>", ["wechat-memory: correction usage"])
+    }
+    const created = createDurableMemoryRecord({
+      subject,
+      content: text,
+      sourceKind: "owner",
+      status: "candidate",
+      provenance: { note: `project:${active};correction` },
+    })
+    if (!created.ok) {
+      return done(`无法保存：${created.reason}`, ["wechat-memory: correction failed"])
+    }
+    const dedupHit = await checkDedup({
+      store,
+      subject: created.value.subject,
+      content: created.value.content,
+    })
+    if (dedupHit.kind === "hit") {
+      // eslint-disable-next-line no-console -- operator log when no logger injected
+      console.error(
+        `[memory-dedup] wechat correction hit existingId=${dedupHit.existingMemoryId} similarity=${dedupHit.similarity.toFixed(3)} status=${dedupHit.status}`,
+      )
+      return done(
+        `这条纠错与已有记忆相似度 ${(dedupHit.similarity * 100).toFixed(0)}%，请先用 /记忆 查看，避免重复`,
+        ["wechat-memory: correction dedup hit"],
+      )
+    }
+    const saved = await store.create(created.value)
+    await recordCorrectionAudit({
+      wiring: args.wiring,
+      subject,
+      memoryId: saved.id,
+      project: active,
+    })
+    const baseReply = `已记录纠错候选（${shortId(saved.id)}）：${text.slice(0, 120)}${text.length > 120 ? "…" : ""}\n回复「确认记忆」后生效。`
+    if (dedupHit.kind === "error") {
+      return done(
+        `${baseReply}\n（注：去重检查失败：${dedupHit.reason}，纠错已保存但未做重复检查）`,
+        [
+          "wechat-memory: correction dedup failed",
+          `wechat-memory: correction-candidate ${saved.id}`,
+        ],
+      )
+    }
+    return done(baseReply, [`wechat-memory: correction-candidate ${saved.id}`])
   }
 
   if (trimmed === "/记忆候选" || trimmed === "/memories-pending") {

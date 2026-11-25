@@ -22,8 +22,16 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import type { TraceEvent } from "@butler/domain/observability/local-trace.js"
 import { createTraceStore, openButlerDatabase } from "@butler/persistence"
+import {
+  buildScenarioDraft,
+  renderDraftTest,
+  slugify,
+  type ScenarioDraft,
+} from "@butler/domain/observability/scenario-draft.js"
+
+export { buildScenarioDraft, renderDraftTest, slugify }
+export type { ScenarioDraft }
 
 export const DEFAULT_DRAFT_DIR = "tests/acceptance/scenarios/drafts"
 
@@ -50,37 +58,12 @@ export interface TraceToScenarioOptions {
   readonly slug: string
 }
 
-export interface ScenarioDraft {
-  readonly version: 1
-  readonly generatedAt: string
-  readonly turnId: string
-  readonly conversationId: string | null
-  readonly runId: string | null
-  readonly observed: {
-    readonly runStatus: string | null
-    readonly errorCode: string | null
-    readonly toolCalls: readonly string[]
-    readonly finalDecision: string | null
-  }
-  readonly events: readonly TraceEvent[]
-  readonly note: string
-}
-
 function requireValue(argv: readonly string[], index: number, flag: string): string {
   const value = argv[index]
   if (value === undefined || value.startsWith("--")) {
     throw new Error(`${flag} 缺少取值`)
   }
   return value
-}
-
-export function slugify(input: string): string {
-  const slug = input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-  return slug.length > 0 ? slug.slice(0, 60) : "turn"
 }
 
 export function parseTraceToScenarioArgs(
@@ -124,83 +107,6 @@ export function parseTraceToScenarioArgs(
     outDir,
     slug: slugify(name ?? turnId),
   }
-}
-
-function detailString(event: TraceEvent, key: string): string | null {
-  const value = event.detail[key]
-  return typeof value === "string" ? value : null
-}
-
-/** Terminal events, in both emitted shapes (see `isFailedRunTrace`). */
-function findTerminal(events: readonly TraceEvent[]): TraceEvent | undefined {
-  return events.find(
-    (event) =>
-      (event.kind === "run" && (event.name === "finish" || event.name === "failure")) ||
-      (event.kind === "step" && (event.name === "run_failed" || event.name === "run_succeeded")),
-  )
-}
-
-function isFailureTerminal(event: TraceEvent): boolean {
-  if (event.kind === "step") return event.name === "run_failed"
-  return event.status === "error"
-}
-
-/**
- * Pure projection: events (already filtered to one turn) → draft payload.
- * Kept separate from I/O so the shape is unit-testable.
- */
-export function buildScenarioDraft(
-  events: readonly TraceEvent[],
-  options: { readonly turnId: string; readonly generatedAt?: string },
-): ScenarioDraft {
-  const first = events[0]
-  const terminal = findTerminal(events)
-  const toolCalls = events
-    .filter((event) => event.kind === "step" && event.name.startsWith("tool_"))
-    .map((event) => {
-      const named = event.detail["tool"] ?? event.detail["name"]
-      return typeof named === "string" ? named : event.name
-    })
-
-  return {
-    version: 1,
-    generatedAt: options.generatedAt ?? new Date().toISOString(),
-    turnId: options.turnId,
-    conversationId: first?.conversationId ?? null,
-    runId: first?.runId ?? null,
-    observed: {
-      runStatus:
-        terminal === undefined ? null : isFailureTerminal(terminal) ? "failed" : "succeeded",
-      errorCode: terminal === undefined ? null : detailString(terminal, "code"),
-      toolCalls,
-      finalDecision: terminal === undefined ? null : detailString(terminal, "decision"),
-    },
-    events,
-    note: "由 `pnpm trace:to-scenario` 生成的草稿。请人工补齐输入与期望，再移入正式场景目录；脚本不会自动改断言。",
-  }
-}
-
-export function renderDraftTest(draft: ScenarioDraft): string {
-  return `/**
- * 草稿（自动生成，默认 skip）— 请勿直接放进 CI。
- *
- * turnId: ${draft.turnId}
- * 生成时间: ${draft.generatedAt}
- * 观察到的结果: ${JSON.stringify(draft.observed)}
- *
- * 待办：
- *   1. 从 ${draft.turnId}.json 里提取用户输入与关键工具调用；
- *   2. 写清"应该发生什么"（不仅是"实际发生了什么"）；
- *   3. 移入 tests/acceptance/scenarios/ 并去掉 .skip。
- */
-import { describe, it } from "vitest"
-
-describe.skip("[draft] ${draft.turnId}", () => {
-  it("TODO: 描述这次线上失败应被回归保护的行为", () => {
-    // TODO: 用 makeAcceptanceApp() 重现，并断言最终状态与错误码。
-  })
-})
-`
 }
 
 async function main(): Promise<void> {

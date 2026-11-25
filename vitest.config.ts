@@ -108,6 +108,10 @@ export default defineConfig({
         find: "@butler/domain/observability/error-codes.js",
         replacement: resolve(__dirname, "packages/domain/src/observability/error-codes.ts"),
       },
+      {
+        find: "@butler/domain/observability/scenario-draft.js",
+        replacement: resolve(__dirname, "packages/domain/src/observability/scenario-draft.ts"),
+      },
       { find: "@butler/domain", replacement: resolve(__dirname, "packages/domain/src/index.ts") },
       { find: "@butler/runtime", replacement: resolve(__dirname, "packages/runtime/src") },
       { find: "@butler/persistence", replacement: resolve(__dirname, "packages/persistence/src") },
