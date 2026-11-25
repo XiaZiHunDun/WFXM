@@ -1,5 +1,6 @@
 import type { ButlerLoopResult } from "./wechat-inbound-butler.js"
 import { tryWechatMemoryCommand } from "./wechat-memory-commands.js"
+import { tryWechatObservabilityCommand } from "./wechat-observability-commands.js"
 import { tryWechatProjectCommand } from "./wechat-project-surface.js"
 import { tryWechatQualityGateCommand } from "./wechat-quality-gate.js"
 import { tryWechatSubagentCommand } from "./wechat-subagent-commands.js"
@@ -65,6 +66,13 @@ export async function tryWechatInboundCommand(args: {
       }),
     () =>
       tryWechatSubagentCommand({
+        wiring: args.wiring,
+        fromUserId: args.fromUserId,
+        content: args.content,
+        ...(args.env === undefined ? {} : { env: args.env }),
+      }),
+    () =>
+      tryWechatObservabilityCommand({
         wiring: args.wiring,
         fromUserId: args.fromUserId,
         content: args.content,

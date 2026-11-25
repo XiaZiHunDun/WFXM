@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm"
 import type { TraceEvent, TraceKind } from "@butler/domain/observability/local-trace.js"
 import type { ButlerDb } from "./db.js"
 import { traceEvents } from "./schema.js"
@@ -9,6 +9,10 @@ export interface TraceListFilter {
   readonly turnId?: string
   readonly kind?: TraceKind
   readonly limit?: number
+  /** Inclusive lower bound on `createdAt` (epoch ms) — used by trace:export. */
+  readonly sinceMs?: number
+  /** Inclusive upper bound on `createdAt` (epoch ms) — used by trace:export. */
+  readonly untilMs?: number
 }
 
 export interface TracePruneResult {
@@ -113,6 +117,12 @@ export function createTraceStore(db: ButlerDb): TraceStore {
         filter.conversationId ? eq(traceEvents.conversationId, filter.conversationId) : undefined,
         filter.turnId ? eq(traceEvents.turnId, filter.turnId) : undefined,
         filter.kind ? eq(traceEvents.kind, filter.kind) : undefined,
+        filter.sinceMs === undefined
+          ? undefined
+          : gte(traceEvents.createdAt, new Date(filter.sinceMs)),
+        filter.untilMs === undefined
+          ? undefined
+          : lte(traceEvents.createdAt, new Date(filter.untilMs)),
       ].filter((value): value is NonNullable<typeof value> => value !== undefined)
       const rows = await db
         .select()

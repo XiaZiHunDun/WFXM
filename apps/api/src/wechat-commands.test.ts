@@ -316,6 +316,30 @@ describe("memory candidate review", () => {
   })
 })
 
+describe("observability commands", () => {
+  const ownerEnv: NodeJS.ProcessEnv = { BUTLER_OWNER_WECHAT_ID: "u-owner" }
+
+  it("routes /诊断 to the owner-only diagnostics reply", async () => {
+    const result = await tryWechatInboundCommand({
+      wiring: h.wiring,
+      fromUserId: "u-owner",
+      content: "/诊断",
+      env: ownerEnv,
+    })
+    expect(result?.reply).toContain("【系统诊断】")
+  })
+
+  it("ignores /日志 from non-owners", async () => {
+    const result = await tryWechatInboundCommand({
+      wiring: h.wiring,
+      fromUserId: "u-stranger",
+      content: "/日志",
+      env: ownerEnv,
+    })
+    expect(result).toBeNull()
+  })
+})
+
 describe("subagent commands", () => {
   it("shows usage for a bare /委派", async () => {
     const result = await tryWechatSubagentCommand({

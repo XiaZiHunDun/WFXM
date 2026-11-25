@@ -79,6 +79,20 @@ describe("traceStore", () => {
     expect(await store.list({ limit: 0 })).toEqual([])
   })
 
+  it("filters by createdAt window (since/until, inclusive)", async () => {
+    const store = createTraceStore(db.db)
+    await store.append([
+      createTraceEvent({ kind: "run", name: "a", nowMs: 1000 }),
+      createTraceEvent({ kind: "step", name: "b", nowMs: 2000 }),
+      createTraceEvent({ kind: "step", name: "c", nowMs: 3000 }),
+    ])
+
+    expect((await store.list({ sinceMs: 2000 })).map((e) => e.name)).toEqual(["b", "c"])
+    expect((await store.list({ untilMs: 2000 })).map((e) => e.name)).toEqual(["a", "b"])
+    expect((await store.list({ sinceMs: 2000, untilMs: 2000 })).map((e) => e.name)).toEqual(["b"])
+    expect(await store.list({ sinceMs: 5000 })).toEqual([])
+  })
+
   it("prunes by age and by max rows", async () => {
     const store = createTraceStore(db.db)
     const now = 10 * DAY_MS
