@@ -60,7 +60,7 @@
     "@butler/domain": "workspace:*",
     "@butler/pi-agent": "workspace:*",
     "@butler/ports": "workspace:*",
-    "@earendil-works/pi-ai": "1.5.2"
+    "@earendil-works/pi-ai": "1.6.0"
   },
   "devDependencies": {
     "@butler/persistence": "workspace:*"
