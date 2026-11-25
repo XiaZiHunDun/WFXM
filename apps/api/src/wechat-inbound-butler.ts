@@ -282,6 +282,7 @@ export async function runButlerLoop(args: {
         idempotencyKey,
         trigger,
         projectId: args.projectId,
+        ...(args.turnId ? { turnId: args.turnId } : {}),
         ...(args.goal ? { goal: args.goal } : {}),
         ...(args.budget ? { budget: args.budget } : {}),
         ...(args.deadline !== undefined ? { deadline: args.deadline } : {}),

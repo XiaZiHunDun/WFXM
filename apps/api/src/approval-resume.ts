@@ -455,6 +455,7 @@ export async function resumeApprovedCapability(
       conversationId: pending.conversationId,
       content: options.content ?? "确认",
       messageId: `approval-resume:${decision.step.id}`,
+      ...(options.turnId ? { turnId: options.turnId } : {}),
     },
     async (ctx) => {
       const failRun = async (reason: string): Promise<RunResult> => {

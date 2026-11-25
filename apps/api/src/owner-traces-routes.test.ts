@@ -35,6 +35,7 @@ describe("owner traces routes", () => {
   })
 
   it("lists run traces after executeInbound", async () => {
+    const turnId = "turn-1700000000000"
     await wiring.runEngine.executeInbound(
       {
         conversationId: "c-trace-1",
@@ -42,6 +43,7 @@ describe("owner traces routes", () => {
         subject: "owner",
         content: "hi",
         idempotencyKey: "trace-1",
+        turnId,
       },
       async () => ({ ok: true }),
     )
@@ -49,10 +51,19 @@ describe("owner traces routes", () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       enabled: boolean
-      items: readonly { kind: string; name: string }[]
+      items: readonly { kind: string; name: string; turnId: string | null }[]
     }
     expect(body.enabled).toBe(true)
     expect(body.items.some((e) => e.kind === "run" && e.name === "start")).toBe(true)
     expect(body.items.some((e) => e.kind === "run" && e.name === "finish")).toBe(true)
+    // Phase 5 P0: run/start + run/finish carry the inbound turn id so the
+    // whole run chain can be pulled with a single turnId filter.
+    const byTurn = await app.request(`/v1/owner/traces?turnId=${turnId}`)
+    const byTurnBody = (await byTurn.json()) as {
+      items: readonly { kind: string; name: string; turnId: string | null }[]
+    }
+    expect(byTurnBody.items.every((e) => e.turnId === turnId)).toBe(true)
+    expect(byTurnBody.items.some((e) => e.kind === "run" && e.name === "start")).toBe(true)
+    expect(byTurnBody.items.some((e) => e.kind === "run" && e.name === "finish")).toBe(true)
   })
 })

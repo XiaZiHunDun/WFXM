@@ -80,6 +80,8 @@ export interface InboundRunInput {
   readonly deadline?: Date | null
   /** Override working-set budget mode (default reads trigger.payload.workingSetMode). */
   readonly workingSetMode?: WorkingSetMode
+  /** Phase 5 P0: inbound turn id so run/start + run/finish traces correlate. */
+  readonly turnId?: string
 }
 
 export interface ResumeRunInput {
@@ -88,6 +90,8 @@ export interface ResumeRunInput {
   /** Optional trailing user text for working-set construction (e.g.「确认」). */
   readonly content?: string
   readonly messageId?: string
+  /** Phase 5 P0: turn id of the owner reply that triggered the resume. */
+  readonly turnId?: string
 }
 
 function isTrustedInboundTrigger(trigger: RunTrigger | undefined): boolean {
@@ -192,6 +196,7 @@ export class RunEngine {
         content: input.content,
         resumed: false,
         workingSetMode: resolveInboundWorkingSetMode(input, running),
+        ...(input.turnId ? { turnId: input.turnId } : {}),
         runBody,
       })
     })
@@ -228,6 +233,7 @@ export class RunEngine {
         workingSetMode: workingSetModeFromTriggerPayload(
           run.budget?.["triggerPayload"] as Readonly<Record<string, unknown>> | undefined,
         ),
+        ...(input.turnId ? { turnId: input.turnId } : {}),
         runBody,
       })
     })
@@ -261,6 +267,7 @@ export class RunEngine {
       content: input.content,
       resumed: true,
       workingSetMode: resolveInboundWorkingSetMode(input, running),
+      ...(input.turnId ? { turnId: input.turnId } : {}),
       runBody,
     })
   }
@@ -272,6 +279,7 @@ export class RunEngine {
     readonly content: string
     readonly resumed: boolean
     readonly workingSetMode?: WorkingSetMode
+    readonly turnId?: string
     readonly runBody: (ctx: RunEngineContext) => Promise<T>
   }): Promise<T> {
     const env = process.env
@@ -295,6 +303,7 @@ export class RunEngine {
       kind: "run",
       name: args.resumed ? "resume" : "start",
       conversationId: args.conversationId,
+      turnId: args.turnId ?? null,
       runId: args.run.id,
       parentRunId: args.run.parentRunId,
       subject: args.run.subject,
@@ -324,6 +333,7 @@ export class RunEngine {
         name: "finish",
         status: "ok",
         conversationId: args.conversationId,
+        turnId: args.turnId ?? null,
         runId: args.run.id,
         subject: args.run.subject,
         triggerSource: args.run.triggerSource,
@@ -365,6 +375,7 @@ export class RunEngine {
         name: "finish",
         status: "error",
         conversationId: args.conversationId,
+        turnId: args.turnId ?? null,
         runId: args.run.id,
         subject: args.run.subject,
         durationMs: Date.now() - startedAt,
