@@ -186,6 +186,31 @@ export interface SubagentWorkerHandle {
 }
 
 /**
+ * Phase 7 fix F10: observable worker activity. The Demo Console returned
+ * `ok:true` while subagent work was still running in the background; these
+ * events let a status endpoint report real progress instead of guessing.
+ */
+export type SubagentWorkerEvent =
+  | {
+      readonly type: "task-start"
+      readonly messageId: string
+      readonly streamId: string
+    }
+  | {
+      readonly type: "task-done"
+      readonly messageId: string
+      readonly streamId: string
+    }
+  | {
+      readonly type: "task-error"
+      readonly messageId: string
+      readonly error: string
+    }
+  | {
+      readonly type: "idle"
+    }
+
+/**
  * Subagent reply prefix. Mirrors the `[子代理 ...]` marker the
  * parent butler loop already emits elsewhere so users see a
  * consistent label when the subagent's reply shows up in
@@ -228,6 +253,8 @@ export function buildChildSystemPrompt(
     "3. 任务目标没有全部落地前，不要用纯文本宣布完成；只有全部完成才允许给出简短总结。",
     "4. 声明完成前，必须用 list_files / read_file 核对目标文件真实存在且内容符合要求。",
     `5. 只能使用这些工具：${available.join(", ")}；禁止调用未列出的工具。`,
+    "6. 大文件用 read_file（配合 offset/limit）分段读，不要用 run_command 反复 grep/sed 同一文件；同一条命令不要重复超过两次。",
+    "7. 修改后用 pnpm typecheck 或 pnpm build 自检；自检命令失败时读报错并修，不要原样重跑第三次。",
   ].join("\n")
 }
 
@@ -460,6 +487,11 @@ async function runChildLlm(
       maxIterations: MAX_CHILD_ITERATIONS,
       maxToolCalls: MAX_CHILD_ITERATIONS,
       toolFirst: advertised.length > 0,
+      // Phase 7 fix F12: re-running `pnpm typecheck` after each edit is
+      // legitimate, but the default stuck-loop threshold (3) aborts the child
+      // on the third identical command. Give children a little more room;
+      // iteration and tool budgets still bound the loop.
+      stuckLoopThreshold: 6,
       llmTimeoutMs: LLM_TIMEOUT_MS,
     })
     // `iterations === cap` means the loop ran out of turns instead of the
@@ -784,9 +816,18 @@ export function runSubagentWorker(
     readonly logger?: SubagentWorkerLogger
     readonly intervalMs?: number
     readonly runtimeStore?: RuntimeStore
+    /** Phase 7 F10: activity hook for status surfaces (Demo Console). */
+    readonly onEvent?: (event: SubagentWorkerEvent) => void
   } = {},
 ): SubagentWorkerHandle {
   const logger = opts.logger ?? defaultLogger
+  const emit = (event: SubagentWorkerEvent): void => {
+    try {
+      opts.onEvent?.(event)
+    } catch {
+      // A broken observer must never break task delivery.
+    }
+  }
   const intervalMs =
     Number(env["BUTLER_V5_SUBAGENT_WORKER_INTERVAL_MS"] ?? "") ||
     opts.intervalMs ||
@@ -809,10 +850,23 @@ export function runSubagentWorker(
     try {
       const adapter = pickProvider(env)
       const delivered = await bridge.runWorker(async (msg) => {
-        await handleOutboxMessage(bridge, adapter, msg, logger, runtimeStore, env)
+        emit({ type: "task-start", messageId: msg.messageId, streamId: msg.streamId })
+        try {
+          await handleOutboxMessage(bridge, adapter, msg, logger, runtimeStore, env)
+          emit({ type: "task-done", messageId: msg.messageId, streamId: msg.streamId })
+        } catch (err) {
+          emit({
+            type: "task-error",
+            messageId: msg.messageId,
+            error: err instanceof Error ? err.message : String(err),
+          })
+          throw err
+        }
       })
       if (delivered > 0) {
         logger.warn(`[subagent-worker] delivered ${delivered} outbox message(s)`)
+      } else {
+        emit({ type: "idle" })
       }
     } catch (err) {
       logger.error("[subagent-worker] tick failed:", err)

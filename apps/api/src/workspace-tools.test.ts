@@ -7,7 +7,7 @@ import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { runTool } from "@butler/runtime/tool-runtime.js"
 import type { CredentialProvider } from "@butler/ports/core/credential-provider.js"
-import { makeListDirTool, makeRunCommandTool } from "./workspace-tools.js"
+import { makeListDirTool, makeReadFileTool, makeRunCommandTool } from "./workspace-tools.js"
 
 const fakeProvider = (values: Readonly<Record<string, string>>): CredentialProvider => ({
   availableCredentials: async () => Object.keys(values),
@@ -41,6 +41,54 @@ describe("makeListDirTool", () => {
     expect(output).toContain("a.txt")
     expect(output).not.toContain("node_modules")
     expect(output.indexOf("packages")).toBeLessThan(output.indexOf("a.txt"))
+  })
+})
+
+describe("makeReadFileTool", () => {
+  let root: string
+  let prevSandbox: string | undefined
+
+  beforeEach(() => {
+    prevSandbox = process.env["BUTLER_V5_SANDBOX"]
+    delete process.env["BUTLER_V5_SANDBOX"]
+  })
+
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true })
+    if (prevSandbox === undefined) delete process.env["BUTLER_V5_SANDBOX"]
+    else process.env["BUTLER_V5_SANDBOX"] = prevSandbox
+  })
+
+  it("F13: supports offset/limit paging for large files", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-read-"))
+    const lines = Array.from({ length: 600 }, (_, i) => `line-${i + 1}`)
+    writeFileSync(join(root, "big.txt"), lines.join("\n"))
+    const tool = makeReadFileTool({ workspaceRoot: root })
+
+    const page = await runTool(tool, { path: "big.txt", offset: 101, limit: 3 }, { timeoutMs: 2000 })
+    expect(page.ok).toBe(true)
+    if (!page.ok) return
+    const text = String(page.output)
+    expect(text).toContain("lines 101-103 of 600")
+    expect(text).toContain("line-101")
+    expect(text).toContain("line-103")
+    expect(text).not.toContain("line-104")
+
+    const whole = await runTool(tool, { path: "big.txt" }, { timeoutMs: 2000 })
+    expect(whole.ok).toBe(true)
+    if (whole.ok) expect(String(whole.output)).toContain("line-600")
+  })
+
+  it("F13: caps inline output at 24KiB with a paging hint", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-read-"))
+    writeFileSync(join(root, "huge.txt"), "x".repeat(30 * 1024))
+    const tool = makeReadFileTool({ workspaceRoot: root })
+    const result = await runTool(tool, { path: "huge.txt" }, { timeoutMs: 2000 })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const text = String(result.output)
+    expect(text).toContain("输出已截断")
+    expect(Buffer.byteLength(text, "utf8")).toBeLessThan(30 * 1024)
   })
 })
 

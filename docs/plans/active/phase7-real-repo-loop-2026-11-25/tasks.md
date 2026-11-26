@@ -46,3 +46,21 @@
 - [x] 真实 LLM 烟测：建书→设定→大纲→建章→流式生成→落库→检查→导出
 - [x] 回填 spec §6（轮数、失败、根因、缺陷分级、证据）
 - [x] 未执行 commit/push（等待 owner 指令）
+
+## T9 第二轮闭环缺陷修复（F7–F13）
+- [x] F7 未知工具近似名提示（list_files → list_dir）
+- [x] F8 spam 长度上限可配置并与 Demo 8000 对齐
+- [x] F9 失败信封提示后台子任务
+- [x] F10 子代理 worker `onEvent` + `GET /demo/api/status`
+- [x] F11 `delegationClaimGuard`：声称已派但未调用工具时纠正一次
+- [x] F12 子代理 stuck-loop 阈值 6 + prompt 约束重复命令
+- [x] F13 `read_file` 支持 offset/limit，24KiB 截断提示
+- [x] 新增/更新单测 5 个文件 62 passed；typecheck 通过；4522 重启验证
+
+## T10 LingWen 产品完善（第二轮对话）
+- [x] A：书籍设置、章节删除/排序、大纲编辑、按大纲建章、全局统计
+- [x] B：按大纲续写、AI 检查、可中止生成、生成/检查互斥
+- [x] C：自动保存、Cmd/Ctrl+S、beforeunload、书架统计条
+- [x] D：作品内流式 AI 助手
+- [x] 回归修复：补回被覆盖的设置面板与章节 ↑↓
+- [x] build + Playwright + 真实 LLM 复测；未 commit/push

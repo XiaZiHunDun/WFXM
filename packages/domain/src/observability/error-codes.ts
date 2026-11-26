@@ -185,5 +185,8 @@ export function formatFailureEnvelope(input: {
 }): string {
   const short = turnIdShort(input.turnId)
   const prefix = short === "" ? `[${input.code}]` : `[${input.code} · ${short}]`
-  return `${prefix} 处理失败，已记录。请稍后再发一次；若反复出现，请把这条信息发给管理员。`
+  // Phase 7 fix F9: a failed parent turn may have already delegated work
+  // that is still running in the subagent outbox. Say so explicitly instead
+  // of leaving the owner to assume nothing happened.
+  return `${prefix} 处理失败，已记录。请稍后再发一次；若反复出现，请把这条信息发给管理员。\n（若本轮已派出子任务，它们可能仍在后台执行，完成后会单独汇报。）`
 }

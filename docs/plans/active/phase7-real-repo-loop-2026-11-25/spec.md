@@ -145,6 +145,31 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - UI（Playwright + 本机 headless Chromium）：书架 1 本《长夜将至》；工作台 3 栏、3 条大纲、1 章、1 条设定；点击章节后编辑器载入 399 字正文；体检面板返回「大纲覆盖率偏低」。
 - 内置浏览器桥接（Agent 与 Skill 两条路径）访问 `127.0.0.1:3210` 均超时，改用本机 Chromium 完成验证；该环境问题已记录为验证通道限制。
 
+### 6.4 第二轮：闭环缺陷修复（F7–F13）
+
+| 编号 | 缺陷（实测触发的现象） | 修复 | 验证 |
+|------|------------------------|------|------|
+| F7 | 模型把工具名猜成 `list_files`，主代理只会回「可用工具：list_dir」，不会联想 | 未知工具错误增加 Levenshtein 近似名提示（≥0.6 相似度） | 单测：`list_files` → 「你是不是想用 list_dir」 |
+| F8 | Demo Console 输入上限 8000，但 spam guard 仍按 2000 拒收长规格（M4-2 被拒） | `BUTLER_V5_SPAM_MAX_CHARS` 可配置；Demo 启动自动对齐 8000；错误文案改为「请拆成多段或精简后重发」 | 1500 字消息可正常处理；单测覆盖默认/覆盖/非法值 |
+| F9 | 父代理失败回复不提示「子任务可能仍在后台」 | 失败信封追加一行后台任务提示 | 单测（error-codes 10 passed） |
+| F10 | `/demo/api/chat` 父代理 Respond 即返回 `ok:true`，子代理仍在跑，只能轮询文件 | 子代理 worker 增加 `onEvent`；Demo 新增 `GET /demo/api/status`（busy/delivered/lastEvent/lastError），chat 返回 `statusUrl`/`workerBusy` | 实测提交后 status 显示 busy=1，空闲后归零 |
+| F11 | 父代理回「已派子代理」但 0 次工具调用，任务根本没启动（B-2 首次） | `delegationClaimGuard`：非末轮纯文本声称已委派时注入一次纠正提示 | 单测 + 重启后 B-2 正常委派（toolCalls=9） |
+| F12 | 子代理重复执行同一命令（`pnpm typecheck`）被 stuck-loop 阈值 3 误杀 | 子代理 `stuckLoopThreshold=6`；prompt 明确「同一命令不超过两次、失败先读报错」 | C-1b 重试成功 |
+| F13 | `read_file` 无分页，整读 37KB 页面文件导致子代理第 1 轮即失败 | `read_file` 支持 `offset/limit`，输出上限 24KiB 并提示分页；工具 schema/提示同步 | 单测 2 条：分页读取、超限截断 |
+
+### 6.5 第二轮：LingWen 产品完善（全部经 Web 对话）
+
+| 批次 | 内容 | 验证 |
+|------|------|------|
+| A 数据完整性 | 书籍设置编辑、章节删除、↑↓ 排序、大纲手工编辑、按大纲建章、`/api/stats` 全局统计 | typecheck/build；API 烟测 PATCH/DELETE/seq/outline manual 全部 2xx |
+| B AI 写作 | `generate` 注入本章大纲 + 600 字衔接上文；新增 `POST /api/chapters/[id]/review`（JSON 问题清单）；生成可中止（AbortController）；生成/检查互斥 | 真实 LLM：review 返回结构化 issues；生成流式可用 |
+| C 体验 | 1.5s 防抖自动保存、Cmd/Ctrl+S、beforeunload 保护、书架统计条 | Playwright：出现「已自动保存 10:22:32」，统计条「作品 1 · 章节 1 · 总字数 342」 |
+| D Agent 化 | `POST /api/books/[id]/assist` 流式创作助手（书籍+设定+大纲+选中章节上下文）；右栏对话面板 | Playwright 实际提问并收到流式回答 |
+
+- 回归发现：A-2a 的部分改动被后续整文件写入覆盖（设置面板与 ↑↓ 丢失）。已通过对话补回，并在验证脚本中固定检查「AI 检查 / 创作助手 / 自动保存 / 书籍设置」四项均存在。
+- 复测：`pnpm build` 通过（16 条路由）；WFXM 侧 62 个相关单测通过；3210 服务在线。
+- 仍未提交：等待 owner 指令。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

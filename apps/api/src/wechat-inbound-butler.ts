@@ -246,7 +246,7 @@ export async function runButlerLoop(args: {
   //   - high emoji ratio (> EMOJI_RATIO_MAX of chars are emoji)
   // Returns a short stub reply with no LLM call. Owner can reply with a
   // concrete request to retry.
-  const spam = detectSpam(args.content)
+  const spam = detectSpam(args.content, resolveMaxSpamChars(env))
   if (spam) {
     return {
       reply: spam,
@@ -613,6 +613,9 @@ async function runButlerLoopBody(args: {
     llmTools,
     maxIterations: resolveMaxLoopIterations(env),
     initialTraces,
+    // Phase 7 fix F11: a "已派子代理" prose reply with zero tool calls must
+    // not end the turn; nudge the model to either delegate or answer.
+    delegationClaimGuard: true,
     ...(maxToolCalls !== undefined ? { maxToolCalls } : {}),
     ...(args.llmTimeoutMs !== undefined ? { llmTimeoutMs: args.llmTimeoutMs } : {}),
     ...(args.stuckLoopThreshold !== undefined
@@ -838,6 +841,8 @@ import {
   hasRepeatedCharacter,
   hasRepeatedLines,
   hasRepeatedTokens,
+  MAX_SPAM_CHARS,
+  resolveMaxSpamChars,
 } from "./spam-detectors.js"
 
 /**
@@ -851,10 +856,10 @@ import {
  * spam-detectors.ts. Adding a new heuristic means adding a new
  * hasXxx() helper, not editing this function.
  */
-function detectSpam(content: string): string | null {
+function detectSpam(content: string, maxChars: number = MAX_SPAM_CHARS): string | null {
   if (content.length === 0) return null
   return (
-    hasExcessiveLength(content) ??
+    hasExcessiveLength(content, maxChars) ??
     hasRepeatedCharacter(content) ??
     hasExcessiveEmojiRatio(content) ??
     hasRepeatedLines(content) ??

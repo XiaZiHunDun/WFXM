@@ -175,8 +175,47 @@ export function makeListDirTool(ctx: WorkspaceToolContext = {}): ToolDefinition 
   }
 }
 
-export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
-  return {
+/**
+ * Phase 7 fix F13: a 37KB source file read in one shot blew the child model's
+ * context and the subagent died at iteration 1. read_file now supports
+ * `offset`/`limit` (1-based lines) and caps inline output at 24KB, telling the
+ * caller to page with offset/limit instead of dumping the whole file.
+ */
+const MAX_INLINE_READ_BYTES = 24 * 1024
+
+function paginateReadOutput(text: string, args: Record<string, unknown>): string {
+  const offsetRaw = args["offset"]
+  const limitRaw = args["limit"]
+  const offset =
+    typeof offsetRaw === "number" && Number.isFinite(offsetRaw) && offsetRaw > 0
+      ? Math.floor(offsetRaw)
+      : 1
+  const limit =
+    typeof limitRaw === "number" && Number.isFinite(limitRaw) && limitRaw > 0
+      ? Math.min(2000, Math.floor(limitRaw))
+      : undefined
+  if (
+    offset === 1 &&
+    limit === undefined &&
+    Buffer.byteLength(text, "utf8") <= MAX_INLINE_READ_BYTES
+  ) {
+    return text
+  }
+  const lines = text.split("\n")
+  const start = Math.min(offset - 1, lines.length)
+  const end = limit === undefined ? lines.length : Math.min(start + limit, lines.length)
+  const header = `[read_file] lines ${start + 1}-${end} of ${lines.length}`
+  const body = lines.slice(start, end).join("\n")
+  if (Buffer.byteLength(body, "utf8") <= MAX_INLINE_READ_BYTES) {
+    return `${header}\n${body}`
+  }
+  const clipped = Buffer.from(body, "utf8")
+    .subarray(0, MAX_INLINE_READ_BYTES)
+    .toString("utf8")
+  return `${header}\n${clipped}\n[read_file] 输出已截断（上限 ${MAX_INLINE_READ_BYTES} 字节）；请用 offset/limit 继续读取。`
+}
+
+export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition {  return {
     name: makeToolName("read_file"),
     risk: "low",
     async run(
@@ -216,7 +255,7 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
           }
           const buf = readFileSync(resolved.path)
           if (buf.includes(0)) return { ok: false, reason: "refusing binary file" }
-          return { ok: true, output: buf.toString("utf8") }
+          return { ok: true, output: paginateReadOutput(buf.toString("utf8"), args) }
         } catch (err) {
           // D69 T3 (audit #10 CQ-2): route raw ENOENT/EACCES messages through
           // safeOwnerError so the owner sees a Chinese fallback ("读取文件失败")
@@ -246,7 +285,7 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
           detail: { tool: "read_file" },
         })
         if (!result.ok) return { ok: false, reason: result.reason ?? "sandbox failed" }
-        return { ok: true, output: result.stdout ?? "" }
+        return { ok: true, output: paginateReadOutput(result.stdout ?? "", args) }
       }
     },
   }

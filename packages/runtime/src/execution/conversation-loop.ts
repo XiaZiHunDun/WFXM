@@ -191,6 +191,47 @@ function capSignature(name: string, args: Readonly<Record<string, unknown>>): st
   return `${name}:${JSON.stringify(args)}`
 }
 
+/**
+ * Phase 7 fix F7: suggest the closest advertised tool name for an unknown
+ * one. Models frequently guess plausible-but-wrong names (`list_files` vs
+ * `list_dir`); a short "did you mean" hint prevents burning iterations.
+ * Returns `undefined` when nothing is close enough.
+ */
+function suggestToolName(name: string, available: readonly string[]): string | undefined {
+  if (available.length === 0) return undefined
+  const lower = name.toLowerCase()
+  let best: string | undefined
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const candidate of available) {
+    const distance = editDistance(lower, candidate.toLowerCase())
+    if (distance < bestDistance) {
+      bestDistance = distance
+      best = candidate
+    }
+  }
+  const tolerance = Math.max(2, Math.floor(name.length * 0.6))
+  return bestDistance <= tolerance ? best : undefined
+}
+
+/** Levenshtein distance (iterative single-row implementation). */
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0
+  if (a.length === 0) return b.length
+  if (b.length === 0) return a.length
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i]
+    for (let j = 1; j <= b.length; j += 1) {
+      const substitution = (previous[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1)
+      const insertion = (current[j - 1] ?? 0) + 1
+      const deletion = (previous[j] ?? 0) + 1
+      current[j] = Math.min(substitution, insertion, deletion)
+    }
+    previous = current
+  }
+  return previous[b.length] ?? Math.max(a.length, b.length)
+}
+
 export interface ConversationLoopPorts {
   readonly complete: (
     messages: readonly ConversationLoopMessage[],
@@ -346,6 +387,14 @@ export interface ConversationLoopInput {
    * tools instead of ending. Used by subagent loops that must land files.
    */
   readonly toolFirst?: boolean
+  /**
+   * Phase 7 fix F11: the main butler sometimes answers with prose like
+   * "已派子代理处理，结果一到就转给你" without ever calling
+   * `delegate_to_subagent`, so nothing actually starts. When enabled, a
+   * non-final prose reply that claims a delegation triggers one corrective
+   * nudge instead of being accepted as the final answer.
+   */
+  readonly delegationClaimGuard?: boolean
 }
 
 /**
@@ -393,6 +442,7 @@ async function runNativeConversationLoop(
   let budgetExhaustedNotified = false
   let toolFirstNudges = 0
   const maxToolFirstNudges = 2
+  let delegationClaimNudges = 0
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const isFinalIteration = iteration === maxIterations - 1
@@ -472,7 +522,12 @@ async function runNativeConversationLoop(
           // self-correct on the next iteration instead of burning the whole
           // turn budget on the same unknown name.
           traces.push(`unknown tool: ${tc.name}`)
-          const availableTools = input.llmTools.map((t) => t.name).join(", ") || "（无）"
+          const availableNames = input.llmTools.map((t) => t.name)
+          const availableTools = availableNames.join(", ") || "（无）"
+          // Phase 7 fix F7: a model that invented a near-miss name (e.g.
+          // `list_files` when the tool is `list_dir`) can recover from a
+          // "did you mean" hint far faster than from the full list alone.
+          const suggestion = suggestToolName(tc.name, availableNames)
           const isDecisionTag = (
             ["Respond", "Finish", "StartChildRun", "WaitForApproval", "CallCapability"] as const
           ).includes(tc.name as never)
@@ -480,7 +535,7 @@ async function runNativeConversationLoop(
             role: "tool",
             content: isDecisionTag
               ? `[错误] "${tc.name}" 是决策标签，不是工具；启动子任务请调用 delegate_to_subagent。可用工具：${availableTools}。`
-              : `[错误] 未注册的工具：${tc.name}。可用工具：${availableTools}。请只调用这些工具。`,
+              : `[错误] 未注册的工具：${tc.name}。${suggestion ? `你是不是想用 ${suggestion}？` : ""}可用工具：${availableTools}。请只调用这些工具。`,
             toolCallId: tc.id,
             toolName: tc.name,
           })
@@ -581,6 +636,25 @@ async function runNativeConversationLoop(
       // Max retries exceeded (Phase D fix B-08/10): prefer the last non-empty
       // LLM content (legitimate plain-text response); fall back to stub reply
       // when ALL attempts were empty (matches pre-fix behavior for empty raw).
+      // Phase 7 fix F11: never accept "已派子代理" prose as a finished turn —
+      // no tool ran, so the delegated task does not exist. Nudge once.
+      const delegationClaim =
+        /(已派|已交给|已委派|派给|交给)/.test(raw) && /(子代理|执行代理|developer|后台)/.test(raw)
+      if (
+        input.delegationClaimGuard === true &&
+        delegationClaim &&
+        !isFinalIteration &&
+        delegationClaimNudges < 1
+      ) {
+        delegationClaimNudges += 1
+        messages.push({
+          role: "user",
+          content:
+            "[system] 你回复里声称已经委派，但本轮没有调用任何工具，子任务并未真正启动。如果确实需要子代理，请立刻调用 delegate_to_subagent（goal 里写完整任务与验证要求）；如果不需要，请直接给出最终答复，不要声称已派发。",
+        })
+        traces.push("delegation-claim nudge 1/1")
+        continue
+      }
       // Phase 7 fix F2b: a tool-first loop treats an early prose reply as
       // unfinished work — one or two nudges beat silently ending the run.
       if (

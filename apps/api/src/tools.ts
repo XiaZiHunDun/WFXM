@@ -524,11 +524,19 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
   {
     name: "read_file",
     description:
-      "Read a UTF-8 text file inside the butler workspace. Pass `path` relative to the workspace root (absolute paths outside the workspace are rejected). Max 64KiB. Use when you need the contents of a project file.",
+      "Read a UTF-8 text file inside the butler workspace. Pass `path` relative to the workspace root (absolute paths outside the workspace are rejected). Supports `offset` (1-based start line) and `limit` (max lines) for large files; output is capped at 24KiB and truncated with a hint to page with offset/limit. Max file size 64KiB.",
     parameters: {
       type: "object",
       properties: {
         path: { type: "string", description: "File path relative to the workspace root." },
+        offset: {
+          type: "number",
+          description: "Optional 1-based line number to start reading from (default 1).",
+        },
+        limit: {
+          type: "number",
+          description: "Optional maximum number of lines to return (max 2000).",
+        },
       },
       required: ["path"],
     },

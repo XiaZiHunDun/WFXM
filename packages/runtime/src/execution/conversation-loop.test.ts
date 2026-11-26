@@ -429,6 +429,73 @@ describe("runConversationLoop", () => {
     expect(result.finalDecision).toBe("Respond")
   })
 
+  it("suggests the closest tool name for a near-miss unknown tool", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "hi" } })
+    let turn = 0
+    let toolContent = ""
+    await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "hi" }],
+      llmTools: [{ name: "list_dir", description: "list", parameters: { type: "object" } }],
+      ports: {
+        complete: async (msgs) => {
+          turn += 1
+          if (turn === 1) {
+            return {
+              ok: true,
+              response: {
+                content: "",
+                toolCalls: [{ id: "tc-miss", name: "list_files", args: {} }],
+              },
+            }
+          }
+          toolContent = msgs.find((m) => m.role === "tool")?.content ?? ""
+          return { ok: true, response: { content: "done", toolCalls: [] } }
+        },
+        findTool: () => undefined,
+        executeTool: async () => ({ ok: false, reason: "unused" }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(toolContent).toContain("你是不是想用 list_dir")
+    expect(toolContent).toContain("可用工具：list_dir")
+  })
+
+  it("nudges once when prose claims a delegation but no tool ran", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [
+        { name: "delegate_to_subagent", description: "delegate", parameters: { type: "object" } },
+      ],
+      delegationClaimGuard: true,
+      ports: {
+        complete: async () => {
+          turn += 1
+          if (turn === 1) {
+            return {
+              ok: true,
+              response: { content: "已派 developer 子代理处理，结果一到就转给你。", toolCalls: [] },
+            }
+          }
+          return { ok: true, response: { content: "直接答复：不需要委派。", toolCalls: [] } }
+        },
+        findTool: () => undefined,
+        executeTool: async () => ({ ok: false, reason: "unused" }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(turn).toBe(2)
+    expect(result.traces.some((t) => t.startsWith("delegation-claim nudge"))).toBe(true)
+    expect(result.reply).toBe("直接答复：不需要委派。")
+  })
+
   it("nudges a tool-first loop instead of ending on an early prose reply", async () => {
     const kernel = makeKernel()
     await kernel.openTurn({ userMessage: { role: "user", content: "write" } })

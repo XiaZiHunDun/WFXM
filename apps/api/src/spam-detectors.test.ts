@@ -12,6 +12,7 @@ import {
   hasRepeatedCharacter,
   hasRepeatedLines,
   hasRepeatedTokens,
+  resolveMaxSpamChars,
 } from "./spam-detectors.js"
 
 describe("hasExcessiveLength", () => {
@@ -22,6 +23,22 @@ describe("hasExcessiveLength", () => {
   it("flags content over the cap", () => {
     const r = hasExcessiveLength("a".repeat(MAX_SPAM_CHARS + 1))
     expect(r).toContain("消息过长")
+  })
+  it("honours a caller-provided higher cap (Demo Console)", () => {
+    const long = "a".repeat(MAX_SPAM_CHARS + 500)
+    expect(hasExcessiveLength(long)).toContain("消息过长")
+    expect(hasExcessiveLength(long, 8000)).toBeNull()
+  })
+})
+
+describe("resolveMaxSpamChars", () => {
+  it("defaults to MAX_SPAM_CHARS", () => {
+    expect(resolveMaxSpamChars({})).toBe(MAX_SPAM_CHARS)
+  })
+  it("reads BUTLER_V5_SPAM_MAX_CHARS and ignores invalid values", () => {
+    expect(resolveMaxSpamChars({ BUTLER_V5_SPAM_MAX_CHARS: "8000" })).toBe(8000)
+    expect(resolveMaxSpamChars({ BUTLER_V5_SPAM_MAX_CHARS: "abc" })).toBe(MAX_SPAM_CHARS)
+    expect(resolveMaxSpamChars({ BUTLER_V5_SPAM_MAX_CHARS: "-1" })).toBe(MAX_SPAM_CHARS)
   })
 })
 

@@ -55,7 +55,7 @@ export function buildWechatInboundMessages(
     "- get_current_time(): current time in Asia/Shanghai (UTC+8), formatted in Chinese",
     "- greet_with_time(): a Chinese greeting based on the current time of day",
     "- summarize_today(): 24-hour activity summary for this conversation, broken down by event type",
-    "- read_file(path): read a UTF-8 text file inside the workspace (max 64KiB; path cannot escape the root)",
+    "- read_file(path, offset?, limit?): read a UTF-8 text file inside the workspace (max 64KiB; output capped at 24KiB, use offset/limit for large files; path cannot escape the root)",
     "- list_dir(path?): list a workspace directory (read-only; dirs first, hides dotfiles/node_modules/dist). Use this for 列目录/看有哪些包 questions instead of delegating.",
     ...(includeExecTools
       ? [

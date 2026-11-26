@@ -25,7 +25,7 @@ import { join } from "node:path"
 import { pickLLMForRole } from "@butler/adapters"
 import { makeAcceptanceApp, type AcceptanceApp } from "../tests/acceptance/harness.js"
 import { isSubagentEnabled } from "../apps/api/src/subagent-config.js"
-import { runSubagentWorker, type SubagentWorkerHandle } from "../apps/api/src/subagent-worker.js"
+import { runSubagentWorker, type SubagentWorkerEvent, type SubagentWorkerHandle } from "../apps/api/src/subagent-worker.js"
 
 const HOST = "127.0.0.1"
 const DEFAULT_PORT = 4520
@@ -38,6 +38,11 @@ const REAL_LLM = process.env["BUTLER_V5_DEMO_REAL_LLM"] === "1"
  * 关回旧的 runButlerLoop 回退路径。脚本化模式始终关闭 intake，保持既有剧本。
  */
 const REAL_INTAKE = REAL_LLM && process.env["BUTLER_V5_DEMO_INTAKE"] !== "0"
+// Phase 7 fix F8: the console accepts MAX_MESSAGE_CHARS, so the inbound spam
+// guard must not reject long specs the console itself let through.
+if (!process.env["BUTLER_V5_SPAM_MAX_CHARS"]) {
+  process.env["BUTLER_V5_SPAM_MAX_CHARS"] = String(MAX_MESSAGE_CHARS)
+}
 const WORKSPACE = (
   process.env["BUTLER_V5_DEMO_WORKSPACE"] ?? join(process.cwd(), "projects", "ledger-lite")
 ).trim()
@@ -108,6 +113,44 @@ let messageSeq = 0
 let queue: Promise<unknown> = Promise.resolve()
 let subagentWorker: SubagentWorkerHandle | undefined
 
+/**
+ * Phase 7 fix F10: /demo/api/chat returns as soon as the parent turn
+ * responds, while delegated work keeps running in the outbox. Track worker
+ * activity so callers can poll real progress instead of watching files.
+ */
+interface WorkerStatus {
+  running: boolean
+  busy: number
+  deliveredTotal: number
+  startedTasks: number
+  lastEvent: string
+  lastEventAt: string | null
+  lastError: string | null
+}
+const workerStatus: WorkerStatus = {
+  running: false,
+  busy: 0,
+  deliveredTotal: 0,
+  startedTasks: 0,
+  lastEvent: "idle",
+  lastEventAt: null,
+  lastError: null,
+}
+
+function recordWorkerEvent(event: SubagentWorkerEvent): void {
+  workerStatus.lastEvent = event.type
+  workerStatus.lastEventAt = new Date().toISOString()
+  if (event.type === "task-start") {
+    workerStatus.busy += 1
+    workerStatus.startedTasks += 1
+  } else if (event.type === "task-done" || event.type === "task-error") {
+    workerStatus.busy = Math.max(0, workerStatus.busy - 1)
+    workerStatus.lastError = event.type === "task-error" ? event.error : null
+  } else if (event.type === "idle" && workerStatus.busy === 0) {
+    // idle ticks keep lastEventAt fresh so callers can detect a live worker.
+  }
+}
+
 /** 串行执行：避免 reset 与在途 chat/approve 交错。 */
 function serialize<T>(task: () => Promise<T>): Promise<T> {
   const run = queue.then(() => task())
@@ -121,17 +164,24 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
 /** 真实模式 + 子代理开启时，启动 outbox worker 消费委派任务（与生产一致）。 */
 function startSubagentWorker(): void {
   if (!REAL_INTAKE || !isSubagentEnabled(process.env)) return
+  workerStatus.running = true
   subagentWorker = runSubagentWorker(
     app.wiring.eventBridge,
     (env) => pickLLMForRole(env, "exec"),
     process.env,
-    { runtimeStore: app.wiring.runtimeStore, intervalMs: 2000 },
+    {
+      runtimeStore: app.wiring.runtimeStore,
+      intervalMs: 2000,
+      onEvent: recordWorkerEvent,
+    },
   )
 }
 
 function stopSubagentWorker(): void {
   subagentWorker?.stop()
   subagentWorker = undefined
+  workerStatus.running = false
+  workerStatus.busy = 0
 }
 
 async function buildApp(): Promise<AcceptanceApp> {
@@ -182,6 +232,8 @@ interface ChatResult {
   readonly conversationId?: string
   readonly finalDecision?: string
   readonly toolCalls?: number
+  readonly statusUrl: string
+  readonly workerBusy: number
   readonly pending: readonly unknown[]
 }
 
@@ -214,6 +266,8 @@ async function chat(content: string): Promise<ChatResult> {
   if (typeof parsed.conversationId === "string") conversationId = parsed.conversationId
   return {
     reply: parsed.reply ?? raw,
+    statusUrl: "/demo/api/status",
+    workerBusy: workerStatus.busy,
     ...(parsed.conversationId !== undefined ? { conversationId: parsed.conversationId } : {}),
     ...(parsed.meta?.finalDecision !== undefined
       ? { finalDecision: parsed.meta.finalDecision }
@@ -286,6 +340,18 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   }
   if (req.method === "GET" && path === "/health") {
     sendJson(res, 200, { ok: true, app: "butler-demo" })
+    return
+  }
+  // Phase 7 fix F10: delegated work outlives the HTTP response; expose the
+  // subagent worker state so clients can tell "queued" from "done".
+  if (req.method === "GET" && path === "/demo/api/status") {
+    sendJson(res, 200, {
+      ok: true,
+      conversationId: conversationId ?? null,
+      worker: { ...workerStatus },
+      pendingApprovals: (await listPending()).length,
+      now: new Date().toISOString(),
+    })
     return
   }
   if (req.method === "GET" && path === "/demo/api/approvals") {

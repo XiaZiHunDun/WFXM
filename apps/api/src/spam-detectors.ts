@@ -15,6 +15,18 @@
  */
 
 export const MAX_SPAM_CHARS = 2000
+
+/**
+ * Phase 7 fix F8: the hard length cap is now env-tunable. WeChat inbound
+ * keeps 2000 (platform limit); the local Demo Console accepts up to 8000
+ * chars and must not be rejected by the spam guard before the LLM sees it.
+ */
+export function resolveMaxSpamChars(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env["BUTLER_V5_SPAM_MAX_CHARS"]
+  if (raw === undefined || raw.trim() === "") return MAX_SPAM_CHARS
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : MAX_SPAM_CHARS
+}
 const REPEAT_TOKEN_THRESHOLD = 30
 const EMOJI_RATIO_MAX = 0.6
 const MIN_LINE_REPEAT_TOTAL = 10
@@ -27,9 +39,12 @@ const STRUCTURE_MAX_LEN = 2000
 const STRUCTURE_PUNCT_RATIO_MAX = 0.005
 const STRUCTURE_PUNCT_REGEX = /[。，！？；：、,.!?;:]/
 
-export function hasExcessiveLength(content: string): string | null {
-  if (content.length > MAX_SPAM_CHARS) {
-    return `消息过长（${content.length} 字符，上限 ${MAX_SPAM_CHARS}）。请发具体需求。`
+export function hasExcessiveLength(
+  content: string,
+  maxChars: number = MAX_SPAM_CHARS,
+): string | null {
+  if (content.length > maxChars) {
+    return `消息过长（${content.length} 字符，上限 ${maxChars}）。请拆成多段或精简后重发。`
   }
   return null
 }
