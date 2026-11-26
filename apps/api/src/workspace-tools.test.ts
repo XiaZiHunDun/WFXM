@@ -1,7 +1,7 @@
 /**
  * R8.x.12 — sandbox path + argv helpers for read_file / run_command.
  */
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
@@ -256,5 +256,37 @@ describe("makeRunCommandTool", () => {
       const result = await runTool(tool, { argv: [program] }, { timeoutMs: 1000 })
       expect(result.ok).toBe(false)
     }
+  })
+
+  it("F18: timeout kills the whole process tree, including grandchildren", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-tools-"))
+    const grandchildPidFile = join(root, "grandchild.pid")
+    const tool = makeRunCommandTool({ workspaceRoot: root })
+    // 父进程派生一个 30s 的孙进程并写 PID，然后自己也不退出：
+    // 复刻 `pnpm build` → `sh -c next build` → node 的进程树形态。
+    const script = [
+      'const { spawn } = require("node:child_process")',
+      'const { writeFileSync } = require("node:fs")',
+      'const g = spawn("sleep", ["30"])',
+      `writeFileSync(${JSON.stringify(grandchildPidFile)}, String(g.pid))`,
+      "setTimeout(() => {}, 30000)",
+    ].join("; ")
+
+    const result = await runTool(tool, { argv: ["node", "-e", script] }, { timeoutMs: 1500 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toMatch(/timeout/)
+    expect(existsSync(grandchildPidFile)).toBe(true)
+
+    const grandchildPid = Number(readFileSync(grandchildPidFile, "utf8").trim())
+    expect(Number.isInteger(grandchildPid)).toBe(true)
+    // 给 SIGKILL 一点送达时间，然后确认孙进程确实已退出（kill -0 抛 ESRCH）。
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    let alive = true
+    try {
+      process.kill(grandchildPid, 0)
+    } catch {
+      alive = false
+    }
+    expect(alive).toBe(false)
   })
 })

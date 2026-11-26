@@ -644,6 +644,7 @@ async function runNativeConversationLoop(
         input.delegationClaimGuard === true &&
         delegationClaim &&
         !isFinalIteration &&
+        !toolsExhausted &&
         delegationClaimNudges < 1
       ) {
         delegationClaimNudges += 1
@@ -657,10 +658,14 @@ async function runNativeConversationLoop(
       }
       // Phase 7 fix F2b: a tool-first loop treats an early prose reply as
       // unfinished work — one or two nudges beat silently ending the run.
+      // F19: when the tool budget is already exhausted the nudge is
+      // self-contradictory (no tools are advertised on the next turn) and
+      // costs two extra LLM calls; accept the summary instead.
       if (
         input.toolFirst === true &&
         input.llmTools.length > 0 &&
         !isFinalIteration &&
+        !toolsExhausted &&
         toolFirstNudges < maxToolFirstNudges
       ) {
         toolFirstNudges += 1

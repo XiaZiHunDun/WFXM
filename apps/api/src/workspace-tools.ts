@@ -684,6 +684,31 @@ type SpawnCapturedResult =
   | { readonly ok: true; readonly output: unknown; readonly exitCode: number | null }
   | { readonly ok: false; readonly reason: string; readonly exitCode: number | null }
 
+/**
+ * F18: 超时/中止时连同孙进程一起杀掉。
+ *
+ * 真实事故：子代理执行 `pnpm build` 超时，只 kill 了 pnpm 本体，
+ * `sh -c next build` 与 node 构建进程变成孤儿继续写 `.next`，
+ * 后续构建拿不到一致的构建目录而长时间挂起（无任何日志）。
+ * POSIX 下用 detached 让子进程自成进程组，abort 时 kill(-pid) 整组回收。
+ */
+function killProcessTree(child: ReturnType<typeof spawn>, processGroup: boolean): void {
+  const pid = child.pid
+  if (processGroup && typeof pid === "number" && pid > 0) {
+    try {
+      process.kill(-pid, "SIGKILL")
+      return
+    } catch {
+      // 进程组已退出或无权操作：退回只杀直接子进程。
+    }
+  }
+  try {
+    child.kill("SIGKILL")
+  } catch {
+    // 进程已退出，忽略。
+  }
+}
+
 function spawnCaptured(
   argv: readonly string[],
   cwd: string,
@@ -692,6 +717,8 @@ function spawnCaptured(
 ): Promise<SpawnCapturedResult> {
   const program = argv[0]
   if (!program) return Promise.resolve({ ok: false, reason: "argv is required", exitCode: null })
+  // POSIX 下开启 detached，使 child 成为新进程组组长，便于整组回收。
+  const processGroup = process.platform !== "win32"
   return new Promise((resolvePromise) => {
     if (signal?.aborted) {
       resolvePromise({ ok: false, reason: "aborted", exitCode: null })
@@ -703,6 +730,7 @@ function spawnCaptured(
         cwd,
         env: { PATH: process.env["PATH"] ?? "/usr/bin:/bin", ...injectedEnv },
         stdio: ["ignore", "pipe", "pipe"],
+        detached: processGroup,
       })
     } catch (err) {
       resolvePromise({
@@ -715,7 +743,7 @@ function spawnCaptured(
     const chunks: Buffer[] = []
     let total = 0
     const onAbort = () => {
-      child.kill("SIGKILL")
+      killProcessTree(child, processGroup)
     }
     signal?.addEventListener("abort", onAbort)
     const take = (buf: Buffer) => {

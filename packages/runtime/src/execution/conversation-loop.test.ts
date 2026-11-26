@@ -533,6 +533,45 @@ describe("runConversationLoop", () => {
     expect(result.reply).toBe("完成了")
   })
 
+  it("F19: accepts the prose summary once the tool budget is exhausted", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "write" } })
+    const tool: ToolDefinition = {
+      name: "tick" as ToolDefinition["name"],
+      risk: "low",
+      run: async () => ({ ok: true, output: "tick" }),
+    }
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "write" }],
+      llmTools: [{ name: "tick", description: "tick", parameters: { type: "object" } }],
+      toolFirst: true,
+      maxToolCalls: 1,
+      ports: {
+        complete: async () => {
+          turn += 1
+          if (turn === 1) {
+            return {
+              ok: true,
+              response: { content: "", toolCalls: [{ id: "tc1", name: "tick", args: {} }] },
+            }
+          }
+          // 额度用尽后模型只会给纯文本总结；此时不应再注入「继续用工具」。
+          return { ok: true, response: { content: "## 文件清单\n- a.ts", toolCalls: [] } }
+        },
+        findTool: (name) => (name === "tick" ? tool : undefined),
+        executeTool: async (def, args) => def.run({ ...args }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(result.traces.some((t) => t.includes("tool-first nudge"))).toBe(false)
+    expect(result.toolCalls).toBe(1)
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.reply).toBe("## 文件清单\n- a.ts")
+  })
+
   it("aborts on a stuck loop (same tool+args signature threshold)", async () => {
     const kernel = makeKernel()
     await kernel.openTurn({ userMessage: { role: "user", content: "tick" } })
