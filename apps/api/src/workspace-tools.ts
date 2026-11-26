@@ -51,6 +51,32 @@ const MAX_READ_BYTES = 64 * 1024
 const MAX_WRITE_BYTES = 64 * 1024
 const MAX_COMMAND_OUTPUT_BYTES = 32 * 1024
 
+/**
+ * Phase 7 fix F16: a 5s budget killed `pnpm build` mid-run, so the child could
+ * never verify its work. Package managers / builders / interpreters get the
+ * long budget; everything else keeps the generic timeout. An explicit
+ * `BUTLER_V5_RUN_COMMAND_TIMEOUT_MS` still wins in tool-boundary.
+ */
+export const BASE_RUN_COMMAND_TIMEOUT_MS = 5_000
+export const LONG_RUNNING_COMMAND_TIMEOUT_MS = 120_000
+const LONG_RUNNING_PROGRAMS: ReadonlySet<string> = new Set([
+  "pnpm",
+  "npm",
+  "yarn",
+  "npx",
+  "next",
+  "node",
+  "python3",
+])
+
+export function resolveRunCommandDefaultTimeoutMs(argv: unknown): number {
+  if (!Array.isArray(argv) || argv.length === 0) return BASE_RUN_COMMAND_TIMEOUT_MS
+  const program = typeof argv[0] === "string" ? argv[0] : ""
+  return LONG_RUNNING_PROGRAMS.has(program)
+    ? LONG_RUNNING_COMMAND_TIMEOUT_MS
+    : BASE_RUN_COMMAND_TIMEOUT_MS
+}
+
 export interface WorkspaceToolContext {
   readonly workspaceRoot?: string
   /** P2 host-injected credentials (defaults to env-backed host provider). */

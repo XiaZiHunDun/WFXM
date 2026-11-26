@@ -80,3 +80,9 @@
 - [x] `edit_file` 纳入 `EXEC_TOOL_NAMES` / dev session 授权 / intake 判定 / dev 质量校验 / 意图正则
 - [x] 单测 3 条 + intake 断言；相关测试 93 + 91 passed，typecheck 通过
 - [x] 提交 F14 与版本历史（LingWen `0d287e13`）；F15 待提交
+
+## T13 run_command 超时（F16）
+- [x] `workspace-tools.ts` 新增 argv 感知默认超时（长任务 120s / 普通 5s）+ 显式 env 覆盖优先
+- [x] `tool-boundary.ts` 的 `toolTimeoutMs` 接收 args；`capability-boundary` 在调用时按 args 计算超时
+- [x] 单测：pnpm build/node --test → 120s；ls/无 argv → 5s；slirp/env 覆盖保持通过
+- [x] typecheck 通过；相关 77 测试通过

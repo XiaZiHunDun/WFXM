@@ -134,6 +134,30 @@ describe("tool-boundary", () => {
     }
   })
 
+  it("F16: package-manager/build commands get a longer default budget", () => {
+    const prev = {
+      sandbox: process.env["BUTLER_V5_SANDBOX"],
+      egress: process.env["BUTLER_V5_SANDBOX_EGRESS_ISOLATION"],
+      custom: process.env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"],
+    }
+    delete process.env["BUTLER_V5_SANDBOX"]
+    delete process.env["BUTLER_V5_SANDBOX_EGRESS_ISOLATION"]
+    delete process.env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"]
+    try {
+      expect(toolTimeoutMs("run_command", { argv: ["pnpm", "build"] })).toBe(120_000)
+      expect(toolTimeoutMs("run_command", { argv: ["node", "--test", "a.mjs"] })).toBe(120_000)
+      expect(toolTimeoutMs("run_command", { argv: ["ls", "-la"] })).toBe(5_000)
+      expect(toolTimeoutMs("run_command")).toBe(5_000)
+    } finally {
+      if (prev.sandbox === undefined) delete process.env["BUTLER_V5_SANDBOX"]
+      else process.env["BUTLER_V5_SANDBOX"] = prev.sandbox
+      if (prev.egress === undefined) delete process.env["BUTLER_V5_SANDBOX_EGRESS_ISOLATION"]
+      else process.env["BUTLER_V5_SANDBOX_EGRESS_ISOLATION"] = prev.egress
+      if (prev.custom === undefined) delete process.env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"]
+      else process.env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"] = prev.custom
+    }
+  })
+
   it("extends run_command timeout under bubblewrap+slirp", () => {
     const prev = {
       sandbox: process.env["BUTLER_V5_SANDBOX"],

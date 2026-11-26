@@ -24,7 +24,7 @@ import { isMcpReadonlyAutoAllowEnabled } from "./mcp-readonly-policy.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
 import { devSessionRunId } from "./dev-session-grant.js"
 import { markGrantConsumed } from "./tool-boundary-helpers.js"
-import { validateRunCommandArgs } from "./workspace-tools.js"
+import { validateRunCommandArgs, resolveRunCommandDefaultTimeoutMs } from "./workspace-tools.js"
 import { buildToolApprovalPreview } from "./approval-preview.js"
 
 const DEFAULT_TOOL_TIMEOUT_MS = 5_000
@@ -38,7 +38,10 @@ function mcpToolTimeoutMs(): number {
   return parseMcpTimeoutMs(process.env)
 }
 
-function runCommandTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+function runCommandTimeoutMs(
+  env: NodeJS.ProcessEnv = process.env,
+  args: Readonly<Record<string, unknown>> = {},
+): number {
   const raw = env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"]?.trim()
   if (raw) {
     const parsed = Number(raw)
@@ -50,13 +53,17 @@ function runCommandTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
   ) {
     return RUN_COMMAND_SLIRP_TIMEOUT_MS
   }
-  return DEFAULT_TOOL_TIMEOUT_MS
+  // F16: argv-aware default — `pnpm build`/`node --test` need more than 5s.
+  return resolveRunCommandDefaultTimeoutMs(args["argv"])
 }
 
-export function toolTimeoutMs(toolName: string): number {
+export function toolTimeoutMs(
+  toolName: string,
+  args: Readonly<Record<string, unknown>> = {},
+): number {
   if (toolName === "send_wechat_file") return SEND_WECHAT_FILE_TIMEOUT_MS
   if (toolName.startsWith("mcp_")) return mcpToolTimeoutMs()
-  if (toolName === "run_command") return runCommandTimeoutMs()
+  if (toolName === "run_command") return runCommandTimeoutMs(process.env, args)
   return DEFAULT_TOOL_TIMEOUT_MS
 }
 
@@ -115,7 +122,10 @@ export function makeToolExecutor(args: {
   readonly ownerSubject: string
   readonly subject: string
   readonly conversationId: string
-  readonly timeoutMsFor: (toolName: string) => number
+  readonly timeoutMsFor: (
+    toolName: string,
+    args?: Readonly<Record<string, unknown>>,
+  ) => number
   readonly grant?: ScopedGrantRecord | null
   readonly nowMs?: () => number
   readonly store?: RuntimeStore

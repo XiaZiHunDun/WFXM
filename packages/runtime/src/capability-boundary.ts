@@ -136,7 +136,10 @@ export function resourceForTool(
 
 export function buildCapabilityRegistryFromTools(
   tools: readonly ToolDefinition[],
-  timeoutMsFor: (toolName: string) => number = () => 5_000,
+  timeoutMsFor: (
+    toolName: string,
+    args?: Readonly<Record<string, unknown>>,
+  ) => number = () => 5_000,
 ): CapabilityRegistry {
   const registry = new CapabilityRegistry()
   for (const def of tools) {
@@ -146,7 +149,7 @@ export function buildCapabilityRegistryFromTools(
     registry.register(definition, {
       name: definition.name,
       execute: async (request) =>
-        runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
+        runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name, request.args) }),
     })
   }
   return registry
@@ -160,7 +163,10 @@ export interface CapabilityProviderRegistration {
 /** Production registry factory: tools + optional extra providers (MCP, channel, …). */
 export function createProductionCapabilityRegistry(args: {
   readonly tools: readonly ToolDefinition[]
-  readonly timeoutMsFor?: (toolName: string) => number
+  readonly timeoutMsFor?: (
+    toolName: string,
+    args?: Readonly<Record<string, unknown>>,
+  ) => number
   readonly extraProviders?: readonly CapabilityProviderRegistration[]
 }): CapabilityRegistry {
   const registry = buildCapabilityRegistryFromTools(args.tools, args.timeoutMsFor ?? (() => 5_000))
@@ -215,7 +221,10 @@ export async function unregisterCapability(args: {
 export function mcpCapabilityProvidersFromTools(
   tools: readonly ToolDefinition[],
   options: {
-    readonly timeoutMsFor?: (toolName: string) => number
+    readonly timeoutMsFor?: (
+      toolName: string,
+      args?: Readonly<Record<string, unknown>>,
+    ) => number
     readonly serverId?: string
     /** P3-3: default true; pass false to give a (child/delegated) run no MCP. */
     readonly mcpEnabled?: boolean
@@ -232,7 +241,7 @@ export function mcpCapabilityProvidersFromTools(
       provider: {
         name: definition.name,
         execute: async (request) =>
-          runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name) }),
+          runTool(def, { ...request.args }, { timeoutMs: timeoutMsFor(definition.name, request.args) }),
       },
     }
   })
