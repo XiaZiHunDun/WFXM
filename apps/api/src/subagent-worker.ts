@@ -50,6 +50,7 @@ import {
   runConversationLoop,
   type ConversationLoopLogger,
   type ConversationLoopPorts,
+  type ConversationLoopResult,
 } from "@butler/runtime/execution/index.js"
 import type { EventStorePort } from "@butler/ports/core/event-store.js"
 import type { ToolDefinition } from "@butler/runtime/tool-runtime.js"
@@ -260,6 +261,21 @@ export function buildChildSystemPrompt(
 }
 
 /**
+ * F20: decide whether a finished child loop is safe to retry once.
+ *
+ * Observed on the real repo loop: the LLM call died (transport/timeout) after
+ * a couple of read_file turns, the loop returned its stub reply, and the owner
+ * received「子代理 developer 调用失败」while nothing had been written. Retrying
+ * is safe only when no file-mutating tool ran; otherwise a retry could apply
+ * the same edit twice.
+ */
+export function isRetryableLlmFailure(result: ConversationLoopResult): boolean {
+  if (result.finalDecision !== "Finish") return false
+  if (!result.traces.some((t) => t.startsWith("llm failure:"))) return false
+  return !result.traces.some((t) => /^(write_file|edit_file)@/.test(t))
+}
+
+/**
  * Run the child LLM turn. R8.x.10: advertises only granted tools and
  * refuses to execute any tool_call outside that set. Existing
  * general-only delegations keep the previous single-shot text path
@@ -281,6 +297,11 @@ async function runChildLlm(
   readonly content: string
   readonly waitingApproval?: boolean
   readonly capped?: boolean
+  /**
+   * F20: the loop stopped because the LLM call itself failed (transport/timeout)
+   * and no file-mutating tool ran — safe to retry the whole child run once.
+   */
+  readonly retryableLlmFailure?: boolean
 }> {
   const ownerSubject = resolveOwnerSubject(env, parentConversationId)
   if (runtimeStore && childRunId) {
@@ -510,6 +531,7 @@ async function runChildLlm(
     return {
       content: `${loopResult.reply}${finishDiagnostics}`,
       capped: loopResult.iterations >= MAX_CHILD_ITERATIONS,
+      retryableLlmFailure: isRetryableLlmFailure(loopResult),
     }
   } catch (err) {
     if (err instanceof RunPauseForApproval) {
@@ -618,6 +640,7 @@ async function handleOutboxMessage(
     readonly content: string
     readonly waitingApproval?: boolean
     readonly capped?: boolean
+    readonly retryableLlmFailure?: boolean
   }
   let llmOk = true
   try {
@@ -638,6 +661,36 @@ async function handleOutboxMessage(
       turnId,
     )
     logger.warn(`[subagent-worker] LLM replied: ${result.content.slice(0, 80)}`)
+    // F20: a transport-level LLM failure with zero file mutations is safe to
+    // retry once — otherwise the owner gets「调用失败」for work that never ran.
+    if (result.retryableLlmFailure === true) {
+      logger.warn(
+        `[subagent-worker] LLM transport failure with no writes; retrying child run once (child=${childConversationId})`,
+      )
+      try {
+        const retried = await runChildLlm(
+          adapter,
+          role,
+          task,
+          capabilities,
+          bridge,
+          msg.streamId,
+          childConversationId,
+          env,
+          runtimeStore,
+          childRunId,
+          turnId,
+        )
+        logger.warn(`[subagent-worker] retry LLM replied: ${retried.content.slice(0, 80)}`)
+        result = retried
+      } catch (err) {
+        logger.warn(
+          `[subagent-worker] retry after LLM failure also failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        )
+      }
+    }
   } catch (err) {
     logger.error(`[subagent-worker] child LLM call failed for child ${childConversationId}:`, err)
     llmOk = false

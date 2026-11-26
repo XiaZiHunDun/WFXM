@@ -426,6 +426,48 @@ describe("subagent worker", () => {
     handle.stop()
   })
 
+  it("F20: retries the child run once when the LLM transport fails before any write", async () => {
+    const parent = "p-subagent-retry"
+    const cap: Capability = { tool: "general" as Capability["tool"] }
+    await delegate({
+      role: "general",
+      task: "write the file",
+      capabilities: [cap],
+      parentConversationId: parent,
+      actor: { kind: "agent", id: "kernel" },
+      bridge,
+    })
+    let calls = 0
+    const adapter = {
+      complete: () => {
+        calls += 1
+        return calls === 1
+          ? Effect.promise(() => Promise.reject(new Error("socket hang up")))
+          : Effect.succeed<LLMAssistantResponse>({
+              content: "重试后完成",
+              toolCalls: [],
+              stopReason: "end_turn",
+            })
+      },
+    } as unknown as LLMAdapter
+
+    const handle = runSubagentWorker(bridge, () => adapter, {}, {
+      logger: silentLogger,
+      intervalMs: 10,
+    })
+    const drained = await waitFor(async () => {
+      const events = await bridge.loadStream(parent)
+      return events.some(
+        (e) =>
+          e.eventType === "AssistantMessageProduced" &&
+          (e.payload as { content?: string }).content?.includes("重试后完成") === true,
+      )
+    })
+    expect(drained).toBe(true)
+    expect(calls).toBeGreaterThanOrEqual(2)
+    handle.stop()
+  })
+
   it("R8.x.8: pushes AssistantMessageProduced to WS subscribers of the parent conversation", async () => {
     // R8.x.8: register a fake WS subscriber on the parent
     // conversation BEFORE running the worker. The worker's
@@ -590,8 +632,9 @@ describe("subagent worker", () => {
             stopReason: "tool_use",
           })
         }
-        const last = messages[messages.length - 1]
-        if (last?.role === "tool") toolResults.push(last.content)
+        // 工具结果后面还会跟一条 system 预算提示，取最后一条 tool 消息。
+        const lastTool = [...messages].reverse().find((m) => m.role === "tool")
+        if (lastTool !== undefined) toolResults.push(lastTool.content)
         return Effect.succeed<LLMAssistantResponse>({
           content: "denied-path-ok",
           toolCalls: [],
@@ -646,8 +689,9 @@ describe("subagent worker", () => {
             stopReason: "tool_use",
           })
         }
-        const last = messages[messages.length - 1]
-        if (last?.role === "tool") toolResults.push(last.content)
+        // 工具结果后面还会跟一条 system 预算提示，取最后一条 tool 消息。
+        const lastTool = [...messages].reverse().find((m) => m.role === "tool")
+        if (lastTool !== undefined) toolResults.push(lastTool.content)
         return Effect.succeed<LLMAssistantResponse>({
           content: "time-ok",
           toolCalls: [],
