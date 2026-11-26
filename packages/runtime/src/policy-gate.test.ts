@@ -145,7 +145,12 @@ describe("PolicyGate and CapabilityRegistry", () => {
     expect(withOptIn.mcpReadonlyAutoAllow).toBe(true)
     const defaultPolicy = productionPermissionPolicy("owner-1")
     expect(defaultPolicy.mcpReadonlyAutoAllow).toBeUndefined()
-    expect(defaultPolicy.alwaysConfirm).toEqual(["send_wechat_file", "run_command", "write_file"])
+    expect(defaultPolicy.alwaysConfirm).toEqual([
+      "send_wechat_file",
+      "run_command",
+      "write_file",
+      "edit_file",
+    ])
   })
 })
 

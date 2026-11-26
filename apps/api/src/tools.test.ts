@@ -32,11 +32,12 @@ describe("weibutler tools", () => {
     await db.close()
   })
 
-  it("WEIBUTLER_LLM_TOOLS exposes 13 provider-agnostic tool descriptors", () => {
-    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(13)
+  it("WEIBUTLER_LLM_TOOLS exposes 14 provider-agnostic tool descriptors", () => {
+    expect(WEIBUTLER_LLM_TOOLS).toHaveLength(14)
     const names = WEIBUTLER_LLM_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
       "delegate_to_subagent",
+      "edit_file",
       "get_current_time",
       "greet_with_time",
       "list_dir",
@@ -56,7 +57,7 @@ describe("weibutler tools", () => {
     }
   })
 
-  it("makeWeibutlerTools returns 12 runtime ToolDefinitions by default (no subagent, no MCP)", () => {
+  it("makeWeibutlerTools returns 13 runtime ToolDefinitions by default (no subagent, no MCP)", () => {
     const tools = makeWeibutlerTools({
       bridge,
       conversationId,
@@ -66,8 +67,9 @@ describe("weibutler tools", () => {
         BUTLER_V5_SUBAGENT_ENABLED: "0",
       },
     })
-    expect(tools).toHaveLength(12)
+    expect(tools).toHaveLength(13)
     expect(tools.map((t) => t.name as string).sort()).toEqual([
+      "edit_file",
       "get_current_time",
       "greet_with_time",
       "list_dir",
@@ -92,7 +94,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
     })
-    expect(tools).toHaveLength(13)
+    expect(tools).toHaveLength(14)
     const delegate = tools.find((t) => (t.name as string) === "delegate_to_subagent")
     expect(delegate?.risk).toBe("medium")
   })
@@ -103,7 +105,7 @@ describe("weibutler tools", () => {
       conversationId,
       env: { BUTLER_V5_MCP_ENABLED: "1", BUTLER_V5_MCP_TOOL_NAMES: "search" },
     })
-    expect(tools).toHaveLength(13)
+    expect(tools).toHaveLength(14)
     expect(tools.some((t) => (t.name as string) === "mcp_search")).toBe(true)
   })
 
@@ -121,7 +123,7 @@ describe("weibutler tools", () => {
 
   it("P3-2: core tools declare their inputSchema from WEIBUTLER_LLM_TOOLS parameters", () => {
     const tools = makeWeibutlerTools({ bridge, conversationId })
-    for (const toolName of ["read_file", "write_file", "run_command", "send_wechat_file"]) {
+    for (const toolName of ["read_file", "write_file", "edit_file", "run_command", "send_wechat_file"]) {
       const def = findTool(tools, toolName)
       expect(def).toBeDefined()
       const llmRow = WEIBUTLER_LLM_TOOLS.find((t) => t.name === toolName)

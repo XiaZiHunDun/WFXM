@@ -60,6 +60,7 @@ export function buildWechatInboundMessages(
     ...(includeExecTools
       ? [
           "- write_file(path, content): write UTF-8 text to a workspace file (max 64KiB; requires owner confirmation)",
+          "- edit_file(path, oldText, newText, replaceAll?): replace a unique snippet in an existing file without rewriting the whole file (requires owner confirmation)",
           "- run_command(argv): run an allowlisted command with no shell (cat/date/echo/git/grep/head/ls/node/pnpm/pwd/python3/rg/wc); args cannot contain '..' or start with '/'",
         ]
       : []),
@@ -67,7 +68,7 @@ export function buildWechatInboundMessages(
     ...(advertiseDelegate
       ? [
           includeExecTools
-            ? "- delegate_to_subagent(task, role?, capabilities?): delegate a task to a subagent (runs in background, returns later). Use when the user's request requires capabilities you don't have. Optional `capabilities` is an array of strings from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, write_file, run_command); defaults to ['general'] if unspecified."
+            ? "- delegate_to_subagent(task, role?, capabilities?): delegate a task to a subagent (runs in background, returns later). Use when the user's request requires capabilities you don't have. Optional `capabilities` is an array of strings from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, edit_file, write_file, run_command); defaults to ['general'] if unspecified."
             : "- delegate_to_subagent(task, role?, capabilities?): delegate coding or shell work to a subagent (async). Prefer StartChildRun over direct write/run when the user asks to implement or change code.",
         ]
       : []),

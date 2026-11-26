@@ -95,6 +95,7 @@ function isLoopResult(value: unknown): value is ConversationLoopResult {
 // capabilityLabel map; fallback to the raw capability name (rare).
 const CAPABILITY_LABEL: Record<string, string> = {
   write_file: "文件已写入",
+  edit_file: "文件已修改",
   run_command: "命令已执行",
   send_wechat_file: "文件已发送",
   delegate_to_subagent: "已委派子代理",

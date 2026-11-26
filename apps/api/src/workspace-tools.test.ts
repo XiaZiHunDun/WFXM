@@ -1,13 +1,18 @@
 /**
  * R8.x.12 — sandbox path + argv helpers for read_file / run_command.
  */
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { runTool } from "@butler/runtime/tool-runtime.js"
 import type { CredentialProvider } from "@butler/ports/core/credential-provider.js"
-import { makeListDirTool, makeReadFileTool, makeRunCommandTool } from "./workspace-tools.js"
+import {
+  makeEditFileTool,
+  makeListDirTool,
+  makeReadFileTool,
+  makeRunCommandTool,
+} from "./workspace-tools.js"
 
 const fakeProvider = (values: Readonly<Record<string, string>>): CredentialProvider => ({
   availableCredentials: async () => Object.keys(values),
@@ -89,6 +94,79 @@ describe("makeReadFileTool", () => {
     const text = String(result.output)
     expect(text).toContain("输出已截断")
     expect(Buffer.byteLength(text, "utf8")).toBeLessThan(30 * 1024)
+  })
+})
+
+describe("makeEditFileTool", () => {
+  let root: string
+  let prevSandbox: string | undefined
+
+  beforeEach(() => {
+    prevSandbox = process.env["BUTLER_V5_SANDBOX"]
+    delete process.env["BUTLER_V5_SANDBOX"]
+  })
+
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true })
+    if (prevSandbox === undefined) delete process.env["BUTLER_V5_SANDBOX"]
+    else process.env["BUTLER_V5_SANDBOX"] = prevSandbox
+  })
+
+  it("F14: replaces a unique snippet without touching the rest of the file", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-edit-"))
+    writeFileSync(join(root, "page.tsx"), "line-1\nOLD\ntail-keep\n")
+    const tool = makeEditFileTool({ workspaceRoot: root })
+    const result = await runTool(
+      tool,
+      { path: "page.tsx", oldText: "OLD", newText: "NEW" },
+      { timeoutMs: 2000 },
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(String(result.output)).toContain("1 replacement(s)")
+    const after = readFileSync(join(root, "page.tsx"), "utf8")
+    expect(after).toBe("line-1\nNEW\ntail-keep\n")
+  })
+
+  it("F14: rejects an ambiguous snippet unless replaceAll is set", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-edit-"))
+    writeFileSync(join(root, "dup.txt"), "A\nA\nB\n")
+    const tool = makeEditFileTool({ workspaceRoot: root })
+    const ambiguous = await runTool(
+      tool,
+      { path: "dup.txt", oldText: "A", newText: "Z" },
+      { timeoutMs: 2000 },
+    )
+    expect(ambiguous.ok).toBe(false)
+    if (!ambiguous.ok) expect(ambiguous.reason).toContain("2 places")
+
+    const all = await runTool(
+      tool,
+      { path: "dup.txt", oldText: "A", newText: "Z", replaceAll: true },
+      { timeoutMs: 2000 },
+    )
+    expect(all.ok).toBe(true)
+    expect(readFileSync(join(root, "dup.txt"), "utf8")).toBe("Z\nZ\nB\n")
+  })
+
+  it("F14: reports a clear error when oldText or the file is missing", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-edit-"))
+    writeFileSync(join(root, "x.txt"), "hello\n")
+    const tool = makeEditFileTool({ workspaceRoot: root })
+    const missing = await runTool(
+      tool,
+      { path: "x.txt", oldText: "nope", newText: "y" },
+      { timeoutMs: 2000 },
+    )
+    expect(missing.ok).toBe(false)
+    if (!missing.ok) expect(missing.reason).toContain("oldText not found")
+
+    const noFile = await runTool(
+      tool,
+      { path: "ghost.txt", oldText: "a", newText: "b" },
+      { timeoutMs: 2000 },
+    )
+    expect(noFile.ok).toBe(false)
   })
 })
 

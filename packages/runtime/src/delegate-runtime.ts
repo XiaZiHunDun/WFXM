@@ -24,6 +24,7 @@ export const ALLOWED_CAPABILITIES = [
   "summarize_today",
   "recall_history",
   "read_file",
+  "edit_file",
   "write_file",
   "run_command",
 ] as const

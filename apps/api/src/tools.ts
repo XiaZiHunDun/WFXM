@@ -28,6 +28,7 @@ import {
   makeListDirTool,
   makeRunCommandTool,
   makeWriteFileTool,
+  makeEditFileTool,
   type WorkspaceToolContext,
 } from "./workspace-tools.js"
 import { loadMcpToolDefinitions, loadMcpLlmTools, type McpToolsOptions } from "./mcp-tools.js"
@@ -569,6 +570,27 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
     },
   },
   {
+    name: "edit_file",
+    description:
+      "Replace a unique snippet in an existing workspace file without rewriting the whole file. Pass `path`, the exact `oldText` to find, and the `newText` to substitute. Fails when `oldText` is missing or matches more than once (add more context, or set `replaceAll: true`). Prefer this over `write_file` for small changes to large files. Max 64KiB result. Requires owner confirmation before executing.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "File path relative to the workspace root." },
+        oldText: {
+          type: "string",
+          description: "Exact snippet to replace (must appear exactly once unless replaceAll).",
+        },
+        newText: { type: "string", description: "Replacement text (may be empty to delete)." },
+        replaceAll: {
+          type: "boolean",
+          description: "Replace every occurrence of oldText instead of requiring a unique match.",
+        },
+      },
+      required: ["path", "oldText", "newText"],
+    },
+  },
+  {
     name: "run_command",
     description:
       'Run a short allowlisted command in the workspace (no shell). Pass `argv` as a string array, e.g. ["ls", "-la"], ["python3", "-c", "print(1)"], or ["rg", "TODO", "src"]. Allowed programs: cat, date, echo, find, git, grep, head, ls, node, pnpm, pwd, python3, rg, wc. Arguments cannot contain \'..\' or start with \'/\'. bash/rm/curl and similar are rejected.',
@@ -621,7 +643,7 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
           type: "array",
           items: { type: "string" },
           description:
-            "Optional list of capability tool names the subagent may use. Must come from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, write_file, run_command). Defaults to ['general'] when unspecified.",
+            "Optional list of capability tool names the subagent may use. Must come from the allowlist (general, get_current_time, summarize_today, recall_history, read_file, edit_file, write_file, run_command). Defaults to ['general'] when unspecified.",
         },
       },
       required: ["task"],
@@ -980,6 +1002,7 @@ export function makeWeibutlerTools(ctx: ButlerToolContext): readonly ToolDefinit
     makeReadFileTool(workspaceToolCtx(ctx)),
     makeListDirTool(workspaceToolCtx(ctx)),
     makeWriteFileTool(workspaceToolCtx(ctx)),
+    makeEditFileTool(workspaceToolCtx(ctx)),
     makeRunCommandTool(workspaceToolCtx(ctx)),
     makeSendWechatFileTool(ctx),
   ]

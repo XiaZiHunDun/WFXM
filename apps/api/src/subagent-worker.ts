@@ -254,7 +254,8 @@ export function buildChildSystemPrompt(
     "4. 声明完成前，必须用 list_files / read_file 核对目标文件真实存在且内容符合要求。",
     `5. 只能使用这些工具：${available.join(", ")}；禁止调用未列出的工具。`,
     "6. 大文件用 read_file（配合 offset/limit）分段读，不要用 run_command 反复 grep/sed 同一文件；同一条命令不要重复超过两次。",
-    "7. 修改后用 pnpm typecheck 或 pnpm build 自检；自检命令失败时读报错并修，不要原样重跑第三次。",
+    "7. 小范围改动优先用 edit_file（oldText 取唯一的原文片段，newText 为替换内容），严禁为了改几行就整文件 write_file；整文件重写会静默丢掉文件里已有的其它功能。只有新建文件或大范围重构才用 write_file。",
+    "8. 修改后用 pnpm typecheck 或 pnpm build 自检；自检命令失败时读报错并修，不要原样重跑第三次。",
   ].join("\n")
 }
 

@@ -291,6 +291,56 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
   }
 }
 
+/**
+ * Shared write path for `write_file` / `edit_file`: bwrap tee-equivalent when
+ * the sandbox is enabled, in-process `writeFileSync` otherwise. Callers keep
+ * their own validation + undo bookkeeping; this helper only performs I/O.
+ */
+async function writeTextToWorkspace(args: {
+  readonly ctx: WorkspaceToolContext
+  readonly resolvedPath: string
+  readonly content: string
+  readonly toolName: "write_file" | "edit_file"
+}): Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }> {
+  const { executeArgvInSandbox } = await import("@butler/adapters/sandbox/bubblewrap-runner.js")
+  const { currentNetworkAllowlist, currentSandboxProfileName } =
+    await import("@butler/runtime/sandbox/index.js")
+  const started = Date.now()
+  const sandboxed = await executeArgvInSandbox({
+    argv: ["tee", args.resolvedPath],
+    workspaceRoot: sandboxWorkspaceRootFrom(args.ctx),
+    profileName: currentSandboxProfileName(),
+    networkAllowlist: currentNetworkAllowlist(),
+    env: process.env,
+    stdinContent: args.content,
+  })
+  if ("mode" in sandboxed && sandboxed.mode === "disabled") {
+    try {
+      mkdirSync(dirname(args.resolvedPath), { recursive: true })
+      writeFileSync(args.resolvedPath, args.content, "utf8")
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+    }
+  }
+  const result = sandboxed as {
+    readonly ok: boolean
+    readonly stdout?: string
+    readonly stderr?: string
+    readonly reason?: string
+  }
+  await recordExecAudit(args.ctx.audit, {
+    cmd: ["tee", args.resolvedPath].join(" "),
+    cwd: sandboxWorkspaceRootFrom(args.ctx),
+    exit: null,
+    durationMs: Date.now() - started,
+    outcome: result.ok ? "ok" : "failed",
+    detail: { tool: args.toolName },
+  })
+  if (!result.ok) return { ok: false, reason: result.reason ?? "sandbox failed" }
+  return { ok: true }
+}
+
 export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
   return {
     name: makeToolName("write_file"),
@@ -327,51 +377,99 @@ export function makeWriteFileTool(ctx: WorkspaceToolContext = {}): ToolDefinitio
       // into recordWriteUndo in workspace-tools-undo.ts.
       recordWriteUndo({ ctx, resolvedPath: resolved.path, beforeContent })
 
-      // R16 sandbox 扩面：write_file 走 bwrap tee-equivalent（stdin 透传 +
-      // workspace --bind RW）。disabled 模式 fall back 到进程内 fs writeFileSync。
-      const { executeArgvInSandbox } = await import("@butler/adapters/sandbox/bubblewrap-runner.js")
-      const { currentNetworkAllowlist, currentSandboxProfileName } =
-        await import("@butler/runtime/sandbox/index.js")
-      const started = Date.now()
-      const sandboxed = await executeArgvInSandbox({
-        argv: ["tee", resolved.path],
-        workspaceRoot: sandboxWorkspaceRootFrom(ctx),
-        profileName: currentSandboxProfileName(),
-        networkAllowlist: currentNetworkAllowlist(),
-        env: process.env,
-        stdinContent: rawContent,
+      const written = await writeTextToWorkspace({
+        ctx,
+        resolvedPath: resolved.path,
+        content: rawContent,
+        toolName: "write_file",
       })
-      if ("mode" in sandboxed && sandboxed.mode === "disabled") {
-        try {
-          mkdirSync(dirname(resolved.path), { recursive: true })
-          writeFileSync(resolved.path, rawContent, "utf8")
-          return {
-            ok: true,
-            output: `wrote ${rawPath.trim()} (${rawContent.length} chars)`,
-          }
-        } catch (err) {
-          return { ok: false, reason: err instanceof Error ? err.message : String(err) }
-        }
-      } else {
-        const result = sandboxed as {
-          readonly ok: boolean
-          readonly stdout?: string
-          readonly stderr?: string
-          readonly reason?: string
-        }
-        await recordExecAudit(ctx.audit, {
-          cmd: ["tee", resolved.path].join(" "),
-          cwd: sandboxWorkspaceRootFrom(ctx),
-          exit: null,
-          durationMs: Date.now() - started,
-          outcome: result.ok ? "ok" : "failed",
-          detail: { tool: "write_file" },
-        })
-        if (!result.ok) return { ok: false, reason: result.reason ?? "sandbox failed" }
+      if (!written.ok) return written
+      return {
+        ok: true,
+        output: `wrote ${rawPath.trim()} (${rawContent.length} chars)`,
+      }
+    },
+  }
+}
+
+/**
+ * Phase 7 fix F14: `write_file` requires the model to re-emit the whole file.
+ * On a 1600-line page that meant huge outputs, context overflow, and silent
+ * regressions of earlier features (observed: 书籍设置 / ↑↓ lost after a
+ * whole-file rewrite). `edit_file` replaces a unique snippet in place.
+ */
+export function makeEditFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition {
+  return {
+    name: makeToolName("edit_file"),
+    risk: "high",
+    async run(
+      args: Record<string, unknown>,
+    ): Promise<
+      | { readonly ok: true; readonly output: unknown }
+      | { readonly ok: false; readonly reason: string }
+    > {
+      const rawPath = args["path"]
+      const oldText = args["oldText"]
+      const newText = args["newText"]
+      const replaceAll = args["replaceAll"] === true
+      if (typeof rawPath !== "string") return { ok: false, reason: "path is required" }
+      if (typeof oldText !== "string" || oldText.length === 0) {
+        return { ok: false, reason: "oldText is required (non-empty exact snippet)" }
+      }
+      if (typeof newText !== "string") return { ok: false, reason: "newText is required" }
+      if (newText.includes("\0")) return { ok: false, reason: "refusing binary content" }
+      const resolved = resolveUnderWorkspace(workspaceRootFrom(ctx), rawPath)
+      if (!resolved.ok) return resolved
+
+      let before: string
+      try {
+        const st = statSync(resolved.path)
+        if (!st.isFile()) return { ok: false, reason: "path is not a file" }
+        before = readFileSync(resolved.path, "utf8")
+      } catch {
         return {
-          ok: true,
-          output: `wrote ${rawPath.trim()} (${rawContent.length} chars)`,
+          ok: false,
+          reason: `file not found: ${rawPath.trim()}（先用 read_file 确认路径与原文）`,
         }
+      }
+
+      const occurrences = before.split(oldText).length - 1
+      if (occurrences === 0) {
+        return {
+          ok: false,
+          reason: `oldText not found in ${rawPath.trim()}（先用 read_file 读取原文，确保片段逐字一致）`,
+        }
+      }
+      if (occurrences > 1 && !replaceAll) {
+        return {
+          ok: false,
+          reason: `oldText matches ${occurrences} places in ${rawPath.trim()}；请补足上下文使其唯一，或传 replaceAll:true`,
+        }
+      }
+      const after = replaceAll
+        ? before.split(oldText).join(newText)
+        : (() => {
+            const at = before.indexOf(oldText)
+            return before.slice(0, at) + newText + before.slice(at + oldText.length)
+          })()
+      if (Buffer.byteLength(after, "utf8") > MAX_WRITE_BYTES) {
+        return { ok: false, reason: `edited file exceeds ${MAX_WRITE_BYTES} bytes` }
+      }
+
+      recordWriteUndo({ ctx, resolvedPath: resolved.path, beforeContent: before })
+      const written = await writeTextToWorkspace({
+        ctx,
+        resolvedPath: resolved.path,
+        content: after,
+        toolName: "edit_file",
+      })
+      if (!written.ok) return written
+      const delta = after.length - before.length
+      return {
+        ok: true,
+        output:
+          `edited ${rawPath.trim()} (${occurrences} replacement(s), ` +
+          `${before.length} -> ${after.length} chars, ${delta >= 0 ? "+" : ""}${delta})`,
       }
     },
   }

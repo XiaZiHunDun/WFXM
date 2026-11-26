@@ -64,3 +64,11 @@
 - [x] D：作品内流式 AI 助手
 - [x] 回归修复：补回被覆盖的设置面板与章节 ↑↓
 - [x] build + Playwright + 真实 LLM 复测；未 commit/push
+
+## T11 第三轮：版本历史 + edit_file（F14）
+- [x] F14 `edit_file`：workspace-tools 唯一片段替换 + 单测 3 条；接入 ALLOWED_CAPABILITIES / 子代理默认能力 / pregrant / alwaysConfirm / 提示词 / 审批文案
+- [x] 受影响单测更新（tools 14 descriptors、delegate-capabilities、policy-gate、workspace-tools）→ 93 passed；typecheck 通过
+- [x] 重启 4522（新工具生效）
+- [x] E1 后端：`chapter_revisions` 表 + repo 五个函数 + 3 路由 + 三处自动快照；API 烟测通过（manual/pre-restore/restore/404）
+- [x] E2 UI：「历史版本」按钮 + 面板 + 只读预览 + 二次确认恢复；Playwright 实测 4 条版本、恢复生效、旧功能按钮仍在
+- [x] 记录遗留：审批恢复后续跑预算不足（P2），需再发一轮继续；未 commit/push

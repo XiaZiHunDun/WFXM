@@ -15,7 +15,7 @@ import { issuePreconfiguredGrants } from "@butler/runtime/scoped-grant-service.j
 import { executableCapabilities } from "./capability-guard.js"
 import { envTruthy } from "./env-util.js"
 
-const DELEGATION_CONFIRM_TOOLS = ["run_command", "write_file"] as const
+const DELEGATION_CONFIRM_TOOLS = ["run_command", "write_file", "edit_file"] as const
 
 const DELEGATION_GRANT_TTL_MS = 60 * 60 * 1000
 

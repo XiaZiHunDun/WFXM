@@ -218,7 +218,7 @@ export function productionPermissionPolicy(
 ): PermissionPolicy {
   return {
     ownerSubject,
-    alwaysConfirm: ["send_wechat_file", "run_command", "write_file"],
+    alwaysConfirm: ["send_wechat_file", "run_command", "write_file", "edit_file"],
     denyByDefault: ["write", "command", "outbound", "delegate"],
     ...(options.mcpReadonlyAutoAllow ? { mcpReadonlyAutoAllow: true } : {}),
   }

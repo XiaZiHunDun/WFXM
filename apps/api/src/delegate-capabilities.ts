@@ -17,7 +17,7 @@ const EXEC_ROLES: ReadonlySet<string> = new Set([
 export function defaultCapabilitiesForRole(role: string): readonly string[] {
   const normalized = role.trim().toLowerCase()
   if (EXEC_ROLES.has(normalized)) {
-    return ["read_file", "write_file", "run_command"]
+    return ["read_file", "edit_file", "write_file", "run_command"]
   }
   return ["general"]
 }
