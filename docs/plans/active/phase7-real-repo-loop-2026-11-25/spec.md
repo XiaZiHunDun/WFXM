@@ -274,6 +274,18 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 客户端取消后服务端仍会把当前章写完并落库，期间旧服务日志出现 `failed to pipe response / ERR_INVALID_STATE`；建议路由在写入下一段前检查 `req.signal.aborted`，尽早止损。
 - `pnpm build` 退出挂起仍偶发（同一个干净 `.next`，一次 exit 0、两次 timeout 124 但产物完整）；F23 的提示可缓解，但根因仍在 Next 进程句柄。
 
+### 6.11 第八轮：写作日历月视图（批次 J）
+
+| 内容 | 验证 |
+|------|------|
+| 后端 `GET /api/stats/month?month=YYYY-MM`：`monthlyWordCounts` 按本地月聚合 `writing_sessions`（负数按 0），返回 `{month, days, total, activeDays, bestDay}`；缺省当月、格式非法 400 | curl：2026-11 → 30 天、total 0；2026-10 → 31 天且首尾日期正确；`2026-13`/`abc` → 400 |
+| 书架新增月视图：7 列周一到周日、按月补齐空格、日号+字数、四级着色；上一月/下一月切换；「连续写作 N 天」（90 天窗口，今天为 0 则从昨天起算）；目标达成显示「今日目标已达成」，未达成显示「还差 X 字」；14 天柱图保留 | Playwright 11/11：默认收起 → 展开 30 格 → 上一月 31 格 → 回到当月 → 收起；`cal-streak`/`cal-goal` 文案正确；书架 2 本书仍在 |
+| 构建 | 清 `.next` 后 `pnpm typecheck` 通过、`pnpm build` exit 0，路由表含 `ƒ /api/stats/month` |
+
+#### 本轮观察
+
+- 父代理自派验证的行为仍在：本轮一条需求期间 `startedTasks` 从 2 增长到 10，验证任务重复读取同一批文件；F25 生效后未再出现 `LLM timeout`。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

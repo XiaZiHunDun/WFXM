@@ -151,3 +151,9 @@
 - [x] I2 前端「一键续写」+ 取消/进度/并发禁用；Playwright 8/8，全流程 1552 字并清理
 - [x] 对话修复取消提示两处：`signal.aborted || isAbortError`；notice 移到工作台顶部
 - [x] 文档回填 spec §6.10；typecheck 通过、build 产物完整；未提交（等待 owner 指令）
+
+## T22 LingWen 写作日历月视图（批次 J）
+- [x] 后端 `GET /api/stats/month`：月聚合、缺省当月、非法 400、total/activeDays/bestDay
+- [x] 前端月视图：7 列网格、四级着色、上一月/下一月、连续写作天数、目标达成/还差文案、14 天柱图保留
+- [x] 验证：curl 30/31 天与 400；Playwright 11/11；typecheck 通过、clean build exit 0
+- [x] 文档回填 spec §6.11；未提交（等待 owner 指令）
