@@ -298,6 +298,31 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 服务端断开止损生效后，日志噪声消失，但「当前章仍会写完」是保留语义（已明确写入需求）。
 - `GET /demo/api/messages` 只能看到**当前进程**的会话：重启 4522 后 `conversationId=null`、历史为空。若需要跨重启查看，需要把 demo 的事件存储落到 SQLite。
 
+### 6.13 第十轮：委派纪律（F27）+ 编辑器状态栏（批次 L）
+
+| 内容 | 验证 |
+|------|------|
+| F27 主代理提示新增 Delegation discipline：一个 owner 需求最多派发 2 个子任务；派发成功后先回「已在后台处理」并结束本轮；子代理回复到达后再判断下一步；仅核对刚完成的工作时自己跑 1-2 条命令 | 单测 5 passed（prompt 断言）；实测一条功能需求 `startedTasks` 从上一批的 3-12 降到 **2**（1 实现 + 1 验证） |
+| LingWen 编辑器状态栏：`本章 N 字`（实时）、有选区时 `已选 N 字`、保存状态 `已保存/未保存/保存中/保存失败` 与自动保存联动（`saveState` 状态机） | Playwright 8/8：默认 407 字/已保存 → 输入 5 字变 412/未保存 → 自动保存回已保存 → Shift+→ 选中 3 字显示「已选 3 字」→ 还原后 407 字；`typecheck` 通过、clean `build` exit 0 |
+
+#### 本轮观察
+
+- `setSelectionRange` 不会触发浏览器的 select 事件，React 的 `onSelect` 收不到；Playwright 必须用键盘（Home + Shift+ArrowRight）才能验证选中字数。这不是实现缺陷，后续脚本按键盘操作。
+- F27 是提示词级约束，单样本有效；若后续仍出现 >2 次派发，需要升级为循环内的硬上限（`maxDelegationsPerTurn`）。
+
+### 6.14 第十一轮：F27 硬上限 + 编辑器保存时间（批次 M）
+
+| 内容 | 验证 |
+|------|------|
+| F27 硬上限：`ConversationLoopInput.maxDelegationsPerTurn`；`runButlerLoop` 读 `BUTLER_V5_MAX_DELEGATIONS_PER_TURN`（默认 2，0 关闭）；超出后拒绝新的 `StartChildRun` 决策或 `delegate_to_subagent` 原生工具调用，并注入「请汇报并结束本轮」系统消息 | 单测：决策路径 + 原生工具路径各 1 条（4 次派发 → 只执行 2 次，traces 含 `delegation-cap`）；`resolveMaxDelegationsPerTurn` 5 组用例；conversation-loop 31 passed、butler 30 passed |
+| 实测发现并修复：只守 `StartChildRun` 决策路径时，模型走原生 `delegate_to_subagent` 工具调用仍可在一轮派发多个子任务（cap=1 实测 `startedTasks=2`） | 补上原生工具路径守卫后重启 4522（cap=1），同一规模需求 `startedTasks=1`、`invoking LLM` 仅 1 次，且任务正常完成 |
+| LingWen：编辑器顶部「最后保存：HH:MM:SS / 尚未保存」（保存成功时更新）；书架页脚「LingWen v0.1.0」 | Playwright 4/4：页脚版本号、初次「尚未保存」、状态栏仍显示 407 字/已保存、输入后自动保存并更新时间 |
+
+#### 本轮观察
+
+- 派发上限必须同时覆盖两条路径（决策标签 + 原生工具调用），只改其中一条会被真实模型绕过；这是「同一语义两套入口」的典型陷阱。
+- cap=1 的实测显示：父代理在一轮内确实会连续两次调用 `delegate_to_subagent`，硬上限是必要的，而非仅靠提示词。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

@@ -101,6 +101,10 @@ export function buildWechatInboundMessages(
     "Local paths: 用户提到本地路径（如 packages、docs/xxx）时，用 list_dir / read_file 直接查本地工作区，不要调用 GitHub 或其他 MCP 工具，也不要委派。",
     "Convergence: after at most 1-2 file-discovery calls (read_file or bounded find), commit to a concrete plan or ask 1 clarifying question — do not iterate further on inspection alone. The owner wants forward motion.",
     "Delegation scope: 简单只读查询（列目录、看一个文件、统计行数、汇总几个包的说明）直接用 read_file / run_command 回答，不要委派给后台代理；只有需要多步改动、跑测试或长时间执行时才 delegate。",
+    // Phase 7 fix F27: one owner turn was spawning 3-10 child tasks (each
+    // re-delegating "verification"), burning budget and LLM time. Make the
+    // fan-out expectation explicit.
+    "Delegation discipline: 一个 owner 需求最多派发 2 个子任务；派发成功后先回一句「已在后台处理」并结束本轮（Respond），不要在同一轮再派发相同或近似目标；子代理回复到达后再判断是否需要下一步。若只是核对刚完成的工作，优先自己跑 1-2 条命令验证，不要新开子任务。",
   ]
   if (workspaceRoot) {
     contextLines.push(

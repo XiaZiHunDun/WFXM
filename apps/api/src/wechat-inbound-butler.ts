@@ -94,6 +94,19 @@ function resolveMaxLoopIterations(env: NodeJS.ProcessEnv): number {
 }
 
 /**
+ * Phase 7 fix F27 (hard cap): how many subagents one owner turn may start.
+ * Prompt guidance reduced fan-out (3-12 → 2) but a hard stop makes the
+ * behavior deterministic. Defaults to 2; `0` disables the cap.
+ */
+export function resolveMaxDelegationsPerTurn(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env["BUTLER_V5_MAX_DELEGATIONS_PER_TURN"] ?? "").trim()
+  if (raw === "") return 2
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed < 0) return 2
+  return Math.floor(parsed)
+}
+
+/**
  * Result of a single butler loop run. Alias of Execution ConversationLoopResult.
  */
 export type ButlerLoopResult = ConversationLoopResult
@@ -624,6 +637,9 @@ async function runButlerLoopBody(args: {
     messages,
     llmTools,
     maxIterations: resolveMaxLoopIterations(env),
+    // Phase 7 fix F27 (hard cap): prompt guidance alone reduced but did not
+    // eliminate fan-out; refuse a 3rd subagent in the same owner turn.
+    maxDelegationsPerTurn: resolveMaxDelegationsPerTurn(env),
     initialTraces,
     // Phase 7 fix F11: a "已派子代理" prose reply with zero tool calls must
     // not end the turn; nudge the model to either delegate or answer.

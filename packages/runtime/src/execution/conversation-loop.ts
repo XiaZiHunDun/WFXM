@@ -395,6 +395,13 @@ export interface ConversationLoopInput {
    * nudge instead of being accepted as the final answer.
    */
   readonly delegationClaimGuard?: boolean
+  /**
+   * Phase 7 fix F27 (hard cap): maximum subagent delegations per loop run
+   * (i.e. per owner turn). Undefined means unlimited (legacy behavior).
+   * Beyond the cap the loop refuses further `StartChildRun` decisions and
+   * tells the model to report progress and finish instead of fanning out.
+   */
+  readonly maxDelegationsPerTurn?: number
 }
 
 /**
@@ -443,6 +450,8 @@ async function runNativeConversationLoop(
   let toolFirstNudges = 0
   const maxToolFirstNudges = 2
   let delegationClaimNudges = 0
+  // F27 hard cap: successful delegations started by this loop run.
+  let delegations = 0
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const isFinalIteration = iteration === maxIterations - 1
@@ -562,6 +571,26 @@ async function runNativeConversationLoop(
             traces: [...traces, reason],
           }
         }
+        // F27 hard cap also applies to native `delegate_to_subagent` tool
+        // calls — the model usually delegates this way, not via the
+        // StartChildRun decision, so guarding only that path let a single
+        // turn enqueue several child runs.
+        if (
+          tc.name === "delegate_to_subagent" &&
+          typeof input.maxDelegationsPerTurn === "number" &&
+          delegations >= input.maxDelegationsPerTurn
+        ) {
+          traces.push(
+            `delegation-cap: refused ${tc.name} (max=${input.maxDelegationsPerTurn})`,
+          )
+          toolResultMessages.push({
+            role: "tool",
+            content: `[system] 本轮已派发 ${delegations} 个子任务（上限 ${input.maxDelegationsPerTurn}），不再启动新的子任务。请直接向 owner 汇报当前进展并结束本轮。`,
+            toolCallId: tc.id,
+            toolName: tc.name,
+          })
+          continue
+        }
         toolCalls += 1
         const toolResult = await executeToolInLoop({
           ports: input.ports,
@@ -572,6 +601,7 @@ async function runNativeConversationLoop(
           traces,
           toolName: tc.name,
         })
+        if (toolResult.ok && tc.name === "delegate_to_subagent") delegations += 1
         traces.push(
           `${tc.name}@${iteration}: ${
             toolResult.ok
@@ -749,6 +779,20 @@ async function runNativeConversationLoop(
           })
           continue
         }
+        // F27 hard cap: one owner turn fanning out many child tasks burns
+        // budget on repeated "verification" runs. Refuse past the cap and
+        // ask the model to report instead of continuing to delegate.
+        if (
+          typeof input.maxDelegationsPerTurn === "number" &&
+          delegations >= input.maxDelegationsPerTurn
+        ) {
+          traces.push(`delegation-cap: refused delegate_to_subagent (max=${input.maxDelegationsPerTurn})`)
+          messages.push({
+            role: "user",
+            content: `[system] 本轮已派发 ${delegations} 个子任务（上限 ${input.maxDelegationsPerTurn}），不再启动新的子任务。请直接向 owner 汇报当前进展并结束本轮（Respond）。`,
+          })
+          continue
+        }
         const def = input.ports.findTool("delegate_to_subagent")
         if (!def) {
           logger.warn(
@@ -778,6 +822,7 @@ async function runNativeConversationLoop(
           traces,
           toolName: "delegate_to_subagent",
         })
+        if (toolResult.ok) delegations += 1
         traces.push(
           `delegate_to_subagent@${iteration}: ${
             toolResult.ok

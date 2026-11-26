@@ -29,6 +29,14 @@ describe("wechat-inbound-llm", () => {
     expect(msgs[1]?.content).toBe("hello")
   })
 
+  // F27: cap the fan-out expectation so one owner turn doesn't spawn a chain of
+  // "verification" child tasks.
+  it("system prompt caps delegations per owner turn", () => {
+    const system = buildWechatInboundMessages("hello")[0]?.content ?? ""
+    expect(system).toContain("一个 owner 需求最多派发 2 个子任务")
+    expect(system).toContain("不要在同一轮再派发相同或近似目标")
+  })
+
   // D60 T2.1 (audit #3 F-02): owner-facing reply must omit raw fromUserId +
   // raw projectId + 'MVP stub reply' jargon (3x D48 §4 violation).
   it("stubReply omits fromUserId, projectId, and MVP jargon", () => {

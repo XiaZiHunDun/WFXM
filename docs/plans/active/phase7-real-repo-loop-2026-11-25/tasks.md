@@ -163,3 +163,18 @@
 - [x] 验证：`timeout 6 curl count=3` 只新增 1 章；stdout 0 次 ERR_INVALID_STATE；typecheck/build 通过；书架 11/11
 - [x] F26 子代理提示「自测不污染仓库数据」+ prompt 单测；演示库残留（outlines 12-14、章节 22-25）已清理
 - [x] 文档回填 spec §6.12；未提交（等待 owner 指令）
+
+## T24 委派纪律（F27）+ 编辑器状态栏（批次 L）
+- [x] F27 主代理提示：单需求最多 2 个子任务、派发后结束本轮、回复后再判断；prompt 单测 5 passed
+- [x] 实测 `startedTasks` 2（此前同规模需求 3-12）
+- [x] LingWen 编辑器状态栏：本章字数 / 选中字数 / 保存状态机（已保存/未保存/保存中/保存失败）
+- [x] 验证：Playwright 8/8（输入→未保存→自动保存；键盘选中 3 字）；typecheck、clean build 通过
+- [x] 文档回填 spec §6.13；未提交（等待 owner 指令）
+
+## T25 F27 硬上限（含原生工具路径）+ 批次 M
+- [x] `maxDelegationsPerTurn`：拒绝超出上限的 `StartChildRun` 决策与 `delegate_to_subagent` 原生调用，注入汇报提示
+- [x] `resolveMaxDelegationsPerTurn`（env `BUTLER_V5_MAX_DELEGATIONS_PER_TURN`，默认 2，0 关闭）接入 `runButlerLoop`
+- [x] 单测：决策路径/原生路径各 1 条 + resolver 5 组；conversation-loop 31、butler 30 passed
+- [x] 实测：cap=1 时 `startedTasks` 从 2 降为 1；发现并修复「只守决策路径会被原生工具绕过」
+- [x] LingWen：最后保存时间 + 书架版本号；Playwright 4/4；typecheck、clean build 通过
+- [x] 文档回填 spec §6.14；未提交（等待 owner 指令）

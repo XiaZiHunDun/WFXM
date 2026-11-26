@@ -10,7 +10,7 @@ import { createProjectKnowledgeStore, createRuntimeStore } from "@butler/persist
 import { createProjectKnowledgeRecord } from "@butler/domain/knowledge/project-knowledge.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
 import { makeWiring, type Wiring } from "./wiring.js"
-import { runButlerLoop, type ButlerLoopLogger } from "./wechat-inbound-butler.js"
+import { runButlerLoop, resolveMaxDelegationsPerTurn, type ButlerLoopLogger } from "./wechat-inbound-butler.js"
 
 /**
  * Build a mock adapter that returns a sequence of pre-canned
@@ -1033,5 +1033,15 @@ describe("fatigue checklist createStep integration (D67 T1a)", () => {
     expect(input?.toolName).toBe("send_email")
     expect(Array.isArray(input?.items)).toBe(true)
     expect(input?.items?.length ?? 0).toBeGreaterThan(0)
+  })
+})
+
+describe("resolveMaxDelegationsPerTurn (F27)", () => {
+  it("defaults to 2 and honors env overrides", () => {
+    expect(resolveMaxDelegationsPerTurn({})).toBe(2)
+    expect(resolveMaxDelegationsPerTurn({ BUTLER_V5_MAX_DELEGATIONS_PER_TURN: "0" })).toBe(0)
+    expect(resolveMaxDelegationsPerTurn({ BUTLER_V5_MAX_DELEGATIONS_PER_TURN: "5" })).toBe(5)
+    expect(resolveMaxDelegationsPerTurn({ BUTLER_V5_MAX_DELEGATIONS_PER_TURN: "-1" })).toBe(2)
+    expect(resolveMaxDelegationsPerTurn({ BUTLER_V5_MAX_DELEGATIONS_PER_TURN: "abc" })).toBe(2)
   })
 })

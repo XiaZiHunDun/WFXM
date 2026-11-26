@@ -355,6 +355,105 @@ describe("runConversationLoop", () => {
     expect(result.traces.some((t) => t.includes("delegate_to_subagent missing"))).toBe(true)
   })
 
+  it("F27: refuses delegations beyond maxDelegationsPerTurn", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    const started: string[] = []
+    const tool = {
+      name: "delegate_to_subagent" as ToolDefinition["name"],
+      risk: "low",
+      run: async (args: { task?: string }) => {
+        started.push(String(args.task ?? ""))
+        return { ok: true, output: "queued" }
+      },
+    } as ToolDefinition
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [{ name: "delegate_to_subagent" }],
+      maxIterations: 6,
+      maxDelegationsPerTurn: 2,
+      ports: {
+        complete: async () => {
+          turn += 1
+          if (turn <= 4) {
+            return {
+              ok: true,
+              response: {
+                content: JSON.stringify({
+                  _tag: "StartChildRun",
+                  role: "developer",
+                  objective: `task-${turn}`,
+                }),
+                toolCalls: [],
+              },
+            }
+          }
+          return { ok: true, response: { content: "已汇报", toolCalls: [] } }
+        },
+        findTool: (name) => (name === "delegate_to_subagent" ? tool : undefined),
+        executeTool: async (def, args) => def.run(args),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(started).toHaveLength(2)
+    expect(result.traces.some((t) => t.includes("delegation-cap"))).toBe(true)
+    expect(result.finalDecision).toBe("Respond")
+    expect(result.reply).toBe("已汇报")
+  })
+
+  it("F27: caps native delegate_to_subagent tool calls", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    const started: string[] = []
+    const tool = {
+      name: "delegate_to_subagent" as ToolDefinition["name"],
+      risk: "low",
+      run: async (args: { task?: string }) => {
+        started.push(String(args.task ?? ""))
+        return { ok: true, output: "queued" }
+      },
+    } as ToolDefinition
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [{ name: "delegate_to_subagent" }],
+      maxIterations: 6,
+      maxDelegationsPerTurn: 2,
+      ports: {
+        complete: async () => {
+          turn += 1
+          if (turn <= 4) {
+            return {
+              ok: true,
+              response: {
+                content: "",
+                toolCalls: [
+                  {
+                    id: `tc-${turn}`,
+                    name: "delegate_to_subagent",
+                    args: { task: `task-${turn}`, role: "developer" },
+                  },
+                ],
+              },
+            }
+          }
+          return { ok: true, response: { content: "已汇报", toolCalls: [] } }
+        },
+        findTool: (name) => (name === "delegate_to_subagent" ? tool : undefined),
+        executeTool: async (def, args) => def.run(args),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(started).toHaveLength(2)
+    expect(result.traces.some((t) => t.includes("delegation-cap"))).toBe(true)
+    expect(result.finalDecision).toBe("Respond")
+  })
+
   it("pushes an error result for an unknown native tool_call and continues", async () => {
     const kernel = makeKernel()
     await kernel.openTurn({ userMessage: { role: "user", content: "hi" } })
