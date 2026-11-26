@@ -373,7 +373,9 @@ export function shouldAutoDevVerifySubagent(args: {
   const env = args.env ?? process.env
   if (!isDevVerifyAutoEnabled(env)) return false
   if (!args.ok) return false
-  return args.capabilities.some((cap) => cap === "run_command" || cap === "write_file")
+  return args.capabilities.some(
+    (cap) => cap === "run_command" || cap === "write_file" || cap === "edit_file",
+  )
 }
 
 export async function enrichDevRunResult(args: {

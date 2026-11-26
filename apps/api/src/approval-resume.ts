@@ -120,6 +120,30 @@ function postApprovalLoopEnabled(env: NodeJS.ProcessEnv): boolean {
   return envTruthy(env["BUTLER_V5_POST_APPROVAL_LOOP"])
 }
 
+/** 写类能力：审批通过后应继续同一轮任务，而不是只回一句「已写入」。 */
+const WRITE_CAPABILITIES: ReadonlySet<string> = new Set(["write_file", "edit_file"])
+
+/**
+ * Phase 7 fix F15: after an approved write the follow-up loop must keep the
+ * exec tools so the model can finish the remaining edits in the same run.
+ * `run_command` (and any failed exec) keeps the old read-only surface to
+ * avoid runaway shell loops.
+ */
+export function allowExecToolsAfterApproval(capability: string, execFailed: boolean): boolean {
+  return !execFailed && WRITE_CAPABILITIES.has(capability)
+}
+
+/**
+ * Phase 7 fix F15: the resumed loop used to hard-code DEFAULT_MAX_LOOP_ITERATIONS
+ * (5) even when the main loop ran with a larger budget, so an approved write was
+ * followed by "本轮不能再调用工具" mid-task. Read the same env override.
+ */
+export function resolvePostApprovalIterations(env: NodeJS.ProcessEnv): number {
+  const raw = (env["BUTLER_V5_MAX_LOOP_ITERATIONS"] ?? "").trim()
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_MAX_LOOP_ITERATIONS
+}
+
 /**
  * After the approved capability succeeds, continue with the full multi-turn
  * conversation loop (tools allowed) so resume is not limited to a single
@@ -157,7 +181,11 @@ async function continueLoopAfterCapability(args: {
     }
   }
 
-  if (isExecCapability(args.capability) && !args.execFailed && !postApprovalLoopEnabled(args.env)) {
+  if (
+    args.capability === "run_command" &&
+    !args.execFailed &&
+    !postApprovalLoopEnabled(args.env)
+  ) {
     const reply = formatPostExecReply(args.capability, args.toolOutput)
     const now = new Date()
     const stepId = crypto.randomUUID()
@@ -238,10 +266,14 @@ async function continueLoopAfterCapability(args: {
     env: args.env,
     mcpBundle: args.wiring.mcp,
   })
-  const tools = allTools.filter((t) => !isExecCapability(t.name as string))
-  const llmTools = llmToolsForButler({ env: args.env, mcpBundle: args.wiring.mcp }).filter(
-    (t) => !isExecCapability(t.name),
-  )
+  const allowWrites = allowExecToolsAfterApproval(args.capability, args.execFailed === true)
+  const tools = allowWrites
+    ? allTools
+    : allTools.filter((t) => !isExecCapability(t.name as string))
+  const allLlmTools = llmToolsForButler({ env: args.env, mcpBundle: args.wiring.mcp })
+  const llmTools = allowWrites
+    ? allLlmTools
+    : allLlmTools.filter((t) => !isExecCapability(t.name))
   const toolExecutor = makeToolExecutor({
     tools,
     store: args.wiring.runtimeStore,
@@ -254,20 +286,24 @@ async function continueLoopAfterCapability(args: {
     mcpServerIdByCapability: args.wiring.mcp.serverIdByCapability,
   })
 
+  const systemContent = allowWrites
+    ? "You are a helpful butler. An Owner-approved write already ran. " +
+      "Continue the task in Chinese and finish any remaining edits with edit_file " +
+      "(each write still needs owner confirmation); never rewrite a whole large file."
+    : "You are a helpful butler. An Owner-approved capability already ran. " +
+      "Continue the task in Chinese. You may call read-only tools; " +
+      "do not request run_command or write_file again in this turn."
   const loopResult = await runConversationLoop({
     kernel,
     messages: [
       {
         role: "system",
-        content:
-          "You are a helpful butler. An Owner-approved capability already ran. " +
-          "Continue the task in Chinese. You may call read-only tools; " +
-          "do not request run_command or write_file again in this turn.",
+        content: systemContent,
       },
       { role: "user", content: userContent },
     ],
     llmTools,
-    maxIterations: DEFAULT_MAX_LOOP_ITERATIONS,
+    maxIterations: resolvePostApprovalIterations(args.env),
     initialTraces: [`post-approval-loop after ${args.capability}`],
     ports: {
       stubReply: () => stubReply(userContent, args.subject, "approval-resume"),

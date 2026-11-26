@@ -40,7 +40,7 @@ export type WechatIntent = {
 }
 
 const DEV_TASK_RE =
-  /(?:write_file|run_command|实现|开发|编写|修改|修复|重构|添加|新增|删除|创建|写个|写入|写\s|做个|加个|改一下|帮我改|帮我写|修一下|fix|implement|refactor|add feature|bug)/iu
+  /(?:write_file|edit_file|run_command|实现|开发|编写|修改|修复|重构|添加|新增|删除|创建|写个|写入|写\s|做个|加个|改一下|帮我改|帮我写|修一下|fix|implement|refactor|add feature|bug)/iu
 
 const CONTINUE_DEV_RE = /(?:继续|接着|刚才|上次|接着做|继续做|continue|resume)/iu
 
@@ -183,7 +183,7 @@ export function resolveIntakeLoopOptions(args: {
     env,
   })
   const includeExecTools = allowedToolNames.some(
-    (name) => name === "write_file" || name === "run_command",
+    (name) => name === "write_file" || name === "edit_file" || name === "run_command",
   )
   const requiresDevSession =
     isDevWork || args.intent.kind === "dev_session" || args.intent.kind === "continue_dev"

@@ -32,6 +32,7 @@ describe("wechat-intake", () => {
     const plan = resolveToolNamesForIntake({ intentKind: "chat" })
     expect(plan).not.toContain("run_command")
     expect(plan).not.toContain("write_file")
+    expect(plan).not.toContain("edit_file")
     expect(plan).toContain("read_file")
 
     const legacyDirect = resolveToolNamesForIntake({
@@ -40,6 +41,7 @@ describe("wechat-intake", () => {
     })
     expect(legacyDirect).toContain("run_command")
     expect(legacyDirect).toContain("write_file")
+    expect(legacyDirect).toContain("edit_file")
     expect(legacyDirect).not.toContain("delegate_to_subagent")
   })
 
@@ -59,6 +61,7 @@ describe("wechat-intake", () => {
     expect(opts.requiresDevSession).toBe(true)
     expect(opts.allowedToolNames).toContain("delegate_to_subagent")
     expect(opts.allowedToolNames).not.toContain("write_file")
+    expect(opts.allowedToolNames).not.toContain("edit_file")
   })
 
   it("chat intake keeps plan-only tools", () => {

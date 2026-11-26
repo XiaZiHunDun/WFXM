@@ -8,7 +8,7 @@ import { REMINDER_TOOL_NAMES } from "./reminder-tools.js"
 export type WechatIntakeIntentKind =
   "chat" | "dev_task" | "dev_session" | "switch_project" | "continue_dev" | "task_digest"
 
-const EXEC_TOOL_NAMES = ["run_command", "write_file"] as const
+const EXEC_TOOL_NAMES = ["run_command", "write_file", "edit_file"] as const
 
 function allWechatCoreToolNames(env: NodeJS.ProcessEnv = process.env): readonly string[] {
   const names: string[] = WEIBUTLER_LLM_TOOLS.map((t) => t.name)

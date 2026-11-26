@@ -11,7 +11,7 @@ import { issuePreconfiguredGrants } from "@butler/runtime/scoped-grant-service.j
 import { envTruthy } from "./env-util.js"
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 
-const DEV_SESSION_TOOLS = ["run_command", "write_file"] as const
+const DEV_SESSION_TOOLS = ["run_command", "write_file", "edit_file"] as const
 
 const DEFAULT_TTL_MINUTES = 30
 const DEFAULT_MAX_USES = 50

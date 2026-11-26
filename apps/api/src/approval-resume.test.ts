@@ -6,8 +6,34 @@ import { makeTestDb } from "@butler/persistence/testing.js"
 import { approveWaitingStep, createWaitingApprovalStep } from "@butler/runtime/approval-runtime.js"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { RunEngine } from "@butler/runtime/run-engine.js"
-import { resumeApprovedCapability, toRunResult } from "./approval-resume.js"
+import { DEFAULT_MAX_LOOP_ITERATIONS } from "@butler/runtime/execution/index.js"
+import {
+  allowExecToolsAfterApproval,
+  resolvePostApprovalIterations,
+  resumeApprovedCapability,
+  toRunResult,
+} from "./approval-resume.js"
 import { makeWiring } from "./wiring.js"
+
+describe("post-approval continuation budget (F15)", () => {
+  it("keeps exec tools after an approved write so remaining edits can finish", () => {
+    expect(allowExecToolsAfterApproval("edit_file", false)).toBe(true)
+    expect(allowExecToolsAfterApproval("write_file", false)).toBe(true)
+  })
+
+  it("keeps the read-only surface for run_command and failed execs", () => {
+    expect(allowExecToolsAfterApproval("run_command", false)).toBe(false)
+    expect(allowExecToolsAfterApproval("edit_file", true)).toBe(false)
+  })
+
+  it("inherits BUTLER_V5_MAX_LOOP_ITERATIONS instead of hard-coding 5", () => {
+    expect(resolvePostApprovalIterations({ BUTLER_V5_MAX_LOOP_ITERATIONS: "18" })).toBe(18)
+    expect(resolvePostApprovalIterations({})).toBe(DEFAULT_MAX_LOOP_ITERATIONS)
+    expect(resolvePostApprovalIterations({ BUTLER_V5_MAX_LOOP_ITERATIONS: "abc" })).toBe(
+      DEFAULT_MAX_LOOP_ITERATIONS,
+    )
+  })
+})
 
 describe("approval resume result mapping", () => {
   it("keeps a non-zero command exit as a tool result", () => {

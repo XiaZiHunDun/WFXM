@@ -136,7 +136,7 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 | P1 | `E-LLM-01` 间歇失败仍会命中父代理决策轮；失败回复不携带「子任务是否已落盘」，恢复只能靠人工核对 | M4-2b 回复 `[E-LLM-01 · turn-179]`，但子代理实际已写完全部代码 | 部分缓解（F4 只覆盖子代理失败） |
 | P2 | 主代理工具集没有 `list_files`/glob，模型自述「我没有 list_files」，无法按 prompt 要求核对文件存在 | M3-1 回复原文 | 待修 |
 | P2 | 子代理按轮追加 CSS 时重复定义 `.workspace-grid`，依赖后定义覆盖生效；闭环缺少「生成后自审 diff/lint」步骤 | `globals.css` 两处 `.workspace-grid` | 观察项 |
-| P2 | 父代理直接调用 `edit_file` 触发审批后，恢复的续跑预算不足以完成剩余步骤，只能回「部分完成，本轮不能再调用工具」；需人工再发一轮「继续」 | E2-1：批准后仅落地 51 行 helper（162-212 行），面板需第二轮补齐 | 待修（审批恢复应保留原轮次预算或自动续跑） |
+| P2 | 父代理直接调用 `edit_file` 触发审批后，恢复的续跑预算不足以完成剩余步骤，只能回「部分完成，本轮不能再调用工具」；需人工再发一轮「继续」 | E2-1：批准后仅落地 51 行 helper（162-212 行），面板需第二轮补齐 | 已修（F15：写类审批保留 exec 工具并按 env 续跑；`edit_file` 归入 exec 画像后 dev_task 改走委派） |
 
 ### 6.3 收口验证（真实 LLM 烟测 + UI）
 
@@ -158,6 +158,7 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 | F12 | 子代理重复执行同一命令（`pnpm typecheck`）被 stuck-loop 阈值 3 误杀 | 子代理 `stuckLoopThreshold=6`；prompt 明确「同一命令不超过两次、失败先读报错」 | C-1b 重试成功 |
 | F13 | `read_file` 无分页，整读 37KB 页面文件导致子代理第 1 轮即失败 | `read_file` 支持 `offset/limit`，输出上限 24KiB 并提示分页；工具 schema/提示同步 | 单测 2 条：分页读取、超限截断 |
 | F14 | 只有整文件 `write_file`：改 1600 行页面里几行也要重写全文，导致整文件覆盖丢功能（A-2a 书籍设置/↑↓ 被覆盖）、输出超限与上下文耗尽 | 新增 `edit_file(path, oldText, newText, replaceAll?)`：唯一片段替换、多处匹配拒绝、未命中文案提示先 read；接入 capability allowlist/pregrant/审批/提示词 | 单测 3 条（唯一替换、多处拒绝+replaceAll、缺失提示）；E1/E2 实测子代理用 edit_file 增量改 page.tsx（+234 行，0 删除） |
+| F15 | 审批恢复后续跑预算固定 5 轮，且写类能力审批后立刻回「✅ 已写入」不再续跑；E2-1 批准 edit_file 后只回「本轮不能再调用工具，仅部分完成」 | 写类审批（write_file/edit_file）恢复后保留 exec 工具并续跑，轮次读 `BUTLER_V5_MAX_LOOP_ITERATIONS`；`run_command`/失败 exec 仍只保留只读工具；`edit_file` 同步纳入 exec 工具画像、dev session 授权、intake 判定与 dev 校验 | 单测 3 条（写类保留工具、命令不保留、轮次继承 env）；typecheck + 相关 93+91 测试通过 |
 
 ### 6.5 第二轮：LingWen 产品完善（全部经 Web 对话）
 

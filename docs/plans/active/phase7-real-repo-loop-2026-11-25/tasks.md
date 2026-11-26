@@ -72,3 +72,11 @@
 - [x] E1 后端：`chapter_revisions` 表 + repo 五个函数 + 3 路由 + 三处自动快照；API 烟测通过（manual/pre-restore/restore/404）
 - [x] E2 UI：「历史版本」按钮 + 面板 + 只读预览 + 二次确认恢复；Playwright 实测 4 条版本、恢复生效、旧功能按钮仍在
 - [x] 记录遗留：审批恢复后续跑预算不足（P2），需再发一轮继续；未 commit/push
+
+## T12 审批恢复续跑预算（F15）
+- [x] `approval-resume.ts`：写类审批（write_file/edit_file）恢复后保留 exec 工具续跑；仅 `run_command` 成功走快速 ack
+- [x] 续跑轮次从 `BUTLER_V5_MAX_LOOP_ITERATIONS` 读取（默认仍 5），不再硬编码
+- [x] 系统提示区分「写类续跑」与「命令后只读」两种模式
+- [x] `edit_file` 纳入 `EXEC_TOOL_NAMES` / dev session 授权 / intake 判定 / dev 质量校验 / 意图正则
+- [x] 单测 3 条 + intake 断言；相关测试 93 + 91 passed，typecheck 通过
+- [x] 提交 F14 与版本历史（LingWen `0d287e13`）；F15 待提交
