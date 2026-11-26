@@ -163,6 +163,7 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 | F17 | 父代理已派出子任务并在后台运行时，失败信封仍以「处理失败，请稍后再发一次」开头（本轮 E1 实测），诱导 owner 重发造成重复执行 | 信封支持 `delegated`/`toolCalls` 上下文：已委派 →「任务已交给后台执行…不要原样重发」；已执行工具 →「处理中断，已有 N 次操作，可能部分生效」；`edit_file` 审批 resource 改用文件路径，不再显示会话 id | 单测 2 条信封分支 + `resourceForTool("edit_file")` 断言；相关 57 测试通过 |
 | F18 | 子代理 `pnpm build` 超时后只杀直接子进程，`sh -c next build` 与 node 变成孤儿继续写 `.next`；后续构建长时间挂起且无任何日志（本轮实测同时残留 4 个孤儿构建进程） | `spawnCaptured` 在 POSIX 下 `detached: true` 让子进程自成进程组，abort 时 `kill(-pid, SIGKILL)` 整组回收，失败再退回单进程 kill | 新增单测：父进程派生 30s 孙进程，1.5s 超时后孙进程 PID 已不存在（workspace-tools 11 passed） |
 | F19 | 工具额度用尽后仍注入「任务还没完成，请继续调用工具」（F2b），与「不要再调用工具」自相矛盾；模型连续 3 轮只能回纯文本，浪费 2 次 LLM 调用，且子代理回「工具额度已用尽」被父代理判为未完成而整单重派一次 | 额度用尽时跳过 tool-first 与 delegation-claim 提示，直接接受模型的纯文本总结 | 单测：`maxToolCalls=1` 后纯文本总结不再触发 nudge，`toolCalls=1`、`finalDecision=Respond`（conversation-loop 29 passed） |
+| F20 | 子代理 LLM 传输失败（`socket hang up`/超时）时直接回「（子代理 developer 调用失败）」，而本轮只读过文件、零改动；owner 只能人工重发，且重发即重复执行 | 子代理结束若为 `llm failure` 且 trace 中无 `write_file`/`edit_file`，worker 自动重跑一次子任务；有写操作则不重试，避免重复落盘 | 新增单测：首次 complete 失败、第二次成功 → 父会话收到重试后的回复且 complete 调用 ≥2（subagent-worker 19 passed）；同时修正 2 条既有测试对「最后一条消息即 tool 结果」的错误假设（预算提示会追加 system 消息） |
 
 ### 6.5 第二轮：LingWen 产品完善（全部经 Web 对话）
 
@@ -188,6 +189,17 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 
 - 本轮对话轮次 3（F1 后端、F2 后端、F2 前端+跳转），未手改 LingWen 源码。
 - 新暴露的 WFXM 缺陷：F18（超时只杀单进程→孤儿构建阻塞后续构建）、F19（额度用尽后仍 nudge 且导致整单重派）；均已在 §6.4 修复并补单测，4522 已重启加载。
+
+### 6.7 第四轮：备份入口 / 润色 / 写作日历（批次 G，全部经 Web 对话）
+
+| 批次 | 内容 | 验证 |
+|------|------|------|
+| G1 备份入口 | 书架「导入 JSON」（隐藏 file input → 前端解析 → POST import，成功提示并刷新）、书卡与设置面板「导出 JSON」；搜索浮层键盘导航（↑↓ 循环、Enter 打开、Esc 关闭、悬停同步高亮、scrollIntoView） | Playwright：导入后列表 +1 且出现「已导入《界面导入测试》」；↓ + Enter 跳 `/books/1?chapter=1`，编辑器 423 字；详情页 1 个「导出 JSON」 |
+| G2 章节润色 | `POST /api/chapters/[id]/polish` 流式（polish/condense/expand + 额外要求，上下文含正文/大纲/设定，不落库、写 llm_logs）；工作台「润色」+ 预览面板 + 应用（PATCH 自动快照）+ 撤销（revisions 恢复）+ 取消 | 真实 LLM：流式返回全文；Playwright：预览可应用（423→399 字），撤销后回到 423，AI 检查/历史版本/书籍设置仍在 |
+| G3 写作日历 | 迁移新增 `writing_sessions` / `app_settings`（幂等，兼容旧库）；repo 增加 recordWritingDelta / dailyWordCounts / getDailyGoal / setDailyGoal；PATCH 记净增字数；`GET /api/stats/daily`、`PUT /api/settings/daily-goal`；书架今日进度条 + 14 天柱状图 + 点击设目标 | 已有库平滑迁移；curl：daily 结构正确、goal=1200/非法 400、PATCH 后当日 -330；Playwright：14 根柱、点目标可保存 |
+| G4 口径修复 | 恢复版本按「恢复后-恢复前」记账；删除章节记 -字数；对外字数与柱高 clamp ≥0、百分比 0..100；新增 `tests/writing-stats.test.mjs`（聚合跨天 0 填充、负值不返回为负、目标边界） | pnpm test 11 passed；受控实测：PATCH +80、restore -80 均入库；书架由「-330 字（-28%）」变为「今日 0 / 目标 900 字（0%）」 |
+
+- 本轮对话轮次 4（G1/G2/G3/G4），另有 1 次因子代理 LLM 传输失败未落地（G4 首次），重发后完成；该失败直接促成 F20。
 
 ## 7. 边界
 

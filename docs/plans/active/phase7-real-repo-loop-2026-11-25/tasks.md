@@ -107,3 +107,21 @@
 - [x] F2 UI：书架 300ms 防抖搜索浮层（Esc/点外关闭/无结果）+ 章节结果跳 `?chapter=` + 工作台自动选中
 - [x] Playwright：10 条结果、跳转后正文 423 字、章节高亮、既有功能按钮仍在
 - [x] typecheck/build 通过（24 条路由）；未提交（等待 owner 指令）
+
+## T17 LingWen 批次 G（备份入口 / 润色 / 写作日历，经 Web 对话）
+- [x] G1 书架「导入 JSON」+ 书卡/设置面板「导出 JSON」+ 搜索键盘导航（↑↓/Enter/Esc/悬停）
+- [x] G1 验证：导入提示与列表刷新、键盘跳转 `?chapter=`、详情页导出链接
+- [x] G2 `POST /api/chapters/[id]/polish` 流式 + 工作台预览/应用/撤销/取消
+- [x] G2 验证：真实 LLM 流式、应用 423→399、撤销回 423、既有按钮仍在
+- [x] G3 `writing_sessions` / `app_settings` 迁移 + repo 四函数 + PATCH 增量 + 两个 API + 书架今日进度与 14 天柱图
+- [x] G3 验证：旧库平滑迁移、daily/goal API、UI 柱图与目标设置
+- [x] G4 口径修复：restore 记账、删除记负、展示 clamp 0..100；新增 `tests/writing-stats.test.mjs`
+- [x] G4 验证：pnpm test 11 passed、受控 PATCH/restore 差异入库、书架显示 0 而非 -28%
+- [x] typecheck/build 通过；未提交（等待 owner 指令）
+
+## T18 子代理 LLM 失败自动重试（F20）
+- [x] `isRetryableLlmFailure`：`llm failure` 且无 `write_file`/`edit_file` trace 才允许重试
+- [x] worker 在首次失败后自动重跑一次子任务，避免 owner 手动重发与重复执行
+- [x] 单测：首次 complete 失败、第二次成功 → 重试后回复送达（subagent-worker 19 passed）
+- [x] 修正 2 条既有测试「最后一条消息即 tool 结果」的假设（预算提示会追加 system 消息）
+- [x] 全仓 typecheck 通过；4522 已重启加载；未提交（等待 owner 指令）
