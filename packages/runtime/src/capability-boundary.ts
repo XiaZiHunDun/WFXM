@@ -118,7 +118,12 @@ export function resourceForTool(
   args: Readonly<Record<string, unknown>>,
   fallbackResource: string,
 ): string {
-  if (toolName === "read_file" || toolName === "write_file" || toolName === "send_wechat_file") {
+  if (
+    toolName === "read_file" ||
+    toolName === "write_file" ||
+    toolName === "edit_file" ||
+    toolName === "send_wechat_file"
+  ) {
     const path = args["path"]
     return typeof path === "string" && path.trim() ? path.trim() : fallbackResource
   }

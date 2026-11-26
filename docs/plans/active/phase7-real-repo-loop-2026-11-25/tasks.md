@@ -86,3 +86,9 @@
 - [x] `tool-boundary.ts` 的 `toolTimeoutMs` 接收 args；`capability-boundary` 在调用时按 args 计算超时
 - [x] 单测：pnpm build/node --test → 120s；ls/无 argv → 5s；slirp/env 覆盖保持通过
 - [x] typecheck 通过；相关 77 测试通过
+
+## T14 失败信封误导与审批 resource（F17）
+- [x] `formatFailureEnvelope` 增加 `delegated`/`toolCalls`：已委派不再提示重发，已执行工具提示部分生效
+- [x] `withLlmFailureEnvelope` 检测 `delegate_to_subagent` / `StartChildRun` trace 并传入上下文
+- [x] `resourceForTool` 支持 `edit_file`（审批问题显示文件路径，不再显示会话 id）
+- [x] 单测 4 条（2 信封分支 + resource + 既有），57 测试通过；typecheck 通过；待提交

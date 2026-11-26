@@ -50,6 +50,9 @@ describe("capability-boundary", () => {
 
   it("derives resource from tool args", () => {
     expect(resourceForTool("read_file", { path: "docs/a.md" }, "conv-1")).toBe("docs/a.md")
+    expect(resourceForTool("edit_file", { path: "src/page.tsx" }, "conv-1")).toBe(
+      "src/page.tsx",
+    )
     expect(resourceForTool("run_command", { argv: ["ls", "-la"] }, "conv-1")).toBe("ls -la")
     expect(resourceForTool("get_current_time", {}, "conv-1")).toBe("conv-1")
   })

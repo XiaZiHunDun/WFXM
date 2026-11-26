@@ -181,9 +181,21 @@ function withLlmFailureEnvelope(
     conversationId: args.conversationId,
     detail: { code, reason },
   })
+  const delegated = result.traces.some(
+    (trace) =>
+      trace.startsWith("delegate_to_subagent@") ||
+      trace.startsWith("delegate_to_subagent:") ||
+      trace.includes("StartChildRun"),
+  )
   return {
     ...result,
-    reply: formatFailureEnvelope({ code, turnId: args.turnId }),
+    // F17: 已委派时不要提示「请重发」，否则会重复派任务。
+    reply: formatFailureEnvelope({
+      code,
+      turnId: args.turnId,
+      delegated,
+      toolCalls: result.toolCalls,
+    }),
     traces: [...result.traces, `loop-error: ${code}`],
   }
 }

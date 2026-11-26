@@ -66,6 +66,23 @@ describe("formatFailureEnvelope", () => {
     const text = formatFailureEnvelope({ code: "E-DB-01", turnId: "turn-abcdefgh" })
     expect(text).not.toMatch(/stack|Error:|postgres/i)
   })
+
+  it("F17: a delegated turn says the task is running instead of asking for a resend", () => {
+    const text = formatFailureEnvelope({
+      code: "E-LLM-01",
+      turnId: "turn-1723456789",
+      delegated: true,
+    })
+    expect(text).toContain("已交给后台执行")
+    expect(text).not.toContain("请稍后再发一次")
+    expect(text).toContain("不要原样重发")
+  })
+
+  it("F17: a turn that already ran tools reports partial effects", () => {
+    const text = formatFailureEnvelope({ code: "E-LLM-01", turnId: "turn-1", toolCalls: 3 })
+    expect(text).toContain("3 次操作")
+    expect(text).not.toContain("请稍后再发一次")
+  })
 })
 
 describe("ERROR_CODES registry", () => {

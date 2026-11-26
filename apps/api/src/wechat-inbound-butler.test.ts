@@ -314,6 +314,7 @@ describe("runButlerLoop", () => {
     expect(opts?.tools).toBeDefined()
     const names = (opts?.tools ?? []).map((t) => t.name).sort()
     expect(names).toEqual([
+      "edit_file",
       "get_current_time",
       "greet_with_time",
       "list_dir",

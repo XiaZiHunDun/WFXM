@@ -178,13 +178,27 @@ export function turnIdShort(turnId: string | null | undefined): string {
 /**
  * Owner-visible failure envelope: stable code + truncated turn id, then a
  * fixed recovery hint. No raw exception text / stack / internal UUID.
+ *
+ * Phase 7 fix F17: when the failed turn already delegated (or ran tools),
+ * "请稍后再发一次" is actively harmful — it invites a duplicate task while
+ * the child agent is still running. Say what actually happened instead.
  */
 export function formatFailureEnvelope(input: {
   readonly code: TraceErrorCode
   readonly turnId?: string | null
+  /** 本轮已把任务交给后台子代理（完成后会单独汇报）。 */
+  readonly delegated?: boolean
+  /** 本轮已执行的工具调用次数（可能部分生效）。 */
+  readonly toolCalls?: number
 }): string {
   const short = turnIdShort(input.turnId)
   const prefix = short === "" ? `[${input.code}]` : `[${input.code} · ${short}]`
+  if (input.delegated === true) {
+    return `${prefix} 任务已交给后台执行，可能仍在运行；请稍等，完成后会自动汇报。\n（若长时间无结果，发「进度」查询即可；不要原样重发，以免重复执行。）`
+  }
+  if (typeof input.toolCalls === "number" && input.toolCalls > 0) {
+    return `${prefix} 处理中断，已记录；本轮已有 ${input.toolCalls} 次操作，可能部分生效。\n请先确认结果再决定是否重发；若反复出现，请把这条信息发给管理员。`
+  }
   // Phase 7 fix F9: a failed parent turn may have already delegated work
   // that is still running in the subagent outbox. Say so explicitly instead
   // of leaving the owner to assume nothing happened.
