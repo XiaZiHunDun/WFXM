@@ -18,6 +18,9 @@ describe("buildChildSystemPrompt", () => {
     // makes later builds hang, so the child needs a cleanup hint.
     expect(prompt).toContain("先直接跑 pnpm typecheck 与 pnpm build")
     expect(prompt).toContain("rmSync('.next'")
+    // F26: self-tests must not leave rows behind in the app's real database.
+    expect(prompt).toContain("不要污染仓库数据")
+    expect(prompt).toContain("残留 id")
   })
 
   it("tells a tool-less child to answer in prose only", () => {

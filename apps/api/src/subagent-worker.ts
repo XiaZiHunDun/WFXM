@@ -274,6 +274,7 @@ export function buildChildSystemPrompt(
     "8. 修改后用 pnpm typecheck 或 pnpm build 自检；自检命令失败时读报错并修，不要原样重跑第三次。",
     "9. 只做验证/自检的任务：先直接跑 pnpm typecheck 与 pnpm build，再按需读文件；不要把工具预算全花在读大文件上。",
     "10. 若 pnpm build 已输出 Compiled successfully / 路由表后进程仍不退出而超时，先清理被污染缓存再重试一次：node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"。",
+    "11. 跑接口/UI 自测时不要污染仓库数据：优先创建临时书/临时记录并在结束时删除；无法清理时必须在回复里列出残留 id 与表名。",
   ].join("\n")
 }
 

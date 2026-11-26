@@ -157,3 +157,9 @@
 - [x] 前端月视图：7 列网格、四级着色、上一月/下一月、连续写作天数、目标达成/还差文案、14 天柱图保留
 - [x] 验证：curl 30/31 天与 400；Playwright 11/11；typecheck 通过、clean build exit 0
 - [x] 文档回填 spec §6.11；未提交（等待 owner 指令）
+
+## T23 客户端断开止损（批次 K）+ F26
+- [x] LingWen `generate-batch`/`generate`/`llm.ts`：req.signal 中止、写前守卫、`isStreamClosedError` 吞异常、保留当前章
+- [x] 验证：`timeout 6 curl count=3` 只新增 1 章；stdout 0 次 ERR_INVALID_STATE；typecheck/build 通过；书架 11/11
+- [x] F26 子代理提示「自测不污染仓库数据」+ prompt 单测；演示库残留（outlines 12-14、章节 22-25）已清理
+- [x] 文档回填 spec §6.12；未提交（等待 owner 指令）

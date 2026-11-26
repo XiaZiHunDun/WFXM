@@ -286,6 +286,18 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 
 - 父代理自派验证的行为仍在：本轮一条需求期间 `startedTasks` 从 2 增长到 10，验证任务重复读取同一批文件；F25 生效后未再出现 `LLM timeout`。
 
+### 6.12 第九轮：客户端断开止损（批次 K）+ F26
+
+| 内容 | 验证 |
+|------|------|
+| LingWen `generate-batch` / 单章 `generate` / `llm.ts` 接入 `req.signal`：写事件前检查 `aborted`，断开后停止后续章节；`isStreamClosedError` 吞掉 `ERR_INVALID_STATE`；保留当前章已写入内容 | `timeout 6 curl -N` 发起 `count=3`：流在 6s 被切断后只新增 1 章（9 字，未继续第 2/3 章）；新进程 stdout 中 `ERR_INVALID_STATE`/`failed to pipe` 均为 0；`typecheck` 通过、clean `build` exit 0；书架 Playwright 11/11 回归 |
+| F26 子代理自测数据清理 | K 的自测在演示库留下 `自测大纲4/5/6`（outlines 12-14）与章节 22-25，父代理未发现也未清理。子代理提示新增第 11 条：自测优先用临时书/临时记录并删除，无法清理必须在回复列出残留 id 与表名（prompt 单测 2 passed）；演示库已用 API 恢复（outlines 重建为 15-17、章节仅保留 id=3） |
+
+#### 本轮观察
+
+- 服务端断开止损生效后，日志噪声消失，但「当前章仍会写完」是保留语义（已明确写入需求）。
+- `GET /demo/api/messages` 只能看到**当前进程**的会话：重启 4522 后 `conversationId=null`、历史为空。若需要跨重启查看，需要把 demo 的事件存储落到 SQLite。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。
