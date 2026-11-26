@@ -142,3 +142,12 @@
 - [x] F22 `buildFinishDiagnostics`：llm failure 原因置顶并写日志；新增单测（worker 20 passed）
 - [x] F23 子代理提示：验证任务先跑门禁、stale `.next` 清理提示；prompt 单测 2 条（共 22 passed）
 - [x] 全仓 typecheck 通过；4522 已重启加载 F22/F23；未提交（等待 owner 指令）
+
+## T21 Demo Console 可观测 + 一键续写（F24/F25 + 批次 I2）
+- [x] F24 `GET /demo/api/messages`：TurnOpened/AssistantMessageProduced → user/assistant；前端 2.5s 轮询渲染；输入上限 8000
+- [x] F24 验证：脚本发消息后浏览器打开 4522 可见对话（Playwright）
+- [x] F25 `resolveChildLlmTimeout`：`BUTLER_V5_LLM_TIMEOUT_MS` 覆盖（默认仍 30s），统一 loop 与 Effect.timeout；单测 4 例
+- [x] I2 后端 `generate-batch`（NDJSON，1-5 章，无大纲 done created:0）；curl 验证 1345 字落库
+- [x] I2 前端「一键续写」+ 取消/进度/并发禁用；Playwright 8/8，全流程 1552 字并清理
+- [x] 对话修复取消提示两处：`signal.aborted || isAbortError`；notice 移到工作台顶部
+- [x] 文档回填 spec §6.10；typecheck 通过、build 产物完整；未提交（等待 owner 指令）

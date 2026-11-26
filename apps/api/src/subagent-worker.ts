@@ -106,6 +106,21 @@ const DELEGATE_AGGREGATE_TYPE = "Delegate" as const
 const LLM_TIMEOUT_MS = DEFAULT_LLM_TIMEOUT_MS
 
 /**
+ * Phase 7 fix F25: a child LLM call was hard-capped at 30s even though the
+ * conversation loop already honors `BUTLER_V5_LLM_TIMEOUT_MS`. With a
+ * reasoning model and a large repo context, 30s is regularly exceeded —
+ * observed as `llm failure: LLM timeout after 30000ms` after several
+ * read_file turns, followed by a wasted retry. Let the env override reach
+ * children too; the default stays 30s so production behavior is unchanged.
+ */
+export function resolveChildLlmTimeout(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env["BUTLER_V5_LLM_TIMEOUT_MS"] ?? "").trim()
+  if (!raw) return LLM_TIMEOUT_MS
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : LLM_TIMEOUT_MS
+}
+
+/**
  * Polling interval in milliseconds. Short enough to feel responsive
  * in e2e tests (which expect a reply within ~10s) without burning
  * CPU in the steady state.
@@ -401,7 +416,7 @@ async function runChildLlm(
         // LLMTool structurally (root-cause widening), so no cast is needed.
         const opts = tools.length > 0 ? { tools } : undefined
         const resp = await Effect.runPromise(
-          adapter.complete(msgs, opts).pipe(Effect.timeout(LLM_TIMEOUT_MS)),
+          adapter.complete(msgs, opts).pipe(Effect.timeout(resolveChildLlmTimeout(env))),
         )
         // D23: emit llm_call step trace with token usage.
         // D24: fills costUsd when env-driven pricing is available.
@@ -538,7 +553,7 @@ async function runChildLlm(
       // on the third identical command. Give children a little more room;
       // iteration and tool budgets still bound the loop.
       stuckLoopThreshold: 6,
-      llmTimeoutMs: LLM_TIMEOUT_MS,
+      llmTimeoutMs: resolveChildLlmTimeout(env),
     })
     // `iterations === cap` means the loop ran out of turns instead of the
     // model deciding it was done; the reply is then a progress/hand-off

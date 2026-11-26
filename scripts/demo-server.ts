@@ -10,6 +10,7 @@
  *   GET  /                                内联 HTML 控制台
  *   GET  /health                          健康检查
  *   POST /demo/api/chat                   发消息（代理 /v1/wechat/inbound）
+ *   GET  /demo/api/messages               会话消息（任意客户端发的都能看到）
  *   GET  /demo/api/approvals              待审批列表
  *   POST /demo/api/approvals/:id/approve  批准
  *   POST /demo/api/approvals/:id/deny     拒绝
@@ -277,8 +278,45 @@ async function chat(content: string): Promise<ChatResult> {
   }
 }
 
-async function decide(stepId: string, action: "approve" | "deny"): Promise<unknown> {
-  const res = await callApp("/v1/owner/approvals/" + encodeURIComponent(stepId) + "/" + action, {
+/**
+ * Phase 7 F24: the Demo Console only rendered replies for messages it posted
+ * itself — an owner opening the page could not see a conversation driven from
+ * another client (e.g. `POST /demo/api/chat` by a script). Project the event
+ * stream into user/assistant messages so any client can render the same
+ * transcript.
+ */
+interface TranscriptMessage {
+  readonly role: "user" | "assistant"
+  readonly content: string
+  readonly at: string
+}
+
+const MAX_TRANSCRIPT_MESSAGES = 60
+const MAX_TRANSCRIPT_CHARS = 6000
+
+async function listMessages(): Promise<readonly TranscriptMessage[]> {
+  if (conversationId === undefined) return []
+  const rows = await app.wiring.eventBridge.loadStream(conversationId)
+  const out: TranscriptMessage[] = []
+  for (const row of rows) {
+    if (row.eventType !== "TurnOpened" && row.eventType !== "AssistantMessageProduced") continue
+    const payload = row.payload as { content?: unknown; role?: unknown } | null
+    const content = payload !== null && typeof payload.content === "string" ? payload.content.trim() : ""
+    if (content === "") continue
+    if (row.eventType === "TurnOpened" && payload?.role === "assistant") continue
+    out.push({
+      role: row.eventType === "TurnOpened" ? "user" : "assistant",
+      content:
+        content.length > MAX_TRANSCRIPT_CHARS
+          ? `${content.slice(0, MAX_TRANSCRIPT_CHARS)}…（已截断）`
+          : content,
+      at: row.occurredAt instanceof Date ? row.occurredAt.toISOString() : String(row.occurredAt),
+    })
+  }
+  return out.slice(-MAX_TRANSCRIPT_MESSAGES)
+}
+
+async function decide(stepId: string, action: "approve" | "deny"): Promise<unknown> {  const res = await callApp("/v1/owner/approvals/" + encodeURIComponent(stepId) + "/" + action, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "{}",
@@ -351,6 +389,15 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       worker: { ...workerStatus },
       pendingApprovals: (await listPending()).length,
       now: new Date().toISOString(),
+    })
+    return
+  }
+  if (req.method === "GET" && path === "/demo/api/messages") {
+    sendJson(res, 200, {
+      ok: true,
+      conversationId: conversationId ?? null,
+      worker: { ...workerStatus },
+      messages: await listMessages(),
     })
     return
   }
@@ -489,7 +536,7 @@ const DASHBOARD_HTML = `<!doctype html>
   <section class="chat">
     <div id="transcript" data-testid="transcript" class="transcript"></div>
     <form id="composer" class="composer">
-      <input id="input" data-testid="input" type="text" autocomplete="off" maxlength="2000" placeholder="输入消息，例如：你好" aria-label="消息内容">
+      <input id="input" data-testid="input" type="text" autocomplete="off" maxlength="8000" placeholder="输入消息，例如：你好" aria-label="消息内容">
       <button id="send" data-testid="send" class="primary" type="submit">发送</button>
     </form>
   </section>
@@ -537,6 +584,32 @@ const DASHBOARD_HTML = `<!doctype html>
   function stringify(value) {
     if (value === undefined || value === null) return ''
     return typeof value === 'string' ? value : JSON.stringify(value)
+  }
+  // F24: transcript is server-driven so messages posted by any client show up.
+  var lastKey = ''
+  function renderTranscript(messages) {
+    transcript.textContent = ''
+    if (!messages.length) {
+      bubble('bot', '欢迎使用 Butler v5 Demo 控制台。输入消息开始体验。')
+      return
+    }
+    messages.forEach(function (m) {
+      bubble(m.role === 'user' ? 'user' : 'bot', m.content)
+    })
+  }
+  function refresh() {
+    return fetch('/demo/api/messages').then(function (res) { return res.json() }).then(function (data) {
+      var messages = Array.isArray(data.messages) ? data.messages : []
+      var last = messages[messages.length - 1]
+      var key = String(messages.length) + '|' + (last ? last.at + '|' + last.content.length : '')
+      if (key !== lastKey) {
+        lastKey = key
+        renderTranscript(messages)
+      }
+      var workers = data.worker && typeof data.worker.busy === 'number' ? data.worker.busy : 0
+      if (workers > 0) setStatus('后台执行中…')
+      else if (statusEl.textContent === '后台执行中…') setStatus('就绪')
+    }).catch(function () {})
   }
   function renderPending(items) {
     approvalsEl.textContent = ''
@@ -600,13 +673,14 @@ const DASHBOARD_HTML = `<!doctype html>
     var content = input.value.trim()
     if (!content || busy) return
     bubble('user', content)
+    lastKey = '__local__'
     input.value = ''
     setBusy(true)
     setStatus('处理中…')
     request('/demo/api/chat', { content: content }).then(function (data) {
-      bubble('bot', data.reply || '（空回复）')
       renderPending(Array.isArray(data.pending) ? data.pending : [])
       setStatus(data.finalDecision === 'WaitForApproval' ? '等待审批' : '就绪')
+      return refresh()
     }).catch(function (err) {
       setStatus(err.message, true)
     }).then(function () {
@@ -625,9 +699,9 @@ const DASHBOARD_HTML = `<!doctype html>
       var decision = data.decision || {}
       var label = action === 'approve' ? '已批准' : '已拒绝'
       var detail = stringify(decision.output) || stringify(decision.reason)
-      bubble('bot', label + (detail ? '：' + detail : ''))
       renderPending(Array.isArray(data.pending) ? data.pending : [])
-      setStatus(label)
+      setStatus(label + (detail ? '：' + detail.slice(0, 60) : ''))
+      return refresh()
     }).catch(function (err) {
       setStatus(err.message, true)
     }).then(function () {
@@ -641,8 +715,10 @@ const DASHBOARD_HTML = `<!doctype html>
     setStatus('重置中…')
     request('/demo/api/reset', {}).then(function (data) {
       transcript.textContent = ''
+      lastKey = ''
       renderPending(Array.isArray(data.pending) ? data.pending : [])
       setStatus('会话已重置')
+      return refresh()
     }).catch(function (err) {
       setStatus(err.message, true)
     }).then(function () {
@@ -658,6 +734,8 @@ const DASHBOARD_HTML = `<!doctype html>
   }).catch(function () {})
 
   bubble('bot', '欢迎使用 Butler v5 Demo 控制台。输入消息开始体验。')
+  refresh()
+  setInterval(refresh, 2500)
   input.focus()
 })()
 </script>

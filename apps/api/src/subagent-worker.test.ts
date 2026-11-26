@@ -22,6 +22,7 @@ import {
   runSubagentWorker,
   buildPauseForApprovalReply,
   buildFinishDiagnostics,
+  resolveChildLlmTimeout,
   type SubagentWorkerLogger,
 } from "./subagent-worker.js"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
@@ -425,6 +426,13 @@ describe("subagent worker", () => {
     expect(events.filter((e) => e.eventType === "AssistantMessageProduced")).toHaveLength(0)
 
     handle.stop()
+  })
+
+  it("F25: child LLM timeout honors BUTLER_V5_LLM_TIMEOUT_MS", () => {
+    expect(resolveChildLlmTimeout({})).toBe(30_000)
+    expect(resolveChildLlmTimeout({ BUTLER_V5_LLM_TIMEOUT_MS: "120000" })).toBe(120_000)
+    expect(resolveChildLlmTimeout({ BUTLER_V5_LLM_TIMEOUT_MS: "0" })).toBe(30_000)
+    expect(resolveChildLlmTimeout({ BUTLER_V5_LLM_TIMEOUT_MS: "abc" })).toBe(30_000)
   })
 
   it("F22: diagnostics keep the llm failure reason ahead of the last tool trace", () => {

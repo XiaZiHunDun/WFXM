@@ -252,6 +252,28 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 一次需求触发 3 个子任务：首个失败两次（F20 重试后仍失败）→ 父代理整单重派；第二个验证任务预算耗尽未跑 build → 父代理再派第三个。任务已完成时父代理仍会自派验证，建议后续评估「完成信号 + 单任务验证上限」。
 - 第三个任务实际完成了构建（`.next/BUILD_ID` 与 `chapters/batch` 路由产物齐全），但 `pnpm build` 仍在 120s 被杀；这是 stale `.next` 导致的退出挂起，不是编译失败。
 
+### 6.10 第七轮：Demo Console 可观测（F24/F25）+ 一键续写（批次 I2）
+
+| 批次 | 内容 | 验证 |
+|------|------|------|
+| F24 会话可观测 | 新增 `GET /demo/api/messages`（把 `TurnOpened`/`AssistantMessageProduced` 投影为 user/assistant 消息，最多 60 条、单条 6000 字）；前端每 2.5s 轮询渲染，任何客户端（脚本/浏览器）发起的对话都能看到；输入上限同步 8000 | Playwright：脚本 `POST /demo/api/chat` 后，浏览器直接打开 4522 即渲染「你好」与回复气泡；`/demo/api/messages` 返回 role/content/at + worker 状态 |
+| F25 子代理 LLM 超时 | 子代理把 `llmTimeoutMs` 硬编码 30s，大上下文下必现 `llm failure: LLM timeout after 30000ms`（F22 日志实锤），重试同样超时 | 新增 `resolveChildLlmTimeout(env)`：读 `BUTLER_V5_LLM_TIMEOUT_MS`，默认仍 30s；`Effect.timeout` 与 loop 参数统一取值；单测 4 例（默认/env/0/非法）；4522 以 120s 启动后同一 I2 任务不再超时 |
+| I2 后端 | `POST /api/books/[id]/chapters/generate-batch`：未建章大纲按 seq 取前 N（1-5），建空章→流式生成→落库，NDJSON 事件 start/delta/chapter-done/done/error；无大纲返回 `done created:0` | curl：book2 `count=1` → 新章 1345 字、`{"type":"done","created":1}`；数据清理后恢复 |
+| I2 前端 | 大纲列「一键续写接下来 N 章」：数字输入（默认 1）+ 开始/取消；NDJSON 实时进度；生成中禁用单章生成与批量按钮 | Playwright 8/8：进度文本出现→取消→提示「已取消续写（已生成的章节已保存）」→按钮恢复；全流程跑通后提示「一键续写完成，共 1 章」且章节 1552 字 |
+
+#### 本轮由对话修复的两个前端缺陷（经 WFXM 连续两轮纠正）
+
+| 问题 | 根因 | 修复 |
+|------|------|------|
+| 点「取消」后无任何提示 | abort 触发的是 `TypeError: Failed to fetch`，`isAbortError` 只认 DOMException.AbortError，走了 `setBatchError`；且循环后的 `signal.aborted` 分支到不了 | catch 判定改为 `controller.signal.aborted || isAbortError(err)`，沿用 `cancelNotified` 去重 |
+| 修正判定后仍看不到提示 | `.notice` 渲染在 `selectedChapter === null ? 空态 : 编辑器` 的 else 分支内，未选章节时整块不渲染 | 把 notice 提升到工作台顶部（workspace 头部下方），任何面板/选中状态都可见 |
+
+#### 本轮观察
+
+- 一条「补提示」需求触发 8 个子任务（含父代理自派的多轮验证），耗时显著；完成信号与验证上限仍是下一优先级。
+- 客户端取消后服务端仍会把当前章写完并落库，期间旧服务日志出现 `failed to pipe response / ERR_INVALID_STATE`；建议路由在写入下一段前检查 `req.signal.aborted`，尽早止损。
+- `pnpm build` 退出挂起仍偶发（同一个干净 `.next`，一次 exit 0、两次 timeout 124 但产物完整）；F23 的提示可缓解，但根因仍在 Next 进程句柄。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。
