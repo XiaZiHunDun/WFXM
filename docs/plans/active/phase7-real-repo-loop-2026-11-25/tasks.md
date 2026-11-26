@@ -178,3 +178,10 @@
 - [x] 实测：cap=1 时 `startedTasks` 从 2 降为 1；发现并修复「只守决策路径会被原生工具绕过」
 - [x] LingWen：最后保存时间 + 书架版本号；Playwright 4/4；typecheck、clean build 通过
 - [x] 文档回填 spec §6.14；未提交（等待 owner 指令）
+
+## T26 LingWen 历史版本并排 diff（批次 N）
+- [x] 前端手写行级 LCS diff：左=历史版本、右=当前正文（含未保存改动），删除行 `diff-del`、新增行 `diff-add`、对侧占位对齐
+- [x] 顶部 `+N 行 / -M 行` 汇总；超过 2000 行截断提示；`≤600px` 单列
+- [x] 「对比当前 / 退出对比」按钮，恢复与关闭预览保留，恢复后退出对比
+- [x] 验证：typecheck 通过、clean build exit 0；Playwright 14/14；390px 单列且无横向溢出；数据零污染（6 版本、1 章节）
+- [x] 文档回填 spec §6.15；未提交（等待 owner 指令）
