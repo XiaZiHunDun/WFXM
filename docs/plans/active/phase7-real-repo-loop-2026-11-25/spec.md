@@ -161,6 +161,8 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 | F15 | 审批恢复后续跑预算固定 5 轮，且写类能力审批后立刻回「✅ 已写入」不再续跑；E2-1 批准 edit_file 后只回「本轮不能再调用工具，仅部分完成」 | 写类审批（write_file/edit_file）恢复后保留 exec 工具并续跑，轮次读 `BUTLER_V5_MAX_LOOP_ITERATIONS`；`run_command`/失败 exec 仍只保留只读工具；`edit_file` 同步纳入 exec 工具画像、dev session 授权、intake 判定与 dev 校验 | 单测 3 条（写类保留工具、命令不保留、轮次继承 env）；typecheck + 相关 93+91 测试通过 |
 | F16 | `run_command` 默认 5s 超时，子代理执行 `pnpm build` 被中途杀掉，无法完成构建自检 | 新增 argv 感知超时：pnpm/npm/yarn/npx/next/node/python3 等长任务 120s，其它命令仍 5s；显式 `BUTLER_V5_RUN_COMMAND_TIMEOUT_MS` 优先；能力注册表在调用时按 args 计算超时 | 单测：`pnpm build`/`node --test` → 120s，`ls`/无 argv → 5s；slirp/env 覆盖用例保持通过 |
 | F17 | 父代理已派出子任务并在后台运行时，失败信封仍以「处理失败，请稍后再发一次」开头（本轮 E1 实测），诱导 owner 重发造成重复执行 | 信封支持 `delegated`/`toolCalls` 上下文：已委派 →「任务已交给后台执行…不要原样重发」；已执行工具 →「处理中断，已有 N 次操作，可能部分生效」；`edit_file` 审批 resource 改用文件路径，不再显示会话 id | 单测 2 条信封分支 + `resourceForTool("edit_file")` 断言；相关 57 测试通过 |
+| F18 | 子代理 `pnpm build` 超时后只杀直接子进程，`sh -c next build` 与 node 变成孤儿继续写 `.next`；后续构建长时间挂起且无任何日志（本轮实测同时残留 4 个孤儿构建进程） | `spawnCaptured` 在 POSIX 下 `detached: true` 让子进程自成进程组，abort 时 `kill(-pid, SIGKILL)` 整组回收，失败再退回单进程 kill | 新增单测：父进程派生 30s 孙进程，1.5s 超时后孙进程 PID 已不存在（workspace-tools 11 passed） |
+| F19 | 工具额度用尽后仍注入「任务还没完成，请继续调用工具」（F2b），与「不要再调用工具」自相矛盾；模型连续 3 轮只能回纯文本，浪费 2 次 LLM 调用，且子代理回「工具额度已用尽」被父代理判为未完成而整单重派一次 | 额度用尽时跳过 tool-first 与 delegation-claim 提示，直接接受模型的纯文本总结 | 单测：`maxToolCalls=1` 后纯文本总结不再触发 nudge，`toolCalls=1`、`finalDecision=Respond`（conversation-loop 29 passed） |
 
 ### 6.5 第二轮：LingWen 产品完善（全部经 Web 对话）
 
@@ -175,6 +177,17 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 回归发现：A-2a 的部分改动被后续整文件写入覆盖（设置面板与 ↑↓ 丢失）。已通过对话补回，并在验证脚本中固定检查「AI 检查 / 创作助手 / 自动保存 / 书籍设置」四项均存在。
 - 复测：`pnpm build` 通过（16 条路由）；WFXM 侧 62 个相关单测通过；3210 服务在线。
 - 仍未提交：等待 owner 指令。
+
+### 6.6 第三轮：JSON 备份/恢复 + 全局搜索（批次 F，全部经 Web 对话）
+
+| 批次 | 内容 | 验证 |
+|------|------|------|
+| F1 JSON 备份/恢复 | `GET /api/books/[id]/export/json`（version=1 快照：book/bible/outlines/chapters，不导出 id 与 llm_logs）；`POST /api/books/import/json`（version/title/chapters 校验、事务写入、outline 旧新 id 映射、重名自动加「（导入）」、wordCount 缺失按正文重算） | typecheck/build 通过（24 条路由）；curl：导出 3123 B / 404 正常；导入 201 返回新 id；version=2 与空标题均 400；导入后书 2 章节 1、字数 350、大纲 3、设定 1，与原书一致 |
+| F2 全局搜索（后端） | `GET /api/search?q=&limit=` 跨 chapters/outlines/bible（LIKE + ESCAPE 参数化、JOIN books 过滤孤儿、snippet 命中点前后各 40 字、limit 默认 20 上限 50、`total` 为真实命中总数） | curl：`q=红笔` total=10、空 q 返回空、`q=%` 转义后 0 命中；build 通过含 `/api/search` |
+| F2 全局搜索（UI） | 书架顶部搜索框（300ms 防抖、浮层列表、Esc/点外关闭、无结果文案、过期响应丢弃）；点击章节结果跳 `/books/{id}?chapter={cid}`；工作台首次加载按 `?chapter=` 自动选中章节 | Playwright：输入「红笔」出 10 条 → 点首条跳 `/books/2?chapter=3` → 编辑器载入 423 字且含关键词、章节高亮；无结果文案命中；书籍设置/AI 检查/历史版本/创作助手/新建章节仍在 |
+
+- 本轮对话轮次 3（F1 后端、F2 后端、F2 前端+跳转），未手改 LingWen 源码。
+- 新暴露的 WFXM 缺陷：F18（超时只杀单进程→孤儿构建阻塞后续构建）、F19（额度用尽后仍 nudge 且导致整单重派）；均已在 §6.4 修复并补单测，4522 已重启加载。
 
 ## 7. 边界
 

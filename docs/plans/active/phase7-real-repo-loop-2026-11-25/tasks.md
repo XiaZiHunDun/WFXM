@@ -92,3 +92,18 @@
 - [x] `withLlmFailureEnvelope` 检测 `delegate_to_subagent` / `StartChildRun` trace 并传入上下文
 - [x] `resourceForTool` 支持 `edit_file`（审批问题显示文件路径，不再显示会话 id）
 - [x] 单测 4 条（2 信封分支 + resource + 既有），57 测试通过；typecheck 通过；待提交
+
+## T15 第三轮闭环缺陷（F18–F19）
+- [x] F18 `spawnCaptured`：POSIX `detached: true` + abort 时 `kill(-pid)` 整组回收，杜绝 `pnpm build` 超时后的孤儿构建
+- [x] F18 单测：派生 30s 孙进程 → 1.5s 超时 → 孙进程已退出（workspace-tools 11 passed）
+- [x] F19 工具额度用尽后跳过 tool-first / delegation-claim 提示，避免自相矛盾与整单重派
+- [x] F19 单测：`maxToolCalls=1` 后纯文本总结被接受（conversation-loop 29 passed）
+- [x] 全仓 typecheck 通过；4522 已重启加载新代码
+
+## T16 LingWen 批次 F（JSON 备份/恢复 + 全局搜索，经 Web 对话）
+- [x] F1 后端：`GET /api/books/[id]/export/json` + `POST /api/books/import/json`（校验/事务/id 映射/重名后缀）
+- [x] F1 验证：导出 3123 B、404/400 分支、导入 201 且章节/字数/大纲/设定数量一致
+- [x] F2 后端：`GET /api/search`（三表 LIKE+ESCAPE、JOIN books、snippet、limit≤50、真实 total）
+- [x] F2 UI：书架 300ms 防抖搜索浮层（Esc/点外关闭/无结果）+ 章节结果跳 `?chapter=` + 工作台自动选中
+- [x] Playwright：10 条结果、跳转后正文 423 字、章节高亮、既有功能按钮仍在
+- [x] typecheck/build 通过（24 条路由）；未提交（等待 owner 指令）
