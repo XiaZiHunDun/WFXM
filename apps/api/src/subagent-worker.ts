@@ -257,6 +257,8 @@ export function buildChildSystemPrompt(
     "6. 大文件用 read_file（配合 offset/limit）分段读，不要用 run_command 反复 grep/sed 同一文件；同一条命令不要重复超过两次。",
     "7. 小范围改动优先用 edit_file（oldText 取唯一的原文片段，newText 为替换内容），严禁为了改几行就整文件 write_file；整文件重写会静默丢掉文件里已有的其它功能。只有新建文件或大范围重构才用 write_file。",
     "8. 修改后用 pnpm typecheck 或 pnpm build 自检；自检命令失败时读报错并修，不要原样重跑第三次。",
+    "9. 只做验证/自检的任务：先直接跑 pnpm typecheck 与 pnpm build，再按需读文件；不要把工具预算全花在读大文件上。",
+    "10. 若 pnpm build 已输出 Compiled successfully / 路由表后进程仍不退出而超时，先清理被污染缓存再重试一次：node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"。",
   ].join("\n")
 }
 
@@ -273,6 +275,28 @@ export function isRetryableLlmFailure(result: ConversationLoopResult): boolean {
   if (result.finalDecision !== "Finish") return false
   if (!result.traces.some((t) => t.startsWith("llm failure:"))) return false
   return !result.traces.some((t) => /^(write_file|edit_file)@/.test(t))
+}
+
+/**
+ * F22: build the「诊断」suffix appended to a failed child reply.
+ *
+ * The previous `slice(-2)` picked the last two traces, which are usually two
+ * tool calls — the `llm failure: ...` trace fell off and the owner saw only
+ * `read_file@6…`, unable to tell a provider transport error from a model
+ * mistake. Always put the LLM failure reason first, then the last tool trace.
+ */
+export function buildFinishDiagnostics(
+  finalDecision: ConversationLoopResult["finalDecision"],
+  traces: readonly string[],
+): string {
+  if (finalDecision !== "Finish" || traces.length === 0) return ""
+  const llmFailureTrace = traces.filter((t) => t.startsWith("llm failure:")).pop()
+  const lastToolTrace = traces.filter((t) => !t.startsWith("llm failure:")).slice(-1)
+  const picked = [
+    ...(llmFailureTrace === undefined ? [] : [llmFailureTrace]),
+    ...lastToolTrace,
+  ]
+  return picked.length === 0 ? "" : `\n（诊断：${picked.join("；")}）`
 }
 
 /**
@@ -524,10 +548,13 @@ async function runChildLlm(
     // generic stub reply. Attach the loop's last traces so the parent sees
     // the real reason (e.g. `llm failure: ...`) instead of a bare
     // "调用失败".
-    const finishDiagnostics =
-      loopResult.finalDecision === "Finish" && loopResult.traces.length > 0
-        ? `\n（诊断：${loopResult.traces.slice(-2).join("；")}）`
-        : ""
+    // Phase 7 fix F22: keep the `llm failure:` reason even when it is not
+    // among the last two traces.
+    const finishDiagnostics = buildFinishDiagnostics(loopResult.finalDecision, loopResult.traces)
+    const llmFailureTrace = loopResult.traces.filter((t) => t.startsWith("llm failure:")).pop()
+    if (llmFailureTrace !== undefined) {
+      loopLogger.warn(`[subagent-worker] LLM failure detail: ${llmFailureTrace.slice(0, 300)}`)
+    }
     return {
       content: `${loopResult.reply}${finishDiagnostics}`,
       capped: loopResult.iterations >= MAX_CHILD_ITERATIONS,

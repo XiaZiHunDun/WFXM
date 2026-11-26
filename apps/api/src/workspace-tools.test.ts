@@ -95,6 +95,26 @@ describe("makeReadFileTool", () => {
     expect(text).toContain("输出已截断")
     expect(Buffer.byteLength(text, "utf8")).toBeLessThan(30 * 1024)
   })
+
+  it("F21: reads files above 64KiB instead of refusing them", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-read-"))
+    const lines = Array.from({ length: 4000 }, (_, i) => `line-${i + 1}-${"y".repeat(20)}`)
+    writeFileSync(join(root, "big-source.tsx"), lines.join("\n"))
+    expect(readFileSync(join(root, "big-source.tsx")).byteLength).toBeGreaterThan(64 * 1024)
+    const tool = makeReadFileTool({ workspaceRoot: root })
+    const head = await runTool(tool, { path: "big-source.tsx" }, { timeoutMs: 2000 })
+    expect(head.ok).toBe(true)
+    if (!head.ok) return
+    expect(String(head.output)).toContain("请用 offset/limit 继续读取")
+
+    const page = await runTool(
+      tool,
+      { path: "big-source.tsx", offset: 3998, limit: 3 },
+      { timeoutMs: 2000 },
+    )
+    expect(page.ok).toBe(true)
+    if (page.ok) expect(String(page.output)).toContain("line-4000")
+  })
 })
 
 describe("makeEditFileTool", () => {
@@ -167,6 +187,23 @@ describe("makeEditFileTool", () => {
       { timeoutMs: 2000 },
     )
     expect(noFile.ok).toBe(false)
+  })
+
+  it("F21: edits a file above the 64KiB write cap", async () => {
+    root = mkdtempSync(join(tmpdir(), "ws-edit-"))
+    const filler = Array.from({ length: 4000 }, (_, i) => `const row${i + 1} = ${i + 1}`).join("\n")
+    writeFileSync(join(root, "page.tsx"), `${filler}\nconst MARKER = "old"\n`)
+    expect(readFileSync(join(root, "page.tsx")).byteLength).toBeGreaterThan(64 * 1024)
+    const tool = makeEditFileTool({ workspaceRoot: root })
+    const result = await runTool(
+      tool,
+      { path: "page.tsx", oldText: 'const MARKER = "old"', newText: 'const MARKER = "new"' },
+      { timeoutMs: 2000 },
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(String(result.output)).toContain("1 replacement(s)")
+    expect(readFileSync(join(root, "page.tsx"), "utf8")).toContain('const MARKER = "new"')
   })
 })
 

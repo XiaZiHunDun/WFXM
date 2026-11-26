@@ -55,12 +55,12 @@ export function buildWechatInboundMessages(
     "- get_current_time(): current time in Asia/Shanghai (UTC+8), formatted in Chinese",
     "- greet_with_time(): a Chinese greeting based on the current time of day",
     "- summarize_today(): 24-hour activity summary for this conversation, broken down by event type",
-    "- read_file(path, offset?, limit?): read a UTF-8 text file inside the workspace (max 64KiB; output capped at 24KiB, use offset/limit for large files; path cannot escape the root)",
+    "- read_file(path, offset?, limit?): read a UTF-8 text file inside the workspace (output capped at 24KiB, use offset/limit for large files; path cannot escape the root)",
     "- list_dir(path?): list a workspace directory (read-only; dirs first, hides dotfiles/node_modules/dist). Use this for 列目录/看有哪些包 questions instead of delegating.",
     ...(includeExecTools
       ? [
           "- write_file(path, content): write UTF-8 text to a workspace file (max 64KiB; requires owner confirmation)",
-          "- edit_file(path, oldText, newText, replaceAll?): replace a unique snippet in an existing file without rewriting the whole file (requires owner confirmation)",
+          "- edit_file(path, oldText, newText, replaceAll?): replace a unique snippet in an existing file without rewriting the whole file (works on large files; requires owner confirmation)",
           "- run_command(argv): run an allowlisted command with no shell (cat/date/echo/git/grep/head/ls/node/pnpm/pwd/python3/rg/wc); args cannot contain '..' or start with '/'",
         ]
       : []),

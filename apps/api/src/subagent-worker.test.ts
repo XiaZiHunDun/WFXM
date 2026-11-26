@@ -21,6 +21,7 @@ import { enqueueOutbox } from "@butler/persistence/outbox.js"
 import {
   runSubagentWorker,
   buildPauseForApprovalReply,
+  buildFinishDiagnostics,
   type SubagentWorkerLogger,
 } from "./subagent-worker.js"
 import type { LLMAdapter, LLMAssistantResponse } from "@butler/adapters"
@@ -424,6 +425,18 @@ describe("subagent worker", () => {
     expect(events.filter((e) => e.eventType === "AssistantMessageProduced")).toHaveLength(0)
 
     handle.stop()
+  })
+
+  it("F22: diagnostics keep the llm failure reason ahead of the last tool trace", () => {
+    const diagnostic = buildFinishDiagnostics("Finish", [
+      "run_command@5: ok",
+      "read_file@6: lines 640-899 of 2217",
+      "llm failure: socket hang up",
+    ])
+    expect(diagnostic).toContain("llm failure: socket hang up")
+    expect(diagnostic).toContain("read_file@6")
+    expect(diagnostic.indexOf("llm failure")).toBeLessThan(diagnostic.indexOf("read_file@6"))
+    expect(buildFinishDiagnostics("Respond", ["llm failure: x"])).toBe("")
   })
 
   it("F20: retries the child run once when the LLM transport fails before any write", async () => {

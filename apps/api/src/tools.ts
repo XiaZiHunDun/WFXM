@@ -525,7 +525,7 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
   {
     name: "read_file",
     description:
-      "Read a UTF-8 text file inside the butler workspace. Pass `path` relative to the workspace root (absolute paths outside the workspace are rejected). Supports `offset` (1-based start line) and `limit` (max lines) for large files; output is capped at 24KiB and truncated with a hint to page with offset/limit. Max file size 64KiB.",
+      "Read a UTF-8 text file inside the butler workspace. Pass `path` relative to the workspace root (absolute paths outside the workspace are rejected). Supports `offset` (1-based start line) and `limit` (max lines) for large files; output is capped at 24KiB and truncated with a hint to page with offset/limit. Files above 64KiB are readable via paging.",
     parameters: {
       type: "object",
       properties: {
@@ -572,7 +572,7 @@ export const WEIBUTLER_LLM_TOOLS: readonly LLMTool[] = [
   {
     name: "edit_file",
     description:
-      "Replace a unique snippet in an existing workspace file without rewriting the whole file. Pass `path`, the exact `oldText` to find, and the `newText` to substitute. Fails when `oldText` is missing or matches more than once (add more context, or set `replaceAll: true`). Prefer this over `write_file` for small changes to large files. Max 64KiB result. Requires owner confirmation before executing.",
+      "Replace a unique snippet in an existing workspace file without rewriting the whole file. Pass `path`, the exact `oldText` to find, and the `newText` to substitute. Fails when `oldText` is missing or matches more than once (add more context, or set `replaceAll: true`). Prefer this over `write_file` for small changes to large files. Max 2MiB result. Requires owner confirmation before executing.",
     parameters: {
       type: "object",
       properties: {

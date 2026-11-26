@@ -125,3 +125,20 @@
 - [x] 单测：首次 complete 失败、第二次成功 → 重试后回复送达（subagent-worker 19 passed）
 - [x] 修正 2 条既有测试「最后一条消息即 tool 结果」的假设（预算提示会追加 system 消息）
 - [x] 全仓 typecheck 通过；4522 已重启加载；未提交（等待 owner 指令）
+
+## T19 LingWen 批次 H（响应式 + 编辑器排版）+ F21
+- [x] H1 工作台 ≤900px「大纲｜编辑｜设定」切换（按列容器显隐）；书架 ≤600px 单列/浮层全宽/无横向滚动
+- [x] H2 编辑器排版：字号 14/16/18、行距 1.6/1.8/2.0、专注模式；localStorage `lingwen.editor.prefs` 持久化
+- [x] H3 修复 4 个直接子 panel 导致右栏折行：右栏包 `.right-column`，桌面恢复 260/560/300 三栏
+- [x] 验证：`pnpm typecheck` 通过；清 `.next` 后 `pnpm build` exit 0；Playwright 25/25（三种视口 + 排版持久化 + 专注模式）
+- [x] F21 `edit_file` 结果上限 64KiB→2MiB、`read_file` 硬上限 64KiB→4MiB 且大文件可读可分页；描述与提示同步
+- [x] F21 单测：workspace-tools 13 passed（新增 >64KiB 读取/编辑 2 条）；chain-undo 9 + bubblewrap 5 passed；typecheck 通过
+- [x] 4522 已重启加载 F21；3210 已重启加载新构建；未提交（等待 owner 指令）
+
+## T20 LingWen 批次 I1（章节批量操作）+ F22/F23
+- [x] 后端 `POST /api/books/[id]/chapters/batch`：delete / create-from-outline、事务、负增量、skipped、上限 200、400/404
+- [x] 前端：章节/大纲复选框、全选、批量删除（confirm）、批量建章（已建章禁用）；旧单章功能保留
+- [x] 验证：curl 覆盖 created/skipped/400/404/跨书；Playwright 14/14；book2 数据已恢复
+- [x] F22 `buildFinishDiagnostics`：llm failure 原因置顶并写日志；新增单测（worker 20 passed）
+- [x] F23 子代理提示：验证任务先跑门禁、stale `.next` 清理提示；prompt 单测 2 条（共 22 passed）
+- [x] 全仓 typecheck 通过；4522 已重启加载 F22/F23；未提交（等待 owner 指令）

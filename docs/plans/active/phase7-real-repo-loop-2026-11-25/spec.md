@@ -201,6 +201,57 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 
 - 本轮对话轮次 4（G1/G2/G3/G4），另有 1 次因子代理 LLM 传输失败未落地（G4 首次），重发后完成；该失败直接促成 F20。
 
+### 6.8 第五轮：窄屏响应式 / 编辑器排版（批次 H）+ F21
+
+| 批次 | 内容 | 验证 |
+|------|------|------|
+| H1 响应式工作台 | ≤900px 顶部「大纲｜编辑｜设定」切换条，按列容器单面板显示；≤600px 书架书卡单列、搜索浮层全宽、按钮换行、无横向滚动 | Playwright（800px）：默认只显示编辑列，切换三列互斥；右栏 4 个板块（润色/设定集/体检/创作助手）全部可见；390px 书架 `scrollWidth=clientWidth=390`、`.book-grid` 单列 |
+| H2 编辑器排版 | 字号 14/16/18、行距 1.6/1.8/2.0、专注模式（隐藏两侧列、可一键退出）；localStorage `lingwen.editor.prefs` 持久化 | Playwright：默认 16px → 选 18px/2.0 后 `font-size:18px`、`line-height:36px`；localStorage 命中；刷新后仍为 18px/2.0；专注模式只剩编辑列且退出恢复 |
+| H3 三栏布局回归 | 修复 `.workspace-grid` 直接子元素为 4 个 panel 导致右栏第 2 个 panel 折行到左下 260px：右栏改为单个 `.right-column` 容器，桌面端严格三栏 | Playwright：3 个子元素同一行，宽度 260/560/300；右栏标题顺序 润色→设定集→体检→创作助手；`pnpm typecheck` 通过、`pnpm build` 通过（25 条路由） |
+
+#### F21 edit_file/read_file 的 64KiB 硬上限（本轮实测暴露）
+
+| 项 | 内容 |
+|----|------|
+| 现象 | 工作台 `page.tsx` 达 82KB 后，子代理无法用 `edit_file` 修改（`edited file exceeds 65536 bytes`），也不能整文件 `read_file`（`file exceeds 65536 bytes`，`offset/limit` 同样先被拒）；它改用 `node -e` 临时 patch 脚本改文件，绕过唯一片段校验与 undo 快照 |
+| 根因 | `MAX_WRITE_BYTES=64KiB` 被同时用于 `write_file` 的入参与 `edit_file` 的**结果文件大小**；`read_file` 的 64KiB 判断在分页之前 |
+| 修复 | `edit_file` 结果上限改为 `MAX_EDIT_RESULT_BYTES=2MiB`；`read_file` 硬上限改为 `MAX_READ_FILE_BYTES=4MiB`，超出仅提示用 `run_command` 分段，64KiB~4MiB 直接按 24KiB 分页返回；工具描述与主代理提示同步 |
+| 验证 | 新增单测 2 条（>64KiB 文件可读、可分页、可 edit）；`workspace-tools.test.ts` 13 passed、chain-undo 9 + bubblewrap 5 passed；全仓 typecheck 通过；4522 已重启 |
+
+#### 本轮观察（未单独修）
+
+- 一次需求触发 3 个 developer 子任务：首个因 `run_command` 诊断失败→F20 自动重试成功，随后父代理又自派了两次“验证”任务，第二个验证任务把工具额度耗尽并回报“额度用尽”。任务已完成后反复自派验证仍会浪费预算，暂记为观察项。
+- `pnpm build` 在被上次超时击杀的 `.next` 污染后会「编译成功但不退出」（timeout 124，产物与路由表完整）；`rm -rf .next` 后 exit 0。子代理需要用 `node -e` 清理（`run_command` 白名单没有 rm），建议后续评估是否提供安全的缓存清理手段。
+
+### 6.9 第六轮：章节批量操作（批次 I1）+ F22/F23
+
+| 批次 | 内容 | 验证 |
+|------|------|------|
+| I1 后端 | 新增 `POST /api/books/[id]/chapters/batch`：`delete`（事务内逐条删、按正文字数记负增量、跨书/不存在计 skipped）/ `create-from-outline`（按大纲建空章、seq 递增、已建章大纲跳过、返回新 id）；单次上限 200、id 去重、非法 action/数组 400、书不存在 404 | curl：`create [8,9] → {created:2, ids:[6,7]}`；重复 → `{created:0, skipped:2}`；`delete [6,7,999,6] → {deleted:2, skipped:1}`；非法 action/`[0,-1]` 均 400；书 9999 404；跨书 id → skipped |
+| I1 前端 | 章节列表复选框 + 全选/取消 + `批量删除（已选 N）`（confirm 二次确认）；大纲列表复选框 + `批量建章（已选 N）`（已建章大纲禁用）；旧单章删除/↑↓/按大纲建章保留 | Playwright 14/14：3 章全选→取消 1 条→批量删 2 条后只剩「红笔」且选择清零；勾选大纲「空号」建章成功后列表 +1；旧 ↑↓ 按钮仍在；800px 大纲 tab 复选框可用；清理后 book2 恢复 1 章 |
+
+#### F22 失败诊断丢失 LLM 失败原因
+
+| 项 | 内容 |
+|----|------|
+| 现象 | 子代理失败回复只显示「（诊断：read_file@6: …）」，看不到 `llm failure:` 原因；排查只能靠猜 provider 还是模型 |
+| 根因 | `traces.slice(-2)` 取最后两条，通常是两次工具调用，`llm failure: …` 排在它们之前被裁掉；日志又只打印回复前 80 字 |
+| 修复 | 抽出 `buildFinishDiagnostics(finalDecision, traces)`：`llm failure:` 置顶 + 最后一条工具 trace；命中时 `logger.warn` 输出失败详情（前 300 字） |
+| 验证 | 新增单测（失败原因在工具 trace 之前、非 Finish 返回空）；subagent-worker 20 passed |
+
+#### F23 验证类子任务把预算花在读文件上
+
+| 项 | 内容 |
+|----|------|
+| 现象 | 父代理派出的「验证」子任务连续 `read_file`/`run_command` 读大文件，20 次工具预算耗尽后回「无法再执行 pnpm build」，父代理只能再派第三个任务 |
+| 修复 | 子代理提示新增两条：验证/自检任务先直接跑 `pnpm typecheck` / `pnpm build` 再看文件；`pnpm build` 已输出 `Compiled successfully` 后仍不退出（stale `.next`）时用 `node -e` 清理 `.next` 再重试一次 |
+| 验证 | prompt 单测新增两条断言；subagent-worker-prompt 2 + subagent-worker 20 passed；4522 已重启 |
+
+#### 本轮观察
+
+- 一次需求触发 3 个子任务：首个失败两次（F20 重试后仍失败）→ 父代理整单重派；第二个验证任务预算耗尽未跑 build → 父代理再派第三个。任务已完成时父代理仍会自派验证，建议后续评估「完成信号 + 单任务验证上限」。
+- 第三个任务实际完成了构建（`.next/BUILD_ID` 与 `chapters/batch` 路由产物齐全），但 `pnpm build` 仍在 120s 被杀；这是 stale `.next` 导致的退出挂起，不是编译失败。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

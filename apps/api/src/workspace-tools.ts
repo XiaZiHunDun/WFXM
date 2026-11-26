@@ -47,8 +47,16 @@ export const ALLOWED_RUN_COMMANDS = [
   "wc",
 ] as const
 
-const MAX_READ_BYTES = 64 * 1024
+/**
+ * Phase 7 fix F21: a 2,000-line TSX page (~82KB) could not be read whole or
+ * edited at all — both tools hard-failed above 64KiB, so the child worked
+ * around it by writing temporary patch scripts. read_file now reads large
+ * files and truncates to the paging hint; edit_file caps the *result* at a
+ * size that comfortably fits real source files.
+ */
+const MAX_READ_FILE_BYTES = 4 * 1024 * 1024
 const MAX_WRITE_BYTES = 64 * 1024
+const MAX_EDIT_RESULT_BYTES = 2 * 1024 * 1024
 const MAX_COMMAND_OUTPUT_BYTES = 32 * 1024
 
 /**
@@ -276,8 +284,11 @@ export function makeReadFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
         try {
           const st = statSync(resolved.path)
           if (!st.isFile()) return { ok: false, reason: "path is not a file" }
-          if (st.size > MAX_READ_BYTES) {
-            return { ok: false, reason: `file exceeds ${MAX_READ_BYTES} bytes` }
+          if (st.size > MAX_READ_FILE_BYTES) {
+            return {
+              ok: false,
+              reason: `file exceeds ${MAX_READ_FILE_BYTES} bytes（请用 run_command 分段读取，如 sed -n '1,200p' <path>）`,
+            }
           }
           const buf = readFileSync(resolved.path)
           if (buf.includes(0)) return { ok: false, reason: "refusing binary file" }
@@ -478,8 +489,8 @@ export function makeEditFileTool(ctx: WorkspaceToolContext = {}): ToolDefinition
             const at = before.indexOf(oldText)
             return before.slice(0, at) + newText + before.slice(at + oldText.length)
           })()
-      if (Buffer.byteLength(after, "utf8") > MAX_WRITE_BYTES) {
-        return { ok: false, reason: `edited file exceeds ${MAX_WRITE_BYTES} bytes` }
+      if (Buffer.byteLength(after, "utf8") > MAX_EDIT_RESULT_BYTES) {
+        return { ok: false, reason: `edited file exceeds ${MAX_EDIT_RESULT_BYTES} bytes` }
       }
 
       recordWriteUndo({ ctx, resolvedPath: resolved.path, beforeContent: before })

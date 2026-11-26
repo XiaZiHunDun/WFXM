@@ -14,6 +14,10 @@ describe("buildChildSystemPrompt", () => {
     // Phase 7 fix F12: avoid stuck-loop aborts on repeated inspection commands.
     expect(prompt).toContain("不要用 run_command 反复")
     expect(prompt).toContain("不要原样重跑第三次")
+    // Phase 7 fix F23: verification tasks must run the gate first; stale .next
+    // makes later builds hang, so the child needs a cleanup hint.
+    expect(prompt).toContain("先直接跑 pnpm typecheck 与 pnpm build")
+    expect(prompt).toContain("rmSync('.next'")
   })
 
   it("tells a tool-less child to answer in prose only", () => {
