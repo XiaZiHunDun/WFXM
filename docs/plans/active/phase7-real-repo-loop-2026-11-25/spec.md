@@ -399,6 +399,19 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 子代理新建交互时没有复用仓库里已有的「切换章节前确认」保护，首版实现能通过它自己的 typecheck/build 却会丢数据——纯构建门禁抓不到交互语义回归，必须靠浏览器端行为断言（本轮用临时书验证后删除）。
 - 推送期间 mihomo 代理多次抖动（`Connection timed out during banner exchange`），WFXM 重试后成功，LingWen 连续失败；这是环境问题，不影响本地提交。
 
+### 6.21 第十八轮：工作台全局命令面板（批次 T）
+
+| 内容 | 验证 |
+|------|------|
+| LingWen 工作台新增「命令」按钮 + `Cmd/Ctrl+K` 命令面板：浮层 + 遮罩、Esc/点遮罩关闭、搜索框自动聚焦、按名称/关键词过滤、↑↓ 移动高亮、Enter 执行、hover 改选中、无匹配「未找到命令」、无选中章节时依赖章节的命令置灰；12 条命令全部复用现有处理函数（不新增后端） | `pnpm typecheck` 通过；clean build 产物完整（29 条路由，exit 124 属已知）；Playwright **15/15**：按钮/快捷键开关、聚焦、12 条命令、过滤、空态、↑↓/↑ 往返、Enter 执行「书籍设置」、Esc、点遮罩、章节选中后既有按钮与导出链接仍在、390px 无横向溢出、零 JS 异常 |
+| 交互缺陷（子代理首版）：↑↓ 高亮不动，始终停在第一条 | 根因：`paletteCommands` 的 `useMemo` 依赖里有未 memo 化的普通函数（`handleCreateChapter`/`handleOpenReader`/`handleReview`/`handleStartPolish`/`openBookSettings`/`cancelBookSettings`），每次渲染重算 → `paletteFiltered` 每次都是新数组 → 「重置选中项」effect（依赖 `[paletteOpen, paletteFiltered]`）每次渲染都把 `paletteIndex` 打回第一个可执行项。修复：处理函数收进 `paletteHandlersRef`、useMemo 依赖收敛到真正影响内容的稳定值；重置 effect 依赖改为 `[paletteOpen, paletteQuery]`。复测 ↑↓ 与 ↑ 往返通过 |
+| 数据与回归 | 演示库 book2 仍 1 章（id=3，353 字，draft）、无新增版本/会话；专注模式仅写 localStorage；既有 Cmd/Ctrl+S 保存、阅读模式 Esc、章节点击载入 423 字正文均正常 |
+
+#### 本轮观察
+
+- 子代理写出的 React 代码能过 typecheck/build，但 effect 依赖写错导致键盘交互静默失效——这类问题只能由浏览器行为断言发现，再次印证「构建门禁 ≠ 交互正确」。
+- 本轮为纯前端增量，只读 + Playwright 即可闭环；子代理两轮（实现 + 修复）分别耗时约 90s 与 50s。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

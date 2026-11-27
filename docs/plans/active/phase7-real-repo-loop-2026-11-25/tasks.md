@@ -226,3 +226,10 @@
 - [x] F30 `LONG_RUNNING_COMMAND_TIMEOUT_MS` 120s → 180s，同步 tool-boundary 断言（9 passed）
 - [x] 验证：typecheck 通过、clean build 产物完整（exit 124 挂起属已知）；Playwright 17/17；临时书已删除
 - [x] 文档回填 spec §6.20；WFXM 已推送，LingWen 因代理抖动待重试推送
+
+## T32 工作台全局命令面板（批次 T）
+- [x] 经 Web 对话新增「命令」按钮 + Cmd/Ctrl+K 面板：遮罩/Esc 关闭、搜索过滤、↑↓+Enter、hover 选中、空态、无章节置灰
+- [x] 12 条命令复用既有处理函数（新建/保存/历史版本/检查/润色/导出本章/导出 JSON/阅读/专注/设置/统计/返回书架），未新增后端
+- [x] 修复首版 ↑↓ 失效：命令 useMemo 依赖未 memo 化函数 → 每次渲染重置选中项；改用 handlersRef + 重置 effect 依赖 `[paletteOpen, paletteQuery]`
+- [x] 验证：typecheck 通过、clean build 产物完整（exit 124 属已知）；Playwright 15/15；390px 无溢出；演示数据零写入
+- [x] 文档回填 spec §6.21；未提交（等待 owner 指令）
