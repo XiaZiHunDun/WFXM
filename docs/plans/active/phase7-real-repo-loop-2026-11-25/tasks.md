@@ -309,3 +309,12 @@
 - [x] 验证：typecheck、clean build 通过；curl 覆盖两次复制命名、字段/章节/大纲/设定一致、改删副本章不影响原书、404/400；副本已删除
 - [x] Playwright 21/21（1440px + 390px：复制按钮、toast、列表刷新、副本工作台 1 章、既有入口保留、无横向溢出）；副本已删除
 - [x] 文档回填 spec §6.29，记录「子代理预算耗尽跳过 build」观察；未提交（等待 owner 指令）
+
+## T41 写作统计 CSV 导出（批次 AB，口语折中需求）
+- [x] `src/lib/stats-csv.js`：`buildDailyStatsCsv`（BOM、CRLF、补零、升序、RFC4180 转义）、`parseDaysParam`（1–365，空值默认 30）、`escapeCsvField`
+- [x] `GET /api/stats/export?days=N`：复用 `repo.dailyWordCounts`、非法 400、`Content-Disposition: lingwen-stats-{days}days.csv`
+- [x] `/stats` 页「导出 CSV」按钮：blob 下载、导出中禁用、失败可见提示、390px 不溢出
+- [x] `tests/stats-csv.test.mjs` 6 条；`pnpm test` 66/66
+- [x] 验证：typecheck、clean build 通过；curl 覆盖 30/7 天行数、BOM、升序、文件头、非法 days 400、与 `/api/stats/daily` 逐日一致
+- [x] Playwright 14/14（1440px + 390px：按钮、下载文件名、BOM、30 行、升序、返回书架、无横向溢出）
+- [x] 文档回填 spec §6.30，记录新缺陷候选 F36（父代理声称派发但 0 工具调用仍未纠正）；未提交（等待 owner 指令）

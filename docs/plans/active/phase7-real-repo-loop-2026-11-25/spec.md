@@ -542,6 +542,22 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 
 - 子代理在工具预算耗尽前**跳过 `pnpm build`**，回复里如实标注「未验证」，但父代理首轮只转述「已开工」；漏掉的 `initDb()` 只有在真实请求时才 500。说明「子代理自检门禁」仍是软约束：需要 owner 只读核查兜底，与 F32 的自动续跑场景不同（本轮不是门禁红灯，而是根本没跑到门禁）。
 
+### 6.30 第二十六轮：写作统计 CSV 导出（批次 AB，口语折中需求）
+
+| 内容 | 验证 |
+|------|------|
+| 需求口吻同批次 V/W/Y（正文口语 + 4 条验收点）；**首轮父代理声称已派发但 0 次工具调用**（见 F36），第二轮指出后真实派发（`toolCalls=5`，`startedTasks` 5→6） | `/demo/api/status` 首轮 `busy=0` 且 `startedTasks` 不变；第二轮 `busy=1` 并出现未跟踪文件 |
+| LingWen 新增：`src/lib/stats-csv.js`（`buildDailyStatsCsv` / `parseDaysParam` / `escapeCsvField`，BOM + RFC4180 转义 + 补零升序）、`GET /api/stats/export?days=N`（1–365，默认 30，非法 400；复用 `repo.dailyWordCounts`）、`/stats` 「导出 CSV」按钮（下载中禁用、失败可见提示、`flex-wrap` 容器）、`tests/stats-csv.test.mjs` 6 条 | `pnpm test` **66/66**；`tsc --noEmit` 通过；`rm -rf .next && pnpm build` 通过（路由表含 `/api/stats/export`） |
+| API 实测 | 默认 30 天：`text/csv; charset=utf-8`、`attachment; filename="lingwen-stats-30days.csv"`、BOM、表头 `日期,字数`、30 行数据、日期严格升序、首行 `2026-10-29,0`、末行当天；`days=7` 7 行；`0/366/abc/1.5` → 400；空 `days=` 回落默认 30；同一窗口与 `/api/stats/daily?days=30` 逐日数字一致 |
+| UI（Playwright **14/14**，1440px + 390px） | 按钮与「返回书架」入口存在；点击触发下载 `lingwen-stats-30days.csv`，内容带 BOM、表头+30 行、日期升序；两种视口无横向溢出 |
+| 数据 | 导出为只读操作，未新增/修改任何书与写作记录；演示库仍 2 本 |
+
+#### 本轮暴露的 WFXM 问题
+
+| 候选编号 | 现象 | 证据 | 定级 |
+|---|---|---|---|
+| F36 | **委派声明再次漏网**：父代理回复「已在后台让 developer 动手」，但本轮 `toolCalls=0`、`workerBusy=0`、`startedTasks` 不变，工作区零改动；F11 的 `delegationClaimGuard` 本次未纠正（首轮即收尾）。owner 需再发一条「状态显示没有任务在跑」才真正派发 | 首轮 `/demo/api/chat` 返回 `toolCalls=0`、`workerBusy=0`；`/demo/api/status` `startedTasks=5`；第二轮 `toolCalls=5`、`startedTasks=6` | P2（待修） |
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。
