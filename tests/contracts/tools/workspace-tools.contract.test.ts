@@ -119,11 +119,14 @@ describe("read_file contract", () => {
     expect(reasonOf(result)).toBe("refusing binary file")
   })
 
-  it("rejects files above the 64KiB budget", async () => {
-    writeBytes(tmp.root, "big.txt", Buffer.alloc(READ_LIMIT_BYTES + 1, 0x61))
+  // F21 raised the read_file hard cap to 4MiB (the 64KiB budget only applies to writes).
+  const READ_FILE_HARD_LIMIT_BYTES = 4 * 1024 * 1024
+
+  it("rejects files above the 4MiB hard budget", async () => {
+    writeBytes(tmp.root, "big.txt", Buffer.alloc(READ_FILE_HARD_LIMIT_BYTES + 1, 0x61))
     const result = await call(makeReadFileTool({ workspaceRoot: tmp.root }), { path: "big.txt" })
     expect(result.ok).toBe(false)
-    expect(reasonOf(result)).toContain(`file exceeds ${READ_LIMIT_BYTES} bytes`)
+    expect(reasonOf(result)).toContain(`file exceeds ${READ_FILE_HARD_LIMIT_BYTES} bytes`)
   })
 
   it("returns empty output for an empty file", async () => {
@@ -231,6 +234,8 @@ describe("run_command contract", () => {
     { label: "non-allowlisted program", args: { argv: ["rm", "-rf", "x"] }, fragment: "not allowed" },
     { label: "arg with parent traversal", args: { argv: ["cat", "../x"] }, fragment: "outside the workspace" },
     { label: "absolute arg", args: { argv: ["cat", "/etc/passwd"] }, fragment: "outside the workspace" },
+    // F28: inline-script strings with JS spread ("...") get an actionable hint.
+    { label: "inline script with spread", args: { argv: ["node", "-e", "console.log({...a})"] }, fragment: "改用 edit_file" },
   ]
 
   for (const tc of validateCases) {

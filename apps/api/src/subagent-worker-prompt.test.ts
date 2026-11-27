@@ -21,6 +21,10 @@ describe("buildChildSystemPrompt", () => {
     // F26: self-tests must not leave rows behind in the app's real database.
     expect(prompt).toContain("不要污染仓库数据")
     expect(prompt).toContain("残留 id")
+    // F28: do not patch source via inline run_command scripts; the arg guard
+    // rejects strings that look like paths (e.g. "/api/...").
+    expect(prompt).toContain("不要用 run_command 跑 node -e/sed/perl")
+    expect(prompt).toContain("不要重试同类命令")
   })
 
   it("tells a tool-less child to answer in prose only", () => {

@@ -349,6 +349,19 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 一条需求触达 2 个子任务（实现 + 补充），正好卡在 F27 默认上限 2，未被截断，也未出现重复执行。
 - `todayWords` 只有 3 字，进度条显示 0%，是四舍五入后的正常结果；验证脚本用同一公式断言，不靠肉眼。
 
+### 6.17 第十四轮：章节状态 draft/final（批次 P）+ F28/F29
+
+| 内容 | 验证 |
+|------|------|
+| LingWen 章节状态落地：`normalizeChapterStatus` 纯函数（空值→draft、仅接受 draft/final、其它→null）；`PATCH /api/chapters/[id]` 传非法 status 返回 400 且不落库；GET 列表/详情空值统一输出 draft；单章与批量建章默认 draft；章节项加「草稿/定稿」徽章（`stopPropagation` + PATCH + 就地更新 + notice），工具条加「只看未定稿」开关（筛选不清空编辑器） | `pnpm typecheck` 通过；`pnpm test` 15/15；clean `pnpm build` exit 0；Playwright **18/18**：非法值 400、默认草稿、点徽章切定稿且编辑器内容不变（423 字）、落库 final、筛选后隐藏且编辑器保留、`aria-pressed` 正确、切回草稿、批量/AI/历史版本按钮仍在、0 控制台错误 |
+| F28 `run_command` 路径校验误伤内联脚本：`validateRunCommandArgs` 对含 `..`/以 `/` 开头的参数一律拒绝，而 JS 展开 `...prev`、URL 字符串属于正常代码，错误文案只有「arg is outside the workspace」，子代理误以为要换别的写法并反复尝试 | 错误文案追加「若这是内联脚本里的字符串/URL，请改用 edit_file 修改文件，不要用 run_command 打补丁」；子代理提示新增第 12 条：改源码只用 edit_file/write_file、禁用内联脚本打补丁、被拒后不重试同类命令、预算优先花在写入上；契约测试新增 `...` 展开用例，prompt 单测 2 条断言 |
+| F29 遗留失败契约测试：F21 把 `read_file` 硬上限提到 4MiB 后，`workspace-tools.contract.test.ts` 仍断言「64KiB 就拒绝读取」，测试一直红着 | 读上限用例改为 4MiB+1 并断言新文案；`workspace-tools` 契约 48 passed、prompt 2 passed，合计 50 passed；全仓 typecheck 通过 |
+
+#### 本轮观察
+
+- 首轮子代理把 20 次工具额度耗在读取 2782 行页面与后端改动上，前端未落地，但**如实汇报了「部分完成」**（F2/F19 生效，没有谎报）；补发一轮「只做三处 edit_file」后一次通过。大文件多改动任务需要「先写后验、预算给写入」的显式提示，已写进 F28。
+- 子代理把「内联脚本打补丁」当作批量修改的捷径，而该捷径被路径校验拒绝且提示不可执行——错误文案决定模型下一步，这类「拒绝但不可行动」的错误应统一补齐下一步指引。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

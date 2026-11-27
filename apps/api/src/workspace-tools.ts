@@ -573,7 +573,10 @@ export function validateRunCommandArgs(
   }
   for (const a of argv.slice(1)) {
     if (a.includes("..") || a.startsWith("/")) {
-      return { ok: false, reason: `arg is outside the workspace: ${a}` }
+      return {
+        ok: false,
+        reason: `arg is outside the workspace: ${a}（若这是内联脚本里的字符串/URL，请改用 edit_file 修改文件，不要用 run_command 打补丁）`,
+      }
     }
   }
   return { ok: true, argv }

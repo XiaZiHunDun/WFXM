@@ -194,3 +194,12 @@
 - [x] 书架「写作统计」入口 + 页面「返回书架」
 - [x] 验证：typecheck 通过、clean build exit 0；Playwright 21/21；390px 无溢出；数据零写操作
 - [x] 文档回填 spec §6.16；未提交（等待 owner 指令）
+
+## T28 章节状态 draft/final（批次 P）+ F28/F29
+- [x] `normalizeChapterStatus` 纯函数 + PATCH 非法 400 不落库 + GET 空值输出 draft + 新建默认 draft
+- [x] UI：草稿/定稿徽章（stopPropagation、PATCH、就地更新、notice）+「只看未定稿」筛选（不清空编辑器）
+- [x] `tests/chapter-status.test.mjs` 4 条；`pnpm test` 15/15；typecheck/build 通过
+- [x] F28 `run_command` 拒绝文案补「改用 edit_file」指引 + 子代理提示第 12 条（禁内联脚本打补丁、被拒不重试）
+- [x] F29 修复 F21 遗留的 `read_file` 64KiB 契约断言 → 4MiB；契约 48 + prompt 2 = 50 passed
+- [x] Playwright 18/18（徽章切换、筛选、编辑器保留、既有按钮回归）；4522 与 3210 已重启加载
+- [x] 文档回填 spec §6.17；未提交（等待 owner 指令）
