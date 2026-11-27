@@ -633,6 +633,24 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 | 新增 `collectGitEvidence(root)`：`git status --short` + `git diff --stat`（4s 超时、非 git 目录/失败静默），完成回合自动附「工作区 git status」「git diff --stat」 | `subagent-worker.test.ts` **25 passed**；全仓 typecheck 通过 |
 | 局限（P3） | 证据是文件级/行数级：模型改了同一文件的 A 处却声称改了 B 处，只能靠 diff 人工对照；后续可让回复附带 `git diff` 片段 |
 
+### 6.36 第三十轮：从本章提取设定建议（批次 AG）+ F37 实测
+
+背景：设定集是「记得住」的底座，但作者基本不手填——书架演示书只有 1 条设定。本批让 agent 从章节正文自动抽取人物/地点/物品/组织，作者勾选后一键入库，把「读到什么 → 记住什么」打通。
+
+| 内容 | 验证 |
+|------|------|
+| F37 实测（先于本批交付） | 本轮子代理完成回复末尾自动出现「落盘核对：write_file×0、edit_file×1、run_command×10；改动文件：src/lib/bible-extract.js」+「工作区 git status：…」+「git diff --stat：1 file changed, 131 insertions(+)」——证据来自工具轨迹而非模型自述 |
+| `src/lib/bible-extract.js`（新增纯函数）：`buildBibleExtractPrompt`（正文 ≤6000 字、已有标题 ≤60 条、要求 JSON 数组 ≤8 项）、`parseBibleCandidates`（去 ``` 围栏/前后杂字、容忍 candidates/items/data 包装、分类别名归一、title≤20 / content≤80、按标题忽略空白大小写去重、过滤已有设定、返回 skippedDuplicates） | 新增 `tests/bible-extract.test.mjs` 11 条；`pnpm test` **103/103**；typecheck、clean build 通过 |
+| `POST /api/chapters/[id]/extract-bible`：空正文 400、LLM 未配置 400、章节不存在 404、id 非法 400、LLM 失败或非 JSON 502、成功写 `llm_logs(kind='extract-bible')`，返回 `{ candidates, skippedDuplicates }`，不落库 | API 实测见下 |
+| 工作台设定集面板：「从本章提取设定」按钮 → 候选列表（默认全选、可取消）→「加入设定集（N）」逐条 POST 现有 bible 接口 → 刷新列表并提示「已加入 N 条」；无候选提示「本章没有新的设定」 | Playwright **10/10** |
+| API 实测（临时书 1 章 5 句循环 + 已有设定「林昭」，验证后删除） | 首次 4–5 条候选，分类均在 人物/地点/物品/组织/设定，含 沈九斤/断水/黑水寨/城南镖局，不含已有「林昭」；全部入库后再次提取不再返回这些标题（第二次 0–1 条且 0 重复）；空正文 400「章节正文为空，无法提取设定」；404/400 分支正确 |
+| UI 实测 | 候选 4–5 条、默认全选、按钮数随取消联动；取消 1 条后加入，设定集 1→4（只加勾选数），候选清空；再次提取无重复；390px 候选与按钮 `overflowWrap` 生效，`overflow=0` |
+
+#### 本轮观察
+
+- 第二次提取仍可能返回 1 条「新」设定（模型换了个说法），属正常；服务端只能按标题去重，语义重复（如「沈九斤」vs「九斤」）无法识别（P3）。
+- 逐条 POST 入库，中途失败会部分成功并刷新列表；UI 已提示错误，但未做「重试剩余」按钮（P3）。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

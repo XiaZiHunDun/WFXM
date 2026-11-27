@@ -362,3 +362,13 @@
 - [x] `collectGitEvidence`：git status --short + diff --stat（4s 超时、失败静默），完成回复自动附加
 - [x] 单测 4 条；`subagent-worker.test.ts` 25 passed；typecheck 通过；4522 重启加载
 - [x] 文档回填 spec §6.35；未提交（等待 owner 指令）
+
+## T47 从本章提取设定建议（批次 AG）+ F37 实测
+- [x] `src/lib/bible-extract.js`：`buildBibleExtractPrompt` + `parseBibleCandidates`（容错解析、分类别名、长度截断、按标题去重、过滤已有）
+- [x] `POST /api/chapters/[id]/extract-bible`：空正文 400 / 未配置 400 / 404 / 非 JSON 502，返回 candidates + skippedDuplicates，不落库
+- [x] 工作台设定集面板：提取按钮、候选勾选（默认全选）、「加入设定集（N）」逐条入库、空态提示
+- [x] 新增 11 条单测；`pnpm test` 103/103；typecheck、clean build 通过
+- [x] API 实测：4–5 条候选（分类合法、长度受限、含正文实体、不含已有）、二提无重复、空正文 400、404/400；临时书已删除
+- [x] Playwright 10/10（候选/全选/取消联动/只加勾选数/清空/二提无重复/390px 无溢出）
+- [x] F37 实测：本轮完成回复自动带「落盘核对 + git status + diff --stat」
+- [x] 文档回填 spec §6.36；未提交（等待 owner 指令）
