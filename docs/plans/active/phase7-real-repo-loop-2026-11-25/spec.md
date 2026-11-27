@@ -462,6 +462,27 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 只读审计尾部：审计日志含每个工具调用，已达 11MB；守卫不能每次派发全量读盘。
 - F32 自动续跑只做一轮且仅在「有写/命令能力 + 非审批暂停 + 门禁启用」时触发，避免无限循环与费用失控。
 
+### 6.25 第二十一轮：全书 Markdown 导出（批次 W，口语折中需求）
+
+| 内容 | 验证 |
+|------|------|
+| 需求口吻同批次 V（正文口语 + 4 条验收点）；一轮对话完成，父代理 `toolCalls=17`，但**并发派出 2 个 developer 子任务**（见下方 F35），两条回复的文件清单完全一致 | `/demo/api/chat` 返回 `workerBusy=1`；`/demo/api/status` `startedTasks` 0→1→2，轮询至 `busy=0` 结束 |
+| LingWen 新增：`src/lib/book-export.js`（纯函数 `escapeMarkdownBody` / `buildBookExport`）、`repo.getBookExport`（`getBook` + `listChapters`(seq ASC,id ASC) + `countWords` 汇总）、`/api/books/[id]/export` 改为薄壳（400/404/500、非法 format 回落 md）、工作台工具栏「导出整书」按钮、`tests/book-export.test.mjs` 6 条 | `pnpm test` **37/37**；`tsc --noEmit` 通过；`rm -rf .next && pnpm build` 通过（路由表含 `/api/books/[id]/export`） |
+| API 实测（临时书 id=8，乱序 seq 2→1→3 创建，验证后删除） | 导出 md：首行 `# 书名`、全书仅 1 个 H1、三章按 seq 升序、`\#`/`\\`/`\- `/`1\.` 转义生效、末尾 `共 3 章，总字数 27 字。`、文末换行；txt 不转义同样带统计；`format=HTML` 回落 md；404/400 正确；`Content-Disposition: attachment; filename*=UTF-8''长夜将至.md`，`content-type: text/markdown; charset=utf-8` |
+| UI（Playwright **16/16**，1440px + 390px） | 「导出整书」按钮存在并可触发下载，`suggestedFilename=长夜将至.md`，下载内容以 `# 长夜将至` 开头、含 `## 第 1 章`、末行为统计段；既有「导出 MD/TXT/JSON」「查找替换」入口仍在；两种视口均无横向溢出 |
+| 数据 | 临时书与 3 章已删除；演示库仍 2 本各 1 章（353/350 字） |
+
+#### 本轮暴露的 WFXM 问题
+
+| 候选编号 | 现象 | 证据 | 定级 |
+|---|---|---|---|
+| F35 | **同轮并发重复派发**：父代理在一个回合内派出两个 developer 子任务，任务文本几乎相同（`len=2043` / `len=1795`，前缀都是「在 /home/ailearn/projects/LingWen …」），两个子代理各自实现了同一套 5 文件改动；F31 只拦截「审计里已有 completion」的已完成任务，**同一轮内还没完成的首个派发拦不住**。本轮两次并发写同文件未丢改动（最终 37 tests 绿），但浪费约一倍 token 且存在后写覆盖先写的风险 | 4522 日志两个 outbox msg（`cf6c6246…` / `e4673c64…`）role=developer、任务长度 2043/1795；`startedTasks=2`；两条子代理回复的改动文件清单一致 | P2 |
+
+#### 本轮观察（非 WFXM 缺陷）
+
+- 子代理多轮 `decodeDecision failed … invalid JSON`（第 8/10/11/12/14 轮）仍是模型直接输出散文回报导致，属于 F2b/F19 设计内路径：纯文本收尾被接受、任务确实完成，不构成缺陷。
+- LingWen 导出转义只覆盖「行首活性字符 + 反斜杠」：正文里单独一行 `---` 或 ``` 代码围栏不会被转义（`escapeMarkdownBody('---') === '---'`），渲染时可能变成分割线或开启代码块。属产品实现细节（P3），本轮验收点未覆盖，暂记为观察项。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

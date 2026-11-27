@@ -259,3 +259,13 @@
 - [x] F32 端到端：4523 临时实例 + `DEV_VERIFY_CMD=["false"]` → 日志 `starting one auto-fix round`，最终回复 `测试：✗`，临时工作区已删
 - [x] 回归：相关 87 tests passed；全仓 typecheck 通过；4522 已重启
 - [x] 文档回填 spec §6.24；未提交（等待 owner 指令）
+
+## T36 全书 Markdown 导出（批次 W，口语折中需求）
+- [x] `src/lib/book-export.js`：`escapeMarkdownBody`（先转义反斜杠再按行处理行首 `#`/`>`/`|`/列表/有序列表）+ `buildBookExport`（md 书名 H1、每章 H2、转义正文、末尾统计；txt 不转义；非法 format 回落 md；文件名 encodeURIComponent）
+- [x] `repo.getBookExport`：`getBook` + `listChapters`(seq ASC,id ASC) + `countWords` 汇总，查不到返回 undefined
+- [x] `/api/books/[id]/export` 改薄壳：400/404/500 + `Content-Disposition filename*=UTF-8''<书名>.md|txt`
+- [x] 工作台工具栏「导出整书」按钮（位于导出 JSON 之后、查找替换之前）
+- [x] `tests/book-export.test.mjs` 6 条；`pnpm test` 37/37；typecheck、clean build 通过
+- [x] API 实测：乱序 seq 2→1→3 排序正确、转义生效、统计段、txt、非法 format、404/400、响应头与文件名；临时书已删除
+- [x] Playwright 16/16（1440px/390px 下载、既有入口保留、无横向溢出）
+- [x] 文档回填 spec §6.25，记录新缺陷候选 F35（同轮并发重复派发，F31 只拦已完成）；未提交（等待 owner 指令）
