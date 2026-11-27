@@ -269,3 +269,15 @@
 - [x] API 实测：乱序 seq 2→1→3 排序正确、转义生效、统计段、txt、非法 format、404/400、响应头与文件名；临时书已删除
 - [x] Playwright 16/16（1440px/390px 下载、既有入口保留、无横向溢出）
 - [x] 文档回填 spec §6.25，记录新缺陷候选 F35（同轮并发重复派发，F31 只拦已完成）；未提交（等待 owner 指令）
+
+## T37 F35 执行中重复派发拦截 + LingWen 导出结构行转义（批次 X）
+- [x] `delegation-dedupe.ts`：`findInFlightDuplicateInAudit`（同会话 + 无 completion + 30 分钟窗口）、`findRecentDuplicate`（单次尾部读取，in-flight 优先）、`formatInFlightRejection`（含相似度/派发时长/返工出口）
+- [x] `tools.ts`：分发守卫改用 `findRecentDuplicate`，审计 reason 区分 `duplicate-in-flight` / `duplicate-of-completed`
+- [x] 单测新增 6 条（执行中命中、已完成不误判、窗口过期可重试、返工与开关放行、临时审计文件优先 in-flight、文案）
+- [x] 测试隔离：tools / wechat-dev-delegate / wechat-dev-session-chain / wechat-inbound-butler 3 用例 / acceptance dev-delegate-approval 使用临时 `BUTLER_V5_SUBAGENT_AUDIT_PATH`
+- [x] 修复 2 处历史过期断言：sandbox-arch 改按 `writeTextToWorkspace` 切片；main-chain 回复断言改 `hello.txt`（stash 复跑确认与 F35 无关）
+- [x] 全仓 `pnpm test` 302 文件通过 / 1 跳过，2630 passed / 4 skipped；typecheck 全 workspace Done
+- [x] 4522 重启后真实对话：同义二次派发被 `duplicate-in-flight:95%` 拦截，`startedTasks=1`
+- [x] LingWen（经对话）：`escapeStructuralLine` 覆盖 `---`/`===`/`***`/`___`/`- - -`/``` /`~~~`，缩进与统计段保持；新增 3 条单测 → `pnpm test` 40/40
+- [x] LingWen 验证：typecheck、clean build 通过；curl 8 项转义断言；Playwright 16/16；临时书已删除
+- [x] 文档回填 spec §6.26；未提交（等待 owner 指令）

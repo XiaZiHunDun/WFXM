@@ -9,7 +9,8 @@
  *   2. 关闭 `BUTLER_V5_DEV_SESSION_AUTO_GRANT` + `BUTLER_V5_DELEGATION_PREGRANT`：
  *      子代理 write_file 进入 waiting_approval，父会话回「确认」后落盘。
  */
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import { pickLLMForRole } from "@butler/adapters"
@@ -58,20 +59,30 @@ async function waitFor<T>(fn: () => Promise<T | undefined>, timeoutMs = 8000): P
 describe("acceptance/dev-delegate-approval (intake 委派 + 子代理审批)", () => {
   let app: AcceptanceApp | undefined
   let worker: SubagentWorkerHandle | undefined
+  const auditDirs: string[] = []
 
   afterEach(async () => {
     worker?.stop()
     worker = undefined
     await app?.close()
     app = undefined
+    while (auditDirs.length > 0) {
+      const dir = auditDirs.pop()
+      if (dir) rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   async function start(extra: Readonly<Record<string, string>> = {}): Promise<AcceptanceApp> {
+    // F31/F35 delegation dedupe reads the subagent audit log: give each app its
+    // own file so repeated runs with the same task text are not blocked.
+    const auditDir = mkdtempSync(join(tmpdir(), "wb-accept-audit-"))
+    auditDirs.push(auditDir)
     const next = await makeAcceptanceApp({
       intake: true,
       overrides: {
         BUTLER_V5_SUBAGENT_ENABLED: "1",
         BUTLER_V5_INTAKE_LLM: "0",
+        BUTLER_V5_SUBAGENT_AUDIT_PATH: join(auditDir, "subagent.jsonl"),
         ...extra,
       },
     })

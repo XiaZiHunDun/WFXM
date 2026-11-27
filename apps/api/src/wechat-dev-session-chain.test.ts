@@ -26,6 +26,7 @@ describe("wechat dev session chain", () => {
   let bridge: EventBridge
   let wiring: Wiring
   let workspaceRoot: string
+  let auditPath: string
   const fromUserId = "owner-dev-session-chain"
   const silentLogger: ButlerLoopLogger = {
     warn: () => undefined,
@@ -34,6 +35,8 @@ describe("wechat dev session chain", () => {
 
   beforeEach(async () => {
     workspaceRoot = mkdtempSync(join(tmpdir(), "butler-v5-dev-chain-ws-"))
+    // Delegation dedupe reads the subagent audit log; isolate it per test.
+    auditPath = join(mkdtempSync(join(tmpdir(), "butler-v5-dev-chain-audit-")), "subagent.jsonl")
     db = await makeTestDb()
     bridge = new EventBridge({ db: db.db, workerId: "w-dev-chain" })
     const runtimeStore = createRuntimeStore(db.db)
@@ -51,6 +54,7 @@ describe("wechat dev session chain", () => {
     vi.restoreAllMocks()
     await db.close()
     rmSync(workspaceRoot, { recursive: true, force: true })
+    rmSync(join(auditPath, ".."), { recursive: true, force: true })
   })
 
   function baseEnv(): NodeJS.ProcessEnv {
@@ -61,6 +65,7 @@ describe("wechat dev session chain", () => {
       BUTLER_V5_WORKSPACE_ROOT: workspaceRoot,
       BUTLER_V5_INTAKE_ENABLED: "1",
       BUTLER_V5_INTAKE_LLM: "0",
+      BUTLER_V5_SUBAGENT_AUDIT_PATH: auditPath,
     }
   }
 

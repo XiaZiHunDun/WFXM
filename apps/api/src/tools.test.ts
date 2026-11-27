@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { EventBridge } from "@butler/persistence/event-bridge.js"
 import { runTool } from "@butler/runtime/tool-runtime.js"
 import { makeTestDb } from "@butler/persistence/testing.js"
@@ -21,15 +24,27 @@ import type { DurableMemoryStore } from "@butler/persistence"
 describe("weibutler tools", () => {
   let db: Awaited<ReturnType<typeof makeTestDb>>
   let bridge: EventBridge
+  let auditDir: string
   const conversationId = "c-tools-1"
+  const originalAuditPath = process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
 
   beforeEach(async () => {
     db = await makeTestDb()
     bridge = new EventBridge({ db: db.db, workerId: "w-tools" })
+    // Delegation dedupe (F31/F35) reads the subagent audit log; point it at a
+    // fresh temp file so tests neither depend on nor pollute the real log.
+    auditDir = mkdtempSync(join(tmpdir(), "butler-tools-audit-"))
+    process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] = join(auditDir, "subagent.jsonl")
   })
 
   afterEach(async () => {
     await db.close()
+    if (originalAuditPath === undefined) {
+      delete process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"]
+    } else {
+      process.env["BUTLER_V5_SUBAGENT_AUDIT_PATH"] = originalAuditPath
+    }
+    rmSync(auditDir, { recursive: true, force: true })
   })
 
   it("WEIBUTLER_LLM_TOOLS exposes 14 provider-agnostic tool descriptors", () => {

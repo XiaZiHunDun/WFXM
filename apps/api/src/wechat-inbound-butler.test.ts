@@ -505,7 +505,12 @@ describe("runButlerLoop", () => {
       content: "帮我找 Foo 的文档",
       fromUserId: "u-1",
       projectId: "p-1",
-      env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
+      env: {
+        BUTLER_V5_SUBAGENT_ENABLED: "1",
+        // F31/F35 dedupe reads the audit log: isolate it so repeated test runs
+        // with the same conversation id are not blocked.
+        BUTLER_V5_SUBAGENT_AUDIT_PATH: `/tmp/inbound-delegate-1-${Date.now()}-${Math.random()}.jsonl`,
+      },
       logger: silentLogger,
       adapter,
     })
@@ -537,7 +542,10 @@ describe("runButlerLoop", () => {
       content: "复杂任务要委派给子代理",
       fromUserId: "u-1",
       projectId: "p-1",
-      env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
+      env: {
+        BUTLER_V5_SUBAGENT_ENABLED: "1",
+        BUTLER_V5_SUBAGENT_AUDIT_PATH: `/tmp/inbound-delegate-2-${Date.now()}-${Math.random()}.jsonl`,
+      },
       logger: silentLogger,
       adapter,
     })
@@ -562,7 +570,10 @@ describe("runButlerLoop", () => {
       content: "请帮我跑个长任务",
       fromUserId: "u-1",
       projectId: "p-1",
-      env: { BUTLER_V5_SUBAGENT_ENABLED: "1" },
+      env: {
+        BUTLER_V5_SUBAGENT_ENABLED: "1",
+        BUTLER_V5_SUBAGENT_AUDIT_PATH: `/tmp/inbound-delegate-native-${Date.now()}-${Math.random()}.jsonl`,
+      },
       logger: silentLogger,
       adapter,
     })

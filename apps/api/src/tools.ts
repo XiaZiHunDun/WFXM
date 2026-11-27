@@ -36,8 +36,9 @@ import type { McpToolBundle } from "./mcp-bootstrap.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 import { defaultCapabilitiesForRole } from "./delegate-capabilities.js"
 import {
-  findRecentlyCompletedDuplicate,
+  findRecentDuplicate,
   formatDuplicateRejection,
+  formatInFlightRejection,
 } from "./delegation-dedupe.js"
 import { isRemindersEnabled } from "./reminder-config.js"
 import { makeReminderTools, REMINDER_LLM_TOOLS } from "./reminder-tools.js"
@@ -377,26 +378,33 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
     // with Capability["tool"] without re-deriving the branded
     // string elsewhere.
     const capabilities: Capability[] = effectiveCaps.map((c) => makeCapability(c))
-    // F31: refuse a near-identical re-delegation of a task that already
-    // completed in this same conversation. Compaction can drop the
-    // "done" reply while keeping the old spec, which made the model
-    // replay finished work. Explicit rework wording bypasses this.
-    const duplicate = findRecentlyCompletedDuplicate({
+    // F31/F35: refuse a near-identical re-delegation of a task that already
+    // completed (F31) or is still running (F35) in this same conversation.
+    // Compaction can drop the "done" reply while keeping the old spec, which
+    // made the model replay finished work; one turn can also dispatch the same
+    // task twice concurrently (batch W). Explicit rework wording bypasses this.
+    const duplicate = findRecentDuplicate({
       task,
       parentConversationId: ctx.conversationId,
       ...(ctx.env === undefined ? {} : { env: ctx.env }),
     })
     if (duplicate !== undefined) {
-      const reason = formatDuplicateRejection(duplicate)
+      const reason =
+        duplicate.kind === "in-flight"
+          ? formatInFlightRejection(duplicate.duplicate)
+          : formatDuplicateRejection(duplicate.duplicate)
       writeSubagentAudit(ctx.runtimeStore, {
         ts: new Date().toISOString(),
         kind: "rejection",
         parentConversationId: ctx.conversationId,
-        childConversationId: duplicate.childConversationId,
+        childConversationId: duplicate.duplicate.childConversationId,
         role,
         task,
         capabilities: effectiveCaps,
-        reason: `duplicate-of-completed:${Math.round(duplicate.similarity * 100)}%`,
+        reason:
+          duplicate.kind === "in-flight"
+            ? `duplicate-in-flight:${Math.round(duplicate.duplicate.similarity * 100)}%`
+            : `duplicate-of-completed:${Math.round(duplicate.duplicate.similarity * 100)}%`,
         ...(ctx.wechatUserId === undefined ? {} : { ownerSubject: ctx.wechatUserId }),
       })
       return { ok: false, reason }

@@ -24,7 +24,9 @@ describe("workspace sandbox architecture", () => {
     const src = readFileSync(WORKSPACE_TOOLS, "utf8")
     expect(src).toMatch(/@butler\/adapters\/sandbox\/bubblewrap-runner\.js/)
     const readStart = src.indexOf("makeReadFileTool")
-    const writeStart = src.indexOf("makeWriteFileTool")
+    // Since the edit_file refactor, write_file/edit_file share `writeTextToWorkspace`,
+    // which is defined before `makeWriteFileTool` — assert on that block.
+    const writeStart = src.indexOf("writeTextToWorkspace")
     expect(readStart).toBeGreaterThan(-1)
     expect(writeStart).toBeGreaterThan(-1)
     const readBlock = src.slice(readStart, writeStart)

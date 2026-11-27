@@ -190,7 +190,9 @@ describe("butler main chain (integration)", () => {
       allowedToolNames: ["write_file"],
       adapter,
     })
-    expect(confirmed.reply).toContain("已写入")
+    // The scripted adapter has no further reply after the tool result, so the
+    // turn falls back to write_file's tool output (`wrote <path> (<n> chars)`).
+    expect(confirmed.reply).toContain("hello.txt")
     expect(readFileSync(join(workspace, path), "utf8")).toBe(content)
 
     const rows = await runsFor(conversationId)

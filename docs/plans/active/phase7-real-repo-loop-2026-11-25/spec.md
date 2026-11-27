@@ -483,6 +483,19 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 子代理多轮 `decodeDecision failed … invalid JSON`（第 8/10/11/12/14 轮）仍是模型直接输出散文回报导致，属于 F2b/F19 设计内路径：纯文本收尾被接受、任务确实完成，不构成缺陷。
 - LingWen 导出转义只覆盖「行首活性字符 + 反斜杠」：正文里单独一行 `---` 或 ``` 代码围栏不会被转义（`escapeMarkdownBody('---') === '---'`），渲染时可能变成分割线或开启代码块。属产品实现细节（P3），本轮验收点未覆盖，暂记为观察项。
 
+### 6.26 第二十二轮：F35 修复 + 导出结构行转义（批次 X）
+
+| 内容 | 验证 |
+|------|------|
+| F35（WFXM）：`delegation-dedupe.ts` 新增 `findInFlightDuplicateInAudit` / `findRecentDuplicate` / `formatInFlightRejection`：审计里**同一会话、无 completion、30 分钟内**的派发视为「执行中」，与本次 task 相似度 ≥ 阈值即拒绝（`duplicate-in-flight:NN%`）；`tools.ts` 派发守卫一次尾部读取先查执行中再查已完成；返工字样与 `BUTLER_V5_DELEGATION_DEDUPE=0` 仍可放行 | 单测 16 条（新增 6：执行中命中、已完成不误判、30 分钟窗口可重试、返工/开关放行、`findRecentDuplicate` 读临时审计优先返回 in-flight、拒绝文案含百分比/时长）；`pnpm exec vitest run` 相关 6 文件 **88 passed** |
+| 真实对话验证（4522 重启后） | 本轮需求派发 1 次 `delegation`（06:10:52），6 秒后第二次同义派发被拦截为 `rejection … duplicate-in-flight:95%`（06:10:59），最终 `completion`（06:12:05）；`startedTasks=1`（批次 W 同规模为 2），子代理只写一遍 |
+| 全仓回归 | `pnpm test` **302 文件通过 / 1 跳过；2630 tests passed / 4 skipped**；`typecheck` 全 workspace Done |
+| 测试隔离（随 F35 一并修） | 去重会读真实审计文件，导致同任务重复派发的用例被误拦：`tools` / `wechat-dev-delegate` / `wechat-dev-session-chain` / `wechat-inbound-butler`（3 个委派用例）/ `acceptance/dev-delegate-approval` 改为每用例临时 `BUTLER_V5_SUBAGENT_AUDIT_PATH`，不再依赖/污染 owner 真实审计 |
+| 历史红灯修复（与 F35 无关，stash 复跑已确认） | `tests/architecture/workspace-sandbox-arch.test.ts` 仍按 `makeWriteFileTool` 切片找 `stdinContent`，而该逻辑已抽到 `writeTextToWorkspace`；`tests/integration/butler-main-chain.integration.test.ts` 断言回复含「已写入」，实际回退到 `wrote hello.txt (8 chars)` 工具输出。两处均为过期断言，仅更新断言、不改生产代码 |
+| LingWen（经 Web 对话）：`book-export.js` 新增 `isFenceLine` / `isRuleLine` / `escapeStructuralLine`，逐行先做结构行字面化再走行首转义；`---`/`===`/`***`/`___`/`- - -`/``` /`~~~` 全部加反斜杠，缩进保留，统计段分隔符不受影响；txt 仍零转义 | `pnpm test` **40/40**（新增 3 条）；typecheck 通过；`rm -rf .next && pnpm build` 通过 |
+| LingWen API 实测（临时书，验证后删除） | 导出正文：`\-\-\-`/`\=\=\=`/`` \`\`\` ``/`\~\~\~`/`\*\*\*`/`\- \- \-`/`   \`\`\`` 均转义、普通正文与空行保持、统计段 `\n\n---\n\n共 1 章` 唯一裸分隔线；演示库仍 2 本各 1 章 |
+| UI 回归（Playwright 16/16） | 1440px/390px「导出整书」可下载、文件名 `长夜将至.md`、内容仍以 `# 长夜将至` 开头；既有导出 MD/TXT/JSON 与查找替换入口在；无横向溢出 |
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

@@ -48,6 +48,7 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
   let workspaceRoot: string
   let stateStore: string
   let mockOutbox: string
+  let auditPath: string
   const fromUserId = "owner-test-delegate-v1"
   const silentLogger: ButlerLoopLogger = {
     warn: () => undefined,
@@ -58,6 +59,10 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
     workspaceRoot = mkdtempSync(join(tmpdir(), "butler-v5-delegate-ws-"))
     stateStore = join(mkdtempSync(join(tmpdir(), "butler-v5-delegate-st-")), "state.json")
     mockOutbox = join(tmpdir(), `butler-notify-delegate-${Date.now()}.jsonl`)
+    // F31/F35 dedupe reads the subagent audit log: isolate it per test so
+    // repeated runs with the same task text are not blocked (and the real
+    // owner log is not polluted).
+    auditPath = join(mkdtempSync(join(tmpdir(), "butler-v5-delegate-audit-")), "subagent.jsonl")
     db = await makeTestDb()
     bridge = new EventBridge({ db: db.db, workerId: "w-delegate-v1" })
     const runtimeStore = createRuntimeStore(db.db)
@@ -76,6 +81,7 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
     await db.close()
     rmSync(workspaceRoot, { recursive: true, force: true })
     rmSync(join(stateStore, ".."), { recursive: true, force: true })
+    rmSync(join(auditPath, ".."), { recursive: true, force: true })
     try {
       rmSync(mockOutbox, { force: true })
     } catch {
@@ -94,6 +100,7 @@ describe("wechat-dev-delegate-v1 (T2)", () => {
       BUTLER_V5_DEV_VERIFY_CMD: '["echo","ok"]',
       BUTLER_V5_RUN_NOTIFY_ENABLED: "1",
       BUTLER_V5_RUN_NOTIFY_MOCK_OUTBOX: mockOutbox,
+      BUTLER_V5_SUBAGENT_AUDIT_PATH: auditPath,
       ...extra,
     }
   }

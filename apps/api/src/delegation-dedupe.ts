@@ -13,10 +13,13 @@
  *
  * Design:
  *   - Pure helpers (`normalizeTaskText` / `taskSimilarity` /
- *     `findCompletedDuplicateInAudit`) are unit-testable without touching
- *     the filesystem.
- *   - `findRecentlyCompletedDuplicate` reads only a bounded tail of the
- *     JSONL audit log (it can be tens of MB).
+ *     `findCompletedDuplicateInAudit` / `findInFlightDuplicateInAudit`) are
+ *     unit-testable without touching the filesystem.
+ *   - `findRecentlyCompletedDuplicate` / `findRecentDuplicate` read only a
+ *     bounded tail of the JSONL audit log (it can be tens of MB).
+ *   - F35 (batch W): a delegation without a completion row is "in flight";
+ *     a near-identical second delegation is blocked too, so one turn cannot
+ *     run the same task twice concurrently.
  *   - Explicit rework intent (返工/修复/重做/…) bypasses the guard, so
  *     legitimate follow-up fixes still work.
  */
@@ -31,8 +34,28 @@ export interface CompletedDuplicate {
   readonly completedAt: string
 }
 
+/** F35: a near-identical delegation that is still running (no completion row). */
+export interface InFlightDuplicate {
+  readonly task: string
+  readonly childConversationId: string
+  readonly similarity: number
+  /** ISO timestamp of the still-running delegation. */
+  readonly delegatedAt: string
+}
+
+/** F35: whichever duplicate phase matched, most immediate first. */
+export type RecentDuplicate =
+  | { readonly kind: "in-flight"; readonly duplicate: InFlightDuplicate }
+  | { readonly kind: "completed"; readonly duplicate: CompletedDuplicate }
+
 const TASK_NORMALIZE_MAX = 600
 const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000
+/**
+ * F35 window for "still running" delegations. Shorter than the completed
+ * window: a child that crashed without writing a completion row must not
+ * block a retry forever.
+ */
+const IN_FLIGHT_WINDOW_MS = 30 * 60 * 1000
 const DEFAULT_THRESHOLD = 0.45
 const MIN_TASK_CHARS = 12
 /** Explicit "do it again / fix it" wording means the owner really wants a rerun. */
@@ -143,6 +166,85 @@ export function findCompletedDuplicateInAudit(args: {
   return best
 }
 
+/**
+ * F35: find a delegation in `entries` that (a) belongs to the same parent
+ * conversation, (b) has NO completion row yet (still running), and (c) is
+ * near-identical to `task`.
+ *
+ * Batch W evidence: one turn dispatched two developer children with almost the
+ * same task (`len=2043` / `len=1795`), both rewriting the same five files.
+ * F31 only looked at completed delegations, so the first (still running) copy
+ * could not block the second.
+ */
+export function findInFlightDuplicateInAudit(args: {
+  readonly task: string
+  readonly parentConversationId: string
+  readonly entries: readonly AuditEntry[]
+  readonly env?: NodeJS.ProcessEnv
+  readonly nowMs?: number
+}): InFlightDuplicate | undefined {
+  const env = args.env ?? process.env
+  if (!isDelegationDedupeEnabled(env)) return undefined
+  const taskText = normalizeTaskText(args.task)
+  if (taskText.length < MIN_TASK_CHARS) return undefined
+  if (REWORK_INTENT.test(taskText)) return undefined
+  const threshold = resolveDedupeThreshold(env)
+  const now = args.nowMs ?? Date.now()
+  const completedChildren = new Set(
+    args.entries
+      .filter((entry) => entry.kind === "completion" && entry.childConversationId)
+      .map((entry) => entry.childConversationId),
+  )
+  let best: InFlightDuplicate | undefined
+  for (const entry of args.entries) {
+    if (entry.kind !== "delegation") continue
+    if (entry.parentConversationId !== args.parentConversationId) continue
+    if (!entry.childConversationId || completedChildren.has(entry.childConversationId)) continue
+    const ts = Date.parse(entry.ts)
+    // A delegation without a timestamp cannot prove it is still fresh; skip.
+    if (!Number.isFinite(ts) || now - ts > IN_FLIGHT_WINDOW_MS) continue
+    const similarity = taskSimilarity(taskText, entry.task)
+    if (similarity < threshold) continue
+    if (best === undefined || similarity > best.similarity) {
+      best = {
+        task: entry.task,
+        childConversationId: entry.childConversationId,
+        similarity,
+        delegatedAt: entry.ts,
+      }
+    }
+  }
+  return best
+}
+
+/**
+ * Production entry: reads the audit tail once and checks in-flight
+ * delegations before completed ones (the running copy is the immediate
+ * problem to stop).
+ */
+export function findRecentDuplicate(args: {
+  readonly task: string
+  readonly parentConversationId: string
+  readonly env?: NodeJS.ProcessEnv
+  readonly nowMs?: number
+}): RecentDuplicate | undefined {
+  const env = args.env ?? process.env
+  if (!isDelegationDedupeEnabled(env)) return undefined
+  const entries = readRecentSubagentAuditTail(200, env)
+  const extra = {
+    task: args.task,
+    parentConversationId: args.parentConversationId,
+    entries,
+    env,
+    ...(args.nowMs === undefined ? {} : { nowMs: args.nowMs }),
+  }
+  const inFlight = findInFlightDuplicateInAudit(extra)
+  if (inFlight !== undefined) return { kind: "in-flight", duplicate: inFlight }
+  const completed = findCompletedDuplicateInAudit(extra)
+  if (completed !== undefined) return { kind: "completed", duplicate: completed }
+  return undefined
+}
+
 /** Production entry: reads a bounded audit tail, then applies the pure check. */
 export function findRecentlyCompletedDuplicate(args: {
   readonly task: string
@@ -168,5 +270,22 @@ export function formatDuplicateRejection(dup: CompletedDuplicate): string {
   return [
     `已阻止重复派发：该任务与上一轮已完成的任务相似度 ${percent}%，且那次已经交付过。`,
     "不要原样重发；如果确实需要返工，请在 task 中写明新的修改点（或包含「修复/返工」字样），否则直接向 owner 汇报即可。",
+  ].join("")
+}
+
+/** F35 owner-facing rejection text: the same task is still running. */
+export function formatInFlightRejection(
+  dup: InFlightDuplicate,
+  nowMs: number = Date.now(),
+): string {
+  const percent = Math.round(dup.similarity * 100)
+  const startedAt = Date.parse(dup.delegatedAt)
+  const minutes = Number.isFinite(startedAt)
+    ? Math.max(0, Math.round((nowMs - startedAt) / 60000))
+    : undefined
+  const when = minutes === undefined ? "" : `，派发于约 ${minutes} 分钟前`
+  return [
+    `已阻止重复派发：同一任务已在后台执行中（相似度 ${percent}%${when}），等它完成后再看结果即可。`,
+    "不要重复派发；如果确实需要另起任务，请在 task 中写明与已派发任务不同的修改点（或包含「修复/返工」字样）。",
   ].join("")
 }

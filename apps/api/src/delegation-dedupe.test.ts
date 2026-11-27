@@ -1,8 +1,14 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import type { AuditEntry } from "./audit-log.js"
 import {
   findCompletedDuplicateInAudit,
+  findInFlightDuplicateInAudit,
+  findRecentDuplicate,
   formatDuplicateRejection,
+  formatInFlightRejection,
   isDelegationDedupeEnabled,
   normalizeTaskText,
   resolveDedupeThreshold,
@@ -166,6 +172,144 @@ describe("delegation-dedupe", () => {
     })
     expect(text).toContain("97%")
     expect(text).toContain("不要原样重发")
+    expect(text).toContain("修复/返工")
+  })
+
+  // ---- F35 (batch W): a still-running duplicate is blocked too ----
+
+  it("blocks a near-identical delegation that is still running", () => {
+    const entries: AuditEntry[] = [
+      entry({ kind: "delegation", task: SHELF_SORT_TASK, childConversationId: "child-1" }),
+    ]
+    const dup = findInFlightDuplicateInAudit({
+      task: SHELF_SORT_TASK,
+      parentConversationId: "c-owner",
+      entries,
+      nowMs: Date.parse("2026-11-27T04:00:00.000Z"),
+    })
+    expect(dup?.childConversationId).toBe("child-1")
+    expect(dup?.similarity).toBe(1)
+  })
+
+  it("does not treat a completed delegation as in-flight", () => {
+    const entries: AuditEntry[] = [
+      entry({ kind: "delegation", task: SHELF_SORT_TASK, childConversationId: "child-1" }),
+      entry({ kind: "completion", task: SHELF_SORT_TASK, childConversationId: "child-1" }),
+    ]
+    expect(
+      findInFlightDuplicateInAudit({
+        task: SHELF_SORT_TASK,
+        parentConversationId: "c-owner",
+        entries,
+      }),
+    ).toBeUndefined()
+  })
+
+  it("lets a stuck delegation be retried after the 30-minute in-flight window", () => {
+    const entries: AuditEntry[] = [
+      entry({
+        kind: "delegation",
+        task: SHELF_SORT_TASK,
+        childConversationId: "child-1",
+        ts: "2026-11-27T03:00:00.000Z",
+      }),
+    ]
+    const nowMs = Date.parse("2026-11-27T04:00:00.000Z")
+    expect(
+      findInFlightDuplicateInAudit({
+        task: SHELF_SORT_TASK,
+        parentConversationId: "c-owner",
+        entries,
+        nowMs,
+      }),
+    ).toBeUndefined()
+
+    const fresh = Date.parse("2026-11-27T03:10:00.000Z")
+    expect(
+      findInFlightDuplicateInAudit({
+        task: SHELF_SORT_TASK,
+        parentConversationId: "c-owner",
+        entries,
+        nowMs: fresh,
+      })?.childConversationId,
+    ).toBe("child-1")
+  })
+
+  it("in-flight check honors rework intent and the env kill switch", () => {
+    const entries: AuditEntry[] = [
+      entry({ kind: "delegation", task: SHELF_SORT_TASK, childConversationId: "child-1" }),
+    ]
+    expect(
+      findInFlightDuplicateInAudit({
+        task: `返工：${SHELF_SORT_TASK}`,
+        parentConversationId: "c-owner",
+        entries,
+        nowMs: Date.parse("2026-11-27T04:00:00.000Z"),
+      }),
+    ).toBeUndefined()
+    expect(
+      findInFlightDuplicateInAudit({
+        task: SHELF_SORT_TASK,
+        parentConversationId: "c-owner",
+        entries,
+        env: { BUTLER_V5_DELEGATION_DEDUPE: "0" },
+        nowMs: Date.parse("2026-11-27T04:00:00.000Z"),
+      }),
+    ).toBeUndefined()
+  })
+
+  it("findRecentDuplicate prefers the in-flight copy and reads the audit tail", () => {
+    const dir = mkdtempSync(join(tmpdir(), "dedupe-f35-"))
+    const auditPath = join(dir, "subagent.jsonl")
+    const rows: AuditEntry[] = [
+      // An older, completed task in the same conversation.
+      entry({
+        kind: "delegation",
+        task: "给书架加搜索防抖",
+        childConversationId: "child-old",
+        ts: new Date(Date.now() - 60_000).toISOString(),
+      }),
+      entry({
+        kind: "completion",
+        task: "给书架加搜索防抖",
+        childConversationId: "child-old",
+        ts: new Date(Date.now() - 50_000).toISOString(),
+      }),
+      // The same feature is now running again (no completion yet).
+      entry({
+        kind: "delegation",
+        task: SHELF_SORT_TASK,
+        childConversationId: "child-live",
+        ts: new Date().toISOString(),
+      }),
+    ]
+    writeFileSync(auditPath, rows.map((row) => JSON.stringify(row)).join("\n") + "\n")
+    try {
+      const result = findRecentDuplicate({
+        task: SHELF_SORT_TASK,
+        parentConversationId: "c-owner",
+        env: { BUTLER_V5_SUBAGENT_AUDIT_PATH: auditPath },
+      })
+      expect(result?.kind).toBe("in-flight")
+      expect(result?.duplicate.childConversationId).toBe("child-live")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("formats an in-flight rejection with percentage, age and escape hatch", () => {
+    const text = formatInFlightRejection(
+      {
+        task: SHELF_SORT_TASK,
+        childConversationId: "child-1",
+        similarity: 0.93,
+        delegatedAt: "2026-11-27T03:50:00.000Z",
+      },
+      Date.parse("2026-11-27T04:00:00.000Z"),
+    )
+    expect(text).toContain("93%")
+    expect(text).toContain("约 10 分钟前")
+    expect(text).toContain("已在后台执行中")
     expect(text).toContain("修复/返工")
   })
 })
