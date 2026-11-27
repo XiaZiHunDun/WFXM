@@ -281,3 +281,13 @@
 - [x] LingWen（经对话）：`escapeStructuralLine` 覆盖 `---`/`===`/`***`/`___`/`- - -`/``` /`~~~`，缩进与统计段保持；新增 3 条单测 → `pnpm test` 40/40
 - [x] LingWen 验证：typecheck、clean build 通过；curl 8 项转义断言；Playwright 16/16；临时书已删除
 - [x] 文档回填 spec §6.26；未提交（等待 owner 指令）
+
+## T38 Markdown 导入拆章（批次 Y，口语折中需求）
+- [x] `src/lib/book-import.js`：`parseMarkdownBook`（首个 H1 作书名、H2 拆章、H3 及以下保留进正文、无 H2 整篇一章、书名/章名兜底、丢弃导出统计段、章标题剥「第 N 章」前缀）+ `unescapeMarkdownBody`
+- [x] `repo.createBookWithChapters`：单事务建书 + 章节，seq 按顺序、word_count 走 `countWords`；`createChapter` 支持可选 `wordCount`
+- [x] `/api/books/import/markdown` 薄路由：JSON 校验、空 markdown 400、解析/落库异常 400/500、成功 201 `{id, chapterCount}`
+- [x] 书架「导入 Markdown」按钮 + 隐藏文件框 + 成功提示刷新列表 + 失败提示 + 导入中禁用
+- [x] `tests/book-import.test.mjs` 9 条（多章、无 H2、空标题、无 H1、空文件、超长正文、反转义恒等、导出→导入往返、0 章往返）；`pnpm test` 49/49
+- [x] 验证：typecheck、clean build 通过（新增路由）；curl 往返（book1 导出→导入章数/标题/正文/字数一致）与边界（无 H2/空标题/只有标题/空白/超长）全部符合预期
+- [x] Playwright 21/21（1440px + 390px：入口、导入提示、列表刷新、工作台两章与正文载入、既有入口保留、无横向溢出）；临时数据已删除
+- [x] 文档回填 spec §6.27；未提交（等待 owner 指令）

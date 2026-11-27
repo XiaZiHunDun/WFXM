@@ -496,6 +496,22 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 | LingWen API 实测（临时书，验证后删除） | 导出正文：`\-\-\-`/`\=\=\=`/`` \`\`\` ``/`\~\~\~`/`\*\*\*`/`\- \- \-`/`   \`\`\`` 均转义、普通正文与空行保持、统计段 `\n\n---\n\n共 1 章` 唯一裸分隔线；演示库仍 2 本各 1 章 |
 | UI 回归（Playwright 16/16） | 1440px/390px「导出整书」可下载、文件名 `长夜将至.md`、内容仍以 `# 长夜将至` 开头；既有导出 MD/TXT/JSON 与查找替换入口在；无横向溢出 |
 
+### 6.27 第二十三轮：Markdown 导入拆章（批次 Y，口语折中需求）
+
+| 内容 | 验证 |
+|------|------|
+| 需求口吻同批次 V/W（正文口语 + 4 条验收点）；一轮对话完成，父代理 `toolCalls=14`，1 个 developer 子任务 | `/demo/api/chat` 返回 `workerBusy=1`；轮询至 `busy=0`；子代理回复含 5 个改动文件与测试通过 |
+| LingWen 新增：`src/lib/book-import.js` 纯函数 `parseMarkdownBook`（H1 书名 / H2 拆章 / 无 H2 整篇一章 / 书名与章名兜底 / 丢弃导出统计段 / 章标题剥「第 N 章」/ `unescapeMarkdownBody` 反转义）、`/api/books/import/markdown` 薄路由（400/500、201 `{id, chapterCount}`）、`repo.createBookWithChapters`（单事务，复用 `createBook` + `createChapter`，`word_count` 用 `countWords` 口径）、书架「导入 Markdown」按钮 + 隐藏文件框 + 成功刷新与失败提示、`tests/book-import.test.mjs` 9 条 | `pnpm test` **49/49**；`tsc --noEmit` 通过；`rm -rf .next && pnpm build` 通过（路由表含 `/api/books/import/markdown`） |
+| API 往返实测（导出 book1 → 导入 → 对比 → 删除临时书 id=11..15） | 导出 `/api/books/1/export?format=md` 后原样导入：章数 1→1、seq/标题/正文完全一致、字数 350→350；书名/类型/简介对齐 |
+| API 边界实测（临时书已删除） | 无 H2 → 1 章（章名=书名）；空标题 `## ` → 兜底「未命名章节」（2 章）；只有 H1 无正文 → 201 且 0 章；纯空白 markdown → 400；`markdown` 非字符串 → 400；超长正文 122,890 字符全量落库（wordCount 92,000，无截断） |
+| UI（Playwright **21/21**，1440px + 390px） | 书架「导入 Markdown」按钮与隐藏文件框存在；选 `.md` 后提示「已导入 Markdown，新建 2 章」并刷新列表；进入工作台两章标题齐全、点章后编辑器载入正文；既有「导入 JSON / 写作统计 / 新建作品」入口仍在；两种视口无横向溢出 |
+| 数据 | 所有临时书（含前两次脚本失败遗留）已删除；演示库仍 2 本各 1 章（353/350 字） |
+
+#### 本轮观察（非 WFXM 缺陷）
+
+- 导入侧 `unescapeMarkdownBody` 对任意 Markdown 都生效：用户正文里的单个反斜杠（如 Windows 路径 `C:\tmp`）会被吞掉。这是为「导出→导入」往返对齐做的取舍，属产品实现细节（P3），验收点未覆盖。
+- 只有标题没有正文时导入返回 201 + 0 章（不报错），与「空文件不报错」的要求一致；是否需要提示用户由产品后续决定。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。
