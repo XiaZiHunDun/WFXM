@@ -595,6 +595,130 @@ describe("runConversationLoop", () => {
     expect(result.reply).toBe("直接答复：不需要委派。")
   })
 
+  it("nudges the F36 phrase 后台让 developer 动手 with zero tool calls", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [
+        { name: "delegate_to_subagent", description: "delegate", parameters: { type: "object" } },
+      ],
+      delegationClaimGuard: true,
+      ports: {
+        complete: async () => {
+          turn += 1
+          if (turn === 1) {
+            return {
+              ok: true,
+              response: {
+                content: "已在后台让 developer 动手：新增 stats-csv.js 与导出接口。",
+                toolCalls: [],
+              },
+            }
+          }
+          return { ok: true, response: { content: "现在真的派发。", toolCalls: [] } }
+        },
+        findTool: () => undefined,
+        executeTool: async () => ({ ok: false, reason: "unused" }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(turn).toBe(2)
+    expect(result.traces.some((t) => t.startsWith("delegation-claim nudge"))).toBe(true)
+    expect(result.reply).toBe("现在真的派发。")
+  })
+
+  it("nudges a structured Respond that only claims a delegation", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [
+        { name: "delegate_to_subagent", description: "delegate", parameters: { type: "object" } },
+      ],
+      delegationClaimGuard: true,
+      ports: {
+        complete: async () => {
+          turn += 1
+          if (turn === 1) {
+            return {
+              ok: true,
+              response: {
+                content: JSON.stringify({
+                  _tag: "Respond",
+                  content: "已交给子代理，稍后同步结果。",
+                }),
+                toolCalls: [],
+              },
+            }
+          }
+          return {
+            ok: true,
+            response: {
+              content: JSON.stringify({ _tag: "Respond", content: "直接答复：不需要委派。" }),
+              toolCalls: [],
+            },
+          }
+        },
+        findTool: () => undefined,
+        executeTool: async () => ({ ok: false, reason: "unused" }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(turn).toBe(2)
+    expect(result.traces.some((t) => t.startsWith("delegation-claim nudge"))).toBe(true)
+    expect(result.reply).toBe("直接答复：不需要委派。")
+  })
+
+  it("does not nudge a claim after a delegation actually started", async () => {
+    const kernel = makeKernel()
+    await kernel.openTurn({ userMessage: { role: "user", content: "go" } })
+    const delegate: ToolDefinition = {
+      name: "delegate_to_subagent" as ToolDefinition["name"],
+      risk: "low",
+      run: async () => ({ ok: true, output: "started" }),
+    }
+    let turn = 0
+    const result = await runConversationLoop({
+      kernel,
+      messages: [{ role: "user", content: "go" }],
+      llmTools: [
+        { name: "delegate_to_subagent", description: "delegate", parameters: { type: "object" } },
+      ],
+      delegationClaimGuard: true,
+      ports: {
+        complete: async () => {
+          turn += 1
+          if (turn === 1) {
+            return {
+              ok: true,
+              response: {
+                content: "",
+                toolCalls: [{ id: "tc-del", name: "delegate_to_subagent", args: { goal: "x" } }],
+              },
+            }
+          }
+          return {
+            ok: true,
+            response: { content: "已派 developer 子代理处理，完成会同步。", toolCalls: [] },
+          }
+        },
+        findTool: (name) => (name === "delegate_to_subagent" ? delegate : undefined),
+        executeTool: async (def, args) => def.run({ ...args }),
+        stubReply: () => "stub",
+        logger: { warn: () => undefined, error: () => undefined },
+      },
+    })
+    expect(result.traces.some((t) => t.startsWith("delegation-claim nudge"))).toBe(false)
+    expect(result.reply).toContain("已派 developer")
+  })
+
   it("nudges a tool-first loop instead of ending on an early prose reply", async () => {
     const kernel = makeKernel()
     await kernel.openTurn({ userMessage: { role: "user", content: "write" } })

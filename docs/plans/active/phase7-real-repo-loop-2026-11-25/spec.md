@@ -556,7 +556,17 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 
 | 候选编号 | 现象 | 证据 | 定级 |
 |---|---|---|---|
-| F36 | **委派声明再次漏网**：父代理回复「已在后台让 developer 动手」，但本轮 `toolCalls=0`、`workerBusy=0`、`startedTasks` 不变，工作区零改动；F11 的 `delegationClaimGuard` 本次未纠正（首轮即收尾）。owner 需再发一条「状态显示没有任务在跑」才真正派发 | 首轮 `/demo/api/chat` 返回 `toolCalls=0`、`workerBusy=0`；`/demo/api/status` `startedTasks=5`；第二轮 `toolCalls=5`、`startedTasks=6` | P2（待修） |
+| F36 | **委派声明再次漏网**：父代理回复「已在后台让 developer 动手」，但本轮 `toolCalls=0`、`workerBusy=0`、`startedTasks` 不变，工作区零改动；F11 的 `delegationClaimGuard` 本次未纠正（首轮即收尾）。owner 需再发一条「状态显示没有任务在跑」才真正派发 | 首轮 `/demo/api/chat` 返回 `toolCalls=0`、`workerBusy=0`；`/demo/api/status` `startedTasks=5`；第二轮 `toolCalls=5`、`startedTasks=6` | P2（已修，见 §6.31） |
+
+### 6.31 F36 修复（委派声明守卫补口径 + 覆盖 Respond 路径）
+
+| 内容 | 验证 |
+|------|------|
+| 根因 1：F11 的声明正则只匹配「已派/已交给/已委派/派给/交给」，「已在后台让 developer 动手」漏网 | 4522 日志：`decodeDecision failed at iteration 0 … "已在后台让 developer 动手…"`，该轮 `toolCalls=0` |
+| 根因 2：F11 守卫只在「decode 失败→纯文本 Respond」分支生效，模型输出结构化 `{"_tag":"Respond"}` 时同样可声称已派发并结束 | `case "Respond"` 直接 `safeApplyDecision` + return，无任何声明校验 |
+| 改动：新增 `looksLikeDelegationClaim()`（目标词 `子代理/执行代理/developer/后台` + 动作词补「让 … 动手/开工/执行/处理/去做」「安排 … 动手」；只有目标或只有动作不算）；纯文本分支与 `Respond` 分支共用 `DELEGATION_CLAIM_NUDGE` 提示；两处都加 `delegations === 0` 条件，真正派发过的声明不再误纠正 | 单测新增 4 条（F36 文案纯文本、结构化 Respond 声称、真实派发后声明不纠正、原「已派 developer」用例保留）；`conversation-loop.test.ts` 34 passed |
+| 相关回归 | `wechat-inbound-butler / wechat-dev-delegate / wechat-dev-session-chain / acceptance dev-delegate-approval` 4 文件 **36 passed**；全仓 `typecheck` Done；全仓 `pnpm test` **302 文件通过 / 1 跳过，2633 passed / 4 skipped** |
+| 运行环境 | 4522 已重启加载 F36（`startedTasks=0` 新进程）；后续真实对话观察是否仍出现「声称已派但 0 工具」 |
 
 ## 7. 边界
 

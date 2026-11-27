@@ -56,6 +56,25 @@ function toolBudgetNote(maxToolCalls: number, used: number): string {
   return `${head}避免重复或探索性调用，直接完成用户要求的目标动作（必要时调用工具），再给出结论。`
 }
 
+/** Phase 7 fix F36: 委派声明守卫的提示文案（纯文本与 Respond 两条路径共用）。 */
+const DELEGATION_CLAIM_NUDGE =
+  "[system] 你回复里声称已经委派，但本轮没有成功派发子任务，子代理并未真正启动。如果确实需要子代理，请立刻调用 delegate_to_subagent（goal 里写完整任务与验证要求）；如果不需要，请直接给出最终答复，不要声称已派发。"
+
+/**
+ * Phase 7 fix F36: 判断一段回复是否在声称「已派子代理」。
+ *
+ * F11 只匹配「已派/已交给/已委派/派给/交给」，实测漏掉了
+ * 「已在后台让 developer 动手」这类说法，导致 0 工具调用也被当作完成。
+ * 这里补上「让 … 动手/开工/执行/处理/去做」「安排 … 动手」等变体。
+ */
+function looksLikeDelegationClaim(text: string): boolean {
+  const raw = text ?? ""
+  if (!/(子代理|执行代理|developer|后台)/iu.test(raw)) return false
+  return /(已派|已交给|已委派|派给|交给|让[^\n。]{0,24}(?:动手|开工|执行|处理|去做)|安排[^\n。]{0,12}(?:动手|开工|执行))/u.test(
+    raw,
+  )
+}
+
 /**
  * Phase D eval fix B-06: stuck-loop detection. If the LLM invokes the
  * same capability with the same args `>= STUCK_LOOP_THRESHOLD` times within
@@ -666,23 +685,19 @@ async function runNativeConversationLoop(
       // Max retries exceeded (Phase D fix B-08/10): prefer the last non-empty
       // LLM content (legitimate plain-text response); fall back to stub reply
       // when ALL attempts were empty (matches pre-fix behavior for empty raw).
-      // Phase 7 fix F11: never accept "已派子代理" prose as a finished turn —
-      // no tool ran, so the delegated task does not exist. Nudge once.
-      const delegationClaim =
-        /(已派|已交给|已委派|派给|交给)/.test(raw) && /(子代理|执行代理|developer|后台)/.test(raw)
+      // Phase 7 fix F11/F36: never accept "已派子代理" prose as a finished turn —
+      // unless a delegation actually started earlier in this loop run. Nudge once.
+      const delegationClaim = looksLikeDelegationClaim(raw)
       if (
         input.delegationClaimGuard === true &&
         delegationClaim &&
+        delegations === 0 &&
         !isFinalIteration &&
         !toolsExhausted &&
         delegationClaimNudges < 1
       ) {
         delegationClaimNudges += 1
-        messages.push({
-          role: "user",
-          content:
-            "[system] 你回复里声称已经委派，但本轮没有调用任何工具，子任务并未真正启动。如果确实需要子代理，请立刻调用 delegate_to_subagent（goal 里写完整任务与验证要求）；如果不需要，请直接给出最终答复，不要声称已派发。",
-        })
+        messages.push({ role: "user", content: DELEGATION_CLAIM_NUDGE })
         traces.push("delegation-claim nudge 1/1")
         continue
       }
@@ -735,9 +750,24 @@ async function runNativeConversationLoop(
 
     switch (decision._tag) {
       case "Respond": {
-        await safeApplyDecision(input.kernel, decision, logger)
         const text = decision.content.trim()
         const reply = text || input.ports.stubReply()
+        // Phase 7 fix F36: a structured Respond that merely claims a delegation
+        // must not end the turn either — same guard as the plain-text path.
+        if (
+          input.delegationClaimGuard === true &&
+          delegations === 0 &&
+          !isFinalIteration &&
+          !toolsExhausted &&
+          delegationClaimNudges < 1 &&
+          looksLikeDelegationClaim(reply)
+        ) {
+          delegationClaimNudges += 1
+          messages.push({ role: "user", content: DELEGATION_CLAIM_NUDGE })
+          traces.push("delegation-claim nudge 1/1")
+          continue
+        }
+        await safeApplyDecision(input.kernel, decision, logger)
         if (input.ports.persistAssistantReply) {
           await input.ports.persistAssistantReply(reply)
         }

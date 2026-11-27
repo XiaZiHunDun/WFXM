@@ -318,3 +318,10 @@
 - [x] 验证：typecheck、clean build 通过；curl 覆盖 30/7 天行数、BOM、升序、文件头、非法 days 400、与 `/api/stats/daily` 逐日一致
 - [x] Playwright 14/14（1440px + 390px：按钮、下载文件名、BOM、30 行、升序、返回书架、无横向溢出）
 - [x] 文档回填 spec §6.30，记录新缺陷候选 F36（父代理声称派发但 0 工具调用仍未纠正）；未提交（等待 owner 指令）
+
+## T42 F36 委派声明守卫补口径（含 Respond 路径）
+- [x] `looksLikeDelegationClaim()`：目标词（子代理/执行代理/developer/后台）+ 动作词（已派/已交给/已委派/派给/交给/让…动手·开工·执行·处理·去做/安排…动手）
+- [x] 纯文本分支与结构化 `Respond` 分支共用守卫与提示文案，均要求 `delegations === 0`，真实派发后不再误纠正
+- [x] 单测新增 4 条；`conversation-loop.test.ts` 34 passed
+- [x] 相关回归 4 文件 36 passed；全仓 typecheck Done；全仓 `pnpm test` 302 文件通过 / 1 跳过，2633 passed / 4 skipped
+- [x] 4522 已重启加载修复；文档回填 spec §6.31；未提交（等待 owner 指令）
