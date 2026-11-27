@@ -300,3 +300,12 @@
 - [x] 验证：typecheck、clean build 通过；curl 覆盖预览不落库、H3 导入 3 章、无 H3 退回、非法级别 400、默认 2 级往返全等；临时书已删除
 - [x] Playwright 25/25（1440px + 390px：预览/切级/取消/确认/工作台 3 章/无横向溢出）；临时数据已删除
 - [x] 文档回填 spec §6.28；未提交（等待 owner 指令）
+
+## T40 作品复制（批次 AA，口语折中需求）
+- [x] `src/lib/book-copy.js`：`generateCopyName`（副本/副本 2…/空名兜底）、`duplicateBook` 单事务（书字段 + 章节 + 大纲 + 设定，不复制版本/统计/日志，outline_id 重映射）、`NotFoundError`
+- [x] `POST /api/books/[id]/duplicate`：400/404/500/201；**首轮漏 `initDb()`，第二轮对话指出后修复**
+- [x] 书架书卡「复制」按钮 + confirm + toast + 刷新列表
+- [x] `tests/book-copy.test.mjs` 6 条；`pnpm test` 60/60
+- [x] 验证：typecheck、clean build 通过；curl 覆盖两次复制命名、字段/章节/大纲/设定一致、改删副本章不影响原书、404/400；副本已删除
+- [x] Playwright 21/21（1440px + 390px：复制按钮、toast、列表刷新、副本工作台 1 章、既有入口保留、无横向溢出）；副本已删除
+- [x] 文档回填 spec §6.29，记录「子代理预算耗尽跳过 build」观察；未提交（等待 owner 指令）
