@@ -35,6 +35,7 @@
  *   - No `// ts-prune-ignore-next` annotations.
  *   - All new code lives in `apps/api/src/`.
  */
+import { execFile } from "node:child_process"
 import { Effect } from "effect"
 import type { EventBridge } from "@butler/persistence/event-bridge.js"
 import type { OutboxMessage } from "@butler/persistence/outbox.js"
@@ -322,6 +323,104 @@ export function buildFinishDiagnostics(
 }
 
 /**
+ * F37: 落盘核对。
+ *
+ * 实测缺陷：子代理在回复里列出「已改文件 / 改动清单」，但实际代码没变（上一轮两处
+ * P3 就是这样漏掉的），owner 只能逐条 grep 才能发现。这里用**真实工具轨迹**（不是
+ * 模型自述）给完成回复附一段证据：
+ *   - write_file / edit_file 的调用次数与文件路径（来自 `wrote <path>` / `edited <path>`）；
+ *   - 只要回复声称改过文件、但本轮 0 次写入，就显式标出矛盾，避免「已完成」被当真。
+ * 可再附加 git status / git diff --stat 的真实输出（由调用方采集，纯函数只负责排版）。
+ */
+export interface WorkspaceEvidenceInput {
+  readonly traces: readonly string[]
+  readonly reply: string
+  readonly gitStatus?: string
+  readonly gitStat?: string
+}
+
+/** `write_file@3: wrote src/a.ts (12 chars)` / `edit_file@5: edited src/b.ts (...)`。 */
+const WRITE_TRACE_RE = /^(write_file|edit_file)@\d+: (?:wrote|edited) (.+?)(?: \(.+)?$/
+/** 只有足够明确的自述才算「声称改过文件」，避免普通汇报被误判。 */
+const WRITE_CLAIM_RE = /(已修改|已补齐|已补上|已落地|已修复|改动文件|改动清单|文件已写入)/
+
+export function buildWorkspaceEvidence(input: WorkspaceEvidenceInput): string {
+  let writes = 0
+  let edits = 0
+  let commands = 0
+  const files: string[] = []
+  for (const trace of input.traces) {
+    if (trace.startsWith("run_command@")) {
+      commands += 1
+      continue
+    }
+    const matched = WRITE_TRACE_RE.exec(trace)
+    if (matched === null) continue
+    if (matched[1] === "write_file") writes += 1
+    else edits += 1
+    const path = matched[2]?.trim() ?? ""
+    if (path !== "" && !files.includes(path)) files.push(path)
+  }
+
+  const lines: string[] = []
+  if (writes + edits > 0) {
+    const counts = [
+      `write_file×${writes}`,
+      `edit_file×${edits}`,
+      ...(commands > 0 ? [`run_command×${commands}`] : []),
+    ].join("、")
+    const listed = files.slice(0, 8).join("、")
+    lines.push(
+      `（落盘核对：${counts}；改动文件：${listed}${
+        files.length > 8 ? ` 等 ${files.length} 个` : files.length === 0 ? "（未解析到路径）" : ""
+      }）`,
+    )
+  } else if (WRITE_CLAIM_RE.test(input.reply)) {
+    lines.push(
+      "（落盘核对：回复声称已改动，但本轮没有任何 write_file/edit_file 调用，请以文件实际内容为准）",
+    )
+  }
+
+  const status = (input.gitStatus ?? "").trim()
+  if (status !== "") {
+    const rows = status.split("\n")
+    lines.push(`（工作区 git status：${rows.slice(0, 8).join("；")}${rows.length > 8 ? " …" : ""}）`)
+  }
+  const stat = (input.gitStat ?? "").trim()
+  if (stat !== "") {
+    const last = stat.split("\n").filter((row) => row.trim() !== "").pop()
+    if (last !== undefined) lines.push(`（git diff --stat：${last.trim()}）`)
+  }
+  return lines.length === 0 ? "" : `\n${lines.join("\n")}`
+}
+
+/**
+ * F37: 采集工作区的 git 证据。只读、失败静默（非 git 目录 / git 缺失 / 超时都返回空）。
+ */
+async function collectGitEvidence(
+  workspaceRoot: string | undefined,
+): Promise<{ gitStatus?: string; gitStat?: string }> {
+  if (workspaceRoot === undefined) return {}
+  const run = (args: readonly string[]): Promise<string> =>
+    new Promise((resolve) => {
+      execFile(
+        "git",
+        ["-C", workspaceRoot, ...args],
+        { timeout: 4_000, maxBuffer: 64 * 1024 },
+        (err, stdout) => resolve(err === null ? String(stdout) : ""),
+      )
+    })
+  const [status, stat] = await Promise.all([
+    run(["status", "--short"]),
+    run(["diff", "--stat"]),
+  ])
+  return {
+    ...(status.trim() === "" ? {} : { gitStatus: status }),
+    ...(stat.trim() === "" ? {} : { gitStat: stat }),
+  }
+}
+
+/**
  * Run the child LLM turn. R8.x.10: advertises only granted tools and
  * refuses to execute any tool_call outside that set. Existing
  * general-only delegations keep the previous single-shot text path
@@ -577,8 +676,14 @@ async function runChildLlm(
     if (llmFailureTrace !== undefined) {
       loopLogger.warn(`[subagent-worker] LLM failure detail: ${llmFailureTrace.slice(0, 300)}`)
     }
+    // F37: 附真实落盘证据（工具轨迹 + git 状态），让「已完成」可被 owner 直接核对。
+    const evidence = buildWorkspaceEvidence({
+      traces: loopResult.traces,
+      reply: loopResult.reply,
+      ...(await collectGitEvidence(workspaceRoot)),
+    })
     return {
-      content: `${loopResult.reply}${finishDiagnostics}`,
+      content: `${loopResult.reply}${finishDiagnostics}${evidence}`,
       capped: loopResult.iterations >= MAX_CHILD_ITERATIONS,
       retryableLlmFailure: isRetryableLlmFailure(loopResult),
     }

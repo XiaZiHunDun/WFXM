@@ -345,3 +345,20 @@
 - [x] API 实测：953→164（bible+previous）、非法/受保护 key 无影响、重复参数等价、生成 prompt 与预览完全一致（212 字）；临时书已删除
 - [x] Playwright 33/33（1440px + 390px：勾选/字数变化/标题任务保留/生成 body/无横向溢出）
 - [x] 文档回填 spec §6.33；未提交（等待 owner 指令）
+
+## T45 选中片段改写（批次 AE，转向「改得动」）+ 上下文面板 P3
+- [x] `src/lib/polish-prompt.js`：`normalizePolishSelection`（trim / 超 4000 抛错 / before·after 截 500）、`buildPolishPrompt`（整章 / 片段两套 prompt）、`estimatePolishMaxTokens`
+- [x] polish 路由接 `selection/before/after`，selection 校验先于 LLM 配置校验；llm_logs 记实际 prompt
+- [x] 工作台：有选区按钮变「润色选中」、请求带选区上下文、预览标题区分、应用按区间回填并校验失效、整章模式不变
+- [x] P3：删重复状态行；请求中显示「已排除 N 块 · 当前 更新中…」
+- [x] 新增 `tests/polish-selection.test.mjs` 5 条；`pnpm test` 92/92；typecheck、clean build 通过
+- [x] API 实测：片段 prompt 含三块且无整章正文、整章回归、5000 字 400、超长上下文截断；临时书已删除
+- [x] Playwright 16/16（选区→预览→区间回填→撤销→全文回归）+ 5/5（更新中/单一状态行）
+- [x] 文档回填 spec §6.34；未提交（等待 owner 指令）
+
+## T46 F37 落盘核对（闭环缺陷：声称已改但代码未变）
+- [x] `buildWorkspaceEvidence`：解析 `write_file@N: wrote <path>` / `edit_file@N: edited <path>`，统计次数、文件去重并限 8 个、附 run_command 次数
+- [x] 回复含「已修改/已补齐/已落地/已修复/改动文件/改动清单」但 0 次写入 → 追加矛盾警示
+- [x] `collectGitEvidence`：git status --short + diff --stat（4s 超时、失败静默），完成回复自动附加
+- [x] 单测 4 条；`subagent-worker.test.ts` 25 passed；typecheck 通过；4522 重启加载
+- [x] 文档回填 spec §6.35；未提交（等待 owner 指令）

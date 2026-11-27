@@ -22,6 +22,7 @@ import {
   runSubagentWorker,
   buildPauseForApprovalReply,
   buildFinishDiagnostics,
+  buildWorkspaceEvidence,
   resolveChildLlmTimeout,
   type SubagentWorkerLogger,
 } from "./subagent-worker.js"
@@ -445,6 +446,53 @@ describe("subagent worker", () => {
     expect(diagnostic).toContain("read_file@6")
     expect(diagnostic.indexOf("llm failure")).toBeLessThan(diagnostic.indexOf("read_file@6"))
     expect(buildFinishDiagnostics("Respond", ["llm failure: x"])).toBe("")
+  })
+
+  it("F37: 落盘核对列出真实写入次数与文件，并附 git 状态", () => {
+    const evidence = buildWorkspaceEvidence({
+      traces: [
+        "read_file@1: lines 1-80 of 400",
+        "write_file@2: wrote src/app/api/a.ts (120 chars)",
+        "edit_file@3: edited src/app/books/[id]/page.tsx (2 replacement(s), 1000 -> 1100 chars, +100)",
+        "run_command@4: pnpm typecheck",
+        "edit_file@5: edited src/app/books/[id]/page.tsx (1 replacement(s), 1100 -> 1120 chars, +20)",
+      ],
+      reply: "已完成：新增 a.ts 并修改 page.tsx。",
+      gitStatus: " M src/app/api/a.ts\n M src/app/books/[id]/page.tsx\n?? tests/new.test.ts",
+      gitStat: " 2 files changed, 120 insertions(+)\n",
+    })
+    expect(evidence).toContain("write_file×1")
+    expect(evidence).toContain("edit_file×2")
+    expect(evidence).toContain("run_command×1")
+    expect(evidence).toContain("src/app/api/a.ts")
+    expect(evidence).toContain("改动文件：src/app/api/a.ts、src/app/books/[id]/page.tsx）")
+    expect(evidence).not.toContain("page.tsx、src/app/books")
+    expect(evidence).toContain("git status")
+    expect(evidence).toContain("2 files changed, 120 insertions(+)")
+  })
+
+  it("F37: 声称已改但 0 次写入时显式标出矛盾", () => {
+    const evidence = buildWorkspaceEvidence({
+      traces: ["read_file@1: lines 1-80 of 400", "edit_file@2: error: oldText not found"],
+      reply: "已修改 page.tsx 两处状态行，改动清单如下。",
+    })
+    expect(evidence).toContain("声称已改动")
+    expect(evidence).toContain("没有任何 write_file/edit_file 调用")
+  })
+
+  it("F37: 无写入且无自述改动的普通汇报不附证据", () => {
+    expect(
+      buildWorkspaceEvidence({ traces: ["read_file@1: lines 1-80 of 400"], reply: "已读完，结论如下。" }),
+    ).toBe("")
+  })
+
+  it("F37: 文件去重且超过 8 个时只列前 8 个", () => {
+    const traces = Array.from({ length: 10 }, (_, i) => `write_file@${i + 1}: wrote src/f${i}.ts (10 chars)`)
+    const evidence = buildWorkspaceEvidence({ traces, reply: "done" })
+    expect(evidence).toContain("write_file×10")
+    expect(evidence).toContain("src/f0.ts")
+    expect(evidence).not.toContain("src/f8.ts")
+    expect(evidence).toContain("等 10 个")
   })
 
   it("F20: retries the child run once when the LLM transport fails before any write", async () => {
