@@ -233,3 +233,11 @@
 - [x] 修复首版 ↑↓ 失效：命令 useMemo 依赖未 memo 化函数 → 每次渲染重置选中项；改用 handlersRef + 重置 effect 依赖 `[paletteOpen, paletteQuery]`
 - [x] 验证：typecheck 通过、clean build 产物完整（exit 124 属已知）；Playwright 15/15；390px 无溢出；演示数据零写入
 - [x] 文档回填 spec §6.21；未提交（等待 owner 指令）
+
+## T33 书架排序 + 最近编辑时间（批次 U）
+- [x] `listBooks({ sort })`：updated/created/title/words 白名单 ORDER BY + wordCount/lastEditedAt 聚合（0 章节回落 books.updated_at）
+- [x] `GET /api/books?sort=`：非法值 400，合法值透传；默认 updated
+- [x] 书架排序下拉 + localStorage 记忆 + 书卡「最近编辑」与「N 篇 · M 字」；定稿进度保留
+- [x] `tests/book-sort.test.mjs` 3 条；`pnpm test` 26/26；typecheck、clean build 通过
+- [x] curl 四种排序 + 400 分支；Playwright 12/12（含刷新记忆、搜索回归、390px）；演示数据零写入
+- [x] 文档回填 spec §6.22；未提交（等待 owner 指令）
