@@ -668,6 +668,24 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 子代理本轮明确声明「未跑接口/UI 自测」，但 F37 落盘核对如实列出 5 个改动文件与 `3 files changed, 214 insertions(+)`，owner 可据此判断改动范围（闭环改善）。
 - PATCH 的 content 不做 trim（保留作者原排版），仅空串归一为空；与 title 的 trim 策略不同，属有意设计，需在 UI 上靠占位提示区分（P3）。
 
+### 6.38 第三十二轮：设定按本章相关性注入（批次 AI）
+
+背景：上下文一直固定取 `bible.slice(0, 20)`。批次 AG 能自动提取设定后，一本书二三十条很常见，真正相关的人物排在第 25 条就永远进不了 prompt。
+
+| 内容 | 验证 |
+|------|------|
+| `chapter-context.js`：新增 `countOccurrences` / `rankBibleItems`（标题 ≥2 字才算命中，按「本章标题 + 本章大纲标题/摘要 + 上一章标题/摘要 + 额外要求」中出现次数稳定排序）与 `buildRelevanceText`；`buildBibleBlock` 改为接收排序结果并返回 `included/mentioned`；`findOutlineForChapter` 统一大纲查找（outlineId 优先，缺失时按章节 seq 回落 order/seq），大纲块与相关性评分共用 | 新增 `tests/chapter-context-relevance.test.mjs` 5 条；`pnpm test` **122/122** |
+| `stats` 增加 `bibleTotal/bibleIncluded/bibleMentioned/bibleOmitted`；`bible` 被 exclude 或为空时 included/mentioned 记 0，total/omitted 仍按全量 | typecheck、clean build 通过 |
+| 工作台上下文面板新增「设定 12/30 条 · 其中 3 条与本章相关」，数字取自 stats，无设定不显示，390px 可换行 | Playwright **5/5** |
+| API 实测（临时书：30 条设定、第 25 条「沈九斤」写进大纲，验证后删除） | 首次 stats = total 30 / included 20 / mentioned 1 / omitted 10，设定块第一条即「沈九斤」，第 30 条「王小二」未注入；改大纲提「王小二」并修正章节 outlineId 后，王小二进入前 20、沈九斤被挤出；`exclude=bible` 时 included/mentioned 0、omitted 30；无设定书 stats 全 0 |
+| UI 实测 | 面板显示「设定 20/30 条 · 其中 1 条与本章相关」与接口一致；预览含命中设定；1440/390 `overflow=0` |
+
+#### 本轮观察
+
+- 大纲查找新增「按 seq 回落 order/seq」：没有 outlineId 的章节现在也能带上对应序位的大纲块与相关性评分，属行为变化（更合理），已有单测未受影响。
+- 相关性只看标题字面命中，同义/别名（沈九斤 vs 九斤）不计分；标题小于 2 字不参与，避免单字噪声（P3）。
+- 命中只看「出现次数」，没有权重区分标题/大纲/前情；后续可按块加权（P3）。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

@@ -381,3 +381,12 @@
 - [x] API 实测：部分更新、4 类 400、404、未知 key；临时书已删除
 - [x] Playwright 9/9（编辑保存/刷新持久/取消不发请求/空标题拦截/390px）
 - [x] 文档回填 spec §6.37；未提交（等待 owner 指令）
+
+## T49 设定按本章相关性注入（批次 AI）
+- [x] `chapter-context.js`：`rankBibleItems`（标题命中次数稳定排序）+ `buildRelevanceText` + `findOutlineForChapter` 统一查找（outlineId → seq 回落）
+- [x] `stats` 新增 bibleTotal/bibleIncluded/bibleMentioned/bibleOmitted；exclude bible 时 included/mentioned 归 0
+- [x] 工作台上下文面板「设定 x/y 条 · 其中 n 条与本章相关」，390px 可换行
+- [x] 新增 5 条单测；`pnpm test` 122/122；typecheck、clean build 通过
+- [x] API 实测：30 条中第 25 条命中前移、对照项替换生效、exclude/空库口径正确；临时书已删除
+- [x] Playwright 5/5（面板统计与接口一致、预览含命中、1440/390 无溢出）
+- [x] 文档回填 spec §6.38；未提交（等待 owner 指令）
