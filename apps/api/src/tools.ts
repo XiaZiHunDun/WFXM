@@ -35,6 +35,10 @@ import { loadMcpToolDefinitions, loadMcpLlmTools, type McpToolsOptions } from ".
 import type { McpToolBundle } from "./mcp-bootstrap.js"
 import { isSubagentEnabled } from "./subagent-config.js"
 import { defaultCapabilitiesForRole } from "./delegate-capabilities.js"
+import {
+  findRecentlyCompletedDuplicate,
+  formatDuplicateRejection,
+} from "./delegation-dedupe.js"
 import { isRemindersEnabled } from "./reminder-config.js"
 import { makeReminderTools, REMINDER_LLM_TOOLS } from "./reminder-tools.js"
 
@@ -373,6 +377,30 @@ export function makeDelegateToSubagentTool(ctx: ButlerToolContext): ToolDefiniti
     // with Capability["tool"] without re-deriving the branded
     // string elsewhere.
     const capabilities: Capability[] = effectiveCaps.map((c) => makeCapability(c))
+    // F31: refuse a near-identical re-delegation of a task that already
+    // completed in this same conversation. Compaction can drop the
+    // "done" reply while keeping the old spec, which made the model
+    // replay finished work. Explicit rework wording bypasses this.
+    const duplicate = findRecentlyCompletedDuplicate({
+      task,
+      parentConversationId: ctx.conversationId,
+      ...(ctx.env === undefined ? {} : { env: ctx.env }),
+    })
+    if (duplicate !== undefined) {
+      const reason = formatDuplicateRejection(duplicate)
+      writeSubagentAudit(ctx.runtimeStore, {
+        ts: new Date().toISOString(),
+        kind: "rejection",
+        parentConversationId: ctx.conversationId,
+        childConversationId: duplicate.childConversationId,
+        role,
+        task,
+        capabilities: effectiveCaps,
+        reason: `duplicate-of-completed:${Math.round(duplicate.similarity * 100)}%`,
+        ...(ctx.wechatUserId === undefined ? {} : { ownerSubject: ctx.wechatUserId }),
+      })
+      return { ok: false, reason }
+    }
     const outcome = await delegate({
       role,
       task,

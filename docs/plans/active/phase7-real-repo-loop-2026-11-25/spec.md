@@ -425,6 +425,43 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 父代理在首轮决策时命中 `E-LLM-01`，但 toolCalls=1 已派发子代理，失败信封正确提示「任务已交给后台执行、不要原样重发」，实际子代理正常完成——F9/F17 的信封在真实故障下生效，未造成重复派发。
 - 仅 2 本演示书不足以在 UI 层区分「字数/创建时间」与「最近编辑」的排序差异（顺序恰好相同），这两种排序的严格性由 `:memory:` 单测覆盖，UI 只验证「切换后确实重新请求且列表按返回顺序渲染」。
 
+### 6.23 第二十轮：全书查找替换（批次 V，口语折中需求）+ 新缺陷
+
+| 内容 | 验证 |
+|------|------|
+| 需求口吻改为「正文像真人说话 + 末尾 3 条验收点」后，LingWen 新增全书查找替换：`src/lib/find-replace.js`（纯函数 `countOccurrences`/`applyReplacement`/`buildSnippets`、只读 `previewBookReplace`、事务版 `replaceBookText`）、`POST /api/books/[id]/find-replace`（mode=preview/replace + confirm:true）、`/books/[id]/find-replace` 面板页 + 工作台入口、`tests/find-replace.test.mjs` | `pnpm test` **31/31**；typecheck 通过；clean build exit 0（`ƒ /api/books/[id]/find-replace`、`ƒ /books/[id]/find-replace`）。API 13 项：预览 2 处/1 章+片段、缺 confirm 400、替换后正文「刀芒如虹。刀芒再起。无关内容。」、wordCount=12、未命中章不变、旧词 0 命中、1 条历史快照、临时书删除后 404 |
+| UI（Playwright **12/12**） | 工作台入口可进面板、预览汇总与 `<mark>` 高亮、确认前正文不变、二次确认文案含「2 处 / 1 章」、取消不替换、确认后提示「共替换 2 处，涉及 1 章」并刷新为 0 命中、返回书籍、390px 无横向滚动、零 JS 异常；临时书已删除 |
+| 数据 | 演示库仍 2 本书各 1 章（353/350 字）；替换测试全在临时书内完成 |
+
+#### 本轮暴露的 WFXM 问题（待修）
+
+| 候选编号 | 现象 | 证据 | 定级 |
+|---|---|---|---|
+| F31 | 同一会话里**已完成的任务被重新派发**：本轮父代理把上一轮的「书架排序」与新需求一起当成「两个任务」并发派给子代理，重复子代理又改了 `src/app/page.tsx`（加 `book-meta` 类）与 `globals.css`；实际功能上一轮已交付 | `/demo/api/status` 的 `startedTasks` 由 3 → 4 → 5（两次派发）；子代理 1 的回复整段复述已完成的 `listBooks` 排序；`page.tsx` 仅 +1/-1 类名、CSS +227 行含重复语义样式 | P1 |
+| F32 | 子代理工具预算耗尽时**功能已落地但测试仍红**（1 条断言），worker 直接收工，父代理不自动续跑，只能 owner 再发一轮「只修这条断言」 | 子代理 2 报告「测试：✗」「工具预算耗尽，剩 1 行测试断言待修」；补发一轮后才 31/31 | P1 |
+| F33 | 需求写「在工作台加个面板」，子代理实现为独立的 `/books/[id]/find-replace` 页面 + 工具栏链接（可用但偏离「工作台内面板」） | `src/app/books/[id]/find-replace/page.tsx` 新建整页；工作台仅加一个 `<Link>` | P2 |
+
+> 状态：F31/F32 已修（见 §6.24）；F33 仍为观察项（功能可用，仅位置偏离原意）。
+
+#### 本轮观察
+
+- 口语化需求下子代理仍完成了跨 6 个文件的实现（2 个新 API/页面 + 1 个 lib + 测试 + 两处页面接入），但**验收偏差**与**收尾不完整**明显增加：多派发一次旧任务、测试红着收工、面板位置自选。
+- 测试断言错误是子代理自己写错的期望值（删除词后句号相邻），实现语义正确；这类「自测红但不修」暴露的是 worker 完成判定只看「是否有回复」而不看「门禁是否全绿」。
+
+### 6.24 F31/F32 修复（WFXM 侧）
+
+| 编号 | 修复 | 验证 |
+|------|------|------|
+| F31 | 新增 `apps/api/src/delegation-dedupe.ts`：派发前读取审计日志**尾部**（`readRecentSubagentAuditTail(200, env)`，最多 512KiB，避免 11MB 全量读），筛出同一 `parentConversationId` 下已有 `completion` 的 `delegation`，与本次 task 做相似度比较；≥ 阈值则拒绝派发并返回「已阻止重复派发…如确需返工请写明修改点」；`BUTLER_V5_DELEGATION_DEDUPE=0` 可关闭，`BUTLER_V5_DELEGATION_DEDUPE_THRESHOLD` 可调（默认 0.45，区间 0.3–0.95）；含「返工/修复/重做/…」字样的任务直接放行 | 单测 `delegation-dedupe.test.ts` **9 条**（归一化、token+bigram 相似度、同会话已完成拦截、未完成/跨会话/超 24h/过短不拦截、返工放行、开关与阈值、拒绝文案）；**用真实审计日志回放**：上一轮 `067476f6eae9` 与重复派发 `3b053eb2d792` 的任务相似度 **62.6%**（旧 Levenshtein 仅 74.2%，低于任何安全阈值，故改为 token/bigram 组合），现可拦截；新任务/跨会话/返工均放行 |
+| F32 | `dev-quality-gate.ts` 新增 `enrichSubagentDevReplyWithVerify`（返回原始 verify 结果）、`shouldAutofixDevFailure`（纯函数判定）、`buildDevVerifyFixTask`（把失败命令+输出摘录拼成续跑任务）、`isDevVerifyAutofixEnabled`；`subagent-worker.ts` 在门禁红灯且有写/命令能力时自动续跑**一轮**（新预算），复检仍红则把子任务标记为失败，不再以「已完成」交付；`BUTLER_V5_DEV_VERIFY_AUTOFIX=0` 可关闭 | 单测：`shouldAutofixDevFailure` 6 组分支 + `buildDevVerifyFixTask` 2 条；端到端（4523 临时实例 + `BUTLER_V5_DEV_VERIFY_CMD='["false"]'` + 空工作区）：子代理写 `hello.txt` 后日志出现 `dev gate red (exit=1); starting one auto-fix round`，续跑回复送达，最终回复仍显示 `测试：✗`（门禁恒失败），临时工作区已删除 |
+| 回归 | `delegation-dedupe.test.ts` 9 + `dev-quality-gate.test.ts` 新增 4 + `tools/subagent-worker/audit-log` 相关共 **87 passed**；全仓 `typecheck` 通过；4522 已重启加载最终代码；演示库与 LingWen 工作区未受影响 | 见上 |
+
+#### 设计取舍
+
+- 相似度改用 `max(token Jaccard, 字符二元组 Jaccard)`：真实复现的两个任务被改写后字符级距离很大，但功能关键词（「书架排序 + 最近编辑时间」/`listBooks`/`tests/book-sort.test.mjs`）高度重合；实测重复对 0.48/0.58，而非重复任务最高仅 0.25/0.35，阈值 0.45 有安全边界。
+- 只读审计尾部：审计日志含每个工具调用，已达 11MB；守卫不能每次派发全量读盘。
+- F32 自动续跑只做一轮且仅在「有写/命令能力 + 非审批暂停 + 门禁启用」时触发，避免无限循环与费用失控。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

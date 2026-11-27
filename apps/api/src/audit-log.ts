@@ -12,7 +12,16 @@
  *   - No `// ts-prune-ignore-next` annotations.
  *   - Directory is created lazily on first write.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+} from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { homedir } from "node:os"
 
@@ -126,6 +135,58 @@ export function readRecentSubagentAudit(
       }
     }
     return entries
+  } catch {
+    return []
+  }
+}
+
+/**
+ * F31: read the newest audit rows without loading the whole file. The JSONL
+ * log can grow to tens of MB (one row per tool call), so the delegation
+ * dedupe guard must only read a bounded tail. Never throws.
+ */
+export function readRecentSubagentAuditTail(
+  limit: number,
+  env: NodeJS.ProcessEnv = process.env,
+  maxBytes = 512 * 1024,
+): readonly AuditEntry[] {
+  const safeLimit = Math.max(1, Math.min(limit, 200))
+  try {
+    const path = resolveSubagentAuditLogPath(env)
+    if (!existsSync(path)) return []
+    const fd = openSync(path, "r")
+    try {
+      const { size } = fstatSync(fd)
+      const length = Math.min(size, Math.max(4096, maxBytes))
+      if (length <= 0) return []
+      const buffer = Buffer.alloc(length)
+      readSync(fd, buffer, 0, length, size - length)
+      let text = buffer.toString("utf8")
+      if (length < size) {
+        // Drop the first partial line.
+        const firstNewline = text.indexOf("\n")
+        text = firstNewline === -1 ? "" : text.slice(firstNewline + 1)
+      }
+      const lines = text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .slice(-safeLimit)
+      const entries: AuditEntry[] = []
+      for (const line of lines) {
+        try {
+          const parsed: unknown = JSON.parse(line)
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            entries.push(parsed as AuditEntry)
+          }
+        } catch {
+          // skip malformed line
+        }
+      }
+      return entries
+    } finally {
+      closeSync(fd)
+    }
   } catch {
     return []
   }

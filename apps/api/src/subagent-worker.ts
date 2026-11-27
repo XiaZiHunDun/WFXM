@@ -63,7 +63,12 @@ import { makeToolExecutor, toolTimeoutMs } from "./tool-boundary.js"
 import { resolveOwnerSubject } from "./tool-boundary-helpers.js"
 import { toRunResult, isPendingApprovalOutcome } from "./approval-resume.js"
 import { ensureDelegationToolGrants } from "./delegation-grants.js"
-import { enrichSubagentDevReply } from "./dev-quality-gate.js"
+import {
+  buildDevVerifyFixTask,
+  enrichSubagentDevReplyWithVerify,
+  shouldAutofixDevFailure,
+  type DevVerifyResult,
+} from "./dev-quality-gate.js"
 import { execModelTrace } from "@butler/adapters"
 import { safeOwnerError } from "./safe-owner-error.js"
 import { getWechatActiveProjectId } from "./wechat-active-project.js"
@@ -764,8 +769,9 @@ async function handleOutboxMessage(
     notifySubject || (await resolveWechatUserFromConversation(bridge, msg.streamId)) || ""
   const inboundProject = notifyUser ? getWechatActiveProjectId(notifyUser, env) : "wechat"
   let replyBody = result.content
+  let verifyResult: DevVerifyResult | undefined
   try {
-    replyBody = await enrichSubagentDevReply({
+    const enriched = await enrichSubagentDevReplyWithVerify({
       projectId: inboundProject,
       fromUserId: notifyUser || "subagent",
       capabilities,
@@ -774,12 +780,76 @@ async function handleOutboxMessage(
       env,
       ...(runtimeStore === undefined ? {} : { runtimeStore }),
     })
+    replyBody = enriched.reply
+    verifyResult = enriched.verify
   } catch (err) {
     logger.warn(
       `[subagent-worker] dev verify enrichment failed: ${
         err instanceof Error ? err.message : String(err)
       }`,
     )
+  }
+  // F32: a red dev gate means the task is not actually finished. Give the
+  // child one bounded continuation round with the failing output instead of
+  // delivering a "done" reply while tests are still failing.
+  const canAutofix = shouldAutofixDevFailure({
+    llmOk,
+    waitingApproval: result.waitingApproval,
+    verify: verifyResult,
+    capabilities,
+    env,
+  })
+  if (canAutofix && adapter && verifyResult !== undefined) {
+    const failed = verifyResult
+    logger.warn(
+      `[subagent-worker] dev gate red (exit=${failed.exitCode}); starting one auto-fix round (child=${childConversationId})`,
+    )
+    try {
+      const fixed = await runChildLlm(
+        adapter,
+        role,
+        buildDevVerifyFixTask({ task, verify: failed }),
+        capabilities,
+        bridge,
+        msg.streamId,
+        childConversationId,
+        env,
+        runtimeStore,
+        childRunId,
+        turnId,
+      )
+      logger.warn(`[subagent-worker] auto-fix replied: ${fixed.content.slice(0, 80)}`)
+      result = fixed
+      if (fixed.waitingApproval === true) {
+        replyBody = fixed.content
+      } else if (fixed.capped === true) {
+        llmOk = false
+        replyBody = `执行未完成（自动续跑达到步数上限，已停止）：${fixed.content}`
+      } else {
+        const rechecked = await enrichSubagentDevReplyWithVerify({
+          projectId: inboundProject,
+          fromUserId: notifyUser || "subagent",
+          capabilities,
+          ok: true,
+          baseReply: fixed.content,
+          env,
+          ...(runtimeStore === undefined ? {} : { runtimeStore }),
+        })
+        replyBody = rechecked.reply
+        verifyResult = rechecked.verify
+        if (verifyResult !== undefined && !verifyResult.ok) llmOk = false
+      }
+    } catch (err) {
+      logger.warn(
+        `[subagent-worker] auto-fix round failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
+      llmOk = false
+    }
+  } else if (llmOk && result.waitingApproval !== true && verifyResult !== undefined && !verifyResult.ok) {
+    // Gate red and auto-fix unavailable: never report the run as succeeded.
+    llmOk = false
   }
   try {
     const replyEvent = {

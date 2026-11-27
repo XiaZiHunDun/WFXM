@@ -462,7 +462,67 @@ export async function enrichDevRunResult(args: {
   }
 }
 
-export async function enrichSubagentDevReply(args: {
+/**
+ * F32: when the dev gate is red the child did not actually finish, so the
+ * worker should keep going (one auto-fix round) instead of delivering a
+ * "done" reply with failing tests. Disable with
+ * `BUTLER_V5_DEV_VERIFY_AUTOFIX=0`.
+ */
+export function isDevVerifyAutofixEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = (env["BUTLER_V5_DEV_VERIFY_AUTOFIX"] ?? "1").trim().toLowerCase()
+  return raw !== "0" && raw !== "false" && raw !== "off"
+}
+
+/**
+ * F32: build the follow-up task for the auto-fix round. The child gets the
+ * original task plus the failing gate output and an explicit "fix only this"
+ * instruction, so it does not redo the whole feature.
+ */
+export function buildDevVerifyFixTask(args: {
+  readonly task: string
+  readonly verify: DevVerifyResult
+}): string {
+  const excerpt = truncate(args.verify.outputExcerpt.trim(), 1200)
+  return [
+    args.task.trim(),
+    "",
+    "【验收未通过 · 自动续跑】",
+    `上一次执行结束后 \`${args.verify.commandLabel}\` 失败（exit ${args.verify.exitCode}）。`,
+    "失败输出：",
+    excerpt || "(无输出)",
+    "",
+    "请只修复上面失败的部分，然后重新运行门禁命令确认通过；不要重做已完成的功能，也不要扩大改动范围。",
+  ].join("\n")
+}
+
+/**
+ * F32: whether a red dev gate should trigger the single auto-fix round.
+ * Kept pure so the worker's decision can be unit-tested without spawning
+ * an LLM or a gate process.
+ */
+export function shouldAutofixDevFailure(args: {
+  readonly llmOk: boolean
+  readonly waitingApproval?: boolean
+  readonly verify?: DevVerifyResult
+  readonly capabilities: readonly string[]
+  readonly env?: NodeJS.ProcessEnv
+}): boolean {
+  const env = args.env ?? process.env
+  if (!args.llmOk) return false
+  if (args.waitingApproval === true) return false
+  if (args.verify === undefined || args.verify.ok) return false
+  if (!isDevVerifyAutofixEnabled(env)) return false
+  return args.capabilities.some(
+    (cap) => cap === "write_file" || cap === "edit_file" || cap === "run_command",
+  )
+}
+
+/**
+ * F32: verify + format, but also return the raw verify result so the worker
+ * can decide whether to auto-fix. `verify === undefined` means the gate did
+ * not run (disabled / no mutating capabilities / run already failed).
+ */
+export async function enrichSubagentDevReplyWithVerify(args: {
   readonly projectId: string
   readonly fromUserId: string
   readonly capabilities: readonly string[]
@@ -470,10 +530,10 @@ export async function enrichSubagentDevReply(args: {
   readonly baseReply: string
   readonly env?: NodeJS.ProcessEnv
   readonly runtimeStore?: RuntimeStore
-}): Promise<string> {
+}): Promise<{ readonly reply: string; readonly verify?: DevVerifyResult }> {
   const env = args.env ?? process.env
   if (!shouldAutoDevVerifySubagent({ capabilities: args.capabilities, ok: args.ok, env })) {
-    return args.baseReply
+    return { reply: args.baseReply }
   }
   const audit: ExecAuditContext | undefined = args.runtimeStore
     ? { runtimeStore: args.runtimeStore, subject: args.fromUserId }
@@ -495,11 +555,27 @@ export async function enrichSubagentDevReply(args: {
     }),
     env,
   })
-  return formatDevQualityReply({
-    projectId: args.projectId,
-    ownerLabel: resolveWechatProjectLabel(args.projectId, env),
-    baseReply: args.baseReply,
+  return {
+    reply: formatDevQualityReply({
+      projectId: args.projectId,
+      ownerLabel: resolveWechatProjectLabel(args.projectId, env),
+      baseReply: args.baseReply,
+      verify,
+      touchedPaths,
+    }),
     verify,
-    touchedPaths,
-  })
+  }
+}
+
+export async function enrichSubagentDevReply(args: {
+  readonly projectId: string
+  readonly fromUserId: string
+  readonly capabilities: readonly string[]
+  readonly ok: boolean
+  readonly baseReply: string
+  readonly env?: NodeJS.ProcessEnv
+  readonly runtimeStore?: RuntimeStore
+}): Promise<string> {
+  const enriched = await enrichSubagentDevReplyWithVerify(args)
+  return enriched.reply
 }

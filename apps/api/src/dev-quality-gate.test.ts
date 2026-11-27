@@ -3,13 +3,16 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  buildDevVerifyFixTask,
   formatDevQualityReply,
+  isDevVerifyAutofixEnabled,
   isDevVerifyInlineEnabled,
   resolveDevVerifyArgv,
   resolveDevVerifyCwd,
   scheduleAsyncDevVerify,
   shouldAutoDevVerify,
   shouldAutoDevVerifySubagent,
+  shouldAutofixDevFailure,
 } from "./dev-quality-gate.js"
 
 // D57 audit #3 F-10: lock the contract that scheduleAsyncDevVerify logs
@@ -152,6 +155,94 @@ describe("dev-quality-gate", () => {
         isDevVerifyInlineEnabled(falsy === undefined ? {} : { BUTLER_V5_DEV_VERIFY_INLINE: falsy }),
       ).toBe(false)
     }
+  })
+
+  // F32: a red gate must trigger (at most) one auto-fix round, not a
+  // "done" reply with failing tests.
+  it("isDevVerifyAutofixEnabled defaults on and can be turned off", () => {
+    expect(isDevVerifyAutofixEnabled({})).toBe(true)
+    for (const falsy of ["0", "false", "off"]) {
+      expect(isDevVerifyAutofixEnabled({ BUTLER_V5_DEV_VERIFY_AUTOFIX: falsy })).toBe(false)
+    }
+  })
+
+  it("buildDevVerifyFixTask carries the failing output and forbids redoing the feature", () => {
+    const text = buildDevVerifyFixTask({
+      task: "给工作台加查找替换",
+      verify: {
+        ok: false,
+        exitCode: 1,
+        commandLabel: "pnpm test",
+        outputExcerpt: "not ok 25 - 断言失败",
+        durationMs: 900,
+      },
+    })
+    expect(text).toContain("给工作台加查找替换")
+    expect(text).toContain("【验收未通过 · 自动续跑】")
+    expect(text).toContain("pnpm test")
+    expect(text).toContain("exit 1")
+    expect(text).toContain("not ok 25")
+    expect(text).toContain("不要重做已完成的功能")
+  })
+
+  it("buildDevVerifyFixTask tolerates an empty gate output", () => {
+    const text = buildDevVerifyFixTask({
+      task: "修复文案",
+      verify: {
+        ok: false,
+        exitCode: 2,
+        commandLabel: "pnpm typecheck",
+        outputExcerpt: "   ",
+        durationMs: 10,
+      },
+    })
+    expect(text).toContain("(无输出)")
+  })
+
+  it("shouldAutofixDevFailure only fires for a red gate on a mutating child run", () => {
+    const red = {
+      ok: false,
+      exitCode: 1,
+      commandLabel: "pnpm test",
+      outputExcerpt: "not ok",
+      durationMs: 10,
+    }
+    const green = { ...red, ok: true, exitCode: 0 }
+    expect(
+      shouldAutofixDevFailure({ llmOk: true, verify: red, capabilities: ["developer", "write_file"] }),
+    ).toBe(true)
+    expect(
+      shouldAutofixDevFailure({ llmOk: true, verify: green, capabilities: ["write_file"] }),
+    ).toBe(false)
+    expect(
+      shouldAutofixDevFailure({ llmOk: false, verify: red, capabilities: ["write_file"] }),
+    ).toBe(false)
+    expect(
+      shouldAutofixDevFailure({
+        llmOk: true,
+        waitingApproval: true,
+        verify: red,
+        capabilities: ["write_file"],
+      }),
+    ).toBe(false)
+    expect(
+      shouldAutofixDevFailure({ llmOk: true, verify: red, capabilities: ["general"] }),
+    ).toBe(false)
+    expect(
+      shouldAutofixDevFailure({
+        llmOk: true,
+        verify: red,
+        capabilities: ["write_file"],
+        env: { BUTLER_V5_DEV_VERIFY_AUTOFIX: "0" },
+      }),
+    ).toBe(false)
+    expect(
+      shouldAutofixDevFailure({
+        llmOk: true,
+        verify: { ...red, ok: true },
+        capabilities: ["run_command"],
+      }),
+    ).toBe(false)
   })
 })
 

@@ -241,3 +241,21 @@
 - [x] `tests/book-sort.test.mjs` 3 条；`pnpm test` 26/26；typecheck、clean build 通过
 - [x] curl 四种排序 + 400 分支；Playwright 12/12（含刷新记忆、搜索回归、390px）；演示数据零写入
 - [x] 文档回填 spec §6.22；未提交（等待 owner 指令）
+
+## T34 全书查找替换（批次 V，口语折中需求）
+- [x] `src/lib/find-replace.js`：纯函数命中统计/替换/片段 + 只读预览 + better-sqlite3 事务替换（先快照后更新，异常整体回滚）
+- [x] `POST /api/books/[id]/find-replace`：preview/replace 两模式、confirm:true 强制二次确认、400/404
+- [x] `/books/[id]/find-replace` 页面：预览清单+片段高亮、替换全部→确认→结果提示、替换后刷新预览；工作台工具栏入口
+- [x] `tests/find-replace.test.mjs` 6 条；补一轮修正 1 条写错的期望值；`pnpm test` 31/31；typecheck、clean build exit 0
+- [x] API 13 项 + Playwright 12/12；临时书创建/验证/删除，演示数据零改动
+- [x] 文档回填 spec §6.23，并记录新缺陷候选 F31（重复派发已完成任务）/F32（预算耗尽、测试红着收工）/F33（面板位置偏离）
+- [x] 未提交（等待 owner 指令）
+
+## T35 F31 重复派发拦截 + F32 门禁红灯自动续跑
+- [x] F31 `delegation-dedupe.ts`：审计尾部读取（512KiB/200 条）+ token/bigram 相似度（默认阈值 0.45）+ 同会话已完成才拦截 + 返工意图放行 + env 开关/阈值
+- [x] F31 接入 `tools.ts` 派发前守卫：拒绝时写 `rejection` 审计并返回可执行指引
+- [x] F31 真实审计回放：原任务 vs 重复派发相似度 62.6%，现可拦截；新任务/跨会话/返工放行；单测 9 条
+- [x] F32 `dev-quality-gate`：`enrichSubagentDevReplyWithVerify` / `shouldAutofixDevFailure` / `buildDevVerifyFixTask` / env 开关；worker 门禁红时自动续跑一轮，仍红则标记失败
+- [x] F32 端到端：4523 临时实例 + `DEV_VERIFY_CMD=["false"]` → 日志 `starting one auto-fix round`，最终回复 `测试：✗`，临时工作区已删
+- [x] 回归：相关 87 tests passed；全仓 typecheck 通过；4522 已重启
+- [x] 文档回填 spec §6.24；未提交（等待 owner 指令）
