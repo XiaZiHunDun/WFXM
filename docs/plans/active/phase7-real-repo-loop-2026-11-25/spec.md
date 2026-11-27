@@ -374,6 +374,18 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 本轮未暴露新的闭环缺陷：单子任务一次完成后端+前端+测试，`startedTasks=1`，并用 `edit_file` 增量改 4 个文件；F28 的新提示（禁内联脚本、预算优先写入）在这次任务里没有被触发。
 - 聚合字段走 SQL 后，`mapRow` 对未知别名原样透传的行为需要测试兜住（本轮断言了既有字段未丢），这是 JS 仓库里最容易静默回归的点。
 
+### 6.19 第十六轮：单章导出（批次 R）
+
+| 内容 | 验证 |
+|------|------|
+| `src/lib/chapter-export.js` 纯函数 `buildChapterExport(chapter, format)`：md 首行 `# 第 N 章 标题`、txt 首行 `第 N 章 标题`、正文前空一行；format 仅认 `txt`，其余按 md（与整书导出同口径）；空标题「未命名」、空正文只留标题；filename 经 `encodeURIComponent` | `tests/chapter-export.test.mjs` 6 条，`pnpm test` **23/23**；`pnpm typecheck` 通过 |
+| 路由 `GET /api/chapters/[id]/export?format=md|txt`：id 非法 400、章节不存在 404、`Content-Disposition: attachment; filename*=UTF-8''…`；编辑区工具条加「导出本章 MD」链接（`download`） | clean `pnpm build` exit 0；curl：md 返回 `text/markdown` + `attachment; filename*=UTF-8''第 1 章 红笔.md`、首行 `# 第 1 章 红笔`，txt 首行 `第 1 章 红笔`，`abc` → 400、`99999` → 404；Playwright 6/6：链接存在、href 正确、点击下载文件名 `第 1 章 红笔.md`、既有按钮仍在、0 控制台错误 |
+
+#### 本轮观察
+
+- 子代理本轮两次 `pnpm build` 都接近 120s 上限（一次超时无输出被额度打断，一次成功），本机 clean build 实测约 50–60s，说明子代理侧的超时余量偏紧；F16 的 120s 对 `next build` 仍可能不够，后续可考虑按项目类型给 180s。
+- 除构建耗时外无新缺陷：单子任务完成、`startedTasks=2`（实现+补充），未触发路径校验与额度问题。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

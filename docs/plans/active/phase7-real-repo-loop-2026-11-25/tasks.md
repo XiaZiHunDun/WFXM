@@ -211,3 +211,11 @@
 - [x] `tests/book-progress.test.mjs` 2 条；`pnpm test` 17/17；typecheck、clean build 通过
 - [x] Playwright 12/12（0/1 → 1/1 → 恢复 0/1，演示数据复原）
 - [x] 文档回填 spec §6.18；未提交（等待 owner 指令）
+
+## T30 单章导出（批次 R）
+- [x] `buildChapterExport`（md/txt 首行、空标题/空正文兜底、filename 编码）
+- [x] `GET /api/chapters/[id]/export`：400/404、Content-Type、Content-Disposition
+- [x] 编辑区「导出本章 MD」链接（download）
+- [x] `tests/chapter-export.test.mjs` 6 条；`pnpm test` 23/23；typecheck、clean build 通过
+- [x] curl 与 Playwright 6/6 验证；演示数据零写入
+- [x] 文档回填 spec §6.19；未提交（等待 owner 指令）
