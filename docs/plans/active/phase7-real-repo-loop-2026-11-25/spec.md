@@ -651,6 +651,23 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 第二次提取仍可能返回 1 条「新」设定（模型换了个说法），属正常；服务端只能按标题去重，语义重复（如「沈九斤」vs「九斤」）无法识别（P3）。
 - 逐条 POST 入库，中途失败会部分成功并刷新列表；UI 已提示错误，但未做「重试剩余」按钮（P3）。
 
+### 6.37 第三十一轮：设定集条目编辑（批次 AH）
+
+背景：设定集此前只能新增/删除，提取候选标题不合适时只能删了重加——「记得住」有入口但改不动。本批补 PATCH 与就地编辑。
+
+| 内容 | 验证 |
+|------|------|
+| `src/lib/bible.js`（新增纯函数）：`BIBLE_LIMITS`（title 40 / category 20 / content 500，按字符计）、`normalizeBiblePatch`（任意子集、trim、超长/空 title 报错、未知 key 忽略、全非法 key 报「没有可更新的字段」） | 新增 `tests/bible.test.mjs` 14 条；`pnpm test` **117/117** |
+| `repo.js` 新增 `getBible/updateBible`（只更新传入字段，返回更新后行）；`PATCH /api/bible/[id]`：id 非法 400、校验失败 400、不存在 404、成功返回 `{ item }` | typecheck、clean build 通过 |
+| 工作台设定集每条：「编辑」→ 分类/标题/内容就地输入 + 保存/取消；保存 PATCH 后刷新并提示「已保存」；空标题前端拦截；原有删除/新增/提取不变 | Playwright **9/9** |
+| API 实测（临时书 1 条设定，验证后删除） | 只改 title → content/category 不变；`{}` → 400「没有可更新的字段」；全空格 title → 400；41 字 title → 400；501 字 content → 400；不存在 id → 404；`{foo,title}` → 只认 title |
+| UI 实测 | 编辑→改标题与内容→保存→列表立即 `人物 · 林昭之`，接口回读一致，刷新后仍生效；取消 0 次 PATCH 且文本复原；空标题 0 次请求 + 错误提示；390px `overflow=0` |
+
+#### 本轮观察
+
+- 子代理本轮明确声明「未跑接口/UI 自测」，但 F37 落盘核对如实列出 5 个改动文件与 `3 files changed, 214 insertions(+)`，owner 可据此判断改动范围（闭环改善）。
+- PATCH 的 content 不做 trim（保留作者原排版），仅空串归一为空；与 title 的 trim 策略不同，属有意设计，需在 UI 上靠占位提示区分（P3）。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

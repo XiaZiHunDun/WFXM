@@ -372,3 +372,12 @@
 - [x] Playwright 10/10（候选/全选/取消联动/只加勾选数/清空/二提无重复/390px 无溢出）
 - [x] F37 实测：本轮完成回复自动带「落盘核对 + git status + diff --stat」
 - [x] 文档回填 spec §6.36；未提交（等待 owner 指令）
+
+## T48 设定集条目编辑（批次 AH）
+- [x] `src/lib/bible.js`：`normalizeBiblePatch`（子集/trim/长度限制/未知 key 忽略）
+- [x] `repo.js` 新增 `getBible/updateBible`；`PATCH /api/bible/[id]`（400/404/成功返回 item）
+- [x] 设定集每条「编辑/保存/取消」就地编辑，保存刷新 + 「已保存」，空标题前端拦截
+- [x] 新增 14 条单测；`pnpm test` 117/117；typecheck、clean build 通过
+- [x] API 实测：部分更新、4 类 400、404、未知 key；临时书已删除
+- [x] Playwright 9/9（编辑保存/刷新持久/取消不发请求/空标题拦截/390px）
+- [x] 文档回填 spec §6.37；未提交（等待 owner 指令）
