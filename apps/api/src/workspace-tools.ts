@@ -66,7 +66,9 @@ const MAX_COMMAND_OUTPUT_BYTES = 32 * 1024
  * `BUTLER_V5_RUN_COMMAND_TIMEOUT_MS` still wins in tool-boundary.
  */
 export const BASE_RUN_COMMAND_TIMEOUT_MS = 5_000
-export const LONG_RUNNING_COMMAND_TIMEOUT_MS = 120_000
+// F30: Next.js clean builds on this host took 100–120s, so 120s left no margin
+// and killed builds mid-run. 180s covers a cold build without unbounded waits.
+export const LONG_RUNNING_COMMAND_TIMEOUT_MS = 180_000
 const LONG_RUNNING_PROGRAMS: ReadonlySet<string> = new Set([
   "pnpm",
   "npm",

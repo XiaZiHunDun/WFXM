@@ -144,8 +144,9 @@ describe("tool-boundary", () => {
     delete process.env["BUTLER_V5_SANDBOX_EGRESS_ISOLATION"]
     delete process.env["BUTLER_V5_RUN_COMMAND_TIMEOUT_MS"]
     try {
-      expect(toolTimeoutMs("run_command", { argv: ["pnpm", "build"] })).toBe(120_000)
-      expect(toolTimeoutMs("run_command", { argv: ["node", "--test", "a.mjs"] })).toBe(120_000)
+      // F30: 180s gives cold Next.js builds enough headroom (120s was too tight).
+      expect(toolTimeoutMs("run_command", { argv: ["pnpm", "build"] })).toBe(180_000)
+      expect(toolTimeoutMs("run_command", { argv: ["node", "--test", "a.mjs"] })).toBe(180_000)
       expect(toolTimeoutMs("run_command", { argv: ["ls", "-la"] })).toBe(5_000)
       expect(toolTimeoutMs("run_command")).toBe(5_000)
     } finally {

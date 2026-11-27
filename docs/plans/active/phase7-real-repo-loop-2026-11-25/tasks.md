@@ -219,3 +219,10 @@
 - [x] `tests/chapter-export.test.mjs` 6 条；`pnpm test` 23/23；typecheck、clean build 通过
 - [x] curl 与 Playwright 6/6 验证；演示数据零写入
 - [x] 文档回填 spec §6.19；未提交（等待 owner 指令）
+
+## T31 阅读模式（批次 S）+ F30
+- [x] 阅读模式：全屏只读覆盖层、上下章（原始顺序）、首末章禁用、Esc/关闭、≤600px 适配
+- [x] 补一轮修复：切章复用 `handleSelectChapter` 的未保存确认，取消不切换
+- [x] F30 `LONG_RUNNING_COMMAND_TIMEOUT_MS` 120s → 180s，同步 tool-boundary 断言（9 passed）
+- [x] 验证：typecheck 通过、clean build 产物完整（exit 124 挂起属已知）；Playwright 17/17；临时书已删除
+- [x] 文档回填 spec §6.20；WFXM 已推送，LingWen 因代理抖动待重试推送

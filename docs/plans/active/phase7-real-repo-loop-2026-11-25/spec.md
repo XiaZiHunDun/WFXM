@@ -386,6 +386,19 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 子代理本轮两次 `pnpm build` 都接近 120s 上限（一次超时无输出被额度打断，一次成功），本机 clean build 实测约 50–60s，说明子代理侧的超时余量偏紧；F16 的 120s 对 `next build` 仍可能不够，后续可考虑按项目类型给 180s。
 - 除构建耗时外无新缺陷：单子任务完成、`startedTasks=2`（实现+补充），未触发路径校验与额度问题。
 
+### 6.20 第十七轮：阅读模式（批次 S）+ F30
+
+| 内容 | 验证 |
+|------|------|
+| LingWen 阅读模式：编辑区「阅读模式」按钮 → fixed 全屏只读覆盖层（`第 N 章 标题` + 上一章/下一章/关闭），正文取 `editContent`（含未保存改动），按 `chapters` 原始顺序切章并同步选中章节，首/末章禁用，Esc 关闭；`≤600px` 顶部按钮换行 | `pnpm typecheck` 通过；clean build 产物完整（路由表含 `/books/[id]` 12.6 kB，进程退出仍挂起触发 exit 124，属已知现象）；Playwright **17/17**（临时书 + 2 章）：覆盖层、标题/正文、首末章禁用、切章、Esc、关闭按钮、临时书已删除且 404 |
+| 补一轮修复：首版上一章/下一章直接 `setSelectedId`，绕过 `handleSelectChapter` 的未保存确认，切章会静默丢草稿 | `handleSelectChapter` 改为返回 boolean 并复用；Playwright 实测「输入后立即点下一章」弹出「有未保存修改，切换将丢失，继续？」，取消仍停在第 1 章，确认后切到第 2 章 |
+| F30 构建超时余量：`LONG_RUNNING_COMMAND_TIMEOUT_MS` 120s → 180s（本机 clean build 需 100–120s，120s 无余量，子代理多次被中途杀掉） | `tool-boundary.test.ts` 断言同步为 180s，9 passed；全仓 typecheck 通过；4522 已重启加载 |
+
+#### 本轮观察
+
+- 子代理新建交互时没有复用仓库里已有的「切换章节前确认」保护，首版实现能通过它自己的 typecheck/build 却会丢数据——纯构建门禁抓不到交互语义回归，必须靠浏览器端行为断言（本轮用临时书验证后删除）。
+- 推送期间 mihomo 代理多次抖动（`Connection timed out during banner exchange`），WFXM 重试后成功，LingWen 连续失败；这是环境问题，不影响本地提交。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。
