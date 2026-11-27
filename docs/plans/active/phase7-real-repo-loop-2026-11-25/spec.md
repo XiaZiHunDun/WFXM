@@ -568,6 +568,23 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 | 相关回归 | `wechat-inbound-butler / wechat-dev-delegate / wechat-dev-session-chain / acceptance dev-delegate-approval` 4 文件 **36 passed**；全仓 `typecheck` Done；全仓 `pnpm test` **302 文件通过 / 1 跳过，2633 passed / 4 skipped** |
 | 运行环境 | 4522 已重启加载 F36（`startedTasks=0` 新进程）；后续真实对话观察是否仍出现「声称已派但 0 工具」 |
 
+### 6.32 第二十七轮：长程记忆 v1（批次 AC，核心能力转向）
+
+背景判断：此前批次多为表层功能（导出/搜索/复制/统计），对「小说 agent」而言核心是三层——**记得住（长程一致性）→ 写得对（大纲/风格约束）→ 改得动（局部改写）**。核查发现「改得动」已有 polish/assist，「写得对」有 outline 驱动生成，但「记得住」是硬缺口：生成时前情只拼各章 `summary`（基本没人填，等于 `（无摘要）`），上一章正文完全没进上下文。本批补这一层。
+
+| 内容 | 验证 |
+|------|------|
+| 需求口吻同批次 V/W/Y（正文口语 + 4 条验收点）；一轮对话完成，父代理 `toolCalls=22`、1 个 developer 子任务；子代理预算用尽时 `pnpm build` 报 `Chapter.summary` 类型缺失，第二轮对话补齐 `summary: string \| null` 并跑绿 | 首轮回复自述「build 失败」；第二轮只改类型后 test/typecheck/build 全绿 |
+| LingWen 新增：`src/lib/chapter-context.js`（`selectChapterContext` 纯函数：上一章 `takeTail(2000)` + 更早章节摘要 200 字/无摘要回退正文开头 200 字 + 设定 20 条×300 字 + 本章大纲 + 衔接正文 600 字 + 任务块；输出 blocks/promptText/totalChars/stats，不改入参）；`src/lib/chapter-summary.js`（`clipSummary` ≤200 字、`buildChapterSummaryPrompt`）；`POST /api/chapters/[id]/summary`（空正文 400、LLM 未配置 400、落库 `chapters.summary`、写 llm_logs）；`GET /api/chapters/[id]/context`（只读预览，与生成共用同一函数）；generate 路由删除旧 `pickPreviousChapters`/手拼 prompt，改用 `selectChapterContext`；工作台「本次上下文」展开区、「生成摘要」按钮、「无摘要」标记、生成完成自动补摘要 | `pnpm test` **76/76**；`tsc --noEmit` 通过；clean `pnpm build` 通过（路由表含 `/api/chapters/[id]/context`、`/summary`） |
+| API 实测（临时书 3 章：第一章 2000+ 字结尾含暗号、第二章短正文、第三章空；验证后删除） | 第二章 context：`hasPreviousTail=true`、promptText 含第一章「结尾暗号：灯塔熄灭。」、previous 块 2040 字；第三章 context：上一章短正文 + 第一章（无摘要）回退正文开头并显式标注；预览前后章节正文不变（只读）；`POST summary` 真实 LLM 两次分别 104/90 字、覆盖落库、≤200 字；生成摘要后第三章 context 不再出现「无摘要」；空章摘要 400 |
+| UI（Playwright **15/15**，1440px + 390px） | 「本次上下文」按钮存在，展开后含上一章结尾暗号、显示「共 2150 字」、可收起；桌面「生成摘要」按钮可用，点击后提示「已生成摘要（89 字）」且接口落库 89 字；展开上下文时两种视口无横向溢出；临时书删除后演示库仍 2 本 |
+| 数据 | 临时书（含前一次失败脚本遗留同名书）全部删除；演示库仍 2 本各 1 章 |
+
+#### 本轮观察
+
+- 章节标签用 `第 {seq} 章 {title}` 拼装，若标题本身带「第一章」会出现「第 1 章 第一章 灯」的重复前缀；只影响 prompt 可读性（P3）。
+- 子代理再次在预算耗尽时跳过 build 自检，且类型错误属「新 UI 引用新字段」这类跨文件类型问题；owner 只读核查 + 二次对话仍是必要兜底（与 §6.29 观察一致）。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

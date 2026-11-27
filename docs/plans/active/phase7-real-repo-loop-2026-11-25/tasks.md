@@ -325,3 +325,14 @@
 - [x] 单测新增 4 条；`conversation-loop.test.ts` 34 passed
 - [x] 相关回归 4 文件 36 passed；全仓 typecheck Done；全仓 `pnpm test` 302 文件通过 / 1 跳过，2633 passed / 4 skipped
 - [x] 4522 已重启加载修复；文档回填 spec §6.31；未提交（等待 owner 指令）
+
+## T43 长程记忆 v1（批次 AC，核心能力转向）
+- [x] `src/lib/chapter-context.js`：`selectChapterContext` 纯函数（上一章结尾 2000 字 / 更早章节摘要 200 字、无摘要回退正文开头 / 设定 20×300 / 大纲 / 衔接 600 / 任务），输出 blocks、promptText、totalChars、stats
+- [x] `src/lib/chapter-summary.js`：`clipSummary`（≤200 字）+ 摘要 prompt
+- [x] `POST /api/chapters/[id]/summary`（空正文 400、LLM 未配置 400、落库并写 llm_logs）；`GET /api/chapters/[id]/context`（只读预览）
+- [x] generate 路由改用 `selectChapterContext`，与预览共用逻辑
+- [x] 工作台：本次上下文展开区、生成摘要按钮、无摘要标记、生成后自动补摘要；`Chapter` 类型补 `summary`
+- [x] 单测 2 文件新增；`pnpm test` 76/76；typecheck、clean build 通过
+- [x] API 实测：前情含上一章结尾暗号、无摘要回退、预览只读、摘要两次覆盖落库 ≤200 字、空章 400；临时书已删除
+- [x] Playwright 15/15（1440px + 390px：上下文展开/字符数/结尾内容/收起、摘要按钮与落库、无横向溢出）
+- [x] 文档回填 spec §6.32；未提交（等待 owner 指令）
