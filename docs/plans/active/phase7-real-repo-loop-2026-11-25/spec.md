@@ -585,6 +585,24 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 章节标签用 `第 {seq} 章 {title}` 拼装，若标题本身带「第一章」会出现「第 1 章 第一章 灯」的重复前缀；只影响 prompt 可读性（P3）。
 - 子代理再次在预算耗尽时跳过 build 自检，且类型错误属「新 UI 引用新字段」这类跨文件类型问题；owner 只读核查 + 二次对话仍是必要兜底（与 §6.29 观察一致）。
 
+### 6.33 第二十八轮：上下文块可勾选/排除（批次 AD，延续「记得住」）
+
+背景：批次 AC 把前情/摘要/设定/大纲都拼进了 prompt，但作者无法取舍——上下文过长会稀释指令，某一章想只按大纲重写时也不想被旧正文带跑。本批把「记得住什么」的控制权交给作者。
+
+| 内容 | 验证 |
+|------|------|
+| 需求口吻同前（口语正文 + 4 条验收点）；一轮对话完成，父代理 `toolCalls=1`、1 个 developer 子任务，子代理自报 test/typecheck/build 全绿 | 4522 回复含改动清单与三条命令输出摘要 |
+| `chapter-context.js` 新增 `EXCLUDABLE_BLOCK_KEYS`（`book/bible/previous/outline/existing`）与 `normalizeExcludeKeys`（数组或逗号串 → 去重合法 key，非法/受保护 key 静默忽略）；`selectChapterContext` 接收 `excludeKeys`，只过滤 blocks/promptText，`stats` 口径不变；`title/task/target/instruction` 永不可排除 | 新增 `tests/chapter-context-exclude.test.mjs` 11 条（归一化、默认顺序、排除生效、stats 不变、受保护 key、字符串等价） |
+| `GET /api/chapters/[id]/context` 增加 `exclude`（`getAll` 兼容重复参数）；`POST /api/chapters/[id]/generate` body 增加 `exclude`（数组或逗号串），两处都经 `normalizeExcludeKeys`，保证「预览 = 实际注入」 | 纯函数 + 路由共用同一归一函数 |
+| 工作台「本次上下文」：5 个固定勾选框（无内容的块也显示，排除后可勾回），默认全勾；取消勾选立即重拉预览（AbortController + seq 防旧响应覆盖）；显示「已排除 N 块 · 当前 X 字」；生成 body 带当前 `exclude`；390px `flex-wrap` 不溢出 | `pnpm test` **87/87**（原 76 + 新 11）；`tsc --noEmit` 通过；clean `pnpm build` 通过 |
+| API 实测（临时书 2 章 + 1 设定 + 2 大纲，验证后删除） | 全量 `totalChars=953`（book/bible/previous/outline/title/task）→ `exclude=bible,previous` 为 **164** 且 blocks 只剩 book/outline/title/task；`exclude=foo,title,task` 与不收 exclude 完全一致；`?exclude=bible&exclude=previous` 与逗号分隔等价；真实生成（targetWords=300, 129 字落库）的 `llm_logs.prompt` 与同参数预览 `promptText` **完全一致（212 字）** |
+| UI（Playwright **33/33**，1440px + 390px） | 5 个勾选框齐全且面板内恰 5 个；取消设定集 1100→1067、prompt 不再含「【设定集/人物】」；再取消前情 →113，仍含「【本章标题】」「【任务】」；勾回设定集后与直接请求一致（146）；生成请求体含 `exclude:["previous"]` 且保留 targetWords/mode；两种视口 `overflow=0`；临时书删除后演示库仍 2 本 |
+
+#### 本轮观察
+
+- 勾选框状态即时生效、字符数与 prompt 文本要等新响应返回才刷新，中间约一帧仍显示旧数字（验收无误，但数字与「已排除 N 块」短暂不一致，属 P3 体验细节，可在请求中把数字置灰/显示「更新中」）。
+- 上下文面板与顶部状态行都显示「已排除 N 块 · 当前 X 字」，信息重复；后续可只保留一处。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。

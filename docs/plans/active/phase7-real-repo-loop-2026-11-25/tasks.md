@@ -336,3 +336,12 @@
 - [x] API 实测：前情含上一章结尾暗号、无摘要回退、预览只读、摘要两次覆盖落库 ≤200 字、空章 400；临时书已删除
 - [x] Playwright 15/15（1440px + 390px：上下文展开/字符数/结尾内容/收起、摘要按钮与落库、无横向溢出）
 - [x] 文档回填 spec §6.32；未提交（等待 owner 指令）
+
+## T44 上下文块可勾选/排除（批次 AD，延续「记得住」）
+- [x] `chapter-context.js`：`EXCLUDABLE_BLOCK_KEYS` + `normalizeExcludeKeys`（数组/逗号串、去重、非法忽略）；`selectChapterContext` 支持 `excludeKeys`，只过滤 blocks/promptText，stats 不变，title/task 不可排除
+- [x] `GET /api/chapters/[id]/context` 支持 `exclude`（含重复参数）；`POST /api/chapters/[id]/generate` body 支持 `exclude`（数组/逗号串），共用归一函数
+- [x] 工作台：5 个固定勾选框、即时重预览（Abort + seq 防覆盖）、「已排除 N 块 · 当前 X 字」、生成带 exclude、390px 不溢出
+- [x] 新增 `tests/chapter-context-exclude.test.mjs` 11 条；`pnpm test` 87/87；typecheck、clean build 通过
+- [x] API 实测：953→164（bible+previous）、非法/受保护 key 无影响、重复参数等价、生成 prompt 与预览完全一致（212 字）；临时书已删除
+- [x] Playwright 33/33（1440px + 390px：勾选/字数变化/标题任务保留/生成 body/无横向溢出）
+- [x] 文档回填 spec §6.33；未提交（等待 owner 指令）
