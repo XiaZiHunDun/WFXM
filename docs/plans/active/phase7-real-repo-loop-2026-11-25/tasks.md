@@ -291,3 +291,12 @@
 - [x] 验证：typecheck、clean build 通过（新增路由）；curl 往返（book1 导出→导入章数/标题/正文/字数一致）与边界（无 H2/空标题/只有标题/空白/超长）全部符合预期
 - [x] Playwright 21/21（1440px + 390px：入口、导入提示、列表刷新、工作台两章与正文载入、既有入口保留、无横向溢出）；临时数据已删除
 - [x] 文档回填 spec §6.27；未提交（等待 owner 指令）
+
+## T39 导入预览 + 拆章级别（批次 Z，口语折中需求）
+- [x] `book-import.js`：`normalizeHeadingLevel`（仅 2/3，缺省 2）、`parseMarkdownBook` 支持 `headingLevel=3`（H3 拆章、H2 行/前置内容并入正文、无 H3 退回一章）、`previewMarkdownImport`（复用解析，返回书名/章数/前 3 章标题）
+- [x] 新增 `POST /api/books/import/markdown/preview`：只解析不落库，非法 headingLevel 400；导入路由接受 headingLevel
+- [x] 书架流程：选文件 → 预览面板（文件名/书名/章数/前 3 章标题）→ 切 H2/H3 重新预览 → 确认导入才落库；取消关闭且不写；失败可重新预览
+- [x] 单测 +5 条（H3 拆章与前置归属、无 H3 退回、级别校验、默认 2 级等价与往返不变、preview 无副作用）；`pnpm test` 54/54
+- [x] 验证：typecheck、clean build 通过；curl 覆盖预览不落库、H3 导入 3 章、无 H3 退回、非法级别 400、默认 2 级往返全等；临时书已删除
+- [x] Playwright 25/25（1440px + 390px：预览/切级/取消/确认/工作台 3 章/无横向溢出）；临时数据已删除
+- [x] 文档回填 spec §6.28；未提交（等待 owner 指令）
