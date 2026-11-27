@@ -203,3 +203,11 @@
 - [x] F29 修复 F21 遗留的 `read_file` 64KiB 契约断言 → 4MiB；契约 48 + prompt 2 = 50 passed
 - [x] Playwright 18/18（徽章切换、筛选、编辑器保留、既有按钮回归）；4522 与 3210 已重启加载
 - [x] 文档回填 spec §6.17；未提交（等待 owner 指令）
+
+## T29 定稿进度（批次 Q）
+- [x] `listBooks()` LEFT JOIN 聚合 chapterCount / doneChapterCount，原字段保留
+- [x] `GET /api/books/[id]/stats` 增加 doneChapterCount
+- [x] 书架书卡「定稿 x / y 章」+ 进度条（不除零、封顶 100%）；`/stats` 对比行补定稿数
+- [x] `tests/book-progress.test.mjs` 2 条；`pnpm test` 17/17；typecheck、clean build 通过
+- [x] Playwright 12/12（0/1 → 1/1 → 恢复 0/1，演示数据复原）
+- [x] 文档回填 spec §6.18；未提交（等待 owner 指令）
