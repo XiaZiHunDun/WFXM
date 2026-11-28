@@ -390,3 +390,24 @@
 - [x] API 实测：30 条中第 25 条命中前移、对照项替换生效、exclude/空库口径正确；临时书已删除
 - [x] Playwright 5/5（面板统计与接口一致、预览含命中、1440/390 无溢出）
 - [x] 文档回填 spec §6.38；未提交（等待 owner 指令）
+
+## T50 设定改名同步替换全书（批次 AJ）
+- [x] `src/lib/bible.js`：`replaceAllCount` + `collectRenameChanges`（字面量/非重叠/空旧名安全）
+- [x] `PATCH /api/bible/[id]` 支持 `replaceInBook`：仅标题变化 + true 才替换章节正文/标题与大纲标题/摘要
+- [x] 设定更新 + 替换 + 正文快照同事务；章节正文改动写 `chapter_revisions`（source=manual）并重算字数
+- [x] 返回 `{ item, replaced: { chapters, outlines, occurrences } }`；非布尔 400、不存在 404、空标题 400
+- [x] 前端勾选框（标题变化才出现、默认不勾）+ 「已保存，替换 N 处」；取消零请求
+- [x] 新增 7 条单测；`pnpm test` 129/129；typecheck、clean build 通过
+- [x] API 实测：命中计数 9、bible 其它条目/另一本书隔离、无 flag 零改动、404/400/400；临时书已删除
+- [x] Playwright 14/14（勾选保存提示、取消不发请求、390 无溢出）
+- [x] 文档回填 spec §6.39；未提交（等待 owner 指令）
+
+## T51 设定覆盖体检（批次 AK）
+- [x] 新增 `src/lib/bible-coverage.js`：`summarizeBibleCoverage` 复用 `countOccurrences`，统计正文/章节标题/大纲标题/摘要覆盖
+- [x] `GET /api/books/[id]/check` 增加 `stats.bibleUsed/bibleUnused` 与 `bibleCoverage`（≤100 条），未使用时追加 warn
+- [x] 体检面板「设定覆盖」统计 + 「未使用的设定」列表（≤10 条 + 还有 N 条）+ 全命中/空态文案
+- [x] 新增 8 条单测；`pnpm test` 137/137；typecheck、clean build 通过
+- [x] API 实测：2 使用/1 未使用、排序与计数正确；全使用 warn 消失；无设定/空书边界正常；404/400 正确；临时书已删
+- [x] Playwright 14/14（1440 未使用→全使用切换、390 无溢出、原有功能保留）
+- [x] 修正「共 N 条，其中 M 条」文案与未使用常量；删除临时自测脚本
+- [x] 文档回填 spec §6.40；未提交（等待 owner 指令）

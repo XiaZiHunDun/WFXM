@@ -686,6 +686,44 @@ v1 的直写产物已备份并清空（`~/backups/LingWen-direct-impl-*.tar.gz`�
 - 相关性只看标题字面命中，同义/别名（沈九斤 vs 九斤）不计分；标题小于 2 字不参与，避免单字噪声（P3）。
 - 命中只看「出现次数」，没有权重区分标题/大纲/前情；后续可按块加权（P3）。
 
+### 6.39 第三十三轮：设定改名同步替换全书（批次 AJ）
+
+背景：批次 AH 让设定能改名，但只改设定自身；正文/大纲里的旧名字要再去「全书查找替换」跑一遍，两处容易不一致。本批把「改名 + 替换」合成一个可选动作，默认不勾、不误伤。
+
+| 内容 | 验证 |
+|------|------|
+| `src/lib/bible.js` 新增纯函数：`replaceAllCount(text, from, to)`（字面量、区分大小写、非重叠计数；from 空/非字符串/新旧相同 → 0 且原样返回）、`collectRenameChanges({chapters,outlines}, from, to)`（章节正文/标题 + 大纲标题/摘要的变更计划，含 `chapterCount/outlineCount/occurrences`） | `tests/bible.test.mjs` 追加 7 条；`pnpm test` **129/129** |
+| `PATCH /api/bible/[id]` 支持 `replaceInBook`（缺省 false；非布尔 400）：仅「传了 title + trim 后确实变化 + replaceInBook===true」才替换本书 `chapters.content/title`、`outlines.title/summary`；设定更新 + 全部替换 + 正文历史快照在同一 `db.transaction`；正文改动写 `chapter_revisions`（source=manual，存替换前正文）并重算 `word_count`，仅标题变化只刷新 `updated_at`；返回 `{ item, replaced }` | typecheck、clean build 通过 |
+| 前端设定编辑态：标题 trim 后与原标题不同时显示勾选框「同时替换全书正文与大纲中的旧名字」（默认不勾，取消/保存后重置）；保存带 `replaceInBook`，成功提示「已保存，替换 N 处」（N=0 只提示「已保存」） | Playwright **14/14** |
+| API 实测（临时书 A/B，验证后删除） | A 书 2 章 + 3 条大纲含旧名「林昭」：`replaced = {chapters:2, outlines:2, occurrences:9}` 与手工统计一致，章节标题/正文、大纲标题/摘要全部替换，bible 另一条「林昭旧档」未变；章节快照为替换前正文且 source=manual；第二次 PATCH 不带 `replaceInBook` 时 replaced 全 0、正文/标题/大纲零改动；标题未变时即使传 true 也不替换；`id=999999` → 404；空 title → 400；`replaceInBook:'true'` → 400；B 书同名角色与章节完全不受影响 |
+| UI 实测 | 1440：改标题出现勾选框（默认不勾）→ 勾选保存 → 提示「已保存，替换 3 处」（章节标题 1 + 正文 2），接口回读一致；再次编辑后取消 → 仅 1 次 PATCH、设定/正文均未变；390：勾选框可见且不超视口，`overflow=0` |
+
+#### 本轮观察
+
+- 子代理在工具预算耗尽前只跑了 `pnpm test`（129 绿），明确声明 typecheck/build/curl 未执行；owner 补跑后全部通过，代码无需返工——F37 的落盘核对让「未自测」可被快速识别。
+- `occurrences` 把章节标题命中计入（UI 用例正文 2 处 + 标题 1 处 = 3），与「全书可见文本都替换」的语义一致；如果只想统计正文，需要另给字段（P3）。
+- 新标题包含旧标题（林昭 → 林昭之）时按一次性 `split/join` 替换，不会二次命中；但这意味着后续再改名要使用当前标题，属预期。
+- 改名替换不写大纲快照（大纲无历史表），也不动 `chapter_revisions` 之外的章节字段（status/summary/seq），与全书查找替换口径一致。
+
+### 6.40 第三十四轮：设定覆盖体检（批次 AK）
+
+背景：设定集能提取、改名、按本章相关性注入，但作者看不出哪些设定从没在正文或大纲里用过；原体检只有数量和「设定集为空」。本批补「用了多少、哪些没用」。
+
+| 内容 | 验证 |
+|------|------|
+| 新增 `src/lib/bible-coverage.js`：`summarizeBibleCoverage({bible,chapters,outlines})` 复用 `find-replace.js` 的 `countOccurrences`（字面量、区分大小写、非重叠），统计 `chapters.content/title` 与 `outlines.title/summary` 的总命中、命中章节数/大纲数；返回 `{ items, total, usedCount, unusedCount }`，按 occurrences 升序（未使用在前）、同分按 title；空/非字符串标题跳过且不计入 total | 新增 `tests/bible-coverage.test.mjs` 8 条；`pnpm test` **137/137** |
+| `GET /api/books/[id]/check` 扩展：`stats` 增加 `bibleUsed`/`bibleUnused`，响应新增 `bibleCoverage`（最多 100 条）；`unusedCount>0` 追加 warn「x 条设定还没在正文或大纲里出现」；无设定时 used/unused 均为 0 且不追加该 warn；既有 stats/issues 与 400/404 不变 | typecheck、clean build 通过 |
+| 体检面板：「设定覆盖」统计显示「共 N 条，其中 M 条在正文或大纲出现过」（数字取自接口）；`bibleUnused>0` 显示「未使用的设定」（分类 · 标题，最多 10 条 +「还有 N 条」），全命中显示「设定都在正文或大纲里出现过」；超过 100 条显示「仅显示前 100 条」；无设定不渲染该块 | Playwright **14/14** |
+| API 实测（临时书 78/79/80，验证后删除） | 3 条设定：林尘正文 2 处、青云宗仅大纲摘要 1 处、残破玉简 0 处 → `bibleUsed=2 / bibleUnused=1`，`bibleCoverage` 顺序 `残破玉简(0) → 青云宗(1) → 林尘(2)`，chapterCount/outlineCount 与手工一致，issues 含未使用 warn；把玉简写入正文后 used=3/unused=0、warn 消失；无设定书 used/unused=0、`bibleCoverage=[]`、仅保留「设定集为空」；空书全 0 不报错；404/400 正确 |
+| UI 实测 | 1440：未使用场景显示「共 3 条，其中 2 条…」与单条「物件 · 残破玉简」，已使用设定不误列；补齐正文后再检查变为「设定都在正文或大纲里出现过」且未使用区块与 warn 消失；390：列表项 `x+width≈355 < 390`、`overflow=0`；原有统计与创作助手仍在 |
+
+#### 本轮观察
+
+- 子代理两轮均在预算耗尽前停在「后端 + 单测」或「UI 已改但未验证」，并如实标注未跑项；owner 每轮只补跑门禁与实测，未手改 LingWen——F37 让未完成项可快速定位。
+- 首次 UI 文案把「共 N 条，其中 M 条」写成「M 条中 N 条」，经对话修正；说明生成式 UI 的文案语义仍需 owner 用真实数据核对，不能只看「有这块」。
+- 覆盖统计把章节标题与大纲标题计入命中（与改名替换同口径）；如果作者习惯在标题里复用设定名，未使用判定会偏乐观（P3）。
+- 后端固定截断 100 条，前端用同一常量提示「仅显示前 100 条」；200+ 设定的书目前无分页（P3）。
+
 ## 7. 边界
 
 - 未实现多用户/鉴权、版本历史、批量生成、人物关系图谱。
