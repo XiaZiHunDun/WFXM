@@ -411,3 +411,12 @@
 - [x] Playwright 14/14（1440 未使用→全使用切换、390 无溢出、原有功能保留）
 - [x] 修正「共 N 条，其中 M 条」文案与未使用常量；删除临时自测脚本
 - [x] 文档回填 spec §6.40；未提交（等待 owner 指令）
+
+## T52 设定集搜索与分类筛选（批次 AL）
+- [x] 新增 `src/lib/bible-filter.js` + `.d.ts`：`filterBibleItems`（三字段包含、大小写不敏感、分类全等、可叠加）与 `collectBibleCategories`
+- [x] 新增 `tests/bible-filter.test.mjs` 12 条；`pnpm test` 149/149
+- [x] 设定列表上方搜索框 + 分类下拉 + 「显示 x / y 条」+ 空态「没有匹配的设定」+「清空筛选」
+- [x] 编辑中条目固定显示；删除/保存后计数实时更新；只影响展示不改数据
+- [x] typecheck、clean build 通过；3210 已重启新构建
+- [x] Playwright 15/15（标题/内容搜索、分类、叠加空态、清空、删除计数、编辑固定、390 无溢出）
+- [x] 临时书已删除，book1/book2 未触碰；文档回填 spec §6.41；未提交（等待 owner 指令）
